@@ -1,6 +1,8 @@
 use std::{marker::PhantomData, ops::Mul};
 
-use nalgebra::{AbstractRotation, Isometry, SimdRealField};
+use approx::{AbsDiffEq, RelativeEq};
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 use crate::framed::Framed;
 
@@ -32,6 +34,52 @@ impl<From, To, Transformer> Transform<From, To, Transformer> {
     }
 }
 
+impl<From, To, Inner> Default for Transform<From, To, Inner>
+where
+    Inner: Default,
+{
+    fn default() -> Self {
+        Self::new(Inner::default())
+    }
+}
+
+impl<From, To, Inner> AbsDiffEq for Transform<From, To, Inner>
+where
+    Transform<From, To, Inner>: PartialEq,
+    Inner: AbsDiffEq,
+{
+    type Epsilon = Inner::Epsilon;
+
+    fn default_epsilon() -> Self::Epsilon {
+        Inner::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        Inner::abs_diff_eq(&self.inner, &other.inner, epsilon)
+    }
+}
+
+impl<From, To, Inner> RelativeEq for Transform<From, To, Inner>
+where
+    Transform<From, To, Inner>: PartialEq,
+    Inner: RelativeEq,
+{
+    fn default_max_relative() -> Self::Epsilon {
+        Inner::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        Inner::relative_eq(&self.inner, &other.inner, epsilon, max_relative)
+    }
+}
+
+impl<From, To, Inner> Eq for Transform<From, To, Inner> where Inner: Eq {}
+
 impl<From, To, Transformer, Entity> Mul<Framed<From, Entity>> for Transform<From, To, Transformer>
 where
     Transformer: Mul<Entity, Output = Entity>,
@@ -43,14 +91,105 @@ where
     }
 }
 
-impl<From, To, Type, Rotation, const DIMENSION: usize>
-    Transform<From, To, Isometry<Type, Rotation, DIMENSION>>
+impl<From, Intermediate, To, Inner> Mul<Transform<From, Intermediate, Inner>>
+    for Transform<Intermediate, To, Inner>
 where
-    Type::Element: SimdRealField,
-    Type: SimdRealField,
-    Rotation: AbstractRotation<Type, DIMENSION>,
+    Inner: Mul<Inner, Output = Inner>,
 {
-    pub fn inverse(&self) -> Transform<To, From, Isometry<Type, Rotation, DIMENSION>> {
-        Transform::<To, From, _>::new(self.inner.inverse())
+    type Output = Transform<From, To, Inner>;
+
+    fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
+        Self::Output::new(self.inner * rhs.inner)
+    }
+}
+
+impl<From, To, Transformer, Entity> Mul<&Framed<From, Entity>> for Transform<From, To, Transformer>
+where
+    Transformer: Mul<Entity, Output = Entity>,
+    Entity: Copy,
+{
+    type Output = Framed<To, Entity>;
+
+    fn mul(self, rhs: &Framed<From, Entity>) -> Self::Output {
+        Self::Output::new(self.inner * rhs.inner)
+    }
+}
+
+impl<From, To, Transformer, Entity> Mul<Framed<From, Entity>> for &Transform<From, To, Transformer>
+where
+    Transformer: Mul<Entity, Output = Entity> + Copy,
+{
+    type Output = Framed<To, Entity>;
+
+    fn mul(self, rhs: Framed<From, Entity>) -> Self::Output {
+        Self::Output::new(self.inner * rhs.inner)
+    }
+}
+
+impl<From, To, Inner> PartialEq for Transform<From, To, Inner>
+where
+    Inner: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.eq(&other.inner)
+    }
+}
+
+impl<From, To, Inner> Serialize for Transform<From, To, Inner>
+where
+    Inner: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
+impl<'a, From, To, Inner> Deserialize<'a> for Transform<From, To, Inner>
+where
+    Inner: Deserialize<'a>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'a>,
+    {
+        Ok(Self::new(Inner::deserialize(deserializer)?))
+    }
+}
+
+impl<From, To, Inner> SerializeHierarchy for Transform<From, To, Inner>
+where
+    Inner: SerializeHierarchy,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize_hierarchy::Error<S::Error>>
+    where
+        S: serde::Serializer,
+    {
+        self.inner.serialize_path(path, serializer)
+    }
+
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), serialize_hierarchy::Error<D::Error>>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        self.inner.deserialize_path(path, deserializer)
+    }
+
+    fn exists(path: &str) -> bool {
+        Inner::exists(path)
+    }
+
+    fn fill_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str) {
+        Inner::fill_fields(fields, prefix)
     }
 }

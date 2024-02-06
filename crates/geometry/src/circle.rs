@@ -1,7 +1,8 @@
 use std::f32::consts::TAU;
 
 use approx::{AbsDiffEq, RelativeEq};
-use nalgebra::{distance, vector, Point2};
+use coordinate_systems::{distance, Framed, IntoFramed};
+use nalgebra::{vector, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -11,12 +12,16 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct Circle {
-    pub center: Point2<f32>,
+#[serde(bound = "")]
+pub struct Circle<Frame> {
+    pub center: Framed<Frame, Point2<f32>>,
     pub radius: f32,
 }
 
-impl AbsDiffEq for Circle {
+impl<Frame> AbsDiffEq for Circle<Frame>
+where
+    Frame: AbsDiffEq,
+{
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -29,7 +34,10 @@ impl AbsDiffEq for Circle {
     }
 }
 
-impl RelativeEq for Circle {
+impl<Frame> RelativeEq for Circle<Frame>
+where
+    Frame: RelativeEq,
+{
     fn default_max_relative() -> Self::Epsilon {
         Self::Epsilon::default_max_relative()
     }
@@ -48,17 +56,20 @@ impl RelativeEq for Circle {
     }
 }
 
-impl Circle {
-    pub fn new(center: Point2<f32>, radius: f32) -> Self {
+impl<Frame> Circle<Frame>
+where
+    Frame: Copy,
+{
+    pub fn new(center: Framed<Frame, Point2<f32>>, radius: f32) -> Self {
         Self { center, radius }
     }
 
-    pub fn contains(&self, point: Point2<f32>) -> bool {
+    pub fn contains(&self, point: Framed<Frame, Point2<f32>>) -> bool {
         distance(&self.center, &point) <= self.radius
     }
 
-    pub fn bounding_box(&self) -> Rectangle {
-        let radius_vector = vector![self.radius, self.radius];
+    pub fn bounding_box(&self) -> Rectangle<Frame> {
+        let radius_vector = vector![self.radius, self.radius].framed();
 
         Rectangle {
             min: self.center - radius_vector,
@@ -66,11 +77,11 @@ impl Circle {
         }
     }
 
-    pub fn intersects_line_segment(&self, line_segment: &LineSegment) -> bool {
+    pub fn intersects_line_segment(&self, line_segment: &LineSegment<Frame>) -> bool {
         line_segment.shortest_distance_to_point(self.center) <= self.radius
     }
 
-    pub fn overlaps_arc(&self, arc: Arc, orientation: Orientation) -> bool {
+    pub fn overlaps_arc(&self, arc: Arc<Frame>, orientation: Orientation) -> bool {
         let distance = (arc.circle.center - self.center).norm_squared();
         if distance > (self.radius + arc.circle.radius).powi(2) {
             return false;
@@ -80,11 +91,11 @@ impl Circle {
         let vector_obstacle = self.center - arc.circle.center;
         let vector_end = arc.end - arc.circle.center;
 
-        let angle_x_axis_to_start = vector_start.y.atan2(vector_start.x);
+        let angle_x_axis_to_start = vector_start.y().atan2(vector_start.x());
         let mut angle_start_to_obstacle =
-            vector_obstacle.y.atan2(vector_obstacle.x) - angle_x_axis_to_start;
+            vector_obstacle.y().atan2(vector_obstacle.x()) - angle_x_axis_to_start;
 
-        let mut angle_start_to_end = vector_end.y.atan2(vector_end.x) - angle_x_axis_to_start;
+        let mut angle_start_to_end = vector_end.y().atan2(vector_end.x()) - angle_x_axis_to_start;
 
         if angle_start_to_obstacle < 0.0 {
             angle_start_to_obstacle += TAU;
@@ -97,38 +108,46 @@ impl Circle {
         (angle_start_to_obstacle < angle_start_to_end) ^ (orientation == Orientation::Clockwise)
     }
 
-    pub fn tangents_with_point(&self, other: Point2<f32>) -> Option<TwoLineSegments> {
+    pub fn tangents_with_point(
+        &self,
+        other: Framed<Frame, Point2<f32>>,
+    ) -> Option<TwoLineSegments<Frame>> {
         let delta_to_point = self.center - other;
         if delta_to_point.norm_squared() <= self.radius.powi(2) {
             return None;
         }
 
         let relative_tangent_angle = (self.radius / delta_to_point.norm()).asin();
-        let angle_to_point = delta_to_point.y.atan2(delta_to_point.x);
+        let angle_to_point = delta_to_point.y().atan2(delta_to_point.x());
 
         Some(TwoLineSegments(
             LineSegment(
                 self.center
-                    + self.radius
-                        * vector![
-                            (angle_to_point - relative_tangent_angle).sin(),
-                            -(angle_to_point - relative_tangent_angle).cos()
-                        ],
+                    + vector![
+                        (angle_to_point - relative_tangent_angle).sin(),
+                        -(angle_to_point - relative_tangent_angle).cos()
+                    ]
+                    .framed()
+                        * self.radius,
                 other,
             ),
             LineSegment(
                 self.center
-                    + self.radius
-                        * vector![
-                            -(angle_to_point + relative_tangent_angle).sin(),
-                            (angle_to_point + relative_tangent_angle).cos()
-                        ],
+                    + vector![
+                        -(angle_to_point + relative_tangent_angle).sin(),
+                        (angle_to_point + relative_tangent_angle).cos()
+                    ]
+                    .framed()
+                        * self.radius,
                 other,
             ),
         ))
     }
 
-    fn interior_tangents_with_circle(&self, other: Circle) -> Option<TwoLineSegments> {
+    fn interior_tangents_with_circle(
+        &self,
+        other: Circle<Frame>,
+    ) -> Option<TwoLineSegments<Frame>> {
         let flip = other.radius > self.radius;
         let small_circle = if flip { self } else { &other };
         let large_circle = if flip { &other } else { self };
@@ -154,7 +173,10 @@ impl Circle {
         None
     }
 
-    fn exterior_tangents_with_circle(&self, other: Circle) -> Option<TwoLineSegments> {
+    fn exterior_tangents_with_circle(
+        &self,
+        other: Circle<Frame>,
+    ) -> Option<TwoLineSegments<Frame>> {
         let flip = other.radius > self.radius;
         let small_circle = if flip { self } else { &other };
         let large_circle = if flip { &other } else { self };
@@ -180,7 +202,7 @@ impl Circle {
         None
     }
 
-    pub fn tangents_with_circle(&self, other: Circle) -> Option<CircleTangents> {
+    pub fn tangents_with_circle(&self, other: Circle<Frame>) -> Option<CircleTangents<Frame>> {
         let squared_distance = (self.center - other.center).norm_squared();
 
         let enclosure_radius =
@@ -208,14 +230,19 @@ mod tests {
     use nalgebra::point;
 
     use super::*;
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    struct SomeFrame;
+
     #[test]
     fn circle_line_intersection() {
-        let circle = Circle::new(point![0.0, 0.0], 1.0);
-        let fully_outside = LineSegment(point![2.0, 0.0], point![0.0, 2.0]);
-        let middle_intersection = LineSegment(point![-1.0, -1.0], point![1.0, 0.5]);
-        let p1_interior = LineSegment(point![0.5, 0.5], point![5.0, 1.5]);
-        let p2_interior = LineSegment(point![55.0, 42.123], point![0.25, 0.3]);
-        let fully_enclosed = LineSegment(point![-0.5, -0.5], point![0.5, 0.5]);
+        let circle = Circle::<SomeFrame>::new(point![0.0, 0.0].framed(), 1.0);
+        let fully_outside = LineSegment(point![2.0, 0.0].framed(), point![0.0, 2.0].framed());
+        let middle_intersection =
+            LineSegment(point![-1.0, -1.0].framed(), point![1.0, 0.5].framed());
+        let p1_interior = LineSegment(point![0.5, 0.5].framed(), point![5.0, 1.5].framed());
+        let p2_interior = LineSegment(point![55.0, 42.123].framed(), point![0.25, 0.3].framed());
+        let fully_enclosed = LineSegment(point![-0.5, -0.5].framed(), point![0.5, 0.5].framed());
 
         assert!(!circle.intersects_line_segment(&fully_outside));
         assert!(circle.intersects_line_segment(&middle_intersection));
@@ -226,8 +253,8 @@ mod tests {
 
     #[test]
     fn tangents_between_circle_and_point() {
-        let circle = Circle::new(point![0.0, 0.0], 2.0_f32.sqrt() / 2.0);
-        let point = point![1.0, 0.0];
+        let circle = Circle::<SomeFrame>::new(point![0.0, 0.0].framed(), 2.0_f32.sqrt() / 2.0);
+        let point = point![1.0, 0.0].framed();
 
         let tangents = circle
             .tangents_with_point(point)
@@ -235,20 +262,20 @@ mod tests {
 
         assert_relative_eq!(
             tangents.0,
-            LineSegment(point![0.5, 0.5], point),
+            LineSegment(point![0.5, 0.5].framed(), point),
             epsilon = 0.001
         );
         assert_relative_eq!(
             tangents.1,
-            LineSegment(point![0.5, -0.5], point),
+            LineSegment(point![0.5, -0.5].framed(), point),
             epsilon = 0.001
         );
     }
 
     #[test]
     fn tangents_between_degenerate_circles() {
-        let point_left = point![-1.0, 0.0];
-        let point_right = point![1.0, 0.0];
+        let point_left = point![-1.0, 0.0].framed();
+        let point_right = point![1.0, 0.0].framed();
         let circle_left = Circle::new(point_left, 0.0);
         let circle_right = Circle::new(point_right, 0.0);
 
@@ -258,7 +285,7 @@ mod tests {
 
         assert_relative_eq!(
             tangents,
-            CircleTangents {
+            CircleTangents::<SomeFrame> {
                 inner: Some(TwoLineSegments(
                     LineSegment(point_left, point_right),
                     LineSegment(point_left, point_right)
@@ -274,8 +301,8 @@ mod tests {
 
     #[test]
     fn tangents_with_one_degenerate_circle() {
-        let point_left = point![-1.0, 0.0];
-        let point_right = point![0.0, 0.0];
+        let point_left = point![-1.0, 0.0].framed();
+        let point_right = point![0.0, 0.0].framed();
         let circle_left = Circle::new(point_left, 2.0_f32.sqrt() / 2.0);
         let circle_right = Circle::new(point_right, 0.0);
 
@@ -285,14 +312,14 @@ mod tests {
 
         assert_relative_eq!(
             tangents,
-            CircleTangents {
+            CircleTangents::<SomeFrame> {
                 inner: Some(TwoLineSegments(
-                    LineSegment(point![-0.5, 0.5], point_right),
-                    LineSegment(point![-0.5, -0.5], point_right)
+                    LineSegment(point![-0.5, 0.5].framed(), point_right),
+                    LineSegment(point![-0.5, -0.5].framed(), point_right)
                 )),
                 outer: TwoLineSegments(
-                    LineSegment(point![-0.5, 0.5], point_right),
-                    LineSegment(point![-0.5, -0.5], point_right)
+                    LineSegment(point![-0.5, 0.5].framed(), point_right),
+                    LineSegment(point![-0.5, -0.5].framed(), point_right)
                 )
             },
             epsilon = 0.001
@@ -301,8 +328,8 @@ mod tests {
 
     #[test]
     fn no_tangents_for_enclosing_circles() {
-        let small_circle = Circle::new(point![0.0, 0.0], 1.0);
-        let large_circle = Circle::new(point![0.0, 0.0], 2.0);
+        let small_circle = Circle::<SomeFrame>::new(point![0.0, 0.0].framed(), 1.0);
+        let large_circle = Circle::<SomeFrame>::new(point![0.0, 0.0].framed(), 2.0);
 
         assert_eq!(small_circle.tangents_with_circle(large_circle), None);
         assert_eq!(large_circle.tangents_with_circle(small_circle), None);
@@ -310,8 +337,8 @@ mod tests {
 
     #[test]
     fn tangents_with_touching_circles() {
-        let point_left = point![-0.5, 0.0];
-        let point_right = point![0.5, 0.0];
+        let point_left = point![-0.5, 0.0].framed();
+        let point_right = point![0.5, 0.0].framed();
         let circle_left = Circle::new(point_left, 1.0);
         let circle_right = Circle::new(point_right, 1.0);
 
@@ -321,11 +348,11 @@ mod tests {
 
         assert_relative_eq!(
             tangents,
-            CircleTangents {
+            CircleTangents::<SomeFrame> {
                 inner: None,
                 outer: TwoLineSegments(
-                    LineSegment(point![-0.5, 1.0], point![0.5, 1.0]),
-                    LineSegment(point![-0.5, -1.0], point![0.5, -1.0]),
+                    LineSegment(point![-0.5, 1.0].framed(), point![0.5, 1.0].framed()),
+                    LineSegment(point![-0.5, -1.0].framed(), point![0.5, -1.0].framed()),
                 )
             },
             epsilon = 0.001
@@ -334,8 +361,8 @@ mod tests {
 
     #[test]
     fn tangents_with_disconnected_circles() {
-        let point_left = point![-0.5, 0.0];
-        let point_right = point![0.5, 0.0];
+        let point_left = point![-0.5, 0.0].framed();
+        let point_right = point![0.5, 0.0].framed();
         let circle_left = Circle::new(point_left, 1.0);
         let circle_right = Circle::new(point_right, 1.0);
 
@@ -345,11 +372,11 @@ mod tests {
 
         assert_relative_eq!(
             tangents,
-            CircleTangents {
+            CircleTangents::<SomeFrame> {
                 inner: None,
                 outer: TwoLineSegments(
-                    LineSegment(point![-0.5, 1.0], point![0.5, 1.0]),
-                    LineSegment(point![-0.5, -1.0], point![0.5, -1.0]),
+                    LineSegment(point![-0.5, 1.0].framed(), point![0.5, 1.0].framed()),
+                    LineSegment(point![-0.5, -1.0].framed(), point![0.5, -1.0].framed()),
                 )
             },
             epsilon = 0.001

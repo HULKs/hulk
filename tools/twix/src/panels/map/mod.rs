@@ -3,7 +3,7 @@ use std::sync::Arc;
 use eframe::egui::{Response, Ui, Widget};
 use nalgebra::{vector, Similarity2, Translation2};
 use serde_json::{from_value, json, Value};
-use types::{self, field_dimensions::FieldDimensions};
+use types::{self, coordinate_systems::Field, field_dimensions::FieldDimensions};
 
 use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 
@@ -147,7 +147,12 @@ impl Widget for &mut MapPanel {
 }
 
 impl MapPanel {
-    fn apply_zoom_and_pan(&mut self, ui: &mut Ui, painter: &mut TwixPainter, response: &Response) {
+    fn apply_zoom_and_pan(
+        &mut self,
+        ui: &mut Ui,
+        painter: &mut TwixPainter<Field>,
+        response: &Response,
+    ) {
         let pointer_position = match ui.input(|input| input.pointer.interact_pos()) {
             Some(position) if response.rect.contains(position) => position,
             _ => return,

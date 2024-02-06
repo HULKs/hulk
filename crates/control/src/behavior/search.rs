@@ -1,6 +1,8 @@
+use coordinate_systems::{Framed, IntoFramed, IntoTransform, Transform};
 use framework::AdditionalOutput;
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
+    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::SearchParameters,
@@ -22,25 +24,28 @@ enum SearchRole {
 impl SearchRole {
     fn to_position(
         self,
-        robot_to_field: Isometry2<f32>,
+        ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
         field_dimensions: &FieldDimensions,
-    ) -> Point2<f32> {
-        let goal = point![-field_dimensions.length / 2.0, 0.0];
+    ) -> Framed<Ground, Point2<f32>> {
+        let goal = point![-field_dimensions.length / 2.0, 0.0].framed();
         let defending_left = point![
             -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length + 0.2,
             field_dimensions.goal_inner_width / 4.0
-        ];
+        ]
+        .framed();
         let defending_right = point![
             -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length + 0.2,
             -field_dimensions.goal_inner_width / 4.0
-        ];
-        let center = point![0.0, 0.0];
+        ]
+        .framed();
+        let center = point![0.0, 0.0].framed();
         let aggressive = point![
             field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
             0.0
-        ];
+        ]
+        .framed();
 
-        robot_to_field.inverse()
+        ground_to_field.inverse()
             * match self {
                 SearchRole::Goal => goal,
                 SearchRole::Defend { side: Side::Left } => defending_left,
@@ -59,19 +64,20 @@ pub fn execute(
     parameters: &SearchParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
 ) -> Option<MotionCommand> {
-    let robot_to_field = world_state.robot.robot_to_field?;
+    let ground_to_field = world_state.robot.ground_to_field?;
     let search_role = assign_search_role(world_state);
     let search_position = search_role
-        .map(|role| role.to_position(robot_to_field, field_dimensions))
-        .unwrap_or(point![0.0, 0.0]);
+        .map(|role| role.to_position(ground_to_field, field_dimensions))
+        .unwrap_or(point![0.0, 0.0].framed());
     let head = HeadMotion::SearchForLostBall;
     if let Some(SearchRole::Goal) = search_role {
-        let goal_pose = robot_to_field.inverse() * Isometry2::from(search_position.coords);
+        let goal_pose = ground_to_field.inverse()
+            * Isometry2::from(search_position.inner.coords).framed_transform();
         walk_and_stand.execute(goal_pose, head, path_obstacles_output)
     } else {
         let path = walk_path_planner.plan(
             search_position,
-            robot_to_field,
+            ground_to_field,
             None,
             1.0,
             &world_state.obstacles,
@@ -81,7 +87,7 @@ pub fn execute(
         let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
         let orientation_mode = if is_reached {
-            OrientationMode::Override(UnitComplex::new(parameters.rotation_per_step))
+            OrientationMode::Override(UnitComplex::new(parameters.rotation_per_step).framed())
         } else {
             OrientationMode::AlignWithPath
         };

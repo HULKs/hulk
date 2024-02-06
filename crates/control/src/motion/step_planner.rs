@@ -75,24 +75,24 @@ impl StepPlanner {
         let target_pose = match segment {
             PathSegment::LineSegment(line_segment) => {
                 let direction = line_segment.1;
-                let rotation = if direction.coords.norm_squared() < f32::EPSILON {
+                let rotation = if direction.coords().norm_squared() < f32::EPSILON {
                     UnitComplex::identity()
                 } else {
-                    let normalized_direction = direction.coords.normalize();
+                    let normalized_direction = direction.coords().normalize();
                     UnitComplex::from_cos_sin_unchecked(
-                        normalized_direction.x,
-                        normalized_direction.y,
+                        normalized_direction.x(),
+                        normalized_direction.y(),
                     )
                 };
-                Isometry2::from_parts(line_segment.1.into(), rotation)
+                Isometry2::from_parts(line_segment.1.inner.into(), rotation)
             }
             PathSegment::Arc(arc, orientation) => {
                 let direction = orientation
                     .rotate_vector_90_degrees(arc.start - arc.circle.center)
                     .normalize();
                 Isometry2::from_parts(
-                    (arc.start + direction * 1.0).into(),
-                    UnitComplex::from_cos_sin_unchecked(direction.x, direction.y),
+                    (arc.start + direction * 1.0).inner.into(),
+                    UnitComplex::from_cos_sin_unchecked(direction.x(), direction.y()),
                 )
             }
         };
@@ -101,10 +101,9 @@ impl StepPlanner {
             forward: target_pose.translation.x,
             left: target_pose.translation.y,
             turn: match orientation_mode {
-                OrientationMode::AlignWithPath => target_pose.rotation,
-                OrientationMode::Override(orientation) => *orientation,
-            }
-            .angle(),
+                OrientationMode::AlignWithPath => target_pose.rotation.angle(),
+                OrientationMode::Override(orientation) => orientation.inner.angle(),
+            },
         };
 
         if let Some(injected_step) = context.injected_step {

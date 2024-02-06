@@ -4,13 +4,25 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{line_segment::LineSegment, two_line_segments::TwoLineSegments};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct CircleTangents {
-    pub inner: Option<TwoLineSegments>,
-    pub outer: TwoLineSegments,
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[serde(bound = "")]
+#[serialize_hierarchy(bound = "")]
+pub struct CircleTangents<Frame> {
+    pub inner: Option<TwoLineSegments<Frame>>,
+    pub outer: TwoLineSegments<Frame>,
 }
 
-impl AbsDiffEq for CircleTangents {
+// Manual implementation required because the derived version imposes Frame to be PartialEq
+impl<Frame> PartialEq for CircleTangents<Frame> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner && self.outer == other.outer
+    }
+}
+
+impl<Frame> AbsDiffEq for CircleTangents<Frame>
+where
+    Frame: Copy,
+{
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -34,7 +46,10 @@ impl AbsDiffEq for CircleTangents {
     }
 }
 
-impl RelativeEq for CircleTangents {
+impl<Frame> RelativeEq for CircleTangents<Frame>
+where
+    Frame: Copy,
+{
     fn default_max_relative() -> f32 {
         f32::default_max_relative()
     }

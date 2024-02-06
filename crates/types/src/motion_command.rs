@@ -1,13 +1,17 @@
+use coordinate_systems::Framed;
 use nalgebra::{Point2, UnitComplex};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{camera_position::CameraPosition, planned_path::PathSegment, support_foot::Side};
+use crate::{
+    camera_position::CameraPosition, coordinate_systems::Ground, planned_path::PathSegment,
+    support_foot::Side,
+};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum OrientationMode {
     AlignWithPath,
-    Override(UnitComplex<f32>),
+    Override(Framed<Ground, UnitComplex<f32>>),
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -71,11 +75,11 @@ pub enum HeadMotion {
     LookAround,
     SearchForLostBall,
     LookAt {
-        target: Point2<f32>,
+        target: Framed<Ground, Point2<f32>>,
         camera: Option<CameraPosition>,
     },
     LookLeftAndRightOf {
-        target: Point2<f32>,
+        target: Framed<Ground, Point2<f32>>,
     },
     Unstiff,
 }

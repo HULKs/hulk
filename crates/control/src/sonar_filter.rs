@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::IntoFramed;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::point;
@@ -79,15 +80,18 @@ impl SonarFilter {
         let left_point = point![
             context.sensor_angle.cos() * self.filtered_sonar_left.state(),
             context.sensor_angle.sin() * self.filtered_sonar_left.state()
-        ];
+        ]
+        .framed();
         let right_point = point![
             context.sensor_angle.cos() * self.filtered_sonar_right.state(),
             -context.sensor_angle.sin() * self.filtered_sonar_right.state()
-        ];
+        ]
+        .framed();
         let middle_point = point![
             (self.filtered_sonar_left.state() + self.filtered_sonar_right.state()) / 2.0,
             0.0
-        ];
+        ]
+        .framed();
 
         let obstacle_positions = match (
             fall_state,
@@ -108,10 +112,8 @@ impl SonarFilter {
             _ => vec![],
         };
         let sonar_obstacles: Vec<_> = obstacle_positions
-            .iter()
-            .map(|position_in_robot| SonarObstacle {
-                position_in_robot: *position_in_robot,
-            })
+            .into_iter()
+            .map(|position| SonarObstacle { position })
             .collect();
 
         Ok(MainOutputs {

@@ -1,6 +1,12 @@
+use coordinate_systems::{Framed, IntoTransform};
 use framework::AdditionalOutput;
-use nalgebra::{Translation2, Vector2};
-use types::{motion_command::MotionCommand, path_obstacles::PathObstacle, world_state::WorldState};
+use nalgebra::{Point2, Translation2};
+use types::{
+    coordinate_systems::{Field, Ground},
+    motion_command::MotionCommand,
+    path_obstacles::PathObstacle,
+    world_state::WorldState,
+};
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
 
@@ -9,11 +15,12 @@ pub fn execute(
     walk_and_stand: &WalkAndStand,
     look_action: &LookAction,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-    striker_set_position: Vector2<f32>,
+    striker_set_position: Framed<Field, Point2<f32>>,
 ) -> Option<MotionCommand> {
-    let robot_to_field = world_state.robot.robot_to_field?;
+    let ground_to_field = world_state.robot.ground_to_field?;
     walk_and_stand.execute(
-        robot_to_field.inverse() * Translation2::from(striker_set_position),
+        (ground_to_field.inverse().inner * Translation2::from(striker_set_position.inner))
+            .framed_transform::<Ground, Ground>(),
         look_action.execute(),
         path_obstacles_output,
     )

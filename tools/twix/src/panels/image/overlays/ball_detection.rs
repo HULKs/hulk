@@ -4,9 +4,14 @@ use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
 use eframe::epaint::{Color32, Stroke};
 use geometry::circle::Circle;
-use types::ball::{Ball, CandidateEvaluation};
+use types::{
+    ball::{Ball, CandidateEvaluation},
+    coordinate_systems::Pixel,
+};
 
-use crate::{panels::image::overlay::Overlay, value_buffer::ValueBuffer};
+use crate::{
+    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+};
 
 pub struct BallDetection {
     balls: ValueBuffer,
@@ -41,8 +46,8 @@ impl Overlay for BallDetection {
         }
     }
 
-    fn paint(&self, painter: &crate::twix_painter::TwixPainter) -> Result<()> {
-        let filtered_balls: Vec<Circle> = self.filtered_balls.require_latest()?;
+    fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
+        let filtered_balls: Vec<Circle<Pixel>> = self.filtered_balls.require_latest()?;
         for circle in filtered_balls.iter() {
             painter.circle_stroke(circle.center, circle.radius, Stroke::new(3.0, Color32::RED));
         }

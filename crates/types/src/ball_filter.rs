@@ -1,11 +1,13 @@
 use std::time::SystemTime;
 
+use coordinate_systems::IntoFramed;
 use nalgebra::{vector, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
+    ball_position::BallPosition, coordinate_systems::Ground,
+    multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallFilterParameters,
 };
 
@@ -34,12 +36,15 @@ impl Hypothesis {
         }
     }
 
-    pub fn selected_ball_position(&self, configuration: &BallFilterParameters) -> BallPosition {
+    pub fn selected_ball_position(
+        &self,
+        configuration: &BallFilterParameters,
+    ) -> BallPosition<Ground> {
         let selected_state = self.selected_state(configuration);
 
         BallPosition {
-            position: Point2::from(selected_state.mean.xy()),
-            velocity: vector![selected_state.mean.z, selected_state.mean.w],
+            position: Point2::from(selected_state.mean.xy()).framed(),
+            velocity: vector![selected_state.mean.z, selected_state.mean.w].framed(),
             last_seen: self.last_update,
         }
     }

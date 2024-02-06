@@ -4,7 +4,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::GamePhase;
 use types::{
-    ball_position::BallPosition, field_dimensions::FieldDimensions,
+    ball_position::BallPosition, coordinate_systems::Ground, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
 };
@@ -23,7 +23,7 @@ pub struct CycleContext {
     moving_distance_threshold:
         Parameter<f32, "penalty_shot_direction_estimation.moving_distance_threshold">,
 
-    ball_position: RequiredInput<Option<BallPosition>, "ball_position?">,
+    ball_position: RequiredInput<Option<BallPosition<Ground>>, "ball_position?">,
     filtered_game_controller_state:
         RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
@@ -53,12 +53,12 @@ impl PenaltyShotDirectionEstimation {
             }
             (PrimaryState::Playing, GamePhase::PenaltyShootout { .. }) => {
                 if let PenaltyShotDirection::NotMoving = self.last_shot_direction {
-                    if (context.ball_position.position.x
+                    if (context.ball_position.position.x()
                         - context.field_dimensions.penalty_marker_distance)
                         .abs()
                         > *context.moving_distance_threshold
                     {
-                        if context.ball_position.position.y >= 0.0 {
+                        if context.ball_position.position.y() >= 0.0 {
                             self.last_shot_direction = PenaltyShotDirection::Left;
                         } else {
                             self.last_shot_direction = PenaltyShotDirection::Right;

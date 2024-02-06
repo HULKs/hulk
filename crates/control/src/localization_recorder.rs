@@ -8,11 +8,14 @@ use std::{
 use bincode::serialize;
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
+use coordinate_systems::Transform;
 use framework::{HistoricInput, PerceptionInput};
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, line_data::LineData,
+    coordinate_systems::{Field, Ground},
+    filtered_game_controller_state::FilteredGameControllerState,
+    line_data::LineData,
     primary_state::PrimaryState,
 };
 
@@ -40,7 +43,7 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
-    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    ground_to_field: Input<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
 
     line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
@@ -110,7 +113,7 @@ impl LocalizationRecorder {
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
             has_ground_contact: *context.has_ground_contact,
             primary_state: *context.primary_state,
-            robot_to_field: context.robot_to_field.cloned(),
+            ground_to_field: context.ground_to_field.cloned(),
             line_data_bottom_persistent: context
                 .line_data_bottom
                 .persistent
@@ -154,7 +157,7 @@ pub struct RecordedCycleContext {
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub has_ground_contact: bool,
     pub primary_state: PrimaryState,
-    pub robot_to_field: Option<Isometry2<f32>>,
+    pub ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>>,
 
     pub line_data_bottom_persistent: BTreeMap<SystemTime, Vec<Option<LineData>>>,
     pub line_data_bottom_temporary: BTreeMap<SystemTime, Vec<Option<LineData>>>,

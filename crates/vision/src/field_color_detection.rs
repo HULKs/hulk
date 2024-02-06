@@ -1,13 +1,19 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::Transform;
 use framework::MainOutput;
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
-use types::{field_color::FieldColor, interpolated::Interpolated};
+use types::{
+    coordinate_systems::{Field, Ground},
+    field_color::FieldColor,
+    interpolated::Interpolated,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct FieldColorDetection {
-    robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32>,
+    ground_to_field_of_home_after_coin_toss_before_second_half:
+        Transform<Ground, Field, Isometry2<f32>>,
 }
 
 #[context]
@@ -34,10 +40,10 @@ pub struct CycleContext {
         "field_color_detection.$cycler_instance.upper_green_chromaticity_threshold",
     >,
 
-    robot_to_field_of_home_after_coin_toss_before_second_half: Input<
-        Option<Isometry2<f32>>,
+    ground_to_field_of_home_after_coin_toss_before_second_half: Input<
+        Option<Transform<Ground, Field, Isometry2<f32>>>,
         "Control",
-        "robot_to_field_of_home_after_coin_toss_before_second_half?",
+        "ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
 }
 
@@ -50,35 +56,35 @@ pub struct MainOutputs {
 impl FieldColorDetection {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2::default(),
+            ground_to_field_of_home_after_coin_toss_before_second_half: Transform::default(),
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if let Some(robot_to_field_of_home_after_coin_toss_before_second_half) =
-            context.robot_to_field_of_home_after_coin_toss_before_second_half
+        if let Some(ground_to_field_of_home_after_coin_toss_before_second_half) =
+            context.ground_to_field_of_home_after_coin_toss_before_second_half
         {
-            self.robot_to_field_of_home_after_coin_toss_before_second_half =
-                *robot_to_field_of_home_after_coin_toss_before_second_half;
+            self.ground_to_field_of_home_after_coin_toss_before_second_half =
+                *ground_to_field_of_home_after_coin_toss_before_second_half;
         }
 
         Ok(MainOutputs {
             field_color: FieldColor {
                 red_chromaticity_threshold: context
                     .red_chromaticity_threshold
-                    .evaluate_at(self.robot_to_field_of_home_after_coin_toss_before_second_half),
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
                 blue_chromaticity_threshold: context
                     .blue_chromaticity_threshold
-                    .evaluate_at(self.robot_to_field_of_home_after_coin_toss_before_second_half),
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
                 lower_green_chromaticity_threshold: context
                     .lower_green_chromaticity_threshold
-                    .evaluate_at(self.robot_to_field_of_home_after_coin_toss_before_second_half),
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
                 upper_green_chromaticity_threshold: context
                     .upper_green_chromaticity_threshold
-                    .evaluate_at(self.robot_to_field_of_home_after_coin_toss_before_second_half),
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
                 green_luminance_threshold: context
                     .green_luminance_threshold
-                    .evaluate_at(self.robot_to_field_of_home_after_coin_toss_before_second_half),
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
             }
             .into(),
         })

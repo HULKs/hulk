@@ -1,5 +1,6 @@
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 use communication::client::CyclerOutput;
+use coordinate_systems::{Framed, IntoFramed};
 use eframe::{
     egui::{Response, Slider, TextFormat, Ui, Widget},
     epaint::{text::LayoutJob, Color32, FontId},
@@ -9,6 +10,7 @@ use serde_json::Value;
 use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
 use types::{
     camera_position::CameraPosition,
+    coordinate_systems::Ground,
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand},
 };
@@ -22,7 +24,7 @@ enum LookAtType {
 pub struct LookAtPanel {
     nao: Arc<Nao>,
     camera_position: Option<CameraPosition>,
-    look_at_target: Point2<f32>,
+    look_at_target: Framed<Ground, Point2<f32>>,
     look_at_mode: LookAtType,
     is_enabled: bool,
     field_dimensions_buffer: ValueBuffer,
@@ -30,7 +32,7 @@ pub struct LookAtPanel {
 }
 
 const INJECTED_MOTION_COMMAND: &str = "behavior.injected_motion_command";
-const DEFAULT_TARGET: Point2<f32> = point![1.0, 0.0];
+const DEFAULT_TARGET: Framed<Ground, Point2<f32>> = Framed::new(point![1.0, 0.0]);
 const FALLBACK_MAX_FIELD_DIMENSION: f32 = 10.0;
 
 impl Panel for LookAtPanel {
@@ -176,7 +178,7 @@ impl Widget for &mut LookAtPanel {
                         .as_ref()
                         .map_or(DEFAULT_TARGET, |dimensions| {
                             let half_field_length = dimensions.length / 2.0;
-                            point![half_field_length, 0.0]
+                            point![half_field_length, 0.0].framed()
                         })
                 }
                 LookAtType::Manual => {
@@ -186,7 +188,7 @@ impl Widget for &mut LookAtPanel {
 
                     ui.add(
                         Slider::new(
-                            &mut self.look_at_target.x,
+                            &mut self.look_at_target.x(),
                             RangeInclusive::new(-max_dimension, max_dimension),
                         )
                         .text("x")
@@ -194,7 +196,7 @@ impl Widget for &mut LookAtPanel {
                     );
                     ui.add(
                         Slider::new(
-                            &mut self.look_at_target.y,
+                            &mut self.look_at_target.y(),
                             RangeInclusive::new(-max_dimension, max_dimension),
                         )
                         .text("y")
@@ -223,7 +225,7 @@ impl Widget for &mut LookAtPanel {
 
 fn send_standing_look_at(
     nao: &Nao,
-    look_at_target: Point2<f32>,
+    look_at_target: Framed<Ground, Point2<f32>>,
     camera_option: Option<CameraPosition>,
 ) {
     let motion_command = Some(MotionCommand::Stand {

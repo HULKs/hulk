@@ -2,12 +2,14 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::Transform;
 use framework::MainOutput;
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::BallPosition,
+    coordinate_systems::{Field, Ground},
     cycle_time::CycleTime,
     fall_state::FallState,
     filtered_whistle::FilteredWhistle,
@@ -41,7 +43,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub ball_position: MainOutput<Option<BallPosition>>,
+    pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
     pub cycle_time: MainOutput<CycleTime>,
     pub fall_state: MainOutput<FallState>,
     pub filtered_whistle: MainOutput<FilteredWhistle>,
@@ -51,7 +53,7 @@ pub struct MainOutputs {
     pub obstacles: MainOutput<Vec<Obstacle>>,
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub primary_state: MainOutput<PrimaryState>,
-    pub robot_to_field: MainOutput<Option<Isometry2<f32>>>,
+    pub ground_to_field: MainOutput<Option<Transform<Ground, Field, Isometry2<f32>>>>,
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,

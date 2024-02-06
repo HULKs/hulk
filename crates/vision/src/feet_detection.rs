@@ -1,12 +1,13 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{distance, IntoFramed};
 use filtering::{
     mean_clustering::MeanClustering,
     statistics::{mean, standard_deviation},
 };
 use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
-use nalgebra::{distance, point, Point2};
+use nalgebra::{point, Point2};
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -82,7 +83,7 @@ impl FeetDetection {
         context.clusters_in_ground.fill_if_subscribed(|| {
             clusters_in_ground
                 .iter()
-                .map(|cluster| cluster.mean)
+                .map(|cluster| cluster.mean.inner)
                 .collect()
         });
         let positions = clusters_in_ground
@@ -122,9 +123,10 @@ fn extract_segment_cluster_points(
             if luminance_standard_deviation < minimum_luminance_standard_deviation {
                 return None;
             }
-            let pixel_coordinates = point![scan_line.position, cluster.last().unwrap().end];
+            let pixel_coordinates =
+                point![scan_line.position, cluster.last().unwrap().end].framed();
             let position_in_ground = camera_matrix
-                .pixel_to_ground(pixel_coordinates.map(|x| x as f32))
+                .pixel_to_ground(pixel_coordinates.inner.map(|x| x as f32).framed())
                 .ok()?;
             let point = ClusterPoint {
                 pixel_coordinates,
@@ -144,10 +146,10 @@ fn find_last_consecutive_cluster(
     let filtered_segments = scan_line.segments.iter().filter(|segment| {
         let is_on_line = line_data
             .used_vertical_filtered_segments
-            .contains(&point![scan_line.position, segment.start]);
+            .contains(&point![scan_line.position, segment.start].framed());
         let is_on_ball = balls.iter().any(|ball| {
             ball.image_location
-                .contains(point![scan_line.position as f32, segment.center() as f32])
+                .contains(point![scan_line.position as f32, segment.center() as f32].framed())
         });
         !is_on_line && !is_on_ball
     });

@@ -4,18 +4,19 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
-use nalgebra::{
-    center, distance, distance_squared, point, vector, Isometry, Point, Point2, UnitComplex,
-    Vector2,
-};
+use coordinate_systems::{center, distance, distance_squared, Framed, IntoFramed, Transform};
+use nalgebra::{point, vector, Isometry, Point, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
-pub struct Line<const DIMENSION: usize>(pub Point<f32, DIMENSION>, pub Point<f32, DIMENSION>);
+pub struct Line<Frame, const DIMENSION: usize>(
+    pub Framed<Frame, Point<f32, DIMENSION>>,
+    pub Framed<Frame, Point<f32, DIMENSION>>,
+);
 
-pub type Line2 = Line<2>;
+pub type Line2<Frame> = Line<Frame, 2>;
 
-impl Line2 {
+impl<Frame> Line2<Frame> {
     pub fn signed_acute_angle(&self, other: Self) -> f32 {
         let self_direction = self.1 - self.0;
         let other_direction = other.1 - other.0;
@@ -29,7 +30,8 @@ impl Line2 {
     pub fn signed_acute_angle_to_orthogonal(&self, other: Self) -> f32 {
         let self_direction = self.1 - self.0;
         let other_direction = other.1 - other.0;
-        let orthogonal_other_direction = vector![other_direction.y, -other_direction.x];
+        let orthogonal_other_direction =
+            vector![other_direction.inner.y, -other_direction.inner.x].framed();
         signed_acute_angle(&self_direction, &orthogonal_other_direction)
     }
 
@@ -39,25 +41,28 @@ impl Line2 {
 
     pub fn slope(&self) -> f32 {
         let difference = self.0 - self.1;
-        difference.y / difference.x
+        difference.inner.y / difference.inner.x
     }
 
     pub fn y_axis_intercept(&self) -> f32 {
-        self.0.y - (self.0.x * self.slope())
+        self.0.inner.y - (self.0.inner.x * self.slope())
     }
 
-    pub fn is_above(&self, point: Point2<f32>) -> bool {
-        let rise = (point.x - self.0.x) * self.slope();
-        point.y >= rise + self.0.y
+    pub fn is_above(&self, point: Framed<Frame, Point2<f32>>) -> bool {
+        let rise = (point.inner.x - self.0.inner.x) * self.slope();
+        point.inner.y >= rise + self.0.inner.y
     }
 
-    pub fn signed_distance_to_point(&self, point: Point2<f32>) -> f32 {
+    pub fn signed_distance_to_point(&self, point: Framed<Frame, Point2<f32>>) -> f32 {
         let line_vector = self.1 - self.0;
-        let normal_vector = vector![-line_vector.y, line_vector.x].normalize();
-        normal_vector.dot(&point.coords) - normal_vector.dot(&self.0.coords)
+        let normal_vector = vector![-line_vector.inner.y, line_vector.inner.x].normalize();
+        normal_vector.dot(&point.inner.coords) - normal_vector.dot(&self.0.inner.coords)
     }
 
-    pub fn project_onto_segment(&self, point: Point2<f32>) -> Point2<f32> {
+    pub fn project_onto_segment(
+        &self,
+        point: Framed<Frame, Point2<f32>>,
+    ) -> Framed<Frame, Point2<f32>> {
         let difference_on_line = self.1 - self.0;
         let difference_to_point = point - self.0;
         let t = difference_to_point.dot(&difference_on_line) / difference_on_line.norm_squared();
@@ -70,15 +75,15 @@ impl Line2 {
         }
     }
 
-    pub fn intersection(&self, other: &Line2) -> Point2<f32> {
-        let x1 = self.0.coords[0];
-        let y1 = self.0.coords[1];
-        let x2 = self.1.coords[0];
-        let y2 = self.1.coords[1];
-        let x3 = other.0.coords[0];
-        let y3 = other.0.coords[1];
-        let x4 = other.1.coords[0];
-        let y4 = other.1.coords[1];
+    pub fn intersection(&self, other: &Line2<Frame>) -> Framed<Frame, Point2<f32>> {
+        let x1 = self.0.inner.coords[0];
+        let y1 = self.0.inner.coords[1];
+        let x2 = self.1.inner.coords[0];
+        let y2 = self.1.inner.coords[1];
+        let x3 = other.0.inner.coords[0];
+        let y3 = other.0.inner.coords[1];
+        let x4 = other.1.inner.coords[0];
+        let y4 = other.1.inner.coords[1];
 
         point!(
             ((((x1 * y2) - (y1 * x2)) * (x3 - x4)) - ((x1 - x2) * ((x3 * y4) - (y3 * x4))))
@@ -86,11 +91,15 @@ impl Line2 {
             ((((x1 * y2) - (y1 * x2)) * (y3 - y4)) - ((y1 - y2) * ((x3 * y4) - (y3 * x4))))
                 / (((x1 - x2) * (y3 - y4)) - ((y1 - y2) * (x3 - x4)))
         )
+        .framed()
     }
 }
 
-fn signed_acute_angle(first: &Vector2<f32>, second: &Vector2<f32>) -> f32 {
-    let difference = UnitComplex::rotation_between(first, second).angle();
+fn signed_acute_angle<Frame>(
+    first: &Framed<Frame, Vector2<f32>>,
+    second: &Framed<Frame, Vector2<f32>>,
+) -> f32 {
+    let difference = UnitComplex::rotation_between(&first.inner, &second.inner).angle();
     if difference > FRAC_PI_2 {
         difference - PI
     } else if difference < -FRAC_PI_2 {
@@ -100,8 +109,11 @@ fn signed_acute_angle(first: &Vector2<f32>, second: &Vector2<f32>) -> f32 {
     }
 }
 
-impl<const DIMENSION: usize> Line<DIMENSION> {
-    pub fn project_point(&self, point: Point<f32, DIMENSION>) -> Point<f32, DIMENSION> {
+impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
+    pub fn project_point(
+        &self,
+        point: Framed<Frame, Point<f32, DIMENSION>>,
+    ) -> Framed<Frame, Point<f32, DIMENSION>> {
         let difference_on_line = self.1 - self.0;
         let difference_to_point = point - self.0;
         self.0
@@ -109,7 +121,7 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
                 / difference_on_line.norm_squared())
     }
 
-    pub fn squared_distance_to_segment(&self, point: Point<f32, DIMENSION>) -> f32 {
+    pub fn squared_distance_to_segment(&self, point: Framed<Frame, Point<f32, DIMENSION>>) -> f32 {
         let difference_on_line = self.1 - self.0;
         let difference_to_point = point - self.0;
         let t = difference_to_point.dot(&difference_on_line) / difference_on_line.norm_squared();
@@ -122,12 +134,12 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
         }
     }
 
-    pub fn squared_distance_to_point(&self, point: Point<f32, DIMENSION>) -> f32 {
+    pub fn squared_distance_to_point(&self, point: Framed<Frame, Point<f32, DIMENSION>>) -> f32 {
         let closest_point = self.project_point(point);
         distance_squared(&closest_point, &point)
     }
 
-    pub fn distance_to_point(&self, point: Point<f32, DIMENSION>) -> f32 {
+    pub fn distance_to_point(&self, point: Framed<Frame, Point<f32, DIMENSION>>) -> f32 {
         self.squared_distance_to_point(point).sqrt()
     }
 
@@ -135,30 +147,31 @@ impl<const DIMENSION: usize> Line<DIMENSION> {
         distance(&self.0, &self.1)
     }
 
-    pub fn center(&self) -> Point<f32, DIMENSION> {
+    pub fn center(&self) -> Framed<Frame, Point<f32, DIMENSION>> {
         center(&self.0, &self.1)
     }
 }
 
-impl<const DIMENSION: usize> Mul<Line<DIMENSION>> for Isometry<f32, UnitComplex<f32>, DIMENSION>
+impl<From, To, const DIMENSION: usize> Mul<Line<From, DIMENSION>>
+    for Transform<From, To, Isometry<f32, UnitComplex<f32>, DIMENSION>>
 where
     Isometry<f32, UnitComplex<f32>, DIMENSION>:
         Mul<Point<f32, DIMENSION>, Output = Point<f32, DIMENSION>>,
 {
-    type Output = Line<DIMENSION>;
+    type Output = Line<To, DIMENSION>;
 
-    fn mul(self, right: Line<DIMENSION>) -> Self::Output {
+    fn mul(self, right: Line<From, DIMENSION>) -> Self::Output {
         Line(self * right.0, self * right.1)
     }
 }
 
-impl<const DIMENSION: usize> PartialEq for Line<DIMENSION> {
+impl<Frame, const DIMENSION: usize> PartialEq for Line<Frame, DIMENSION> {
     fn eq(&self, other: &Self) -> bool {
         (self.0 == other.0 && self.1 == other.1) || (self.0 == other.1 && self.1 == other.0)
     }
 }
 
-impl<const DIMENSION: usize> AbsDiffEq for Line<DIMENSION> {
+impl<Frame, const DIMENSION: usize> AbsDiffEq for Line<Frame, DIMENSION> {
     type Epsilon = <f32 as AbsDiffEq>::Epsilon;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -170,7 +183,7 @@ impl<const DIMENSION: usize> AbsDiffEq for Line<DIMENSION> {
     }
 }
 
-impl<const DIMENSION: usize> RelativeEq for Line<DIMENSION> {
+impl<Frame, const DIMENSION: usize> RelativeEq for Line<Frame, DIMENSION> {
     fn default_max_relative() -> Self::Epsilon {
         <f32 as RelativeEq>::default_max_relative()
     }
@@ -194,12 +207,15 @@ mod tests {
 
     use super::*;
 
+    #[derive(Clone, Copy, Debug)]
+    struct SomeFrame;
+
     #[test]
     fn correct_acute_signed_angle() {
         #[derive(Debug)]
         struct Case {
-            self_line: Line2,
-            other_line: Line2,
+            self_line: Line2<SomeFrame>,
+            other_line: Line2<SomeFrame>,
             expected_angle: f32,
         }
 
@@ -207,71 +223,71 @@ mod tests {
         let sixty_degree = 60.0_f32.to_radians();
         let cases = [
             Case {
-                self_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
-                other_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                self_line: Line(point![0.0, 0.0].framed(), point![42.0, 0.0].framed()),
+                other_line: Line(point![0.0, 0.0].framed(), point![42.0, 0.0].framed()),
                 expected_angle: 0.0,
             },
             Case {
-                self_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
-                other_line: Line(point![0.0, 0.0], point![42.0, 42.0]),
+                self_line: Line(point![0.0, 0.0].framed(), point![42.0, 0.0].framed()),
+                other_line: Line(point![0.0, 0.0].framed(), point![42.0, 42.0].framed()),
                 expected_angle: FRAC_PI_4,
             },
             Case {
-                self_line: Line(point![0.0, 0.0], point![42.0, 42.0]),
-                other_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                self_line: Line(point![0.0, 0.0].framed(), point![42.0, 42.0].framed()),
+                other_line: Line(point![0.0, 0.0].framed(), point![42.0, 0.0].framed()),
                 expected_angle: -FRAC_PI_4,
             },
             Case {
-                self_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
-                other_line: Line(point![0.0, 0.0], point![42.0, -42.0]),
+                self_line: Line(point![0.0, 0.0].framed(), point![42.0, 0.0].framed()),
+                other_line: Line(point![0.0, 0.0].framed(), point![42.0, -42.0].framed()),
                 expected_angle: -FRAC_PI_4,
             },
             Case {
-                self_line: Line(point![0.0, 0.0], point![42.0, -42.0]),
-                other_line: Line(point![0.0, 0.0], point![42.0, 0.0]),
+                self_line: Line(point![0.0, 0.0].framed(), point![42.0, -42.0].framed()),
+                other_line: Line(point![0.0, 0.0].framed(), point![42.0, 0.0].framed()),
                 expected_angle: FRAC_PI_4,
             },
             Case {
                 self_line: Line(
-                    point![0.0, 0.0],
-                    point![(-thirty_degree).cos(), (-thirty_degree).sin()],
+                    point![0.0, 0.0].framed(),
+                    point![(-thirty_degree).cos(), (-thirty_degree).sin()].framed(),
                 ),
                 other_line: Line(
-                    point![0.0, 0.0],
-                    point![thirty_degree.cos(), thirty_degree.sin()],
+                    point![0.0, 0.0].framed(),
+                    point![thirty_degree.cos(), thirty_degree.sin()].framed(),
                 ),
                 expected_angle: sixty_degree,
             },
             Case {
                 self_line: Line(
-                    point![0.0, 0.0],
-                    point![thirty_degree.cos(), thirty_degree.sin()],
+                    point![0.0, 0.0].framed(),
+                    point![thirty_degree.cos(), thirty_degree.sin()].framed(),
                 ),
                 other_line: Line(
-                    point![0.0, 0.0],
-                    point![(-thirty_degree).cos(), (-thirty_degree).sin()],
+                    point![0.0, 0.0].framed(),
+                    point![(-thirty_degree).cos(), (-thirty_degree).sin()].framed(),
                 ),
                 expected_angle: -sixty_degree,
             },
             Case {
                 self_line: Line(
-                    point![0.0, 0.0],
-                    point![(-sixty_degree).cos(), (-sixty_degree).sin()],
+                    point![0.0, 0.0].framed(),
+                    point![(-sixty_degree).cos(), (-sixty_degree).sin()].framed(),
                 ),
                 other_line: Line(
-                    point![0.0, 0.0],
-                    point![sixty_degree.cos(), sixty_degree.sin()],
+                    point![0.0, 0.0].framed(),
+                    point![sixty_degree.cos(), sixty_degree.sin()].framed(),
                 ),
                 expected_angle: -sixty_degree,
             },
             Case {
                 self_line: Line(
-                    point![0.0, 0.0],
-                    point![sixty_degree.cos(), sixty_degree.sin()],
+                    point![0.0, 0.0].framed(),
+                    point![sixty_degree.cos(), sixty_degree.sin()].framed(),
                 ),
                 other_line: Line(
-                    point![0.0, 0.0],
-                    point![(-sixty_degree).cos(), (-sixty_degree).sin()],
+                    point![0.0, 0.0].framed(),
+                    point![(-sixty_degree).cos(), (-sixty_degree).sin()].framed(),
                 ),
                 expected_angle: sixty_degree,
             },

@@ -1,16 +1,22 @@
 use approx::{AbsDiffEq, RelativeEq};
+use coordinate_systems::Framed;
 use geometry::{arc::Arc, line_segment::LineSegment, orientation::Orientation};
 use nalgebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+use crate::coordinate_systems::Ground;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
 pub enum PathSegment {
-    LineSegment(LineSegment),
-    Arc(Arc, Orientation),
+    LineSegment(LineSegment<Ground>),
+    Arc(Arc<Ground>, Orientation),
 }
 
-pub fn direct_path(start: Point2<f32>, destination: Point2<f32>) -> Vec<PathSegment> {
+pub fn direct_path(
+    start: Framed<Ground, Point2<f32>>,
+    destination: Framed<Ground, Point2<f32>>,
+) -> Vec<PathSegment> {
     vec![PathSegment::LineSegment(LineSegment(start, destination))]
 }
 

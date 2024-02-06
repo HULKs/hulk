@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
+use coordinate_systems::{IntoFramed, Transform};
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{Isometry2, Point2};
 use types::{
+    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
 };
@@ -40,13 +42,18 @@ impl Layer for BallFilter {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
-        let robot_to_field: Option<Isometry2<f32>> = self.robot_to_field.parse_latest()?;
+    fn paint(
+        &self,
+        painter: &TwixPainter<Field>,
+        _field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
+        let ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>> =
+            self.robot_to_field.parse_latest()?;
         let best_ball_state: Option<MultivariateNormalDistribution<4>> =
             self.ball_state.parse_latest()?;
 
         if let Some(state) = best_ball_state {
-            let position = robot_to_field.unwrap_or_default() * Point2::from(state.mean.xy());
+            let position = ground_to_field.unwrap_or_default() * Point2::from(state.mean.xy()).framed();
             let covariance = state.covariance.fixed_view::<2, 2>(0, 0).into_owned();
             let stroke = Stroke::new(0.01, Color32::BLACK);
             let fill_color = Color32::from_rgba_unmultiplied(255, 255, 0, 100);

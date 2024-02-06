@@ -2,16 +2,21 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::CyclerOutput;
+use coordinate_systems::Transform;
 use eframe::epaint::Color32;
 use nalgebra::Isometry2;
-use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
+use types::{
+    coordinate_systems::{Field, Ground},
+    field_dimensions::FieldDimensions,
+    motion_command::MotionCommand,
+};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
 };
 
 pub struct Path {
-    robot_to_field: ValueBuffer,
+    ground_to_field: ValueBuffer,
     motion_command: ValueBuffer,
 }
 
@@ -19,23 +24,28 @@ impl Layer for Path {
     const NAME: &'static str = "Path";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
+        let ground_to_field =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
         let motion_command =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.motion_command").unwrap());
         Self {
-            robot_to_field,
+            ground_to_field,
             motion_command,
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
-        let robot_to_field: Isometry2<f32> = self.robot_to_field.require_latest()?;
+    fn paint(
+        &self,
+        painter: &TwixPainter<Field>,
+        _field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
+        let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
+            self.ground_to_field.require_latest()?;
         let motion_command: MotionCommand = self.motion_command.require_latest()?;
 
         if let MotionCommand::Walk { path, .. } = motion_command {
             painter.path(
-                robot_to_field,
+                ground_to_field,
                 path,
                 Color32::BLUE,
                 Color32::LIGHT_BLUE,

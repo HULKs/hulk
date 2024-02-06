@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::IntoFramed;
 use framework::MainOutput;
 use nalgebra::point;
 use serde::{Deserialize, Serialize};
@@ -75,7 +76,7 @@ fn filter_vertical_segments(
         .filter(|segment| segment.field_color == Intensity::Low)
         .skip_while(|segment| match field_border {
             Some(field_border) => !field_border
-                .is_inside_field(point![scan_line_position as f32, segment.start as f32]),
+                .is_inside_field(point![scan_line_position as f32, segment.start as f32].framed()),
             None => false,
         })
         .copied()

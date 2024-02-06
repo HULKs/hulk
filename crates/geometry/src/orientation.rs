@@ -1,3 +1,4 @@
+use coordinate_systems::{Framed, IntoFramed};
 use nalgebra::{vector, Vector2};
 use serde::{Deserialize, Serialize};
 
@@ -9,10 +10,13 @@ pub enum Orientation {
 }
 
 impl Orientation {
-    pub fn rotate_vector_90_degrees(&self, subject: Vector2<f32>) -> Vector2<f32> {
+    pub fn rotate_vector_90_degrees<Frame>(
+        &self,
+        subject: Framed<Frame, Vector2<f32>>,
+    ) -> Framed<Frame, Vector2<f32>> {
         match self {
-            Orientation::Clockwise => vector![subject.y, -subject.x],
-            Orientation::Counterclockwise => vector![-subject.y, subject.x],
+            Orientation::Clockwise => vector![subject.y(), -subject.x()].framed(),
+            Orientation::Counterclockwise => vector![-subject.y(), subject.x()].framed(),
             Orientation::Colinear => subject,
         }
     }

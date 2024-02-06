@@ -52,7 +52,7 @@ impl Robot {
 
         let mut database = Database::default();
 
-        database.main_outputs.robot_to_field = Some(generate_initial_pose(
+        database.main_outputs.ground_to_field = Some(generate_initial_pose(
             &parameter.localization.initial_poses[player_number],
             &parameter.field_dimensions,
         ));

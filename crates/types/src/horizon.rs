@@ -1,4 +1,7 @@
+use crate::coordinate_systems::Camera;
+use crate::coordinate_systems::Ground;
 use approx::{AbsDiffEq, RelativeEq};
+use coordinate_systems::Transform;
 use nalgebra::{Isometry3, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -19,12 +22,12 @@ impl Horizon {
     }
 
     pub fn from_parameters(
-        camera_to_ground: Isometry3<f32>,
+        camera_to_ground: Transform<Camera, Ground, Isometry3<f32>>,
         focal_length: Vector2<f32>,
         optical_center: Point2<f32>,
         image_width: f32,
     ) -> Self {
-        let rotation_matrix = camera_to_ground.rotation.to_rotation_matrix();
+        let rotation_matrix = camera_to_ground.inner.rotation.to_rotation_matrix();
         let horizon_slope_is_infinite = rotation_matrix[(2, 2)] == 0.0;
 
         if horizon_slope_is_infinite {

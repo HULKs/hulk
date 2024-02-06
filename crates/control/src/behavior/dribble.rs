@@ -1,7 +1,9 @@
+use coordinate_systems::{Framed, Transform};
 use geometry::look_at::LookAt;
-use nalgebra::{Isometry2, Point2};
+use nalgebra::Isometry2;
 
 use types::{
+    coordinate_systems::Ground,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
@@ -55,9 +57,9 @@ pub fn execute(
     );
     let orientation_mode = match hybrid_orientation_mode {
         types::motion_command::OrientationMode::AlignWithPath
-            if ball_position.coords.norm() > 0.0 =>
+            if ball_position.coords().norm() > 0.0 =>
         {
-            OrientationMode::Override(Point2::origin().look_at(&ball_position))
+            OrientationMode::Override(Framed::origin().look_at(&ball_position))
         }
         orientation_mode => orientation_mode,
     };
@@ -70,12 +72,14 @@ pub fn execute(
 }
 
 fn is_kick_pose_reached(
-    kick_pose_to_robot: Isometry2<f32>,
+    kick_pose_to_robot: Transform<Ground, Ground, Isometry2<f32>>,
     kick_info: &InWalkKickInfoParameters,
 ) -> bool {
-    let is_x_reached = kick_pose_to_robot.translation.x.abs() < kick_info.reached_thresholds.x;
-    let is_y_reached = kick_pose_to_robot.translation.y.abs() < kick_info.reached_thresholds.y;
+    let is_x_reached =
+        kick_pose_to_robot.inner.translation.x.abs() < kick_info.reached_thresholds.x;
+    let is_y_reached =
+        kick_pose_to_robot.inner.translation.y.abs() < kick_info.reached_thresholds.y;
     let is_orientation_reached =
-        kick_pose_to_robot.rotation.angle().abs() < kick_info.reached_thresholds.z;
+        kick_pose_to_robot.inner.rotation.angle().abs() < kick_info.reached_thresholds.z;
     is_x_reached && is_y_reached && is_orientation_reached
 }

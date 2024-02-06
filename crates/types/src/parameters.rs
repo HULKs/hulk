@@ -1,11 +1,13 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
+use coordinate_systems::Framed;
 use nalgebra::{Point2, Vector2, Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
+    coordinate_systems::{Field, Ground},
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
     kick_step::KickStep,
     motion_command::{KickVariant, MotionCommand},
@@ -49,7 +51,7 @@ pub struct BehaviorParameters {
 pub struct LookActionParameters {
     pub angle_threshold: f32,
     pub distance_threshold: f32,
-    pub look_forward_position: Point2<f32>,
+    pub look_forward_position: Framed<Ground, Point2<f32>>,
     pub position_of_interest_switch_interval: Duration,
 }
 
@@ -69,7 +71,7 @@ pub struct RolePositionsParameters {
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub striker_distance_to_non_free_center_circle: f32,
-    pub striker_set_position: Vector2<f32>,
+    pub striker_set_position: Framed<Field, Point2<f32>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -133,7 +135,7 @@ pub struct WalkAndStandParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LostBallParameters {
-    pub offset_to_last_ball_location: Vector2<f32>,
+    pub offset_to_last_ball_location: Framed<Field, Vector2<f32>>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

@@ -7,4 +7,6 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 nalgebra = { workspace = true }
-geometry = { workspace = true }
+serde = { workspace = true }
+serialize_hierarchy = { workspace = true }
+approx = { workspace = true }

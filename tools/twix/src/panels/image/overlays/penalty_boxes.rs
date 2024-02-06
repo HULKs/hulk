@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::{Color32, Stroke};
-use types::line::Line2;
+use types::{coordinate_systems::Pixel, line::Line2};
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -32,8 +32,9 @@ impl Overlay for PenaltyBoxes {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter) -> Result<()> {
-        let penalty_boxes_lines_in_image: Vec<Line2> = self.penalty_boxes.require_latest()?;
+    fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
+        let penalty_boxes_lines_in_image: Vec<Line2<Pixel>> =
+            self.penalty_boxes.require_latest()?;
         for line in penalty_boxes_lines_in_image {
             painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLACK));
         }

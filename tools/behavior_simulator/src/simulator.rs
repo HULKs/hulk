@@ -5,10 +5,11 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
+use coordinate_systems::{Framed, IntoTransform};
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use nalgebra::{Isometry2, Point2, Vector2};
 use parking_lot::Mutex;
-use types::{obstacles::Obstacle, players::Players};
+use types::{coordinate_systems::Field, obstacles::Obstacle, players::Players};
 
 use crate::{
     robot::Robot,
@@ -155,7 +156,8 @@ impl Simulator {
                             .unwrap()
                             .database
                             .main_outputs
-                            .robot_to_field = Some(Isometry2::new(position, angle));
+                            .ground_to_field =
+                            Some(Isometry2::new(position, angle).framed_transform());
 
                         Ok(())
                     },
@@ -168,9 +170,9 @@ impl Simulator {
                     |lua, (player_number, position, radius): (usize, Value, f32)| {
                         let player_number =
                             to_player_number(player_number).map_err(LuaError::external)?;
-                        let position: Point2<f32> = lua.from_value(position)?;
+                        let position: Framed<Field, Point2<f32>> = lua.from_value(position)?;
 
-                        let robot_to_field = self
+                        let ground_to_field = self
                             .state
                             .lock()
                             .robots
@@ -178,7 +180,7 @@ impl Simulator {
                             .unwrap()
                             .database
                             .main_outputs
-                            .robot_to_field
+                            .ground_to_field
                             .expect("simulated robots should always have a known pose");
 
                         self.state
@@ -190,7 +192,7 @@ impl Simulator {
                             .main_outputs
                             .obstacles
                             .push(Obstacle::robot(
-                                robot_to_field.inverse() * position,
+                                ground_to_field.inverse() * position,
                                 radius,
                                 radius,
                             ));

@@ -2,9 +2,10 @@ use std::str::FromStr;
 
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
+use coordinate_systems::Framed;
 use eframe::epaint::{Color32, Stroke};
-use types::line_data::ImageLines;
-use types::line_data::LineDiscardReason;
+use nalgebra::Point2;
+use types::{coordinate_systems::Pixel, line::Line2, line_data::LineDiscardReason};
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -12,6 +13,8 @@ use crate::{
 
 pub struct LineDetection {
     lines_in_image: ValueBuffer,
+    discarded_lines: ValueBuffer,
+    ransac_input: ValueBuffer,
 }
 
 impl Overlay for LineDetection {
@@ -23,15 +26,26 @@ impl Overlay for LineDetection {
                 CyclerOutput::from_str(&format!("{selected_cycler}.additional.lines_in_image"))
                     .unwrap(),
             ),
+            discarded_lines: nao.subscribe_output(
+                CyclerOutput::from_str(&format!("{selected_cycler}.additional.discarded_lines"))
+                    .unwrap(),
+            ),
+            ransac_input: nao.subscribe_output(
+                CyclerOutput::from_str(&format!("{selected_cycler}.additional.ransac_input"))
+                    .unwrap(),
+            ),
         }
     }
 
-    fn paint(&self, painter: &TwixPainter) -> Result<()> {
-        let lines_in_image: ImageLines = self.lines_in_image.require_latest()?;
-        for point in lines_in_image.points {
+    fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
+        let lines_in_image: Vec<Line2<Pixel>> = self.lines_in_image.require_latest()?;
+        let discarded_lines: Vec<(Line2<Pixel>, LineDiscardReason)> =
+            self.discarded_lines.require_latest()?;
+        let ransac_input: Vec<Framed<Pixel, Point2<f32>>> = self.ransac_input.require_latest()?;
+        for point in ransac_input {
             painter.circle_stroke(point, 3.0, Stroke::new(1.0, Color32::RED))
         }
-        for (line, reason) in lines_in_image.discarded_lines {
+        for (line, reason) in discarded_lines {
             let color = match reason {
                 LineDiscardReason::TooFewPoints => Color32::YELLOW,
                 LineDiscardReason::LineTooShort => Color32::GRAY,
@@ -40,7 +54,7 @@ impl Overlay for LineDetection {
             };
             painter.line_segment(line.0, line.1, Stroke::new(3.0, color));
         }
-        for line in lines_in_image.lines {
+        for line in lines_in_image {
             painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLUE));
         }
         Ok(())

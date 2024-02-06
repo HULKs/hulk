@@ -5,14 +5,15 @@ use std::{
 };
 
 use color_eyre::Result;
+use coordinate_systems::{Framed, IntoFramed, IntoTransform};
 use geometry::line_segment::LineSegment;
 use nalgebra::{vector, Isometry2, Point2, UnitComplex, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
-use types::motion_command::{HeadMotion, OrientationMode};
 use types::{
     ball_position::BallPosition,
+    coordinate_systems::Head,
     filtered_game_state::FilteredGameState,
     game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
@@ -20,6 +21,10 @@ use types::{
     players::Players,
     primary_state::PrimaryState,
     support_foot::Side,
+};
+use types::{
+    coordinate_systems::Field,
+    motion_command::{HeadMotion, OrientationMode},
 };
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, motion_command::KickVariant,
@@ -39,8 +44,8 @@ pub enum Event {
 
 #[derive(Default, Clone, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Ball {
-    pub position: Point2<f32>,
-    pub velocity: Vector2<f32>,
+    pub position: Framed<Field, Point2<f32>>,
+    pub velocity: Framed<Field, Vector2<f32>>,
 }
 
 pub struct State {
@@ -72,10 +77,10 @@ impl State {
 
     fn move_robots(&mut self, time_step: Duration) {
         for robot in self.robots.values_mut() {
-            let robot_to_field = robot
+            let ground_to_field = robot
                 .database
                 .main_outputs
-                .robot_to_field
+                .ground_to_field
                 .as_mut()
                 .expect("simulated robots should always have a known pose");
 
@@ -88,7 +93,7 @@ impl State {
                     ..
                 } => {
                     let step = match path[0] {
-                        PathSegment::LineSegment(LineSegment(_start, end)) => end.coords,
+                        PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
                         PathSegment::Arc(arc, orientation) => {
                             orientation.rotate_vector_90_degrees(arc.start - arc.circle.center)
                         }
@@ -96,30 +101,32 @@ impl State {
                     .cap_magnitude(0.3 * time_step.as_secs_f32());
 
                     let orientation = match orientation_mode {
-                        OrientationMode::AlignWithPath => {
-                            if step.norm_squared() < f32::EPSILON {
-                                UnitComplex::identity()
-                            } else {
-                                UnitComplex::from_cos_sin_unchecked(step.x, step.y)
-                            }
+                        OrientationMode::AlignWithPath => if step.norm_squared() < f32::EPSILON {
+                            UnitComplex::identity()
+                        } else {
+                            UnitComplex::from_cos_sin_unchecked(step.x(), step.y())
                         }
+                        .framed(),
                         OrientationMode::Override(orientation) => *orientation,
                     };
 
-                    let previous_robot_to_field = *robot_to_field;
+                    let previous_ground_to_field = *ground_to_field;
 
-                    *robot_to_field = Isometry2::new(
-                        robot_to_field.translation.vector + robot_to_field.rotation * step,
-                        robot_to_field.rotation.angle()
-                            + orientation.angle().clamp(
+                    *ground_to_field = Isometry2::new(
+                        ground_to_field.inner.translation.vector
+                            + ground_to_field.inner.rotation * step.inner,
+                        ground_to_field.inner.rotation.angle()
+                            + orientation.inner.angle().clamp(
                                 -std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
                                 std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
                             ),
-                    );
+                    )
+                    .framed_transform();
 
                     for obstacle in robot.database.main_outputs.obstacles.iter_mut() {
-                        obstacle.position =
-                            robot_to_field.inverse() * previous_robot_to_field * obstacle.position;
+                        obstacle.position = ground_to_field.inverse()
+                            * previous_ground_to_field
+                            * obstacle.position;
                     }
 
                     head
@@ -137,14 +144,14 @@ impl State {
                         };
 
                         // TODO: Check if ball is even in range
-                        // let kick_location = robot_to_field * ();
+                        // let kick_location = ground_to_field * ();
                         if (self.time_elapsed - robot.last_kick_time).as_secs_f32() > 1.0 {
                             let direction = match kick {
-                                KickVariant::Forward => vector![1.0, 0.0],
-                                KickVariant::Turn => vector![0.707, 0.707 * side],
-                                KickVariant::Side => vector![0.0, 1.0 * -side],
+                                KickVariant::Forward => vector![1.0, 0.0].framed(),
+                                KickVariant::Turn => vector![0.707, 0.707 * side].framed(),
+                                KickVariant::Side => vector![0.0, 1.0 * -side].framed(),
                             };
-                            ball.velocity += *robot_to_field * direction * *strength * 2.5;
+                            ball.velocity += *ground_to_field * direction * *strength * 2.5;
                             robot.last_kick_time = self.time_elapsed;
                         };
                     }
@@ -161,10 +168,10 @@ impl State {
                 HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
                     robot.database.main_outputs.look_around.yaw
                 }
-                HeadMotion::LookAt { target, .. } => target.coords.angle(&Vector2::x_axis()),
+                HeadMotion::LookAt { target, .. } => target.inner.coords.angle(&Vector2::x_axis()),
                 HeadMotion::LookLeftAndRightOf { target } => {
                     let glance_factor = self.time_elapsed.as_secs_f32().sin();
-                    target.coords.angle(&Vector2::x_axis())
+                    target.inner.coords.angle(&Vector2::x_axis())
                         + glance_factor * robot.parameters.look_at.glance_angle
                 }
                 HeadMotion::Unstiff => 0.0,
@@ -195,21 +202,22 @@ impl State {
 
             robot.database.main_outputs.cycle_time.start_time = now;
 
-            let robot_to_field = robot
+            let ground_to_field = robot
                 .database
                 .main_outputs
-                .robot_to_field
+                .ground_to_field
                 .expect("simulated robots should always have a known pose");
             let ball_visible = self.ball.as_ref().is_some_and(|ball| {
-                let ball_in_ground = robot_to_field.inverse() * ball.position;
-                let head_rotation = UnitComplex::from_angle(
+                let ball_in_ground = ground_to_field.inverse() * ball.position;
+                let head_to_ground = UnitComplex::from_angle(
                     robot.database.main_outputs.sensor_data.positions.head.yaw,
-                );
-                let ball_in_head = head_rotation.inverse() * ball_in_ground;
+                )
+                .framed_transform();
+                let ball_in_head: Framed<Head, _> = head_to_ground.inverse() * ball_in_ground;
                 let field_of_view = robot.field_of_view();
-                let angle_to_ball = ball_in_head.coords.angle(&Vector2::x_axis());
+                let angle_to_ball = ball_in_head.coords().inner.angle(&Vector2::x_axis());
 
-                angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.coords.norm() < 3.0
+                angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.coords().norm() < 3.0
             });
             if ball_visible {
                 robot.ball_last_seen = Some(now);
@@ -220,8 +228,8 @@ impl State {
                         < robot.parameters.ball_filter.hypothesis_timeout
                 }) {
                     self.ball.as_ref().map(|ball| BallPosition {
-                        position: robot_to_field.inverse() * ball.position,
-                        velocity: robot_to_field.inverse() * ball.velocity,
+                        position: ground_to_field.inverse() * ball.position,
+                        velocity: ground_to_field.inverse() * ball.velocity,
                         last_seen: now,
                     })
                 } else {
@@ -262,7 +270,7 @@ impl State {
             ball.position += ball.velocity * time_step.as_secs_f32();
             ball.velocity *= 0.98;
 
-            if ball.position.x.abs() > 4.5 && ball.position.y < 0.75 {
+            if ball.position.x().abs() > 4.5 && ball.position.y() < 0.75 {
                 events.push(Event::Goal);
             }
         }

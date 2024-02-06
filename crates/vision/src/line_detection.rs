@@ -2,17 +2,19 @@ use std::{collections::HashSet, iter::Peekable, ops::Range};
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{distance, Framed, IntoFramed};
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{distance, point, vector, Point2, Vector2};
+use nalgebra::{point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
+    coordinate_systems::{Ground, Pixel},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, Segment},
-    line::Line,
-    line_data::{ImageLines, LineData, LineDiscardReason},
+    line::{Line, Line2},
+    line_data::{LineData, LineDiscardReason},
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -26,7 +28,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    lines_in_image: AdditionalOutput<ImageLines, "lines_in_image">,
+    lines_in_image: AdditionalOutput<Vec<Line2<Pixel>>, "lines_in_image">,
+    discarded_lines: AdditionalOutput<Vec<(Line2<Pixel>, LineDiscardReason)>, "discarded_lines">,
+    ransac_input: AdditionalOutput<Vec<Framed<Pixel, Point2<f32>>>, "ransac_input">,
 
     allowed_line_length_in_field:
         Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_line_length_in_field">,
@@ -70,7 +74,8 @@ impl LineDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let mut image_lines = ImageLines::default();
+        let mut image_lines = Vec::new();
+        let mut discarded_lines = Vec::new();
 
         let (line_points, used_vertical_filtered_segments) = filter_segments_for_lines(
             context.camera_matrix,
@@ -82,14 +87,15 @@ impl LineDetection {
             *context.gradient_alignment,
             *context.maximum_merge_gap_in_pixels,
         );
-        if context.lines_in_image.is_subscribed() {
-            image_lines.points = line_points
+        context.ransac_input.fill_if_subscribed(|| {
+            line_points
                 .iter()
                 .map(|point| context.camera_matrix.ground_to_pixel(*point).unwrap())
-                .collect();
-        }
+                .collect()
+        });
+
         let mut ransac = Ransac::new(line_points);
-        let mut lines_in_robot = Vec::new();
+        let mut lines_in_ground = Vec::new();
         for _ in 0..*context.maximum_number_of_lines {
             if ransac.unused_points.len() < *context.minimum_number_of_points_on_line {
                 break;
@@ -105,9 +111,7 @@ impl LineDetection {
             let ransac_line =
                 ransac_line.expect("Insufficient number of line points. Cannot fit line.");
             if used_points.len() < *context.minimum_number_of_points_on_line {
-                image_lines
-                    .discarded_lines
-                    .push((ransac_line, LineDiscardReason::TooFewPoints));
+                discarded_lines.push((ransac_line, LineDiscardReason::TooFewPoints));
                 break;
             }
             let mut points_with_projection_onto_line: Vec<_> = used_points
@@ -115,7 +119,7 @@ impl LineDetection {
                 .map(|&point| (point, ransac_line.project_point(point)))
                 .collect();
             points_with_projection_onto_line.sort_by_key(|(_point, projected_point)| {
-                NotNan::new(projected_point.x).expect("Tried to compare NaN")
+                NotNan::new(projected_point.x()).expect("Tried to compare NaN")
             });
             let split_index = (1..points_with_projection_onto_line.len())
                 .find(|&index| {
@@ -131,75 +135,77 @@ impl LineDetection {
                 .extend(after_gap.iter().map(|(point, _projected_point)| point));
             if points_with_projection_onto_line.len() < *context.minimum_number_of_points_on_line {
                 // just drop and ignore this line
-                image_lines
-                    .discarded_lines
-                    .push((ransac_line, LineDiscardReason::TooFewPoints));
+                discarded_lines.push((ransac_line, LineDiscardReason::TooFewPoints));
                 continue;
             }
 
-            let Some((start_point_in_image, start_point_in_robot)) =
+            let Some((start_point_in_ground, start_point_in_robot)) =
                 points_with_projection_onto_line.first().copied()
             else {
                 break;
             };
-            let Some((end_point_in_image, end_point_in_robot)) =
+            let Some((end_point_in_ground, end_point_in_robot)) =
                 points_with_projection_onto_line.last().copied()
             else {
                 break;
             };
 
-            let line_in_robot = Line(start_point_in_robot, end_point_in_robot);
-            let line_length_in_robot = line_in_robot.length();
+            let line_in_ground = Line(start_point_in_robot, end_point_in_robot);
+            let line_length_in_robot = line_in_ground.length();
             let is_too_short = *context.check_line_length
                 && line_length_in_robot < context.allowed_line_length_in_field.start;
             let is_too_long = *context.check_line_length
                 && line_length_in_robot > context.allowed_line_length_in_field.end;
             if is_too_short {
-                image_lines
-                    .discarded_lines
-                    .push((ransac_line, LineDiscardReason::LineTooShort));
+                discarded_lines.push((ransac_line, LineDiscardReason::LineTooShort));
                 continue;
             }
             if is_too_long {
-                image_lines
-                    .discarded_lines
-                    .push((ransac_line, LineDiscardReason::LineTooLong));
+                discarded_lines.push((ransac_line, LineDiscardReason::LineTooLong));
                 continue;
             }
 
             let is_too_far = *context.check_line_distance
-                && nalgebra::Normed::norm(&line_in_robot.center().coords)
-                    > *context.maximum_distance_to_robot;
+                && line_in_ground.center().inner.coords.norm() > *context.maximum_distance_to_robot;
             if is_too_far {
-                image_lines
-                    .discarded_lines
-                    .push((ransac_line, LineDiscardReason::TooFarAway));
+                discarded_lines.push((ransac_line, LineDiscardReason::TooFarAway));
                 continue;
             }
 
-            lines_in_robot.push(line_in_robot);
+            lines_in_ground.push(line_in_ground);
             if context.lines_in_image.is_subscribed() {
-                image_lines
-                    .lines
-                    .push(Line(start_point_in_image, end_point_in_image));
+                image_lines.push(Line(start_point_in_ground, end_point_in_ground));
             }
         }
         let line_data = LineData {
-            lines_in_robot,
+            lines_in_ground,
             used_vertical_filtered_segments,
         };
 
         context.lines_in_image.fill_if_subscribed(|| {
-            for line in image_lines.lines.iter_mut().chain(
-                image_lines
-                    .discarded_lines
-                    .iter_mut()
-                    .map(|line| &mut line.0),
-            ) {
-                line.0 = context.camera_matrix.ground_to_pixel(line.0).unwrap();
-                line.1 = context.camera_matrix.ground_to_pixel(line.1).unwrap();
-            }
             image_lines
+                .into_iter()
+                .map(|line| {
+                    Line(
+                        context.camera_matrix.ground_to_pixel(line.0).unwrap(),
+                        context.camera_matrix.ground_to_pixel(line.1).unwrap(),
+                    )
+                })
+                .collect()
+        });
+        context.discarded_lines.fill_if_subscribed(|| {
+            discarded_lines
+                .into_iter()
+                .map(|(line, discard_reason)| {
+                    (
+                        Line(
+                            context.camera_matrix.ground_to_pixel(line.0).unwrap(),
+                            context.camera_matrix.ground_to_pixel(line.1).unwrap(),
+                        ),
+                        discard_reason,
+                    )
+                })
+                .collect()
         });
 
         Ok(MainOutputs {
@@ -294,7 +300,10 @@ fn filter_segments_for_lines(
     check_edge_gradient: bool,
     gradient_alignment: f32,
     maximum_merge_gap: u16,
-) -> (Vec<Point2<f32>>, HashSet<Point2<u16>>) {
+) -> (
+    Vec<Framed<Ground, Point2<f32>>>,
+    HashSet<Framed<Pixel, Point2<u16>>>,
+) {
     let (line_points, used_vertical_filtered_segments) = filtered_segments
         .scan_grid
         .vertical_scan_lines
@@ -326,9 +335,9 @@ fn filter_segments_for_lines(
             let center = (segment.start + segment.end) as f32 / 2.0;
             Some((
                 camera_matrix
-                    .pixel_to_ground(point![scan_line_position as f32, center])
+                    .pixel_to_ground(point![scan_line_position as f32, center].framed())
                     .ok()?,
-                point![scan_line_position, segment.start],
+                point![scan_line_position, segment.start].framed(),
             ))
         })
         .unzip();
@@ -352,8 +361,8 @@ fn is_line_segment(
     let is_too_long = check_line_segments_projection
         && !is_segment_shorter_than(
             camera_matrix,
-            point![scan_line_position as f32, segment.start as f32],
-            point![scan_line_position as f32, segment.end as f32],
+            point![scan_line_position as f32, segment.start as f32].framed(),
+            point![scan_line_position as f32, segment.end as f32].framed(),
             maximum_projected_segment_length,
         )
         .unwrap_or(false);
@@ -371,8 +380,8 @@ fn is_line_segment(
 
 fn is_segment_shorter_than(
     camera_matrix: &CameraMatrix,
-    segment_start: Point2<f32>,
-    segment_end: Point2<f32>,
+    segment_start: Framed<Pixel, Point2<f32>>,
+    segment_end: Framed<Pixel, Point2<f32>>,
     maximum_projected_segment_length: f32,
 ) -> Option<bool> {
     let start_robot_coordinates = camera_matrix.pixel_to_ground(segment_start).ok()?;
@@ -385,6 +394,7 @@ fn is_segment_shorter_than(
 
 #[cfg(test)]
 mod tests {
+    use coordinate_systems::IntoTransform;
     use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
 
     use super::*;
@@ -399,16 +409,17 @@ mod tests {
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
                 translation: Translation::from(point![0.0, 0.0, 0.5]),
-            },
-            Isometry3::identity(),
-            Isometry3::identity(),
+            }
+            .framed_transform(),
+            Isometry3::identity().framed_transform(),
+            Isometry3::identity().framed_transform(),
         );
-        let start = point![40.0, 2.0];
-        let end = point![40.0, 202.0];
-        assert!(!is_segment_shorter_than(&camera_matrix, start, end, 0.3).unwrap_or(false));
-        let start2 = point![40.0, 364.0];
-        let end2 = point![40.0, 366.0];
-        assert!(is_segment_shorter_than(&camera_matrix, start2, end2, 0.3).unwrap_or(false));
+        let start = point![40.0, 2.0].framed();
+        let end = point![40.0, 202.0].framed();
+        assert!(!is_segment_shorter_than(&camera_matrix, start, end, 0.3).unwrap());
+        let start2 = point![40.0, 364.0].framed();
+        let end2 = point![40.0, 366.0].framed();
+        assert!(is_segment_shorter_than(&camera_matrix, start2, end2, 0.3).unwrap());
     }
 
     #[test]

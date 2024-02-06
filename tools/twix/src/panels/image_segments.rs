@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use communication::client::CyclerOutput;
+use coordinate_systems::IntoFramed;
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},
@@ -10,6 +11,7 @@ use serde_json::Value;
 use types::{
     camera_position::CameraPosition,
     color::{Rgb, RgbChannel},
+    coordinate_systems::Pixel,
     image_segments::ImageSegments,
 };
 
@@ -132,7 +134,7 @@ impl Widget for &mut ImageSegmentsPanel {
             Err(error) => return ui.label(format!("{error:?}")),
         };
 
-        let (mut response, painter) = TwixPainter::allocate_new(ui);
+        let (mut response, painter) = TwixPainter::<Pixel>::allocate_new(ui);
         let painter = painter.with_camera(
             vector![640.0, 480.0],
             Similarity2::identity(),
@@ -140,8 +142,8 @@ impl Widget for &mut ImageSegmentsPanel {
         );
         if let Some(hover_pos) = response.hover_pos() {
             let image_coords = painter.transform_pixel_to_world(hover_pos);
-            let x = image_coords.x.round() as u16;
-            let y = image_coords.y.round() as u16;
+            let x = image_coords.x().round() as u16;
+            let y = image_coords.y().round() as u16;
             if let Some(scanline) = image_segments
                 .scan_grid
                 .vertical_scan_lines
@@ -173,8 +175,8 @@ impl Widget for &mut ImageSegmentsPanel {
             for segment in scanline.segments {
                 let ycbcr_color = segment.color;
                 let rgb_color = Rgb::from(ycbcr_color);
-                let start = point![x, segment.start as f32];
-                let end = point![x, segment.end as f32];
+                let start = point![x, segment.start as f32].framed();
+                let end = point![x, segment.end as f32].framed();
                 let original_color = Color32::from_rgb(rgb_color.r, rgb_color.g, rgb_color.b);
                 let medium_color = Color32::LIGHT_YELLOW;
                 let high_color = Color32::YELLOW;
@@ -203,8 +205,8 @@ impl Widget for &mut ImageSegmentsPanel {
                 };
                 painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
                 painter.line_segment(
-                    start - vector![1.0, 0.0],
-                    start + vector![1.0, 0.0],
+                    start - vector![1.0, 0.0].framed(),
+                    start + vector![1.0, 0.0].framed(),
                     Stroke::new(1.0, Color32::from_rgb(0, 0, 255)),
                 );
             }

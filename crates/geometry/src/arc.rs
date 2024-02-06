@@ -1,6 +1,7 @@
 use std::f32::consts::TAU;
 
 use approx::{AbsDiffEq, RelativeEq};
+use coordinate_systems::Framed;
 use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -8,13 +9,16 @@ use serialize_hierarchy::SerializeHierarchy;
 use crate::{circle::Circle, orientation::Orientation};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub struct Arc {
-    pub circle: Circle,
-    pub start: Point2<f32>,
-    pub end: Point2<f32>,
+pub struct Arc<Frame> {
+    pub circle: Circle<Frame>,
+    pub start: Framed<Frame, Point2<f32>>,
+    pub end: Framed<Frame, Point2<f32>>,
 }
 
-impl AbsDiffEq for Arc {
+impl<Frame> AbsDiffEq for Arc<Frame>
+where
+    Frame: AbsDiffEq,
+{
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -28,7 +32,10 @@ impl AbsDiffEq for Arc {
     }
 }
 
-impl RelativeEq for Arc {
+impl<Frame> RelativeEq for Arc<Frame>
+where
+    Frame: RelativeEq,
+{
     fn default_max_relative() -> f32 {
         f32::default_max_relative()
     }
@@ -46,8 +53,12 @@ impl RelativeEq for Arc {
     }
 }
 
-impl Arc {
-    pub fn new(circle: Circle, start: Point2<f32>, end: Point2<f32>) -> Self {
+impl<Frame> Arc<Frame> {
+    pub fn new(
+        circle: Circle<Frame>,
+        start: Framed<Frame, Point2<f32>>,
+        end: Framed<Frame, Point2<f32>>,
+    ) -> Self {
         Self { circle, start, end }
     }
 
@@ -55,8 +66,8 @@ impl Arc {
         let vector_start = self.start - self.circle.center;
         let vector_end = self.end - self.circle.center;
 
-        let angle_x_axis_to_start = vector_start.y.atan2(vector_start.x);
-        let mut angle = vector_end.y.atan2(vector_end.x) - angle_x_axis_to_start;
+        let angle_x_axis_to_start = vector_start.y().atan2(vector_start.x());
+        let mut angle = vector_end.y().atan2(vector_end.x()) - angle_x_axis_to_start;
 
         if (orientation == Orientation::Clockwise) && (angle > 0.0) {
             angle -= TAU;
@@ -74,30 +85,33 @@ mod tests {
     use std::f32::consts::PI;
 
     use approx::assert_relative_eq;
+    use coordinate_systems::IntoFramed;
     use nalgebra::{point, vector, UnitComplex};
 
     use super::*;
 
+    struct SomeFrame;
+
     #[test]
     fn arc_cost_90_degrees() {
-        let arc = Arc {
+        let arc = Arc::<SomeFrame> {
             circle: Circle {
-                center: point![1.0, 1.0],
+                center: point![1.0, 1.0].framed(),
                 radius: 2.0,
             },
-            start: point![1.0, 2.0],
-            end: point![2.0, 1.0],
+            start: point![1.0, 2.0].framed(),
+            end: point![2.0, 1.0].framed(),
         };
         assert_relative_eq!(arc.length(Orientation::Clockwise), PI);
         assert_relative_eq!(arc.length(Orientation::Counterclockwise), 3.0 * PI);
 
-        let arc = Arc {
+        let arc = Arc::<SomeFrame> {
             circle: Circle {
-                center: point![1.0, 1.0],
+                center: point![1.0, 1.0].framed(),
                 radius: 2.0,
             },
-            start: point![2.0, 1.0],
-            end: point![1.0, 2.0],
+            start: point![2.0, 1.0].framed(),
+            end: point![1.0, 2.0].framed(),
         };
         assert_relative_eq!(arc.length(Orientation::Clockwise), 3.0 * PI);
         assert_relative_eq!(arc.length(Orientation::Counterclockwise), PI);
@@ -109,11 +123,12 @@ mod tests {
             let angle = angle_index as f32 / 100.0 * TAU;
             for angle_distance_index in 1..100 {
                 let angle_distance = angle_distance_index as f32 / 100.0 * TAU;
-                let start = UnitComplex::from_angle(angle) * vector![1.0, 0.0];
-                let end = UnitComplex::from_angle(angle + angle_distance) * vector![1.0, 0.0];
-                let center = point![PI, 4.20];
+                let start = (UnitComplex::from_angle(angle) * vector![1.0, 0.0]).framed();
+                let end =
+                    (UnitComplex::from_angle(angle + angle_distance) * vector![1.0, 0.0]).framed();
+                let center = point![PI, 4.20].framed();
                 let radius = 5.0;
-                let arc = Arc {
+                let arc = Arc::<SomeFrame> {
                     circle: Circle { center, radius },
                     start: center + start,
                     end: center + end,

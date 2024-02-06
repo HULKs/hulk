@@ -1,12 +1,16 @@
+use coordinate_systems::Transform;
 use nalgebra::{vector, Isometry2, Matrix3, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
+use crate::{
+    coordinate_systems::{Field, Ground},
+    multivariate_normal_distribution::MultivariateNormalDistribution,
+};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Update {
-    pub robot_to_field: Isometry2<f32>,
+    pub ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
     pub line_center_point: Point2<f32>,
     pub fit_error: f32,
     pub number_of_measurements_weight: f32,
@@ -21,13 +25,17 @@ pub struct ScoredPose {
 }
 
 impl ScoredPose {
-    pub fn from_isometry(pose: Isometry2<f32>, covariance: Matrix3<f32>, score: f32) -> Self {
+    pub fn from_isometry(
+        pose: Transform<Ground, Field, Isometry2<f32>>,
+        covariance: Matrix3<f32>,
+        score: f32,
+    ) -> Self {
         Self {
             state: MultivariateNormalDistribution {
                 mean: vector![
-                    pose.translation.x,
-                    pose.translation.y,
-                    pose.rotation.angle()
+                    pose.inner.translation.x,
+                    pose.inner.translation.y,
+                    pose.inner.rotation.angle()
                 ],
                 covariance,
             },

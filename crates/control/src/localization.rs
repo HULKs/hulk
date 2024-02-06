@@ -6,6 +6,7 @@ use std::{
 use approx::assert_relative_eq;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
+use coordinate_systems::{IntoFramed, IntoTransform, Transform};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use nalgebra::{
@@ -16,6 +17,7 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
+    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -46,9 +48,10 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    correspondence_lines: AdditionalOutput<Vec<Line2>, "localization.correspondence_lines">,
+    correspondence_lines: AdditionalOutput<Vec<Line2<Field>>, "localization.correspondence_lines">,
     fit_errors: AdditionalOutput<Vec<Vec<Vec<Vec<f32>>>>, "localization.fit_errors">,
-    measured_lines_in_field: AdditionalOutput<Vec<Line2>, "localization.measured_lines_in_field">,
+    measured_lines_in_field:
+        AdditionalOutput<Vec<Line2<Field>>, "localization.measured_lines_in_field">,
     pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
     updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
 
@@ -84,23 +87,23 @@ pub struct CycleContext {
     player_number: Parameter<PlayerNumber, "player_number">,
     score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
     use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
-    injected_robot_to_field_of_home_after_coin_toss_before_second_half: Parameter<
-        Option<Isometry2<f32>>,
-        "injected_robot_to_field_of_home_after_coin_toss_before_second_half?",
+    injected_ground_to_field_of_home_after_coin_toss_before_second_half: Parameter<
+        Option<Transform<Ground, Field, Isometry2<f32>>>,
+        "injected_ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
 
     line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
-    robot_to_field: CyclerState<Isometry2<f32>, "robot_to_field">,
+    ground_to_field: CyclerState<Transform<Ground, Field, Isometry2<f32>>, "ground_to_field">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_to_field: MainOutput<Option<Isometry2<f32>>>,
-    pub robot_to_field_of_home_after_coin_toss_before_second_half:
-        MainOutput<Option<Isometry2<f32>>>,
+    pub ground_to_field: MainOutput<Option<Transform<Ground, Field, Isometry2<f32>>>>,
+    pub ground_to_field_of_home_after_coin_toss_before_second_half:
+        MainOutput<Option<Transform<Ground, Field, Isometry2<f32>>>>,
 }
 
 impl Localization {
@@ -151,7 +154,8 @@ impl Localization {
                     -context.field_dimensions.penalty_area_length
                         + (context.field_dimensions.length / 2.0),
                     0.0,
-                );
+                )
+                .framed_transform();
                 self.hypotheses = vec![ScoredPose::from_isometry(
                     penalty_shoot_out_striker_pose,
                     *context.initial_hypothesis_covariance,
@@ -167,7 +171,8 @@ impl Localization {
                 }),
             ) => {
                 let penalty_shoot_out_keeper_pose =
-                    Isometry2::translation(-context.field_dimensions.length / 2.0, 0.0);
+                    Isometry2::translation(-context.field_dimensions.length / 2.0, 0.0)
+                        .framed_transform();
                 self.hypotheses = vec![ScoredPose::from_isometry(
                     penalty_shoot_out_keeper_pose,
                     *context.initial_hypothesis_covariance,
@@ -275,17 +280,17 @@ impl Localization {
                     scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
                 }
                 if *context.use_line_measurements {
-                    let robot_to_field = scored_state.state.as_isometry();
+                    let ground_to_field = scored_state.state.as_isometry();
                     let current_measured_lines_in_field: Vec<_> = line_data_top
                         .iter()
                         .chain(line_data_bottom.iter())
                         .filter_map(|data| data.as_ref())
                         .flat_map(|line_data| {
                             line_data
-                                .lines_in_robot
+                                .lines_in_ground
                                 .iter()
                                 .map(|&measured_line_in_robot| {
-                                    robot_to_field * measured_line_in_robot
+                                    ground_to_field.framed_transform() * measured_line_in_robot
                                 })
                         })
                         .collect();
@@ -324,12 +329,12 @@ impl Localization {
                                         field_mark_correspondence.correspondence_points.1;
                                     [
                                         Line(
-                                            correspondence_points_0.measured,
-                                            correspondence_points_0.reference,
+                                            correspondence_points_0.measured.framed(),
+                                            correspondence_points_0.reference.framed(),
                                         ),
                                         Line(
-                                            correspondence_points_1.measured,
-                                            correspondence_points_1.reference,
+                                            correspondence_points_1.measured.framed(),
+                                            correspondence_points_1.reference.framed(),
                                         ),
                                     ]
                                 });
@@ -347,11 +352,11 @@ impl Localization {
                     for field_mark_correspondence in field_mark_correspondences {
                         let update = match field_mark_correspondence.field_mark {
                             FieldMark::Line { .. } => get_translation_and_rotation_measurement(
-                                robot_to_field,
+                                ground_to_field,
                                 field_mark_correspondence,
                             ),
                             FieldMark::Circle { .. } => get_2d_translation_measurement(
-                                robot_to_field,
+                                ground_to_field,
                                 field_mark_correspondence,
                             ),
                         };
@@ -361,33 +366,43 @@ impl Localization {
                         } else {
                             1.0 / line_length
                         };
-                        let line_center_point =
-                            field_mark_correspondence.measured_line_in_field.center();
-                        let line_distance_to_robot = distance(
-                            &line_center_point,
-                            &Point2::from(robot_to_field.translation.vector),
-                        );
+                        let line_center_point = field_mark_correspondence
+                            .measured_line_in_field
+                            .center()
+                            .inner;
+                        let line_distance_to_robot =
+                            distance(&line_center_point, &(ground_to_field * Point2::origin()));
                         context.updates.mutate_if_subscribed(|updates| {
                             if let Some(updates) = updates {
                                 updates[hypothesis_index].push({
-                                    let robot_to_field = match field_mark_correspondence.field_mark
-                                    {
-                                        FieldMark::Line { line: _, direction } => match direction {
-                                            Direction::PositiveX => Isometry2::new(
-                                                vector![robot_to_field.translation.x, update.x],
-                                                update.y,
+                                    let ground_to_field =
+                                        match field_mark_correspondence.field_mark {
+                                            FieldMark::Line { line: _, direction } => {
+                                                match direction {
+                                                    Direction::PositiveX => Isometry2::new(
+                                                        vector![
+                                                            ground_to_field.translation.x,
+                                                            update.x
+                                                        ],
+                                                        update.y,
+                                                    ),
+                                                    Direction::PositiveY => Isometry2::new(
+                                                        vector![
+                                                            update.x,
+                                                            ground_to_field.translation.y
+                                                        ],
+                                                        update.y,
+                                                    ),
+                                                }
+                                            }
+                                            FieldMark::Circle { .. } => Isometry2::new(
+                                                update,
+                                                ground_to_field.rotation.angle(),
                                             ),
-                                            Direction::PositiveY => Isometry2::new(
-                                                vector![update.x, robot_to_field.translation.y],
-                                                update.y,
-                                            ),
-                                        },
-                                        FieldMark::Circle { .. } => {
-                                            Isometry2::new(update, robot_to_field.rotation.angle())
                                         }
-                                    };
+                                        .framed_transform();
                                     Update {
-                                        robot_to_field,
+                                        ground_to_field,
                                         line_center_point,
                                         fit_error: clamped_fit_error,
                                         number_of_measurements_weight,
@@ -447,7 +462,7 @@ impl Localization {
             .get_best_hypothesis()
             .expect("Expected at least one hypothesis");
         let best_score = best_hypothesis.score;
-        let robot_to_field = best_hypothesis.state.as_isometry();
+        let ground_to_field = best_hypothesis.state.as_isometry();
         self.hypotheses.retain(|scored_state| {
             scored_state.score >= *context.hypothesis_retain_factor * best_score
         });
@@ -459,7 +474,7 @@ impl Localization {
             .fit_errors
             .fill_if_subscribed(|| fit_errors_per_measurement);
 
-        *context.robot_to_field = robot_to_field;
+        *context.ground_to_field = ground_to_field.framed_transform();
 
         Ok(())
     }
@@ -482,36 +497,37 @@ impl Localization {
             self.was_picked_up_while_penalized_with_motion_in_set = true;
         }
 
-        let robot_to_field = match primary_state {
+        let ground_to_field = match primary_state {
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
                 self.update_state(&mut context)?;
-                Some(*context.robot_to_field)
+                Some(*context.ground_to_field)
             }
             _ => None,
         };
-        let robot_to_field_of_home_after_coin_toss_before_second_half = context
-            .injected_robot_to_field_of_home_after_coin_toss_before_second_half
+        let ground_to_field_of_home_after_coin_toss_before_second_half = context
+            .injected_ground_to_field_of_home_after_coin_toss_before_second_half
             .copied()
             .or_else(|| {
-                robot_to_field
-                    .and_then(|robot_to_field| {
-                        Some((robot_to_field, context.filtered_game_controller_state?))
+                ground_to_field
+                    .and_then(|ground_to_field| {
+                        Some((ground_to_field, context.filtered_game_controller_state?))
                     })
-                    .map(|(robot_to_field, game_controller_state)| {
+                    .map(|(ground_to_field, game_controller_state)| {
                         if !game_controller_state.own_team_is_home_after_coin_toss {
-                            Isometry2::from_parts(
+                            (Isometry2::from_parts(
                                 Translation2::default(),
                                 Rotation2::new(PI).into(),
-                            ) * robot_to_field
+                            ) * ground_to_field.inner)
+                                .framed_transform()
                         } else {
-                            robot_to_field
+                            ground_to_field
                         }
                     })
             });
         Ok(MainOutputs {
-            robot_to_field: robot_to_field.into(),
-            robot_to_field_of_home_after_coin_toss_before_second_half:
-                robot_to_field_of_home_after_coin_toss_before_second_half.into(),
+            ground_to_field: ground_to_field.into(),
+            ground_to_field_of_home_after_coin_toss_before_second_half:
+                ground_to_field_of_home_after_coin_toss_before_second_half.into(),
         })
     }
 
@@ -533,11 +549,13 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
                 point![
                     -field_dimensions.length / 2.0 - goal_depth,
                     -goal_width / 2.0
-                ],
+                ]
+                .framed(),
                 point![
                     -field_dimensions.length / 2.0 - goal_depth,
                     goal_width / 2.0
-                ],
+                ]
+                .framed(),
             ),
             direction: Direction::PositiveY,
         },
@@ -546,8 +564,9 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
                 point![
                     -field_dimensions.length / 2.0 - goal_depth,
                     -goal_width / 2.0
-                ],
-                point![-field_dimensions.length / 2.0, -goal_width / 2.0],
+                ]
+                .framed(),
+                point![-field_dimensions.length / 2.0, -goal_width / 2.0].framed(),
             ),
             direction: Direction::PositiveX,
         },
@@ -556,8 +575,9 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
                 point![
                     -field_dimensions.length / 2.0 - goal_depth,
                     goal_width / 2.0
-                ],
-                point![-field_dimensions.length / 2.0, goal_width / 2.0],
+                ]
+                .framed(),
+                point![-field_dimensions.length / 2.0, goal_width / 2.0].framed(),
             ),
             direction: Direction::PositiveX,
         },
@@ -566,25 +586,27 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
                 point![
                     field_dimensions.length / 2.0 + goal_depth,
                     -goal_width / 2.0
-                ],
-                point![field_dimensions.length / 2.0 + goal_depth, goal_width / 2.0],
+                ]
+                .framed(),
+                point![field_dimensions.length / 2.0 + goal_depth, goal_width / 2.0].framed(),
             ),
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
             line: Line(
-                point![field_dimensions.length / 2.0, -goal_width / 2.0],
+                point![field_dimensions.length / 2.0, -goal_width / 2.0].framed(),
                 point![
                     field_dimensions.length / 2.0 + goal_depth,
                     -goal_width / 2.0
-                ],
+                ]
+                .framed(),
             ),
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
             line: Line(
-                point![field_dimensions.length / 2.0, goal_width / 2.0],
-                point![field_dimensions.length / 2.0 + goal_depth, goal_width / 2.0],
+                point![field_dimensions.length / 2.0, goal_width / 2.0].framed(),
+                point![field_dimensions.length / 2.0 + goal_depth, goal_width / 2.0].framed(),
             ),
             direction: Direction::PositiveX,
         },
@@ -593,7 +615,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
 
 #[derive(Clone, Copy, Debug)]
 pub struct FieldMarkCorrespondence {
-    measured_line_in_field: Line2,
+    measured_line_in_field: Line2<Field>,
     field_mark: FieldMark,
     pub correspondence_points: (CorrespondencePoints, CorrespondencePoints),
 }
@@ -638,7 +660,7 @@ fn predict(
 
 #[allow(clippy::too_many_arguments)]
 pub fn get_fitted_field_mark_correspondence(
-    measured_lines_in_field: &[Line2],
+    measured_lines_in_field: &[Line2<Field>],
     field_marks: &[FieldMark],
     gradient_convergence_threshold: f32,
     gradient_descent_step_size: f32,
@@ -700,7 +722,7 @@ pub fn get_fitted_field_mark_correspondence(
                 .sum::<f32>()
                 / correspondence_points.len() as f32;
             correction = Isometry2::new(
-                correction.translation.vector - gradient_descent_step_size * translation_gradient,
+                correction.translation.vector - (gradient_descent_step_size * translation_gradient),
                 rotation - gradient_descent_step_size * rotation_gradient,
             );
             if fit_errors_is_subscribed {
@@ -768,7 +790,7 @@ fn get_fit_error(
 }
 
 fn get_field_mark_correspondence(
-    measured_lines_in_field: &[Line2],
+    measured_lines_in_field: &[Line2<Field>],
     correction: Isometry2<f32>,
     field_marks: &[FieldMark],
     line_length_acceptance_factor: f32,
@@ -779,7 +801,7 @@ fn get_field_mark_correspondence(
             let (correspondences, _weight, field_mark, transformed_line) = field_marks
                 .iter()
                 .filter_map(|field_mark| {
-                    let transformed_line = correction * measured_line_in_field;
+                    let transformed_line = correction.framed_transform() * measured_line_in_field;
                     let field_mark_length = match field_mark {
                         FieldMark::Line { line, direction: _ } => line.length(),
                         FieldMark::Circle { center: _, radius } => *radius, // approximation
@@ -832,7 +854,8 @@ fn get_field_mark_correspondence(
                 )?;
             let inverse_transformation = correction.inverse();
             Some(FieldMarkCorrespondence {
-                measured_line_in_field: inverse_transformation * transformed_line,
+                measured_line_in_field: inverse_transformation.framed_transform()
+                    * transformed_line,
                 field_mark: *field_mark,
                 correspondence_points: (
                     CorrespondencePoints {
@@ -866,7 +889,7 @@ fn get_correspondence_points(
 }
 
 fn get_translation_and_rotation_measurement(
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Isometry2<f32>,
     field_mark_correspondence: FieldMarkCorrespondence,
 ) -> Vector2<f32> {
     let (field_mark_line, field_mark_line_direction) = match field_mark_correspondence.field_mark {
@@ -875,8 +898,8 @@ fn get_translation_and_rotation_measurement(
     };
     let measured_line_in_field = match field_mark_line_direction {
         Direction::PositiveX
-            if field_mark_correspondence.measured_line_in_field.1.x
-                < field_mark_correspondence.measured_line_in_field.0.x =>
+            if field_mark_correspondence.measured_line_in_field.1.x()
+                < field_mark_correspondence.measured_line_in_field.0.x() =>
         {
             Line(
                 field_mark_correspondence.measured_line_in_field.1,
@@ -884,8 +907,8 @@ fn get_translation_and_rotation_measurement(
             )
         }
         Direction::PositiveY
-            if field_mark_correspondence.measured_line_in_field.1.y
-                < field_mark_correspondence.measured_line_in_field.0.y =>
+            if field_mark_correspondence.measured_line_in_field.1.y()
+                < field_mark_correspondence.measured_line_in_field.0.y() =>
         {
             Line(
                 field_mark_correspondence.measured_line_in_field.1,
@@ -896,36 +919,36 @@ fn get_translation_and_rotation_measurement(
     };
     let measured_line_in_field_vector = measured_line_in_field.1 - measured_line_in_field.0;
     let signed_distance_to_line = measured_line_in_field
-        .signed_distance_to_point(Point2::from(robot_to_field.translation.vector));
+        .signed_distance_to_point((ground_to_field * Point2::origin()).framed());
     match field_mark_line_direction {
         Direction::PositiveX => {
             vector![
-                field_mark_line.0.y + signed_distance_to_line,
-                (-measured_line_in_field_vector.y).atan2(measured_line_in_field_vector.x)
-                    + robot_to_field.rotation.angle()
+                field_mark_line.0.y() + signed_distance_to_line,
+                (-measured_line_in_field_vector.y()).atan2(measured_line_in_field_vector.x())
+                    + ground_to_field.rotation.angle()
             ]
         }
         Direction::PositiveY => {
             vector![
-                field_mark_line.0.x - signed_distance_to_line,
+                field_mark_line.0.x() - signed_distance_to_line,
                 measured_line_in_field_vector
-                    .x
-                    .atan2(measured_line_in_field_vector.y)
-                    + robot_to_field.rotation.angle()
+                    .x()
+                    .atan2(measured_line_in_field_vector.y())
+                    + ground_to_field.rotation.angle()
             ]
         }
     }
 }
 
 fn get_2d_translation_measurement(
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Isometry2<f32>,
     field_mark_correspondence: FieldMarkCorrespondence,
 ) -> Vector2<f32> {
     let measured_line_vector = field_mark_correspondence.correspondence_points.1.measured
         - field_mark_correspondence.correspondence_points.0.measured;
     let reference_line_vector = field_mark_correspondence.correspondence_points.1.reference
         - field_mark_correspondence.correspondence_points.0.reference;
-    let measured_line_point_0_to_robot_vector = Point2::from(robot_to_field.translation.vector)
+    let measured_line_point_0_to_robot_vector = Point2::from(ground_to_field.translation.vector)
         - field_mark_correspondence.correspondence_points.0.measured;
     // Signed angle between two vectors: https://wumbo.net/formula/angle-between-two-vectors-2d/
     let measured_rotation = f32::atan2(
@@ -946,7 +969,7 @@ fn get_2d_translation_measurement(
 pub fn generate_initial_pose(
     initial_pose: &InitialPose,
     field_dimensions: &FieldDimensions,
-) -> Isometry2<f32> {
+) -> Transform<Ground, Field, Isometry2<f32>> {
     match initial_pose.side {
         Side::Left => Isometry2::new(
             vector!(
@@ -963,9 +986,12 @@ pub fn generate_initial_pose(
             FRAC_PI_2,
         ),
     }
+    .framed_transform()
 }
 
-fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Isometry2<f32>> {
+fn generate_penalized_poses(
+    field_dimensions: &FieldDimensions,
+) -> Vec<Transform<Ground, Field, Isometry2<f32>>> {
     vec![
         Isometry2::new(
             vector!(
@@ -973,14 +999,16 @@ fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Isometry2
                 -field_dimensions.width * 0.5
             ),
             FRAC_PI_2,
-        ),
+        )
+        .framed_transform(),
         Isometry2::new(
             vector!(
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
                 field_dimensions.width * 0.5
             ),
             -FRAC_PI_2,
-        ),
+        )
+        .framed_transform(),
     ]
 }
 
@@ -988,6 +1016,7 @@ fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Isometry2
 mod tests {
     use std::f32::consts::FRAC_PI_4;
 
+    use coordinate_systems::Framed;
     use nalgebra::point;
 
     use super::*;
@@ -1004,11 +1033,11 @@ mod tests {
 
     #[test]
     fn fitting_line_results_in_zero_measurement() {
-        let robot_to_field = Isometry2::identity();
+        let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 0.0], point![0.0, 1.0]),
+            measured_line_in_field: Line(point![0.0, 0.0].framed(), point![0.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1023,13 +1052,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 1.0], point![0.0, 0.0]),
+            measured_line_in_field: Line(point![0.0, 1.0].framed(), point![0.0, 0.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1044,13 +1073,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 0.0], point![1.0, 0.0]),
+            measured_line_in_field: Line(point![0.0, 0.0].framed(), point![1.0, 0.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1065,13 +1094,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 0.0], point![0.0, 0.0]),
+            measured_line_in_field: Line(point![1.0, 0.0].framed(), point![0.0, 0.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1086,17 +1115,17 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, Vector2::zeros());
     }
 
     #[test]
     fn translated_line_results_in_translation_measurement() {
-        let robot_to_field = Isometry2::identity();
+        let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 0.0], point![1.0, 1.0]),
+            measured_line_in_field: Line(point![1.0, 0.0].framed(), point![1.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1111,13 +1140,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![1.0, 0.0]),
+            measured_line_in_field: Line(point![1.0, 1.0].framed(), point![1.0, 0.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1132,13 +1161,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 0.0], point![-1.0, 1.0]),
+            measured_line_in_field: Line(point![-1.0, 0.0].framed(), point![-1.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1153,13 +1182,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 1.0], point![-1.0, 0.0]),
+            measured_line_in_field: Line(point![-1.0, 1.0].framed(), point![-1.0, 0.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1174,13 +1203,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 1.0], point![1.0, 1.0]),
+            measured_line_in_field: Line(point![0.0, 1.0].framed(), point![1.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1195,13 +1224,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![0.0, 1.0]),
+            measured_line_in_field: Line(point![1.0, 1.0].framed(), point![0.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1216,13 +1245,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, -1.0], point![1.0, -1.0]),
+            measured_line_in_field: Line(point![0.0, -1.0].framed(), point![1.0, -1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1237,13 +1266,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, -1.0], point![0.0, -1.0]),
+            measured_line_in_field: Line(point![1.0, -1.0].framed(), point![0.0, -1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1258,17 +1287,17 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![1.0, 0.0]);
     }
 
     #[test]
     fn rotated_line_results_in_rotation_measurement() {
-        let robot_to_field = Isometry2::identity();
+        let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, -1.0], point![1.0, 1.0]),
+            measured_line_in_field: Line(point![-1.0, -1.0].framed(), point![1.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1283,13 +1312,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![-1.0, -1.0]),
+            measured_line_in_field: Line(point![1.0, 1.0].framed(), point![-1.0, -1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1304,13 +1333,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 1.0], point![1.0, -1.0]),
+            measured_line_in_field: Line(point![-1.0, 1.0].framed(), point![1.0, -1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1325,13 +1354,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, -1.0], point![-1.0, 1.0]),
+            measured_line_in_field: Line(point![1.0, -1.0].framed(), point![-1.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: Line(point![0.0, -3.0].framed(), point![0.0, 3.0].framed()),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1346,13 +1375,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, -1.0], point![1.0, 1.0]),
+            measured_line_in_field: Line(point![-1.0, -1.0].framed(), point![1.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1367,13 +1396,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![-1.0, -1.0]),
+            measured_line_in_field: Line(point![1.0, 1.0].framed(), point![-1.0, -1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1388,13 +1417,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 1.0], point![1.0, -1.0]),
+            measured_line_in_field: Line(point![-1.0, 1.0].framed(), point![1.0, -1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1409,13 +1438,13 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, -1.0], point![-1.0, 1.0]),
+            measured_line_in_field: Line(point![1.0, -1.0].framed(), point![-1.0, 1.0].framed()),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: Line(point![-3.0, 0.0].framed(), point![3.0, 0.0].framed()),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1430,7 +1459,7 @@ mod tests {
             ),
         };
         let update =
-            get_translation_and_rotation_measurement(robot_to_field, field_mark_correspondence);
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, FRAC_PI_4]);
     }
 
@@ -1438,9 +1467,9 @@ mod tests {
     fn correct_correspondence_points() {
         let line_length_acceptance_factor = 1.5;
 
-        let measured_lines_in_field = [Line(point![0.0, 0.0], point![1.0, 0.0])];
+        let measured_lines_in_field = [Line(point![0.0, 0.0].framed(), point![1.0, 0.0].framed())];
         let field_marks = [FieldMark::Line {
-            line: Line(point![0.0, 0.0], point![1.0, 0.0]),
+            line: Line(point![0.0, 0.0].framed(), point![1.0, 0.0].framed()),
             direction: Direction::PositiveX,
         }];
         let correspondences = get_field_mark_correspondence(
@@ -1467,9 +1496,9 @@ mod tests {
             point![1.0, 0.0]
         );
 
-        let measured_lines_in_field = [Line(point![0.0, 0.0], point![1.0, 0.0])];
+        let measured_lines_in_field = [Line(point![0.0, 0.0].framed(), point![1.0, 0.0].framed())];
         let field_marks = [FieldMark::Line {
-            line: Line(point![0.0, 1.0], point![1.0, 1.0]),
+            line: Line(point![0.0, 1.0].framed(), point![1.0, 1.0].framed()),
             direction: Direction::PositiveX,
         }];
         let correspondences = get_field_mark_correspondence(
@@ -1496,9 +1525,9 @@ mod tests {
             point![1.0, 1.0]
         );
 
-        let measured_lines_in_field = [Line(point![0.0, 0.0], point![1.0, 0.0])];
+        let measured_lines_in_field = [Line(point![0.0, 0.0].framed(), point![1.0, 0.0].framed())];
         let field_marks = [FieldMark::Line {
-            line: Line(point![0.0, 0.0], point![1.0, 0.0]),
+            line: Line(point![0.0, 0.0].framed(), point![1.0, 0.0].framed()),
             direction: Direction::PositiveX,
         }];
         let correspondences = get_field_mark_correspondence(
@@ -1528,11 +1557,11 @@ mod tests {
 
     #[test]
     fn circle_mark_correspondence_translates() {
-        let robot_to_field = Isometry2::identity();
+        let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
             field_mark: FieldMark::Circle {
-                center: Point2::origin(),
+                center: Framed::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1546,13 +1575,13 @@ mod tests {
                 },
             ),
         };
-        let update = get_2d_translation_measurement(robot_to_field, field_mark_correspondence);
+        let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
             field_mark: FieldMark::Circle {
-                center: Point2::origin(),
+                center: Framed::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1566,13 +1595,13 @@ mod tests {
                 },
             ),
         };
-        let update = get_2d_translation_measurement(robot_to_field, field_mark_correspondence);
+        let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, -1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
             field_mark: FieldMark::Circle {
-                center: Point2::origin(),
+                center: Framed::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1586,13 +1615,13 @@ mod tests {
                 },
             ),
         };
-        let update = get_2d_translation_measurement(robot_to_field, field_mark_correspondence);
+        let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, 1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
             field_mark: FieldMark::Circle {
-                center: Point2::origin(),
+                center: Framed::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1606,13 +1635,13 @@ mod tests {
                 },
             ),
         };
-        let update = get_2d_translation_measurement(robot_to_field, field_mark_correspondence);
+        let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![-1.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
             field_mark: FieldMark::Circle {
-                center: Point2::origin(),
+                center: Framed::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1626,13 +1655,13 @@ mod tests {
                 },
             ),
         };
-        let update = get_2d_translation_measurement(robot_to_field, field_mark_correspondence);
+        let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![1.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
             field_mark: FieldMark::Circle {
-                center: Point2::origin(),
+                center: Framed::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1646,13 +1675,13 @@ mod tests {
                 },
             ),
         };
-        let update = get_2d_translation_measurement(robot_to_field, field_mark_correspondence);
+        let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![-1.0, -1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
             field_mark: FieldMark::Circle {
-                center: Point2::origin(),
+                center: Framed::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1666,7 +1695,7 @@ mod tests {
                 },
             ),
         };
-        let update = get_2d_translation_measurement(robot_to_field, field_mark_correspondence);
+        let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, vector![0.0, -2.0], epsilon = 0.0001);
     }
 }

@@ -1,6 +1,9 @@
+use coordinate_systems::Framed;
 use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
+
+use crate::coordinate_systems::Field;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct FieldDimensions {
@@ -22,12 +25,12 @@ pub struct FieldDimensions {
 }
 
 impl FieldDimensions {
-    pub fn is_inside_field(&self, position: Point2<f32>) -> bool {
-        position.x.abs() < self.length / 2.0 && position.y.abs() < self.width / 2.0
+    pub fn is_inside_field(&self, position: Framed<Field, Point2<f32>>) -> bool {
+        position.inner.x.abs() < self.length / 2.0 && position.inner.y.abs() < self.width / 2.0
     }
 
-    pub fn is_inside_any_goal_box(&self, position: Point2<f32>) -> bool {
-        position.x.abs() > self.length / 2.0 - self.goal_box_area_length
-            && position.y.abs() < self.goal_box_area_width / 2.0
+    pub fn is_inside_any_goal_box(&self, position: Framed<Field, Point2<f32>>) -> bool {
+        position.inner.x.abs() > self.length / 2.0 - self.goal_box_area_length
+            && position.inner.y.abs() < self.goal_box_area_width / 2.0
     }
 }
