@@ -148,6 +148,18 @@ impl<Frame> TwixPainter<Frame> {
         )));
     }
 
+    pub fn polygon(&self, points: &[Framed<Frame, Point2<f32>>], stroke: Stroke) {
+        let points: Vec<_> = points
+            .iter()
+            .map(|point| self.transform_world_to_pixel(*point))
+            .collect();
+        self.painter.add(Shape::Path(PathShape::convex_polygon(
+            points,
+            Color32::TRANSPARENT,
+            stroke,
+        )));
+    }
+
     pub fn transform_world_to_pixel(&self, point: Framed<Frame, Point2<f32>>) -> Pos2 {
         let normalized = self.world_to_pixel
             * point![
