@@ -1,13 +1,13 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Framed, IntoTransform, Transform};
+use coordinate_systems::{Framed, IntoFramed, IntoTransform, Transform};
 use framework::MainOutput;
 use nalgebra::{Isometry3, Matrix2, Point2, Point3};
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
-    coordinate_systems::Robot,
+    coordinate_systems::{LeftElbow, LeftSole, LeftThigh, LeftWrist, Robot},
     limb::{Limb, ProjectedLimbs},
     robot_kinematics::RobotKinematics,
 };
@@ -24,14 +24,20 @@ pub struct CycleContext {
     robot_kinematics: Input<RobotKinematics, "Control", "robot_kinematics">,
 
     enable: Parameter<bool, "projected_limbs.$cycler_instance.enable">,
-    foot_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.foot_bounding_polygon">,
-    knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
-    lower_arm_bounding_polygon:
-        Parameter<Vec<Point3<f32>>, "projected_limbs.lower_arm_bounding_polygon">,
+    sole_bounding_polygon:
+        Parameter<Vec<Framed<LeftSole, Point3<f32>>>, "projected_limbs.foot_bounding_polygon">,
+    thigh_bounding_polygon:
+        Parameter<Vec<Framed<LeftThigh, Point3<f32>>>, "projected_limbs.knee_bounding_polygon">,
+    wrist_bounding_polygon: Parameter<
+        Vec<Framed<LeftWrist, Point3<f32>>>,
+        "projected_limbs.lower_arm_bounding_polygon",
+    >,
     torso_bounding_polygon:
         Parameter<Vec<Framed<Robot, Point3<f32>>>, "projected_limbs.torso_bounding_polygon">,
-    upper_arm_bounding_polygon:
-        Parameter<Vec<Point3<f32>>, "projected_limbs.upper_arm_bounding_polygon">,
+    upper_arm_bounding_polygon: Parameter<
+        Vec<Framed<LeftElbow, Point3<f32>>>,
+        "projected_limbs.upper_arm_bounding_polygon",
+    >,
 }
 
 #[context]
@@ -51,71 +57,71 @@ impl LimbProjector {
                 projected_limbs: Default::default(),
             });
         }
-        // let torso_limb = project_bounding_polygon(
-        //     Isometry3::identity().framed_transform(),
-        //     context.camera_matrix,
-        //     context.torso_bounding_polygon,
-        //     false,
-        // );
-        // let left_lower_arm_limb = project_bounding_polygon(
-        //     context.robot_kinematics.left_wrist_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.lower_arm_bounding_polygon,
-        //     true,
-        // );
-        // let right_lower_arm_limb = project_bounding_polygon(
-        //     context.robot_kinematics.right_wrist_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.lower_arm_bounding_polygon,
-        //     true,
-        // );
-        // let left_upper_arm_limb = project_bounding_polygon(
-        //     context.robot_kinematics.left_elbow_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.upper_arm_bounding_polygon,
-        //     true,
-        // );
-        // let right_upper_arm_limb = project_bounding_polygon(
-        //     context.robot_kinematics.right_elbow_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.upper_arm_bounding_polygon,
-        //     true,
-        // );
-        // let left_knee_limb = project_bounding_polygon(
-        //     context.robot_kinematics.left_thigh_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.knee_bounding_polygon,
-        //     true,
-        // );
-        // let right_knee_limb = project_bounding_polygon(
-        //     context.robot_kinematics.right_thigh_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.knee_bounding_polygon,
-        //     true,
-        // );
-        // let left_foot_limb = project_bounding_polygon(
-        //     context.robot_kinematics.left_sole_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.foot_bounding_polygon,
-        //     true,
-        // );
-        // let right_foot_limb = project_bounding_polygon(
-        //     context.robot_kinematics.right_sole_to_robot.inner,
-        //     context.camera_matrix,
-        //     context.foot_bounding_polygon,
-        //     true,
-        // );
+        let torso_limb = project_bounding_polygon(
+            Isometry3::identity().framed_transform(),
+            context.camera_matrix,
+            context.torso_bounding_polygon,
+            false,
+        );
+        let left_lower_arm_limb = project_bounding_polygon(
+            context.robot_kinematics.left_wrist_to_robot,
+            context.camera_matrix,
+            context.wrist_bounding_polygon,
+            true,
+        );
+        let right_lower_arm_limb = project_bounding_polygon(
+            context.robot_kinematics.right_wrist_to_robot,
+            context.camera_matrix,
+            &mirror_polygon(context.wrist_bounding_polygon),
+            true,
+        );
+        let left_upper_arm_limb = project_bounding_polygon(
+            context.robot_kinematics.left_elbow_to_robot,
+            context.camera_matrix,
+            context.upper_arm_bounding_polygon,
+            true,
+        );
+        let right_upper_arm_limb = project_bounding_polygon(
+            context.robot_kinematics.right_elbow_to_robot,
+            context.camera_matrix,
+            &mirror_polygon(context.upper_arm_bounding_polygon),
+            true,
+        );
+        let left_knee_limb = project_bounding_polygon(
+            context.robot_kinematics.left_thigh_to_robot,
+            context.camera_matrix,
+            context.thigh_bounding_polygon,
+            true,
+        );
+        let right_knee_limb = project_bounding_polygon(
+            context.robot_kinematics.right_thigh_to_robot,
+            context.camera_matrix,
+            &mirror_polygon(context.thigh_bounding_polygon),
+            true,
+        );
+        let left_foot_limb = project_bounding_polygon(
+            context.robot_kinematics.left_sole_to_robot,
+            context.camera_matrix,
+            context.sole_bounding_polygon,
+            true,
+        );
+        let right_foot_limb = project_bounding_polygon(
+            context.robot_kinematics.right_sole_to_robot,
+            context.camera_matrix,
+            &mirror_polygon(context.sole_bounding_polygon),
+            true,
+        );
 
         let limbs = vec![
-            // torso_limb,
-            // left_lower_arm_limb,
-            // right_lower_arm_limb,
-            // left_upper_arm_limb,
-            // right_upper_arm_limb,
-            // left_knee_limb,
-            // right_knee_limb,
-            // left_foot_limb,
-            // right_foot_limb,
+            torso_limb,
+            left_lower_arm_limb,
+            right_lower_arm_limb,
+            left_upper_arm_limb,
+            right_upper_arm_limb,
+            left_knee_limb,
+            right_knee_limb,
+            left_foot_limb,
+            right_foot_limb,
         ];
         Ok(MainOutputs {
             projected_limbs: Some(ProjectedLimbs { limbs }).into(),
@@ -186,4 +192,11 @@ where
         }
     }
     convex_hull
+}
+
+fn mirror_polygon<From, To>(polygon: &[Framed<From, Point3<f32>>]) -> Vec<Framed<To, Point3<f32>>> {
+    polygon
+        .iter()
+        .map(|point| Point3::new(point.x(), -point.y(), point.z()).framed())
+        .collect()
 }
