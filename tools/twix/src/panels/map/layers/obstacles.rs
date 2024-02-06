@@ -24,12 +24,12 @@ impl Layer for Obstacles {
     const NAME: &'static str = "Obstacles";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
+        let ground_to_field =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let obstacles =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.obstacles").unwrap());
         Self {
-            ground_to_field: robot_to_field,
+            ground_to_field,
             obstacles,
         }
     }

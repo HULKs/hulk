@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub struct Lines {
-    robot_to_field: ValueBuffer,
+    ground_to_field: ValueBuffer,
     lines_in_ground_bottom: ValueBuffer,
     lines_in_ground_top: ValueBuffer,
 }
@@ -27,15 +27,15 @@ impl Layer for Lines {
 
     fn new(nao: Arc<Nao>) -> Self {
         let ground_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let lines_in_ground_bottom = nao.subscribe_output(
-            CyclerOutput::from_str("VisionBottom.main.line_data.lines_in_robot").unwrap(),
+            CyclerOutput::from_str("VisionBottom.main.line_data.lines_in_ground").unwrap(),
         );
         let lines_in_ground_top = nao.subscribe_output(
-            CyclerOutput::from_str("VisionTop.main.line_data.lines_in_robot").unwrap(),
+            CyclerOutput::from_str("VisionTop.main.line_data.lines_in_ground").unwrap(),
         );
         Self {
-            robot_to_field: ground_to_field,
+            ground_to_field,
             lines_in_ground_bottom,
             lines_in_ground_top,
         }
@@ -47,7 +47,7 @@ impl Layer for Lines {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
-            self.robot_to_field.parse_latest().unwrap_or_default();
+            self.ground_to_field.parse_latest().unwrap_or_default();
         let lines: Vec<Line2<Ground>> = [&self.lines_in_ground_bottom, &self.lines_in_ground_top]
             .iter()
             .filter_map(|buffer| buffer.parse_latest::<Vec<_>>().ok())

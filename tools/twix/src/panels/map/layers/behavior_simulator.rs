@@ -33,7 +33,7 @@ impl Layer for BehaviorSimulator {
         let ground_to_field = PlayersValueBuffer::try_new(
             nao.clone(),
             "BehaviorSimulator.main.databases",
-            "main_outputs.robot_to_field",
+            "main_outputs.ground_to_field",
         )
         .unwrap();
         let motion_command = PlayersValueBuffer::try_new(

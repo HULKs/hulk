@@ -16,7 +16,7 @@ use types::{
 use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 
 pub struct ImageSegments {
-    robot_to_field: ValueBuffer,
+    ground_to_field: ValueBuffer,
     image_segments_bottom: ValueBuffer,
     camera_matrix_bottom: ValueBuffer,
     image_segments_top: ValueBuffer,
@@ -27,8 +27,8 @@ impl Layer for ImageSegments {
     const NAME: &'static str = "Image Segments";
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
+        let ground_to_field =
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let image_segments_bottom = nao
             .subscribe_output(CyclerOutput::from_str("VisionBottom.main.image_segments").unwrap());
         let camera_matrix_bottom = nao
@@ -38,7 +38,7 @@ impl Layer for ImageSegments {
         let camera_matrix_top =
             nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.camera_matrix").unwrap());
         Self {
-            robot_to_field,
+            ground_to_field,
             image_segments_bottom,
             camera_matrix_bottom,
             image_segments_top,
@@ -52,7 +52,7 @@ impl Layer for ImageSegments {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
-            self.robot_to_field.parse_latest().unwrap_or_default();
+            self.ground_to_field.parse_latest().unwrap_or_default();
         paint_segments(
             painter,
             ground_to_field,

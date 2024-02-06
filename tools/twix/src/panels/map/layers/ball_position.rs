@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub struct BallPosition {
-    robot_to_field: ValueBuffer,
+    ground_to_field: ValueBuffer,
     ball_position: ValueBuffer,
 }
 
@@ -23,14 +23,14 @@ impl Layer for BallPosition {
     const NAME: &'static str = "Ball Position";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
-        robot_to_field.reserve(100);
+        let ground_to_field =
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
+        ground_to_field.reserve(100);
         let ball_position =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.ball_position").unwrap());
         ball_position.reserve(100);
         Self {
-            robot_to_field,
+            ground_to_field,
             ball_position,
         }
     }
@@ -41,7 +41,7 @@ impl Layer for BallPosition {
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let ground_to_fields: Vec<Option<Transform<Ground, Field, Isometry2<f32>>>> =
-            self.robot_to_field.parse_buffered()?;
+            self.ground_to_field.parse_buffered()?;
         let ball_positions: Vec<Option<types::ball_position::BallPosition<Ground>>> =
             self.ball_position.parse_buffered()?;
 
@@ -59,12 +59,12 @@ impl Layer for BallPosition {
             }
         }
 
-        if let (Some(Some(ball)), Some(robot_to_field)) = (
+        if let (Some(Some(ball)), Some(ground_to_field)) = (
             &ball_positions.first().map(Option::as_ref),
             ground_to_fields.first(),
         ) {
             painter.ball(
-                robot_to_field.unwrap_or_default() * ball.position,
+                ground_to_field.unwrap_or_default() * ball.position,
                 field_dimensions.ball_radius,
             );
         }

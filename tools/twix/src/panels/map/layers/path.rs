@@ -25,7 +25,7 @@ impl Layer for Path {
 
     fn new(nao: Arc<Nao>) -> Self {
         let ground_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let motion_command =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.motion_command").unwrap());
         Self {
