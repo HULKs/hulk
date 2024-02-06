@@ -134,8 +134,9 @@ impl Projection for CameraMatrix {
         z: f32,
     ) -> Result<Framed<Pixel, Point2<f32>>, Error> {
         self.camera_to_pixel(
-            self.ground_to_camera
-                * vector![ground_coordinates.inner.x, ground_coordinates.inner.y, z].framed(),
+            (self.ground_to_camera
+                * point![ground_coordinates.inner.x, ground_coordinates.inner.y, z].framed())
+            .coords(),
         )
     }
 
