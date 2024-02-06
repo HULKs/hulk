@@ -14,7 +14,11 @@ impl Layer for Field {
         Self {}
     }
 
-    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()> {
+    fn paint(
+        &self,
+        painter: &TwixPainter<types::coordinate_systems::Field>,
+        field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
         painter.field(field_dimensions);
         Ok(())
     }

@@ -1,4 +1,5 @@
 use approx::assert_relative_eq;
+use coordinate_systems::{IntoFramed, IntoTransform};
 use nalgebra::{point, vector, Isometry3, Point2, Translation, UnitQuaternion, Vector2};
 use projection::Projection;
 use types::camera_matrix::CameraMatrix;
@@ -12,9 +13,9 @@ fn from_normalized_focal_and_center_short(
         focal_length,
         optical_center,
         image_size,
-        Isometry3::identity(),
-        Isometry3::identity(),
-        Isometry3::identity(),
+        Isometry3::identity().framed_transform(),
+        Isometry3::identity().framed_transform(),
+        Isometry3::identity().framed_transform(),
     )
 }
 
@@ -27,8 +28,8 @@ fn pixel_to_camera_default_center() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(point![1.0, 1.0]),
-        vector![1.0, 0.0, 0.0]
+        camera_matrix.pixel_to_camera(point![1.0, 1.0].framed()),
+        vector![1.0, 0.0, 0.0].framed()
     );
 }
 
@@ -41,8 +42,8 @@ fn pixel_to_camera_default_top_left() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(point![0.0, 0.0]),
-        vector![1.0, 0.5, 0.5]
+        camera_matrix.pixel_to_camera(point![0.0, 0.0].framed()),
+        vector![1.0, 0.5, 0.5].framed()
     );
 }
 
@@ -55,8 +56,8 @@ fn pixel_to_camera_sample_camera_center() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(point![320.0, 240.0]),
-        vector![1.0, 0.0, 0.0]
+        camera_matrix.pixel_to_camera(point![320.0, 240.0].framed()),
+        vector![1.0, 0.0, 0.0].framed()
     );
 }
 
@@ -69,8 +70,8 @@ fn pixel_to_camera_sample_camera_top_left() {
     );
 
     assert_relative_eq!(
-        camera_matrix.pixel_to_camera(point![0.0, 0.0]),
-        vector![1.0, 0.5 / 0.95, 0.5 / 1.27]
+        camera_matrix.pixel_to_camera(point![0.0, 0.0].framed()),
+        vector![1.0, 0.5 / 0.95, 0.5 / 1.27].framed()
     );
 }
 
@@ -84,9 +85,9 @@ fn camera_to_pixel_default_center() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(vector![1.0, 0.0, 0.0])
+            .camera_to_pixel(vector![1.0, 0.0, 0.0].framed())
             .unwrap(),
-        point![1.0, 1.0]
+        point![1.0, 1.0].framed()
     );
 }
 
@@ -100,9 +101,9 @@ fn camera_to_pixel_default_top_left() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(vector![1.0, 0.5, 0.5])
+            .camera_to_pixel(vector![1.0, 0.5, 0.5].framed())
             .unwrap(),
-        point![0.0, 0.0]
+        point![0.0, 0.0].framed()
     );
 }
 
@@ -116,9 +117,9 @@ fn camera_to_pixel_sample_camera_center() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(vector![1.0, 0.0, 0.0])
+            .camera_to_pixel(vector![1.0, 0.0, 0.0].framed())
             .unwrap(),
-        point![320.0, 240.0]
+        point![320.0, 240.0].framed()
     );
 }
 
@@ -132,9 +133,9 @@ fn camera_to_pixel_sample_camera_top_left() {
 
     assert_relative_eq!(
         camera_matrix
-            .camera_to_pixel(vector![1.0, 0.5 / 0.95, 0.5 / 1.27])
+            .camera_to_pixel(vector![1.0, 0.5 / 0.95, 0.5 / 1.27].framed())
             .unwrap(),
-        point![0.0, 0.0],
+        point![0.0, 0.0].framed(),
         epsilon = 0.0001
     );
 }
@@ -147,7 +148,7 @@ fn pixel_to_camera_reversible() {
         vector![640.0, 480.0],
     );
 
-    let input = point![512.0, 257.0];
+    let input = point![512.0, 257.0].framed();
     let output = camera_matrix
         .camera_to_pixel(camera_matrix.pixel_to_camera(input))
         .unwrap();
@@ -162,13 +163,13 @@ fn pixel_to_ground_with_z_only_elevation() {
         point![1.0, 1.0],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.5]);
 
     assert_relative_eq!(
         camera_matrix
-            .pixel_to_ground_with_z(point![1.0, 2.0], 0.25)
+            .pixel_to_ground_with_z(point![1.0, 2.0].framed(), 0.25)
             .unwrap(),
-        point![0.5, 0.0]
+        point![0.5, 0.0].framed()
     );
 }
 
@@ -179,15 +180,15 @@ fn pixel_to_ground_with_z_pitch_45_degree_down() {
         point![1.0, 1.0],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
-    camera_matrix.camera_to_ground.rotation =
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.5]);
+    camera_matrix.camera_to_ground.inner.rotation =
         UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
 
     assert_relative_eq!(
         camera_matrix
-            .pixel_to_ground_with_z(point![1.0, 1.0], 0.0)
+            .pixel_to_ground_with_z(point![1.0, 1.0].framed(), 0.0)
             .unwrap(),
-        point![0.5, 0.0]
+        point![0.5, 0.0].framed()
     );
 }
 
@@ -217,14 +218,14 @@ fn ground_to_pixel_only_elevation() {
         point![1.0, 1.0],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.75]);
     camera_matrix.ground_to_camera = camera_matrix.camera_to_ground.inverse();
 
     assert_relative_eq!(
         camera_matrix
-            .ground_with_z_to_pixel(point![1.0, 0.0], 0.25)
+            .ground_with_z_to_pixel(point![1.0, 0.0].framed(), 0.25)
             .unwrap(),
-        point![1.0, 2.0]
+        point![1.0, 2.0].framed()
     );
 }
 
@@ -235,16 +236,16 @@ fn ground_to_pixel_pitch_45_degree_down() {
         point![0.5, 0.5],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 1.0]);
-    camera_matrix.camera_to_ground.rotation =
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 1.0]);
+    camera_matrix.camera_to_ground.inner.rotation =
         UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
     camera_matrix.ground_to_camera = camera_matrix.camera_to_ground.inverse();
 
     assert_relative_eq!(
         camera_matrix
-            .ground_with_z_to_pixel(point![0.5, 0.0], 0.5)
+            .ground_with_z_to_pixel(point![0.5, 0.0].framed(), 0.5)
             .unwrap(),
-        point![0.5, 0.5]
+        point![0.5, 0.5].framed()
     );
 }
 
@@ -255,14 +256,18 @@ fn pixel_to_robot_with_x() {
         point![1.0, 1.0],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
-    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.robot_to_camera = camera_matrix
+        .camera_to_ground
+        .inverse()
+        .inner
+        .framed_transform();
 
-    let pixel_coordinates = point![1.5, 2.0];
+    let pixel_coordinates = point![1.5, 2.0].framed();
     let robot_coordinates = camera_matrix
         .pixel_to_robot_with_x(pixel_coordinates, 0.5)
         .unwrap();
-    assert_relative_eq!(robot_coordinates, point![0.5, -0.125, 0.5]);
+    assert_relative_eq!(robot_coordinates, point![0.5, -0.125, 0.5].framed());
 }
 
 #[test]
@@ -272,14 +277,18 @@ fn robot_to_pixel_only_elevation() {
         point![1.0, 1.0],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
-    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.robot_to_camera = camera_matrix
+        .camera_to_ground
+        .inverse()
+        .inner
+        .framed_transform();
 
     assert_relative_eq!(
         camera_matrix
-            .robot_to_pixel(point![1.0, 0.0, 0.25])
+            .robot_to_pixel(point![1.0, 0.0, 0.25].framed())
             .unwrap(),
-        point![1.0, 2.0]
+        point![1.0, 2.0].framed()
     );
 }
 
@@ -290,14 +299,20 @@ fn robot_to_pixel_pitch_45_degree_down() {
         point![0.5, 0.5],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 1.0]);
-    camera_matrix.camera_to_robot.rotation =
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 1.0]);
+    camera_matrix.camera_to_ground.inner.rotation =
         UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
-    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+    camera_matrix.robot_to_camera = camera_matrix
+        .camera_to_ground
+        .inverse()
+        .inner
+        .framed_transform();
 
     assert_relative_eq!(
-        camera_matrix.robot_to_pixel(point![0.5, 0.0, 0.5]).unwrap(),
-        point![0.5, 0.5]
+        camera_matrix
+            .robot_to_pixel(point![0.5, 0.0, 0.5].framed())
+            .unwrap(),
+        point![0.5, 0.5].framed()
     );
 }
 
@@ -308,14 +323,18 @@ fn robot_to_pixel_inverse() {
         point![1.0, 1.0],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
-    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.robot_to_camera = camera_matrix
+        .camera_to_ground
+        .inverse()
+        .inner
+        .framed_transform();
 
-    let robot_coordinates = point![1.0, 2.0, 1.0];
+    let robot_coordinates = point![1.0, 2.0, 1.0].framed();
     let pixel_coordinates = camera_matrix.robot_to_pixel(robot_coordinates).unwrap();
     assert_relative_eq!(
         camera_matrix
-            .pixel_to_robot_with_x(pixel_coordinates, robot_coordinates.x)
+            .pixel_to_robot_with_x(pixel_coordinates, robot_coordinates.inner.x)
             .unwrap(),
         robot_coordinates
     );
@@ -328,10 +347,14 @@ fn pixel_to_robot_with_x_inverse() {
         point![1.0, 1.0],
         vector![1.0, 1.0],
     );
-    camera_matrix.camera_to_robot.translation = Translation::from(point![0.0, 0.0, 0.75]);
-    camera_matrix.robot_to_camera = camera_matrix.camera_to_robot.inverse();
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.75]);
+    camera_matrix.robot_to_camera = camera_matrix
+        .camera_to_ground
+        .inverse()
+        .inner
+        .framed_transform();
 
-    let pixel_coordinates = point![0.75, 2.0];
+    let pixel_coordinates = point![0.75, 2.0].framed();
     let robot_coordinates = camera_matrix
         .pixel_to_robot_with_x(pixel_coordinates, 0.5)
         .unwrap();
@@ -349,11 +372,11 @@ fn get_pixel_radius_only_elevation() {
         vector![640.0, 480.0],
     );
     camera_matrix.field_of_view = vector![45.0, 45.0].map(|a: f32| a.to_radians());
-    camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.5]);
 
     assert_relative_eq!(
         camera_matrix
-            .get_pixel_radius(0.05, point![320.0, 480.0], vector![640, 480])
+            .get_pixel_radius(0.05, point![320.0, 480.0].framed(), vector![640, 480])
             .unwrap(),
         33.970547
     );
@@ -367,13 +390,13 @@ fn get_pixel_radius_pitch_45_degree_down() {
         vector![640.0, 480.0],
     );
     camera_matrix.field_of_view = vector![45.0, 45.0].map(|a: f32| a.to_radians());
-    camera_matrix.camera_to_ground.translation = Translation::from(point![0.0, 0.0, 0.5]);
-    camera_matrix.camera_to_ground.rotation =
+    camera_matrix.camera_to_ground.inner.translation = Translation::from(point![0.0, 0.0, 0.5]);
+    camera_matrix.camera_to_ground.inner.rotation =
         UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0);
 
     assert_relative_eq!(
         camera_matrix
-            .get_pixel_radius(0.05, point![320.0, 480.0], vector![640, 480])
+            .get_pixel_radius(0.05, point![320.0, 480.0].framed(), vector![640, 480])
             .unwrap(),
         207.69307
     );

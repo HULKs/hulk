@@ -1,10 +1,12 @@
 use std::ops::Range;
 
+use coordinate_systems::{distance, Framed, IntoFramed, IntoTransform, Transform};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
-use nalgebra::{distance, point, vector, Isometry2, Point2};
+use nalgebra::{point, vector, Isometry2, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
+    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     line::Line,
@@ -44,7 +46,7 @@ impl<'cycle> Defend<'cycle> {
 
     fn with_pose(
         &self,
-        pose: Isometry2<f32>,
+        pose: Transform<Ground, Ground, Isometry2<f32>>,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Option<MotionCommand> {
         self.walk_and_stand
@@ -98,17 +100,18 @@ fn defend_left_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Isometry2<f32>> {
-    let robot_to_field = world_state.robot.robot_to_field?;
+) -> Option<Transform<Ground, Ground, Isometry2<f32>>> {
+    let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
         .or(world_state.ball)
-        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
+        .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
 
     let position_to_defend = point![
         -field_dimensions.length / 2.0,
         role_positions.defender_y_offset
-    ];
+    ]
+    .framed();
     let mut distance_to_target = if ball.field_side == Side::Left {
         role_positions.defender_aggressive_ring_radius
     } else {
@@ -120,24 +123,26 @@ fn defend_left_pose(
         field_dimensions,
     );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
-    Some(robot_to_field.inverse() * defend_pose)
+    let field_to_ground = ground_to_field.inverse();
+    Some(field_to_ground * defend_pose)
 }
 
 fn defend_right_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Isometry2<f32>> {
-    let robot_to_field = world_state.robot.robot_to_field?;
+) -> Option<Transform<Ground, Ground, Isometry2<f32>>> {
+    let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
         .or(world_state.ball)
-        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
+        .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
 
     let position_to_defend = point![
         -field_dimensions.length / 2.0,
         -role_positions.defender_y_offset
-    ];
+    ]
+    .framed();
     let mut distance_to_target = if ball.field_side == Side::Right {
         role_positions.defender_aggressive_ring_radius
     } else {
@@ -149,24 +154,25 @@ fn defend_right_pose(
         field_dimensions,
     );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
-    Some(robot_to_field.inverse() * defend_pose)
+    Some(ground_to_field.inverse() * defend_pose)
 }
 
 fn defend_penalty_kick(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Isometry2<f32>> {
-    let robot_to_field = world_state.robot.robot_to_field?;
+) -> Option<Transform<Ground, Ground, Isometry2<f32>>> {
+    let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
         .or(world_state.ball)
-        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
+        .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
 
     let position_to_defend = point![
         (-field_dimensions.length + field_dimensions.penalty_area_length) / 2.0,
         0.0
-    ];
+    ]
+    .framed();
     let mut distance_to_target = if ball.field_side == Side::Left {
         role_positions.defender_aggressive_ring_radius
     } else {
@@ -179,19 +185,19 @@ fn defend_penalty_kick(
     );
 
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
-    Some(robot_to_field.inverse() * defend_pose)
+    Some(ground_to_field.inverse() * defend_pose)
 }
 
 fn defend_goal_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Isometry2<f32>> {
-    let robot_to_field = world_state.robot.robot_to_field?;
+) -> Option<Transform<Ground, Ground, Isometry2<f32>>> {
+    let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
         .or(world_state.ball)
-        .unwrap_or_else(|| BallState::new_at_center(robot_to_field));
+        .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
 
     let keeper_x_offset = match world_state.filtered_game_controller_state {
         Some(
@@ -211,27 +217,27 @@ fn defend_goal_pose(
         _ => role_positions.keeper_x_offset,
     };
 
-    let position_to_defend = point![-field_dimensions.length / 2.0 - 1.0, 0.0];
+    let position_to_defend = point![-field_dimensions.length / 2.0 - 1.0, 0.0].framed();
     let defend_pose = block_on_line(
         ball.ball_in_field,
         position_to_defend,
         -field_dimensions.length / 2.0 + keeper_x_offset,
         -0.7..0.7,
     );
-    Some(robot_to_field.inverse() * defend_pose)
+    Some(ground_to_field.inverse() * defend_pose)
 }
 
 fn defend_kick_off_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Isometry2<f32>> {
-    let robot_to_field = world_state.robot.robot_to_field?;
+) -> Option<Transform<Ground, Ground, Isometry2<f32>>> {
+    let ground_to_field = world_state.robot.ground_to_field?;
     let absolute_ball_position = match world_state.ball {
         Some(ball) => ball.ball_in_field,
-        None => Point2::origin(),
+        None => Point2::origin().framed(),
     };
-    let position_to_defend = point![-field_dimensions.length / 2.0, 0.0];
+    let position_to_defend = point![-field_dimensions.length / 2.0, 0.0].framed();
     let center_circle_radius = field_dimensions.center_circle_diameter / 2.0;
     let distance_to_target = distance(&position_to_defend, &absolute_ball_position)
         - center_circle_radius
@@ -241,55 +247,60 @@ fn defend_kick_off_pose(
         position_to_defend,
         distance_to_target,
     );
-    Some(robot_to_field.inverse() * defend_pose)
+    Some(ground_to_field.inverse() * defend_pose)
 }
 
 pub fn block_on_circle(
-    ball_position: Point2<f32>,
-    target: Point2<f32>,
+    ball_position: Framed<Field, Point2<f32>>,
+    target: Framed<Field, Point2<f32>>,
     distance_to_target: f32,
-) -> Isometry2<f32> {
+) -> Transform<Ground, Field, Isometry2<f32>> {
     let target_to_ball = ball_position - target;
-    let block_position = target + target_to_ball.normalize() * distance_to_target;
+    let block_position = target + (target_to_ball.inner.normalize() * distance_to_target).framed();
     Isometry2::new(
-        block_position.coords,
-        block_position.look_at(&ball_position).angle(),
+        block_position.inner.coords,
+        block_position.inner.look_at(&ball_position.inner).angle(),
     )
+    .framed_transform()
 }
 
 fn block_on_line(
-    ball_position: Point2<f32>,
-    target: Point2<f32>,
+    ball_position: Framed<Field, Point2<f32>>,
+    target: Framed<Field, Point2<f32>>,
     defense_line_x: f32,
     defense_line_y_range: Range<f32>,
-) -> Isometry2<f32> {
-    let is_ball_in_front_of_defense_line = defense_line_x < ball_position.x;
+) -> Transform<Ground, Field, Isometry2<f32>> {
+    let is_ball_in_front_of_defense_line = defense_line_x < ball_position.x();
     if is_ball_in_front_of_defense_line {
         let defense_line = Line(
-            point![defense_line_x, defense_line_y_range.start],
-            point![defense_line_x, defense_line_y_range.end],
+            point![defense_line_x, defense_line_y_range.start].framed(),
+            point![defense_line_x, defense_line_y_range.end].framed(),
         );
         let ball_target_line = Line(ball_position, target);
         let intersection_point = defense_line.intersection(&ball_target_line);
         let defense_position = point![
-            intersection_point.x,
+            intersection_point.x(),
             intersection_point
-                .y
+                .y()
                 .clamp(defense_line_y_range.start, defense_line_y_range.end)
-        ];
+        ]
+        .framed();
         Isometry2::new(
-            defense_position.coords,
-            defense_position.look_at(&ball_position).angle(),
+            defense_position.inner.coords,
+            defense_position.look_at(&ball_position).inner.angle(),
         )
+        .framed_transform()
     } else {
         let defense_position = point![
             defense_line_x,
             (defense_line_y_range.start + defense_line_y_range.end) / 2.0
-        ];
+        ]
+        .framed();
         Isometry2::new(
-            defense_position.coords,
-            defense_position.look_at(&ball_position).angle(),
+            defense_position.inner.coords,
+            defense_position.look_at(&ball_position).inner.angle(),
         )
+        .framed_transform()
     }
 }
 

@@ -1,10 +1,12 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Framed, Transform};
 use framework::MainOutput;
 use nalgebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
+    coordinate_systems::{Field, Ground},
     fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
@@ -27,7 +29,7 @@ pub struct CycleContext {
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    ground_to_field: Input<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
 
@@ -39,7 +41,7 @@ pub struct CycleContext {
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
-    position_of_interest: Input<Point2<f32>, "position_of_interest">,
+    position_of_interest: Input<Framed<Ground, Point2<f32>>, "position_of_interest">,
 }
 
 #[context]
@@ -55,7 +57,7 @@ impl WorldStateComposer {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let robot = RobotState {
-            robot_to_field: context.robot_to_field.copied(),
+            ground_to_field: context.ground_to_field.copied(),
             role: *context.role,
             primary_state: *context.primary_state,
             fall_state: *context.fall_state,

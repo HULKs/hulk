@@ -2,9 +2,14 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::CyclerOutput;
+use coordinate_systems::{Framed, IntoFramed, Transform};
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{point, Isometry2, Point2, UnitComplex};
-use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
+use types::{
+    coordinate_systems::{Field, Ground},
+    field_dimensions::FieldDimensions,
+    motion_command::MotionCommand,
+};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, players_value_buffer::PlayersValueBuffer,
@@ -15,7 +20,7 @@ const TRANSPARENT_BLUE: Color32 = Color32::from_rgba_premultiplied(0, 0, 202, 15
 const TRANSPARENT_LIGHT_BLUE: Color32 = Color32::from_rgba_premultiplied(136, 170, 182, 150);
 
 pub struct BehaviorSimulator {
-    robot_to_field: PlayersValueBuffer,
+    ground_to_field: PlayersValueBuffer,
     motion_command: PlayersValueBuffer,
     head_yaw: PlayersValueBuffer,
     ball: ValueBuffer,
@@ -25,7 +30,7 @@ impl Layer for BehaviorSimulator {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field = PlayersValueBuffer::try_new(
+        let ground_to_field = PlayersValueBuffer::try_new(
             nao.clone(),
             "BehaviorSimulator.main.databases",
             "main_outputs.robot_to_field",
@@ -47,16 +52,22 @@ impl Layer for BehaviorSimulator {
             CyclerOutput::from_str("BehaviorSimulator.main_outputs.ball.position").unwrap(),
         );
         Self {
-            robot_to_field,
+            ground_to_field,
             motion_command,
             head_yaw: sensor_data,
             ball,
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
-        for (player_number, value_buffer) in self.robot_to_field.0.iter() {
-            let Ok(robot_to_field): Result<Isometry2<f32>> = value_buffer.parse_latest() else {
+    fn paint(
+        &self,
+        painter: &TwixPainter<Field>,
+        _field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
+        for (player_number, value_buffer) in self.ground_to_field.0.iter() {
+            let Ok(ground_to_field): Result<Transform<Ground, Field, Isometry2<f32>>> =
+                value_buffer.parse_latest()
+            else {
                 continue;
             };
 
@@ -70,7 +81,7 @@ impl Layer for BehaviorSimulator {
                 self.motion_command.0[player_number].parse_latest()
             {
                 painter.path(
-                    robot_to_field,
+                    ground_to_field,
                     path,
                     TRANSPARENT_BLUE,
                     TRANSPARENT_LIGHT_BLUE,
@@ -89,21 +100,22 @@ impl Layer for BehaviorSimulator {
                 let fov_corner = point![fov_range, 0.0];
                 let head_rotation = UnitComplex::from_angle(head_yaw);
                 painter.line_segment(
-                    robot_to_field.translation.vector.into(),
-                    robot_to_field * head_rotation * fov_rotation * fov_corner,
+                    ground_to_field * Framed::origin(),
+                    (ground_to_field.inner * head_rotation * fov_rotation * fov_corner).framed(),
                     fov_stroke,
                 );
                 painter.line_segment(
-                    robot_to_field.translation.vector.into(),
-                    robot_to_field * head_rotation * fov_rotation.inverse() * fov_corner,
+                    ground_to_field * Framed::origin(),
+                    (ground_to_field.inner * head_rotation * fov_rotation.inverse() * fov_corner)
+                        .framed(),
                     fov_stroke,
                 );
             }
 
-            painter.pose(robot_to_field, 0.15, 0.25, pose_color, pose_stroke);
+            painter.pose(ground_to_field, 0.15, 0.25, pose_color, pose_stroke);
         }
 
-        if let Ok(ball_position) = self.ball.parse_latest::<Point2<f32>>() {
+        if let Ok(ball_position) = self.ball.parse_latest::<Framed<Field, Point2<f32>>>() {
             painter.ball(ball_position, 0.05);
         }
 

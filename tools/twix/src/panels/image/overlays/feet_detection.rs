@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::Color32;
-use types::detected_feet::ClusterPoint;
+use types::{coordinate_systems::Pixel, detected_feet::ClusterPoint};
 
 use crate::{
     nao::Nao, panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -27,7 +27,7 @@ impl Overlay for FeetDetection {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter) -> Result<()> {
+    fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let cluster_points: Vec<ClusterPoint> = self.cluster_points.require_latest()?;
         for point in cluster_points {
             painter.circle_filled(point.pixel_coordinates.map(|x| x as f32), 3.0, Color32::RED)

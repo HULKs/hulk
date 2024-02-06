@@ -5,6 +5,7 @@ use communication::client::Cycler;
 use convert_case::Casing;
 use eframe::egui::Ui;
 use serde_json::{json, Value};
+use types::coordinate_systems::Pixel;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
@@ -13,7 +14,7 @@ use super::overlays::{BallDetection, FeetDetection, LineDetection, PenaltyBoxes}
 pub trait Overlay {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self;
-    fn paint(&self, painter: &TwixPainter) -> Result<()>;
+    fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()>;
 }
 
 pub struct EnabledOverlay<T>
@@ -64,7 +65,7 @@ where
         }
     }
 
-    pub fn paint(&self, painter: &TwixPainter) -> Result<()> {
+    pub fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         if let Some(layer) = &self.overlay {
             layer.paint(painter)?;
         }
@@ -113,7 +114,7 @@ impl Overlays {
         });
     }
 
-    pub fn paint(&self, painter: &TwixPainter) -> Result<()> {
+    pub fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let _ = self.line_detection.paint(painter);
         let _ = self.ball_detection.paint(painter);
         let _ = self.penalty_boxes.paint(painter);

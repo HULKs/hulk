@@ -2,12 +2,14 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{distance, Framed, IntoFramed, Transform};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
-use nalgebra::{distance, point, Isometry2, Matrix2, Point2};
+use nalgebra::{point, Isometry2, Matrix2, Point2};
 use serde::{Deserialize, Serialize};
 use types::{
+    coordinate_systems::{Field, Ground},
     cycle_time::CycleTime,
     detected_feet::DetectedFeet,
     field_dimensions::FieldDimensions,
@@ -35,8 +37,10 @@ pub struct CycleContext {
 
     current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    network_robot_obstacles: HistoricInput<Vec<Point2<f32>>, "network_robot_obstacles">,
-    robot_to_field: HistoricInput<Option<Isometry2<f32>>, "robot_to_field?">,
+    network_robot_obstacles:
+        HistoricInput<Vec<Framed<Ground, Point2<f32>>>, "network_robot_obstacles">,
+    ground_to_field:
+        HistoricInput<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
     sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 
     foot_bumper_obstacles: HistoricInput<Vec<FootBumperObstacle>, "foot_bumper_obstacle">,
@@ -90,9 +94,9 @@ impl ObstacleFilter {
             );
 
             let network_robot_obstacles = context.network_robot_obstacles.get(detection_time);
-            let current_robot_to_field = context.robot_to_field.get(detection_time);
+            let current_ground_to_field = context.ground_to_field.get(detection_time);
             let goal_posts =
-                calculate_goal_post_positions(current_robot_to_field, field_dimensions);
+                calculate_goal_post_positions(current_ground_to_field.copied(), field_dimensions);
 
             for network_robot_obstacle in network_robot_obstacles {
                 self.update_hypotheses_with_measurement(
@@ -139,14 +143,14 @@ impl ObstacleFilter {
 
                 if context.obstacle_filter_parameters.use_sonar_measurements
                     && goal_posts.clone().into_iter().all(|goal_post| {
-                        distance(&goal_post, &sonar_obstacle.position_in_robot)
+                        distance(&goal_post, &sonar_obstacle.position)
                             > context
                                 .obstacle_filter_parameters
                                 .goal_post_measurement_matching_distance
                     })
                 {
                     self.update_hypotheses_with_measurement(
-                        sonar_obstacle.position_in_robot,
+                        sonar_obstacle.position,
                         ObstacleKind::Unknown,
                         *detection_time,
                         context
@@ -219,15 +223,16 @@ impl ObstacleFilter {
                     _ => panic!("Unexpected obstacle radius"),
                 };
                 Obstacle {
-                    position: hypothesis.state.mean.into(),
+                    position: Point2::from(hypothesis.state.mean).framed(),
                     kind: hypothesis.obstacle_kind,
                     radius_at_hip_height,
                     radius_at_foot_height,
                 }
             })
             .collect::<Vec<_>>();
-        let current_robot_to_field = context.robot_to_field.get(&cycle_start_time);
-        let goal_posts = calculate_goal_post_positions(current_robot_to_field, field_dimensions);
+        let current_ground_to_field = context.ground_to_field.get(&cycle_start_time);
+        let goal_posts =
+            calculate_goal_post_positions(current_ground_to_field.copied(), field_dimensions);
         let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
             Obstacle::goal_post(goal_post, field_dimensions.goal_post_diameter / 2.0)
         });
@@ -263,7 +268,7 @@ impl ObstacleFilter {
 
     fn update_hypotheses_with_measurement(
         &mut self,
-        detected_position: Point2<f32>,
+        detected_position: Framed<Ground, Point2<f32>>,
         detected_obstacle_kind: ObstacleKind,
         detection_time: SystemTime,
         matching_distance: f32,
@@ -273,7 +278,7 @@ impl ObstacleFilter {
             .hypotheses
             .iter_mut()
             .filter(|hypothesis| {
-                (hypothesis.state.mean - detected_position.coords).norm() < matching_distance
+                (hypothesis.state.mean - detected_position.inner.coords).norm() < matching_distance
             })
             .peekable();
         if matching_hypotheses.peek().is_none() {
@@ -288,8 +293,8 @@ impl ObstacleFilter {
         matching_hypotheses.for_each(|hypothesis| {
             hypothesis.state.update(
                 Matrix2::identity(),
-                detected_position.coords,
-                measurement_noise * detected_position.coords.norm_squared(),
+                detected_position.inner.coords,
+                measurement_noise * detected_position.coords().norm_squared(),
             );
             hypothesis.obstacle_kind = match hypothesis.obstacle_kind {
                 ObstacleKind::Robot => hypothesis.obstacle_kind,
@@ -303,12 +308,12 @@ impl ObstacleFilter {
 
     fn spawn_hypothesis(
         &mut self,
-        detected_position: Point2<f32>,
+        detected_position: Framed<Ground, Point2<f32>>,
         obstacle_kind: ObstacleKind,
         detection_time: SystemTime,
         initial_covariance: Matrix2<f32>,
     ) {
-        let initial_state = detected_position.coords;
+        let initial_state = detected_position.inner.coords;
         let new_hypothesis = Hypothesis {
             state: MultivariateNormalDistribution {
                 mean: initial_state,
@@ -362,12 +367,12 @@ impl ObstacleFilter {
 }
 
 fn calculate_goal_post_positions(
-    current_robot_to_field: Option<&Isometry2<f32>>,
+    ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>>,
     field_dimensions: &FieldDimensions,
-) -> Vec<Point2<f32>> {
-    current_robot_to_field
-        .map(|robot_to_field| {
-            let field_to_robot = robot_to_field.inverse();
+) -> Vec<Framed<Ground, Point2<f32>>> {
+    ground_to_field
+        .map(|ground_to_field| {
+            let field_to_robot = ground_to_field.inverse();
             iproduct!([-1.0, 1.0], [-1.0, 1.0]).map(move |(x_sign, y_sign)| {
                 let radius = field_dimensions.goal_post_diameter / 2.0;
                 let position_on_field = point![
@@ -376,7 +381,8 @@ fn calculate_goal_post_positions(
                             + field_dimensions.goal_post_diameter / 2.0
                             - field_dimensions.line_width / 2.0),
                     y_sign * (field_dimensions.goal_inner_width / 2.0 + radius)
-                ];
+                ]
+                .framed();
                 field_to_robot * position_on_field
             })
         })

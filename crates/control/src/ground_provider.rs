@@ -1,9 +1,11 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{IntoTransform, Transform};
 use framework::MainOutput;
 use nalgebra::{vector, Isometry3, Translation, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
+    coordinate_systems::{Ground, Robot},
     robot_kinematics::RobotKinematics,
     sensor_data::SensorData,
     support_foot::{Side, SupportFoot},
@@ -25,8 +27,8 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_to_ground: MainOutput<Option<Isometry3<f32>>>,
-    pub ground_to_robot: MainOutput<Option<Isometry3<f32>>>,
+    pub robot_to_ground: MainOutput<Option<Transform<Robot, Ground, Isometry3<f32>>>>,
+    pub ground_to_robot: MainOutput<Option<Transform<Ground, Robot, Isometry3<f32>>>>,
 }
 
 impl GroundProvider {
@@ -42,23 +44,28 @@ impl GroundProvider {
         let left_sole_to_robot = context.robot_kinematics.left_sole_to_robot;
         let imu_adjusted_robot_to_left_sole = Isometry3::rotation(Vector3::y() * imu_pitch)
             * Isometry3::rotation(Vector3::x() * imu_roll)
-            * Isometry3::from(left_sole_to_robot.translation.inverse());
+            * Isometry3::from(left_sole_to_robot.inner.translation.inverse());
 
         let right_sole_to_robot = context.robot_kinematics.right_sole_to_robot;
         let imu_adjusted_robot_to_right_sole = Isometry3::rotation(Vector3::y() * imu_pitch)
             * Isometry3::rotation(Vector3::x() * imu_roll)
-            * Isometry3::from(right_sole_to_robot.translation.inverse());
+            * Isometry3::from(right_sole_to_robot.inner.translation.inverse());
 
-        let left_sole_to_right_sole =
-            right_sole_to_robot.translation.vector - left_sole_to_robot.translation.vector;
+        let left_sole_to_right_sole = right_sole_to_robot.inner.translation.vector
+            - left_sole_to_robot.inner.translation.vector;
         let left_sole_to_ground =
             0.5 * vector![left_sole_to_right_sole.x, left_sole_to_right_sole.y, 0.0];
 
-        let robot_to_ground = context.support_foot.support_side.map(|side| match side {
-            Side::Left => Translation::from(-left_sole_to_ground) * imu_adjusted_robot_to_left_sole,
-            Side::Right => {
-                Translation::from(left_sole_to_ground) * imu_adjusted_robot_to_right_sole
+        let robot_to_ground = context.support_foot.support_side.map(|side| {
+            match side {
+                Side::Left => {
+                    Translation::from(-left_sole_to_ground) * imu_adjusted_robot_to_left_sole
+                }
+                Side::Right => {
+                    Translation::from(left_sole_to_ground) * imu_adjusted_robot_to_right_sole
+                }
             }
+            .framed_transform()
         });
         Ok(MainOutputs {
             robot_to_ground: robot_to_ground.into(),

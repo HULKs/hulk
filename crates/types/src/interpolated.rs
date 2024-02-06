@@ -1,8 +1,11 @@
 use std::f32::consts::PI;
 
+use coordinate_systems::Transform;
 use nalgebra::{matrix, point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
+
+use crate::coordinate_systems::{Field, Ground};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Interpolated {
@@ -18,10 +21,10 @@ impl Interpolated {
     const ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![3.0, 0.0];
     const ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL: Point2<f32> = point![3.0, PI];
 
-    pub fn evaluate_at(&self, robot_to_field: Isometry2<f32>) -> f32 {
+    pub fn evaluate_at(&self, ground_to_field: Transform<Ground, Field, Isometry2<f32>>) -> f32 {
         let argument = point![
-            robot_to_field.translation.x,
-            robot_to_field.rotation.angle().abs()
+            ground_to_field.inner.translation.x,
+            ground_to_field.inner.rotation.angle().abs()
         ];
         let argument = point![
             argument.x.clamp(
@@ -87,6 +90,7 @@ impl From<f32> for Interpolated {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
+    use coordinate_systems::IntoTransform;
     use nalgebra::{Rotation2, Translation2};
 
     use super::*;
@@ -113,7 +117,8 @@ mod tests {
                     ),
                     Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y)
                         .into(),
-                ),
+                )
+                .framed_transform(),
                 0.0,
             ),
             (
@@ -124,7 +129,8 @@ mod tests {
                     ),
                     Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y)
                         .into(),
-                ),
+                )
+                .framed_transform(),
                 1.0,
             ),
             (
@@ -137,7 +143,8 @@ mod tests {
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.y,
                     )
                     .into(),
-                ),
+                )
+                .framed_transform(),
                 2.0,
             ),
             (
@@ -148,15 +155,16 @@ mod tests {
                     ),
                     Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y)
                         .into(),
-                ),
+                )
+                .framed_transform(),
                 3.0,
             ),
         ];
 
-        for (robot_to_field, expected) in cases {
-            dbg!((robot_to_field, expected));
+        for (ground_to_field, expected) in cases {
+            dbg!((ground_to_field, expected));
             assert_relative_eq!(
-                interpolated.evaluate_at(robot_to_field),
+                interpolated.evaluate_at(ground_to_field),
                 expected,
                 epsilon = 0.001
             );
@@ -184,7 +192,8 @@ mod tests {
                     ),
                     Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y)
                         .into(),
-                ),
+                )
+                .framed_transform(),
                 1.0,
             ),
             (
@@ -198,7 +207,8 @@ mod tests {
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y,
                     ))
                     .into(),
-                ),
+                )
+                .framed_transform(),
                 2.5,
             ),
             (
@@ -212,7 +222,8 @@ mod tests {
                     ),
                     Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y)
                         .into(),
-                ),
+                )
+                .framed_transform(),
                 2.0,
             ),
             (
@@ -226,15 +237,16 @@ mod tests {
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y,
                     ))
                     .into(),
-                ),
+                )
+                .framed_transform(),
                 0.5,
             ),
         ];
 
-        for (robot_to_field, expected) in cases {
-            dbg!((robot_to_field, expected));
+        for (ground_to_field, expected) in cases {
+            dbg!((ground_to_field, expected));
             assert_relative_eq!(
-                interpolated.evaluate_at(robot_to_field),
+                interpolated.evaluate_at(ground_to_field),
                 expected,
                 epsilon = 0.001
             );
@@ -251,20 +263,23 @@ mod tests {
         };
 
         assert_relative_eq!(
-            interpolated.evaluate_at(Isometry2::from_parts(
-                Translation2::new(
-                    half_between(
-                        Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
-                        Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x
+            interpolated.evaluate_at(
+                Isometry2::from_parts(
+                    Translation2::new(
+                        half_between(
+                            Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
+                            Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x
+                        ),
+                        0.0
                     ),
-                    0.0
-                ),
-                Rotation2::new(half_between(
-                    Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
-                    Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y
-                ))
-                .into()
-            )),
+                    Rotation2::new(half_between(
+                        Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
+                        Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y
+                    ))
+                    .into()
+                )
+                .framed_transform()
+            ),
             1.5,
             epsilon = 0.001
         );

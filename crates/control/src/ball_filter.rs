@@ -2,6 +2,7 @@ use std::time::SystemTime;
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::Framed;
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
@@ -13,6 +14,7 @@ use types::{
     ball_filter::Hypothesis,
     ball_position::BallPosition,
     camera_matrix::{CameraMatrices, CameraMatrix},
+    coordinate_systems::{Ground, Pixel},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
@@ -34,8 +36,10 @@ pub struct CycleContext {
     best_ball_hypothesis: AdditionalOutput<Option<Hypothesis>, "best_ball_hypothesis">,
     best_ball_state: AdditionalOutput<Option<MultivariateNormalDistribution<4>>, "best_ball_state">,
     chooses_resting_model: AdditionalOutput<bool, "chooses_resting_model">,
-    filtered_balls_in_image_bottom: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_bottom">,
-    filtered_balls_in_image_top: AdditionalOutput<Vec<Circle>, "filtered_balls_in_image_top">,
+    filtered_balls_in_image_bottom:
+        AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image_bottom">,
+    filtered_balls_in_image_top:
+        AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image_top">,
 
     current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -55,7 +59,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub ball_position: MainOutput<Option<BallPosition>>,
+    pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
 }
 
 impl BallFilter {
@@ -258,21 +262,21 @@ impl BallFilter {
 
     fn update_hypothesis_with_measurement(
         hypothesis: &mut Hypothesis,
-        detected_position: Point2<f32>,
+        detected_position: Framed<Ground, Point2<f32>>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
     ) {
         hypothesis.moving_state.update(
             Matrix2x4::identity(),
-            detected_position.coords,
+            detected_position.inner.coords,
             Matrix2::from_diagonal(&configuration.measurement_noise_moving)
-                * detected_position.coords.norm_squared(),
+                * detected_position.inner.coords.norm_squared(),
         );
         hypothesis.resting_state.update(
             Matrix2x4::identity(),
-            detected_position.coords,
+            detected_position.inner.coords,
             Matrix2::from_diagonal(&configuration.measurement_noise_resting)
-                * detected_position.coords.norm_squared(),
+                * detected_position.inner.coords.norm_squared(),
         );
 
         if !hypothesis.is_resting(configuration) {
@@ -284,7 +288,7 @@ impl BallFilter {
 
     fn update_hypotheses_with_measurement(
         &mut self,
-        detected_position: Point2<f32>,
+        detected_position: Framed<Ground, Point2<f32>>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
     ) {
@@ -292,9 +296,9 @@ impl BallFilter {
             .hypotheses
             .iter_mut()
             .filter(|hypothesis| {
-                (hypothesis.moving_state.mean.xy() - detected_position.coords).norm()
+                (hypothesis.moving_state.mean.xy() - detected_position.inner.coords).norm()
                     < configuration.measurement_matching_distance
-                    || (hypothesis.resting_state.mean.xy() - detected_position.coords).norm()
+                    || (hypothesis.resting_state.mean.xy() - detected_position.inner.coords).norm()
                         < configuration.measurement_matching_distance
             })
             .peekable();
@@ -321,16 +325,11 @@ impl BallFilter {
 
     fn spawn_hypothesis(
         &mut self,
-        detected_position: Point2<f32>,
+        detected_position: Framed<Ground, Point2<f32>>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
     ) {
-        let initial_state = vector![
-            detected_position.coords.x,
-            detected_position.coords.y,
-            0.0,
-            0.0
-        ];
+        let initial_state = vector![detected_position.x(), detected_position.y(), 0.0, 0.0];
         let new_hypothesis = Hypothesis {
             moving_state: MultivariateNormalDistribution {
                 mean: initial_state,
@@ -355,9 +354,9 @@ impl BallFilter {
         self.hypotheses.retain(|hypothesis| {
             let selected_position = hypothesis.selected_ball_position(configuration).position;
             let is_inside_field = {
-                selected_position.coords.x.abs()
+                selected_position.inner.x.abs()
                     < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
-                    && selected_position.y.abs()
+                    && selected_position.inner.y.abs()
                         < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
             };
             now.duration_since(hypothesis.last_update)
@@ -375,11 +374,8 @@ impl BallFilter {
                         (existing_hypothesis
                             .selected_ball_position(configuration)
                             .position
-                            .coords
-                            - hypothesis
-                                .selected_ball_position(configuration)
-                                .position
-                                .coords)
+                            - hypothesis.selected_ball_position(configuration).position)
+                            .inner
                             .norm()
                             < configuration.hypothesis_merge_distance
                     });
@@ -405,10 +401,10 @@ impl BallFilter {
 }
 
 fn project_to_image(
-    ball_position: &[BallPosition],
+    ball_position: &[BallPosition<Ground>],
     camera_matrix: &CameraMatrix,
     ball_radius: f32,
-) -> Vec<Circle> {
+) -> Vec<Circle<Pixel>> {
     ball_position
         .iter()
         .filter_map(|ball_position| {
@@ -439,7 +435,7 @@ fn is_visible_to_camera(
             Ok(position_in_image) => position_in_image,
             Err(_) => return false,
         };
-    (0.0..640.0).contains(&position_in_image.x)
-        && (0.0..480.0).contains(&position_in_image.y)
+    (0.0..640.0).contains(&position_in_image.inner.x)
+        && (0.0..480.0).contains(&position_in_image.inner.y)
         && is_above_limbs(position_in_image, projected_limbs)
 }

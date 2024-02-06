@@ -2,9 +2,13 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::CyclerOutput;
+use coordinate_systems::Transform;
 use eframe::epaint::Color32;
 use nalgebra::Isometry2;
-use types::field_dimensions::FieldDimensions;
+use types::{
+    coordinate_systems::{Field, Ground},
+    field_dimensions::FieldDimensions,
+};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -31,19 +35,24 @@ impl Layer for BallPosition {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()> {
-        let robot_to_fields: Vec<Option<Isometry2<f32>>> = self.robot_to_field.parse_buffered()?;
-        let ball_positions: Vec<Option<types::ball_position::BallPosition>> =
+    fn paint(
+        &self,
+        painter: &TwixPainter<Field>,
+        field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
+        let ground_to_fields: Vec<Option<Transform<Ground, Field, Isometry2<f32>>>> =
+            self.robot_to_field.parse_buffered()?;
+        let ball_positions: Vec<Option<types::ball_position::BallPosition<Ground>>> =
             self.ball_position.parse_buffered()?;
 
-        for (ball, robot_to_field) in ball_positions
+        for (ball, ground_to_field) in ball_positions
             .iter()
             .rev()
-            .zip(robot_to_fields.iter().rev())
+            .zip(ground_to_fields.iter().rev())
         {
             if let Some(ball) = ball {
                 painter.circle_filled(
-                    robot_to_field.unwrap_or_default() * ball.position,
+                    ground_to_field.unwrap_or_default() * ball.position,
                     field_dimensions.ball_radius,
                     Color32::from_white_alpha(10),
                 );
@@ -52,7 +61,7 @@ impl Layer for BallPosition {
 
         if let (Some(Some(ball)), Some(robot_to_field)) = (
             &ball_positions.first().map(Option::as_ref),
-            robot_to_fields.first(),
+            ground_to_fields.first(),
         ) {
             painter.ball(
                 robot_to_field.unwrap_or_default() * ball.position,

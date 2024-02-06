@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::IntoTransform;
 use framework::MainOutput;
 use kinematics::{
     head_to_neck, left_ankle_to_left_tibia, left_elbow_to_left_upper_arm, left_foot_to_left_ankle,
@@ -45,7 +46,7 @@ impl KinematicsProvider {
         let neck_to_robot = neck_to_robot(&joints.head);
         let head_to_robot = neck_to_robot * head_to_neck(&joints.head);
         // torso
-        let torso_to_robot = Isometry3::from(RobotDimensions::ROBOT_TO_TORSO);
+        let torso_to_robot = Isometry3::from(RobotDimensions::ROBOT_TO_TORSO).framed_transform();
         // left arm
         let left_shoulder_to_robot = left_shoulder_to_robot(&joints.left_arm);
         let left_upper_arm_to_robot =
@@ -73,8 +74,9 @@ impl KinematicsProvider {
         let left_tibia_to_robot = left_thigh_to_robot * left_tibia_to_left_thigh(&joints.left_leg);
         let left_ankle_to_robot = left_tibia_to_robot * left_ankle_to_left_tibia(&joints.left_leg);
         let left_foot_to_robot = left_ankle_to_robot * left_foot_to_left_ankle(&joints.left_leg);
-        let left_sole_to_robot =
-            left_foot_to_robot * Translation::from(RobotDimensions::ANKLE_TO_SOLE);
+        let left_sole_to_robot = (left_foot_to_robot.inner
+            * Translation::from(RobotDimensions::ANKLE_TO_SOLE))
+        .framed_transform();
         // right leg
         let right_pelvis_to_robot = right_pelvis_to_robot(&joints.right_leg);
         let right_hip_to_robot =
@@ -86,8 +88,10 @@ impl KinematicsProvider {
             right_tibia_to_robot * right_ankle_to_right_tibia(&joints.right_leg);
         let right_foot_to_robot =
             right_ankle_to_robot * right_foot_to_right_ankle(&joints.right_leg);
-        let right_sole_to_robot =
-            right_foot_to_robot * Translation::from(RobotDimensions::ANKLE_TO_SOLE);
+        let right_sole_to_robot = (right_foot_to_robot.inner
+            * Translation::from(RobotDimensions::ANKLE_TO_SOLE))
+        .framed_transform();
+
         Ok(MainOutputs {
             robot_kinematics: MainOutput::from(RobotKinematics {
                 neck_to_robot,

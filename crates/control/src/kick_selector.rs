@@ -2,15 +2,17 @@ use std::cmp::Ordering;
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{distance, Framed, IntoFramed, IntoTransform, Transform};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{
     circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
 };
 use itertools::iproduct;
-use nalgebra::{distance, point, vector, Isometry2, Point2, UnitComplex, Vector2};
+use nalgebra::{point, vector, Isometry2, Point2, UnitComplex, Vector2};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use types::{
+    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     kick_decision::KickDecision,
     kick_target::KickTarget,
@@ -29,7 +31,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    robot_to_field: RequiredInput<Option<Isometry2<f32>>, "robot_to_field?">,
+    ground_to_field:
+        RequiredInput<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
     ball_state: RequiredInput<Option<BallState>, "ball_state?">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
 
@@ -49,7 +52,8 @@ pub struct CycleContext {
     corner_kick_strength: Parameter<f32, "kick_selector.corner_kick_strength">,
 
     kick_targets: AdditionalOutput<Vec<KickTarget>, "kick_targets">,
-    instant_kick_targets: AdditionalOutput<Vec<Point2<f32>>, "instant_kick_targets">,
+    instant_kick_targets:
+        AdditionalOutput<Vec<Framed<Ground, Point2<f32>>>, "instant_kick_targets">,
 }
 
 #[context]
@@ -90,7 +94,7 @@ impl KickSelector {
             ball_position,
             &obstacle_circles,
             context.field_dimensions,
-            *context.robot_to_field,
+            *context.ground_to_field,
             *context.closer_threshold,
             &mut context.instant_kick_targets,
             *context.default_kick_strength,
@@ -98,7 +102,7 @@ impl KickSelector {
         );
 
         let kick_targets = collect_kick_targets(
-            *context.robot_to_field,
+            *context.ground_to_field,
             context.field_dimensions,
             &obstacle_circles,
             ball_position,
@@ -157,7 +161,7 @@ impl KickSelector {
 fn generate_obstacle_circles(
     obstacles: &[Obstacle],
     ball_radius_for_kick_target_selection: f32,
-) -> Vec<Circle> {
+) -> Vec<Circle<Ground>> {
     obstacles
         .iter()
         .map(|obstacle| {
@@ -176,12 +180,12 @@ fn generate_decisions_for_instant_kicks(
     sides: &[Side; 2],
     kick_variants: &[KickVariant],
     in_walk_kicks: &InWalkKicksParameters,
-    ball_position: Point2<f32>,
-    obstacle_circles: &[Circle],
+    ball_position: Framed<Ground, Point2<f32>>,
+    obstacle_circles: &[Circle<Ground>],
     field_dimensions: &FieldDimensions,
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
     closer_threshold: f32,
-    instant_kick_targets: &mut AdditionalOutput<Vec<Point2<f32>>>,
+    instant_kick_targets: &mut AdditionalOutput<Vec<Framed<Ground, Point2<f32>>>>,
     default_kick_strength: f32,
     goal_accuracy_margin: f32,
 ) -> Vec<KickDecision> {
@@ -194,17 +198,17 @@ fn generate_decisions_for_instant_kicks(
                 Side::Right => UnitComplex::new(kick_info.shot_angle).inverse(),
             };
             let shot_distance = vector![kick_info.shot_distance, 0.0];
-            let target = ball_position + shot_angle * shot_distance;
+            let target = ball_position + (shot_angle * shot_distance).framed();
 
-            let is_inside_field = field_dimensions.is_inside_field(robot_to_field * target);
+            let is_inside_field = field_dimensions.is_inside_field(ground_to_field * target);
             let ball_to_target = LineSegment(ball_position, target);
             let is_intersecting_with_an_obstacle = obstacle_circles
                 .iter()
                 .any(|circle| circle.intersects_line_segment(&ball_to_target));
             let opponent_goal_center =
-                robot_to_field.inverse() * point![field_dimensions.length / 2.0, 0.0];
+                ground_to_field.inverse() * point![field_dimensions.length / 2.0, 0.0].framed();
             let own_goal_center =
-                robot_to_field.inverse() * point![-field_dimensions.length / 2.0, 0.0];
+                ground_to_field.inverse() * point![-field_dimensions.length / 2.0, 0.0].framed();
             let is_target_closer_to_opponent_goal = (distance(&target, &opponent_goal_center)
                 + closer_threshold)
                 < distance(&ball_position, &opponent_goal_center);
@@ -221,7 +225,7 @@ fn generate_decisions_for_instant_kicks(
                 target,
                 ball_position,
                 field_dimensions,
-                robot_to_field,
+                ground_to_field,
                 goal_accuracy_margin,
             );
             let is_good_emergency_target =
@@ -248,49 +252,52 @@ fn generate_decisions_for_instant_kicks(
 }
 
 fn is_scoring_goal(
-    target: Point2<f32>,
-    ball_position: Point2<f32>,
+    target: Framed<Ground, Point2<f32>>,
+    ball_position: Framed<Ground, Point2<f32>>,
     field_dimensions: &FieldDimensions,
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
     goal_accuracy_margin: f32,
 ) -> bool {
-    let ball_to_target = LineSegment::new(robot_to_field * ball_position, robot_to_field * target);
+    let ball_to_target =
+        LineSegment::new(ground_to_field * ball_position, ground_to_field * target);
     let opponent_goal_line = LineSegment::new(
         point![
             field_dimensions.length / 2.0,
             field_dimensions.goal_inner_width / 2.0 - goal_accuracy_margin
-        ],
+        ]
+        .framed(),
         point![
             field_dimensions.length / 2.0,
             -field_dimensions.goal_inner_width / 2.0 + goal_accuracy_margin
-        ],
+        ]
+        .framed(),
     );
     ball_to_target.intersects_line_segment(opponent_goal_line)
 }
 
 fn collect_kick_targets(
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
     field_dimensions: &FieldDimensions,
-    obstacle_circles: &[Circle],
-    ball_position: Point2<f32>,
+    obstacle_circles: &[Circle<Ground>],
+    ball_position: Framed<Ground, Point2<f32>>,
     max_kick_around_obstacle_angle: f32,
     parameters: &FindKickTargetsParameters,
     corner_kick_strength: f32,
 ) -> Vec<KickTarget> {
-    let field_to_robot = robot_to_field.inverse();
+    let field_to_ground = ground_to_field.inverse();
     let mut kick_targets = Vec::new();
 
-    if is_ball_in_opponents_corners(&ball_position, parameters, field_dimensions, robot_to_field) {
+    if is_ball_in_opponents_corners(ball_position, parameters, field_dimensions, ground_to_field) {
         kick_targets.extend(generate_corner_kick_targets(
             parameters,
             field_dimensions,
-            field_to_robot,
+            field_to_ground,
             corner_kick_strength,
         ));
     } else {
         kick_targets.extend(generate_goal_line_kick_targets(
             field_dimensions,
-            field_to_robot,
+            field_to_ground,
         ));
     }
 
@@ -320,7 +327,7 @@ fn collect_kick_targets(
             let closest_intersecting_obstacle = obstacle_circles
                 .iter()
                 .filter(|circle| circle.intersects_line_segment(&ball_to_target))
-                .min_by_key(|circle| NotNan::new(circle.center.coords.norm()).unwrap());
+                .min_by_key(|circle| NotNan::new(circle.center.coords().norm()).unwrap());
             match closest_intersecting_obstacle {
                 Some(circle) => {
                     let TwoLineSegments(left_tangent, right_tangent) =
@@ -332,7 +339,9 @@ fn collect_kick_targets(
                             // TODO: drop this constant?
                             ball_position + kick_direction * 2.0
                         })
-                        .filter(|&position| field_dimensions.is_inside_field(position))
+                        .filter(|&position| {
+                            field_dimensions.is_inside_field(ground_to_field * position)
+                        })
                         .map(KickTarget::new)
                         .collect()
                 }
@@ -345,12 +354,12 @@ fn collect_kick_targets(
 fn generate_corner_kick_targets(
     parameters: &FindKickTargetsParameters,
     field_dimensions: &FieldDimensions,
-    field_to_robot: Isometry2<f32>,
+    field_to_ground: Transform<Field, Ground, Isometry2<f32>>,
     corner_kick_strength: f32,
 ) -> Vec<KickTarget> {
     let from_corner_kick_target_x =
         field_dimensions.length / 2.0 - parameters.corner_kick_target_distance_to_goal;
-    let position = field_to_robot * point![from_corner_kick_target_x, 0.0];
+    let position = field_to_ground * point![from_corner_kick_target_x, 0.0].framed();
     vec![KickTarget {
         position,
         strength: Some(corner_kick_strength),
@@ -359,18 +368,20 @@ fn generate_corner_kick_targets(
 
 fn generate_goal_line_kick_targets(
     field_dimensions: &FieldDimensions,
-    field_to_robot: Isometry2<f32>,
+    field_to_ground: Transform<Field, Ground, Isometry2<f32>>,
 ) -> Vec<KickTarget> {
-    let left_goal_half = field_to_robot
+    let left_goal_half = field_to_ground
         * point![
             field_dimensions.length / 2.0,
             field_dimensions.goal_inner_width / 4.0
-        ];
-    let right_goal_half = field_to_robot
+        ]
+        .framed();
+    let right_goal_half = field_to_ground
         * point![
             field_dimensions.length / 2.0,
             -field_dimensions.goal_inner_width / 4.0
-        ];
+        ]
+        .framed();
     vec![
         KickTarget::new(left_goal_half),
         KickTarget::new(right_goal_half),
@@ -382,7 +393,7 @@ fn kick_decisions_from_targets(
     in_walk_kicks: &InWalkKicksParameters,
     variant: KickVariant,
     kicking_side: Side,
-    ball_position: Point2<f32>,
+    ball_position: Framed<Ground, Point2<f32>>,
     default_strength: f32,
 ) -> Option<Vec<KickDecision>> {
     Some(
@@ -402,16 +413,20 @@ fn kick_decisions_from_targets(
     )
 }
 
-fn distance_to_kick_pose(kick_pose: Isometry2<f32>, angle_distance_weight: f32) -> f32 {
-    kick_pose.translation.vector.norm() + angle_distance_weight * kick_pose.rotation.angle().abs()
+fn distance_to_kick_pose(
+    kick_pose: Transform<Ground, Ground, Isometry2<f32>>,
+    angle_distance_weight: f32,
+) -> f32 {
+    kick_pose.inner.translation.vector.norm()
+        + angle_distance_weight * kick_pose.inner.rotation.angle().abs()
 }
 
 fn is_inside_any_obstacle(
-    kick_pose: Isometry2<f32>,
+    kick_pose: Transform<Ground, Ground, Isometry2<f32>>,
     obstacles: &[Obstacle],
     kick_pose_obstacle_radius: f32,
 ) -> bool {
-    let position = Point2::from(kick_pose.translation.vector);
+    let position = kick_pose * Framed::origin();
     obstacles.iter().any(|obstacle| {
         let circle = Circle {
             center: obstacle.position,
@@ -426,39 +441,43 @@ fn mirror_kick_offset(kick_offset: Vector2<f32>) -> Vector2<f32> {
 }
 
 fn compute_kick_pose(
-    ball_position: Point2<f32>,
-    target_to_kick_to: Point2<f32>,
+    ball_position: Framed<Ground, Point2<f32>>,
+    target_to_kick_to: Framed<Ground, Point2<f32>>,
     kick_info: &InWalkKickInfoParameters,
     side: Side,
-) -> Isometry2<f32> {
-    let kick_rotation = ball_position.look_at(&target_to_kick_to);
-    let ball_to_ground = Isometry2::from(ball_position.coords);
-    let shot_angle = UnitComplex::new(kick_info.shot_angle);
+) -> Transform<Ground, Ground, Isometry2<f32>> {
+    let kick_rotation = ball_position.look_at(&target_to_kick_to).inner;
+    let ball_to_ground = Isometry2::from(ball_position.coords().inner);
+    let target_angle = UnitComplex::new(kick_info.shot_angle);
     let offset_to_ball = kick_info.offset;
     match side {
-        Side::Left => ball_to_ground * shot_angle * kick_rotation * Isometry2::from(offset_to_ball),
+        Side::Left => {
+            ball_to_ground * target_angle * kick_rotation * Isometry2::from(offset_to_ball)
+        }
         Side::Right => {
             ball_to_ground
-                * shot_angle.inverse()
+                * target_angle.inverse()
                 * kick_rotation
                 * Isometry2::from(mirror_kick_offset(offset_to_ball))
         }
     }
+    .framed_transform()
 }
 
 fn is_ball_in_opponents_corners(
-    ball_position: &Point2<f32>,
+    ball_position: Framed<Ground, Point2<f32>>,
     parameters: &FindKickTargetsParameters,
     field_dimensions: &FieldDimensions,
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
 ) -> bool {
-    let global_ball = robot_to_field * ball_position;
-    let left_opponent_corner = point![field_dimensions.length / 2.0, field_dimensions.width / 2.0];
+    let ball_in_field = ground_to_field * ball_position;
+    let left_opponent_corner =
+        point![field_dimensions.length / 2.0, field_dimensions.width / 2.0].framed();
     let right_opponent_corner =
-        point![field_dimensions.length / 2.0, -field_dimensions.width / 2.0];
+        point![field_dimensions.length / 2.0, -field_dimensions.width / 2.0].framed();
     let ball_near_left_opponent_corner =
-        distance(&global_ball, &left_opponent_corner) < parameters.distance_from_corner;
+        distance(&ball_in_field, &left_opponent_corner) < parameters.distance_from_corner;
     let ball_near_right_opponent_corner =
-        distance(&global_ball, &right_opponent_corner) < parameters.distance_from_corner;
+        distance(&ball_in_field, &right_opponent_corner) < parameters.distance_from_corner;
     ball_near_left_opponent_corner || ball_near_right_opponent_corner
 }

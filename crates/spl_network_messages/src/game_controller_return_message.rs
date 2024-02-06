@@ -16,7 +16,7 @@ use crate::{
 pub struct GameControllerReturnMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,
-    pub robot_to_field: Isometry2<f32>,
+    pub ground_to_field: Isometry2<f32>,
     pub ball_position: Option<BallPosition>,
 }
 
@@ -65,7 +65,7 @@ impl TryFrom<RoboCupGameControlReturnData> for GameControllerReturnMessage {
                 0 => false,
                 _ => bail!("unexpected fallen state"),
             },
-            robot_to_field: Isometry2::new(
+            ground_to_field: Isometry2::new(
                 vector![message.pose[0] / 1000.0, message.pose[1] / 1000.0],
                 message.pose[2],
             ),
@@ -126,9 +126,9 @@ impl From<GameControllerReturnMessage> for RoboCupGameControlReturnData {
             teamNum: HULKS_TEAM_NUMBER,
             fallen: u8::from(message.fallen),
             pose: [
-                message.robot_to_field.translation.vector.x * 1000.0,
-                message.robot_to_field.translation.vector.y * 1000.0,
-                message.robot_to_field.rotation.angle(),
+                message.ground_to_field.translation.vector.x * 1000.0,
+                message.ground_to_field.translation.vector.y * 1000.0,
+                message.ground_to_field.rotation.angle(),
             ],
             ballAge: ball_age,
             ball: ball_position,
@@ -150,7 +150,7 @@ mod test {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
             fallen: false,
-            robot_to_field: Isometry2::default(),
+            ground_to_field: Isometry2::default(),
             ball_position: None,
         };
         let output_message: RoboCupGameControlReturnData = input_message.into();
@@ -161,7 +161,7 @@ mod test {
 
         let input_message_again: GameControllerReturnMessage = output_message.try_into().unwrap();
 
-        assert_relative_eq!(input_message_again.robot_to_field, Isometry2::default());
+        assert_relative_eq!(input_message_again.ground_to_field, Isometry2::default());
     }
 
     #[test]
@@ -169,7 +169,7 @@ mod test {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
             fallen: false,
-            robot_to_field: Isometry2::new(vector![0.0, 1.0], FRAC_PI_2),
+            ground_to_field: Isometry2::new(vector![0.0, 1.0], FRAC_PI_2),
             ball_position: None,
         };
         let output_message: RoboCupGameControlReturnData = input_message.into();
@@ -181,7 +181,7 @@ mod test {
         let input_message_again: GameControllerReturnMessage = output_message.try_into().unwrap();
 
         assert_relative_eq!(
-            input_message_again.robot_to_field,
+            input_message_again.ground_to_field,
             Isometry2::new(vector![0.0, 1.0], FRAC_PI_2),
             epsilon = 0.001
         );
@@ -192,18 +192,18 @@ mod test {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
             fallen: false,
-            robot_to_field: Isometry2::new(vector![1.0, 1.0], FRAC_PI_4),
+            ground_to_field: Isometry2::new(vector![1.0, 1.0], FRAC_PI_4),
             ball_position: None,
         };
         let output_message: RoboCupGameControlReturnData = input_message.into();
 
         assert_relative_eq!(
-            input_message.robot_to_field * point![1.0 / SQRT_2, -1.0 / SQRT_2],
+            input_message.ground_to_field * point![1.0 / SQRT_2, -1.0 / SQRT_2],
             point![2.0, 1.0],
             epsilon = 0.001
         );
         assert_relative_eq!(
-            input_message.robot_to_field * point![0.0, 0.0],
+            input_message.ground_to_field * point![0.0, 0.0],
             point![1.0, 1.0],
             epsilon = 0.001
         );
@@ -215,7 +215,7 @@ mod test {
         let input_message_again: GameControllerReturnMessage = output_message.try_into().unwrap();
 
         assert_relative_eq!(
-            input_message_again.robot_to_field,
+            input_message_again.ground_to_field,
             Isometry2::new(vector![1.0, 1.0], FRAC_PI_4),
             epsilon = 0.001
         );

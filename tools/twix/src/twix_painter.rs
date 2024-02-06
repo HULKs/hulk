@@ -1,5 +1,9 @@
-use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, TAU};
+use std::{
+    f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, TAU},
+    marker::PhantomData,
+};
 
+use coordinate_systems::{Framed, IntoFramed, IntoTransform, Transform};
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
     emath::{Pos2, Rect},
@@ -7,7 +11,11 @@ use eframe::{
 };
 use geometry::{arc::Arc, circle::Circle, orientation::Orientation};
 use nalgebra::{point, vector, Isometry2, Point2, Rotation2, SMatrix, Similarity2, Vector2};
-use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
+use types::{
+    coordinate_systems::{Field, Ground},
+    field_dimensions::FieldDimensions,
+    planned_path::PathSegment,
+};
 
 pub enum CoordinateSystem {
     RightHand,
@@ -23,14 +31,16 @@ impl CoordinateSystem {
     }
 }
 
-pub struct TwixPainter {
+// TODO: Investigate tagging this type and all method parameters with Frames
+pub struct TwixPainter<Frame> {
     painter: Painter,
     pixel_rect: Rect,
     world_to_pixel: Similarity2<f32>,
     camera_coordinate_system: CoordinateSystem,
+    frame: PhantomData<Frame>,
 }
 
-impl TwixPainter {
+impl<Frame> TwixPainter<Frame> {
     pub fn allocate_new(ui: &mut Ui) -> (Response, Self) {
         let (response, painter) =
             ui.allocate_painter(ui.available_size_before_wrap(), Sense::click_and_drag());
@@ -45,6 +55,7 @@ impl TwixPainter {
             pixel_rect,
             world_to_pixel,
             camera_coordinate_system: CoordinateSystem::RightHand,
+            frame: PhantomData,
         };
         (response, twix_painter)
     }
@@ -61,6 +72,7 @@ impl TwixPainter {
             pixel_rect,
             world_to_pixel,
             camera_coordinate_system: CoordinateSystem::RightHand,
+            frame: PhantomData,
         }
     }
 
@@ -79,6 +91,7 @@ impl TwixPainter {
             pixel_rect: self.pixel_rect,
             world_to_pixel: camera_to_pixel * world_to_camera,
             camera_coordinate_system,
+            frame: PhantomData,
         }
     }
 
@@ -94,190 +107,7 @@ impl TwixPainter {
         self.world_to_pixel = transformation * self.world_to_pixel;
     }
 
-    pub fn field(&self, field_dimensions: &FieldDimensions) {
-        let line_stroke = Stroke::new(field_dimensions.line_width, Color32::WHITE);
-        let goal_post_stroke =
-            Stroke::new(field_dimensions.goal_post_diameter / 8.0, Color32::BLACK);
-
-        // Background
-        self.rect_filled(
-            point![
-                -field_dimensions.length / 2.0 - field_dimensions.border_strip_width,
-                -field_dimensions.width / 2.0 - field_dimensions.border_strip_width
-            ],
-            point![
-                field_dimensions.length / 2.0 + field_dimensions.border_strip_width,
-                field_dimensions.width / 2.0 + field_dimensions.border_strip_width
-            ],
-            Color32::DARK_GREEN,
-        );
-
-        // Outer lines
-        self.rect_stroke(
-            point![
-                -field_dimensions.length / 2.0,
-                -field_dimensions.width / 2.0
-            ],
-            point![field_dimensions.length / 2.0, field_dimensions.width / 2.0],
-            line_stroke,
-        );
-
-        // Center line
-        self.line_segment(
-            point![0.0, -field_dimensions.width / 2.0],
-            point![0.0, field_dimensions.width / 2.0],
-            line_stroke,
-        );
-
-        // Center center
-        self.circle_stroke(
-            point![0.0, 0.0],
-            field_dimensions.center_circle_diameter / 2.0,
-            line_stroke,
-        );
-
-        // Penalty areas
-        self.rect_stroke(
-            point![
-                -field_dimensions.length / 2.0,
-                -field_dimensions.penalty_area_width / 2.0
-            ],
-            point![
-                -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
-                field_dimensions.penalty_area_width / 2.0
-            ],
-            line_stroke,
-        );
-        self.rect_stroke(
-            point![
-                field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
-                -field_dimensions.penalty_area_width / 2.0
-            ],
-            point![
-                field_dimensions.length / 2.0,
-                field_dimensions.penalty_area_width / 2.0
-            ],
-            line_stroke,
-        );
-
-        // Goal areas
-        self.rect_stroke(
-            point![
-                -field_dimensions.length / 2.0,
-                -field_dimensions.goal_box_area_width / 2.0
-            ],
-            point![
-                -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
-                field_dimensions.goal_box_area_width / 2.0
-            ],
-            line_stroke,
-        );
-        self.rect_stroke(
-            point![
-                field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
-                -field_dimensions.goal_box_area_width / 2.0
-            ],
-            point![
-                field_dimensions.length / 2.0,
-                field_dimensions.goal_box_area_width / 2.0
-            ],
-            line_stroke,
-        );
-
-        // Penalty spots
-        self.line_segment(
-            point![
-                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance
-                    - field_dimensions.penalty_marker_size / 2.0,
-                0.0
-            ],
-            point![
-                -field_dimensions.length / 2.0
-                    + field_dimensions.penalty_marker_distance
-                    + field_dimensions.penalty_marker_size / 2.0,
-                0.0
-            ],
-            line_stroke,
-        );
-        self.line_segment(
-            point![
-                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
-                -field_dimensions.penalty_marker_size / 2.0
-            ],
-            point![
-                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
-                field_dimensions.penalty_marker_size / 2.0
-            ],
-            line_stroke,
-        );
-        self.line_segment(
-            point![
-                field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance
-                    + field_dimensions.penalty_marker_size / 2.0,
-                0.0
-            ],
-            point![
-                field_dimensions.length / 2.0
-                    - field_dimensions.penalty_marker_distance
-                    - field_dimensions.penalty_marker_size / 2.0,
-                0.0
-            ],
-            line_stroke,
-        );
-        self.line_segment(
-            point![
-                field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
-                -field_dimensions.penalty_marker_size / 2.0
-            ],
-            point![
-                field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
-                field_dimensions.penalty_marker_size / 2.0
-            ],
-            line_stroke,
-        );
-
-        // Goal posts
-        self.circle(
-            point![
-                -field_dimensions.length / 2.0 - field_dimensions.line_width / 2.0,
-                -field_dimensions.goal_inner_width / 2.0
-                    - field_dimensions.goal_post_diameter / 2.0
-            ],
-            field_dimensions.goal_post_diameter / 2.0,
-            Color32::WHITE,
-            goal_post_stroke,
-        );
-        self.circle(
-            point![
-                -field_dimensions.length / 2.0 - field_dimensions.line_width / 2.0,
-                field_dimensions.goal_inner_width / 2.0 + field_dimensions.goal_post_diameter / 2.0
-            ],
-            field_dimensions.goal_post_diameter / 2.0,
-            Color32::WHITE,
-            goal_post_stroke,
-        );
-        self.circle(
-            point![
-                field_dimensions.length / 2.0 + field_dimensions.line_width / 2.0,
-                -field_dimensions.goal_inner_width / 2.0
-                    - field_dimensions.goal_post_diameter / 2.0
-            ],
-            field_dimensions.goal_post_diameter / 2.0,
-            Color32::WHITE,
-            goal_post_stroke,
-        );
-        self.circle(
-            point![
-                field_dimensions.length / 2.0 + field_dimensions.line_width / 2.0,
-                field_dimensions.goal_inner_width / 2.0 + field_dimensions.goal_post_diameter / 2.0
-            ],
-            field_dimensions.goal_post_diameter / 2.0,
-            Color32::WHITE,
-            goal_post_stroke,
-        );
-    }
-
-    pub fn ball(&self, position: Point2<f32>, radius: f32) {
+    pub fn ball(&self, position: Framed<Frame, Point2<f32>>, radius: f32) {
         self.circle(
             position,
             radius,
@@ -290,18 +120,24 @@ impl TwixPainter {
 
         (0..5).for_each(|index| {
             let angle = index as f32 * TAU / 5.0;
-            let position = position + vector![angle.cos(), angle.sin()] * radius * 0.7;
+            let position = position + vector![angle.cos(), angle.sin()].framed() * radius * 0.7;
             self.n_gon(5, position, radius / 3.0, Color32::BLACK);
         });
         self.n_gon(5, position, radius / 3.0, Color32::BLACK);
     }
 
-    pub fn n_gon(&self, corners: usize, position: Point2<f32>, radius: f32, fill_color: Color32) {
+    pub fn n_gon(
+        &self,
+        corners: usize,
+        position: Framed<Frame, Point2<f32>>,
+        radius: f32,
+        fill_color: Color32,
+    ) {
         let points: Vec<_> = (0..corners)
             .map(|index| {
                 self.transform_world_to_pixel({
                     let angle = index as f32 * TAU / corners as f32;
-                    position + vector![angle.cos(), angle.sin()] * radius
+                    position + vector![angle.cos(), angle.sin()].framed() * radius
                 })
             })
             .collect();
@@ -312,9 +148,207 @@ impl TwixPainter {
         )));
     }
 
+    pub fn transform_world_to_pixel(&self, point: Framed<Frame, Point2<f32>>) -> Pos2 {
+        let normalized = self.world_to_pixel
+            * point![
+                point.x(),
+                point.y() * self.camera_coordinate_system.y_scale()
+            ];
+        Pos2 {
+            x: normalized.x,
+            y: normalized.y,
+        }
+    }
+
+    pub fn transform_pixel_to_world(&self, pos: Pos2) -> Framed<Frame, Point2<f32>> {
+        let world_point = self.world_to_pixel.inverse() * point![pos.x, pos.y];
+        point![
+            world_point.x,
+            world_point.y * self.camera_coordinate_system.y_scale()
+        ]
+        .framed()
+    }
+
+    fn transform_stroke(&self, stroke: Stroke) -> Stroke {
+        Stroke {
+            width: stroke.width * self.world_to_pixel.scaling(),
+            ..stroke
+        }
+    }
+
+    pub fn line_segment(
+        &self,
+        start: Framed<Frame, Point2<f32>>,
+        end: Framed<Frame, Point2<f32>>,
+        stroke: Stroke,
+    ) {
+        let start = self.transform_world_to_pixel(start);
+        let end = self.transform_world_to_pixel(end);
+        let stroke = self.transform_stroke(stroke);
+        self.painter.line_segment([start, end], stroke);
+    }
+
+    pub fn rect_filled(
+        &self,
+        min: Framed<Frame, Point2<f32>>,
+        max: Framed<Frame, Point2<f32>>,
+        fill_color: Color32,
+    ) {
+        let rect = Rect {
+            min: self.transform_world_to_pixel(min),
+            max: self.transform_world_to_pixel(max),
+        };
+        self.painter
+            .rect_filled(sort_rect(rect), Rounding::ZERO, fill_color);
+    }
+
+    pub fn rect_stroke(
+        &self,
+        min: Framed<Frame, Point2<f32>>,
+        max: Framed<Frame, Point2<f32>>,
+        stroke: Stroke,
+    ) {
+        let rect = Rect {
+            min: self.transform_world_to_pixel(min),
+            max: self.transform_world_to_pixel(max),
+        };
+        let stroke = self.transform_stroke(stroke);
+        self.painter
+            .rect_stroke(sort_rect(rect), Rounding::ZERO, stroke);
+    }
+
+    pub fn circle(
+        &self,
+        center: Framed<Frame, Point2<f32>>,
+        radius: f32,
+        fill_color: Color32,
+        stroke: Stroke,
+    ) {
+        let center = self.transform_world_to_pixel(center);
+        let radius = radius * self.world_to_pixel.scaling();
+        let stroke = self.transform_stroke(stroke);
+        self.painter.circle(center, radius, fill_color, stroke);
+    }
+
+    pub fn circle_filled(
+        &self,
+        center: Framed<Frame, Point2<f32>>,
+        radius: f32,
+        fill_color: Color32,
+    ) {
+        let center = self.transform_world_to_pixel(center);
+        let radius = radius * self.world_to_pixel.scaling();
+        self.painter.circle_filled(center, radius, fill_color);
+    }
+
+    pub fn circle_stroke(&self, center: Framed<Frame, Point2<f32>>, radius: f32, stroke: Stroke) {
+        let center = self.transform_world_to_pixel(center);
+        let radius = radius * self.world_to_pixel.scaling();
+        let stroke = self.transform_stroke(stroke);
+        self.painter.circle_stroke(center, radius, stroke);
+    }
+
+    pub fn ellipse(
+        &self,
+        position: Framed<Frame, Point2<f32>>,
+        w: f32,
+        h: f32,
+        theta: f32,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
+        let samples = 360;
+        let points = (0..samples)
+            .map(|i| {
+                let t = i as f32 * TAU / samples as f32;
+                let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
+                let y = w * theta.sin() * t.cos() + h * theta.cos() * t.sin();
+                self.transform_world_to_pixel(position + vector![x, y].framed())
+            })
+            .collect();
+        let stroke = self.transform_stroke(stroke);
+        self.painter.add(Shape::Path(PathShape::convex_polygon(
+            points, fill_color, stroke,
+        )));
+    }
+
+    pub fn covariance(
+        &self,
+        position: Framed<Frame, Point2<f32>>,
+        covariance: SMatrix<f32, 2, 2>,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
+        let a = covariance.m11;
+        let b = covariance.m12;
+        let c = covariance.m22;
+        let l1 = (a + c) / 2.0 + (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
+        let l2 = (a + c) / 2.0 - (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
+        let theta = if b == 0.0 && a >= c {
+            0.0
+        } else if b == 0.0 && a < c {
+            FRAC_PI_2
+        } else {
+            b.atan2(l1 - a)
+        };
+        self.ellipse(position, l1.sqrt(), l2.sqrt(), theta, stroke, fill_color)
+    }
+
+    pub fn target(
+        &self,
+        position: Framed<Frame, Point2<f32>>,
+        radius: f32,
+        stroke: Stroke,
+        fill_color: Color32,
+    ) {
+        self.circle_filled(position, radius, fill_color);
+        self.circle_stroke(position, radius, stroke);
+        self.line_segment(
+            point![
+                position.x() - FRAC_1_SQRT_2 * radius,
+                position.y() + FRAC_1_SQRT_2 * radius
+            ]
+            .framed(),
+            point![
+                position.x() + FRAC_1_SQRT_2 * radius,
+                position.y() - FRAC_1_SQRT_2 * radius
+            ]
+            .framed(),
+            stroke,
+        );
+        self.line_segment(
+            point![
+                position.x() + FRAC_1_SQRT_2 * radius,
+                position.y() + FRAC_1_SQRT_2 * radius
+            ]
+            .framed(),
+            point![
+                position.x() - FRAC_1_SQRT_2 * radius,
+                position.y() - FRAC_1_SQRT_2 * radius
+            ]
+            .framed(),
+            stroke,
+        );
+    }
+}
+
+impl TwixPainter<Field> {
+    pub fn pose(
+        &self,
+        pose: Transform<Ground, Field, Isometry2<f32>>,
+        circle_radius: f32,
+        line_length: f32,
+        fill_color: Color32,
+        stroke: Stroke,
+    ) {
+        let center = pose * Point2::origin().framed();
+        self.circle(center, circle_radius, fill_color, stroke);
+        self.line_segment(center, pose * point![line_length, 0.0].framed(), stroke);
+    }
+
     pub fn path(
         &self,
-        robot_to_field: Isometry2<f32>,
+        ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
         path: Vec<PathSegment>,
         line_color: Color32,
         arc_color: Color32,
@@ -323,8 +357,8 @@ impl TwixPainter {
         for segment in path {
             match segment {
                 PathSegment::LineSegment(line_segment) => self.line_segment(
-                    robot_to_field * line_segment.0,
-                    robot_to_field * line_segment.1,
+                    ground_to_field * line_segment.0,
+                    ground_to_field * line_segment.1,
                     Stroke {
                         width,
                         color: line_color,
@@ -337,99 +371,19 @@ impl TwixPainter {
                         width,
                         color: arc_color,
                     },
-                    robot_to_field,
+                    ground_to_field,
                 ),
             }
         }
     }
 
-    pub fn pose(
+    pub fn arc(
         &self,
-        pose: Isometry2<f32>,
-        circle_radius: f32,
-        line_length: f32,
-        fill_color: Color32,
+        arc: Arc<Ground>,
+        orientation: Orientation,
         stroke: Stroke,
+        pose: Transform<Ground, Field, Isometry2<f32>>,
     ) {
-        self.circle(pose * Point2::origin(), circle_radius, fill_color, stroke);
-        self.line_segment(
-            pose * Point2::origin(),
-            pose * point![line_length, 0.0],
-            stroke,
-        );
-    }
-
-    pub fn transform_world_to_pixel(&self, point: Point2<f32>) -> Pos2 {
-        let normalized = self.world_to_pixel
-            * point![point.x, point.y * self.camera_coordinate_system.y_scale()];
-        Pos2 {
-            x: normalized.x,
-            y: normalized.y,
-        }
-    }
-
-    pub fn transform_pixel_to_world(&self, pos: Pos2) -> Point2<f32> {
-        let world_point = self.world_to_pixel.inverse() * point![pos.x, pos.y];
-        point![
-            world_point.x,
-            world_point.y * self.camera_coordinate_system.y_scale()
-        ]
-    }
-
-    fn transform_stroke(&self, stroke: Stroke) -> Stroke {
-        Stroke {
-            width: stroke.width * self.world_to_pixel.scaling(),
-            ..stroke
-        }
-    }
-
-    pub fn line_segment(&self, start: Point2<f32>, end: Point2<f32>, stroke: Stroke) {
-        let start = self.transform_world_to_pixel(start);
-        let end = self.transform_world_to_pixel(end);
-        let stroke = self.transform_stroke(stroke);
-        self.painter.line_segment([start, end], stroke);
-    }
-
-    pub fn rect_filled(&self, min: Point2<f32>, max: Point2<f32>, fill_color: Color32) {
-        let rect = Rect {
-            min: self.transform_world_to_pixel(min),
-            max: self.transform_world_to_pixel(max),
-        };
-        self.painter
-            .rect_filled(sort_rect(rect), Rounding::ZERO, fill_color);
-    }
-
-    pub fn rect_stroke(&self, min: Point2<f32>, max: Point2<f32>, stroke: Stroke) {
-        let rect = Rect {
-            min: self.transform_world_to_pixel(min),
-            max: self.transform_world_to_pixel(max),
-        };
-        let stroke = self.transform_stroke(stroke);
-        self.painter
-            .rect_stroke(sort_rect(rect), Rounding::ZERO, stroke);
-    }
-
-    pub fn circle(&self, center: Point2<f32>, radius: f32, fill_color: Color32, stroke: Stroke) {
-        let center = self.transform_world_to_pixel(center);
-        let radius = radius * self.world_to_pixel.scaling();
-        let stroke = self.transform_stroke(stroke);
-        self.painter.circle(center, radius, fill_color, stroke);
-    }
-
-    pub fn circle_filled(&self, center: Point2<f32>, radius: f32, fill_color: Color32) {
-        let center = self.transform_world_to_pixel(center);
-        let radius = radius * self.world_to_pixel.scaling();
-        self.painter.circle_filled(center, radius, fill_color);
-    }
-
-    pub fn circle_stroke(&self, center: Point2<f32>, radius: f32, stroke: Stroke) {
-        let center = self.transform_world_to_pixel(center);
-        let radius = radius * self.world_to_pixel.scaling();
-        let stroke = self.transform_stroke(stroke);
-        self.painter.circle_stroke(center, radius, stroke);
-    }
-
-    pub fn arc(&self, arc: Arc, orientation: Orientation, stroke: Stroke, pose: Isometry2<f32>) {
         let Arc {
             circle: Circle { center, radius },
             start,
@@ -462,7 +416,8 @@ impl TwixPainter {
         let points = (0..samples + 1)
             .map(|index| {
                 let angle = signed_angle_difference / samples as f32 * index as f32;
-                let point = pose * (center + Rotation2::new(angle) * start_relative);
+                let point =
+                    pose * (center + Rotation2::new(angle).framed_transform() * start_relative);
                 self.transform_world_to_pixel(point)
             })
             .collect();
@@ -473,76 +428,209 @@ impl TwixPainter {
             .add(Shape::Path(PathShape::line(points, stroke)));
     }
 
-    pub fn ellipse(
-        &self,
-        position: Point2<f32>,
-        w: f32,
-        h: f32,
-        theta: f32,
-        stroke: Stroke,
-        fill_color: Color32,
-    ) {
-        let samples = 360;
-        let points = (0..samples)
-            .map(|i| {
-                let t = i as f32 * TAU / samples as f32;
-                let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
-                let y = w * theta.sin() * t.cos() + h * theta.cos() * t.sin();
-                self.transform_world_to_pixel(position + vector![x, y])
-            })
-            .collect();
-        let stroke = self.transform_stroke(stroke);
-        self.painter.add(Shape::Path(PathShape::convex_polygon(
-            points, fill_color, stroke,
-        )));
-    }
+    pub fn field(&self, field_dimensions: &FieldDimensions) {
+        let line_stroke = Stroke::new(field_dimensions.line_width, Color32::WHITE);
+        let goal_post_stroke =
+            Stroke::new(field_dimensions.goal_post_diameter / 8.0, Color32::BLACK);
 
-    pub fn covariance(
-        &self,
-        position: Point2<f32>,
-        covariance: SMatrix<f32, 2, 2>,
-        stroke: Stroke,
-        fill_color: Color32,
-    ) {
-        let a = covariance.m11;
-        let b = covariance.m12;
-        let c = covariance.m22;
-        let l1 = (a + c) / 2.0 + (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
-        let l2 = (a + c) / 2.0 - (((a - c) / 2.0).powi(2) + b.powi(2)).sqrt();
-        let theta = if b == 0.0 && a >= c {
-            0.0
-        } else if b == 0.0 && a < c {
-            FRAC_PI_2
-        } else {
-            b.atan2(l1 - a)
-        };
-        self.ellipse(position, l1.sqrt(), l2.sqrt(), theta, stroke, fill_color)
-    }
+        // Background
+        self.rect_filled(
+            point![
+                -field_dimensions.length / 2.0 - field_dimensions.border_strip_width,
+                -field_dimensions.width / 2.0 - field_dimensions.border_strip_width
+            ]
+            .framed(),
+            point![
+                field_dimensions.length / 2.0 + field_dimensions.border_strip_width,
+                field_dimensions.width / 2.0 + field_dimensions.border_strip_width
+            ]
+            .framed(),
+            Color32::DARK_GREEN,
+        );
 
-    pub fn target(&self, position: Point2<f32>, radius: f32, stroke: Stroke, fill_color: Color32) {
-        self.circle_filled(position, radius, fill_color);
-        self.circle_stroke(position, radius, stroke);
+        // Outer lines
+        self.rect_stroke(
+            point![
+                -field_dimensions.length / 2.0,
+                -field_dimensions.width / 2.0
+            ]
+            .framed(),
+            point![field_dimensions.length / 2.0, field_dimensions.width / 2.0].framed(),
+            line_stroke,
+        );
+
+        // Center line
+        self.line_segment(
+            point![0.0, -field_dimensions.width / 2.0].framed(),
+            point![0.0, field_dimensions.width / 2.0].framed(),
+            line_stroke,
+        );
+
+        // Center center
+        self.circle_stroke(
+            point![0.0, 0.0].framed(),
+            field_dimensions.center_circle_diameter / 2.0,
+            line_stroke,
+        );
+
+        // Penalty areas
+        self.rect_stroke(
+            point![
+                -field_dimensions.length / 2.0,
+                -field_dimensions.penalty_area_width / 2.0
+            ]
+            .framed(),
+            point![
+                -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
+                field_dimensions.penalty_area_width / 2.0
+            ]
+            .framed(),
+            line_stroke,
+        );
+        self.rect_stroke(
+            point![
+                field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
+                -field_dimensions.penalty_area_width / 2.0
+            ]
+            .framed(),
+            point![
+                field_dimensions.length / 2.0,
+                field_dimensions.penalty_area_width / 2.0
+            ]
+            .framed(),
+            line_stroke,
+        );
+
+        // Goal areas
+        self.rect_stroke(
+            point![
+                -field_dimensions.length / 2.0,
+                -field_dimensions.goal_box_area_width / 2.0
+            ]
+            .framed(),
+            point![
+                -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
+                field_dimensions.goal_box_area_width / 2.0
+            ]
+            .framed(),
+            line_stroke,
+        );
+        self.rect_stroke(
+            point![
+                field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
+                -field_dimensions.goal_box_area_width / 2.0
+            ]
+            .framed(),
+            point![
+                field_dimensions.length / 2.0,
+                field_dimensions.goal_box_area_width / 2.0
+            ]
+            .framed(),
+            line_stroke,
+        );
+
+        // Penalty spots
         self.line_segment(
             point![
-                position.x - FRAC_1_SQRT_2 * radius,
-                position.y + FRAC_1_SQRT_2 * radius
-            ],
+                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance
+                    - field_dimensions.penalty_marker_size / 2.0,
+                0.0
+            ]
+            .framed(),
             point![
-                position.x + FRAC_1_SQRT_2 * radius,
-                position.y - FRAC_1_SQRT_2 * radius
-            ],
-            stroke,
+                -field_dimensions.length / 2.0
+                    + field_dimensions.penalty_marker_distance
+                    + field_dimensions.penalty_marker_size / 2.0,
+                0.0
+            ]
+            .framed(),
+            line_stroke,
         );
         self.line_segment(
             point![
-                position.x + FRAC_1_SQRT_2 * radius,
-                position.y + FRAC_1_SQRT_2 * radius
-            ],
+                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
+                -field_dimensions.penalty_marker_size / 2.0
+            ]
+            .framed(),
             point![
-                position.x - FRAC_1_SQRT_2 * radius,
-                position.y - FRAC_1_SQRT_2 * radius
-            ],
-            stroke,
+                -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
+                field_dimensions.penalty_marker_size / 2.0
+            ]
+            .framed(),
+            line_stroke,
+        );
+        self.line_segment(
+            point![
+                field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance
+                    + field_dimensions.penalty_marker_size / 2.0,
+                0.0
+            ]
+            .framed(),
+            point![
+                field_dimensions.length / 2.0
+                    - field_dimensions.penalty_marker_distance
+                    - field_dimensions.penalty_marker_size / 2.0,
+                0.0
+            ]
+            .framed(),
+            line_stroke,
+        );
+        self.line_segment(
+            point![
+                field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
+                -field_dimensions.penalty_marker_size / 2.0
+            ]
+            .framed(),
+            point![
+                field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
+                field_dimensions.penalty_marker_size / 2.0
+            ]
+            .framed(),
+            line_stroke,
+        );
+
+        // Goal posts
+        self.circle(
+            point![
+                -field_dimensions.length / 2.0 - field_dimensions.line_width / 2.0,
+                -field_dimensions.goal_inner_width / 2.0
+                    - field_dimensions.goal_post_diameter / 2.0
+            ]
+            .framed(),
+            field_dimensions.goal_post_diameter / 2.0,
+            Color32::WHITE,
+            goal_post_stroke,
+        );
+        self.circle(
+            point![
+                -field_dimensions.length / 2.0 - field_dimensions.line_width / 2.0,
+                field_dimensions.goal_inner_width / 2.0 + field_dimensions.goal_post_diameter / 2.0
+            ]
+            .framed(),
+            field_dimensions.goal_post_diameter / 2.0,
+            Color32::WHITE,
+            goal_post_stroke,
+        );
+        self.circle(
+            point![
+                field_dimensions.length / 2.0 + field_dimensions.line_width / 2.0,
+                -field_dimensions.goal_inner_width / 2.0
+                    - field_dimensions.goal_post_diameter / 2.0
+            ]
+            .framed(),
+            field_dimensions.goal_post_diameter / 2.0,
+            Color32::WHITE,
+            goal_post_stroke,
+        );
+        self.circle(
+            point![
+                field_dimensions.length / 2.0 + field_dimensions.line_width / 2.0,
+                field_dimensions.goal_inner_width / 2.0 + field_dimensions.goal_post_diameter / 2.0
+            ]
+            .framed(),
+            field_dimensions.goal_post_diameter / 2.0,
+            Color32::WHITE,
+            goal_post_stroke,
         );
     }
 }

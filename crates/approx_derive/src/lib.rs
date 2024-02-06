@@ -129,7 +129,8 @@ fn generate_relative_eq(input: DeriveInput) -> TokenStream {
                 epsilon: Self::Epsilon,
                 max_relative: Self::Epsilon,
             ) -> bool {
-                #(#conditions)&&*
+                #(#conditions&&)*
+                true
             }
         }
     }

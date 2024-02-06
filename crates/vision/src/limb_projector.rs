@@ -1,11 +1,13 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Framed, IntoTransform, Transform};
 use framework::MainOutput;
 use nalgebra::{Isometry3, Matrix2, Point2, Point3};
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
+    coordinate_systems::Robot,
     limb::{Limb, ProjectedLimbs},
     robot_kinematics::RobotKinematics,
 };
@@ -26,7 +28,8 @@ pub struct CycleContext {
     knee_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.knee_bounding_polygon">,
     lower_arm_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.lower_arm_bounding_polygon">,
-    torso_bounding_polygon: Parameter<Vec<Point3<f32>>, "projected_limbs.torso_bounding_polygon">,
+    torso_bounding_polygon:
+        Parameter<Vec<Framed<Robot, Point3<f32>>>, "projected_limbs.torso_bounding_polygon">,
     upper_arm_bounding_polygon:
         Parameter<Vec<Point3<f32>>, "projected_limbs.upper_arm_bounding_polygon">,
 }
@@ -48,81 +51,82 @@ impl LimbProjector {
                 projected_limbs: Default::default(),
             });
         }
-        let torso_limb = project_bounding_polygon(
-            Isometry3::identity(),
-            context.camera_matrix,
-            context.torso_bounding_polygon,
-            false,
-        );
-        let left_lower_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.left_wrist_to_robot,
-            context.camera_matrix,
-            context.lower_arm_bounding_polygon,
-            true,
-        );
-        let right_lower_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.right_wrist_to_robot,
-            context.camera_matrix,
-            context.lower_arm_bounding_polygon,
-            true,
-        );
-        let left_upper_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.left_elbow_to_robot,
-            context.camera_matrix,
-            context.upper_arm_bounding_polygon,
-            true,
-        );
-        let right_upper_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.right_elbow_to_robot,
-            context.camera_matrix,
-            context.upper_arm_bounding_polygon,
-            true,
-        );
-        let left_knee_limb = project_bounding_polygon(
-            context.robot_kinematics.left_thigh_to_robot,
-            context.camera_matrix,
-            context.knee_bounding_polygon,
-            true,
-        );
-        let right_knee_limb = project_bounding_polygon(
-            context.robot_kinematics.right_thigh_to_robot,
-            context.camera_matrix,
-            context.knee_bounding_polygon,
-            true,
-        );
-        let left_foot_limb = project_bounding_polygon(
-            context.robot_kinematics.left_sole_to_robot,
-            context.camera_matrix,
-            context.foot_bounding_polygon,
-            true,
-        );
-        let right_foot_limb = project_bounding_polygon(
-            context.robot_kinematics.right_sole_to_robot,
-            context.camera_matrix,
-            context.foot_bounding_polygon,
-            true,
-        );
+        // let torso_limb = project_bounding_polygon(
+        //     Isometry3::identity().framed_transform(),
+        //     context.camera_matrix,
+        //     context.torso_bounding_polygon,
+        //     false,
+        // );
+        // let left_lower_arm_limb = project_bounding_polygon(
+        //     context.robot_kinematics.left_wrist_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.lower_arm_bounding_polygon,
+        //     true,
+        // );
+        // let right_lower_arm_limb = project_bounding_polygon(
+        //     context.robot_kinematics.right_wrist_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.lower_arm_bounding_polygon,
+        //     true,
+        // );
+        // let left_upper_arm_limb = project_bounding_polygon(
+        //     context.robot_kinematics.left_elbow_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.upper_arm_bounding_polygon,
+        //     true,
+        // );
+        // let right_upper_arm_limb = project_bounding_polygon(
+        //     context.robot_kinematics.right_elbow_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.upper_arm_bounding_polygon,
+        //     true,
+        // );
+        // let left_knee_limb = project_bounding_polygon(
+        //     context.robot_kinematics.left_thigh_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.knee_bounding_polygon,
+        //     true,
+        // );
+        // let right_knee_limb = project_bounding_polygon(
+        //     context.robot_kinematics.right_thigh_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.knee_bounding_polygon,
+        //     true,
+        // );
+        // let left_foot_limb = project_bounding_polygon(
+        //     context.robot_kinematics.left_sole_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.foot_bounding_polygon,
+        //     true,
+        // );
+        // let right_foot_limb = project_bounding_polygon(
+        //     context.robot_kinematics.right_sole_to_robot.inner,
+        //     context.camera_matrix,
+        //     context.foot_bounding_polygon,
+        //     true,
+        // );
 
         let limbs = vec![
-            torso_limb,
-            left_lower_arm_limb,
-            right_lower_arm_limb,
-            left_upper_arm_limb,
-            right_upper_arm_limb,
-            left_knee_limb,
-            right_knee_limb,
-            left_foot_limb,
-            right_foot_limb,
+            // torso_limb,
+            // left_lower_arm_limb,
+            // right_lower_arm_limb,
+            // left_upper_arm_limb,
+            // right_upper_arm_limb,
+            // left_knee_limb,
+            // right_knee_limb,
+            // left_foot_limb,
+            // right_foot_limb,
         ];
         Ok(MainOutputs {
             projected_limbs: Some(ProjectedLimbs { limbs }).into(),
         })
     }
 }
-fn project_bounding_polygon(
-    limb_to_robot: Isometry3<f32>,
+
+fn project_bounding_polygon<Frame>(
+    limb_to_robot: Transform<Frame, Robot, Isometry3<f32>>,
     camera_matrix: &CameraMatrix,
-    bounding_polygon: &[Point3<f32>],
+    bounding_polygon: &[Framed<Frame, Point3<f32>>],
     use_convex_hull: bool,
 ) -> Limb {
     let points: Vec<_> = bounding_polygon
@@ -138,23 +142,31 @@ fn project_bounding_polygon(
     }
 }
 
-fn reduce_to_convex_hull(points: &[Point2<f32>]) -> Vec<Point2<f32>> {
+fn reduce_to_convex_hull<Frame>(
+    points: &[Framed<Frame, Point2<f32>>],
+) -> Vec<Framed<Frame, Point2<f32>>>
+where
+    Frame: Copy,
+{
     // https://en.wikipedia.org/wiki/Gift_wrapping_algorithm
     // Modification: This implementation iterates from left to right until a smaller x value is found
     if points.is_empty() {
         return vec![];
     }
-    let mut point_on_hull = *points.iter().min_by(|a, b| a.x.total_cmp(&b.x)).unwrap();
+    let mut point_on_hull = *points
+        .iter()
+        .min_by(|a, b| a.x().total_cmp(&b.x()))
+        .unwrap();
     let mut convex_hull = vec![];
     loop {
         convex_hull.push(point_on_hull);
         let mut candidate_end_point = points[0];
         for point in points.iter() {
             let last_point_on_hull_to_candidate_end_point = candidate_end_point - point_on_hull;
-            let last_point_on_hull_to_point = point - point_on_hull;
+            let last_point_on_hull_to_point = *point - point_on_hull;
             let determinant = Matrix2::from_columns(&[
-                last_point_on_hull_to_candidate_end_point,
-                last_point_on_hull_to_point,
+                last_point_on_hull_to_candidate_end_point.inner,
+                last_point_on_hull_to_point.inner,
             ])
             .determinant();
             let point_is_left_of_candidate_end_point = determinant < 0.0;
@@ -163,7 +175,7 @@ fn reduce_to_convex_hull(points: &[Point2<f32>]) -> Vec<Point2<f32>> {
             }
         }
         // begin of modification
-        let has_smaller_x = candidate_end_point.x < point_on_hull.x;
+        let has_smaller_x = candidate_end_point.x() < point_on_hull.x();
         if has_smaller_x {
             break;
         }

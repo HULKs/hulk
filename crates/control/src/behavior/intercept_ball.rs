@@ -1,7 +1,9 @@
+use coordinate_systems::{Framed, IntoFramed, Transform};
 use geometry::line_segment::LineSegment;
-use nalgebra::{Isometry2, Point2, UnitComplex};
+use nalgebra::{Isometry2, UnitComplex};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
+    coordinate_systems::{Field, Ground},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     line::Line,
@@ -37,7 +39,7 @@ pub fn execute(
     match (
         filtered_game_state,
         world_state.ball,
-        world_state.robot.robot_to_field,
+        world_state.robot.ground_to_field,
     ) {
         (
             Some(FilteredGameState::Playing {
@@ -45,9 +47,9 @@ pub fn execute(
             })
             | None,
             Some(ball),
-            Some(robot_to_field),
+            Some(ground_to_field),
         ) => {
-            if !ball_is_interception_candidate(ball, robot_to_field, &parameters) {
+            if !ball_is_interception_candidate(ball, ground_to_field, &parameters) {
                 return None;
             }
 
@@ -65,14 +67,14 @@ pub fn execute(
                 ball.ball_in_ground,
                 ball.ball_in_ground + ball.ball_in_ground_velocity,
             );
-            let interception_point = ball_line.project_point(Point2::origin());
+            let interception_point = ball_line.project_point(Framed::origin());
 
-            if interception_point.coords.norm() > parameters.maximum_intercept_distance {
+            if interception_point.coords().norm() > parameters.maximum_intercept_distance {
                 return None;
             }
 
             let path = vec![PathSegment::LineSegment(LineSegment(
-                Point2::origin(),
+                Framed::origin(),
                 interception_point,
             ))];
 
@@ -84,7 +86,7 @@ pub fn execute(
                 path,
                 left_arm: types::motion_command::ArmMotion::Swing,
                 right_arm: types::motion_command::ArmMotion::Swing,
-                orientation_mode: OrientationMode::Override(UnitComplex::default()),
+                orientation_mode: OrientationMode::Override(UnitComplex::default().framed()),
             })
         }
         _ => None,
@@ -93,19 +95,19 @@ pub fn execute(
 
 fn ball_is_interception_candidate(
     ball: BallState,
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
     parameters: &InterceptBallParameters,
 ) -> bool {
-    let ball_is_in_front_of_robot = ball.ball_in_ground.coords.norm()
+    let ball_is_in_front_of_robot = ball.ball_in_ground.coords().norm()
         < parameters.maximum_ball_distance
-        && ball.ball_in_ground.x > 0.0;
+        && ball.ball_in_ground.x() > 0.0;
     let ball_is_moving_towards_robot =
-        ball.ball_in_ground_velocity.x < -parameters.minimum_ball_velocity_towards_robot;
+        ball.ball_in_ground_velocity.x() < -parameters.minimum_ball_velocity_towards_robot;
 
-    let ball_in_field_velocity = robot_to_field * ball.ball_in_ground_velocity;
+    let ball_in_field_velocity = ground_to_field * ball.ball_in_ground_velocity;
     let ball_is_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
     let ball_is_moving_towards_own_half =
-        ball_in_field_velocity.x < -parameters.minimum_ball_velocity_towards_own_half;
+        ball_in_field_velocity.x() < -parameters.minimum_ball_velocity_towards_own_half;
 
     ball_is_in_front_of_robot
         && ball_is_moving

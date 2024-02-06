@@ -18,6 +18,7 @@ use control::{
     },
     localization_recorder::RecordedCycleContext,
 };
+use coordinate_systems::{IntoFramed, Transform};
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
@@ -25,6 +26,7 @@ use serialize_hierarchy::SerializeHierarchy;
 use tokio::{select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::{
+    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -77,23 +79,24 @@ fn merge_line_data(line_data: &BTreeMap<SystemTime, Vec<Option<LineData>>>) -> L
         .values()
         .flatten()
         .flatten()
-        .flat_map(|line_data| line_data.lines_in_robot.clone())
+        .flat_map(|line_data| line_data.lines_in_ground.clone())
         .collect();
     LineData {
-        lines_in_robot,
+        lines_in_ground: lines_in_robot,
         used_vertical_filtered_segments: HashSet::new(),
     }
 }
 
 fn line_correspondences(
     lines: &LineData,
-    robot_to_field: Isometry2<f32>,
+    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
     field_marks: &[FieldMark],
-) -> Vec<Line2> {
-    let lines: Vec<Line2> = lines
-        .lines_in_robot
+) -> Vec<Line2<Field>> {
+    let lines: Vec<Line2<Field>> = lines
+        .lines_in_ground
         .iter()
-        .map(|line| Line(robot_to_field * line.0, robot_to_field * line.1))
+        .copied()
+        .map(|line| ground_to_field * line)
         .collect();
     let (correspondences, _fit_error, _fit_errors) =
         get_fitted_field_mark_correspondence(&lines, field_marks, 1e-2, 0.01, 1.5, 20, 10, true);
@@ -104,12 +107,12 @@ fn line_correspondences(
             let correspondence_points_1 = field_mark_correspondence.correspondence_points.1;
             [
                 Line(
-                    correspondence_points_0.measured,
-                    correspondence_points_0.reference,
+                    correspondence_points_0.measured.framed(),
+                    correspondence_points_0.reference.framed(),
                 ),
                 Line(
-                    correspondence_points_1.measured,
-                    correspondence_points_1.reference,
+                    correspondence_points_1.measured.framed(),
+                    correspondence_points_1.reference.framed(),
                 ),
             ]
         })
@@ -160,12 +163,12 @@ async fn recording_player(
             let lines_top = merge_line_data(&data.line_data_bottom_persistent);
             let correspondence_lines_top = line_correspondences(
                 &lines_top,
-                data.robot_to_field.unwrap_or_default(),
+                data.ground_to_field.unwrap_or_default(),
                 &field_marks,
             );
             let correspondence_lines_bottom = line_correspondences(
                 &lines_bottom,
-                data.robot_to_field.unwrap_or_default(),
+                data.ground_to_field.unwrap_or_default(),
                 &field_marks,
             );
 
@@ -176,7 +179,7 @@ async fn recording_player(
                     data.filtered_game_controller_state;
                 database.main_outputs.has_ground_contact = data.has_ground_contact;
                 database.main_outputs.primary_state = data.primary_state;
-                database.main_outputs.robot_to_field = data.robot_to_field;
+                database.main_outputs.ground_to_field = data.ground_to_field;
             }
             {
                 let mut database = vision_top_writer.next();
@@ -225,7 +228,7 @@ struct ControlMainOutputs {
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub has_ground_contact: bool,
     pub primary_state: PrimaryState,
-    pub robot_to_field: Option<Isometry2<f32>>,
+    pub ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -246,7 +249,7 @@ struct VisionAdditionalOutputs {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 struct LocalizationAdditionalOutputs {
-    correspondence_lines: Vec<Line2>,
+    correspondence_lines: Vec<Line2<Field>>,
 }
 
 #[allow(clippy::type_complexity)]

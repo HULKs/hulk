@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Framed, IntoFramed};
 use framework::MainOutput;
 use geometry::circle::Circle;
 use nalgebra::{point, vector, Point2, Vector2};
@@ -9,6 +10,7 @@ use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
+    coordinate_systems::Pixel,
     filtered_segments::FilteredSegments,
     image_segments::{ScanLine, Segment},
     line_data::LineData,
@@ -99,7 +101,7 @@ fn generate_rows(
         radius = camera_matrix
             .get_pixel_radius(
                 ball_radius,
-                point![higher_horizon_point.x, row_vertical_center],
+                point![higher_horizon_point.x, row_vertical_center].framed(),
                 image_size,
             )
             .unwrap_or(radius);
@@ -128,7 +130,7 @@ fn find_matching_row(rows: &[Row], segment: &Segment) -> Option<(usize, Row)> {
 
 fn generate_candidates(
     vertical_scanlines: &[ScanLine],
-    skip_segments: &HashSet<Point2<u16>>,
+    skip_segments: &HashSet<Framed<Pixel, Point2<u16>>>,
     rows: &[Row],
 ) -> PerspectiveGridCandidates {
     let mut already_added = HashSet::new();
@@ -136,7 +138,7 @@ fn generate_candidates(
 
     for scan_line in vertical_scanlines {
         for segment in &scan_line.segments {
-            if skip_segments.contains(&point![scan_line.position, segment.start]) {
+            if skip_segments.contains(&point![scan_line.position, segment.start].framed()) {
                 continue;
             }
 
@@ -148,10 +150,11 @@ fn generate_candidates(
             let index_in_row = (x / (row.circle_radius * 2.0)).floor() as usize;
             if already_added.insert((row_index, index_in_row)) {
                 candidates.push(Circle {
-                    center: point!(
+                    center: point![
                         row.circle_radius + row.circle_radius * 2.0 * index_in_row as f32,
                         row.center_y
-                    ),
+                    ]
+                    .framed(),
                     radius: row.circle_radius,
                 })
             }
@@ -160,10 +163,10 @@ fn generate_candidates(
 
     candidates.sort_by(|a, b| {
         b.center
-            .y
-            .partial_cmp(&a.center.y)
+            .y()
+            .partial_cmp(&a.center.y())
             .unwrap()
-            .then(a.center.x.partial_cmp(&b.center.x).unwrap())
+            .then(a.center.x().partial_cmp(&b.center.x()).unwrap())
     });
 
     PerspectiveGridCandidates { candidates }
@@ -174,6 +177,7 @@ mod tests {
     use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
+    use coordinate_systems::IntoTransform;
     use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
     use types::{
         camera_matrix::CameraMatrix,
@@ -208,9 +212,10 @@ mod tests {
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
                 translation: Translation::from(point![0.0, 0.0, 0.5]),
-            },
-            Isometry3::identity(),
-            Isometry3::identity(),
+            }
+            .framed_transform(),
+            Isometry3::identity().framed_transform(),
+            Isometry3::identity().framed_transform(),
         );
         let minimum_radius = 5.0;
 
@@ -262,7 +267,7 @@ mod tests {
             candidates,
             PerspectiveGridCandidates {
                 candidates: vec![Circle {
-                    center: point![50.0, 30.0],
+                    center: point![50.0, 30.0].framed(),
                     radius: 10.0
                 }]
             }
@@ -325,32 +330,35 @@ mod tests {
                 segments,
             },
         ];
-        let skip_segments = HashSet::from_iter([
-            point![0, 18],
-            point![42, 5],
-            point![42, 45],
-            point![110, 5],
-            point![110, 18],
-        ]);
+        let skip_segments = HashSet::from_iter(
+            [
+                point![0, 18],
+                point![42, 5],
+                point![42, 45],
+                point![110, 5],
+                point![110, 18],
+            ]
+            .map(|point| point.framed()),
+        );
         let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows);
         assert_relative_eq!(
             candidates,
             PerspectiveGridCandidates {
                 candidates: vec![
                     Circle {
-                        center: point![10.0, 50.0],
+                        center: point![10.0, 50.0].framed(),
                         radius: 10.0
                     },
                     Circle {
-                        center: point![110.0, 50.0],
+                        center: point![110.0, 50.0].framed(),
                         radius: 10.0
                     },
                     Circle {
-                        center: point![50.0, 30.0],
+                        center: point![50.0, 30.0].framed(),
                         radius: 10.0
                     },
                     Circle {
-                        center: point![10.0, 10.0],
+                        center: point![10.0, 10.0].framed(),
                         radius: 10.0
                     },
                 ]

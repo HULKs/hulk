@@ -48,11 +48,13 @@ impl Odometry {
         let left_sole_to_right_sole = (context
             .robot_kinematics
             .right_sole_to_robot
+            .inner
             .translation
             .vector
             - context
                 .robot_kinematics
                 .left_sole_to_robot
+                .inner
                 .translation
                 .vector)
             .xy();

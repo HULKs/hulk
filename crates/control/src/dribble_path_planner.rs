@@ -1,5 +1,5 @@
+use coordinate_systems::{Framed, IntoFramed};
 use framework::AdditionalOutput;
-use nalgebra::Point2;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
 use types::{
@@ -18,20 +18,21 @@ pub fn plan(
     let kick_decisions = world_state.kick_decisions.as_ref()?;
     let best_kick_decision = kick_decisions.first()?;
     let ball = world_state.ball?;
-    let robot_to_field = world_state.robot.robot_to_field?;
+    let ground_to_field = world_state.robot.ground_to_field?;
 
     let ball_position_in_ground = ball.ball_in_ground;
     let ball_position_in_field = ball.ball_in_field;
     let best_pose = best_kick_decision.kick_pose;
-    let robot_to_ball = ball_position_in_ground.coords;
-    let dribble_pose_to_ball = ball_position_in_ground.coords - best_pose.translation.vector;
+    let robot_to_ball = ball_position_in_ground.coords();
+    let dribble_pose_to_ball =
+        ball_position_in_ground.coords() - best_pose.inner.translation.vector.framed();
 
     let angle = robot_to_ball.angle(&dribble_pose_to_ball);
     let should_avoid_ball = angle > dribbling_parameters.angle_to_approach_ball_from_threshold;
     let ball_obstacle = should_avoid_ball.then_some(ball_position_in_ground);
 
     let ball_is_between_robot_and_own_goal =
-        ball_position_in_field.coords.x - robot_to_field.translation.x < 0.0f32;
+        ball_position_in_field.coords().x() - ground_to_field.inner.translation.x < 0.0f32;
     let ball_obstacle_radius_factor = if ball_is_between_robot_and_own_goal {
         1.0f32
     } else {
@@ -41,7 +42,7 @@ pub fn plan(
 
     let is_near_ball = matches!(
         world_state.ball,
-        Some(ball) if ball.ball_in_ground.coords.norm() < dribbling_parameters.ignore_robot_when_near_ball_radius,
+        Some(ball) if ball.ball_in_ground.coords().norm() < dribbling_parameters.ignore_robot_when_near_ball_radius,
     );
     let obstacles = if is_near_ball {
         &[]
@@ -62,8 +63,8 @@ pub fn plan(
     };
 
     Some(walk_path_planner.plan(
-        best_pose * Point2::origin(),
-        robot_to_field,
+        best_pose * Framed::origin(),
+        ground_to_field,
         ball_obstacle,
         ball_obstacle_radius_factor,
         obstacles,

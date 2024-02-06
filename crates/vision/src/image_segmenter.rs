@@ -2,12 +2,14 @@ use std::time::{Duration, Instant};
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{IntoFramed, Transform};
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{point, Isometry2};
 use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     color::{Intensity, Rgb, RgbChannel, YCbCr444},
+    coordinate_systems::{Field, Ground},
     field_color::FieldColor,
     horizon::Horizon,
     image_segments::{EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
@@ -19,7 +21,8 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageSegmenter {
-    robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32>,
+    ground_to_field_of_home_after_coin_toss_before_second_half:
+        Transform<Ground, Field, Isometry2<f32>>,
 }
 
 #[context]
@@ -32,10 +35,10 @@ pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
 
     camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
-    robot_to_field_of_home_after_coin_toss_before_second_half: Input<
-        Option<Isometry2<f32>>,
+    ground_to_field_of_home_after_coin_toss_before_second_half: Input<
+        Option<Transform<Ground, Field, Isometry2<f32>>>,
         "Control",
-        "robot_to_field_of_home_after_coin_toss_before_second_half?",
+        "ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
     field_color: Input<FieldColor, "field_color">,
     projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
@@ -61,16 +64,16 @@ pub struct MainOutputs {
 impl ImageSegmenter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2::default(),
+            ground_to_field_of_home_after_coin_toss_before_second_half: Transform::default(),
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        if let Some(robot_to_field_of_home_after_coin_toss_before_second_half) =
-            context.robot_to_field_of_home_after_coin_toss_before_second_half
+        if let Some(ground_to_field_of_home_after_coin_toss_before_second_half) =
+            context.ground_to_field_of_home_after_coin_toss_before_second_half
         {
-            self.robot_to_field_of_home_after_coin_toss_before_second_half =
-                *robot_to_field_of_home_after_coin_toss_before_second_half;
+            self.ground_to_field_of_home_after_coin_toss_before_second_half =
+                *ground_to_field_of_home_after_coin_toss_before_second_half;
         }
 
         let begin = Instant::now();
@@ -92,7 +95,7 @@ impl ImageSegmenter {
             *context.vertical_edge_detection_source,
             context
                 .vertical_edge_threshold
-                .evaluate_at(self.robot_to_field_of_home_after_coin_toss_before_second_half)
+                .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half)
                 as i16,
             *context.vertical_median_mode,
             projected_limbs,
@@ -409,7 +412,7 @@ fn segment_is_below_limbs(
     projected_limbs: &[Limb],
 ) -> bool {
     !is_above_limbs(
-        point![scan_line_position as f32, segment.end as f32],
+        point![scan_line_position as f32, segment.end as f32].framed(),
         projected_limbs,
     )
 }

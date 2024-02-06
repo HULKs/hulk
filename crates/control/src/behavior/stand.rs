@@ -1,4 +1,5 @@
-use nalgebra::{point, Point2};
+use coordinate_systems::{Framed, IntoFramed};
+use nalgebra::point;
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
@@ -18,7 +19,7 @@ pub fn execute(
             head: HeadMotion::ZeroAngles,
         }),
         PrimaryState::Set => {
-            let robot_to_field = world_state.robot.robot_to_field?;
+            let ground_to_field = world_state.robot.ground_to_field?;
             let fallback_target = match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
@@ -31,10 +32,10 @@ pub fn execute(
                     };
                     let penalty_spot_x =
                         field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance;
-                    let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
-                    robot_to_field.inverse() * penalty_spot_location
+                    let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0].framed();
+                    ground_to_field.inverse() * penalty_spot_location
                 }
-                _ => robot_to_field.inverse() * Point2::origin(),
+                _ => ground_to_field.inverse() * Framed::origin(),
             };
             let target = world_state
                 .ball

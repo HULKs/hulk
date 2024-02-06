@@ -1,9 +1,14 @@
 use approx_derive::{AbsDiffEq, RelativeEq};
+use coordinate_systems::{IntoTransform, Transform};
 use nalgebra::{Isometry3, Matrix, Point2, Rotation3, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{horizon::Horizon, line::Line2};
+use crate::{
+    coordinate_systems::{Camera, Ground, Head, Pixel, Robot},
+    horizon::Horizon,
+    line::Line2,
+};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrices {
@@ -34,11 +39,11 @@ impl CameraMatrices {
 )]
 #[abs_diff_eq(epsilon = "f32")]
 pub struct CameraMatrix {
-    pub camera_to_head: Isometry3<f32>,
-    pub camera_to_ground: Isometry3<f32>,
-    pub ground_to_camera: Isometry3<f32>,
-    pub camera_to_robot: Isometry3<f32>,
-    pub robot_to_camera: Isometry3<f32>,
+    pub camera_to_head: Transform<Camera, Head, Isometry3<f32>>,
+    pub camera_to_ground: Transform<Camera, Ground, Isometry3<f32>>,
+    pub ground_to_camera: Transform<Ground, Camera, Isometry3<f32>>,
+    pub camera_to_robot: Transform<Camera, Robot, Isometry3<f32>>,
+    pub robot_to_camera: Transform<Robot, Camera, Isometry3<f32>>,
     pub focal_length: Vector2<f32>,
     pub optical_center: Point2<f32>,
     pub field_of_view: Vector2<f32>,
@@ -48,11 +53,11 @@ pub struct CameraMatrix {
 impl Default for CameraMatrix {
     fn default() -> Self {
         Self {
-            camera_to_head: Isometry3::identity(),
-            camera_to_ground: Isometry3::identity(),
-            ground_to_camera: Isometry3::identity(),
-            camera_to_robot: Isometry3::identity(),
-            robot_to_camera: Isometry3::identity(),
+            camera_to_head: Isometry3::identity().framed_transform(),
+            camera_to_ground: Isometry3::identity().framed_transform(),
+            ground_to_camera: Isometry3::identity().framed_transform(),
+            camera_to_robot: Isometry3::identity().framed_transform(),
+            robot_to_camera: Isometry3::identity().framed_transform(),
             focal_length: Default::default(),
             optical_center: Point2::origin(),
             field_of_view: Default::default(),
@@ -67,9 +72,9 @@ impl CameraMatrix {
         focal_length: Vector2<f32>,
         optical_center: Point2<f32>,
         image_size: Vector2<f32>,
-        camera_to_head: Isometry3<f32>,
-        head_to_robot: Isometry3<f32>,
-        robot_to_ground: Isometry3<f32>,
+        camera_to_head: Transform<Camera, Head, Isometry3<f32>>,
+        head_to_robot: Transform<Head, Robot, Isometry3<f32>>,
+        robot_to_ground: Transform<Robot, Ground, Isometry3<f32>>,
     ) -> Self {
         let camera_to_robot = head_to_robot * camera_to_head;
         let camera_to_ground = robot_to_ground * camera_to_robot;
@@ -122,10 +127,12 @@ impl CameraMatrix {
         let robot_to_ground = ground_to_robot.inverse();
 
         let corrected_camera_to_head = camera_to_head
-            * Isometry3::from_parts(Default::default(), correction_in_camera.inverse().into());
+            * Isometry3::from_parts(Default::default(), correction_in_camera.inverse().into())
+                .framed_transform();
         let head_to_corrected_camera = corrected_camera_to_head.inverse();
         let head_to_corrected_robot =
             Isometry3::from_parts(Default::default(), correction_in_robot.inverse().into())
+                .framed_transform()
                 * head_to_robot;
         let corrected_robot_to_head = head_to_corrected_robot.inverse();
 
@@ -186,15 +193,18 @@ mod tests {
             Isometry3::from_parts(
                 Translation3::new(0.42, 0.1337, 0.17),
                 Rotation3::from_euler_angles(0.42, 0.1337, 0.17).into(),
-            ),
+            )
+            .framed_transform(),
             Isometry3::from_parts(
                 Translation3::new(0.42, 0.1337, 0.17),
                 Rotation3::from_euler_angles(0.42, 0.1337, 0.17).into(),
-            ),
+            )
+            .framed_transform(),
             Isometry3::from_parts(
                 Translation3::new(0.42, 0.1337, 0.17),
                 Rotation3::from_euler_angles(0.42, 0.1337, 0.17).into(),
-            ),
+            )
+            .framed_transform(),
         );
 
         let corrected = original.to_corrected(Rotation3::default(), Rotation3::default());
@@ -205,6 +215,6 @@ mod tests {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ProjectedFieldLines {
-    pub top: Vec<Line2>,
-    pub bottom: Vec<Line2>,
+    pub top: Vec<Line2<Pixel>>,
+    pub bottom: Vec<Line2<Pixel>>,
 }

@@ -1,8 +1,9 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Framed, IntoFramed};
 use framework::MainOutput;
 use geometry::{circle::Circle, rectangle::Rectangle};
-use nalgebra::{point, vector, Point2};
+use nalgebra::{point, vector};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
@@ -75,7 +76,7 @@ impl RuleObstacleComposer {
                 _,
             ) => {
                 let center_circle_obstacle = RuleObstacle::Circle(Circle::new(
-                    Point2::origin(),
+                    Framed::origin(),
                     context.field_dimensions.center_circle_diameter / 2.0
                         * context.center_circle_obstacle_increase,
                 ));
@@ -115,10 +116,11 @@ pub fn create_penalty_box(field_dimensions: &FieldDimensions, kicking_team: Team
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
     let center_x = side_factor * (half_field_length - half_penalty_area_length);
     RuleObstacle::Rectangle(Rectangle::new_with_center_and_size(
-        point![center_x, 0.0],
+        point![center_x, 0.0].framed(),
         vector![
             field_dimensions.penalty_area_length,
             field_dimensions.penalty_area_width
-        ],
+        ]
+        .framed(),
     ))
 }

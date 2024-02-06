@@ -11,3 +11,4 @@ nalgebra = { workspace = true }
 projection = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
+coordinate_systems = { workspace = true }

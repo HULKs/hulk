@@ -4,7 +4,7 @@ use color_eyre::Result;
 use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 
-use types::{field_dimensions::FieldDimensions, line::Line2};
+use types::{coordinate_systems::Field, field_dimensions::FieldDimensions, line::Line2};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -33,9 +33,13 @@ impl Layer for LineCorrespondences {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
+    fn paint(
+        &self,
+        painter: &TwixPainter<Field>,
+        _field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
         for line_set_buffer in [&self.lines_in_robot_bottom, &self.lines_in_robot_top] {
-            let lines = match line_set_buffer.parse_latest::<Vec<Line2>>() {
+            let lines = match line_set_buffer.parse_latest::<Vec<Line2<Field>>>() {
                 Ok(value) => value,
                 Err(error) => {
                     println!("{error:?}");

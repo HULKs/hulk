@@ -398,8 +398,8 @@ impl WalkingEngine {
         imu: &InertialMeasurementUnitData,
     ) {
         let robot_height = match self.swing_side.opposite() {
-            Side::Left => robot_kinematics.left_sole_to_robot.translation.z,
-            Side::Right => robot_kinematics.right_sole_to_robot.translation.z,
+            Side::Left => robot_kinematics.left_sole_to_robot.inner.translation.z,
+            Side::Right => robot_kinematics.right_sole_to_robot.inner.translation.z,
         };
         let robot_rotation = Isometry3::rotation(Vector3::y() * imu.roll_pitch.y)
             * Isometry3::rotation(Vector3::x() * imu.roll_pitch.x);

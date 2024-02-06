@@ -1,6 +1,7 @@
 use color_eyre::Result;
 use compiled_nn::CompiledNN;
 use context_attribute::context;
+use coordinate_systems::IntoFramed;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, rectangle::Rectangle};
 use hardware::PathsInterface;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     ball::{Ball, CandidateEvaluation},
     camera_matrix::CameraMatrix,
+    coordinate_systems::Pixel,
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
     ycbcr422_image::YCbCr422Image,
@@ -28,7 +30,7 @@ unsafe impl Send for NeuralNetworks {}
 
 #[derive(Debug)]
 struct BallCluster<'a> {
-    circle: Circle,
+    circle: Circle<Pixel>,
     members: Vec<&'a CandidateEvaluation>,
 }
 
@@ -163,7 +165,7 @@ fn classify_sample(network: &mut CompiledNN, sample: &Sample) -> f32 {
     network.output(0).data[0]
 }
 
-fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle {
+fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle<Pixel> {
     let input = network.input_mut(0);
     for (y, row) in sample.iter().enumerate().take(SAMPLE_SIZE) {
         for (x, pixel) in row.iter().enumerate().take(SAMPLE_SIZE) {
@@ -172,20 +174,20 @@ fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle {
     }
     network.apply();
     Circle {
-        center: point![network.output(0).data[0], network.output(0).data[1]],
+        center: point![network.output(0).data[0], network.output(0).data[1]].framed(),
         radius: network.output(0).data[2],
     }
 }
 
-fn sample_grayscale(image: &YCbCr422Image, candidate: Circle) -> Sample {
-    let top_left = candidate.center - vector![candidate.radius, candidate.radius];
+fn sample_grayscale(image: &YCbCr422Image, candidate: Circle<Pixel>) -> Sample {
+    let top_left = candidate.center - vector![candidate.radius, candidate.radius].framed();
     let image_pixels_per_sample_pixel = candidate.radius * 2.0 / SAMPLE_SIZE as f32;
 
     let mut sample = Sample::default();
     for (y, column) in sample.iter_mut().enumerate() {
         for (x, pixel) in column.iter_mut().enumerate() {
-            let x = (top_left.x + x as f32 * image_pixels_per_sample_pixel) as u32;
-            let y = (top_left.y + y as f32 * image_pixels_per_sample_pixel) as u32;
+            let x = (top_left.x() + x as f32 * image_pixels_per_sample_pixel) as u32;
+            let y = (top_left.y() + y as f32 * image_pixels_per_sample_pixel) as u32;
             *pixel = image.try_at(x, y).map_or(128.0, |pixel| pixel.y as f32);
         }
     }
@@ -194,7 +196,7 @@ fn sample_grayscale(image: &YCbCr422Image, candidate: Circle) -> Sample {
 }
 
 fn evaluate_candidates(
-    candidates: &[Circle],
+    candidates: &[Circle<Pixel>],
     image: &YCbCr422Image,
     networks: &mut NeuralNetworks,
     maximum_number_of_candidate_evaluations: usize,
@@ -228,7 +230,7 @@ fn evaluate_candidates(
 
                 corrected_circle = Some(Circle {
                     center: candidate.center
-                        + (raw_corrected_circle.center.coords - vector![0.5, 0.5])
+                        + (raw_corrected_circle.center.inner.coords - vector![0.5, 0.5]).framed()
                             * (candidate.radius * 2.0)
                             * ball_radius_enlargement_factor,
                     radius: raw_corrected_circle.radius
@@ -248,7 +250,10 @@ fn evaluate_candidates(
         .collect()
 }
 
-fn bounding_box_patch_intersection(circle: Circle, patch_candidate_circle: Circle) -> f32 {
+fn bounding_box_patch_intersection(
+    circle: Circle<Pixel>,
+    patch_candidate_circle: Circle<Pixel>,
+) -> f32 {
     let patch = patch_candidate_circle.bounding_box();
     let circle_box = circle.bounding_box();
 
@@ -256,10 +261,10 @@ fn bounding_box_patch_intersection(circle: Circle, patch_candidate_circle: Circl
     intersection_area / circle_box.area()
 }
 
-fn image_containment(circle: Circle, image_size: Vector2<u32>) -> f32 {
+fn image_containment(circle: Circle<Pixel>, image_size: Vector2<u32>) -> f32 {
     let image_rectangle = Rectangle {
-        min: point![0.0, 0.0],
-        max: point![image_size.x as f32, image_size.y as f32],
+        min: point![0.0, 0.0].framed(),
+        max: point![image_size.x as f32, image_size.y as f32].framed(),
     };
     let circle_box = circle.bounding_box();
 
@@ -284,9 +289,9 @@ fn calculate_ball_merge_factor(
         * image_containment.powf(image_containment_merge_factor)
 }
 
-fn merge_balls(balls: &[&CandidateEvaluation]) -> Circle {
+fn merge_balls(balls: &[&CandidateEvaluation]) -> Circle<Pixel> {
     let mut circle = Circle {
-        center: point![0.0, 0.0],
+        center: point![0.0, 0.0].framed(),
         radius: 0.0,
     };
 
@@ -294,7 +299,7 @@ fn merge_balls(balls: &[&CandidateEvaluation]) -> Circle {
     for ball in balls {
         let ball_circle = ball.corrected_circle.unwrap();
         let weight = ball.merge_weight.unwrap();
-        circle.center += ball_circle.center.coords * weight / total_weight;
+        circle.center += ball_circle.center.coords() * weight / total_weight;
         circle.radius += ball_circle.radius * weight / total_weight;
     }
 
@@ -332,8 +337,8 @@ fn project_balls_to_ground(
     clusters
         .iter()
         .filter_map(|cluster| {
-            let position_422 = point![cluster.circle.center.x, cluster.circle.center.y];
-            match camera_matrix.pixel_to_ground_with_z(position_422, ball_radius) {
+            let position = point![cluster.circle.center.x(), cluster.circle.center.y()].framed();
+            match camera_matrix.pixel_to_ground_with_z(position, ball_radius) {
                 Ok(position) => Some(Ball {
                     position,
                     image_location: cluster.circle,
@@ -349,6 +354,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use approx::assert_relative_eq;
+    use coordinate_systems::IntoTransform;
     use nalgebra::{Isometry3, Translation, UnitQuaternion};
 
     use super::*;
@@ -366,7 +372,7 @@ mod tests {
         let sample = sample_grayscale(
             &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
-                center: point![16.0, 16.0],
+                center: point![16.0, 16.0].framed(),
                 radius: 16.0,
             },
         );
@@ -383,7 +389,7 @@ mod tests {
         let sample = sample_grayscale(
             &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
-                center: point![16.0, 16.0],
+                center: point![16.0, 16.0].framed(),
                 radius: 16.0,
             },
         );
@@ -400,7 +406,7 @@ mod tests {
         let sample = sample_grayscale(
             &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
-                center: point![16.0, 16.0],
+                center: point![16.0, 16.0].framed(),
                 radius: 16.0,
             },
         );
@@ -409,7 +415,7 @@ mod tests {
         assert_relative_eq!(
             circle,
             Circle {
-                center: point![0.488, 0.514],
+                center: point![0.488, 0.514].framed(),
                 radius: 0.6311
             },
             epsilon = 0.01
@@ -420,13 +426,13 @@ mod tests {
     fn candidate_evaluation_simple() {
         let ball_candidate = CandidateEvaluation {
             candidate_circle: Circle {
-                center: point![50.0, 50.0],
+                center: point![50.0, 50.0].framed(),
                 radius: 32.0,
             },
             preclassifier_confidence: 1.0,
             classifier_confidence: Some(1.0),
             corrected_circle: Some(Circle {
-                center: point![50.0, 50.0],
+                center: point![50.0, 50.0].framed(),
                 radius: 32.0,
             }),
             merge_weight: None,
@@ -440,13 +446,13 @@ mod tests {
     fn candidate_evaluation_complex() {
         let ball_candidate = CandidateEvaluation {
             candidate_circle: Circle {
-                center: point![50.0, 50.0],
+                center: point![50.0, 50.0].framed(),
                 radius: 32.0,
             },
             preclassifier_confidence: 1.0,
             classifier_confidence: Some(0.5),
             corrected_circle: Some(Circle {
-                center: point![66.0, 50.0],
+                center: point![66.0, 50.0].framed(),
                 radius: 32.0,
             }),
             merge_weight: None,
@@ -476,7 +482,7 @@ mod tests {
         };
         let perspective_grid_candidates = PerspectiveGridCandidates {
             candidates: vec![Circle {
-                center: point![343.0, 184.0],
+                center: point![343.0, 184.0].framed(),
                 radius: 36.0,
             }],
         };
@@ -491,9 +497,10 @@ mod tests {
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0),
                 translation: Translation::from(point![0.0, 0.0, 0.75]),
-            },
-            Isometry3::identity(),
-            Isometry3::identity(),
+            }
+            .framed_transform(),
+            Isometry3::identity().framed_transform(),
+            Isometry3::identity().framed_transform(),
         );
 
         let mut additional_output_buffer = None;
@@ -530,9 +537,9 @@ mod tests {
         assert_relative_eq!(
             balls.value.unwrap()[0],
             Ball {
-                position: point![0.374, 0.008],
+                position: point![0.374, 0.008].framed(),
                 image_location: Circle {
-                    center: point![308.93, 176.42],
+                    center: point![308.93, 176.42].framed(),
                     radius: 42.92,
                 }
             },

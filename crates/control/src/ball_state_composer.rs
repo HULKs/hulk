@@ -2,15 +2,21 @@ use std::time::SystemTime;
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Framed, IntoFramed, Transform};
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
 use nalgebra::{point, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
+    ball_position::BallPosition,
+    coordinate_systems::{Field, Ground},
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState, support_foot::Side,
+    penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState,
+    support_foot::Side,
     world_state::BallState,
 };
 
@@ -25,10 +31,10 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
-    ball_position: Input<Option<BallPosition>, "ball_position?">,
+    ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
-    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
-    team_ball: Input<Option<BallPosition>, "team_ball?">,
+    ground_to_field: Input<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
+    team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
     primary_state: Input<PrimaryState, "primary_state">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
@@ -53,21 +59,21 @@ impl BallStateComposer {
         let ball = match (
             context.ball_position,
             context.team_ball,
-            context.robot_to_field,
+            context.ground_to_field,
         ) {
-            (Some(ball_position), _, Some(robot_to_field)) => Some(create_ball_state(
+            (Some(ball_position), _, Some(ground_to_field)) => Some(create_ball_state(
                 ball_position.position,
-                robot_to_field * ball_position.position,
+                ground_to_field * ball_position.position,
                 ball_position.velocity,
                 ball_position.last_seen,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
-            (None, Some(ball_position), Some(robot_to_field)) => Some(create_ball_state(
-                robot_to_field.inverse() * ball_position.position,
-                ball_position.position,
-                ball_position.velocity,
-                ball_position.last_seen,
+            (None, Some(team_ball), Some(ground_to_field)) => Some(create_ball_state(
+                ground_to_field.inverse() * team_ball.position,
+                team_ball.position,
+                ground_to_field.inverse() * team_ball.velocity,
+                team_ball.last_seen,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
             )),
@@ -76,12 +82,12 @@ impl BallStateComposer {
 
         let rule_ball = match (
             context.primary_state,
-            context.robot_to_field,
+            context.ground_to_field,
             context.filtered_game_controller_state,
         ) {
             (
                 PrimaryState::Ready,
-                Some(robot_to_field),
+                Some(ground_to_field),
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team,
@@ -96,20 +102,20 @@ impl BallStateComposer {
                 };
                 let penalty_spot_x = context.field_dimensions.length / 2.0
                     - context.field_dimensions.penalty_marker_distance;
-                let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
+                let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0].framed();
                 Some(create_ball_state(
-                    robot_to_field.inverse() * penalty_spot_location,
+                    ground_to_field.inverse() * penalty_spot_location,
                     penalty_spot_location,
-                    Vector2::zeros(),
+                    Vector2::zeros().framed(),
                     context.cycle_time.start_time,
                     &mut self.last_ball_field_side,
                     context.penalty_shot_direction.copied(),
                 ))
             }
-            (PrimaryState::Ready, Some(robot_to_field), ..) => Some(create_ball_state(
-                robot_to_field.inverse() * Point2::origin(),
-                Point2::origin(),
-                Vector2::zeros(),
+            (PrimaryState::Ready, Some(ground_to_field), ..) => Some(create_ball_state(
+                ground_to_field.inverse() * Point2::origin().framed(),
+                Point2::origin().framed(),
+                Vector2::zeros().framed(),
                 context.cycle_time.start_time,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
@@ -125,15 +131,16 @@ impl BallStateComposer {
 }
 
 fn create_ball_state(
-    ball_in_ground: Point2<f32>,
-    ball_in_field: Point2<f32>,
-    ball_in_ground_velocity: Vector2<f32>,
+    ball_in_ground: Framed<Ground, Point2<f32>>,
+    ball_in_field: Framed<Field, Point2<f32>>,
+    ball_in_ground_velocity: Framed<Ground, Vector2<f32>>,
     last_seen_ball: SystemTime,
     last_ball_field_side: &mut Side,
     penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
-    let is_in_left_half = greater_than_with_hysteresis(was_in_left_half, ball_in_field.y, 0.0, 0.1);
+    let is_in_left_half =
+        greater_than_with_hysteresis(was_in_left_half, ball_in_field.inner.y, 0.0, 0.1);
     let side = if is_in_left_half {
         Side::Left
     } else {

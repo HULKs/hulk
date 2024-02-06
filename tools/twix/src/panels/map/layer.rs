@@ -5,14 +5,14 @@ use convert_case::{Case, Casing};
 use eframe::egui::Ui;
 
 use serde_json::{json, Value};
-use types::field_dimensions::FieldDimensions;
+use types::{coordinate_systems::Field, field_dimensions::FieldDimensions};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
 pub trait Layer {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>) -> Self;
-    fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()>;
+    fn paint(&self, painter: &TwixPainter<Field>, field_dimensions: &FieldDimensions) -> Result<()>;
 }
 
 pub struct EnabledLayer<T>
@@ -48,7 +48,7 @@ where
         }
     }
 
-    pub fn paint(&self, painter: &TwixPainter, field_dimensions: &FieldDimensions) -> Result<()> {
+    pub fn paint(&self, painter: &TwixPainter<Field>, field_dimensions: &FieldDimensions) -> Result<()> {
         if let Some(layer) = &self.layer {
             layer.paint(painter, field_dimensions)?;
         }

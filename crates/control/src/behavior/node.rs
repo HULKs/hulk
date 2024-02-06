@@ -2,12 +2,14 @@ use std::time::SystemTime;
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Framed, IntoFramed};
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, Point2, Vector2};
+use nalgebra::{point, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
+    coordinate_systems::Field,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -40,7 +42,7 @@ use super::{
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {
     last_motion_command: MotionCommand,
-    absolute_last_known_ball_position: Point2<f32>,
+    last_known_ball_position: Framed<Field, Point2<f32>>,
     active_since: Option<SystemTime>,
 }
 
@@ -63,7 +65,8 @@ pub struct CycleContext {
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
-    striker_set_position: Parameter<Vector2<f32>, "behavior.role_positions.striker_set_position">,
+    striker_set_position:
+        Parameter<Framed<Field, Point2<f32>>, "behavior.role_positions.striker_set_position">,
 }
 
 #[context]
@@ -77,7 +80,7 @@ impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_motion_command: MotionCommand::Unstiff,
-            absolute_last_known_ball_position: point![0.0, 0.0],
+            last_known_ball_position: point![0.0, 0.0].framed(),
             active_since: None,
         })
     }
@@ -92,7 +95,7 @@ impl Behavior {
         }
 
         if let Some(ball_state) = &world_state.ball {
-            self.absolute_last_known_ball_position = ball_state.ball_in_field;
+            self.last_known_ball_position = ball_state.ball_in_field;
         }
 
         let now = context.cycle_time.start_time;
@@ -262,7 +265,7 @@ impl Behavior {
                     ),
                     Action::SearchForLostBall => lost_ball::execute(
                         world_state,
-                        self.absolute_last_known_ball_position,
+                        self.last_known_ball_position,
                         &walk_path_planner,
                         context.lost_ball_parameters,
                         &mut context.path_obstacles_output,

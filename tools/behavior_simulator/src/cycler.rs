@@ -137,7 +137,7 @@ impl BehaviorCycler {
                         .filtered_game_controller_state
                         .as_ref(),
                     &own_database.main_outputs.primary_state,
-                    own_database.main_outputs.robot_to_field.as_ref(),
+                    own_database.main_outputs.ground_to_field.as_ref(),
                     &own_database.main_outputs.cycle_time,
                     PerceptionInput {
                         persistent: incoming_messages,
@@ -168,7 +168,7 @@ impl BehaviorCycler {
                     &own_database.main_outputs.cycle_time,
                     own_database.main_outputs.ball_position.as_ref(),
                     own_database.main_outputs.penalty_shot_direction.as_ref(),
-                    own_database.main_outputs.robot_to_field.as_ref(),
+                    own_database.main_outputs.ground_to_field.as_ref(),
                     own_database.main_outputs.team_ball.as_ref(),
                     &own_database.main_outputs.primary_state,
                     own_database
@@ -191,20 +191,20 @@ impl BehaviorCycler {
                     &own_database.main_outputs.cycle_time,
                     &own_database.main_outputs.obstacles,
                     &parameters.behavior.look_action,
-                    own_database.main_outputs.robot_to_field.as_ref(),
+                    own_database.main_outputs.ground_to_field.as_ref(),
                 ))
                 .wrap_err("failed to execute cycle of node `ActiveVision`")?;
             own_database.main_outputs.position_of_interest =
                 main_outputs.position_of_interest.value;
         }
         {
-            if own_database.main_outputs.robot_to_field.as_ref().is_some()
+            if own_database.main_outputs.ground_to_field.as_ref().is_some()
                 && own_database.main_outputs.ball_state.as_ref().is_some()
             {
                 let main_outputs = {
                     self.kick_selector
                         .cycle(control::kick_selector::CycleContext::new(
-                            own_database.main_outputs.robot_to_field.as_ref().unwrap(),
+                            own_database.main_outputs.ground_to_field.as_ref().unwrap(),
                             own_database.main_outputs.ball_state.as_ref().unwrap(),
                             &own_database.main_outputs.obstacles,
                             &parameters.field_dimensions,
@@ -249,7 +249,7 @@ impl BehaviorCycler {
                         .main_outputs
                         .filtered_game_controller_state
                         .as_ref(),
-                    own_database.main_outputs.robot_to_field.as_ref(),
+                    own_database.main_outputs.ground_to_field.as_ref(),
                     own_database.main_outputs.kick_decisions.as_ref(),
                     own_database.main_outputs.instant_kick_decisions.as_ref(),
                     &parameters.player_number,
