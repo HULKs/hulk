@@ -1,5 +1,4 @@
-use approx::AbsDiffEq;
-use approx_derive::RelativeEq;
+use approx_derive::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
 macro_rules! generate_coordinate_system {
@@ -16,20 +15,10 @@ macro_rules! generate_coordinate_system {
                 PartialEq,
                 Serialize,
                 RelativeEq,
+                AbsDiffEq,
             )]
+            #[abs_diff_eq(epsilon = "f32")]
             pub struct $i;
-
-            impl AbsDiffEq for $i {
-                type Epsilon = f32;
-
-                fn default_epsilon() -> Self::Epsilon {
-                    Self::Epsilon::default_epsilon()
-                }
-
-                fn abs_diff_eq(&self, _other: &Self, _epsilon: Self::Epsilon) -> bool {
-                    true
-                }
-            }
         )*
     }
 }
