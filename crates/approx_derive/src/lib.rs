@@ -48,7 +48,8 @@ fn generate_abs_diff_eq(input: DeriveInput) -> TokenStream {
             }
 
             fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-                #(#conditions)&&*
+                #(#conditions&&)*
+                true
             }
         }
     }
