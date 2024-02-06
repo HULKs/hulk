@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub struct FeetDetection {
-    robot_to_field: ValueBuffer,
+    ground_to_field: ValueBuffer,
     cluster_bottom: ValueBuffer,
     cluster_top: ValueBuffer,
     segments_bottom: ValueBuffer,
@@ -28,10 +28,10 @@ impl Layer for FeetDetection {
     const NAME: &'static str = "FeetDetection";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field = nao.subscribe_output(CyclerOutput {
+        let ground_to_field = nao.subscribe_output(CyclerOutput {
             cycler: Cycler::Control,
             output: Output::Main {
-                path: "robot_to_field".to_string(),
+                path: "ground_to_field".to_string(),
             },
         });
         let cluster_bottom = nao.subscribe_output(CyclerOutput {
@@ -59,7 +59,7 @@ impl Layer for FeetDetection {
             },
         });
         Self {
-            robot_to_field,
+            ground_to_field,
             cluster_bottom,
             cluster_top,
             segments_bottom,
@@ -73,7 +73,7 @@ impl Layer for FeetDetection {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
-            self.robot_to_field.parse_latest().unwrap_or_default();
+            self.ground_to_field.parse_latest().unwrap_or_default();
         let cluster_points: Vec<Framed<Ground, Point2<f32>>> =
             [&self.cluster_bottom, &self.cluster_top]
                 .iter()

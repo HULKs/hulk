@@ -11,25 +11,18 @@ use crate::{
 };
 
 pub struct LineCorrespondences {
-    lines_in_robot_bottom: ValueBuffer,
-    lines_in_robot_top: ValueBuffer,
+    correspondence_lines: ValueBuffer,
 }
 
 impl Layer for LineCorrespondences {
     const NAME: &'static str = "Line Correspondences";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let lines_in_robot_bottom = nao.subscribe_output(
-            CyclerOutput::from_str("VisionBottom.additional.localization.correspondence_lines")
-                .unwrap(),
-        );
-        let lines_in_robot_top = nao.subscribe_output(
-            CyclerOutput::from_str("VisionTop.additional.localization.correspondence_lines")
-                .unwrap(),
+        let correspondence_lines = nao.subscribe_output(
+            CyclerOutput::from_str("Control.additional.localization.correspondence_lines").unwrap(),
         );
         Self {
-            lines_in_robot_bottom,
-            lines_in_robot_top,
+            correspondence_lines,
         }
     }
 
@@ -38,17 +31,18 @@ impl Layer for LineCorrespondences {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        for line_set_buffer in [&self.lines_in_robot_bottom, &self.lines_in_robot_top] {
-            let lines = match line_set_buffer.parse_latest::<Vec<Line2<Field>>>() {
-                Ok(value) => value,
-                Err(error) => {
-                    println!("{error:?}");
-                    Default::default()
-                }
-            };
-            for line in lines {
-                painter.line_segment(line.0, line.1, Stroke::new(0.02, Color32::YELLOW));
+        let lines = match self
+            .correspondence_lines
+            .parse_latest::<Vec<Line2<Field>>>()
+        {
+            Ok(value) => value,
+            Err(error) => {
+                println!("{error:?}");
+                Default::default()
             }
+        };
+        for line in lines {
+            painter.line_segment(line.0, line.1, Stroke::new(0.02, Color32::YELLOW));
         }
         Ok(())
     }

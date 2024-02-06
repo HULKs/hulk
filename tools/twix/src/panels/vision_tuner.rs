@@ -269,26 +269,26 @@ fn add_selector_row(
         add_vision_cycler_selector(ui, nao, cycler, buffers);
         let response = add_position_selector(ui, position);
         if response.changed() {
-            let injected_robot_to_field_translation = match position {
+            let injected_ground_to_field_translation = match position {
                 Position::FirstHalfOwnHalfTowardsOwnGoal
                 | Position::FirstHalfOwnHalfAwayOwnGoal => Translation2::new(-3.0, 0.0),
                 Position::FirstHalfOpponentHalfTowardsOwnGoal
                 | Position::FirstHalfOpponentHalfAwayOwnGoal => Translation2::new(3.0, 0.0),
             };
-            let injected_robot_to_field_rotation = match position {
+            let injected_ground_to_field_rotation = match position {
                 Position::FirstHalfOwnHalfTowardsOwnGoal
                 | Position::FirstHalfOpponentHalfTowardsOwnGoal => Rotation2::new(0.0),
                 Position::FirstHalfOwnHalfAwayOwnGoal
                 | Position::FirstHalfOpponentHalfAwayOwnGoal => Rotation2::new(PI),
             };
-            let injected_robot_to_field = Isometry2::from_parts(
-                injected_robot_to_field_translation,
-                injected_robot_to_field_rotation.into(),
+            let injected_ground_to_field = Isometry2::from_parts(
+                injected_ground_to_field_translation,
+                injected_ground_to_field_rotation.into(),
             );
-            let value = to_value(injected_robot_to_field).unwrap();
+            let value = to_value(injected_ground_to_field).unwrap();
             println!("update");
             nao.update_parameter_value(
-                "injected_robot_to_field_of_home_after_coin_toss_before_second_half",
+                "injected_ground_to_field_of_home_after_coin_toss_before_second_half",
                 value,
             );
         }

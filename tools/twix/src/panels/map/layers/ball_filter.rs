@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub struct BallFilter {
-    robot_to_field: ValueBuffer,
+    ground_to_field: ValueBuffer,
     ball_state: ValueBuffer,
 }
 
@@ -24,21 +24,21 @@ impl Layer for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field = nao.subscribe_output(CyclerOutput {
+        let ground_to_field = nao.subscribe_output(CyclerOutput {
             cycler: Cycler::Control,
             output: Output::Main {
-                path: "robot_to_field".to_string(),
+                path: "ground_to_field".to_string(),
             },
         });
-        let ball_hypotheses = nao.subscribe_output(CyclerOutput {
+        let ball_state = nao.subscribe_output(CyclerOutput {
             cycler: Cycler::Control,
             output: Output::Additional {
                 path: "best_ball_state".to_string(),
             },
         });
         Self {
-            robot_to_field,
-            ball_state: ball_hypotheses,
+            ground_to_field,
+            ball_state,
         }
     }
 
@@ -48,12 +48,13 @@ impl Layer for BallFilter {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>> =
-            self.robot_to_field.parse_latest()?;
-        let best_ball_state: Option<MultivariateNormalDistribution<4>> =
+            self.ground_to_field.parse_latest()?;
+        let ball_state: Option<MultivariateNormalDistribution<4>> =
             self.ball_state.parse_latest()?;
 
-        if let Some(state) = best_ball_state {
-            let position = ground_to_field.unwrap_or_default() * Point2::from(state.mean.xy()).framed();
+        if let Some(state) = ball_state {
+            let position =
+                ground_to_field.unwrap_or_default() * Point2::from(state.mean.xy()).framed();
             let covariance = state.covariance.fixed_view::<2, 2>(0, 0).into_owned();
             let stroke = Stroke::new(0.01, Color32::BLACK);
             let fill_color = Color32::from_rgba_unmultiplied(255, 255, 0, 100);

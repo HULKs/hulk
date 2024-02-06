@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub struct KickDecisions {
-    robot_to_field: ValueBuffer,
+    ground_to_field: ValueBuffer,
     kick_decisions: ValueBuffer,
     instant_kick_decisions: ValueBuffer,
     kick_targets: ValueBuffer,
@@ -27,8 +27,8 @@ impl Layer for KickDecisions {
     const NAME: &'static str = "Kick Decisions";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
+        let ground_to_field =
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let kick_decisions =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.kick_decisions").unwrap());
         let instant_kick_decisions = nao.subscribe_output(
@@ -40,7 +40,7 @@ impl Layer for KickDecisions {
             CyclerOutput::from_str("Control.additional.instant_kick_targets").unwrap(),
         );
         Self {
-            robot_to_field,
+            ground_to_field,
             kick_decisions,
             instant_kick_decisions,
             kick_targets,
@@ -54,7 +54,7 @@ impl Layer for KickDecisions {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
-            self.robot_to_field.require_latest()?;
+            self.ground_to_field.require_latest()?;
         let kick_decisions: Vec<KickDecision> = self.kick_decisions.require_latest()?;
         let best_kick_decision = kick_decisions.first();
         let instant_kick_decisions: Vec<KickDecision> =
