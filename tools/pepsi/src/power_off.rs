@@ -1,10 +1,5 @@
-use std::str::FromStr;
-
 use clap::Args;
-use color_eyre::{
-    eyre::{Report, WrapErr},
-    Result,
-};
+use color_eyre::{eyre::WrapErr, Result};
 use constants::HARDWARE_IDS;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
@@ -16,17 +11,16 @@ use crate::{
 
 #[derive(Args)]
 pub struct Arguments {
-    /// The NAOs to power off e.g. 20w, 10.1.24.22 or all
-    #[arg(required = true)]
-    pub naos: Vec<AddressOrAll>,
+    /// Power off all NAOs
+    #[arg(long)]
+    pub all: bool,
+    /// The NAOs to power off e.g. 20w or 10.1.24.22
+    #[arg(required = true, conflicts_with = "all", num_args = 1..)]
+    pub naos: Vec<NaoAddress>,
 }
 
 pub async fn power_off(arguments: Arguments) -> Result<()> {
-    if arguments
-        .naos
-        .iter()
-        .any(|address| matches!(address, AddressOrAll::All))
-    {
+    if arguments.all {
         let addresses = HARDWARE_IDS
             .keys()
             .map(|&nao_number| async move {
@@ -55,13 +49,8 @@ pub async fn power_off(arguments: Arguments) -> Result<()> {
         )
         .await;
     } else {
-        let addresses = arguments.naos.iter().filter_map(|address| match address {
-            AddressOrAll::Address(address) => Some(address),
-            _ => None,
-        });
-
         ProgressIndicator::map_tasks(
-            addresses,
+            arguments.naos,
             "Powering off...",
             |nao_address, _progress_bar| async move {
                 let nao = Nao::try_new_with_ping(nao_address.ip).await?;
@@ -73,22 +62,4 @@ pub async fn power_off(arguments: Arguments) -> Result<()> {
         .await;
     }
     Ok(())
-}
-
-#[derive(Clone)]
-pub enum AddressOrAll {
-    Address(NaoAddress),
-    All,
-}
-
-impl FromStr for AddressOrAll {
-    type Err = Report;
-
-    fn from_str(string: &str) -> Result<Self> {
-        if string == "all" {
-            Ok(Self::All)
-        } else {
-            Ok(Self::Address(NaoAddress::from_str(string)?))
-        }
-    }
 }
