@@ -2,8 +2,11 @@ use coordinate_systems::IntoTransform;
 use framework::AdditionalOutput;
 use nalgebra::Isometry2;
 use types::{
-    coordinate_systems::{Field, Ground}, field_dimensions::FieldDimensions, motion_command::MotionCommand,
-    path_obstacles::PathObstacle, world_state::WorldState,
+    coordinate_systems::{Field, Ground},
+    field_dimensions::FieldDimensions,
+    motion_command::MotionCommand,
+    path_obstacles::PathObstacle,
+    world_state::WorldState,
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};

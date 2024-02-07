@@ -6,7 +6,7 @@ use serialize_hierarchy::{Error, SerializeHierarchy};
 use crate::line_segment::LineSegment;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-#[serde(bound="")]
+#[serde(bound = "")]
 pub struct TwoLineSegments<Frame>(pub LineSegment<Frame>, pub LineSegment<Frame>);
 
 // Manual implementation required because the derived version imposes Frame to be PartialEq
