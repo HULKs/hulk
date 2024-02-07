@@ -12,7 +12,8 @@ use crate::{nao::Nao, twix_painter::TwixPainter};
 pub trait Layer {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>) -> Self;
-    fn paint(&self, painter: &TwixPainter<Field>, field_dimensions: &FieldDimensions) -> Result<()>;
+    fn paint(&self, painter: &TwixPainter<Field>, field_dimensions: &FieldDimensions)
+        -> Result<()>;
 }
 
 pub struct EnabledLayer<T>
@@ -48,7 +49,11 @@ where
         }
     }
 
-    pub fn paint(&self, painter: &TwixPainter<Field>, field_dimensions: &FieldDimensions) -> Result<()> {
+    pub fn paint(
+        &self,
+        painter: &TwixPainter<Field>,
+        field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
         if let Some(layer) = &self.layer {
             layer.paint(painter, field_dimensions)?;
         }

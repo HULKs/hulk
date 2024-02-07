@@ -24,4 +24,3 @@ where
         Self::Rotation::new(self.inner.look_at(&target.inner))
     }
 }
-
