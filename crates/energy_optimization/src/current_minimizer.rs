@@ -1,8 +1,6 @@
-use std::f32::EPSILON;
-
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{cycle_time::CycleTime, joints::Joints, motor_commands::MotorCommands};
+use types::{cycle_time::CycleTime, joints::Joints};
 
 use crate::parameters::CurrentMinimizerParameters;
 
@@ -17,8 +15,6 @@ enum State {
 pub struct CurrentMinimizer {
     position_offset: Joints<f32>,
     state: State,
-    last_motor_commands: MotorCommands<Joints<f32>>,
-    last_positions: Joints<f32>,
     parameters: CurrentMinimizerParameters,
 }
 
@@ -32,22 +28,13 @@ impl CurrentMinimizer {
     ) -> Joints<f32> {
         self.parameters = parameters;
 
-        let positions_difference = positions - self.last_positions;
-        let squared_positions_difference_sum: f32 = positions_difference
-            .into_iter()
-            .map(|position| position.powf(2.0))
-            .sum();
-
-        let optimization_enabled = squared_positions_difference_sum
-            < self.parameters.position_difference_threshold + EPSILON;
-
         let squared_position_offset_sum: f32 = self
             .position_offset
             .into_iter()
             .map(|position| position.powf(2.0))
             .sum();
 
-        if squared_position_offset_sum >= self.parameters.reset_threshold || !optimization_enabled {
+        if squared_position_offset_sum >= self.parameters.reset_threshold {
             self.state = State::Resetting;
         }
 
@@ -70,7 +57,7 @@ impl CurrentMinimizer {
                 let resetting_finished =
                     squared_position_offset_sum < self.parameters.reset_base_offset;
 
-                if resetting_finished && optimization_enabled {
+                if resetting_finished {
                     self.state = State::Optimizing;
                 } else {
                     self.position_offset = self.position_offset
@@ -81,7 +68,6 @@ impl CurrentMinimizer {
             }
         }
 
-        self.last_positions = positions;
         positions + self.position_offset
     }
 
