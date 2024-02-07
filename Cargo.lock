@@ -3683,14 +3683,15 @@ dependencies = [
 name = "object_detection"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "color-eyre",
  "context_attribute",
  "framework",
  "geometry",
  "hardware",
  "itertools",
- "ittapi",
  "lazy_static",
+ "nalgebra",
  "ndarray",
  "openvino",
  "serde",

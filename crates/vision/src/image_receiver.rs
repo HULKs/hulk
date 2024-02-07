@@ -41,9 +41,10 @@ impl ImageReceiver {
         mut context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let now = context.hardware_interface.get_now();
-        context
-            .last_cycle_time
-            .fill_if_subscribed(|| now.duration_since(self.last_cycle_start).expect("time ran backwards"));
+        context.last_cycle_time.fill_if_subscribed(|| {
+            now.duration_since(self.last_cycle_start)
+                .expect("time ran backwards")
+        });
 
         let image = context
             .hardware_interface

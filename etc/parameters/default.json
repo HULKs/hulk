@@ -11,6 +11,10 @@
       "enable": true
     }
   },
+  "robot_filter": {
+    "detection_variance_width": 0.1,
+    "detection_variance_height": 0.1
+  },
   "whistle_detection": {
     "detection_band": {
       "start": 2000,

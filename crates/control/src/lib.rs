@@ -36,3 +36,4 @@ pub mod time_to_reach_kick_position;
 pub mod visual_referee_filter;
 pub mod whistle_filter;
 pub mod world_state_composer;
+pub mod robot_filter;

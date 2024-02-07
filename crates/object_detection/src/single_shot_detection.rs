@@ -238,8 +238,8 @@ impl SingleShotDetection {
             for &x in X_INDICES.iter() {
                 let pixel: Rgb = image.at(x, y).into();
 
-                scratchpad[scratchpad_index + 0 * STRIDE] = pixel.r as f32 / 255.;
-                scratchpad[scratchpad_index + 1 * STRIDE] = pixel.g as f32 / 255.;
+                scratchpad[scratchpad_index] = pixel.r as f32 / 255.;
+                scratchpad[scratchpad_index + STRIDE] = pixel.g as f32 / 255.;
                 scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
 
                 scratchpad_index += 1;
@@ -252,7 +252,7 @@ fn as_bytes(float_slice: &[f32]) -> &[u8] {
     unsafe {
         std::slice::from_raw_parts(
             float_slice.as_ptr() as *const u8,
-            float_slice.len() * std::mem::size_of::<f32>(),
+            std::mem::size_of_val(float_slice),
         )
     }
 }

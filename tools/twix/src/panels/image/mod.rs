@@ -142,7 +142,11 @@ impl Widget for &mut ImagePanel {
                         image_selection_changed = true;
                     }
                     if ui
-                        .selectable_value(&mut self.image_kind, ImageKind::SemanticSegmentation, "SemanticSegmentation")
+                        .selectable_value(
+                            &mut self.image_kind,
+                            ImageKind::SemanticSegmentation,
+                            "SemanticSegmentation",
+                        )
                         .changed()
                     {
                         image_selection_changed = true;

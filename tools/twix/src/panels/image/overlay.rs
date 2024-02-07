@@ -8,7 +8,9 @@ use serde_json::{json, Value};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-use super::overlays::{BallDetection, FeetDetection, LineDetection, PenaltyBoxes, SingleShotDetection};
+use super::overlays::{
+    BallDetection, FeetDetection, LineDetection, PenaltyBoxes, SingleShotDetection,
+};
 
 pub trait Overlay {
     const NAME: &'static str;

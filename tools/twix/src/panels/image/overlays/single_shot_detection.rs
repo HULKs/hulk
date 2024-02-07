@@ -1,4 +1,4 @@
-use std::{sync::Arc, str::FromStr};
+use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
@@ -27,7 +27,10 @@ impl Overlay for SingleShotDetection {
         };
 
         Self {
-            detections: nao.subscribe_output(CyclerOutput::from_str(format!("{cycler}.main_outputs.detections").as_str()).expect("failed to subscripe cycler"))
+            detections: nao.subscribe_output(
+                CyclerOutput::from_str(format!("{cycler}.main_outputs.detections").as_str())
+                    .expect("failed to subscripe cycler"),
+            ),
         }
     }
 

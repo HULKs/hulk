@@ -15,9 +15,7 @@ fn main() -> Result<()> {
                 kind: CyclerKind::Perception,
                 instances: vec!["Top"],
                 setup_nodes: vec!["object_detection::image_receiver"],
-                nodes: vec![
-                    "object_detection::single_shot_detection",
-                ],
+                nodes: vec!["object_detection::single_shot_detection"],
             },
             CyclerManifest {
                 name: "Vision",
