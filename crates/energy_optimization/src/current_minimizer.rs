@@ -14,12 +14,12 @@ enum State {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CurrentMinimizer {
-    position_offset: Joints<f32>,
-    state: State,
     last_motor_commands: MotorCommands<Joints<f32>>,
     last_positions: Joints<f32>,
     minimum_reached: bool,
     parameters: CurrentMinimizerParameters,
+    position_offset: Joints<f32>,
+    state: State,
 }
 
 impl CurrentMinimizer {
