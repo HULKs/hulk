@@ -13,7 +13,7 @@ use crate::{
 #[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct LineData {
     pub lines_in_ground: Vec<Line2<Ground>>,
-    pub used_vertical_filtered_segments: HashSet<Framed<Pixel, Point2<u16>>>,
+    pub used_segments: HashSet<Framed<Pixel, Point2<u16>>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
