@@ -9,10 +9,9 @@ use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::rectangle::Rectangle;
 use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
-use ittapi;
 use lazy_static::lazy_static;
 use ndarray::{s, ArrayView};
-use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
+use openvino::{Blob, Core, ExecutableNetwork, InferRequest, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
 use types::{
     color::Rgb,
@@ -119,108 +118,48 @@ impl SingleShotDetection {
         })
     }
 
-    fn as_bytes(v: &[f32]) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(
-                v.as_ptr() as *const u8,
-                v.len() * std::mem::size_of::<f32>(),
-            )
-        }
-    }
-
     pub fn cycle(&mut self, mut context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
         if !context.enable {
             return Ok(MainOutputs::default());
         }
-        let itt_domain = ittapi::Domain::new("DetectionTop");
         let image = context.image;
-        let earlier = context.hardware_interface.get_now();
 
         {
-            let _task = ittapi::Task::begin(&itt_domain, "preprocess");
+            let earlier = context.hardware_interface.get_now();
             SingleShotDetection::load_into_scratchpad(&mut self.scratchpad, image);
+            context.preprocess_time.fill_if_subscribed(|| {
+                context
+                    .hardware_interface
+                    .get_now()
+                    .duration_since(earlier)
+                    .expect("time ran backwards")
+            });
         }
-        context.preprocess_time.fill_if_subscribed(|| {
-            context
-                .hardware_interface
-                .get_now()
-                .duration_since(earlier)
-                .expect("time ran backwards")
-        });
 
-        let _task = ittapi::Task::begin(&itt_domain, "inference");
-        let mut infer_request = self.network.create_infer_request()?;
+        let mut prediction = {
+            let mut infer_request = self.set_network_inputs()?;
 
-        let tensor_description = TensorDesc::new(
-            Layout::NCHW,
-            &[
-                1,
-                DETECTION_NUMBER_CHANNELS,
-                DETECTION_IMAGE_HEIGHT,
-                DETECTION_IMAGE_WIDTH,
-            ],
-            Precision::FP32,
-        );
-        let blob = Blob::new(
-            &tensor_description,
-            SingleShotDetection::as_bytes(&self.scratchpad[..]),
-        )?;
+            let earlier = context.hardware_interface.get_now();
+            infer_request.infer()?;
 
-        let earlier = context.hardware_interface.get_now();
-        infer_request.set_blob(&self.input_name, &blob)?;
-        infer_request.infer()?;
-        _task.end();
-        context.inference_time.fill_if_subscribed(|| {
-            context
-                .hardware_interface
-                .get_now()
-                .duration_since(earlier)
-                .expect("time ran backwards")
-        });
+            context.inference_time.fill_if_subscribed(|| {
+                context
+                    .hardware_interface
+                    .get_now()
+                    .duration_since(earlier)
+                    .expect("time ran backwards")
+            });
 
-        let mut prediction = infer_request.get_blob("output0")?;
+            infer_request.get_blob(&self.output_name)?
+        };
+
         let prediction = unsafe { prediction.buffer_mut_as_type::<f32>().unwrap() };
-        let prediction = ArrayView::from_shape((4 + NUMBER_OF_CLASSES, MAX_DETECTION), prediction)?;
 
         let earlier = context.hardware_interface.get_now();
-
-        let _task = ittapi::Task::begin(&itt_domain, "postprocess");
-        let detections = prediction
-            .columns()
-            .into_iter()
-            .filter_map(|row| {
-                let (class_id, prob) = row
-                    .slice(s![4..])
-                    .iter()
-                    .enumerate()
-                    .map(|(index, value)| (index, *value))
-                    .reduce(|accum, row| if row.1 > accum.1 { row } else { accum })
-                    .unwrap();
-
-                if prob < *context.confidence_threshold {
-                    return None;
-                }
-                let object = DetectedObject::from_u8(class_id as u8 + 1).unwrap();
-                let bbox = row.slice(s![0..4]);
-
-                const X_SCALE: f32 = 640.0 / DETECTION_IMAGE_WIDTH as f32;
-                const Y_SCALE: f32 = 480.0 / DETECTION_IMAGE_HEIGHT as f32;
-
-                Some(BoundingBox::new(
-                    object,
-                    prob,
-                    Rectangle::from_cxcywh(
-                        bbox[0] * X_SCALE,
-                        bbox[1] * Y_SCALE,
-                        bbox[2] * X_SCALE,
-                        bbox[3] * Y_SCALE,
-                    ),
-                ))
-            })
-            .collect_vec();
+        let detections = self.parse_outputs(prediction, *context.confidence_threshold)?;
 
         let bounding_boxes = multiclass_non_maximum_suppression(detections, *context.iou_threshold);
-        _task.end();
+
         context.postprocess_time.fill_if_subscribed(|| {
             context
                 .hardware_interface
@@ -234,7 +173,64 @@ impl SingleShotDetection {
         })
     }
 
-    pub fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image) {
+    fn set_network_inputs(&mut self) -> Result<InferRequest> {
+        let mut infer_request = self.network.create_infer_request()?;
+
+        let tensor_description = TensorDesc::new(
+            Layout::NCHW,
+            &[
+                1,
+                DETECTION_NUMBER_CHANNELS,
+                DETECTION_IMAGE_HEIGHT,
+                DETECTION_IMAGE_WIDTH,
+            ],
+            Precision::FP32,
+        );
+        let blob = Blob::new(&tensor_description, as_bytes(&self.scratchpad[..]))?;
+
+        infer_request.set_blob(&self.input_name, &blob)?;
+
+        Ok(infer_request)
+    }
+
+    fn parse_outputs(
+        &self,
+        prediction: &[f32],
+        confidence_threshold: f32,
+    ) -> Result<Vec<BoundingBox>> {
+        let prediction = ArrayView::from_shape((4 + NUMBER_OF_CLASSES, MAX_DETECTION), prediction)?;
+
+        let detections = prediction
+            .columns()
+            .into_iter()
+            .filter_map(|row| {
+                let confidence = row[5];
+
+                if confidence < confidence_threshold {
+                    return None;
+                }
+                let bbox = row.slice(s![0..4]);
+
+                const X_SCALE: f32 = 640.0 / DETECTION_IMAGE_WIDTH as f32;
+                const Y_SCALE: f32 = 480.0 / DETECTION_IMAGE_HEIGHT as f32;
+
+                Some(BoundingBox::new(
+                    DetectedObject::Robot,
+                    confidence,
+                    Rectangle::from_cxcywh(
+                        bbox[0] * X_SCALE,
+                        bbox[1] * Y_SCALE,
+                        bbox[2] * X_SCALE,
+                        bbox[3] * Y_SCALE,
+                    ),
+                ))
+            })
+            .collect();
+
+        Ok(detections)
+    }
+
+    fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image) {
         const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
 
         let mut scratchpad_index = 0;
@@ -249,6 +245,15 @@ impl SingleShotDetection {
                 scratchpad_index += 1;
             }
         }
+    }
+}
+
+fn as_bytes(float_slice: &[f32]) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(
+            float_slice.as_ptr() as *const u8,
+            float_slice.len() * std::mem::size_of::<f32>(),
+        )
     }
 }
 
@@ -274,96 +279,92 @@ fn multiclass_non_maximum_suppression(
     detections
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use approx::assert_relative_eq;
-//     use geometry::rectangle::Rectangle;
-//     use nalgebra::point;
-//     use ndarray::array;
-//     use types::object_detection::{BoundingBox, DetectedObject};
+#[cfg(test)]
+mod tests {
+    use approx::assert_relative_eq;
+    use geometry::rectangle::Rectangle;
+    use nalgebra::point;
+    use types::object_detection::{BoundingBox, DetectedObject};
 
-//     use super::{multiclass_non_maximum_suppression, retrieve_class};
+    use super::multiclass_non_maximum_suppression;
 
-//     fn assert_approx_bbox_equality(bbox1: BoundingBox, bbox2: BoundingBox) {
-//         assert_relative_eq!(bbox1.score, bbox2.score);
-//         assert_relative_eq!(bbox1.bounding_box.min, bbox2.bounding_box.min);
-//         assert_relative_eq!(bbox1.bounding_box.max, bbox2.bounding_box.max);
-//         assert_eq!(bbox1.class, bbox2.class);
-//     }
+    const BOX_1: BoundingBox = BoundingBox::new(
+        DetectedObject::Robot,
+        0.8,
+        Rectangle {
+            min: point![10.0, 10.0],
+            max: point![100.0, 200.0],
+        },
+    );
 
-//     #[test]
-//     fn test_non_maximum_suppression() {
-//         let box1 = BoundingBox::new(
-//             DetectedObject::Robot,
-//             0.8,
-//             Rectangle {
-//                 min: point![10.0, 10.0],
-//                 max: point![100.0, 200.0],
-//             },
-//         );
+    const BOX_2: BoundingBox = BoundingBox::new(
+        DetectedObject::Robot,
+        0.2,
+        Rectangle {
+            min: point![200.0, 200.0],
+            max: point![300.0, 400.0],
+        },
+    );
 
-//         let box2 = BoundingBox::new(
-//             DetectedObject::Ball,
-//             0.2,
-//             Rectangle {
-//                 min: point![20.0, 20.0],
-//                 max: point![40.0, 40.0],
-//             },
-//         );
+    const BOX_3: BoundingBox = BoundingBox::new(
+        DetectedObject::Robot,
+        0.4,
+        Rectangle {
+            min: point![11.0, 11.0],
+            max: point![99.0, 199.0],
+        },
+    );
 
-//         let box3 = BoundingBox::new(
-//             DetectedObject::Robot,
-//             0.4,
-//             Rectangle {
-//                 min: point![10.0, 10.0],
-//                 max: point![190.0, 200.0],
-//             },
-//         );
+    fn assert_approx_bbox_equality(bbox1: BoundingBox, bbox2: BoundingBox) {
+        assert_relative_eq!(bbox1.score, bbox2.score);
+        assert_relative_eq!(bbox1.bounding_box.min, bbox2.bounding_box.min);
+        assert_relative_eq!(bbox1.bounding_box.max, bbox2.bounding_box.max);
+        assert_eq!(bbox1.class, bbox2.class);
+    }
 
-//         let results = multiclass_non_maximum_suppression(vec![box1, box2, box3], 0.6);
-//         assert!(results.len() == 3);
-//         assert_approx_bbox_equality(results[0], box1);
-//         assert_approx_bbox_equality(results[1], box3);
-//         assert_approx_bbox_equality(results[2], box2);
+    #[test]
+    fn test_bbox_equality() {
+        assert_approx_bbox_equality(BOX_1, BOX_1);
+        assert_approx_bbox_equality(BOX_2, BOX_2);
+        assert_approx_bbox_equality(BOX_3, BOX_3);
+    }
 
-//         let results = multiclass_non_maximum_suppression(vec![box1, box2, box3], 0.45);
-//         assert!(results.len() == 2);
-//         assert_approx_bbox_equality(results[0], box1);
-//         assert_approx_bbox_equality(results[1], box2);
-//     }
+    #[test]
+    fn test_non_maximum_suppression_for_single_box() {
+        let results = multiclass_non_maximum_suppression(vec![BOX_1], 0.6);
+        assert!(results.len() == 1);
+        assert_approx_bbox_equality(results[0], BOX_1);
+    }
 
-//     #[test]
-//     fn test_class_retrieval() {
-//         use DetectedObject::*;
+    #[test]
+    fn test_non_maximum_suppression_non_overlapping_boxes() {
+        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_2], 0.6);
+        assert!(results.len() == 2);
 
-//         let background = array![1.0, 0.0, 0.0, 0.0, 0.0];
-//         assert!(matches!(retrieve_class(background.view(), 0.5), None));
+        assert_approx_bbox_equality(results[0], BOX_1);
+        assert_approx_bbox_equality(results[1], BOX_2);
+    }
 
-//         let robot = array![1.0, 2.0, 0.0, 0.0, 0.0];
-//         assert!(matches!(
-//             retrieve_class(robot.view(), 0.5),
-//             Some((_, Robot))
-//         ));
+    #[test]
+    fn test_non_maximum_suppression_overlapping_boxes() {
+        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_3], 0.6);
+        assert!(results.len() == 1);
+        assert_approx_bbox_equality(results[0], BOX_1);
+    }
 
-//         let ball = array![0.1, 0.1, 10.0, 0.2, 0.0];
-//         assert!(matches!(retrieve_class(ball.view(), 0.5), Some((_, Ball))));
+    #[test]
+    fn test_non_maximum_suppression_overlapping_boxes_with_stricter_threshold() {
+        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_3], 1.0);
+        assert!(results.len() == 2);
+        assert_approx_bbox_equality(results[0], BOX_1);
+        assert_approx_bbox_equality(results[1], BOX_3);
+    }
 
-//         let goal_post = array![0.0, 0.0, 0.0, 1.0, 0.0];
-//         assert!(matches!(
-//             retrieve_class(goal_post.view(), 0.4),
-//             Some((_, GoalPost))
-//         ));
-
-//         let penalty_spot = array![0.0, 0.0, 0.0, 0.0, 1.0];
-//         assert!(matches!(
-//             retrieve_class(penalty_spot.view(), 0.4),
-//             Some((_, PenaltySpot))
-//         ));
-
-//         let unsure_classification = array![1.0, 1.0, 1.0, 0.0, 0.0];
-//         assert!(matches!(
-//             retrieve_class(unsure_classification.view(), 0.3),
-//             None
-//         ));
-//     }
-// }
+    #[test]
+    fn test_non_maximum_suppression_all_boxes() {
+        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_2, BOX_3], 0.6);
+        assert!(results.len() == 2);
+        assert_approx_bbox_equality(results[0], BOX_1);
+        assert_approx_bbox_equality(results[1], BOX_2);
+    }
+}

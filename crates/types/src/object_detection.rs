@@ -4,20 +4,13 @@ use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, SerializeHierarchy)]
 pub enum DetectedObject {
-    Ball,
     Robot,
-    GoalPost,
-    PenaltySpot,
 }
 
 impl DetectedObject {
     pub fn from_u8(index: u8) -> Option<DetectedObject> {
-        // 0 is background
         match index {
-            1 => Some(DetectedObject::Robot),
-            2 => Some(DetectedObject::Ball),
-            3 => Some(DetectedObject::GoalPost),
-            4 => Some(DetectedObject::PenaltySpot),
+            0 => Some(DetectedObject::Robot),
             _ => None,
         }
     }
@@ -31,7 +24,7 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
-    pub fn new(class: DetectedObject, score: f32, bounding_box: Rectangle) -> Self {
+    pub const fn new(class: DetectedObject, score: f32, bounding_box: Rectangle) -> Self {
         Self {
             bounding_box,
             class,

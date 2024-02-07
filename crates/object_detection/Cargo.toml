@@ -13,9 +13,12 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 itertools = { workspace = true }
-ndarray = { workspace = true }
 lazy_static = { workspace = true }
+ndarray = { workspace = true }
 openvino = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
-ittapi = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+nalgebra = { workspace = true }
