@@ -14,8 +14,8 @@ impl DetectedObject {
     pub fn from_u8(index: u8) -> Option<DetectedObject> {
         // 0 is background
         match index {
-            1 => Some(DetectedObject::Ball),
-            2 => Some(DetectedObject::Robot),
+            1 => Some(DetectedObject::Robot),
+            2 => Some(DetectedObject::Ball),
             3 => Some(DetectedObject::GoalPost),
             4 => Some(DetectedObject::PenaltySpot),
             _ => None,

@@ -20,11 +20,12 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-const DETECTION_IMAGE_HEIGHT: usize = 160;
-const DETECTION_IMAGE_WIDTH: usize = 224;
+const DETECTION_IMAGE_HEIGHT: usize = 96;
+const DETECTION_IMAGE_WIDTH: usize = 128;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
+const NUMBER_OF_CLASSES: usize = 1;
 
-const MAX_DETECTION: usize = 2940;
+const MAX_DETECTION: usize = 252;
 
 const DETECTION_SCRATCHPAD_SIZE: usize =
     DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
@@ -86,7 +87,7 @@ impl SingleShotDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_xml_name = PathBuf::from("yolov8n-mobilenetv3-160-224-3-neck-ov.xml");
+        let model_xml_name = PathBuf::from("yolov8n-mobilenet.xml");
 
         let model_path = neural_network_folder.join(&model_xml_name);
         let weights_path = neural_network_folder.join(model_xml_name.with_extension("bin"));
@@ -179,7 +180,7 @@ impl SingleShotDetection {
 
         let mut prediction = infer_request.get_blob("output0")?;
         let prediction = unsafe { prediction.buffer_mut_as_type::<f32>().unwrap() };
-        let prediction = ArrayView::from_shape((8, MAX_DETECTION), prediction)?;
+        let prediction = ArrayView::from_shape((4 + NUMBER_OF_CLASSES, MAX_DETECTION), prediction)?;
 
         let earlier = context.hardware_interface.get_now();
 
