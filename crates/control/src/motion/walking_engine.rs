@@ -117,7 +117,7 @@ pub struct WalkingEngine {
 
 #[context]
 pub struct CreationContext {
-    walking_engine_parameters: Parameter<WalkingEngineParameters, "walking_engine">,
+    config: Parameter<WalkingEngineParameters, "walking_engine">,
 }
 
 #[context]
@@ -157,15 +157,15 @@ impl WalkingEngine {
         Ok(Self {
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 Vector2::default(),
-                context.walking_engine_parameters.gyro_low_pass_factor,
+                context.config.gyro_low_pass_factor,
             ),
             filtered_imu_pitch: LowPassFilter::with_smoothing_factor(
                 0.0,
-                context.walking_engine_parameters.imu_pitch_low_pass_factor,
+                context.config.imu_pitch_low_pass_factor,
             ),
             filtered_robot_tilt_shift: LowPassFilter::with_smoothing_factor(
                 0.0,
-                context.walking_engine_parameters.tilt_shift_low_pass_factor,
+                context.config.tilt_shift_low_pass_factor,
             ),
             left_arm: SwingingArm::new(Side::Left),
             right_arm: SwingingArm::new(Side::Right),
@@ -378,8 +378,8 @@ impl WalkingEngine {
             right_leg: LegJoints::fill(leg_stiffness),
         };
 
-        let walk_joints_commands = {
-            MotorCommands {
+        Ok(MainOutputs {
+            walk_motor_commands: MotorCommands {
                 positions: BodyJoints {
                     left_arm,
                     right_arm,
@@ -388,10 +388,7 @@ impl WalkingEngine {
                 },
                 stiffnesses,
             }
-        };
-
-        Ok(MainOutputs {
-            walk_motor_commands: walk_joints_commands.into(),
+            .into(),
         })
     }
 
