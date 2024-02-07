@@ -83,7 +83,7 @@ fn merge_line_data(line_data: &BTreeMap<SystemTime, Vec<Option<LineData>>>) -> L
         .collect();
     LineData {
         lines_in_ground: lines_in_robot,
-        used_vertical_filtered_segments: HashSet::new(),
+        used_segments: HashSet::new(),
     }
 }
 

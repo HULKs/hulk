@@ -145,7 +145,7 @@ fn find_last_consecutive_cluster(
 ) -> Option<Vec<Segment>> {
     let filtered_segments = scan_line.segments.iter().filter(|segment| {
         let is_on_line = line_data
-            .used_vertical_filtered_segments
+            .used_segments
             .contains(&point![scan_line.position, segment.start].framed());
         let is_on_ball = balls.iter().any(|ball| {
             ball.image_location

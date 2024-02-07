@@ -77,7 +77,10 @@ impl LineDetection {
         let mut image_lines = Vec::new();
         let mut discarded_lines = Vec::new();
 
-        let (line_points, used_vertical_filtered_segments) = filter_segments_for_lines(
+        let LinePoints {
+            line_points,
+            used_segments,
+        } = filter_segments_for_lines(
             context.camera_matrix,
             context.filtered_segments,
             context.image,
@@ -179,7 +182,7 @@ impl LineDetection {
         }
         let line_data = LineData {
             lines_in_ground,
-            used_vertical_filtered_segments,
+            used_segments,
         };
 
         context.lines_in_image.fill_if_subscribed(|| {
@@ -290,6 +293,11 @@ where
     }
 }
 
+struct LinePoints {
+    line_points: Vec<Framed<Ground, Point2<f32>>>,
+    used_segments: HashSet<Framed<Pixel, Point2<u16>>>,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn filter_segments_for_lines(
     camera_matrix: &CameraMatrix,
@@ -300,11 +308,8 @@ fn filter_segments_for_lines(
     check_edge_gradient: bool,
     gradient_alignment: f32,
     maximum_merge_gap: u16,
-) -> (
-    Vec<Framed<Ground, Point2<f32>>>,
-    HashSet<Framed<Pixel, Point2<u16>>>,
-) {
-    let (line_points, used_vertical_filtered_segments) = filtered_segments
+) -> LinePoints {
+    let (line_points, used_segments) = filtered_segments
         .scan_grid
         .vertical_scan_lines
         .iter()
@@ -341,7 +346,10 @@ fn filter_segments_for_lines(
             ))
         })
         .unzip();
-    (line_points, used_vertical_filtered_segments)
+    LinePoints {
+        line_points,
+        used_segments,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

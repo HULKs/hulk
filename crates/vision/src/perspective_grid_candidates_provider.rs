@@ -57,7 +57,7 @@ impl PerspectiveGridCandidatesProvider {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let vertical_scanlines = &context.filtered_segments.scan_grid.vertical_scan_lines;
-        let skip_segments = &context.line_data.used_vertical_filtered_segments;
+        let skip_segments = &context.line_data.used_segments;
         let image_size = vector![context.image.width(), context.image.height()];
 
         let rows = generate_rows(

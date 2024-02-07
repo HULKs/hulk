@@ -82,20 +82,29 @@ fn paint_segments(
             let rgb_color = Rgb::from(ycbcr_color);
             let original_color = Color32::from_rgb(rgb_color.r, rgb_color.g, rgb_color.b);
 
-            let (start_on_field, end_on_field, line_width) =
+            let segment_in_field =
                 match project_segment_to_field(x, segment, camera_matrix, ground_to_field) {
                     Ok(result) => result,
                     Err(_error) => break,
                 };
 
             painter.line_segment(
-                start_on_field,
-                end_on_field,
-                Stroke::new(line_width.clamp(0.001, 0.1), original_color),
+                segment_in_field.start,
+                segment_in_field.end,
+                Stroke::new(
+                    segment_in_field.line_width.clamp(0.001, 0.1),
+                    original_color,
+                ),
             );
         }
     }
     Ok(())
+}
+
+struct SegmentInField {
+    start: Framed<Field, Point2<f32>>,
+    end: Framed<Field, Point2<f32>>,
+    line_width: f32,
 }
 
 fn project_segment_to_field(
@@ -103,18 +112,22 @@ fn project_segment_to_field(
     segment: &types::image_segments::Segment,
     camera_matrix: &CameraMatrix,
     ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
-) -> Result<(Framed<Field, Point2<f32>>, Framed<Field, Point2<f32>>, f32)> {
+) -> Result<SegmentInField> {
     let start = point![x, segment.start as f32].framed();
     let end = point![x, segment.end as f32].framed();
 
-    let start_on_ground = camera_matrix.pixel_to_ground(start)?;
-    let end_on_ground = camera_matrix.pixel_to_ground(end)?;
-    let start_on_field = ground_to_field * start_on_ground;
-    let end_on_field = ground_to_field * end_on_ground;
+    let start_in_ground = camera_matrix.pixel_to_ground(start)?;
+    let end_in_ground = camera_matrix.pixel_to_ground(end)?;
+    let start_in_field = ground_to_field * start_in_ground;
+    let end_in_field = ground_to_field * end_in_ground;
 
     let midpoint = center(&start, &end);
     let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint, vector![640, 480])?;
     let line_width = 3.0 / pixel_radius;
 
-    Ok((start_on_field, end_on_field, line_width))
+    Ok(SegmentInField {
+        start: start_in_field,
+        end: end_in_field,
+        line_width,
+    })
 }
