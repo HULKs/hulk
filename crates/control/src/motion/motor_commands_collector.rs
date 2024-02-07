@@ -74,10 +74,13 @@ impl MotorCommandCollector {
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
             MotionType::ArmsUpSquat => (arms_up_squat.positions, arms_up_squat.stiffnesses),
-            MotionType::Dispatching => (
-                dispatching_command.positions,
-                dispatching_command.stiffnesses,
-            ),
+            MotionType::Dispatching => {
+                self.current_minimizer.reset();
+                (
+                    dispatching_command.positions,
+                    dispatching_command.stiffnesses,
+                )
+            }
             MotionType::FallProtection => (fall_protection_positions, fall_protection_stiffnesses),
             MotionType::Initial => (
                 self.current_minimizer.optimize(
