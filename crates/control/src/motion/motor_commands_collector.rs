@@ -4,6 +4,7 @@ use energy_optimization::current_minimizer::CurrentMinimizer;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
+    cycle_time::CycleTime,
     joints::{body::BodyJoints, head::HeadJoints, Joints},
     motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommands,
@@ -33,6 +34,7 @@ pub struct CycleContext {
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
@@ -86,6 +88,7 @@ impl MotorCommandCollector {
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,
                     *context.initial_pose,
+                    *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),
                 Joints::fill(0.6),
@@ -96,6 +99,7 @@ impl MotorCommandCollector {
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,
                     *context.penalized_pose,
+                    *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),
                 Joints::fill(0.6),
@@ -105,6 +109,7 @@ impl MotorCommandCollector {
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,
                     Joints::from_head_and_body(head_joints_command.positions, walk.positions),
+                    *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),

@@ -3,7 +3,8 @@ use std::f32::EPSILON;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    joints::Joints, motor_commands::MotorCommands, parameters::CurrentMinimizerParameters,
+    cycle_time::CycleTime, joints::Joints, motor_commands::MotorCommands,
+    parameters::CurrentMinimizerParameters,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -27,6 +28,7 @@ impl CurrentMinimizer {
         &mut self,
         currents: Joints<f32>,
         positions: Joints<f32>,
+        cycle_time: CycleTime,
         parameters: CurrentMinimizerParameters,
     ) -> Joints<f32> {
         self.parameters = parameters;
@@ -61,7 +63,8 @@ impl CurrentMinimizer {
                 let minimum_reached = maximal_current <= self.parameters.allowed_current;
                 if !minimum_reached {
                     self.position_offset[joint] += self.parameters.optimization_sign[joint]
-                        * self.parameters.optimization_speed_factor;
+                        * self.parameters.optimization_speed
+                        / cycle_time.last_cycle_duration.as_secs_f32();
                 }
             }
             State::Resetting => {
@@ -71,8 +74,10 @@ impl CurrentMinimizer {
                 if resetting_finished && optimization_enabled {
                     self.state = State::Optimizing;
                 } else {
-                    self.position_offset =
-                        self.position_offset / (1.0 + self.parameters.reset_speed_factor);
+                    self.position_offset = self.position_offset
+                        / (1.0
+                            + self.parameters.reset_speed
+                                / cycle_time.last_cycle_duration.as_secs_f32());
                 }
             }
         }
