@@ -248,15 +248,13 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current": 0.09,
+    "allowed_current": 0.1,
     "minimum_reached_hysteresis": 0.05,
     "optimization_speed": 0.0000012,
     "position_difference_threshold": 0.0,
     "reset_base_offset": 0.0002,
-    "reset_speed": 0.00036,
-    "reset_speed_factor": 0.03,
+    "reset_speed": 0.0006,
     "reset_threshold": 0.0007,
-    "reset_threshold": 0.00075,
     "optimization_sign": {
       "head": {
         "yaw": 1,
@@ -279,7 +277,7 @@
         "hand": 1
       },
       "left_leg": {
-        "hip_yaw_pitch": 1,
+        "hip_yaw_pitch": -1,
         "hip_roll": -1,
         "hip_pitch": 1,
         "knee_pitch": 1,
@@ -287,7 +285,7 @@
         "ankle_roll": -1
       },
       "right_leg": {
-        "hip_yaw_pitch": 1,
+        "hip_yaw_pitch": -1,
         "hip_roll": 1,
         "hip_pitch": 1,
         "knee_pitch": 1,
