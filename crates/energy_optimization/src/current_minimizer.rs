@@ -80,6 +80,7 @@ impl CurrentMinimizer {
         self.last_positions = positions;
         positions + self.position_offset
     }
+
     pub fn reset(&mut self) {
         self.position_offset = Joints::fill(0.0);
     }
