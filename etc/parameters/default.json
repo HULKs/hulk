@@ -346,7 +346,7 @@
     "injected_step": null,
     "max_step_size": {
       "forward": 0.055,
-      "left": 0.12,
+      "left": 0.13,
       "turn": 1.0
     },
     "max_step_size_backwards": 0.04,
@@ -361,8 +361,8 @@
     "additional_kick_foot_lift": 0.01,
     "arm_stiffness": 0.8,
     "backward_foot_support_offset": -0.012,
-    "base_foot_lift": 0.01,
-    "base_step_duration": { "nanos": 260000000, "secs": 0 },
+    "base_foot_lift": 0.009,
+    "base_step_duration": { "nanos": 240000000, "secs": 0 },
     "emergency_foot_lift": 0.03,
     "emergency_step": { "forward": 0.0, "left": 0.1, "turn": 0.0 },
     "emergency_step_duration": { "nanos": 250000000, "secs": 0 },
@@ -381,7 +381,7 @@
     "inside_turn_ratio": 0.05,
     "leg_stiffness_stand": 0.6,
     "leg_stiffness_walk": 1.0,
-    "max_forward_acceleration": 0.1,
+    "max_forward_acceleration": 0.08,
     "max_leg_adjustment_velocity": {
       "hip_yaw_pitch": 0.0,
       "hip_roll": 0.1,
@@ -403,7 +403,7 @@
     "stabilization_hysteresis": 0.001,
     "stable_step_deviation": { "nanos": 60000000, "secs": 0 },
     "starting_step_duration": { "nanos": 200000000, "secs": 0 },
-    "starting_step_foot_lift": 0.009,
+    "starting_step_foot_lift": 0.0075,
     "step_duration_increase": { "forward": 0.0, "left": 0.1, "turn": 0.1 },
     "step_foot_lift_increase": { "forward": 0.1, "left": 0.1, "turn": 0.0 },
     "swing_foot_imu_leveling_factor": 1.0,
