@@ -2,10 +2,9 @@ use std::f32::EPSILON;
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{
-    cycle_time::CycleTime, joints::Joints, motor_commands::MotorCommands,
-    parameters::CurrentMinimizerParameters,
-};
+use types::{cycle_time::CycleTime, joints::Joints, motor_commands::MotorCommands};
+
+use crate::parameters::CurrentMinimizerParameters;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 enum State {

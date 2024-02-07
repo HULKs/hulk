@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use energy_optimization::current_minimizer::CurrentMinimizer;
+use energy_optimization::{current_minimizer::CurrentMinimizer, CurrentMinimizerParameters};
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -8,7 +8,6 @@ use types::{
     joints::{body::BodyJoints, head::HeadJoints, Joints},
     motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommands,
-    parameters::CurrentMinimizerParameters,
     sensor_data::SensorData,
 };
 
