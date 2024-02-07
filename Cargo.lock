@@ -1801,6 +1801,7 @@ dependencies = [
 name = "energy_optimization"
 version = "0.1.0"
 dependencies = [
+ "filtering",
  "serde",
  "serialize_hierarchy",
  "types",

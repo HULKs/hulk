@@ -1,6 +1,7 @@
+use filtering::hysteresis::less_than_with_hysteresis;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{cycle_time::CycleTime, joints::Joints};
+use types::{cycle_time::CycleTime, joints::Joints, motor_commands::MotorCommands};
 
 use crate::parameters::CurrentMinimizerParameters;
 
@@ -15,6 +16,9 @@ enum State {
 pub struct CurrentMinimizer {
     position_offset: Joints<f32>,
     state: State,
+    last_motor_commands: MotorCommands<Joints<f32>>,
+    last_positions: Joints<f32>,
+    minimum_reached: bool,
     parameters: CurrentMinimizerParameters,
 }
 
@@ -46,8 +50,13 @@ impl CurrentMinimizer {
                     .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
                     .expect("currents must not be empty.");
 
-                let minimum_reached = maximal_current <= self.parameters.allowed_current;
-                if !minimum_reached {
+                self.minimum_reached = less_than_with_hysteresis(
+                    self.minimum_reached,
+                    maximal_current,
+                    self.parameters.allowed_current,
+                    self.parameters.minimum_reached_hysteresis,
+                );
+                if !self.minimum_reached {
                     self.position_offset[joint] += self.parameters.optimization_sign[joint]
                         * self.parameters.optimization_speed
                         / cycle_time.last_cycle_duration.as_secs_f32();

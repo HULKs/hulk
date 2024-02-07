@@ -11,4 +11,5 @@ pub struct CurrentMinimizerParameters {
     pub allowed_current: f32,
     pub optimization_sign: Joints<f32>,
     pub position_difference_threshold: f32,
+    pub minimum_reached_hysteresis: f32,
 }
