@@ -56,8 +56,8 @@ impl GameControllerStateFilter {
             context.game_controller_state,
             context.filtered_whistle,
             context.cycle_time,
-            self.state,
-            self.opponent_state,
+            &mut self.state,
+            &mut self.opponent_state,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -93,8 +93,8 @@ fn filter_game_states(
     game_controller_state: &GameControllerState,
     filtered_whistle: &FilteredWhistle,
     cycle_time: &CycleTime,
-    state: State,
-    opponent_state: State,
+    state: &mut State,
+    opponent_state: &mut State,
 ) -> FilteredGameStates {
     let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
         robot_to_field,
@@ -102,16 +102,16 @@ fn filter_game_states(
         field_dimensions,
         config.whistle_acceptance_goal_distance,
     );
-    let state = next_filtered_state(
-        state,
+    *state = next_filtered_state(
+        *state,
         game_controller_state,
         filtered_whistle.is_detected,
         cycle_time.start_time,
         config,
         ball_detected_far_from_any_goal,
     );
-    let opponent_state = next_filtered_state(
-        opponent_state,
+    *opponent_state = next_filtered_state(
+        *opponent_state,
         game_controller_state,
         filtered_whistle.is_detected,
         cycle_time.start_time,
