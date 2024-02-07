@@ -261,7 +261,7 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current_threshold": 0.1,
+    "allowed_current": 0.1,
     "reset_threshold": 0.00075,
     "reset_base_offset": 0.00015,
     "reset_speed_factor": 0.03,

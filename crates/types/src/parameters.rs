@@ -175,7 +175,7 @@ pub struct CurrentMinimizerParameters {
     pub reset_speed_factor: f32,
     pub reset_base_offset: f32,
     pub optimization_speed_factor: f32,
-    pub allowed_current_threshold: f32,
+    pub allowed_current: f32,
     pub optimization_sign: Joints<f32>,
     pub position_difference_threshold: f32,
 }

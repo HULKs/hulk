@@ -58,7 +58,7 @@ impl CurrentMinimizer {
                     .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
                     .expect("Currents should not be empty.");
 
-                let minimum_reached = maximal_current <= self.parameters.allowed_current_threshold;
+                let minimum_reached = maximal_current <= self.parameters.allowed_current;
                 if !minimum_reached {
                     self.position_offset[joint] += self.parameters.optimization_sign[joint]
                         * self.parameters.optimization_speed_factor;
