@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::{Isometry2, Point2};
 use types::{field_dimensions::FieldDimensions, obstacle_filter::Hypothesis};
@@ -19,18 +18,9 @@ impl Layer for ObstacleFilter {
     const NAME: &'static str = "Obstacle Filter";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::Control,
-            output: Output::Main {
-                path: "robot_to_field".to_string(),
-            },
-        });
-        let hypotheses = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::Control,
-            output: Output::Additional {
-                path: "obstacle_filter_hypotheses".to_string(),
-            },
-        });
+        let robot_to_field = nao.subscribe_output("Control.main_outputs.robot_to_field");
+        let hypotheses = nao.subscribe_output("Control.main_outputs.obstacle_filter_hypotheses");
+
         Self {
             robot_to_field,
             hypotheses,

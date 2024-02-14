@@ -5,8 +5,8 @@ use color_eyre::{
     Result,
 };
 use communication::{
-    client::{Communication, CyclerOutput, SubscriberMessage},
-    messages::Format,
+    client::{Communication, SubscriberMessage},
+    messages::{Format, Path},
 };
 use log::error;
 use serde::Deserialize;
@@ -46,11 +46,11 @@ pub struct ValueBuffer {
 }
 
 impl ValueBuffer {
-    pub fn output(communication: Communication, output: CyclerOutput) -> Self {
+    pub fn output(communication: Communication, path: Path) -> Self {
         let (command_sender, command_receiver) = mpsc::channel(10);
         spawn(async move {
             let (uuid, receiver) = communication
-                .subscribe_output(output.clone(), Format::Textual)
+                .subscribe_output(path.clone(), Format::Textual)
                 .await;
             value_buffer(receiver, command_receiver, communication.clone(), None).await;
             communication.unsubscribe_output(uuid).await;

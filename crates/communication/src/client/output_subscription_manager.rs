@@ -11,15 +11,14 @@ use uuid::Uuid;
 use crate::{
     client::{
         id_tracker::{self, get_message_id},
-        responder, Output, SubscriberMessage,
+        responder, SubscriberMessage,
     },
     messages::{
-        Fields, Format, OutputsRequest, Request,
-        TextualDataOrBinaryReference::{self, BinaryReference, TextualData},
+        Fields, Format, OutputsRequest, Path, Request, TextualDataOrBinaryReference::{self, BinaryReference, TextualData}
     },
 };
 
-use super::{responder::Response, CyclerOutput};
+use super::responder::Response;
 
 #[derive(Debug)]
 pub enum Message {
@@ -28,7 +27,7 @@ pub enum Message {
     },
     Disconnect,
     Subscribe {
-        output: CyclerOutput,
+        path: Path,
         format: Format,
         subscriber: mpsc::Sender<SubscriberMessage>,
         response_sender: oneshot::Sender<Uuid>,
@@ -52,9 +51,9 @@ pub enum Message {
 
 #[derive(Default)]
 struct SubscriptionManager {
-    ids_to_outputs: HashMap<usize, (CyclerOutput, Format)>,
+    ids_to_outputs: HashMap<usize, (Path, Format)>,
     outputs_to_subscribers:
-        HashMap<(CyclerOutput, Format), HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
+        HashMap<(Path, Format), HashMap<Uuid, mpsc::Sender<SubscriberMessage>>>,
 }
 
 pub async fn output_subscription_manager(
@@ -68,7 +67,7 @@ pub async fn output_subscription_manager(
     let mut requester = None;
     let mut fields = None;
     let mut binary_data_waiting_for_references: HashMap<usize, Vec<u8>> = HashMap::new();
-    let mut binary_references_waiting_for_data: HashMap<usize, CyclerOutput> = HashMap::new();
+    let mut binary_references_waiting_for_data: HashMap<usize, Path> = HashMap::new();
 
     while let Some(message) = receiver.recv().await {
         match message {
@@ -107,7 +106,7 @@ pub async fn output_subscription_manager(
                 manager.ids_to_outputs.clear();
             }
             Message::Subscribe {
-                output,
+                path,
                 format,
                 subscriber: output_sender,
                 response_sender,
@@ -118,7 +117,7 @@ pub async fn output_subscription_manager(
                         add_subscription(
                             &mut manager,
                             uuid,
-                            output,
+                            path,
                             format,
                             output_sender,
                             &id_tracker,
@@ -274,7 +273,7 @@ async fn query_output_fields(
 async fn add_subscription(
     manager: &mut SubscriptionManager,
     uuid: Uuid,
-    output: CyclerOutput,
+    path: Path,
     format: Format,
     output_sender: mpsc::Sender<SubscriberMessage>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
@@ -283,7 +282,7 @@ async fn add_subscription(
 ) {
     match manager
         .outputs_to_subscribers
-        .entry((output.clone(), format))
+        .entry((path.clone(), format))
     {
         Entry::Occupied(mut entry) => {
             entry.get_mut().insert(uuid, output_sender);
@@ -291,7 +290,7 @@ async fn add_subscription(
         Entry::Vacant(entry) => {
             if let Some(requester) = requester {
                 if let Some(subscription_id) = subscribe(
-                    output.clone(),
+                    path.clone(),
                     format,
                     vec![output_sender.clone()],
                     id_tracker,
@@ -302,7 +301,7 @@ async fn add_subscription(
                 {
                     manager
                         .ids_to_outputs
-                        .insert(subscription_id, (output, format));
+                        .insert(subscription_id, (path, format));
                 }
             };
             entry.insert(HashMap::new()).insert(uuid, output_sender);
@@ -311,7 +310,7 @@ async fn add_subscription(
 }
 
 async fn subscribe(
-    output: CyclerOutput,
+    path: Path,
     format: Format,
     subscribers: Vec<mpsc::Sender<SubscriberMessage>>,
     id_tracker: &mpsc::Sender<id_tracker::Message>,
@@ -330,13 +329,8 @@ async fn subscribe(
         error!("{error}");
         return None;
     }
-    let path = match output.output {
-        Output::Main { path } => format!("main_outputs.{path}"),
-        Output::Additional { path } => format!("additional_outputs.{path}"),
-    };
     let request = Request::Outputs(OutputsRequest::Subscribe {
         id: message_id,
-        cycler_instance: output.cycler.to_string(),
         path,
         format,
     });

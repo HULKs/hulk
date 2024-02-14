@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 use nalgebra::Isometry2;
 use types::{field_dimensions::FieldDimensions, path_obstacles::PathObstacle};
@@ -19,10 +18,8 @@ impl Layer for PathObstacles {
     const NAME: &'static str = "Path Obstacles";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
-        let path_obstacles = nao
-            .subscribe_output(CyclerOutput::from_str("Control.additional.path_obstacles").unwrap());
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
+        let path_obstacles = nao.subscribe_output("Control.additional.path_obstacles");
         Self {
             robot_to_field,
             path_obstacles,

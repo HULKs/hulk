@@ -1,7 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
-use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::{
     egui::{ComboBox, Image, Response, TextureOptions, Ui, Widget},
     epaint::Vec2,
@@ -19,7 +18,10 @@ use crate::{
     twix_painter::{CoordinateSystem, TwixPainter},
 };
 
-use self::{cycler_selector::VisionCyclerSelector, overlay::Overlays};
+use self::{
+    cycler_selector::VisionCyclerSelector,
+    overlay::{Overlays, VisionCycler},
+};
 
 mod cycler_selector;
 mod overlay;
@@ -28,18 +30,12 @@ mod overlays;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 enum ImageKind {
     YCbCr422,
-    Luminance,
 }
 
 impl ImageKind {
-    fn as_output(&self) -> Output {
+    fn as_output(&self) -> String {
         match self {
-            ImageKind::YCbCr422 => Output::Main {
-                path: "image.jpeg".to_string(),
-            },
-            ImageKind::Luminance => Output::Additional {
-                path: "robot_detection.luminance_image.jpeg".to_string(),
-            },
+            ImageKind::YCbCr422 => "main_outputs.image.jpeg".to_string(),
         }
     }
 }
@@ -59,27 +55,21 @@ impl Panel for ImagePanel {
         let cycler = value
             .and_then(|value| value.get("cycler"))
             .and_then(|value| value.as_str())
-            .map(Cycler::from_str)
+            .map(VisionCycler::from_str)
             .and_then(|cycler| match cycler {
-                Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
-                Ok(cycler) => {
-                    error!("Invalid vision cycler: {cycler}");
-                    None
-                }
+                Ok(cycler) => Some(cycler),
                 Err(error) => {
                     error!("{error}");
                     None
                 }
             })
-            .unwrap_or(Cycler::VisionTop);
+            .unwrap_or(VisionCycler::VisionTop);
         let image_kind = value
             .and_then(|value| value.get("image_kind"))
             .and_then(|value| from_value(value.clone()).ok())
             .unwrap_or(ImageKind::YCbCr422);
-        let output = CyclerOutput {
-            cycler,
-            output: image_kind.as_output(),
-        };
+        let output = format!("{}.{}", cycler.to_string(), image_kind.as_output());
+
         let image_buffer = nao.subscribe_image(output);
         let cycler_selector = VisionCyclerSelector::new(cycler);
         let overlays = Overlays::new(
@@ -113,10 +103,11 @@ impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
             if self.cycler_selector.ui(ui).changed() {
-                let output = CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: self.image_kind.as_output(),
-                };
+                let output = format!(
+                    "{}.{}",
+                    self.cycler_selector.selected_cycler().to_string(),
+                    self.image_kind.as_output(),
+                );
                 self.image_buffer = self.nao.subscribe_image(output);
                 self.overlays
                     .update_cycler(self.cycler_selector.selected_cycler());
@@ -131,18 +122,13 @@ impl Widget for &mut ImagePanel {
                     {
                         image_selection_changed = true;
                     };
-                    if ui
-                        .selectable_value(&mut self.image_kind, ImageKind::Luminance, "Luminance")
-                        .changed()
-                    {
-                        image_selection_changed = true;
-                    }
                 });
             if image_selection_changed {
-                let output = CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: self.image_kind.as_output(),
-                };
+                let output = format!(
+                    "{}.{}",
+                    self.cycler_selector.selected_cycler().to_string(),
+                    self.image_kind.as_output(),
+                );
                 self.image_buffer = self.nao.subscribe_image(output);
                 self.overlays
                     .update_cycler(self.cycler_selector.selected_cycler());

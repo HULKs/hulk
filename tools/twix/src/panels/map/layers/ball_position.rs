@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::Color32;
 use nalgebra::Isometry2;
 use types::field_dimensions::FieldDimensions;
@@ -19,11 +18,9 @@ impl Layer for BallPosition {
     const NAME: &'static str = "Ball Position";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
         robot_to_field.reserve(100);
-        let ball_position =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.ball_position").unwrap());
+        let ball_position = nao.subscribe_output("Control.main.ball_position");
         ball_position.reserve(100);
         Self {
             robot_to_field,

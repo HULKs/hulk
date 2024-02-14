@@ -1,4 +1,4 @@
-use communication::client::{Communication, CyclerOutput, SubscriberMessage};
+use communication::client::{Communication, SubscriberMessage};
 use log::error;
 use tokio::{
     select, spawn,
@@ -23,7 +23,7 @@ pub struct ImageBuffer {
 }
 
 impl ImageBuffer {
-    pub fn new(communication: Communication, output: CyclerOutput) -> Self {
+    pub fn new(communication: Communication, output: String) -> Self {
         let (command_sender, command_receiver) = mpsc::channel(10);
         spawn(async move {
             let (uuid, receiver) = communication

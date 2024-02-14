@@ -24,7 +24,6 @@ use super::{
     id_tracker::id_tracker,
     output_subscription_manager::{self, output_subscription_manager},
     responder::responder,
-    CyclerOutput,
 };
 
 #[derive(Clone)]
@@ -113,14 +112,14 @@ impl Communication {
 
     pub async fn subscribe_output(
         &self,
-        output: CyclerOutput,
+        path: Path,
         format: Format,
     ) -> (Uuid, Receiver<SubscriberMessage>) {
         let (subscriber_sender, subscriber_receiver) = mpsc::channel(10);
         let (response_sender, response_receiver) = oneshot::channel();
         self.output_subscription_manager
             .send(output_subscription_manager::Message::Subscribe {
-                output,
+                path,
                 format,
                 subscriber: subscriber_sender,
                 response_sender,

@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
 use clap::Parser;
 use color_eyre::{eyre::bail, Result};
 use communication::{
-    client::{Communication, CyclerOutput, SubscriberMessage},
+    client::{Communication, SubscriberMessage},
     messages::Format,
 };
 use log::{error, info};
@@ -25,7 +23,7 @@ async fn main() -> Result<()> {
     setup_logger()?;
 
     let arguments = CommandlineArguments::parse();
-    let output_to_subscribe = CyclerOutput::from_str(&arguments.path)?;
+    let output_to_subscribe = arguments.path;
     let communication = Communication::new(Some(format!("ws://{}:1337", arguments.address)), true);
     let (_uuid, mut receiver) = communication
         .subscribe_output(output_to_subscribe, Format::Textual)

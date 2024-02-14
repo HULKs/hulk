@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 
 use types::{field_dimensions::FieldDimensions, line::Line2};
@@ -19,14 +18,10 @@ impl Layer for LineCorrespondences {
     const NAME: &'static str = "Line Correspondences";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let lines_in_robot_bottom = nao.subscribe_output(
-            CyclerOutput::from_str("VisionBottom.additional.localization.correspondence_lines")
-                .unwrap(),
-        );
-        let lines_in_robot_top = nao.subscribe_output(
-            CyclerOutput::from_str("VisionTop.additional.localization.correspondence_lines")
-                .unwrap(),
-        );
+        let lines_in_robot_bottom =
+            nao.subscribe_output("VisionBottom.additional.localization.correspondence_lines");
+        let lines_in_robot_top =
+            nao.subscribe_output("VisionTop.additional.localization.correspondence_lines");
         Self {
             lines_in_robot_bottom,
             lines_in_robot_top,

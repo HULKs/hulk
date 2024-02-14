@@ -72,13 +72,11 @@ pub enum OutputsRequest {
     },
     GetNext {
         id: usize,
-        cycler_instance: CyclerInstance,
         path: Path,
         format: Format,
     },
     Subscribe {
         id: usize,
-        cycler_instance: CyclerInstance,
         path: Path,
         format: Format,
     },

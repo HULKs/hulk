@@ -1,7 +1,7 @@
 use std::{collections::BTreeSet, sync::Mutex};
 
 use communication::{
-    client::{Communication, ConnectionStatus, CyclerOutput},
+    client::{Communication, ConnectionStatus},
     messages::{Fields, Path},
 };
 
@@ -57,17 +57,17 @@ impl Nao {
         );
     }
 
-    pub fn subscribe_output(&self, output: CyclerOutput) -> ValueBuffer {
+    pub fn subscribe_output(&self, output: impl ToString) -> ValueBuffer {
         let _guard = self.runtime.enter();
-        ValueBuffer::output(self.communication.clone(), output)
+        ValueBuffer::output(self.communication.clone(), output.to_string())
     }
 
-    pub fn subscribe_image(&self, output: CyclerOutput) -> ImageBuffer {
+    pub fn subscribe_image(&self, output: impl ToString) -> ImageBuffer {
         let _guard = self.runtime.enter();
-        ImageBuffer::new(self.communication.clone(), output)
+        ImageBuffer::new(self.communication.clone(), output.to_string())
     }
 
-    pub fn subscribe_parameter(&self, path: &str) -> ValueBuffer {
+    pub fn subscribe_parameter(&self, path: impl ToString) -> ValueBuffer {
         let _guard = self.runtime.enter();
         ValueBuffer::parameter(self.communication.clone(), path.to_string())
     }

@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::Color32;
 use nalgebra::Isometry2;
 use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
@@ -19,10 +18,8 @@ impl Layer for Path {
     const NAME: &'static str = "Path";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_field").unwrap());
-        let motion_command =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.motion_command").unwrap());
+        let robot_to_field = nao.subscribe_output("Control.main.robot_to_field");
+        let motion_command = nao.subscribe_output("Control.main.motion_command");
         Self {
             robot_to_field,
             motion_command,
