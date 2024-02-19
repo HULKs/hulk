@@ -49,9 +49,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    path_obstacles: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
-    dribble_path_obstacles: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
-    active_action: AdditionalOutput<Action, "active_action">,
+    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
+    dribble_path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
+    active_action_output: AdditionalOutput<Action, "active_action">,
 
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
@@ -201,8 +201,8 @@ impl Behavior {
 
         let mut dribble_path_obstacles = None;
         let mut dribble_path_obstacles_output = AdditionalOutput::new(
-            context.path_obstacles.is_subscribed()
-                || context.dribble_path_obstacles.is_subscribed(),
+            context.path_obstacles_output.is_subscribed()
+                || context.dribble_path_obstacles_output.is_subscribed(),
             &mut dribble_path_obstacles,
         );
 
@@ -213,7 +213,7 @@ impl Behavior {
             &mut dribble_path_obstacles_output,
         );
         context
-            .dribble_path_obstacles
+            .dribble_path_obstacles_output
             .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
         let (action, motion_command) = actions
@@ -235,11 +235,13 @@ impl Behavior {
                         *context.maximum_step_size,
                     ),
                     Action::Calibrate => calibrate::execute(world_state),
-                    Action::DefendGoal => defend.goal(&mut context.path_obstacles),
-                    Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles),
-                    Action::DefendLeft => defend.left(&mut context.path_obstacles),
-                    Action::DefendRight => defend.right(&mut context.path_obstacles),
-                    Action::DefendPenaltyKick => defend.penalty_kick(&mut context.path_obstacles),
+                    Action::DefendGoal => defend.goal(&mut context.path_obstacles_output),
+                    Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles_output),
+                    Action::DefendLeft => defend.left(&mut context.path_obstacles_output),
+                    Action::DefendRight => defend.right(&mut context.path_obstacles_output),
+                    Action::DefendPenaltyKick => {
+                        defend.penalty_kick(&mut context.path_obstacles_output)
+                    }
                     Action::Stand => stand::execute(world_state, context.field_dimensions),
                     Action::Dribble => dribble::execute(
                         world_state,
@@ -256,14 +258,14 @@ impl Behavior {
                         &walk_and_stand,
                         context.field_dimensions,
                         &context.parameters.search,
-                        &mut context.path_obstacles,
+                        &mut context.path_obstacles_output,
                     ),
                     Action::SearchForLostBall => lost_ball::execute(
                         world_state,
                         self.absolute_last_known_ball_position,
                         &walk_path_planner,
                         context.lost_ball_parameters,
-                        &mut context.path_obstacles,
+                        &mut context.path_obstacles_output,
                     ),
                     Action::SupportLeft => support::execute(
                         world_state,
@@ -280,7 +282,7 @@ impl Behavior {
                         context.parameters.role_positions.left_midfielder_minimum_x,
                         &walk_and_stand,
                         &look_action,
-                        &mut context.path_obstacles,
+                        &mut context.path_obstacles_output,
                     ),
                     Action::SupportRight => support::execute(
                         world_state,
@@ -297,7 +299,7 @@ impl Behavior {
                         context.parameters.role_positions.right_midfielder_minimum_x,
                         &walk_and_stand,
                         &look_action,
-                        &mut context.path_obstacles,
+                        &mut context.path_obstacles_output,
                     ),
                     Action::SupportStriker => support::execute(
                         world_state,
@@ -317,20 +319,20 @@ impl Behavior {
                             .striker_supporter_minimum_x,
                         &walk_and_stand,
                         &look_action,
-                        &mut context.path_obstacles,
+                        &mut context.path_obstacles_output,
                     ),
                     Action::WalkToKickOff => walk_to_kick_off::execute(
                         world_state,
                         &walk_and_stand,
                         &look_action,
-                        &mut context.path_obstacles,
+                        &mut context.path_obstacles_output,
                         *context.striker_set_position,
                     ),
                     Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
                         world_state,
                         &walk_and_stand,
                         &look_action,
-                        &mut context.path_obstacles,
+                        &mut context.path_obstacles_output,
                         context.field_dimensions,
                     ),
                 }?;
@@ -341,13 +343,13 @@ impl Behavior {
                     "there has to be at least one action available, world_state: {world_state:#?}",
                 )
             });
-        context.active_action.fill_if_subscribed(|| *action);
+        context.active_action_output.fill_if_subscribed(|| *action);
 
         self.last_motion_command = motion_command.clone();
 
         if matches!(action, Action::Dribble) {
             context
-                .path_obstacles
+                .path_obstacles_output
                 .fill_if_subscribed(|| dribble_path_obstacles.unwrap_or_default())
         }
 
