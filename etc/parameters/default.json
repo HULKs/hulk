@@ -54,11 +54,10 @@
     "activations_needed": 2,
     "acceptance_duration": { "nanos": 0, "secs": 1 },
     "buffer_size": 15,
-    "enabled": false,
     "number_of_detections_in_buffer_for_defective_declaration": 13,
     "number_of_detections_in_buffer_to_reset_in_use": 2,
-    "obstacle_distance": 0.1,
-    "sensor_angle": 0.1
+    "obstacle_distance": 0.15,
+    "sensor_angle": 0.3
   },
   "image_receiver": {
     "vision_top": {
@@ -378,7 +377,7 @@
     "use_foot_bumper_measurements": true,
     "robot_obstacle_radius_at_hip_height": 0.2,
     "robot_obstacle_radius_at_foot_height": 0.2,
-    "unknown_obstacle_radius": 0.15,
+    "unknown_obstacle_radius": 0.125,
     "goal_post_obstacle_radius": 0.2
   },
   "role_assignment": {
