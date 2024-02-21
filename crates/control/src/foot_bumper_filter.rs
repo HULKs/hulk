@@ -29,6 +29,7 @@ pub struct FootBumperFilter {
 
 #[context]
 pub struct CreationContext {
+    pub buffer_size: Parameter<usize, "foot_bumper_filter.buffer_size">,
     pub obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
     pub sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
 }
@@ -37,14 +38,13 @@ pub struct CreationContext {
 pub struct CycleContext {
     pub acceptance_duration: Parameter<Duration, "foot_bumper_filter.acceptance_duration">,
     pub activations_needed: Parameter<i32, "foot_bumper_filter.activations_needed">,
-    pub buffer_size: Parameter<i32, "foot_bumper_filter.buffer_size">,
     pub enabled: Parameter<bool, "obstacle_filter.use_foot_bumper_measurements">,
     pub number_of_detections_in_buffer_for_defective_declaration: Parameter<
-        i32,
+        usize,
         "foot_bumper_filter.number_of_detections_in_buffer_for_defective_declaration",
     >,
     pub number_of_detections_in_buffer_to_reset_in_use:
-        Parameter<i32, "foot_bumper_filter.number_of_detections_in_buffer_to_reset_in_use">,
+        Parameter<usize, "foot_bumper_filter.number_of_detections_in_buffer_to_reset_in_use">,
     pub obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
     pub sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
 
@@ -62,24 +62,24 @@ pub struct MainOutputs {
 }
 
 impl FootBumperFilter {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext) -> Result<Self> {
         let left_point = point![
-            _context.sensor_angle.cos() * *_context.obstacle_distance,
-            _context.sensor_angle.sin() * *_context.obstacle_distance
+            context.sensor_angle.cos() * *context.obstacle_distance,
+            context.sensor_angle.sin() * *context.obstacle_distance
         ];
         let right_point = point![
-            _context.sensor_angle.cos() * *_context.obstacle_distance,
-            -_context.sensor_angle.sin() * *_context.obstacle_distance
+            context.sensor_angle.cos() * *context.obstacle_distance,
+            -context.sensor_angle.sin() * *context.obstacle_distance
         ];
-        let middle_point = point![*_context.obstacle_distance, 0.0];
+        let middle_point = point![*context.obstacle_distance, 0.0];
         Ok(Self {
             left_point,
             right_point,
             middle_point,
             left_in_use: true,
             right_in_use: true,
-            left_detection_buffer: VecDeque::with_capacity(15),
-            right_detection_buffer: VecDeque::with_capacity(15),
+            left_detection_buffer: VecDeque::from(vec![false; *context.buffer_size]),
+            right_detection_buffer: VecDeque::from(vec![false; *context.buffer_size]),
             ..Default::default()
         })
     }
@@ -138,15 +138,17 @@ impl FootBumperFilter {
                 self.right_pressed_last_cycle = false;
             }
         }
+        self.left_detection_buffer
+            .push_back(self.left_pressed_last_cycle);
+        self.left_detection_buffer.pop_front();
+        self.right_detection_buffer
+            .push_back(self.right_pressed_last_cycle);
+        self.right_detection_buffer.pop_front();
 
         let obstacle_detected_on_left = self.left_count >= *context.activations_needed;
         let obstacle_detected_on_right = self.right_count >= *context.activations_needed;
-        self.left_detection_buffer
-            .push_back(obstacle_detected_on_left);
-        self.right_detection_buffer
-            .push_back(obstacle_detected_on_right);
 
-        // self.check_for_bumper_errors(&context);
+        self.check_for_bumper_errors(&context);
 
         let obstacle_positions = match (
             fall_state,
@@ -182,25 +184,15 @@ impl FootBumperFilter {
     }
 
     fn check_for_bumper_errors(&mut self, context: &CycleContext) {
-        let left_count: i32 = self
-            .left_detection_buffer
-            .iter()
-            .filter(|x| **x)
-            .count()
-            .try_into()
-            .unwrap();
+        let left_count: usize = self.left_detection_buffer.iter().filter(|x| **x).count();
 
-        dbg!(left_count);
         if left_count >= *context.number_of_detections_in_buffer_for_defective_declaration {
             self.left_in_use = false;
         }
-        let right_count: i32 = self
-            .left_detection_buffer
-            .iter()
-            .filter(|x| **x)
-            .count()
-            .try_into()
-            .unwrap();
+        let right_count: usize = self.right_detection_buffer.iter().filter(|x| **x).count();
+
+        dbg!(right_count);
+
         if right_count >= *context.number_of_detections_in_buffer_for_defective_declaration {
             self.right_in_use = false;
         }
@@ -214,5 +206,6 @@ impl FootBumperFilter {
         {
             self.right_in_use = true;
         }
+        dbg!(self.right_in_use);
     }
 }
