@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use quote::ToTokens;
 use syn::Type;
 use thiserror::Error;
 
@@ -42,7 +43,7 @@ pub enum HierarchyError {
     StructInOptional,
     #[error("failed to append data type in-place of optional")]
     TypeForOptional,
-    #[error("unmatching data types: previous data type {old} does not match data type {new} to be inserted")]
+    #[error("unmatching data types: previous data type\n\t{old}\ndoes not match data type\n\t{new}\nto be inserted")]
     MismatchingTypes { old: String, new: String },
 }
 
@@ -99,8 +100,8 @@ impl StructHierarchy {
                     data_type: data_type_to_be_inserted,
                 } if *data_type != data_type_to_be_inserted => {
                     return Err(HierarchyError::MismatchingTypes {
-                        old: format!("{data_type:?}"),
-                        new: format!("{data_type_to_be_inserted:?}"),
+                        old: format!("{}", data_type.to_token_stream()),
+                        new: format!("{}", data_type_to_be_inserted.to_token_stream()),
                     });
                 }
                 _ => (),
