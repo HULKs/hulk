@@ -53,10 +53,10 @@
   "foot_bumper_filter": {
     "activations_needed": 2,
     "acceptance_duration": { "nanos": 0, "secs": 1 },
-    "buffer_size": 15,
-    "number_of_detections_in_buffer_for_defective_declaration": 13,
+    "buffer_size": 25,
+    "number_of_detections_in_buffer_for_defective_declaration": 22,
     "number_of_detections_in_buffer_to_reset_in_use": 2,
-    "obstacle_distance": 0.15,
+    "obstacle_distance": 0.18,
     "sensor_angle": 0.3
   },
   "image_receiver": {
