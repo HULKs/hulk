@@ -79,7 +79,6 @@ impl RuleObstacleComposer {
                     context.field_dimensions.center_circle_diameter / 2.0
                         * context.center_circle_obstacle_increase,
                 ));
-                dbg!("center circle obstacle created");
                 rule_obstacles.push(center_circle_obstacle);
             }
             (
