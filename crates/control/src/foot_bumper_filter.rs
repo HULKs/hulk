@@ -38,7 +38,7 @@ pub struct CycleContext {
     pub acceptance_duration: Parameter<Duration, "foot_bumper_filter.acceptance_duration">,
     pub activations_needed: Parameter<i32, "foot_bumper_filter.activations_needed">,
     pub buffer_size: Parameter<i32, "foot_bumper_filter.buffer_size">,
-    pub enabled: Parameter<bool, "foot_bumper_filter.enabled">,
+    pub enabled: Parameter<bool, "obstacle_filter.use_foot_bumper_measurements">,
     pub number_of_detections_in_buffer_for_defective_declaration: Parameter<
         i32,
         "foot_bumper_filter.number_of_detections_in_buffer_for_defective_declaration",
@@ -146,7 +146,7 @@ impl FootBumperFilter {
         self.right_detection_buffer
             .push_back(obstacle_detected_on_right);
 
-        self.check_for_bumper_errors(&context);
+        // self.check_for_bumper_errors(&context);
 
         let obstacle_positions = match (
             fall_state,
@@ -189,6 +189,8 @@ impl FootBumperFilter {
             .count()
             .try_into()
             .unwrap();
+
+        dbg!(left_count);
         if left_count >= *context.number_of_detections_in_buffer_for_defective_declaration {
             self.left_in_use = false;
         }
