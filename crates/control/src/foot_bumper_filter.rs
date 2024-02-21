@@ -191,8 +191,6 @@ impl FootBumperFilter {
         }
         let right_count: usize = self.right_detection_buffer.iter().filter(|x| **x).count();
 
-        dbg!(right_count);
-
         if right_count >= *context.number_of_detections_in_buffer_for_defective_declaration {
             self.right_in_use = false;
         }
@@ -206,6 +204,5 @@ impl FootBumperFilter {
         {
             self.right_in_use = true;
         }
-        dbg!(self.right_in_use);
     }
 }
