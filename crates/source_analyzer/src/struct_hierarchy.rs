@@ -55,7 +55,10 @@ pub enum HierarchyError {
 impl HierarchyError {
     fn wrap_in_field(self, field_name: String) -> HierarchyError {
         match self {
-            HierarchyError::ErrorInChild { path, source: error } => HierarchyError::ErrorInChild {
+            HierarchyError::ErrorInChild {
+                path,
+                source: error,
+            } => HierarchyError::ErrorInChild {
                 path: format!("{field_name}.{path}"),
                 source: error,
             },
