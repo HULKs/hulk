@@ -16,8 +16,12 @@ use crate::{
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("cannot resolve struct hierarchy")]
-    Hierarchy(#[from] HierarchyError),
+    #[error("cannot resolve struct hierarchy for {node} in {cycler}")]
+    Hierarchy {
+        node: String,
+        cycler: String,
+        source: HierarchyError,
+    },
     #[error("unexpected field {0} in `CreationContext` or `CycleContext`")]
     UnexpectedField(String),
 }
@@ -71,14 +75,28 @@ impl Structs {
                             for path in path.expand_variables(&cycler.instances) {
                                 let insertion_rules =
                                     path_to_insertion_rules(&path, &data_type_wrapped_in_option);
-                                cycler_structs.additional_outputs.insert(insertion_rules)?;
+                                cycler_structs
+                                    .additional_outputs
+                                    .insert(insertion_rules)
+                                    .map_err(|source| Error::Hierarchy {
+                                        node: node.name.clone(),
+                                        cycler: cycler.name.clone(),
+                                        source,
+                                    })?;
                             }
                         }
                         Field::CyclerState {
                             data_type, path, ..
                         } => {
                             let insertion_rules = path_to_insertion_rules(path, data_type);
-                            cycler_structs.cycler_state.insert(insertion_rules)?;
+                            cycler_structs
+                                .cycler_state
+                                .insert(insertion_rules)
+                                .map_err(|source| Error::Hierarchy {
+                                    node: node.name.clone(),
+                                    cycler: cycler.name.clone(),
+                                    source,
+                                })?;
                         }
                         Field::Parameter {
                             data_type, path, ..
@@ -91,7 +109,14 @@ impl Structs {
                                     false => data_type.clone(),
                                 };
                                 let insertion_rules = path_to_insertion_rules(&path, &data_type);
-                                structs.parameters.insert(insertion_rules)?;
+                                structs
+                                    .parameters
+                                    .insert(insertion_rules)
+                                    .map_err(|source| Error::Hierarchy {
+                                        node: node.name.clone(),
+                                        cycler: cycler.name.clone(),
+                                        source,
+                                    })?;
                             }
                         }
                         Field::MainOutput { name, .. } => {
