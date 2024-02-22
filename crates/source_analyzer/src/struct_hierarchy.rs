@@ -43,8 +43,28 @@ pub enum HierarchyError {
     StructInOptional,
     #[error("failed to append data type in-place of optional")]
     TypeForOptional,
-    #[error("unmatching data types: previous data type\n\t{old}\ndoes not match data type\n\t{new}\nto be inserted")]
+    #[error("previous data type\n\t{old}\ndoes not match data type\n\t{new}\nto be inserted")]
     MismatchingTypes { old: String, new: String },
+    #[error("error in field {path}")]
+    ErrorInChild {
+        path: String,
+        source: Box<HierarchyError>,
+    },
+}
+
+impl HierarchyError {
+    fn wrap_in_field(self, field_name: String) -> HierarchyError {
+        match self {
+            HierarchyError::ErrorInChild { path, source: error } => HierarchyError::ErrorInChild {
+                path: format!("{field_name}.{path}"),
+                source: error,
+            },
+            other => HierarchyError::ErrorInChild {
+                path: field_name,
+                source: Box::new(other),
+            },
+        }
+    }
 }
 
 impl StructHierarchy {
@@ -61,8 +81,10 @@ impl StructHierarchy {
         match self {
             StructHierarchy::Struct { fields } => match rule {
                 InsertionRule::InsertField { name } => {
-                    let field = fields.entry(name).or_default();
-                    field.insert(insertion_rules)?;
+                    let field = fields.entry(name.clone()).or_default();
+                    field
+                        .insert(insertion_rules)
+                        .map_err(|error| error.wrap_in_field(name))?;
                 }
                 InsertionRule::BeginOptional => {
                     if !fields.is_empty() {
