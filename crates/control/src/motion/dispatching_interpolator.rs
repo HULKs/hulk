@@ -33,6 +33,7 @@ pub struct CycleContext {
     sit_down_joints_command: Input<MotorCommands<Joints<f32>>, "sit_down_joints_command">,
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
+    stand_up_sitting_positions: Input<Joints<f32>, "stand_up_sitting_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
 
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
@@ -96,6 +97,7 @@ impl DispatchingInterpolator {
                 ),
                 MotionType::StandUpBack => *context.stand_up_back_positions,
                 MotionType::StandUpFront => *context.stand_up_front_positions,
+                MotionType::StandUpSitting => *context.stand_up_sitting_positions,
                 MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
                 MotionType::Walk => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),

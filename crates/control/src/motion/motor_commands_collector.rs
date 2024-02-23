@@ -32,6 +32,7 @@ pub struct CycleContext {
     sit_down_joints_command: Input<MotorCommands<Joints<f32>>, "sit_down_joints_command">,
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
+    stand_up_sitting_positions: Input<Joints<f32>, "stand_up_sitting_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
@@ -71,6 +72,7 @@ impl MotorCommandCollector {
         let sit_down = context.sit_down_joints_command;
         let stand_up_back_positions = context.stand_up_back_positions;
         let stand_up_front_positions = context.stand_up_front_positions;
+        let stand_up_sitting_positions = context.stand_up_sitting_positions;
         let walk = context.walk_motor_commands;
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
@@ -115,6 +117,7 @@ impl MotorCommandCollector {
             ),
             MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(1.0)),
             MotionType::StandUpFront => (*stand_up_front_positions, Joints::fill(1.0)),
+            MotionType::StandUpSitting => (*stand_up_sitting_positions, Joints::fill(1.0)),
             MotionType::Unstiff => (current_positions, Joints::fill(0.0)),
             MotionType::Walk => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),
