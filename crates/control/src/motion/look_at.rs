@@ -57,9 +57,9 @@ impl LookAt {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
-        let current_head_angles = context.sensor_data.positions.head;
+        let measured_head_angles = context.sensor_data.positions.head;
         let default_output = Ok(MainOutputs {
-            look_at: current_head_angles.into(),
+            look_at: measured_head_angles.into(),
         });
 
         let camera_matrices = match context.camera_matrices {
