@@ -156,20 +156,31 @@ impl FallStateEstimation {
                 start_time: context.cycle_time.start_time,
             },
             (FallState::Upright, Some(_), Some(facing)) => FallState::Fallen { facing },
-            (current @ FallState::Falling { start_time, .. }, None, None) => {
+            (
+                current @ FallState::Falling { start_time, .. }
+                | current @ FallState::Sitting { start_time },
+                None,
+                None,
+            ) => {
                 if context
                     .cycle_time
                     .start_time
                     .duration_since(start_time)
                     .unwrap()
                     > *context.falling_timeout
+                // now also timeout for sitting!
                 {
                     FallState::Upright
                 } else {
                     current
                 }
             }
-            (current @ FallState::Falling { start_time, .. }, None | Some(_), Some(facing)) => {
+            (
+                current @ FallState::Falling { start_time, .. }
+                | current @ FallState::Sitting { start_time },
+                None | Some(_),
+                Some(facing),
+            ) => {
                 if context
                     .cycle_time
                     .start_time
@@ -182,12 +193,27 @@ impl FallStateEstimation {
                     current
                 }
             }
-            (current @ FallState::Falling { .. }, Some(_), None) => current,
+            (current @ FallState::Falling { start_time, .. }, Some(_), None) => {
+                if context
+                    .cycle_time
+                    .start_time
+                    .duration_since(start_time)
+                    .unwrap()
+                    > *context.falling_timeout
+                {
+                    FallState::Sitting {
+                        start_time: context.cycle_time.start_time,
+                    }
+                } else {
+                    current
+                }
+            }
             (FallState::Fallen { .. }, None, None) => FallState::Upright,
             (FallState::Fallen { .. }, None | Some(_), Some(facing)) => {
                 FallState::Fallen { facing }
             }
             (FallState::Fallen { facing }, Some(_), None) => FallState::Fallen { facing },
+            (current @ FallState::Sitting { .. }, Some(_), None) => current,
         };
 
         self.last_fall_state = fall_state;

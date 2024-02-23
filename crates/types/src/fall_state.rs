@@ -32,4 +32,7 @@ pub enum FallState {
     Fallen {
         facing: Facing,
     },
+    Sitting {
+        start_time: SystemTime,
+    },
 }
