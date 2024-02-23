@@ -125,7 +125,7 @@
           }
         },
         {
-          "duration": 0.4,
+          "duration": 0.3,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -167,7 +167,7 @@
         },
 
         {
-          "duration": 0.5,
+          "duration": 0.4,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -208,7 +208,7 @@
           }
         },
         {
-          "duration": 0.2,
+          "duration": 0.3,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -249,7 +249,7 @@
           }
         },
         {
-          "duration": 0.3,
+          "duration": 0.4,
           "positions": {
             "head": {
               "yaw": 0.0,
