@@ -60,7 +60,7 @@ impl MotorCommandCollector {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let current_positions = context.sensor_data.positions;
+        let measured_positions = context.sensor_data.positions;
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;
         let fall_protection_stiffnesses = context.fall_protection_command.stiffnesses;
@@ -118,7 +118,7 @@ impl MotorCommandCollector {
             MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(1.0)),
             MotionType::StandUpFront => (*stand_up_front_positions, Joints::fill(1.0)),
             MotionType::StandUpSitting => (*stand_up_sitting_positions, Joints::fill(1.0)),
-            MotionType::Unstiff => (current_positions, Joints::fill(0.0)),
+            MotionType::Unstiff => (measured_positions, Joints::fill(0.0)),
             MotionType::Walk => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
@@ -135,7 +135,7 @@ impl MotorCommandCollector {
 
         context
             .motor_position_difference
-            .fill_if_subscribed(|| motor_commands.positions - current_positions);
+            .fill_if_subscribed(|| motor_commands.positions - measured_positions);
 
         context
             .current_minimizer
