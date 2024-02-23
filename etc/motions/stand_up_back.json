@@ -249,7 +249,7 @@
           }
         },
         {
-          "duration": 0.4,
+          "duration": 0.3,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -289,13 +289,19 @@
             }
           }
         }
-      ]
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.5,
+          "timeout_duration": 5.0
+        }
+      }
     },
     {
       "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
-          "duration": 0.5,
+          "duration": 0.4,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -377,7 +383,7 @@
           }
         },
         {
-          "duration": 0.5,
+          "duration": 0.4,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -505,7 +511,7 @@
           }
         },
         {
-          "duration": 1.0,
+          "duration": 0.6,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -545,94 +551,13 @@
             }
           }
         }
-      ]
-    },
-    {
-      "interrupt_conditions": [{ "FallenAbort": {} }],
-      "keyframes": [
-        {
-          "duration": 1.0,
-          "positions": {
-            "head": {
-              "yaw": 0.0,
-              "pitch": 0.3839724354387525
-            },
-            "left_arm": {
-              "shoulder_pitch": 1.4311699866353502,
-              "shoulder_roll": 0.22689280275926282,
-              "elbow_yaw": -1.4660765716752369,
-              "elbow_roll": -0.20943951023931953,
-              "wrist_yaw": -1.5707963267948966,
-              "hand": 0.0
-            },
-            "right_arm": {
-              "shoulder_pitch": 1.3089969389957472,
-              "shoulder_roll": -0.12217304763960307,
-              "elbow_yaw": 1.7278759594743864,
-              "elbow_roll": -0.12217304763960307,
-              "wrist_yaw": 1.5707963267948966,
-              "hand": 0.0
-            },
-            "left_leg": {
-              "hip_yaw_pitch": 0.0,
-              "hip_roll": -0.06981317007977318,
-              "hip_pitch": -0.9250245035569946,
-              "knee_pitch": 2.111848394913139,
-              "ankle_pitch": -1.1693705988362009,
-              "ankle_roll": 0.03490658503988659
-            },
-            "right_leg": {
-              "hip_yaw_pitch": 0.0,
-              "hip_roll": 0.10471975511965977,
-              "hip_pitch": -0.9075712110370513,
-              "knee_pitch": 2.111848394913139,
-              "ankle_pitch": -1.1693705988362009,
-              "ankle_roll": -0.08726646259971647
-            }
-          }
-        },
-        {
-          "duration": 0.5,
-          "positions": {
-            "head": {
-              "yaw": 0.0,
-              "pitch": 0.3839724354387525
-            },
-            "left_arm": {
-              "shoulder_pitch": 1.4311699866353502,
-              "shoulder_roll": 0.22689280275926282,
-              "elbow_yaw": -1.4660765716752369,
-              "elbow_roll": -0.20943951023931953,
-              "wrist_yaw": -1.5707963267948966,
-              "hand": 0.0
-            },
-            "right_arm": {
-              "shoulder_pitch": 1.3089969389957472,
-              "shoulder_roll": -0.12217304763960307,
-              "elbow_yaw": 1.7278759594743864,
-              "elbow_roll": -0.12217304763960307,
-              "wrist_yaw": 1.5707963267948966,
-              "hand": 0.0
-            },
-            "left_leg": {
-              "hip_yaw_pitch": 0.0,
-              "hip_roll": -0.06981317007977318,
-              "hip_pitch": -0.9250245035569946,
-              "knee_pitch": 2.111848394913139,
-              "ankle_pitch": -1.1693705988362009,
-              "ankle_roll": 0.03490658503988659
-            },
-            "right_leg": {
-              "hip_yaw_pitch": 0.0,
-              "hip_roll": 0.10471975511965977,
-              "hip_pitch": -0.9075712110370513,
-              "knee_pitch": 2.111848394913139,
-              "ankle_pitch": -1.1693705988362009,
-              "ankle_roll": -0.08726646259971647
-            }
-          }
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.5,
+          "timeout_duration": 5.0
         }
-      ]
+      }
     },
     {
       "interrupt_conditions": [{ "FallenAbort": {} }],
