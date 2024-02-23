@@ -19,6 +19,7 @@ pub enum FallDirection {
 pub enum Facing {
     Down,
     Up,
+    Sitting,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy, Default)]

@@ -83,6 +83,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::StandUp { facing } => match facing {
             Facing::Down => MotionType::StandUpFront,
             Facing::Up => MotionType::StandUpBack,
+            Facing::Sitting => MotionType::StandUpSitting,
         },
         MotionCommand::Unstiff => MotionType::Unstiff,
         MotionCommand::Walk { .. } => MotionType::Walk,
