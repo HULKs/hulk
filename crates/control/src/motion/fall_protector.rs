@@ -16,7 +16,7 @@ use types::{
 };
 
 #[derive(Clone, Copy, Debug)]
-enum Phase {
+enum FallPhase {
     Early,
     Late,
 }
@@ -80,32 +80,34 @@ impl FallProtector {
             .unwrap()
             < *context.early_protection_timeout
         {
-            Phase::Early
+            FallPhase::Early
         } else {
-            Phase::Late
+            FallPhase::Late
         };
 
         let protection_angles = match (falling_direction, phase) {
-            (FallDirection::Forward { side: Side::Left }, Phase::Early) => {
+            (FallDirection::Forward { side: Side::Left }, FallPhase::Early) => {
                 prevent_stuck_arms(context.front_early.mirrored(), measured_positions)
             }
-            (FallDirection::Forward { side: Side::Left }, Phase::Late) => {
+            (FallDirection::Forward { side: Side::Left }, FallPhase::Late) => {
                 prevent_stuck_arms(context.front_late.mirrored(), measured_positions)
             }
-            (FallDirection::Forward { side: Side::Right }, Phase::Early) => {
+            (FallDirection::Forward { side: Side::Right }, FallPhase::Early) => {
                 prevent_stuck_arms(*context.front_early, measured_positions)
             }
-            (FallDirection::Forward { side: Side::Right }, Phase::Late) => {
+            (FallDirection::Forward { side: Side::Right }, FallPhase::Late) => {
                 prevent_stuck_arms(*context.front_late, measured_positions)
             }
-            (FallDirection::Backward { side: Side::Left }, Phase::Early) => {
+            (FallDirection::Backward { side: Side::Left }, FallPhase::Early) => {
                 context.back_early.mirrored()
             }
-            (FallDirection::Backward { side: Side::Left }, Phase::Late) => {
+            (FallDirection::Backward { side: Side::Left }, FallPhase::Late) => {
                 context.back_late.mirrored()
             }
-            (FallDirection::Backward { side: Side::Right }, Phase::Early) => *context.back_early,
-            (FallDirection::Backward { side: Side::Right }, Phase::Late) => *context.back_late,
+            (FallDirection::Backward { side: Side::Right }, FallPhase::Early) => {
+                *context.back_early
+            }
+            (FallDirection::Backward { side: Side::Right }, FallPhase::Late) => *context.back_late,
         };
 
         let is_head_protected = measured_positions.head.pitch.abs() < *context.reached_threshold
@@ -118,13 +120,13 @@ impl FallProtector {
         };
 
         let body_stiffnesses = match phase {
-            Phase::Early => BodyJoints {
+            FallPhase::Early => BodyJoints {
                 left_arm: ArmJoints::fill(context.arm_stiffness.start),
                 right_arm: ArmJoints::fill(context.arm_stiffness.start),
                 left_leg: LegJoints::fill(context.leg_stiffness.start),
                 right_leg: LegJoints::fill(context.leg_stiffness.start),
             },
-            Phase::Late => BodyJoints {
+            FallPhase::Late => BodyJoints {
                 left_arm: ArmJoints::fill(context.arm_stiffness.end),
                 right_arm: ArmJoints::fill(context.arm_stiffness.end),
                 left_leg: LegJoints::fill(context.leg_stiffness.end),
