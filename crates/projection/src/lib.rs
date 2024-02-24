@@ -1,4 +1,5 @@
-use nalgebra::{point, vector, Point2, Point3, Vector2, Vector3};
+use approx::relative_eq;
+use nalgebra::{point, vector, Isometry3, Point2, Point3, Vector2, Vector3};
 use thiserror::Error;
 use types::camera_matrix::CameraMatrix;
 
@@ -8,8 +9,8 @@ pub enum Error {
     TooClose,
     #[error("position is behind the camera")]
     BehindCamera,
-    #[error("the pixel position is above the horion and cannot be projected to the ground")]
-    AboveHorizon,
+    #[error("the pixel position cannot be projected to the ground")]
+    NotOnProjectionPlane,
 }
 
 pub trait Projection {
@@ -46,7 +47,7 @@ impl Projection for CameraMatrix {
         vector![
             1.0,
             (self.optical_center.x - pixel_coordinates.x) / self.focal_length.x,
-            (self.optical_center.y - pixel_coordinates.y) / self.focal_length.y
+            (self.optical_center.y - pixel_coordinates.y) / self.focal_length.y,
         ]
     }
 
@@ -56,7 +57,7 @@ impl Projection for CameraMatrix {
         }
         Ok(point![
             self.optical_center.x - self.focal_length.x * camera_ray.y / camera_ray.x,
-            self.optical_center.y - self.focal_length.y * camera_ray.z / camera_ray.x
+            self.optical_center.y - self.focal_length.y * camera_ray.z / camera_ray.x,
         ])
     }
 
@@ -70,20 +71,24 @@ impl Projection for CameraMatrix {
         z: f32,
     ) -> Result<Point2<f32>, Error> {
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
-        let camera_ray_over_ground = self.camera_to_ground.rotation * camera_ray;
-        if camera_ray_over_ground.z >= 0.0
-            || camera_ray_over_ground.x.is_nan()
-            || camera_ray_over_ground.y.is_nan()
-            || camera_ray_over_ground.z.is_nan()
-        {
-            return Err(Error::AboveHorizon);
+        let camera_to_elevated_ground = Isometry3::translation(0., 0., -z) * self.camera_to_ground;
+
+        let camera_position = camera_to_elevated_ground * Point3::origin();
+        let camera_ray_over_ground = camera_to_elevated_ground * camera_ray;
+
+        if relative_eq!(camera_ray_over_ground.z, 0.0) {
+            return Err(Error::NotOnProjectionPlane);
         }
 
-        let distance_to_plane = z - self.camera_to_ground.translation.z;
-        let slope = distance_to_plane / camera_ray_over_ground.z;
-        let intersection_point =
-            self.camera_to_ground.translation.vector + camera_ray_over_ground * slope;
-        Ok(point![intersection_point.x, intersection_point.y])
+        let intersection_scalar = -camera_position.z / camera_ray_over_ground.z;
+
+        if intersection_scalar < 0.0 {
+            return Err(Error::NotOnProjectionPlane);
+        }
+
+        let intersection_point = camera_position + camera_ray_over_ground * intersection_scalar;
+
+        Ok(intersection_point.xy())
     }
 
     fn ground_to_pixel(&self, ground_coordinates: Point2<f32>) -> Result<Point2<f32>, Error> {
