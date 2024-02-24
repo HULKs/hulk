@@ -84,7 +84,7 @@
         },
 
         {
-          "duration": 1.0,
+          "duration": 0.8,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -149,7 +149,7 @@
             },
             "left_leg": {
               "hip_yaw_pitch": 0.0,
-              "hip_roll": 0.22689280275926282,
+              "hip_roll": 0.0,
               "hip_pitch": -0.2792526803190927,
               "knee_pitch": -0.08726646259971647,
               "ankle_pitch": 1.0471975511965976,
@@ -157,7 +157,7 @@
             },
             "right_leg": {
               "hip_yaw_pitch": 0.0,
-              "hip_roll": -0.22689280275926282,
+              "hip_roll": 0.0,
               "hip_pitch": -0.2792526803190927,
               "knee_pitch": -0.08726646259971647,
               "ankle_pitch": 1.0471975511965976,
