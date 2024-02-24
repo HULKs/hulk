@@ -1,4 +1,4 @@
-use approx::{AbsDiffEq, RelativeEq};
+use approx_derive::{AbsDiffEq, RelativeEq};
 use nalgebra::{Isometry3, Matrix, Point2, Rotation3, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -29,7 +29,10 @@ impl CameraMatrices {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq,
+)]
+#[abs_diff_eq(epsilon = "f32")]
 pub struct CameraMatrix {
     pub camera_to_head: Isometry3<f32>,
     pub camera_to_ground: Isometry3<f32>,
@@ -140,79 +143,6 @@ impl CameraMatrix {
             field_of_view: self.field_of_view,
             horizon: self.horizon,
         }
-    }
-}
-
-impl AbsDiffEq for CameraMatrix {
-    type Epsilon = f32;
-
-    fn default_epsilon() -> Self::Epsilon {
-        Self::Epsilon::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        self.camera_to_head
-            .abs_diff_eq(&other.camera_to_head, epsilon)
-            && self
-                .camera_to_ground
-                .abs_diff_eq(&other.camera_to_ground, epsilon)
-            && self
-                .ground_to_camera
-                .abs_diff_eq(&other.ground_to_camera, epsilon)
-            && self
-                .camera_to_robot
-                .abs_diff_eq(&other.camera_to_robot, epsilon)
-            && self
-                .robot_to_camera
-                .abs_diff_eq(&other.robot_to_camera, epsilon)
-            && self.focal_length.abs_diff_eq(&other.focal_length, epsilon)
-            && self
-                .optical_center
-                .abs_diff_eq(&other.optical_center, epsilon)
-            && self
-                .field_of_view
-                .abs_diff_eq(&other.field_of_view, epsilon)
-            && self.horizon.abs_diff_eq(&other.horizon, epsilon)
-    }
-}
-
-impl RelativeEq for CameraMatrix {
-    fn default_max_relative() -> Self::Epsilon {
-        Self::Epsilon::default_max_relative()
-    }
-
-    fn relative_eq(
-        &self,
-        other: &Self,
-        epsilon: Self::Epsilon,
-        max_relative: Self::Epsilon,
-    ) -> bool {
-        self.camera_to_head
-            .relative_eq(&other.camera_to_head, epsilon, max_relative)
-            && self
-                .camera_to_ground
-                .relative_eq(&other.camera_to_ground, epsilon, max_relative)
-            && self
-                .ground_to_camera
-                .relative_eq(&other.ground_to_camera, epsilon, max_relative)
-            && self
-                .camera_to_robot
-                .relative_eq(&other.camera_to_robot, epsilon, max_relative)
-            && self
-                .robot_to_camera
-                .relative_eq(&other.robot_to_camera, epsilon, max_relative)
-            && self
-                .focal_length
-                .relative_eq(&other.focal_length, epsilon, max_relative)
-            && self
-                .optical_center
-                .relative_eq(&other.optical_center, epsilon, max_relative)
-            && self
-                .field_of_view
-                .relative_eq(&other.field_of_view, epsilon, max_relative)
-            && self
-                .horizon
-                .relative_eq(&other.horizon, epsilon, max_relative)
     }
 }
 
