@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+approx = { workspace = true }
 nalgebra = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
