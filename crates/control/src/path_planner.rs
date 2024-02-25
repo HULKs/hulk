@@ -1,6 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::{distance, point, vector, Framed, Isometry2, Orientation, Point2};
-use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, direction::Direction};
+use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 

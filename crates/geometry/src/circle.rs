@@ -7,7 +7,7 @@ use coordinate_systems::{distance, vector, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    arc::Arc, circle_tangents::CircleTangents, line_segment::LineSegment, direction::Direction,
+    arc::Arc, circle_tangents::CircleTangents, direction::Direction, line_segment::LineSegment,
     rectangle::Rectangle, two_line_segments::TwoLineSegments,
 };
 
