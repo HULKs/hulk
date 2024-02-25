@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{vector, Point2, Vector2};
 
-use crate::{arc::Arc, orientation::Direction};
+use crate::{arc::Arc, direction::Direction};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(bound = "")]
@@ -84,7 +84,7 @@ where
     /// Reference: https://algotree.org/algorithms/computational_geometry/line_segment_intersection/
     pub fn intersects_line_segment(&self, other: LineSegment<Frame>) -> bool {
         let orientation_other_points_to_self =
-            (self.get_orientation(other.0), self.get_orientation(other.1));
+            (self.get_direction(other.0), self.get_direction(other.1));
 
         match orientation_other_points_to_self {
             (Direction::Counterclockwise, Direction::Counterclockwise)
@@ -96,7 +96,7 @@ where
 
             _ => {
                 let orientation_self_points_to_other =
-                    (other.get_orientation(self.0), other.get_orientation(self.1));
+                    (other.get_direction(self.0), other.get_direction(self.1));
 
                 orientation_self_points_to_other.0 != orientation_self_points_to_other.1
                     || orientation_self_points_to_other.0 == Direction::Colinear
@@ -118,7 +118,7 @@ where
             && point.y() > f32::min(self.0.y(), self.1.y())
     }
 
-    pub fn get_orientation(&self, point: Point2<Frame>) -> Direction {
+    pub fn get_direction(&self, point: Point2<Frame>) -> Direction {
         let direction_vector = self.1 - self.0;
         let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()];
         let directed_cathetus = clockwise_normal_vector.dot(point - self.0);

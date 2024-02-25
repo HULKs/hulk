@@ -1,6 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::{distance, point, vector, Framed, Isometry2, Orientation, Point2};
-use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, orientation::Direction};
+use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, direction::Direction};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
@@ -54,7 +54,7 @@ impl PathPlanner {
             MotionCommand::Walk { path, .. } => path.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
-                    PathSegment::Arc(arc, orientation) => orientation
+                    PathSegment::Arc(arc, direction) => direction
                         .rotate_vector_90_degrees(arc.start - arc.circle.center)
                         .normalize(),
                 };
@@ -334,7 +334,7 @@ impl PathPlanner {
                                 end: next_node.position,
                             },
                             LineSegment(previous_node.position, current_node.position)
-                                .get_orientation(circle.center),
+                                .get_direction(circle.center),
                         ))
                     }
                     _ => Ok(PathSegment::LineSegment(LineSegment(
@@ -412,12 +412,12 @@ impl PathPlanner {
             .push(self.nodes.len() - 1);
     }
 
-    fn get_orientation_to_obstacle(&self, node: usize, obstacle_index: usize) -> Direction {
+    fn get_arc_direction_to_obstacle(&self, node: usize, obstacle_index: usize) -> Direction {
         let pair_node = self.nodes[node].pair_node.unwrap();
         let tangent = LineSegment(self.nodes[pair_node].position, self.nodes[node].position);
 
         match &self.obstacles[obstacle_index].shape {
-            PathObstacleShape::Circle(circle) => tangent.get_orientation(circle.center),
+            PathObstacleShape::Circle(circle) => tangent.get_direction(circle.center),
             PathObstacleShape::LineSegment(_) => panic!("LineSegment not implemented"),
         }
     }
@@ -496,12 +496,12 @@ impl DynamicMap for PathPlanner {
             self.nodes[index].allow_local_exits,
         ) {
             self.populate_obstacle(obstacle_index);
-            let orientation = self.get_orientation_to_obstacle(index, obstacle_index);
+            let direction = self.get_arc_direction_to_obstacle(index, obstacle_index);
             for other_node in &self.obstacles[obstacle_index].nodes {
                 if *other_node != index {
-                    let other_orientation =
-                        self.get_orientation_to_obstacle(*other_node, obstacle_index);
-                    if orientation != other_orientation {
+                    let other_direction =
+                        self.get_arc_direction_to_obstacle(*other_node, obstacle_index);
+                    if direction != other_direction {
                         let &circle = self.obstacles[obstacle_index]
                             .shape
                             .as_circle()
@@ -516,9 +516,9 @@ impl DynamicMap for PathPlanner {
                             .iter()
                             .enumerate()
                             .filter(|(index, _)| *index != obstacle_index)
-                            .all(|(_, obstacle)| !obstacle.shape.overlaps_arc(arc, orientation))
+                            .all(|(_, obstacle)| !obstacle.shape.overlaps_arc(arc, direction))
                         {
-                            vector.push((*other_node, arc.length(orientation)));
+                            vector.push((*other_node, arc.length(direction)));
                         }
                     }
                 }

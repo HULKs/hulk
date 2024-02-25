@@ -92,8 +92,8 @@ impl State {
                 } => {
                     let step = match path[0] {
                         PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
-                        PathSegment::Arc(arc, orientation) => {
-                            orientation.rotate_vector_90_degrees(arc.start - arc.circle.center)
+                        PathSegment::Arc(arc, direction) => {
+                            direction.rotate_vector_90_degrees(arc.start - arc.circle.center)
                         }
                     }
                     .cap_magnitude(0.3 * time_step.as_secs_f32());

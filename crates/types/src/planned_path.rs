@@ -1,6 +1,6 @@
 use approx::{AbsDiffEq, RelativeEq};
 use coordinate_systems::Point2;
-use geometry::{arc::Arc, line_segment::LineSegment, orientation::Direction};
+use geometry::{arc::Arc, direction::Direction, line_segment::LineSegment};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -30,9 +30,9 @@ impl AbsDiffEq for PathSegment {
                 PathSegment::LineSegment(line_segment_other),
             ) => line_segment_self.abs_diff_eq(line_segment_other, epsilon),
             (
-                PathSegment::Arc(arc_self, orientation_self),
-                PathSegment::Arc(arc_other, orientation_other),
-            ) => orientation_self == orientation_other && arc_self.abs_diff_eq(arc_other, epsilon),
+                PathSegment::Arc(arc_self, direction_self),
+                PathSegment::Arc(arc_other, direction_other),
+            ) => direction_self == direction_other && arc_self.abs_diff_eq(arc_other, epsilon),
             _ => false,
         }
     }
@@ -55,10 +55,10 @@ impl RelativeEq for PathSegment {
                 PathSegment::LineSegment(line_segment_other),
             ) => line_segment_self.relative_eq(line_segment_other, epsilon, max_relative),
             (
-                PathSegment::Arc(arc_self, orientation_self),
-                PathSegment::Arc(arc_other, orientation_other),
+                PathSegment::Arc(arc_self, direction_self),
+                PathSegment::Arc(arc_other, direction_other),
             ) => {
-                orientation_self == orientation_other
+                direction_self == direction_other
                     && arc_self.relative_eq(arc_other, epsilon, max_relative)
             }
             _ => false,
@@ -70,7 +70,7 @@ impl PathSegment {
     pub fn length(&self) -> f32 {
         match self {
             PathSegment::LineSegment(line_segment) => line_segment.norm(),
-            PathSegment::Arc(arc, orientation) => arc.length(*orientation),
+            PathSegment::Arc(arc, direction) => arc.length(*direction),
         }
     }
 }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{circle::Circle, orientation::Direction};
+use crate::{circle::Circle, direction::Direction};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Arc<Frame> {
