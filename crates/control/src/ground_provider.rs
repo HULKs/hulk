@@ -42,6 +42,7 @@ impl GroundProvider {
         let imu_pitch = imu_roll_pitch.y;
 
         let left_sole_to_robot = context.robot_kinematics.left_sole_to_robot;
+        // TODO: coordinate systems
         let imu_adjusted_robot_to_left_sole = Isometry3::rotation(Vector3::y() * imu_pitch)
             * Isometry3::rotation(Vector3::x() * imu_roll)
             * Isometry3::from(left_sole_to_robot.inner.translation.inverse());

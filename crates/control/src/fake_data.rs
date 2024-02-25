@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::Transform;
-use framework::MainOutput;
-use nalgebra::Isometry2;
+use coordinate_systems::Isometry2;
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use framework::MainOutput;
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::BallPosition,
@@ -53,7 +53,7 @@ pub struct MainOutputs {
     pub obstacles: MainOutput<Vec<Obstacle>>,
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub primary_state: MainOutput<PrimaryState>,
-    pub ground_to_field: MainOutput<Option<Transform<Ground, Field, Isometry2<f32>>>>,
+    pub ground_to_field: MainOutput<Option<Isometry2<Ground, Field>>>,
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,

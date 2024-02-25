@@ -28,6 +28,7 @@ generate_coordinate_system!(
     Ground,
     Field,
     Camera,
+    // TODO: naming kloppen
     Pixel,
     Head,
     Neck,

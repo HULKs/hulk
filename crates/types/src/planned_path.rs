@@ -1,7 +1,6 @@
 use approx::{AbsDiffEq, RelativeEq};
-use coordinate_systems::Framed;
-use geometry::{arc::Arc, line_segment::LineSegment, orientation::Orientation};
-use nalgebra::{Isometry2, Point2};
+use coordinate_systems::Point2;
+use geometry::{arc::Arc, line_segment::LineSegment, orientation::Direction};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -10,13 +9,10 @@ use crate::coordinate_systems::Ground;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
 pub enum PathSegment {
     LineSegment(LineSegment<Ground>),
-    Arc(Arc<Ground>, Orientation),
+    Arc(Arc<Ground>, Direction),
 }
 
-pub fn direct_path(
-    start: Framed<Ground, Point2<f32>>,
-    destination: Framed<Ground, Point2<f32>>,
-) -> Vec<PathSegment> {
+pub fn direct_path(start: Point2<Ground>, destination: Point2<Ground>) -> Vec<PathSegment> {
     vec![PathSegment::LineSegment(LineSegment(start, destination))]
 }
 
@@ -81,6 +77,5 @@ impl PathSegment {
 
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
 pub struct PlannedPath {
-    pub end_pose: Isometry2<f32>,
     pub path: Option<Vec<PathSegment>>,
 }

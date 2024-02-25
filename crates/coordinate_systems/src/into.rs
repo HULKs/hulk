@@ -9,7 +9,7 @@ where
 
 impl<Inner> IntoFramed for Inner {
     fn framed<Frame>(self) -> Framed<Frame, Self> {
-        Framed::new(self)
+        Framed::wrap(self)
     }
 }
 
@@ -22,6 +22,6 @@ where
 
 impl<T> IntoTransform for T {
     fn framed_transform<From, To>(self) -> Transform<From, To, Self> {
-        Transform::new(self)
+        Transform::wrap(self)
     }
 }

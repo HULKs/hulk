@@ -1,5 +1,4 @@
-use coordinate_systems::Framed;
-use nalgebra::Point2;
+use coordinate_systems::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -7,17 +6,17 @@ use crate::coordinate_systems::{Ground, Pixel};
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct DetectedFeet {
-    pub positions: Vec<Framed<Ground, Point2<f32>>>,
+    pub positions: Vec<Point2<Ground>>,
 }
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ClusterPoint {
-    pub pixel_coordinates: Framed<Pixel, Point2<u16>>,
-    pub position_in_ground: Framed<Ground, Point2<f32>>,
+    pub pixel_coordinates: Point2<Pixel, u16>,
+    pub position_in_ground: Point2<Ground>,
 }
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CountedCluster {
-    pub mean: Framed<Ground, Point2<f32>>,
+    pub mean: Point2<Ground>,
     pub samples: usize,
 }

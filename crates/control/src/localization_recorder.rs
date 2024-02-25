@@ -8,9 +8,8 @@ use std::{
 use bincode::serialize;
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
-use coordinate_systems::Transform;
+use coordinate_systems::Isometry2;
 use framework::{HistoricInput, PerceptionInput};
-use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use types::{
     coordinate_systems::{Field, Ground},
@@ -37,13 +36,13 @@ pub struct CycleContext {
         Parameter<bool, "localization_recorder.only_record_during_active_localization">,
 
     current_odometry_to_last_odometry:
-        HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
+        HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
 
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
-    ground_to_field: Input<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
 
     line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
@@ -152,12 +151,12 @@ impl LocalizationRecorder {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RecordedCycleContext {
-    pub current_odometry_to_last_odometry: BTreeMap<SystemTime, Option<Isometry2<f32>>>,
+    pub current_odometry_to_last_odometry: BTreeMap<SystemTime, Option<nalgebra::Isometry2<f32>>>,
 
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub has_ground_contact: bool,
     pub primary_state: PrimaryState,
-    pub ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>>,
+    pub ground_to_field: Option<Isometry2<Ground, Field>>,
 
     pub line_data_bottom_persistent: BTreeMap<SystemTime, Vec<Option<LineData>>>,
     pub line_data_bottom_temporary: BTreeMap<SystemTime, Vec<Option<LineData>>>,

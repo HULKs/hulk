@@ -1,7 +1,5 @@
-use coordinate_systems::{Framed, Transform};
+use coordinate_systems::{Framed, Pose};
 use geometry::look_at::LookAt;
-use nalgebra::Isometry2;
-
 use types::{
     coordinate_systems::Ground,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
@@ -72,14 +70,12 @@ pub fn execute(
 }
 
 fn is_kick_pose_reached(
-    kick_pose_to_robot: Transform<Ground, Ground, Isometry2<f32>>,
+    kick_pose_to_robot: Pose<Ground>,
     kick_info: &InWalkKickInfoParameters,
 ) -> bool {
-    let is_x_reached =
-        kick_pose_to_robot.inner.translation.x.abs() < kick_info.reached_thresholds.x;
-    let is_y_reached =
-        kick_pose_to_robot.inner.translation.y.abs() < kick_info.reached_thresholds.y;
+    let is_x_reached = kick_pose_to_robot.position().x().abs() < kick_info.reached_thresholds.x;
+    let is_y_reached = kick_pose_to_robot.position().y().abs() < kick_info.reached_thresholds.y;
     let is_orientation_reached =
-        kick_pose_to_robot.inner.rotation.angle().abs() < kick_info.reached_thresholds.z;
+        kick_pose_to_robot.orientation().angle().abs() < kick_info.reached_thresholds.z;
     is_x_reached && is_y_reached && is_orientation_reached
 }

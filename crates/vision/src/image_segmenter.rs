@@ -1,11 +1,11 @@
 use std::time::{Duration, Instant};
 
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::{IntoFramed, Transform};
-use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, Isometry2};
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::{point, Isometry2, Transform};
+use framework::{AdditionalOutput, MainOutput};
 use types::{
     camera_matrix::CameraMatrix,
     color::{Intensity, Rgb, RgbChannel, YCbCr444},
@@ -21,8 +21,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageSegmenter {
-    ground_to_field_of_home_after_coin_toss_before_second_half:
-        Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field_of_home_after_coin_toss_before_second_half: Isometry2<Ground, Field>,
 }
 
 #[context]
@@ -36,7 +35,7 @@ pub struct CycleContext {
 
     camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
     ground_to_field_of_home_after_coin_toss_before_second_half: Input<
-        Option<Transform<Ground, Field, Isometry2<f32>>>,
+        Option<Isometry2<Ground, Field>>,
         "Control",
         "ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
@@ -412,7 +411,7 @@ fn segment_is_below_limbs(
     projected_limbs: &[Limb],
 ) -> bool {
     !is_above_limbs(
-        point![scan_line_position as f32, segment.end as f32].framed(),
+        point![scan_line_position as f32, segment.end as f32],
         projected_limbs,
     )
 }

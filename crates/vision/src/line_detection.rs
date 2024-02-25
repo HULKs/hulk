@@ -1,13 +1,13 @@
 use std::{collections::HashSet, iter::Peekable, ops::Range};
 
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
-use coordinate_systems::{distance, Framed, IntoFramed};
+use coordinate_systems::{distance, point, vector, Point2, Vector2};
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use projection::Projection;
-use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     coordinate_systems::{Ground, Pixel},
@@ -30,7 +30,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     lines_in_image: AdditionalOutput<Vec<Line2<Pixel>>, "lines_in_image">,
     discarded_lines: AdditionalOutput<Vec<(Line2<Pixel>, LineDiscardReason)>, "discarded_lines">,
-    ransac_input: AdditionalOutput<Vec<Framed<Pixel, Point2<f32>>>, "ransac_input">,
+    ransac_input: AdditionalOutput<Vec<Point2<Pixel>>, "ransac_input">,
 
     allowed_line_length_in_field:
         Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_line_length_in_field">,
@@ -127,8 +127,8 @@ impl LineDetection {
             let split_index = (1..points_with_projection_onto_line.len())
                 .find(|&index| {
                     distance(
-                        &points_with_projection_onto_line[index - 1].1,
-                        &points_with_projection_onto_line[index].1,
+                        points_with_projection_onto_line[index - 1].1,
+                        points_with_projection_onto_line[index].1,
                     ) > *context.maximum_gap_on_line
                 })
                 .unwrap_or(points_with_projection_onto_line.len());
@@ -217,16 +217,16 @@ impl LineDetection {
     }
 }
 
-fn get_gradient(image: &YCbCr422Image, point: Point2<u16>) -> Vector2<f32> {
-    if point.x < 1
-        || point.y < 1
-        || point.x > image.width() as u16 - 2
-        || point.y > image.height() as u16 - 2
+fn get_gradient(image: &YCbCr422Image, point: Point2<Pixel, u16>) -> Vector2<f32> {
+    if point.x() < 1
+        || point.y() < 1
+        || point.x() > image.width() as u16 - 2
+        || point.y() > image.height() as u16 - 2
     {
         return vector![0.0, 0.0];
     }
-    let px = point.x as u32;
-    let py = point.y as u32;
+    let px = point.x() as u32;
+    let py = point.y() as u32;
     // Sobel matrix x (transposed)
     // -1 -2 -1
     //  0  0  0
@@ -294,8 +294,8 @@ where
 }
 
 struct LinePoints {
-    line_points: Vec<Framed<Ground, Point2<f32>>>,
-    used_segments: HashSet<Framed<Pixel, Point2<u16>>>,
+    line_points: Vec<Point2<Ground>>,
+    used_segments: HashSet<Point2<Pixel, u16>>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -340,9 +340,9 @@ fn filter_segments_for_lines(
             let center = (segment.start + segment.end) as f32 / 2.0;
             Some((
                 camera_matrix
-                    .pixel_to_ground(point![scan_line_position as f32, center].framed())
+                    .pixel_to_ground(point![scan_line_position as f32, center])
                     .ok()?,
-                point![scan_line_position, segment.start].framed(),
+                point![scan_line_position, segment.start],
             ))
         })
         .unzip();
@@ -369,8 +369,8 @@ fn is_line_segment(
     let is_too_long = check_line_segments_projection
         && !is_segment_shorter_than(
             camera_matrix,
-            point![scan_line_position as f32, segment.start as f32].framed(),
-            point![scan_line_position as f32, segment.end as f32].framed(),
+            point![scan_line_position as f32, segment.start as f32],
+            point![scan_line_position as f32, segment.end as f32],
             maximum_projected_segment_length,
         )
         .unwrap_or(false);
@@ -383,19 +383,19 @@ fn is_line_segment(
     // gradients (approximately) point in opposite directions if their dot product is (close to) -1
     let gradient_at_start = get_gradient(image, point![scan_line_position, segment.start]);
     let gradient_at_end = get_gradient(image, point![scan_line_position, segment.end]);
-    gradient_at_start.dot(&gradient_at_end) < gradient_alignment
+    gradient_at_start.dot(gradient_at_end) < gradient_alignment
 }
 
 fn is_segment_shorter_than(
     camera_matrix: &CameraMatrix,
-    segment_start: Framed<Pixel, Point2<f32>>,
-    segment_end: Framed<Pixel, Point2<f32>>,
+    segment_start: Point2<Pixel>,
+    segment_end: Point2<Pixel>,
     maximum_projected_segment_length: f32,
 ) -> Option<bool> {
     let start_robot_coordinates = camera_matrix.pixel_to_ground(segment_start).ok()?;
     let end_robot_coordinates = camera_matrix.pixel_to_ground(segment_end).ok()?;
     Some(
-        distance(&start_robot_coordinates, &end_robot_coordinates)
+        distance(start_robot_coordinates, end_robot_coordinates)
             <= maximum_projected_segment_length,
     )
 }
@@ -403,30 +403,30 @@ fn is_segment_shorter_than(
 #[cfg(test)]
 mod tests {
     use coordinate_systems::IntoTransform;
-    use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
+    use nalgebra::{Isometry3, Translation, UnitQuaternion};
 
     use super::*;
 
     #[test]
     fn check_fixed_segment_size() {
-        let image_size = vector![1.0, 1.0];
+        let image_size = point![1.0, 1.0];
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
-            vector![2.0, 2.0],
-            point![1.0, 1.0],
+            nalgebra::vector![2.0, 2.0],
+            nalgebra::point![1.0, 1.0],
             image_size,
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
-                translation: Translation::from(point![0.0, 0.0, 0.5]),
+                translation: Translation::from(nalgebra::point![0.0, 0.0, 0.5]),
             }
             .framed_transform(),
             Isometry3::identity().framed_transform(),
             Isometry3::identity().framed_transform(),
         );
-        let start = point![40.0, 2.0].framed();
-        let end = point![40.0, 202.0].framed();
+        let start = point![40.0, 2.0];
+        let end = point![40.0, 202.0];
         assert!(!is_segment_shorter_than(&camera_matrix, start, end, 0.3).unwrap());
-        let start2 = point![40.0, 364.0].framed();
-        let end2 = point![40.0, 366.0].framed();
+        let start2 = point![40.0, 364.0];
+        let end2 = point![40.0, 366.0];
         assert!(is_segment_shorter_than(&camera_matrix, start2, end2, 0.3).unwrap());
     }
 

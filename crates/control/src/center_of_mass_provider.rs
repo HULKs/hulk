@@ -1,8 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed};
+use coordinate_systems::Point3;
 use framework::MainOutput;
-use nalgebra::{Point, Point3};
 use serde::{Deserialize, Serialize};
 use types::{coordinate_systems::Robot, robot_kinematics::RobotKinematics, robot_masses};
 
@@ -20,7 +19,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub center_of_mass: MainOutput<Framed<Robot, Point3<f32>>>,
+    pub center_of_mass: MainOutput<Point3<Robot>>,
 }
 
 impl CenterOfMassProvider {
@@ -91,7 +90,7 @@ impl CenterOfMassProvider {
             / robot_masses::TOTAL_MASS;
 
         Ok(MainOutputs {
-            center_of_mass: Point::from(center_of_mass.inner).framed().into(),
+            center_of_mass: center_of_mass.as_point().into(),
         })
     }
 }

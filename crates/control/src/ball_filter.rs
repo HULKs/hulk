@@ -1,14 +1,15 @@
 use std::time::SystemTime;
 
 use color_eyre::Result;
+use nalgebra::{matrix, Matrix2, Matrix2x4, Matrix4, Matrix4x2};
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
-use coordinate_systems::Framed;
+use coordinate_systems::{point, Point2};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
-use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
 use projection::Projection;
-use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     ball_filter::Hypothesis,
@@ -42,7 +43,7 @@ pub struct CycleContext {
         AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image_top">,
 
     current_odometry_to_last_odometry:
-        HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
+        HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
@@ -222,7 +223,7 @@ impl BallFilter {
     fn predict_hypotheses_with_odometry(
         &mut self,
         velocity_decay_factor: f32,
-        last_odometry_to_current_odometry: Isometry2<f32>,
+        last_odometry_to_current_odometry: nalgebra::Isometry2<f32>,
         process_noise: Matrix4<f32>,
     ) {
         for hypothesis in self.hypotheses.iter_mut() {
@@ -262,7 +263,7 @@ impl BallFilter {
 
     fn update_hypothesis_with_measurement(
         hypothesis: &mut Hypothesis,
-        detected_position: Framed<Ground, Point2<f32>>,
+        detected_position: Point2<Ground>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
     ) {
@@ -288,7 +289,7 @@ impl BallFilter {
 
     fn update_hypotheses_with_measurement(
         &mut self,
-        detected_position: Framed<Ground, Point2<f32>>,
+        detected_position: Point2<Ground>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
     ) {
@@ -325,11 +326,12 @@ impl BallFilter {
 
     fn spawn_hypothesis(
         &mut self,
-        detected_position: Framed<Ground, Point2<f32>>,
+        detected_position: Point2<Ground>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
     ) {
-        let initial_state = vector![detected_position.x(), detected_position.y(), 0.0, 0.0];
+        let initial_state =
+            nalgebra::vector![detected_position.x(), detected_position.y(), 0.0, 0.0];
         let new_hypothesis = Hypothesis {
             moving_state: MultivariateNormalDistribution {
                 mean: initial_state,
@@ -354,9 +356,9 @@ impl BallFilter {
         self.hypotheses.retain(|hypothesis| {
             let selected_position = hypothesis.selected_ball_position(configuration).position;
             let is_inside_field = {
-                selected_position.inner.x.abs()
+                selected_position.x().abs()
                     < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
-                    && selected_position.inner.y.abs()
+                    && selected_position.y().abs()
                         < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
             };
             now.duration_since(hypothesis.last_update)
@@ -375,7 +377,6 @@ impl BallFilter {
                             .selected_ball_position(configuration)
                             .position
                             - hypothesis.selected_ball_position(configuration).position)
-                            .inner
                             .norm()
                             < configuration.hypothesis_merge_distance
                     });
@@ -412,7 +413,7 @@ fn project_to_image(
                 .ground_with_z_to_pixel(ball_position.position, ball_radius)
                 .ok()?;
             let radius = camera_matrix
-                .get_pixel_radius(ball_radius, position_in_image, vector![640, 480])
+                .get_pixel_radius(ball_radius, position_in_image, point![640, 480])
                 .ok()?;
             Some(Circle {
                 center: position_in_image,
@@ -435,7 +436,7 @@ fn is_visible_to_camera(
             Ok(position_in_image) => position_in_image,
             Err(_) => return false,
         };
-    (0.0..640.0).contains(&position_in_image.inner.x)
-        && (0.0..480.0).contains(&position_in_image.inner.y)
+    (0.0..640.0).contains(&position_in_image.x())
+        && (0.0..480.0).contains(&position_in_image.y())
         && is_above_limbs(position_in_image, projected_limbs)
 }

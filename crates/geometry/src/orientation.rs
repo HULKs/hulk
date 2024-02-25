@@ -1,23 +1,20 @@
-use coordinate_systems::{Framed, IntoFramed};
-use nalgebra::{vector, Vector2};
 use serde::{Deserialize, Serialize};
 
+use coordinate_systems::{vector, Vector2};
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum Orientation {
+pub enum Direction {
     Clockwise,
     Counterclockwise,
     Colinear,
 }
 
-impl Orientation {
-    pub fn rotate_vector_90_degrees<Frame>(
-        &self,
-        subject: Framed<Frame, Vector2<f32>>,
-    ) -> Framed<Frame, Vector2<f32>> {
+impl Direction {
+    pub fn rotate_vector_90_degrees<Frame>(&self, subject: Vector2<Frame>) -> Vector2<Frame> {
         match self {
-            Orientation::Clockwise => vector![subject.y(), -subject.x()].framed(),
-            Orientation::Counterclockwise => vector![-subject.y(), subject.x()].framed(),
-            Orientation::Colinear => subject,
+            Direction::Clockwise => vector![subject.y(), -subject.x()],
+            Direction::Counterclockwise => vector![-subject.y(), subject.x()],
+            Direction::Colinear => subject,
         }
     }
 }

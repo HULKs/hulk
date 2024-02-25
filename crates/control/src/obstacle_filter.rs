@@ -2,11 +2,11 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{distance, Framed, IntoFramed, Transform};
+use coordinate_systems::{distance, point, IntoFramed, Isometry2, Point2};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
-use nalgebra::{point, Isometry2, Matrix2, Point2};
+use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
 use types::{
     coordinate_systems::{Field, Ground},
@@ -36,11 +36,9 @@ pub struct CycleContext {
     obstacle_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "obstacle_filter_hypotheses">,
 
     current_odometry_to_last_odometry:
-        HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    network_robot_obstacles:
-        HistoricInput<Vec<Framed<Ground, Point2<f32>>>, "network_robot_obstacles">,
-    ground_to_field:
-        HistoricInput<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
+        HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
+    network_robot_obstacles: HistoricInput<Vec<Point2<Ground>>, "network_robot_obstacles">,
+    ground_to_field: HistoricInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
 
     foot_bumper_obstacles: HistoricInput<Vec<FootBumperObstacle>, "foot_bumper_obstacle">,
@@ -143,7 +141,7 @@ impl ObstacleFilter {
 
                 if context.obstacle_filter_parameters.use_sonar_measurements
                     && goal_posts.clone().into_iter().all(|goal_post| {
-                        distance(&goal_post, &sonar_obstacle.position)
+                        distance(goal_post, sonar_obstacle.position)
                             > context
                                 .obstacle_filter_parameters
                                 .goal_post_measurement_matching_distance
@@ -223,7 +221,7 @@ impl ObstacleFilter {
                     _ => panic!("Unexpected obstacle radius"),
                 };
                 Obstacle {
-                    position: Point2::from(hypothesis.state.mean).framed(),
+                    position: hypothesis.state.mean.framed().as_point(),
                     kind: hypothesis.obstacle_kind,
                     radius_at_hip_height,
                     radius_at_foot_height,
@@ -248,7 +246,7 @@ impl ObstacleFilter {
 
     fn predict_hypotheses_with_odometry(
         &mut self,
-        last_odometry_to_current_odometry: Isometry2<f32>,
+        last_odometry_to_current_odometry: nalgebra::Isometry2<f32>,
         process_noise: Matrix2<f32>,
     ) {
         for hypothesis in self.hypotheses.iter_mut() {
@@ -268,7 +266,7 @@ impl ObstacleFilter {
 
     fn update_hypotheses_with_measurement(
         &mut self,
-        detected_position: Framed<Ground, Point2<f32>>,
+        detected_position: Point2<Ground>,
         detected_obstacle_kind: ObstacleKind,
         detection_time: SystemTime,
         matching_distance: f32,
@@ -308,7 +306,7 @@ impl ObstacleFilter {
 
     fn spawn_hypothesis(
         &mut self,
-        detected_position: Framed<Ground, Point2<f32>>,
+        detected_position: Point2<Ground>,
         obstacle_kind: ObstacleKind,
         detection_time: SystemTime,
         initial_covariance: Matrix2<f32>,
@@ -367,9 +365,9 @@ impl ObstacleFilter {
 }
 
 fn calculate_goal_post_positions(
-    ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>>,
+    ground_to_field: Option<Isometry2<Ground, Field>>,
     field_dimensions: &FieldDimensions,
-) -> Vec<Framed<Ground, Point2<f32>>> {
+) -> Vec<Point2<Ground>> {
     ground_to_field
         .map(|ground_to_field| {
             let field_to_robot = ground_to_field.inverse();
@@ -381,8 +379,7 @@ fn calculate_goal_post_positions(
                             + field_dimensions.goal_post_diameter / 2.0
                             - field_dimensions.line_width / 2.0),
                     y_sign * (field_dimensions.goal_inner_width / 2.0 + radius)
-                ]
-                .framed();
+                ];
                 field_to_robot * position_on_field
             })
         })

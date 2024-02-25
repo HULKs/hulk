@@ -1,6 +1,5 @@
-use coordinate_systems::{Framed, IntoFramed, IntoTransform, Transform};
+use coordinate_systems::{point, Isometry2, Orientation, Point2, Pose};
 use framework::AdditionalOutput;
-use nalgebra::{point, Isometry2, Point2, UnitComplex};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -24,26 +23,23 @@ enum SearchRole {
 impl SearchRole {
     fn to_position(
         self,
-        ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+        ground_to_field: Isometry2<Ground, Field>,
         field_dimensions: &FieldDimensions,
-    ) -> Framed<Ground, Point2<f32>> {
-        let goal = point![-field_dimensions.length / 2.0, 0.0].framed();
+    ) -> Point2<Ground> {
+        let goal = point![-field_dimensions.length / 2.0, 0.0];
         let defending_left = point![
             -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length + 0.2,
             field_dimensions.goal_inner_width / 4.0
-        ]
-        .framed();
+        ];
         let defending_right = point![
             -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length + 0.2,
             -field_dimensions.goal_inner_width / 4.0
-        ]
-        .framed();
-        let center = point![0.0, 0.0].framed();
+        ];
+        let center = point![0.0, 0.0];
         let aggressive = point![
             field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
             0.0
-        ]
-        .framed();
+        ];
 
         ground_to_field.inverse()
             * match self {
@@ -68,11 +64,10 @@ pub fn execute(
     let search_role = assign_search_role(world_state);
     let search_position = search_role
         .map(|role| role.to_position(ground_to_field, field_dimensions))
-        .unwrap_or(point![0.0, 0.0].framed());
+        .unwrap_or(point![0.0, 0.0]);
     let head = HeadMotion::SearchForLostBall;
     if let Some(SearchRole::Goal) = search_role {
-        let goal_pose = ground_to_field.inverse()
-            * Isometry2::from(search_position.inner.coords).framed_transform();
+        let goal_pose = Pose::from_position(search_position);
         walk_and_stand.execute(goal_pose, head, path_obstacles_output)
     } else {
         let path = walk_path_planner.plan(
@@ -87,7 +82,7 @@ pub fn execute(
         let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
         let orientation_mode = if is_reached {
-            OrientationMode::Override(UnitComplex::new(parameters.rotation_per_step).framed())
+            OrientationMode::Override(Orientation::new(parameters.rotation_per_step))
         } else {
             OrientationMode::AlignWithPath
         };

@@ -1,16 +1,17 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
-use communication::client::{Cycler, CyclerOutput, Output};
 use eframe::{
     egui::{ComboBox, Image, Response, TextureOptions, Ui, Widget},
     epaint::Vec2,
 };
-
 use log::error;
-use nalgebra::{vector, Similarity2};
+use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
+
+use communication::client::{Cycler, CyclerOutput, Output};
+use coordinate_systems::vector;
 
 use crate::{
     image_buffer::ImageBuffer,

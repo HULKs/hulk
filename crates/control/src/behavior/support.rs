@@ -1,11 +1,10 @@
 use std::f32::consts::FRAC_PI_4;
 
-use coordinate_systems::{IntoFramed, IntoTransform, Transform};
+use coordinate_systems::{point, Pose, UnitComplex, Vector2};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
-use nalgebra::{point, Isometry2, UnitComplex, Vector2};
 use types::{
-    coordinate_systems::Ground,
+    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     filtered_game_state::FilteredGameState,
     motion_command::MotionCommand,
@@ -46,18 +45,18 @@ fn support_pose(
     distance_to_ball: f32,
     maximum_x_in_ready_and_when_ball_is_not_free: f32,
     minimum_x: f32,
-) -> Option<Transform<Ground, Ground, Isometry2<f32>>> {
+) -> Option<Pose<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
         .or(world_state.ball)
         .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
     let side = field_side.unwrap_or_else(|| ball.field_side.opposite());
-    let offset_vector = UnitComplex::new(match side {
+    let offset_vector = UnitComplex::<Field, Field>::new(match side {
         Side::Left => -FRAC_PI_4,
         Side::Right => FRAC_PI_4,
-    }) * -(Vector2::x() * distance_to_ball);
-    let supporting_position = ball.ball_in_field + offset_vector.framed();
+    }) * -(Vector2::x_axis() * distance_to_ball);
+    let supporting_position = ball.ball_in_field + offset_vector;
 
     let filtered_game_state = world_state
         .filtered_game_controller_state
@@ -78,11 +77,10 @@ fn support_pose(
     let clamped_y = supporting_position
         .y()
         .clamp(-field_dimensions.width / 2.0, field_dimensions.width / 2.0);
-    let clamped_position = point![clamped_x, clamped_y].framed();
-    let support_pose = Isometry2::new(
-        clamped_position.inner.coords,
-        clamped_position.look_at(&ball.ball_in_field).inner.angle(),
-    )
-    .framed_transform();
+    let clamped_position = point![clamped_x, clamped_y];
+    let support_pose = Pose::new(
+        clamped_position.coords(),
+        clamped_position.look_at(&ball.ball_in_field).angle(),
+    );
     Some(ground_to_field.inverse() * support_pose)
 }

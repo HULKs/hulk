@@ -1,7 +1,6 @@
-use coordinate_systems::{Framed, IntoFramed};
+use coordinate_systems::Point2;
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
-use nalgebra::Point2;
 use types::{
     coordinate_systems::Field,
     motion_command::HeadMotion,
@@ -15,7 +14,7 @@ use super::walk_to_pose::WalkPathPlanner;
 
 pub fn execute(
     world_state: &WorldState,
-    absolute_last_known_ball_position: Framed<Field, Point2<f32>>,
+    absolute_last_known_ball_position: Point2<Field>,
     walk_path_planner: &WalkPathPlanner,
     lost_ball_parameters: &LostBallParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
@@ -26,9 +25,7 @@ pub fn execute(
     let relative_last_known_ball_position =
         ground_to_field.inverse() * absolute_last_known_ball_position;
 
-    let orientation = Point2::origin()
-        .framed()
-        .look_at(&relative_last_known_ball_position);
+    let orientation = Point2::origin().look_at(&relative_last_known_ball_position);
     let path = walk_path_planner.plan(
         walk_target,
         ground_to_field,

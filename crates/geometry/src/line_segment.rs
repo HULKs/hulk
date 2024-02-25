@@ -1,19 +1,15 @@
 use std::f32::consts::TAU;
 
 use approx::{AbsDiffEq, RelativeEq};
-use nalgebra::{vector, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Framed, IntoFramed};
+use coordinate_systems::{vector, Point2, Vector2};
 
-use crate::{arc::Arc, orientation::Orientation};
+use crate::{arc::Arc, orientation::Direction};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(bound = "")]
-pub struct LineSegment<Frame>(
-    pub Framed<Frame, Point2<f32>>,
-    pub Framed<Frame, Point2<f32>>,
-);
+pub struct LineSegment<Frame>(pub Point2<Frame>, pub Point2<Frame>);
 
 // Manual implementation required because the derived version imposes Frame to be PartialEq
 impl<Frame> PartialEq for LineSegment<Frame> {
@@ -30,8 +26,8 @@ impl<Frame> AbsDiffEq for LineSegment<Frame> {
     }
 
     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        Point2::abs_diff_eq(&other.0.inner, &self.0.inner, epsilon)
-            && Point2::abs_diff_eq(&other.1.inner, &self.1.inner, epsilon)
+        Point2::abs_diff_eq(&other.0, &self.0, epsilon)
+            && Point2::abs_diff_eq(&other.1, &self.1, epsilon)
     }
 }
 
@@ -46,8 +42,8 @@ impl<Frame> RelativeEq for LineSegment<Frame> {
         epsilon: Self::Epsilon,
         max_relative: Self::Epsilon,
     ) -> bool {
-        Point2::relative_eq(&self.0.inner, &other.0.inner, epsilon, max_relative)
-            && Point2::relative_eq(&self.1.inner, &other.1.inner, epsilon, max_relative)
+        Point2::relative_eq(&self.0, &other.0, epsilon, max_relative)
+            && Point2::relative_eq(&self.1, &other.1, epsilon, max_relative)
     }
 }
 
@@ -55,7 +51,7 @@ impl<Frame> LineSegment<Frame>
 where
     Frame: Copy,
 {
-    pub fn new(start: Framed<Frame, Point2<f32>>, end: Framed<Frame, Point2<f32>>) -> Self {
+    pub fn new(start: Point2<Frame>, end: Point2<Frame>) -> Self {
         Self(start, end)
     }
     pub fn flip(self) -> Self {
@@ -70,18 +66,18 @@ where
         (self.0 - self.1).norm_squared()
     }
 
-    pub fn projection_factor(&self, point: Framed<Frame, Point2<f32>>) -> f32 {
-        let projection = (point - self.0).dot(&(self.1 - self.0));
+    pub fn projection_factor(&self, point: Point2<Frame>) -> f32 {
+        let projection = (point - self.0).dot(self.1 - self.0);
 
         projection / self.norm_squared()
     }
 
-    pub fn closest_point(&self, point: Framed<Frame, Point2<f32>>) -> Framed<Frame, Point2<f32>> {
+    pub fn closest_point(&self, point: Point2<Frame>) -> Point2<Frame> {
         let projected_factor = self.projection_factor(point).clamp(0.0, 1.0);
         self.0 + (self.1 - self.0) * projected_factor
     }
 
-    pub fn shortest_distance_to_point(&self, other_point: Framed<Frame, Point2<f32>>) -> f32 {
+    pub fn shortest_distance_to_point(&self, other_point: Point2<Frame>) -> f32 {
         (other_point - self.closest_point(other_point)).norm()
     }
 
@@ -91,10 +87,10 @@ where
             (self.get_orientation(other.0), self.get_orientation(other.1));
 
         match orientation_other_points_to_self {
-            (Orientation::Counterclockwise, Orientation::Counterclockwise)
-            | (Orientation::Clockwise, Orientation::Clockwise) => false,
+            (Direction::Counterclockwise, Direction::Counterclockwise)
+            | (Direction::Clockwise, Direction::Clockwise) => false,
 
-            (Orientation::Colinear, Orientation::Colinear) => {
+            (Direction::Colinear, Direction::Colinear) => {
                 self.overlaps_collinear_line_segment(other)
             }
 
@@ -103,7 +99,7 @@ where
                     (other.get_orientation(self.0), other.get_orientation(self.1));
 
                 orientation_self_points_to_other.0 != orientation_self_points_to_other.1
-                    || orientation_self_points_to_other.0 == Orientation::Colinear
+                    || orientation_self_points_to_other.0 == Direction::Colinear
             }
         }
     }
@@ -115,32 +111,32 @@ where
             || other.bounding_box_contains(self.1)
     }
 
-    fn bounding_box_contains(&self, point: Framed<Frame, Point2<f32>>) -> bool {
+    fn bounding_box_contains(&self, point: Point2<Frame>) -> bool {
         point.x() > f32::min(self.0.x(), self.1.x())
             && point.x() < f32::max(self.0.x(), self.1.x())
             && point.y() < f32::max(self.0.y(), self.1.y())
             && point.y() > f32::min(self.0.y(), self.1.y())
     }
 
-    pub fn get_orientation(&self, point: Framed<Frame, Point2<f32>>) -> Orientation {
+    pub fn get_orientation(&self, point: Point2<Frame>) -> Direction {
         let direction_vector = self.1 - self.0;
-        let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()].framed();
-        let directed_cathetus = clockwise_normal_vector.dot(&(point - self.0));
+        let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()];
+        let directed_cathetus = clockwise_normal_vector.dot(point - self.0);
 
         match directed_cathetus {
-            f if f == 0.0 => Orientation::Colinear,
-            f if f > 0.0 => Orientation::Clockwise,
-            f if f < 0.0 => Orientation::Counterclockwise,
+            f if f == 0.0 => Direction::Colinear,
+            f if f > 0.0 => Direction::Clockwise,
+            f if f < 0.0 => Direction::Counterclockwise,
             f => panic!("directed cathetus was not a real number: {f}"),
         }
     }
 
-    pub fn overlaps_arc(&self, arc: Arc<Frame>, orientation: Orientation) -> bool {
+    pub fn overlaps_arc(&self, arc: Arc<Frame>, orientation: Direction) -> bool {
         if self.shortest_distance_to_point(arc.circle.center) >= arc.circle.radius {
             return false;
         }
 
-        let projection = (arc.circle.center - self.0).dot(&(self.1 - self.0));
+        let projection = (arc.circle.center - self.0).dot(self.1 - self.0);
         let projected_point_relative_contribution = projection / self.norm_squared();
         let base_point = self.0 + (self.1 - self.0) * projected_point_relative_contribution;
 
@@ -148,7 +144,7 @@ where
         let base_to_intersection_length =
             f32::sqrt(arc.circle.radius.powi(2) - center_to_base_length.powi(2));
 
-        let direction_vector = vector![self.1.x() - self.0.x(), self.1.y() - self.0.y()].framed();
+        let direction_vector = vector![self.1.x() - self.0.x(), self.1.y() - self.0.y()];
         let normed_direction_vector = direction_vector.normalize();
 
         let intersection_point1 =
@@ -183,7 +179,7 @@ where
             }
 
             if (angle_start_to_obstacle < angle_start_to_end)
-                ^ (orientation == Orientation::Clockwise)
+                ^ (orientation == Direction::Clockwise)
             {
                 return true;
             }
@@ -191,7 +187,7 @@ where
         false
     }
 
-    pub fn translate(&self, translation: Framed<Frame, Vector2<f32>>) -> Self {
+    pub fn translate(&self, translation: Vector2<Frame>) -> Self {
         Self::new(self.0 + translation, self.1 + translation)
     }
 }
@@ -199,7 +195,7 @@ where
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use nalgebra::point;
+    use coordinate_systems::point;
 
     use super::*;
 
@@ -208,40 +204,37 @@ mod tests {
 
     #[test]
     fn line_segment_lengths() {
-        let line_segment =
-            LineSegment::<SomeFrame>(Point2::origin().framed(), point![0.0, 5.0].framed());
+        let line_segment = LineSegment::<SomeFrame>(Point2::origin(), point![0.0, 5.0]);
         assert_relative_eq!(line_segment.norm(), 5.0);
         assert_relative_eq!(line_segment.norm_squared(), 5.0 * 5.0);
-        let diagonal =
-            LineSegment::<SomeFrame>(point![-1.0, -1.0].framed(), point![1.0, 1.0].framed());
+        let diagonal = LineSegment::<SomeFrame>(point![-1.0, -1.0], point![1.0, 1.0]);
         assert_relative_eq!(diagonal.norm(), 8.0_f32.sqrt());
         assert_relative_eq!(diagonal.norm_squared(), 8.0);
     }
 
     #[test]
     fn shortest_distance_between_point_and_line_segment() {
-        let line_segment =
-            LineSegment::<SomeFrame>(point![-1.0, 0.0].framed(), point![1.0, 0.0].framed());
+        let line_segment = LineSegment::<SomeFrame>(point![-1.0, 0.0], point![1.0, 0.0]);
 
         assert_relative_eq!(
             0.0,
-            line_segment.shortest_distance_to_point(point![-1.0, 0.0].framed())
+            line_segment.shortest_distance_to_point(point![-1.0, 0.0])
         );
         assert_relative_eq!(
             0.0,
-            line_segment.shortest_distance_to_point(point![1.0, 0.0].framed())
+            line_segment.shortest_distance_to_point(point![1.0, 0.0])
         );
         assert_relative_eq!(
             1.0,
-            line_segment.shortest_distance_to_point(point![0.0, 1.0].framed())
+            line_segment.shortest_distance_to_point(point![0.0, 1.0])
         );
         assert_relative_eq!(
             2.0_f32.sqrt(),
-            line_segment.shortest_distance_to_point(point![2.0, -1.0].framed())
+            line_segment.shortest_distance_to_point(point![2.0, -1.0])
         );
         assert_relative_eq!(
             0.5,
-            line_segment.shortest_distance_to_point(point![-0.5, -0.5].framed())
+            line_segment.shortest_distance_to_point(point![-0.5, -0.5])
         );
     }
 
@@ -294,33 +287,29 @@ mod tests {
 
     #[test]
     fn parallel_lines_intersection() {
-        let reference_line_segment =
-            LineSegment(point![0.0, 0.0].framed(), point![1.0, 0.0].framed());
-        let line_segment = LineSegment(point![1.0, 1.0].framed(), point![2.0, 1.0].framed());
+        let reference_line_segment = LineSegment(point![0.0, 0.0], point![1.0, 0.0]);
+        let line_segment = LineSegment(point![1.0, 1.0], point![2.0, 1.0]);
         test_all_permutations(reference_line_segment, line_segment, false);
     }
 
     #[test]
     fn crossing_lines_intersection() {
-        let reference_line_segment =
-            LineSegment(point![0.0, 0.0].framed(), point![1.0, 0.0].framed());
-        let line_segment = LineSegment(point![0.5, -1.0].framed(), point![0.5, 1.0].framed());
+        let reference_line_segment = LineSegment(point![0.0, 0.0], point![1.0, 0.0]);
+        let line_segment = LineSegment(point![0.5, -1.0], point![0.5, 1.0]);
         test_all_permutations(reference_line_segment, line_segment, true);
     }
 
     #[test]
     fn t_shaped_lines_intersection() {
-        let reference_line_segment =
-            LineSegment(point![0.0, 0.0].framed(), point![1.0, 0.0].framed());
-        let line_segment = LineSegment(point![1.1, -1.0].framed(), point![1.1, 1.0].framed());
+        let reference_line_segment = LineSegment(point![0.0, 0.0], point![1.0, 0.0]);
+        let line_segment = LineSegment(point![1.1, -1.0], point![1.1, 1.0]);
         test_all_permutations(reference_line_segment, line_segment, false);
     }
 
     #[test]
     fn skew_lines_intersection() {
-        let reference_line_segment =
-            LineSegment(point![0.0, 0.0].framed(), point![1.0, 0.0].framed());
-        let line_segment = LineSegment(point![5.0, 4.0].framed(), point![4.0, 5.0].framed());
+        let reference_line_segment = LineSegment(point![0.0, 0.0], point![1.0, 0.0]);
+        let line_segment = LineSegment(point![5.0, 4.0], point![4.0, 5.0]);
         test_all_permutations(reference_line_segment, line_segment, false);
     }
 }

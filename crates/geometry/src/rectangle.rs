@@ -1,19 +1,16 @@
-use coordinate_systems::Framed;
-use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::{Point2, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Rectangle<Frame> {
-    pub min: Framed<Frame, Point2<f32>>,
-    pub max: Framed<Frame, Point2<f32>>,
+    pub min: Point2<Frame>,
+    pub max: Point2<Frame>,
 }
 
 impl<Frame> Rectangle<Frame> {
-    pub fn new_with_center_and_size(
-        center: Framed<Frame, Point2<f32>>,
-        size: Framed<Frame, Vector2<f32>>,
-    ) -> Self {
+    pub fn new_with_center_and_size(center: Point2<Frame>, size: Vector2<Frame>) -> Self {
         Self {
             min: center - size / 2.0,
             max: center + size / 2.0,

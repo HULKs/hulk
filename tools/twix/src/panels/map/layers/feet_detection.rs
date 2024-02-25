@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
-use coordinate_systems::{Framed, Transform};
 use eframe::epaint::Color32;
-use nalgebra::{Isometry2, Point2};
 
+use communication::client::{Cycler, CyclerOutput, Output};
+use coordinate_systems::{Isometry2, Point2};
 use types::{
     coordinate_systems::{Field, Ground},
     detected_feet::ClusterPoint,
@@ -72,14 +71,13 @@ impl Layer for FeetDetection {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
+        let ground_to_field: Isometry2<Ground, Field> =
             self.ground_to_field.parse_latest().unwrap_or_default();
-        let cluster_points: Vec<Framed<Ground, Point2<f32>>> =
-            [&self.cluster_bottom, &self.cluster_top]
-                .iter()
-                .filter_map(|buffer| buffer.parse_latest::<Vec<_>>().ok())
-                .flatten()
-                .collect();
+        let cluster_points: Vec<Point2<Ground>> = [&self.cluster_bottom, &self.cluster_top]
+            .iter()
+            .filter_map(|buffer| buffer.parse_latest::<Vec<_>>().ok())
+            .flatten()
+            .collect();
         for point in cluster_points {
             painter.circle_filled(ground_to_field * point, 0.05, Color32::YELLOW);
         }

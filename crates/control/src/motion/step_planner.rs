@@ -1,8 +1,9 @@
 use color_eyre::{eyre::eyre, Result};
-use context_attribute::context;
-use framework::MainOutput;
-use nalgebra::{Isometry2, UnitComplex};
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::{Orientation, Pose};
+use framework::MainOutput;
 use types::{
     motion_command::{MotionCommand, OrientationMode},
     planned_path::PathSegment,
@@ -76,33 +77,31 @@ impl StepPlanner {
             PathSegment::LineSegment(line_segment) => {
                 let direction = line_segment.1;
                 let rotation = if direction.coords().norm_squared() < f32::EPSILON {
-                    UnitComplex::identity()
+                    Orientation::identity()
                 } else {
                     let normalized_direction = direction.coords().normalize();
-                    UnitComplex::from_cos_sin_unchecked(
+                    Orientation::from_cos_sin_unchecked(
                         normalized_direction.x(),
                         normalized_direction.y(),
                     )
                 };
-                Isometry2::from_parts(line_segment.1.inner.into(), rotation)
+                Pose::from_parts(line_segment.1.coords(), rotation)
             }
             PathSegment::Arc(arc, orientation) => {
-                let direction = orientation
-                    .rotate_vector_90_degrees(arc.start - arc.circle.center)
-                    .normalize();
-                Isometry2::from_parts(
-                    (arc.start + direction * 1.0).inner.into(),
-                    UnitComplex::from_cos_sin_unchecked(direction.x(), direction.y()),
+                let direction = orientation.rotate_vector_90_degrees(arc.start - arc.circle.center);
+                Pose::from_parts(
+                    (arc.start + direction * 1.0).coords(),
+                    Orientation::from_vector(direction),
                 )
             }
         };
 
         let mut step = Step {
-            forward: target_pose.translation.x,
-            left: target_pose.translation.y,
+            forward: target_pose.position().x(),
+            left: target_pose.position().y(),
             turn: match orientation_mode {
-                OrientationMode::AlignWithPath => target_pose.rotation.angle(),
-                OrientationMode::Override(orientation) => orientation.inner.angle(),
+                OrientationMode::AlignWithPath => target_pose.orientation().angle(),
+                OrientationMode::Override(orientation) => orientation.angle(),
             },
         };
 

@@ -1,10 +1,11 @@
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::{IntoFramed, IntoTransform, Transform};
-use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, vector, Isometry3, Rotation3, UnitQuaternion, Vector3};
-use projection::Projection;
+use nalgebra::{Rotation3, UnitQuaternion};
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::{point, IntoTransform, Isometry3};
+use framework::{AdditionalOutput, MainOutput};
+use projection::Projection;
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},
     camera_position::CameraPosition,
@@ -27,8 +28,7 @@ pub struct CycleContext {
     projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
 
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    robot_to_ground:
-        RequiredInput<Option<Transform<Robot, Ground, Isometry3<f32>>>, "robot_to_ground?">,
+    robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
 
     bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
@@ -53,7 +53,7 @@ impl CameraMatrixCalculator {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let image_size = vector![640.0, 480.0];
+        let image_size = point![640.0, 480.0];
         let top_camera_to_head = camera_to_head(
             CameraPosition::Top,
             context.top_camera_matrix_parameters.extrinsic_rotations,
@@ -107,8 +107,8 @@ impl CameraMatrixCalculator {
 
 pub fn camera_to_head(
     camera_position: CameraPosition,
-    extrinsic_rotation: Vector3<f32>,
-) -> Transform<Camera, Head, Isometry3<f32>> {
+    extrinsic_rotation: nalgebra::Vector3<f32>,
+) -> Isometry3<Camera, Head> {
     let extrinsic_angles_in_radians = extrinsic_rotation.map(|a: f32| a.to_radians());
     let extrinsic_rotation = UnitQuaternion::from_euler_angles(
         extrinsic_angles_in_radians.x,
@@ -123,8 +123,8 @@ pub fn camera_to_head(
         CameraPosition::Top => 1.2f32.to_radians(),
         CameraPosition::Bottom => 39.7f32.to_radians(),
     };
-    (Isometry3::from(neck_to_camera)
-        * Isometry3::rotation(Vector3::y() * camera_pitch)
+    (nalgebra::Isometry3::from(neck_to_camera)
+        * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * camera_pitch)
         * extrinsic_rotation)
         .framed_transform()
 }
@@ -139,34 +139,28 @@ fn project_penalty_area_on_images(
     let penalty_area_width = &field_dimensions.penalty_area_width;
 
     let penalty_top_left = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, penalty_area_width / 2.0].framed())
+        .ground_to_pixel(point![field_length / 2.0, penalty_area_width / 2.0])
         .ok()?;
     let penalty_top_right = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, -penalty_area_width / 2.0].framed())
+        .ground_to_pixel(point![field_length / 2.0, -penalty_area_width / 2.0])
         .ok()?;
     let penalty_bottom_left = camera_matrix
-        .ground_to_pixel(
-            point![
-                field_length / 2.0 - penalty_area_length,
-                penalty_area_width / 2.0
-            ]
-            .framed(),
-        )
+        .ground_to_pixel(point![
+            field_length / 2.0 - penalty_area_length,
+            penalty_area_width / 2.0
+        ])
         .ok()?;
     let penalty_bottom_right = camera_matrix
-        .ground_to_pixel(
-            point![
-                field_length / 2.0 - penalty_area_length,
-                -penalty_area_width / 2.0
-            ]
-            .framed(),
-        )
+        .ground_to_pixel(point![
+            field_length / 2.0 - penalty_area_length,
+            -penalty_area_width / 2.0
+        ])
         .ok()?;
     let corner_left = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, field_width / 2.0].framed())
+        .ground_to_pixel(point![field_length / 2.0, field_width / 2.0])
         .ok()?;
     let corner_right = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, -field_width / 2.0].framed())
+        .ground_to_pixel(point![field_length / 2.0, -field_width / 2.0])
         .ok()?;
 
     Some(vec![

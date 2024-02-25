@@ -1,19 +1,21 @@
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
-use communication::client::CyclerOutput;
-use coordinate_systems::{Framed, IntoFramed};
+use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
+
 use eframe::{
     egui::{Response, Slider, TextFormat, Ui, Widget},
     epaint::{text::LayoutJob, Color32, FontId},
 };
-use nalgebra::{point, Point2};
 use serde_json::Value;
-use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
+
+use communication::client::CyclerOutput;
+use coordinate_systems::{point, Point2};
 use types::{
     camera_position::CameraPosition,
     coordinate_systems::Ground,
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand},
 };
+
+use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 
 #[derive(PartialEq)]
 enum LookAtType {
@@ -24,7 +26,7 @@ enum LookAtType {
 pub struct LookAtPanel {
     nao: Arc<Nao>,
     camera_position: Option<CameraPosition>,
-    look_at_target: Framed<Ground, Point2<f32>>,
+    look_at_target: Point2<Ground, f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
     field_dimensions_buffer: ValueBuffer,
@@ -32,7 +34,7 @@ pub struct LookAtPanel {
 }
 
 const INJECTED_MOTION_COMMAND: &str = "behavior.injected_motion_command";
-const DEFAULT_TARGET: Framed<Ground, Point2<f32>> = Framed::new(point![1.0, 0.0]);
+const DEFAULT_TARGET: Point2<Ground, f32> = point![1.0, 0.0];
 const FALLBACK_MAX_FIELD_DIMENSION: f32 = 10.0;
 
 impl Panel for LookAtPanel {
@@ -178,7 +180,7 @@ impl Widget for &mut LookAtPanel {
                         .as_ref()
                         .map_or(DEFAULT_TARGET, |dimensions| {
                             let half_field_length = dimensions.length / 2.0;
-                            point![half_field_length, 0.0].framed()
+                            point![half_field_length, 0.0]
                         })
                 }
                 LookAtType::Manual => {
@@ -225,7 +227,7 @@ impl Widget for &mut LookAtPanel {
 
 fn send_standing_look_at(
     nao: &Nao,
-    look_at_target: Framed<Ground, Point2<f32>>,
+    look_at_target: Point2<Ground, f32>,
     camera_option: Option<CameraPosition>,
 ) {
     let motion_command = Some(MotionCommand::Stand {

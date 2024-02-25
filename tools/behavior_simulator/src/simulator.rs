@@ -1,18 +1,20 @@
 use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
 
-use crate::{cycler::Database, robot::to_player_number, state::Ball};
 use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use coordinate_systems::{Framed, IntoTransform};
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
-use nalgebra::{Isometry2, Point2, Vector2};
 use parking_lot::Mutex;
+
+use coordinate_systems::{Isometry2, Point2, Vector2};
 use types::{coordinate_systems::Field, obstacles::Obstacle, players::Players};
 
 use crate::{
+    cycler::Database,
+    robot::to_player_number,
     robot::Robot,
+    state::Ball,
     state::{Event, LuaRobot, State},
 };
 
@@ -147,7 +149,7 @@ impl Simulator {
                     |lua, (player_number, position, angle): (usize, Value, f32)| {
                         let player_number =
                             to_player_number(player_number).map_err(LuaError::external)?;
-                        let position: Vector2<f32> = lua.from_value(position)?;
+                        let position: Vector2<Field> = lua.from_value(position)?;
 
                         self.state
                             .lock()
@@ -156,8 +158,7 @@ impl Simulator {
                             .unwrap()
                             .database
                             .main_outputs
-                            .ground_to_field =
-                            Some(Isometry2::new(position, angle).framed_transform());
+                            .ground_to_field = Some(Isometry2::new(position, angle));
 
                         Ok(())
                     },
@@ -170,7 +171,7 @@ impl Simulator {
                     |lua, (player_number, position, radius): (usize, Value, f32)| {
                         let player_number =
                             to_player_number(player_number).map_err(LuaError::external)?;
-                        let position: Framed<Field, Point2<f32>> = lua.from_value(position)?;
+                        let position: Point2<Field> = lua.from_value(position)?;
 
                         let ground_to_field = self
                             .state

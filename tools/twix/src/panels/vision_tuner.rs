@@ -1,12 +1,14 @@
-use communication::client::Cycler;
-use eframe::egui::{ComboBox, Response, Slider, Ui, Widget};
-use nalgebra::{Isometry2, Rotation2, Translation2};
-use serde_json::{to_value, Value};
 use std::{
     f32::consts::PI,
     fmt::{self, Display, Formatter},
     sync::Arc,
 };
+
+use eframe::egui::{ComboBox, Response, Slider, Ui, Widget};
+use nalgebra::{Isometry2, Rotation2, Translation2};
+use serde_json::{to_value, Value};
+
+use communication::client::Cycler;
 use types::interpolated::Interpolated;
 
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};

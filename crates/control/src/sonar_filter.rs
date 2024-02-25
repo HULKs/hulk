@@ -1,10 +1,10 @@
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
-use coordinate_systems::IntoFramed;
+use coordinate_systems::point;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::point;
-use serde::{Deserialize, Serialize};
 use types::{
     fall_state::FallState, sensor_data::SensorData, sonar_obstacle::SonarObstacle,
     sonar_values::SonarValues,
@@ -80,18 +80,15 @@ impl SonarFilter {
         let left_point = point![
             context.sensor_angle.cos() * self.filtered_sonar_left.state(),
             context.sensor_angle.sin() * self.filtered_sonar_left.state()
-        ]
-        .framed();
+        ];
         let right_point = point![
             context.sensor_angle.cos() * self.filtered_sonar_right.state(),
             -context.sensor_angle.sin() * self.filtered_sonar_right.state()
-        ]
-        .framed();
+        ];
         let middle_point = point![
             (self.filtered_sonar_left.state() + self.filtered_sonar_right.state()) / 2.0,
             0.0
-        ]
-        .framed();
+        ];
 
         let obstacle_positions = match (
             fall_state,

@@ -1,11 +1,12 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
 use color_eyre::Result;
+use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{vector, Isometry3, Translation3, UnitQuaternion, Vector2, Vector3};
-use serde::{Deserialize, Serialize};
 use types::{
     fall_state::FallState,
     motion_command::{Facing, FallDirection},

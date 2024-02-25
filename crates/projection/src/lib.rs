@@ -1,7 +1,7 @@
 use approx::relative_eq;
-use coordinate_systems::{Framed, IntoFramed};
-use nalgebra::{point, vector, Isometry3, Point2, Point3, Vector2, Vector3};
 use thiserror::Error;
+
+use coordinate_systems::{point, vector, IntoFramed, Isometry3, Point2, Point3, Vector3};
 use types::{
     camera_matrix::CameraMatrix,
     coordinate_systems::{Camera, Ground, Pixel, Robot},
@@ -18,99 +18,75 @@ pub enum Error {
 }
 
 pub trait Projection {
-    fn pixel_to_camera(
-        &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
-    ) -> Framed<Camera, Vector3<f32>>;
-    fn camera_to_pixel(
-        &self,
-        camera_ray: Framed<Camera, Vector3<f32>>,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error>;
-    fn pixel_to_ground(
-        &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
-    ) -> Result<Framed<Ground, Point2<f32>>, Error>;
+    fn pixel_to_camera(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera>;
+    fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error>;
+    fn pixel_to_ground(&self, pixel_coordinates: Point2<Pixel>) -> Result<Point2<Ground>, Error>;
     fn pixel_to_ground_with_z(
         &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
+        pixel_coordinates: Point2<Pixel>,
         z: f32,
-    ) -> Result<Framed<Ground, Point2<f32>>, Error>;
-    fn ground_to_pixel(
-        &self,
-        ground_coordinates: Framed<Ground, Point2<f32>>,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error>;
+    ) -> Result<Point2<Ground>, Error>;
+    fn ground_to_pixel(&self, ground_coordinates: Point2<Ground>) -> Result<Point2<Pixel>, Error>;
     fn ground_with_z_to_pixel(
         &self,
-        ground_coordinates: Framed<Ground, Point2<f32>>,
+        ground_coordinates: Point2<Ground>,
         z: f32,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error>;
+    ) -> Result<Point2<Pixel>, Error>;
     fn pixel_to_robot_with_x(
         &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
+        pixel_coordinates: Point2<Pixel>,
         x: f32,
-    ) -> Result<Framed<Robot, Point3<f32>>, Error>;
-    fn robot_to_pixel(
-        &self,
-        robot_coordinates: Framed<Robot, Point3<f32>>,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error>;
+    ) -> Result<Point3<Robot>, Error>;
+    fn robot_to_pixel(&self, robot_coordinates: Point3<Robot>) -> Result<Point2<Pixel>, Error>;
     fn get_pixel_radius(
         &self,
         radius_in_robot_coordinates: f32,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
-        resolution: Vector2<u32>,
+        pixel_coordinates: Point2<Pixel>,
+        resolution: Point2<Pixel, u32>,
     ) -> Result<f32, Error>;
 }
 
 impl Projection for CameraMatrix {
-    fn pixel_to_camera(
-        &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
-    ) -> Framed<Camera, Vector3<f32>> {
+    fn pixel_to_camera(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
         vector![
             1.0,
-            (self.optical_center.x - pixel_coordinates.inner.x) / self.focal_length.x,
-            (self.optical_center.y - pixel_coordinates.inner.y) / self.focal_length.y,
+            (self.optical_center.x - pixel_coordinates.x()) / self.focal_length.x,
+            (self.optical_center.y - pixel_coordinates.y()) / self.focal_length.y,
         ]
-        .framed()
     }
 
-    fn camera_to_pixel(
-        &self,
-        camera_ray: Framed<Camera, Vector3<f32>>,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error> {
+    fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error> {
         if camera_ray.inner.x <= 0.0 {
             return Err(Error::BehindCamera);
         }
         Ok(point![
-            self.optical_center.x - self.focal_length.x * camera_ray.inner.y / camera_ray.inner.x,
-            self.optical_center.y - self.focal_length.y * camera_ray.inner.z / camera_ray.inner.x,
-        ]
-        .framed())
+            self.optical_center.x - self.focal_length.x * camera_ray.y() / camera_ray.x(),
+            self.optical_center.y - self.focal_length.y * camera_ray.z() / camera_ray.x(),
+        ])
     }
 
-    fn pixel_to_ground(
-        &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
-    ) -> Result<Framed<Ground, Point2<f32>>, Error> {
+    fn pixel_to_ground(&self, pixel_coordinates: Point2<Pixel>) -> Result<Point2<Ground>, Error> {
         self.pixel_to_ground_with_z(pixel_coordinates, 0.0)
     }
 
     fn pixel_to_ground_with_z(
         &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
+        pixel_coordinates: Point2<Pixel>,
         z: f32,
-    ) -> Result<Framed<Ground, Point2<f32>>, Error> {
+    ) -> Result<Point2<Ground>, Error> {
+        struct ElevatedGround;
+
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
-        let camera_to_elevated_ground = Isometry3::translation(0., 0., -z) * self.camera_to_ground.inner;
+        let camera_to_elevated_ground = Isometry3::<Ground, ElevatedGround>::translation(0., 0., -z) * self.camera_to_ground;
 
-        let camera_position = camera_to_elevated_ground * Point3::origin();
-        let camera_ray_over_ground = camera_to_elevated_ground * camera_ray.inner;
+        let camera_position = camera_to_elevated_ground.origin();
+        let camera_ray_over_ground = camera_to_elevated_ground * camera_ray;
 
-        if relative_eq!(camera_ray_over_ground.z, 0.0) {
+        if relative_eq!(camera_ray_over_ground.z(), 0.0) {
             return Err(Error::NotOnProjectionPlane);
         }
 
-        let intersection_scalar = -camera_position.z / camera_ray_over_ground.z;
+        let intersection_scalar = -camera_position.z() / camera_ray_over_ground.z();
 
         if intersection_scalar < 0.0 {
             return Err(Error::BehindCamera);
@@ -118,71 +94,65 @@ impl Projection for CameraMatrix {
 
         let intersection_point = camera_position + camera_ray_over_ground * intersection_scalar;
 
-        Ok(intersection_point.xy().framed())
+        Ok(intersection_point.inner.xy().framed())
     }
 
-    fn ground_to_pixel(
-        &self,
-        ground_coordinates: Framed<Ground, Point2<f32>>,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error> {
+    fn ground_to_pixel(&self, ground_coordinates: Point2<Ground>) -> Result<Point2<Pixel>, Error> {
         self.ground_with_z_to_pixel(ground_coordinates, 0.0)
     }
 
     fn ground_with_z_to_pixel(
         &self,
-        ground_coordinates: Framed<Ground, Point2<f32>>,
+        ground_coordinates: Point2<Ground>,
         z: f32,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error> {
+    ) -> Result<Point2<Pixel>, Error> {
         self.camera_to_pixel(
             (self.ground_to_camera
-                * point![ground_coordinates.inner.x, ground_coordinates.inner.y, z].framed())
+                * point![ground_coordinates.inner.x, ground_coordinates.inner.y, z])
             .coords(),
         )
     }
 
     fn pixel_to_robot_with_x(
         &self,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
+        pixel_coordinates: Point2<Pixel>,
         x: f32,
-    ) -> Result<Framed<Robot, Point3<f32>>, Error> {
+    ) -> Result<Point3<Robot>, Error> {
         if x <= 0.0 {
             return Err(Error::BehindCamera);
         }
 
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
-        let camera_ray_over_robot = self.camera_to_ground.inner.rotation * camera_ray.inner;
+        let camera_ray_over_ground = self.camera_to_ground * camera_ray;
 
-        let distance_to_plane = x - self.camera_to_ground.inner.translation.x;
-        let slope = distance_to_plane / camera_ray_over_robot.x;
+        let distance_to_plane = x - self.camera_to_ground.origin().x();
+        let slope = distance_to_plane / camera_ray_over_ground.x();
 
         let intersection_point =
-            self.camera_to_ground.inner.translation.vector + camera_ray_over_robot * slope;
-        Ok(point![x, intersection_point.y, intersection_point.z].framed())
+            self.camera_to_ground.origin().coords() + camera_ray_over_ground * slope;
+        Ok(point![x, intersection_point.y(), intersection_point.z()])
     }
 
-    fn robot_to_pixel(
-        &self,
-        robot_coordinates: Framed<Robot, Point3<f32>>,
-    ) -> Result<Framed<Pixel, Point2<f32>>, Error> {
+    fn robot_to_pixel(&self, robot_coordinates: Point3<Robot>) -> Result<Point2<Pixel>, Error> {
         let camera_coordinates = self.robot_to_camera * robot_coordinates;
-        self.camera_to_pixel(camera_coordinates.inner.coords.framed())
+        self.camera_to_pixel(camera_coordinates.coords())
     }
 
     fn get_pixel_radius(
         &self,
         radius_in_robot_coordinates: f32,
-        pixel_coordinates: Framed<Pixel, Point2<f32>>,
-        resolution: Vector2<u32>,
+        pixel_coordinates: Point2<Pixel>,
+        resolution: Point2<Pixel, u32>,
     ) -> Result<f32, Error> {
         let robot_coordinates =
             self.pixel_to_ground_with_z(pixel_coordinates, radius_in_robot_coordinates)?;
         let camera_coordinates = self.ground_to_camera
-            * point![robot_coordinates.inner.x, robot_coordinates.inner.y, 0.0].framed();
+            * point![robot_coordinates.inner.x, robot_coordinates.inner.y, 0.0];
         let distance = camera_coordinates.inner.coords.norm();
         if distance <= radius_in_robot_coordinates {
             return Err(Error::TooClose);
         }
         let angle = (radius_in_robot_coordinates / distance).asin();
-        Ok(resolution.y as f32 * angle / self.field_of_view.y)
+        Ok(resolution.y() as f32 * angle / self.field_of_view.y)
     }
 }

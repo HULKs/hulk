@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
-use coordinate_systems::{center, Framed, IntoFramed, Transform};
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::{point, vector, Isometry2, Point2};
+
+use communication::client::CyclerOutput;
+use coordinate_systems::{center, point, Isometry2, Point2};
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
@@ -51,7 +51,7 @@ impl Layer for ImageSegments {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
+        let ground_to_field: Isometry2<Ground, Field> =
             self.ground_to_field.parse_latest().unwrap_or_default();
         paint_segments(
             painter,
@@ -71,7 +71,7 @@ impl Layer for ImageSegments {
 
 fn paint_segments(
     painter: &TwixPainter<Field>,
-    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field: Isometry2<Ground, Field>,
     camera_matrix: &CameraMatrix,
     segments: &types::image_segments::ImageSegments,
 ) -> Result<()> {
@@ -102,8 +102,8 @@ fn paint_segments(
 }
 
 struct SegmentInField {
-    start: Framed<Field, Point2<f32>>,
-    end: Framed<Field, Point2<f32>>,
+    start: Point2<Field>,
+    end: Point2<Field>,
     line_width: f32,
 }
 
@@ -111,18 +111,18 @@ fn project_segment_to_field(
     x: f32,
     segment: &types::image_segments::Segment,
     camera_matrix: &CameraMatrix,
-    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field: Isometry2<Ground, Field>,
 ) -> Result<SegmentInField> {
-    let start = point![x, segment.start as f32].framed();
-    let end = point![x, segment.end as f32].framed();
+    let start = point![x, segment.start as f32];
+    let end = point![x, segment.end as f32];
 
     let start_in_ground = camera_matrix.pixel_to_ground(start)?;
     let end_in_ground = camera_matrix.pixel_to_ground(end)?;
     let start_in_field = ground_to_field * start_in_ground;
     let end_in_field = ground_to_field * end_in_ground;
 
-    let midpoint = center(&start, &end);
-    let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint, vector![640, 480])?;
+    let midpoint = center(start, end);
+    let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint, point![640, 480])?;
     let line_width = 3.0 / pixel_radius;
 
     Ok(SegmentInField {

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, orientation::Orientation};
+use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, orientation::Direction};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -22,7 +22,7 @@ impl PathObstacleShape {
         }
     }
 
-    pub fn overlaps_arc(&self, arc: Arc<Ground>, orientation: Orientation) -> bool {
+    pub fn overlaps_arc(&self, arc: Arc<Ground>, orientation: Direction) -> bool {
         match self {
             PathObstacleShape::Circle(circle) => circle.overlaps_arc(arc, orientation),
             PathObstacleShape::LineSegment(line_segment) => {

@@ -10,6 +10,10 @@ use std::{
 use bincode::deserialize_from;
 use clap::Parser;
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+use tokio::{select, sync::Notify, time::interval};
+use tokio_util::sync::CancellationToken;
+
 use communication::server::Runtime;
 use control::{
     localization::{
@@ -18,13 +22,9 @@ use control::{
     },
     localization_recorder::RecordedCycleContext,
 };
-use coordinate_systems::{IntoFramed, Transform};
+use coordinate_systems::Isometry2;
 use framework::{multiple_buffer_with_slots, Reader, Writer};
-use nalgebra::Isometry2;
-use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use tokio::{select, sync::Notify, time::interval};
-use tokio_util::sync::CancellationToken;
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -89,7 +89,7 @@ fn merge_line_data(line_data: &BTreeMap<SystemTime, Vec<Option<LineData>>>) -> L
 
 fn line_correspondences(
     lines: &LineData,
-    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field: Isometry2<Ground, Field>,
     field_marks: &[FieldMark],
 ) -> Vec<Line2<Field>> {
     let lines: Vec<Line2<Field>> = lines
@@ -107,12 +107,12 @@ fn line_correspondences(
             let correspondence_points_1 = field_mark_correspondence.correspondence_points.1;
             [
                 Line(
-                    correspondence_points_0.measured.framed(),
-                    correspondence_points_0.reference.framed(),
+                    correspondence_points_0.measured,
+                    correspondence_points_0.reference,
                 ),
                 Line(
-                    correspondence_points_1.measured.framed(),
-                    correspondence_points_1.reference.framed(),
+                    correspondence_points_1.measured,
+                    correspondence_points_1.reference,
                 ),
             ]
         })
@@ -228,7 +228,7 @@ struct ControlMainOutputs {
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub has_ground_contact: bool,
     pub primary_state: PrimaryState,
-    pub ground_to_field: Option<Transform<Ground, Field, Isometry2<f32>>>,
+    pub ground_to_field: Option<Isometry2<Ground, Field>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

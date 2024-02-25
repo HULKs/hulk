@@ -1,9 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 
+use communication::client::CyclerOutput;
 use types::{coordinate_systems::Field, field_dimensions::FieldDimensions, line::Line2};
 
 use crate::{

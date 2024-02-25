@@ -2,9 +2,8 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Transform;
+use coordinate_systems::{distance, Isometry2, Point2, Vector2};
 use framework::MainOutput;
-use nalgebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
@@ -37,7 +36,7 @@ pub struct CycleContext {
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
-    ground_to_field: CyclerState<Transform<Ground, Field, Isometry2<f32>>, "ground_to_field">,
+    ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
 }
 
 #[context]
@@ -92,7 +91,7 @@ struct FilteredGameStates {
 
 #[allow(clippy::too_many_arguments)]
 fn filter_game_states(
-    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field: Isometry2<Ground, Field>,
     ball_position: Option<&BallPosition<Ground>>,
     field_dimensions: &FieldDimensions,
     config: &GameStateFilterParameters,
@@ -127,7 +126,7 @@ fn filter_game_states(
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
             let absolute_ball_position = ground_to_field * ball.position;
-            distance(&absolute_ball_position.inner, &Point2::origin())
+            distance(absolute_ball_position, Point2::origin())
                 > config.distance_to_consider_ball_moved_in_kick_off
         })
         .unwrap_or(false);
@@ -257,18 +256,18 @@ fn next_filtered_state(
 }
 
 fn ball_detected_far_from_any_goal(
-    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field: Isometry2<Ground, Field>,
     ball: Option<&BallPosition<Ground>>,
     field_dimensions: &FieldDimensions,
-    whistle_acceptance_goal_distance: Vector2<f32>,
+    whistle_acceptance_goal_distance: Vector2<Field>,
 ) -> bool {
     match ball {
         Some(ball) => {
             let ball_on_field = ground_to_field * ball.position;
             ball_on_field.x().abs()
-                < field_dimensions.length / 2.0 - whistle_acceptance_goal_distance.x
+                < field_dimensions.length / 2.0 - whistle_acceptance_goal_distance.x()
                 || ball_on_field.y().abs()
-                    > field_dimensions.goal_inner_width / 2.0 + whistle_acceptance_goal_distance.y
+                    > field_dimensions.goal_inner_width / 2.0 + whistle_acceptance_goal_distance.y()
         }
         None => false,
     }

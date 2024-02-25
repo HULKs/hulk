@@ -1,9 +1,9 @@
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::Transform;
-use framework::MainOutput;
-use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::Isometry2;
+use framework::MainOutput;
 use types::{
     coordinate_systems::{Field, Ground},
     field_color::FieldColor,
@@ -12,8 +12,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct FieldColorDetection {
-    ground_to_field_of_home_after_coin_toss_before_second_half:
-        Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field_of_home_after_coin_toss_before_second_half: Isometry2<Ground, Field>,
 }
 
 #[context]
@@ -41,7 +40,7 @@ pub struct CycleContext {
     >,
 
     ground_to_field_of_home_after_coin_toss_before_second_half: Input<
-        Option<Transform<Ground, Field, Isometry2<f32>>>,
+        Option<Isometry2<Ground, Field>>,
         "Control",
         "ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
@@ -56,7 +55,7 @@ pub struct MainOutputs {
 impl FieldColorDetection {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            ground_to_field_of_home_after_coin_toss_before_second_half: Transform::default(),
+            ground_to_field_of_home_after_coin_toss_before_second_half: Isometry2::identity(),
         })
     }
 

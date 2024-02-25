@@ -1,13 +1,13 @@
 use color_eyre::Result;
 use compiled_nn::CompiledNN;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
-use coordinate_systems::IntoFramed;
+use coordinate_systems::{point, vector, Vector2};
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, rectangle::Rectangle};
 use hardware::PathsInterface;
-use nalgebra::{point, vector, Vector2};
 use projection::Projection;
-use serde::{Deserialize, Serialize};
 use types::{
     ball::{Ball, CandidateEvaluation},
     camera_matrix::CameraMatrix,
@@ -123,7 +123,7 @@ impl BallDetection {
         for ball in &mut detected_balls {
             ball.merge_weight = Some(calculate_ball_merge_factor(
                 ball,
-                vector!(context.image.width(), context.image.height()),
+                vector![context.image.width(), context.image.height()],
                 context.parameters.confidence_merge_factor,
                 context.parameters.correction_proximity_merge_factor,
                 context.parameters.image_containment_merge_factor,
@@ -174,13 +174,13 @@ fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle<Pixel> {
     }
     network.apply();
     Circle {
-        center: point![network.output(0).data[0], network.output(0).data[1]].framed(),
+        center: point![network.output(0).data[0], network.output(0).data[1]],
         radius: network.output(0).data[2],
     }
 }
 
 fn sample_grayscale(image: &YCbCr422Image, candidate: Circle<Pixel>) -> Sample {
-    let top_left = candidate.center - vector![candidate.radius, candidate.radius].framed();
+    let top_left = candidate.center - vector![candidate.radius, candidate.radius];
     let image_pixels_per_sample_pixel = candidate.radius * 2.0 / SAMPLE_SIZE as f32;
 
     let mut sample = Sample::default();
@@ -230,7 +230,7 @@ fn evaluate_candidates(
 
                 corrected_circle = Some(Circle {
                     center: candidate.center
-                        + (raw_corrected_circle.center.inner.coords - vector![0.5, 0.5]).framed()
+                        + (raw_corrected_circle.center.coords() - vector![0.5, 0.5])
                             * (candidate.radius * 2.0)
                             * ball_radius_enlargement_factor,
                     radius: raw_corrected_circle.radius
@@ -261,10 +261,10 @@ fn bounding_box_patch_intersection(
     intersection_area / circle_box.area()
 }
 
-fn image_containment(circle: Circle<Pixel>, image_size: Vector2<u32>) -> f32 {
+fn image_containment(circle: Circle<Pixel>, image_size: Vector2<Pixel, u32>) -> f32 {
     let image_rectangle = Rectangle {
-        min: point![0.0, 0.0].framed(),
-        max: point![image_size.x as f32, image_size.y as f32].framed(),
+        min: point![0.0, 0.0],
+        max: point![image_size.x() as f32, image_size.y() as f32],
     };
     let circle_box = circle.bounding_box();
 
@@ -274,7 +274,7 @@ fn image_containment(circle: Circle<Pixel>, image_size: Vector2<u32>) -> f32 {
 
 fn calculate_ball_merge_factor(
     ball: &CandidateEvaluation,
-    image_size: Vector2<u32>,
+    image_size: Vector2<Pixel, u32>,
     confidence_merge_factor: f32,
     correction_proximity_merge_factor: f32,
     image_containment_merge_factor: f32,
@@ -291,7 +291,7 @@ fn calculate_ball_merge_factor(
 
 fn merge_balls(balls: &[&CandidateEvaluation]) -> Circle<Pixel> {
     let mut circle = Circle {
-        center: point![0.0, 0.0].framed(),
+        center: point![0.0, 0.0],
         radius: 0.0,
     };
 
@@ -337,7 +337,7 @@ fn project_balls_to_ground(
     clusters
         .iter()
         .filter_map(|cluster| {
-            let position = point![cluster.circle.center.x(), cluster.circle.center.y()].framed();
+            let position = point![cluster.circle.center.x(), cluster.circle.center.y()];
             match camera_matrix.pixel_to_ground_with_z(position, ball_radius) {
                 Ok(position) => Some(Ball {
                     position,
@@ -372,7 +372,7 @@ mod tests {
         let sample = sample_grayscale(
             &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
-                center: point![16.0, 16.0].framed(),
+                center: point![16.0, 16.0],
                 radius: 16.0,
             },
         );
@@ -389,7 +389,7 @@ mod tests {
         let sample = sample_grayscale(
             &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
-                center: point![16.0, 16.0].framed(),
+                center: point![16.0, 16.0],
                 radius: 16.0,
             },
         );
@@ -406,7 +406,7 @@ mod tests {
         let sample = sample_grayscale(
             &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
             Circle {
-                center: point![16.0, 16.0].framed(),
+                center: point![16.0, 16.0],
                 radius: 16.0,
             },
         );
@@ -415,7 +415,7 @@ mod tests {
         assert_relative_eq!(
             circle,
             Circle {
-                center: point![0.488, 0.514].framed(),
+                center: point![0.488, 0.514],
                 radius: 0.6311
             },
             epsilon = 0.01
@@ -426,13 +426,13 @@ mod tests {
     fn candidate_evaluation_simple() {
         let ball_candidate = CandidateEvaluation {
             candidate_circle: Circle {
-                center: point![50.0, 50.0].framed(),
+                center: point![50.0, 50.0],
                 radius: 32.0,
             },
             preclassifier_confidence: 1.0,
             classifier_confidence: Some(1.0),
             corrected_circle: Some(Circle {
-                center: point![50.0, 50.0].framed(),
+                center: point![50.0, 50.0],
                 radius: 32.0,
             }),
             merge_weight: None,
@@ -446,13 +446,13 @@ mod tests {
     fn candidate_evaluation_complex() {
         let ball_candidate = CandidateEvaluation {
             candidate_circle: Circle {
-                center: point![50.0, 50.0].framed(),
+                center: point![50.0, 50.0],
                 radius: 32.0,
             },
             preclassifier_confidence: 1.0,
             classifier_confidence: Some(0.5),
             corrected_circle: Some(Circle {
-                center: point![66.0, 50.0].framed(),
+                center: point![66.0, 50.0],
                 radius: 32.0,
             }),
             merge_weight: None,
@@ -482,21 +482,21 @@ mod tests {
         };
         let perspective_grid_candidates = PerspectiveGridCandidates {
             candidates: vec![Circle {
-                center: point![343.0, 184.0].framed(),
+                center: point![343.0, 184.0],
                 radius: 36.0,
             }],
         };
 
-        let focal_length = vector![0.95, 1.27];
-        let optical_center = point![0.5, 0.5];
+        let focal_length = nalgebra::vector![0.95, 1.27];
+        let optical_center = nalgebra::point![0.5, 0.5];
 
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             focal_length,
             optical_center,
-            vector![image.width() as f32, image.height() as f32],
+            point![image.width() as f32, image.height() as f32],
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0),
-                translation: Translation::from(point![0.0, 0.0, 0.75]),
+                translation: Translation::from(nalgebra::point![0.0, 0.0, 0.75]),
             }
             .framed_transform(),
             Isometry3::identity().framed_transform(),
@@ -537,9 +537,9 @@ mod tests {
         assert_relative_eq!(
             balls.value.unwrap()[0],
             Ball {
-                position: point![0.374, 0.008].framed(),
+                position: point![0.374, 0.008],
                 image_location: Circle {
-                    center: point![308.93, 176.42].framed(),
+                    center: point![308.93, 176.42],
                     radius: 42.92,
                 }
             },

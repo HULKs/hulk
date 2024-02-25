@@ -1,11 +1,7 @@
-use coordinate_systems::IntoTransform;
+use coordinate_systems::{point, Pose};
 use framework::AdditionalOutput;
-use nalgebra::Isometry2;
 use types::{
-    coordinate_systems::{Field, Ground},
-    field_dimensions::FieldDimensions,
-    motion_command::MotionCommand,
-    path_obstacles::PathObstacle,
+    field_dimensions::FieldDimensions, motion_command::MotionCommand, path_obstacles::PathObstacle,
     world_state::WorldState,
 };
 
@@ -19,13 +15,12 @@ pub fn execute(
     field_dimensions: &FieldDimensions,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
-    let kick_off_pose = Isometry2::translation(
+    let kick_off_pose = Pose::from_position(point![
         field_dimensions.length / 2.0
             - field_dimensions.penalty_marker_distance
             - field_dimensions.penalty_marker_size * 2.0,
-        0.0,
-    )
-    .framed_transform::<Ground, Field>();
+        0.0
+    ]);
     walk_and_stand.execute(
         ground_to_field.inverse() * kick_off_pose,
         look_action.execute(),

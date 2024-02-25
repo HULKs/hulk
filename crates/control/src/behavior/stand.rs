@@ -1,5 +1,4 @@
-use coordinate_systems::{Framed, IntoFramed};
-use nalgebra::point;
+use coordinate_systems::point;
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
@@ -32,10 +31,10 @@ pub fn execute(
                     };
                     let penalty_spot_x =
                         field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance;
-                    let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0].framed();
+                    let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
                     ground_to_field.inverse() * penalty_spot_location
                 }
-                _ => ground_to_field.inverse() * Framed::origin(),
+                _ => ground_to_field.inverse().origin(),
             };
             let target = world_state
                 .ball

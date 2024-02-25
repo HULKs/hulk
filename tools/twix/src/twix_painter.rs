@@ -3,14 +3,15 @@ use std::{
     marker::PhantomData,
 };
 
-use coordinate_systems::{Framed, IntoFramed, IntoTransform, Transform};
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Rounding, Shape, Stroke},
 };
-use geometry::{arc::Arc, circle::Circle, orientation::Orientation};
-use nalgebra::{point, vector, Isometry2, Point2, Rotation2, SMatrix, Similarity2, Vector2};
+use nalgebra::{Rotation2, SMatrix, Similarity2};
+
+use coordinate_systems::{point, vector, IntoTransform, Isometry2, Point2, Pose, Vector2};
+use geometry::{arc::Arc, circle::Circle, orientation::Direction};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -31,7 +32,6 @@ impl CoordinateSystem {
     }
 }
 
-// TODO: Investigate tagging this type and all method parameters with Frames
 pub struct TwixPainter<Frame> {
     painter: Painter,
     pixel_rect: Rect,
@@ -46,7 +46,7 @@ impl<Frame> TwixPainter<Frame> {
             ui.allocate_painter(ui.available_size_before_wrap(), Sense::click_and_drag());
         let pixel_rect = response.rect;
         let world_to_pixel = Similarity2::new(
-            vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
+            nalgebra::vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
             0.0,
             1.0,
         );
@@ -63,7 +63,7 @@ impl<Frame> TwixPainter<Frame> {
     pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
         let painter = ui.painter_at(pixel_rect);
         let world_to_pixel = Similarity2::new(
-            vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
+            nalgebra::vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
             0.0,
             1.0,
         );
@@ -78,13 +78,14 @@ impl<Frame> TwixPainter<Frame> {
 
     pub fn with_camera(
         self,
-        camera_dimensions: Vector2<f32>,
+        camera_dimensions: Vector2<Frame, f32>,
         world_to_camera: Similarity2<f32>,
         camera_coordinate_system: CoordinateSystem,
     ) -> Self {
-        let width_scale = self.pixel_rect.width() / camera_dimensions.x;
-        let height_scale = self.pixel_rect.height() / camera_dimensions.y;
-        let top_left = vector![self.pixel_rect.left_top().x, self.pixel_rect.left_top().y];
+        let width_scale = self.pixel_rect.width() / camera_dimensions.x();
+        let height_scale = self.pixel_rect.height() / camera_dimensions.y();
+        let top_left =
+            nalgebra::vector![self.pixel_rect.left_top().x, self.pixel_rect.left_top().y];
         let camera_to_pixel = Similarity2::new(top_left, 0.0, width_scale.min(height_scale));
         Self {
             painter: self.painter,
@@ -95,19 +96,11 @@ impl<Frame> TwixPainter<Frame> {
         }
     }
 
-    pub fn with_map_transforms(self, field_dimensions: &FieldDimensions) -> Self {
-        let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
-        let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
-        let dimensions = vector![length, width];
-        let world_to_camera = Similarity2::new(vector![length / 2.0, width / 2.0], 0.0, 1.0);
-        self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
-    }
-
     pub fn append_transform(&mut self, transformation: Similarity2<f32>) {
         self.world_to_pixel = transformation * self.world_to_pixel;
     }
 
-    pub fn ball(&self, position: Framed<Frame, Point2<f32>>, radius: f32) {
+    pub fn ball(&self, position: Point2<Frame>, radius: f32) {
         self.circle(
             position,
             radius,
@@ -120,24 +113,18 @@ impl<Frame> TwixPainter<Frame> {
 
         (0..5).for_each(|index| {
             let angle = index as f32 * TAU / 5.0;
-            let position = position + vector![angle.cos(), angle.sin()].framed() * radius * 0.7;
+            let position = position + vector![angle.cos(), angle.sin()] * radius * 0.7;
             self.n_gon(5, position, radius / 3.0, Color32::BLACK);
         });
         self.n_gon(5, position, radius / 3.0, Color32::BLACK);
     }
 
-    pub fn n_gon(
-        &self,
-        corners: usize,
-        position: Framed<Frame, Point2<f32>>,
-        radius: f32,
-        fill_color: Color32,
-    ) {
+    pub fn n_gon(&self, corners: usize, position: Point2<Frame>, radius: f32, fill_color: Color32) {
         let points: Vec<_> = (0..corners)
             .map(|index| {
                 self.transform_world_to_pixel({
                     let angle = index as f32 * TAU / corners as f32;
-                    position + vector![angle.cos(), angle.sin()].framed() * radius
+                    position + vector![angle.cos(), angle.sin()] * radius
                 })
             })
             .collect();
@@ -148,7 +135,7 @@ impl<Frame> TwixPainter<Frame> {
         )));
     }
 
-    pub fn polygon(&self, points: &[Framed<Frame, Point2<f32>>], stroke: Stroke) {
+    pub fn polygon(&self, points: &[Point2<Frame>], stroke: Stroke) {
         let points: Vec<_> = points
             .iter()
             .map(|point| self.transform_world_to_pixel(*point))
@@ -160,9 +147,9 @@ impl<Frame> TwixPainter<Frame> {
         )));
     }
 
-    pub fn transform_world_to_pixel(&self, point: Framed<Frame, Point2<f32>>) -> Pos2 {
+    pub fn transform_world_to_pixel(&self, point: Point2<Frame>) -> Pos2 {
         let normalized = self.world_to_pixel
-            * point![
+            * nalgebra::point![
                 point.x(),
                 point.y() * self.camera_coordinate_system.y_scale()
             ];
@@ -172,13 +159,12 @@ impl<Frame> TwixPainter<Frame> {
         }
     }
 
-    pub fn transform_pixel_to_world(&self, pos: Pos2) -> Framed<Frame, Point2<f32>> {
-        let world_point = self.world_to_pixel.inverse() * point![pos.x, pos.y];
+    pub fn transform_pixel_to_world(&self, pos: Pos2) -> Point2<Frame> {
+        let world_point = self.world_to_pixel.inverse() * nalgebra::point![pos.x, pos.y];
         point![
             world_point.x,
             world_point.y * self.camera_coordinate_system.y_scale()
         ]
-        .framed()
     }
 
     fn transform_stroke(&self, stroke: Stroke) -> Stroke {
@@ -188,24 +174,14 @@ impl<Frame> TwixPainter<Frame> {
         }
     }
 
-    pub fn line_segment(
-        &self,
-        start: Framed<Frame, Point2<f32>>,
-        end: Framed<Frame, Point2<f32>>,
-        stroke: Stroke,
-    ) {
+    pub fn line_segment(&self, start: Point2<Frame>, end: Point2<Frame>, stroke: Stroke) {
         let start = self.transform_world_to_pixel(start);
         let end = self.transform_world_to_pixel(end);
         let stroke = self.transform_stroke(stroke);
         self.painter.line_segment([start, end], stroke);
     }
 
-    pub fn rect_filled(
-        &self,
-        min: Framed<Frame, Point2<f32>>,
-        max: Framed<Frame, Point2<f32>>,
-        fill_color: Color32,
-    ) {
+    pub fn rect_filled(&self, min: Point2<Frame>, max: Point2<Frame>, fill_color: Color32) {
         let rect = Rect {
             min: self.transform_world_to_pixel(min),
             max: self.transform_world_to_pixel(max),
@@ -214,12 +190,7 @@ impl<Frame> TwixPainter<Frame> {
             .rect_filled(sort_rect(rect), Rounding::ZERO, fill_color);
     }
 
-    pub fn rect_stroke(
-        &self,
-        min: Framed<Frame, Point2<f32>>,
-        max: Framed<Frame, Point2<f32>>,
-        stroke: Stroke,
-    ) {
+    pub fn rect_stroke(&self, min: Point2<Frame>, max: Point2<Frame>, stroke: Stroke) {
         let rect = Rect {
             min: self.transform_world_to_pixel(min),
             max: self.transform_world_to_pixel(max),
@@ -229,31 +200,20 @@ impl<Frame> TwixPainter<Frame> {
             .rect_stroke(sort_rect(rect), Rounding::ZERO, stroke);
     }
 
-    pub fn circle(
-        &self,
-        center: Framed<Frame, Point2<f32>>,
-        radius: f32,
-        fill_color: Color32,
-        stroke: Stroke,
-    ) {
+    pub fn circle(&self, center: Point2<Frame>, radius: f32, fill_color: Color32, stroke: Stroke) {
         let center = self.transform_world_to_pixel(center);
         let radius = radius * self.world_to_pixel.scaling();
         let stroke = self.transform_stroke(stroke);
         self.painter.circle(center, radius, fill_color, stroke);
     }
 
-    pub fn circle_filled(
-        &self,
-        center: Framed<Frame, Point2<f32>>,
-        radius: f32,
-        fill_color: Color32,
-    ) {
+    pub fn circle_filled(&self, center: Point2<Frame>, radius: f32, fill_color: Color32) {
         let center = self.transform_world_to_pixel(center);
         let radius = radius * self.world_to_pixel.scaling();
         self.painter.circle_filled(center, radius, fill_color);
     }
 
-    pub fn circle_stroke(&self, center: Framed<Frame, Point2<f32>>, radius: f32, stroke: Stroke) {
+    pub fn circle_stroke(&self, center: Point2<Frame>, radius: f32, stroke: Stroke) {
         let center = self.transform_world_to_pixel(center);
         let radius = radius * self.world_to_pixel.scaling();
         let stroke = self.transform_stroke(stroke);
@@ -262,7 +222,7 @@ impl<Frame> TwixPainter<Frame> {
 
     pub fn ellipse(
         &self,
-        position: Framed<Frame, Point2<f32>>,
+        position: Point2<Frame>,
         w: f32,
         h: f32,
         theta: f32,
@@ -275,7 +235,7 @@ impl<Frame> TwixPainter<Frame> {
                 let t = i as f32 * TAU / samples as f32;
                 let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
                 let y = w * theta.sin() * t.cos() + h * theta.cos() * t.sin();
-                self.transform_world_to_pixel(position + vector![x, y].framed())
+                self.transform_world_to_pixel(position + vector![x, y])
             })
             .collect();
         let stroke = self.transform_stroke(stroke);
@@ -286,7 +246,7 @@ impl<Frame> TwixPainter<Frame> {
 
     pub fn covariance(
         &self,
-        position: Framed<Frame, Point2<f32>>,
+        position: Point2<Frame>,
         covariance: SMatrix<f32, 2, 2>,
         stroke: Stroke,
         fill_color: Color32,
@@ -308,7 +268,7 @@ impl<Frame> TwixPainter<Frame> {
 
     pub fn target(
         &self,
-        position: Framed<Frame, Point2<f32>>,
+        position: Point2<Frame>,
         radius: f32,
         stroke: Stroke,
         fill_color: Color32,
@@ -319,48 +279,57 @@ impl<Frame> TwixPainter<Frame> {
             point![
                 position.x() - FRAC_1_SQRT_2 * radius,
                 position.y() + FRAC_1_SQRT_2 * radius
-            ]
-            .framed(),
+            ],
             point![
                 position.x() + FRAC_1_SQRT_2 * radius,
                 position.y() - FRAC_1_SQRT_2 * radius
-            ]
-            .framed(),
+            ],
             stroke,
         );
         self.line_segment(
             point![
                 position.x() + FRAC_1_SQRT_2 * radius,
                 position.y() + FRAC_1_SQRT_2 * radius
-            ]
-            .framed(),
+            ],
             point![
                 position.x() - FRAC_1_SQRT_2 * radius,
                 position.y() - FRAC_1_SQRT_2 * radius
-            ]
-            .framed(),
+            ],
             stroke,
         );
     }
 }
 
 impl TwixPainter<Field> {
+    pub fn with_map_transforms(self, field_dimensions: &FieldDimensions) -> Self {
+        let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
+        let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
+        let dimensions = vector![length, width];
+        let world_to_camera =
+            Similarity2::new(nalgebra::vector![length / 2.0, width / 2.0], 0.0, 1.0);
+        self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
+    }
+
     pub fn pose(
         &self,
-        pose: Transform<Ground, Field, Isometry2<f32>>,
+        pose: Pose<Field>,
         circle_radius: f32,
         line_length: f32,
         fill_color: Color32,
         stroke: Stroke,
     ) {
-        let center = pose * Point2::origin().framed();
+        let center = pose.position();
         self.circle(center, circle_radius, fill_color, stroke);
-        self.line_segment(center, pose * point![line_length, 0.0].framed(), stroke);
+        self.line_segment(
+            center,
+            pose.as_transform::<Ground>() * coordinate_systems::point![line_length, 0.0],
+            stroke,
+        );
     }
 
     pub fn path(
         &self,
-        ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+        ground_to_field: Isometry2<Ground, Field>,
         path: Vec<PathSegment>,
         line_color: Color32,
         arc_color: Color32,
@@ -392,9 +361,9 @@ impl TwixPainter<Field> {
     pub fn arc(
         &self,
         arc: Arc<Ground>,
-        orientation: Orientation,
+        orientation: Direction,
         stroke: Stroke,
-        pose: Transform<Ground, Field, Isometry2<f32>>,
+        pose: Isometry2<Ground, Field>,
     ) {
         let Arc {
             circle: Circle { center, radius },
@@ -403,10 +372,10 @@ impl TwixPainter<Field> {
         } = arc;
         let start_relative = start - center;
         let end_relative = end - center;
-        let angle_difference = start_relative.angle(&end_relative);
-        let end_right_of_start = Orientation::Counterclockwise
+        let angle_difference = start_relative.angle(end_relative);
+        let end_right_of_start = Direction::Counterclockwise
             .rotate_vector_90_degrees(start_relative)
-            .dot(&end_relative)
+            .dot(end_relative)
             < 0.0;
         let counterclockwise_angle_difference = if end_right_of_start {
             TAU - angle_difference
@@ -415,9 +384,9 @@ impl TwixPainter<Field> {
         };
 
         let signed_angle_difference = match orientation {
-            Orientation::Clockwise => -TAU + counterclockwise_angle_difference,
-            Orientation::Counterclockwise => counterclockwise_angle_difference,
-            Orientation::Colinear => 0.0,
+            Direction::Clockwise => -TAU + counterclockwise_angle_difference,
+            Direction::Counterclockwise => counterclockwise_angle_difference,
+            Direction::Colinear => 0.0,
         };
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
@@ -450,13 +419,11 @@ impl TwixPainter<Field> {
             point![
                 -field_dimensions.length / 2.0 - field_dimensions.border_strip_width,
                 -field_dimensions.width / 2.0 - field_dimensions.border_strip_width
-            ]
-            .framed(),
+            ],
             point![
                 field_dimensions.length / 2.0 + field_dimensions.border_strip_width,
                 field_dimensions.width / 2.0 + field_dimensions.border_strip_width
-            ]
-            .framed(),
+            ],
             Color32::DARK_GREEN,
         );
 
@@ -465,22 +432,21 @@ impl TwixPainter<Field> {
             point![
                 -field_dimensions.length / 2.0,
                 -field_dimensions.width / 2.0
-            ]
-            .framed(),
-            point![field_dimensions.length / 2.0, field_dimensions.width / 2.0].framed(),
+            ],
+            point![field_dimensions.length / 2.0, field_dimensions.width / 2.0],
             line_stroke,
         );
 
         // Center line
         self.line_segment(
-            point![0.0, -field_dimensions.width / 2.0].framed(),
-            point![0.0, field_dimensions.width / 2.0].framed(),
+            point![0.0, -field_dimensions.width / 2.0],
+            point![0.0, field_dimensions.width / 2.0],
             line_stroke,
         );
 
         // Center center
         self.circle_stroke(
-            point![0.0, 0.0].framed(),
+            point![0.0, 0.0],
             field_dimensions.center_circle_diameter / 2.0,
             line_stroke,
         );
@@ -490,26 +456,22 @@ impl TwixPainter<Field> {
             point![
                 -field_dimensions.length / 2.0,
                 -field_dimensions.penalty_area_width / 2.0
-            ]
-            .framed(),
+            ],
             point![
                 -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
                 field_dimensions.penalty_area_width / 2.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
         self.rect_stroke(
             point![
                 field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                 -field_dimensions.penalty_area_width / 2.0
-            ]
-            .framed(),
+            ],
             point![
                 field_dimensions.length / 2.0,
                 field_dimensions.penalty_area_width / 2.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
 
@@ -518,26 +480,22 @@ impl TwixPainter<Field> {
             point![
                 -field_dimensions.length / 2.0,
                 -field_dimensions.goal_box_area_width / 2.0
-            ]
-            .framed(),
+            ],
             point![
                 -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
                 field_dimensions.goal_box_area_width / 2.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
         self.rect_stroke(
             point![
                 field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                 -field_dimensions.goal_box_area_width / 2.0
-            ]
-            .framed(),
+            ],
             point![
                 field_dimensions.length / 2.0,
                 field_dimensions.goal_box_area_width / 2.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
 
@@ -547,28 +505,24 @@ impl TwixPainter<Field> {
                 -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance
                     - field_dimensions.penalty_marker_size / 2.0,
                 0.0
-            ]
-            .framed(),
+            ],
             point![
                 -field_dimensions.length / 2.0
                     + field_dimensions.penalty_marker_distance
                     + field_dimensions.penalty_marker_size / 2.0,
                 0.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
         self.line_segment(
             point![
                 -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
                 -field_dimensions.penalty_marker_size / 2.0
-            ]
-            .framed(),
+            ],
             point![
                 -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
                 field_dimensions.penalty_marker_size / 2.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
         self.line_segment(
@@ -576,28 +530,24 @@ impl TwixPainter<Field> {
                 field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance
                     + field_dimensions.penalty_marker_size / 2.0,
                 0.0
-            ]
-            .framed(),
+            ],
             point![
                 field_dimensions.length / 2.0
                     - field_dimensions.penalty_marker_distance
                     - field_dimensions.penalty_marker_size / 2.0,
                 0.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
         self.line_segment(
             point![
                 field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
                 -field_dimensions.penalty_marker_size / 2.0
-            ]
-            .framed(),
+            ],
             point![
                 field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
                 field_dimensions.penalty_marker_size / 2.0
-            ]
-            .framed(),
+            ],
             line_stroke,
         );
 
@@ -607,8 +557,7 @@ impl TwixPainter<Field> {
                 -field_dimensions.length / 2.0 - field_dimensions.line_width / 2.0,
                 -field_dimensions.goal_inner_width / 2.0
                     - field_dimensions.goal_post_diameter / 2.0
-            ]
-            .framed(),
+            ],
             field_dimensions.goal_post_diameter / 2.0,
             Color32::WHITE,
             goal_post_stroke,
@@ -617,8 +566,7 @@ impl TwixPainter<Field> {
             point![
                 -field_dimensions.length / 2.0 - field_dimensions.line_width / 2.0,
                 field_dimensions.goal_inner_width / 2.0 + field_dimensions.goal_post_diameter / 2.0
-            ]
-            .framed(),
+            ],
             field_dimensions.goal_post_diameter / 2.0,
             Color32::WHITE,
             goal_post_stroke,
@@ -628,8 +576,7 @@ impl TwixPainter<Field> {
                 field_dimensions.length / 2.0 + field_dimensions.line_width / 2.0,
                 -field_dimensions.goal_inner_width / 2.0
                     - field_dimensions.goal_post_diameter / 2.0
-            ]
-            .framed(),
+            ],
             field_dimensions.goal_post_diameter / 2.0,
             Color32::WHITE,
             goal_post_stroke,
@@ -638,8 +585,7 @@ impl TwixPainter<Field> {
             point![
                 field_dimensions.length / 2.0 + field_dimensions.line_width / 2.0,
                 field_dimensions.goal_inner_width / 2.0 + field_dimensions.goal_post_diameter / 2.0
-            ]
-            .framed(),
+            ],
             field_dimensions.goal_post_diameter / 2.0,
             Color32::WHITE,
             goal_post_stroke,

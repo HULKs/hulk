@@ -6,8 +6,9 @@ use std::{
 };
 
 use color_eyre::{eyre::WrapErr, Result};
+
 use control::localization::generate_initial_pose;
-use nalgebra::vector;
+use coordinate_systems::point;
 use parameters::directory::deserialize;
 use spl_network_messages::PlayerNumber;
 use types::{camera_matrix::CameraMatrix, messages::IncomingMessage};
@@ -52,10 +53,13 @@ impl Robot {
 
         let mut database = Database::default();
 
-        database.main_outputs.ground_to_field = Some(generate_initial_pose(
-            &parameter.localization.initial_poses[player_number],
-            &parameter.field_dimensions,
-        ));
+        database.main_outputs.ground_to_field = Some(
+            generate_initial_pose(
+                &parameter.localization.initial_poses[player_number],
+                &parameter.field_dimensions,
+            )
+            .as_transform(),
+        );
 
         let cycler_state = Default::default();
 
@@ -81,13 +85,13 @@ impl Robot {
     }
 
     pub fn field_of_view(&self) -> f32 {
-        let image_size = vector![640.0, 480.0];
+        let image_size = point![640.0, 480.0];
         let focal_lengths = self
             .parameters
             .camera_matrix_parameters
             .vision_top
             .focal_lengths;
-        let focal_lengths_scaled = image_size.component_mul(&focal_lengths);
+        let focal_lengths_scaled = image_size.inner.coords.component_mul(&focal_lengths);
         let field_of_view = CameraMatrix::calculate_field_of_view(focal_lengths_scaled, image_size);
 
         field_of_view.x
