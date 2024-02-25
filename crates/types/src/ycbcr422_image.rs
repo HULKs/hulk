@@ -7,15 +7,18 @@ use std::{
 };
 
 use color_eyre::eyre::{self, WrapErr};
+use coordinate_systems::Point2;
 use image::{
     codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, ImageError, ImageFormat,
     RgbImage,
 };
-use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 
-use crate::color::{Rgb, YCbCr422, YCbCr444};
+use crate::{
+    color::{Rgb, YCbCr422, YCbCr444},
+    coordinate_systems::Pixel,
+};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(as_jpeg)]
@@ -254,10 +257,10 @@ impl YCbCr422Image {
     }
 }
 
-impl Index<Point2<usize>> for YCbCr422Image {
+impl Index<Point2<Pixel, usize>> for YCbCr422Image {
     type Output = YCbCr422;
 
-    fn index(&self, position: Point2<usize>) -> &Self::Output {
-        &self.buffer[position.y * self.width_422 as usize + position.x]
+    fn index(&self, position: Point2<Pixel, usize>) -> &Self::Output {
+        &self.buffer[position.y() * self.width_422 as usize + position.x()]
     }
 }

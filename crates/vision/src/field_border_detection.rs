@@ -1,10 +1,10 @@
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed};
-use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, Point2, Vector2};
-use projection::Projection;
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::{point, Point2, Vector2};
+use framework::{AdditionalOutput, MainOutput};
+use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
     color::Intensity,
@@ -25,7 +25,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    field_border_points: AdditionalOutput<Vec<Framed<Pixel, Point2<f32>>>, "field_border_points">,
+    field_border_points: AdditionalOutput<Vec<Point2<Pixel>>, "field_border_points">,
 
     enable: Parameter<bool, "field_border_detection.$cycler_instance.enable">,
     angle_threshold: Parameter<f32, "field_border_detection.$cycler_instance.angle_threshold">,
@@ -73,7 +73,7 @@ impl FieldBorderDetection {
                     &context.camera_matrix.horizon,
                     *context.horizon_margin,
                 )
-                .map(|segment| point![scan_line.position as f32, segment.start as f32].framed())
+                .map(|segment| point![scan_line.position as f32, segment.start as f32])
             })
             .collect();
         context
@@ -139,22 +139,20 @@ fn find_border_lines(
     vec![first_line, second_line]
 }
 
-fn best_fit_line(points: &[Framed<Pixel, Point2<f32>>]) -> Line2<Pixel> {
+fn best_fit_line(points: &[Point2<Pixel>]) -> Line2<Pixel> {
     let half_size = points.len() / 2;
     let line_start = find_centre_of_group(&points[0..half_size]);
     let line_end = find_centre_of_group(&points[half_size..points.len()]);
     Line(line_start, line_end)
 }
 
-fn find_centre_of_group(group: &[Framed<Pixel, Point2<f32>>]) -> Framed<Pixel, Point2<f32>> {
-    Point2::<f32> {
-        coords: group
-            .iter()
-            .map(|point| point.inner.coords)
-            .sum::<Vector2<f32>>()
-            .unscale(group.len() as f32),
-    }
-    .framed()
+fn find_centre_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
+    group
+        .iter()
+        .map(|point| point.coords())
+        .sum::<Vector2<Pixel>>()
+        .unscale(group.len() as f32)
+        .as_point()
 }
 
 fn is_orthogonal(
@@ -240,12 +238,9 @@ mod test {
 
     #[test]
     fn find_centre_of_two_points() {
-        let points = vec![
-            Point2::<f32>::new(2.0, 5.0).framed(),
-            Point2::<f32>::new(4.0, 7.0).framed(),
-        ];
+        let points = vec![point![2.0, 5.0], point![4.0, 7.0]];
         let centre = find_centre_of_group(&points);
-        assert_relative_eq!(centre, Point2::<f32>::new(3.0, 6.0).framed());
+        assert_relative_eq!(centre, point![3.0, 6.0]);
     }
 
     #[test]
@@ -254,15 +249,13 @@ mod test {
         let centre = point![
             random_number_generator.gen_range(-100.0..100.0),
             random_number_generator.gen_range(-100.0..100.0)
-        ]
-        .framed();
+        ];
         let points: Vec<_> = (0..50)
             .flat_map(|_| {
                 let new_point = point![
                     random_number_generator.gen_range(-100.0..100.0),
                     random_number_generator.gen_range(-100.0..100.0)
-                ]
-                .framed();
+                ];
                 let new_mirrored_point = centre + (centre - new_point);
                 vec![new_point, new_mirrored_point]
             })

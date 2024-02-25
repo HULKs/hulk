@@ -1,10 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
-use coordinate_systems::{Framed, IntoFramed, Transform};
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::{point, Isometry2, Point2, UnitComplex};
+
+use communication::client::CyclerOutput;
+use coordinate_systems::{Framed, IntoFramed, Isometry2, Point2};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -65,8 +65,7 @@ impl Layer for BehaviorSimulator {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         for (player_number, value_buffer) in self.ground_to_field.0.iter() {
-            let Ok(ground_to_field): Result<Transform<Ground, Field, Isometry2<f32>>> =
-                value_buffer.parse_latest()
+            let Ok(ground_to_field): Result<Isometry2<Ground, Field>> = value_buffer.parse_latest()
             else {
                 continue;
             };
@@ -95,27 +94,33 @@ impl Layer for BehaviorSimulator {
                     color: Color32::YELLOW,
                 };
                 let fov_angle = 45.0_f32.to_radians();
-                let fov_rotation = UnitComplex::from_angle(fov_angle / 2.0);
+                let fov_rotation = nalgebra::UnitComplex::from_angle(fov_angle / 2.0);
                 let fov_range = 3.0;
-                let fov_corner = point![fov_range, 0.0];
-                let head_rotation = UnitComplex::from_angle(head_yaw);
+                let fov_corner = nalgebra::point![fov_range, 0.0];
+                let head_rotation = nalgebra::UnitComplex::from_angle(head_yaw);
                 painter.line_segment(
                     ground_to_field * Framed::origin(),
                     (ground_to_field.inner * head_rotation * fov_rotation * fov_corner).framed(),
                     fov_stroke,
                 );
                 painter.line_segment(
-                    ground_to_field * Framed::origin(),
+                    ground_to_field.origin(),
                     (ground_to_field.inner * head_rotation * fov_rotation.inverse() * fov_corner)
                         .framed(),
                     fov_stroke,
                 );
             }
 
-            painter.pose(ground_to_field, 0.15, 0.25, pose_color, pose_stroke);
+            painter.pose(
+                ground_to_field.as_pose(),
+                0.15,
+                0.25,
+                pose_color,
+                pose_stroke,
+            );
         }
 
-        if let Ok(ball_position) = self.ball.parse_latest::<Framed<Field, Point2<f32>>>() {
+        if let Ok(ball_position) = self.ball.parse_latest::<Point2<Field>>() {
             painter.ball(ball_position, 0.05);
         }
 

@@ -1,4 +1,3 @@
-use coordinate_systems::{Framed, IntoFramed};
 use framework::AdditionalOutput;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
@@ -24,15 +23,14 @@ pub fn plan(
     let ball_position_in_field = ball.ball_in_field;
     let best_pose = best_kick_decision.kick_pose;
     let robot_to_ball = ball_position_in_ground.coords();
-    let dribble_pose_to_ball =
-        ball_position_in_ground.coords() - best_pose.inner.translation.vector.framed();
+    let dribble_pose_to_ball = ball_position_in_ground - best_pose.position();
 
-    let angle = robot_to_ball.angle(&dribble_pose_to_ball);
+    let angle = robot_to_ball.angle(dribble_pose_to_ball);
     let should_avoid_ball = angle > dribbling_parameters.angle_to_approach_ball_from_threshold;
     let ball_obstacle = should_avoid_ball.then_some(ball_position_in_ground);
 
     let ball_is_between_robot_and_own_goal =
-        ball_position_in_field.coords().x() - ground_to_field.inner.translation.x < 0.0f32;
+        ball_position_in_field.coords().x() - ground_to_field.origin().x() < 0.0;
     let ball_obstacle_radius_factor = if ball_is_between_robot_and_own_goal {
         1.0f32
     } else {
@@ -63,7 +61,7 @@ pub fn plan(
     };
 
     Some(walk_path_planner.plan(
-        best_pose * Framed::origin(),
+        best_pose.position(),
         ground_to_field,
         ball_obstacle,
         ball_obstacle_radius_factor,

@@ -1,10 +1,12 @@
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
+use coordinate_systems::Orientation;
 use filtering::orientation_filtering::OrientationFiltering;
 use framework::MainOutput;
-use nalgebra::UnitComplex;
-use serde::{Deserialize, Serialize};
 use types::{
+    coordinate_systems::Field,
     cycle_time::CycleTime,
     orientation_filter::{Parameters, State},
     sensor_data::SensorData,
@@ -31,7 +33,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_orientation: MainOutput<UnitComplex<f32>>,
+    pub robot_orientation: MainOutput<Orientation<Field>>,
 }
 
 impl OrientationFilter {
@@ -59,7 +61,7 @@ impl OrientationFilter {
         );
 
         Ok(MainOutputs {
-            robot_orientation: self.state.yaw().into(),
+            robot_orientation: Orientation::wrap(self.state.yaw()).into(),
         })
     }
 }

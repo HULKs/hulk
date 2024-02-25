@@ -1,11 +1,11 @@
 use std::time::SystemTime;
 
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed};
-use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, Point2};
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::{point, Point2};
+use framework::{AdditionalOutput, MainOutput};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
@@ -42,7 +42,7 @@ use super::{
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {
     last_motion_command: MotionCommand,
-    last_known_ball_position: Framed<Field, Point2<f32>>,
+    last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
 }
 
@@ -65,8 +65,7 @@ pub struct CycleContext {
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
-    striker_set_position:
-        Parameter<Framed<Field, Point2<f32>>, "behavior.role_positions.striker_set_position">,
+    striker_set_position: Parameter<Point2<Field>, "behavior.role_positions.striker_set_position">,
 }
 
 #[context]
@@ -80,7 +79,7 @@ impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_motion_command: MotionCommand::Unstiff,
-            last_known_ball_position: point![0.0, 0.0].framed(),
+            last_known_ball_position: point![0.0, 0.0],
             active_since: None,
         })
     }

@@ -1,18 +1,18 @@
 use std::f32::consts::TAU;
 
 use approx::{AbsDiffEq, RelativeEq};
-use coordinate_systems::Framed;
-use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{circle::Circle, orientation::Orientation};
+use crate::{circle::Circle, orientation::Direction};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Arc<Frame> {
     pub circle: Circle<Frame>,
-    pub start: Framed<Frame, Point2<f32>>,
-    pub end: Framed<Frame, Point2<f32>>,
+    pub start: Point2<Frame>,
+    pub end: Point2<Frame>,
 }
 
 impl<Frame> AbsDiffEq for Arc<Frame>
@@ -54,26 +54,22 @@ where
 }
 
 impl<Frame> Arc<Frame> {
-    pub fn new(
-        circle: Circle<Frame>,
-        start: Framed<Frame, Point2<f32>>,
-        end: Framed<Frame, Point2<f32>>,
-    ) -> Self {
+    pub fn new(circle: Circle<Frame>, start: Point2<Frame>, end: Point2<Frame>) -> Self {
         Self { circle, start, end }
     }
 
-    pub fn length(&self, orientation: Orientation) -> f32 {
+    pub fn length(&self, orientation: Direction) -> f32 {
         let vector_start = self.start - self.circle.center;
         let vector_end = self.end - self.circle.center;
 
         let angle_x_axis_to_start = vector_start.y().atan2(vector_start.x());
         let mut angle = vector_end.y().atan2(vector_end.x()) - angle_x_axis_to_start;
 
-        if (orientation == Orientation::Clockwise) && (angle > 0.0) {
+        if (orientation == Direction::Clockwise) && (angle > 0.0) {
             angle -= TAU;
             angle *= -1.0;
         }
-        if (orientation == Orientation::Counterclockwise) && (angle < 0.0) {
+        if (orientation == Direction::Counterclockwise) && (angle < 0.0) {
             angle += TAU;
         }
         (angle * self.circle.radius).abs()
@@ -85,8 +81,7 @@ mod tests {
     use std::f32::consts::PI;
 
     use approx::assert_relative_eq;
-    use coordinate_systems::IntoFramed;
-    use nalgebra::{point, vector, UnitComplex};
+    use coordinate_systems::{point, vector, UnitComplex};
 
     use super::*;
 
@@ -96,25 +91,25 @@ mod tests {
     fn arc_cost_90_degrees() {
         let arc = Arc::<SomeFrame> {
             circle: Circle {
-                center: point![1.0, 1.0].framed(),
+                center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: point![1.0, 2.0].framed(),
-            end: point![2.0, 1.0].framed(),
+            start: point![1.0, 2.0],
+            end: point![2.0, 1.0],
         };
-        assert_relative_eq!(arc.length(Orientation::Clockwise), PI);
-        assert_relative_eq!(arc.length(Orientation::Counterclockwise), 3.0 * PI);
+        assert_relative_eq!(arc.length(Direction::Clockwise), PI);
+        assert_relative_eq!(arc.length(Direction::Counterclockwise), 3.0 * PI);
 
         let arc = Arc::<SomeFrame> {
             circle: Circle {
-                center: point![1.0, 1.0].framed(),
+                center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: point![2.0, 1.0].framed(),
-            end: point![1.0, 2.0].framed(),
+            start: point![2.0, 1.0],
+            end: point![1.0, 2.0],
         };
-        assert_relative_eq!(arc.length(Orientation::Clockwise), 3.0 * PI);
-        assert_relative_eq!(arc.length(Orientation::Counterclockwise), PI);
+        assert_relative_eq!(arc.length(Direction::Clockwise), 3.0 * PI);
+        assert_relative_eq!(arc.length(Direction::Counterclockwise), PI);
     }
 
     #[test]
@@ -123,10 +118,10 @@ mod tests {
             let angle = angle_index as f32 / 100.0 * TAU;
             for angle_distance_index in 1..100 {
                 let angle_distance = angle_distance_index as f32 / 100.0 * TAU;
-                let start = (UnitComplex::from_angle(angle) * vector![1.0, 0.0]).framed();
-                let end =
-                    (UnitComplex::from_angle(angle + angle_distance) * vector![1.0, 0.0]).framed();
-                let center = point![PI, 4.20].framed();
+                let start = UnitComplex::<SomeFrame, SomeFrame>::new(angle) * vector![1.0, 0.0];
+                let end = UnitComplex::<SomeFrame, SomeFrame>::new(angle + angle_distance)
+                    * vector![1.0, 0.0];
+                let center = point![PI, 4.20];
                 let radius = 5.0;
                 let arc = Arc::<SomeFrame> {
                     circle: Circle { center, radius },
@@ -136,12 +131,12 @@ mod tests {
 
                 println!("angle: {angle} angle_distance {angle_distance}");
                 assert_relative_eq!(
-                    arc.length(Orientation::Counterclockwise),
+                    arc.length(Direction::Counterclockwise),
                     radius * angle_distance,
                     epsilon = 0.001
                 );
                 assert_relative_eq!(
-                    arc.length(Orientation::Clockwise),
+                    arc.length(Direction::Clockwise),
                     radius * (TAU - angle_distance),
                     epsilon = 0.001
                 );

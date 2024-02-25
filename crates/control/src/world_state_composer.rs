@@ -1,8 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Framed, Transform};
+use coordinate_systems::{Isometry2, Point2};
 use framework::MainOutput;
-use nalgebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
@@ -29,7 +28,7 @@ pub struct CycleContext {
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    ground_to_field: Input<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
 
@@ -41,7 +40,7 @@ pub struct CycleContext {
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
-    position_of_interest: Input<Framed<Ground, Point2<f32>>, "position_of_interest">,
+    position_of_interest: Input<Point2<Ground>, "position_of_interest">,
 }
 
 #[context]

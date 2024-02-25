@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
     hash::Hash,
+    iter::Sum,
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 #[derive(Debug)]
@@ -16,7 +17,7 @@ pub struct Framed<Frame, Inner> {
 impl<Frame, Inner> Copy for Framed<Frame, Inner> where Inner: Copy {}
 
 impl<Frame, Inner> Framed<Frame, Inner> {
-    pub const fn new(inner: Inner) -> Self {
+    pub const fn wrap(inner: Inner) -> Self {
         Self {
             frame: PhantomData,
             inner,
@@ -29,7 +30,7 @@ where
     Inner: Clone,
 {
     fn clone(&self) -> Self {
-        Self::new(self.inner.clone())
+        Self::wrap(self.inner.clone())
     }
 }
 
@@ -38,7 +39,7 @@ where
     Inner: Default,
 {
     fn default() -> Self {
-        Self::new(Inner::default())
+        Self::wrap(Inner::default())
     }
 }
 
@@ -49,7 +50,7 @@ where
     type Output = Framed<Frame, SelfInner::Output>;
 
     fn add(self, right: Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::new(self.inner + right.inner)
+        Self::Output::wrap(self.inner + right.inner)
     }
 }
 
@@ -69,7 +70,7 @@ where
     type Output = Framed<Frame, SelfInner::Output>;
 
     fn sub(self, right: Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::new(self.inner - right.inner)
+        Self::Output::wrap(self.inner - right.inner)
     }
 }
 
@@ -82,6 +83,17 @@ where
     }
 }
 
+impl<Frame, Inner> Neg for Framed<Frame, Inner>
+where
+    Inner: Neg,
+{
+    type Output = Framed<Frame, Inner::Output>;
+
+    fn neg(self) -> Self::Output {
+        Framed::wrap(self.inner.neg())
+    }
+}
+
 impl<Frame, Inner> Mul<f32> for Framed<Frame, Inner>
 where
     Inner: Mul<f32, Output = Inner>,
@@ -89,7 +101,7 @@ where
     type Output = Framed<Frame, Inner::Output>;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        Self::new(self.inner * rhs)
+        Self::wrap(self.inner * rhs)
     }
 }
 
@@ -109,7 +121,7 @@ where
     type Output = Framed<Frame, Inner::Output>;
 
     fn div(self, rhs: f32) -> Self::Output {
-        Self::new(self.inner / rhs)
+        Self::wrap(self.inner / rhs)
     }
 }
 
@@ -133,7 +145,7 @@ where
     where
         D: serde::Deserializer<'a>,
     {
-        Ok(Self::new(Inner::deserialize(deserializer)?))
+        Ok(Self::wrap(Inner::deserialize(deserializer)?))
     }
 }
 
@@ -226,5 +238,14 @@ where
         // TODO: do we want to hash the state? does it even do anything?
         self.frame.hash(state);
         self.inner.hash(state);
+    }
+}
+
+impl<Frame, Inner> Sum for Framed<Frame, Inner>
+where
+    Inner: Sum,
+{
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Self::wrap(iter.map(|framed| framed.inner).sum())
     }
 }

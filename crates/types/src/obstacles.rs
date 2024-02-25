@@ -1,6 +1,6 @@
-use coordinate_systems::Framed;
-use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::coordinate_systems::Ground;
@@ -17,13 +17,13 @@ pub enum ObstacleKind {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Obstacle {
     pub kind: ObstacleKind,
-    pub position: Framed<Ground, Point2<f32>>,
+    pub position: Point2<Ground>,
     pub radius_at_foot_height: f32,
     pub radius_at_hip_height: f32,
 }
 
 impl Obstacle {
-    pub fn ball(position: Framed<Ground, Point2<f32>>, radius: f32) -> Self {
+    pub fn ball(position: Point2<Ground>, radius: f32) -> Self {
         Self {
             kind: ObstacleKind::Ball,
             position,
@@ -33,7 +33,7 @@ impl Obstacle {
     }
 
     pub fn robot(
-        position: Framed<Ground, Point2<f32>>,
+        position: Point2<Ground>,
         radius_at_foot_height: f32,
         radius_at_hip_height: f32,
     ) -> Self {
@@ -45,7 +45,7 @@ impl Obstacle {
         }
     }
 
-    pub fn goal_post(position: Framed<Ground, Point2<f32>>, radius: f32) -> Self {
+    pub fn goal_post(position: Point2<Ground>, radius: f32) -> Self {
         Self {
             kind: ObstacleKind::GoalPost,
             position,

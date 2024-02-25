@@ -2,10 +2,9 @@ use std::time::SystemTime;
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed, Transform};
+use coordinate_systems::{point, Isometry2, Point2, Vector2};
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
-use nalgebra::{point, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
@@ -33,7 +32,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
-    ground_to_field: Input<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
     primary_state: Input<PrimaryState, "primary_state">,
     filtered_game_controller_state:
@@ -102,20 +101,20 @@ impl BallStateComposer {
                 };
                 let penalty_spot_x = context.field_dimensions.length / 2.0
                     - context.field_dimensions.penalty_marker_distance;
-                let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0].framed();
+                let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
                 Some(create_ball_state(
                     ground_to_field.inverse() * penalty_spot_location,
                     penalty_spot_location,
-                    Vector2::zeros().framed(),
+                    Vector2::zeros(),
                     context.cycle_time.start_time,
                     &mut self.last_ball_field_side,
                     context.penalty_shot_direction.copied(),
                 ))
             }
             (PrimaryState::Ready, Some(ground_to_field), ..) => Some(create_ball_state(
-                ground_to_field.inverse() * Point2::origin().framed(),
-                Point2::origin().framed(),
-                Vector2::zeros().framed(),
+                ground_to_field.inverse() * Point2::origin(),
+                Point2::origin(),
+                Vector2::zeros(),
                 context.cycle_time.start_time,
                 &mut self.last_ball_field_side,
                 context.penalty_shot_direction.copied(),
@@ -131,16 +130,16 @@ impl BallStateComposer {
 }
 
 fn create_ball_state(
-    ball_in_ground: Framed<Ground, Point2<f32>>,
-    ball_in_field: Framed<Field, Point2<f32>>,
-    ball_in_ground_velocity: Framed<Ground, Vector2<f32>>,
+    ball_in_ground: Point2<Ground>,
+    ball_in_field: Point2<Field>,
+    ball_in_ground_velocity: Vector2<Ground>,
     last_seen_ball: SystemTime,
     last_ball_field_side: &mut Side,
     penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
     let is_in_left_half =
-        greater_than_with_hysteresis(was_in_left_half, ball_in_field.inner.y, 0.0, 0.1);
+        greater_than_with_hysteresis(was_in_left_half, ball_in_field.y(), 0.0, 0.1);
     let side = if is_in_left_half {
         Side::Left
     } else {

@@ -1,10 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
-use coordinate_systems::Transform;
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::Isometry2;
+
+use communication::client::CyclerOutput;
+use coordinate_systems::Isometry2;
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -39,8 +39,7 @@ impl Layer for PathObstacles {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
-            self.ground_to_field.require_latest()?;
+        let ground_to_field: Isometry2<Ground, Field> = self.ground_to_field.require_latest()?;
         let path_obstacles: Vec<PathObstacle> = self.path_obstacles.require_latest()?;
 
         let path_obstacle_stroke = Stroke {

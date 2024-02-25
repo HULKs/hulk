@@ -1,5 +1,4 @@
-use coordinate_systems::Framed;
-use nalgebra::Point2;
+use coordinate_systems::Point2;
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
@@ -50,9 +49,9 @@ fn project_line_and_map_error(
 
 fn project_point_and_map_error(
     matrix: &CameraMatrix,
-    point: Framed<Pixel, Point2<f32>>,
+    point: Point2<Pixel>,
     which: String,
-) -> Result<Framed<Ground, Point2<f32>>, LinesError> {
+) -> Result<Point2<Ground>, LinesError> {
     matrix
         .pixel_to_ground(point)
         .map_err(|source| LinesError::NotProjected { source, which })

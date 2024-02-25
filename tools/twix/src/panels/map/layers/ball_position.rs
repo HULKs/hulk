@@ -1,10 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
-use coordinate_systems::Transform;
 use eframe::epaint::Color32;
-use nalgebra::Isometry2;
+
+use communication::client::CyclerOutput;
+use coordinate_systems::Isometry2;
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -40,7 +40,7 @@ impl Layer for BallPosition {
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ground_to_fields: Vec<Option<Transform<Ground, Field, Isometry2<f32>>>> =
+        let ground_to_fields: Vec<Option<Isometry2<Ground, Field>>> =
             self.ground_to_field.parse_buffered()?;
         let ball_positions: Vec<Option<types::ball_position::BallPosition<Ground>>> =
             self.ball_position.parse_buffered()?;

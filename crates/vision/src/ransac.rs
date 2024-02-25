@@ -1,5 +1,4 @@
-use coordinate_systems::Framed;
-use nalgebra::Point2;
+use coordinate_systems::Point2;
 use ordered_float::NotNan;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, SeedableRng};
 use types::line::{Line, Line2};
@@ -7,16 +6,16 @@ use types::line::{Line, Line2};
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {
     pub line: Option<Line2<Frame>>,
-    pub used_points: Vec<Framed<Frame, Point2<f32>>>,
+    pub used_points: Vec<Point2<Frame>>,
 }
 
 pub struct Ransac<Frame> {
-    pub unused_points: Vec<Framed<Frame, Point2<f32>>>,
+    pub unused_points: Vec<Point2<Frame>>,
     random_number_generator: StdRng,
 }
 
 impl<Frame> Ransac<Frame> {
-    pub fn new(unused_points: Vec<Framed<Frame, Point2<f32>>>) -> Self {
+    pub fn new(unused_points: Vec<Point2<Frame>>) -> Self {
         Self {
             unused_points,
             random_number_generator: StdRng::from_rng(thread_rng())
@@ -74,18 +73,14 @@ impl<Frame> Ransac<Frame> {
 #[cfg(test)]
 mod test {
     use approx::assert_relative_eq;
-    use coordinate_systems::IntoFramed;
-    use nalgebra::point;
+    use coordinate_systems::point;
 
     use super::*;
 
     #[derive(Debug, PartialEq, Eq, Default)]
     struct SomeFrame;
 
-    fn ransac_with_seed(
-        unused_points: Vec<Framed<SomeFrame, Point2<f32>>>,
-        seed: u64,
-    ) -> Ransac<SomeFrame> {
+    fn ransac_with_seed(unused_points: Vec<Point2<SomeFrame>>, seed: u64) -> Ransac<SomeFrame> {
         Ransac {
             unused_points,
             random_number_generator: StdRng::seed_from_u64(seed),
@@ -100,23 +95,20 @@ mod test {
 
     #[test]
     fn ransac_single_point() {
-        let mut ransac = ransac_with_seed(vec![point![15.0, 15.0].framed()], 0);
+        let mut ransac = ransac_with_seed(vec![point![15.0, 15.0]], 0);
         assert_eq!(ransac.next_line(10, 5.0, 5.0), RansacResult::default());
     }
 
     #[test]
     fn ransac_two_points() {
-        let mut ransac = ransac_with_seed(
-            vec![point![15.0, 15.0].framed(), point![30.0, 30.0].framed()],
-            0,
-        );
+        let mut ransac = ransac_with_seed(vec![point![15.0, 15.0], point![30.0, 30.0]], 0);
         let result = ransac.next_line(10, 5.0, 5.0);
         assert_relative_eq!(
             result.line.expect("No line found"),
-            Line(point![15.0, 15.0].framed(), point![30.0, 30.0].framed())
+            Line(point![15.0, 15.0], point![30.0, 30.0])
         );
-        assert_relative_eq!(result.used_points[0], point![15.0, 15.0].framed());
-        assert_relative_eq!(result.used_points[1], point![30.0, 30.0].framed());
+        assert_relative_eq!(result.used_points[0], point![15.0, 15.0]);
+        assert_relative_eq!(result.used_points[1], point![30.0, 30.0]);
     }
 
     #[test]
@@ -124,7 +116,7 @@ mod test {
         let slope = 5.3;
         let y_intercept = -83.1;
         let points: Vec<_> = (0..100)
-            .map(|x| point![x as f32, y_intercept + x as f32 * slope].framed())
+            .map(|x| point![x as f32, y_intercept + x as f32 * slope])
             .collect();
 
         let mut ransac = ransac_with_seed(points.clone(), 0);

@@ -2,9 +2,9 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::CyclerOutput;
-use coordinate_systems::{Framed, Transform};
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::{Isometry2, Point2};
+
+use coordinate_systems::{Isometry2, Point2};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -53,14 +53,13 @@ impl Layer for KickDecisions {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ground_to_field: Transform<Ground, Field, Isometry2<f32>> =
-            self.ground_to_field.require_latest()?;
+        let ground_to_field: Isometry2<Ground, Field> = self.ground_to_field.require_latest()?;
         let kick_decisions: Vec<KickDecision> = self.kick_decisions.require_latest()?;
         let best_kick_decision = kick_decisions.first();
         let instant_kick_decisions: Vec<KickDecision> =
             self.instant_kick_decisions.require_latest()?;
-        let kick_targets: Vec<Framed<Ground, Point2<f32>>> = self.kick_targets.require_latest()?;
-        let instant_kick_targets: Vec<Framed<Ground, Point2<f32>>> =
+        let kick_targets: Vec<Point2<Ground>> = self.kick_targets.require_latest()?;
+        let instant_kick_targets: Vec<Point2<Ground>> =
             self.instant_kick_targets.require_latest()?;
 
         for kick_decision in &kick_decisions {

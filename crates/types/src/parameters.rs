@@ -1,8 +1,8 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
-use coordinate_systems::Framed;
-use nalgebra::{Point2, Vector2, Vector3, Vector4};
+use coordinate_systems::{Point2, Vector2};
+use nalgebra::{Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -47,11 +47,11 @@ pub struct BehaviorParameters {
     pub initial_lookaround_duration: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LookActionParameters {
     pub angle_threshold: f32,
     pub distance_threshold: f32,
-    pub look_forward_position: Framed<Ground, Point2<f32>>,
+    pub look_forward_position: Point2<Ground>,
     pub position_of_interest_switch_interval: Duration,
 }
 
@@ -71,7 +71,7 @@ pub struct RolePositionsParameters {
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub striker_distance_to_non_free_center_circle: f32,
-    pub striker_set_position: Framed<Field, Point2<f32>>,
+    pub striker_set_position: Point2<Field>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -110,7 +110,7 @@ impl Index<KickVariant> for InWalkKicksParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InWalkKickInfoParameters {
-    pub offset: Vector2<f32>,
+    pub offset: nalgebra::Vector2<f32>,
     pub shot_angle: f32,
     pub reached_thresholds: Vector3<f32>,
     pub shot_distance: f32,
@@ -127,15 +127,15 @@ pub struct DribblingParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct WalkAndStandParameters {
-    pub hysteresis: Vector2<f32>,
-    pub target_reached_thresholds: Vector2<f32>,
+    pub hysteresis: nalgebra::Vector2<f32>,
+    pub target_reached_thresholds: nalgebra::Vector2<f32>,
     pub hybrid_align_distance: f32,
     pub distance_to_be_aligned: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct LostBallParameters {
-    pub offset_to_last_ball_location: Framed<Field, Vector2<f32>>,
+    pub offset_to_last_ball_location: Vector2<Field>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -167,7 +167,7 @@ pub struct GameStateFilterParameters {
     pub kick_off_grace_period: Duration,
     pub tentative_finish_duration: Duration,
     pub distance_to_consider_ball_moved_in_kick_off: f32,
-    pub whistle_acceptance_goal_distance: Vector2<f32>,
+    pub whistle_acceptance_goal_distance: Vector2<Field>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -302,8 +302,8 @@ pub struct BallFilterParameters {
     pub measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,
     pub process_noise: Vector4<f32>,
-    pub measurement_noise_moving: Vector2<f32>,
-    pub measurement_noise_resting: Vector2<f32>,
+    pub measurement_noise_moving: nalgebra::Vector2<f32>,
+    pub measurement_noise_resting: nalgebra::Vector2<f32>,
     pub initial_covariance: Vector4<f32>,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
@@ -320,12 +320,12 @@ pub struct ObstacleFilterParameters {
     pub feet_detection_measurement_matching_distance: f32,
     pub goal_post_measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,
-    pub process_noise: Vector2<f32>,
-    pub feet_measurement_noise: Vector2<f32>,
-    pub robot_measurement_noise: Vector2<f32>,
-    pub sonar_measurement_noise: Vector2<f32>,
-    pub network_robot_measurement_noise: Vector2<f32>,
-    pub initial_covariance: Vector2<f32>,
+    pub process_noise: nalgebra::Vector2<f32>,
+    pub feet_measurement_noise: nalgebra::Vector2<f32>,
+    pub robot_measurement_noise: nalgebra::Vector2<f32>,
+    pub sonar_measurement_noise: nalgebra::Vector2<f32>,
+    pub network_robot_measurement_noise: nalgebra::Vector2<f32>,
+    pub initial_covariance: nalgebra::Vector2<f32>,
     pub measurement_count_threshold: usize,
     pub use_feet_detection_measurements: bool,
     pub use_sonar_measurements: bool,
@@ -343,15 +343,15 @@ pub struct FallStateEstimationParameters {
     pub roll_pitch_low_pass_factor: f32,
     pub gravitational_acceleration_threshold: f32,
     pub fallen_timeout: Duration,
-    pub falling_angle_threshold_left: Vector2<f32>,
-    pub falling_angle_threshold_forward: Vector2<f32>,
+    pub falling_angle_threshold_left: nalgebra::Vector2<f32>,
+    pub falling_angle_threshold_forward: nalgebra::Vector2<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrixParameters {
     pub extrinsic_rotations: Vector3<f32>,
-    pub focal_lengths: Vector2<f32>,
-    pub cc_optical_center: Point2<f32>,
+    pub focal_lengths: nalgebra::Vector2<f32>,
+    pub cc_optical_center: nalgebra::Point2<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

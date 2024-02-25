@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput};
-use coordinate_systems::Framed;
 use eframe::epaint::{Color32, Stroke};
-use nalgebra::Point2;
+
+use communication::client::{Cycler, CyclerOutput};
+use coordinate_systems::Point2;
 use types::{coordinate_systems::Pixel, line::Line2, line_data::LineDiscardReason};
 
 use crate::{
@@ -41,7 +41,7 @@ impl Overlay for LineDetection {
         let lines_in_image: Vec<Line2<Pixel>> = self.lines_in_image.require_latest()?;
         let discarded_lines: Vec<(Line2<Pixel>, LineDiscardReason)> =
             self.discarded_lines.require_latest()?;
-        let ransac_input: Vec<Framed<Pixel, Point2<f32>>> = self.ransac_input.require_latest()?;
+        let ransac_input: Vec<Point2<Pixel>> = self.ransac_input.require_latest()?;
         for point in ransac_input {
             painter.circle_stroke(point, 3.0, Stroke::new(1.0, Color32::RED))
         }

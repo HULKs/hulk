@@ -1,14 +1,15 @@
+use std::time::{Duration, SystemTime};
+
 use color_eyre::{eyre::WrapErr, Result};
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed, IntoTransform, Transform};
+use coordinate_systems::{Framed, IntoFramed, IntoTransform, Isometry2, Point2};
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use nalgebra::{Isometry2, Point2};
-use serde::{Deserialize, Serialize};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, Team,
 };
-use std::time::{Duration, SystemTime};
 use types::{
     ball_position::BallPosition,
     coordinate_systems::{Field, Ground},
@@ -47,7 +48,7 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
-    ground_to_field: Input<Option<Transform<Ground, Field, Isometry2<f32>>>, "ground_to_field?">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
@@ -68,7 +69,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub team_ball: MainOutput<Option<BallPosition<Field>>>,
-    pub network_robot_obstacles: MainOutput<Vec<Framed<Ground, Point2<f32>>>>,
+    pub network_robot_obstacles: MainOutput<Vec<Point2<Ground>>>,
     pub role: MainOutput<Role>,
 }
 
@@ -98,7 +99,8 @@ impl RoleAssignment {
                     PrimaryState::Initial => generate_initial_pose(
                         &context.initial_poses[*context.player_number],
                         context.field_dimensions,
-                    ),
+                    )
+                    .as_transform(),
                     _ => Default::default(),
                 });
 
@@ -333,7 +335,7 @@ impl RoleAssignment {
 #[allow(clippy::too_many_arguments)]
 fn process_role_state_machine(
     current_role: Role,
-    current_pose: Transform<Ground, Field, Isometry2<f32>>,
+    current_pose: Isometry2<Ground, Field>,
     detected_own_ball: Option<&BallPosition<Ground>>,
     primary_state: PrimaryState,
     incoming_message: Option<&HulkMessage>,
@@ -622,7 +624,7 @@ fn seen_ball_to_network_ball_position(
 
 fn team_ball_to_network_ball_position(
     team_ball: Option<BallPosition<Field>>,
-    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field: Isometry2<Ground, Field>,
     cycle_start_time: SystemTime,
 ) -> Option<spl_network_messages::BallPosition> {
     team_ball.map(|team_ball| spl_network_messages::BallPosition {
@@ -649,7 +651,7 @@ fn team_ball_from_spl_message(
 
 fn team_ball_from_seen_ball(
     ball: Option<&BallPosition<Ground>>,
-    ground_to_field: Transform<Ground, Field, Isometry2<f32>>,
+    ground_to_field: Isometry2<Ground, Field>,
     cycle_start_time: SystemTime,
 ) -> Option<BallPosition<Field>> {
     ball.as_ref().map(|ball| BallPosition {

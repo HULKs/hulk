@@ -1,4 +1,3 @@
-use nalgebra::{point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
@@ -7,7 +6,7 @@ use crate::{
     field_dimensions::FieldDimensions,
     line::{Line, Line2},
 };
-use coordinate_systems::{distance, Framed, IntoFramed};
+use coordinate_systems::{distance, point, vector, Point2, Vector2};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum FieldMark {
@@ -16,7 +15,7 @@ pub enum FieldMark {
         direction: Direction,
     },
     Circle {
-        center: Framed<Field, Point2<f32>>,
+        center: Point2<Field>,
         radius: f32,
     },
 }
@@ -35,10 +34,10 @@ impl FieldMark {
                 direction: _,
             } => {
                 let measured_line = match [
-                    distance(&measured_line.0, &reference_line.0),
-                    distance(&measured_line.0, &reference_line.1),
-                    distance(&measured_line.1, &reference_line.0),
-                    distance(&measured_line.1, &reference_line.1),
+                    distance(measured_line.0, reference_line.0),
+                    distance(measured_line.0, reference_line.1),
+                    distance(measured_line.1, reference_line.0),
+                    distance(measured_line.1, reference_line.1),
                 ]
                 .iter()
                 .enumerate()
@@ -50,47 +49,47 @@ impl FieldMark {
                     _ => measured_line,
                 };
 
-                let measured_direction = (measured_line.0 - measured_line.1).inner.normalize();
-                let reference_direction = (reference_line.0 - reference_line.1).inner.normalize();
+                let measured_direction = (measured_line.0 - measured_line.1).normalize();
+                let reference_direction = (reference_line.0 - reference_line.1).normalize();
 
                 let projected_point_on_measured_line =
-                    measured_line.project_onto_segment(reference_line.0).inner;
+                    measured_line.project_onto_segment(reference_line.0);
                 let projected_point_on_reference_line =
-                    reference_line.project_onto_segment(measured_line.0).inner;
+                    reference_line.project_onto_segment(measured_line.0);
 
                 let measured_distance =
-                    nalgebra::distance(&projected_point_on_measured_line, &reference_line.0.inner);
+                    distance(projected_point_on_measured_line, reference_line.0);
                 let reference_distance =
-                    nalgebra::distance(&measured_line.0.inner, &projected_point_on_reference_line);
+                    distance(measured_line.0, projected_point_on_reference_line);
                 let correspondence_0 = if measured_distance < reference_distance {
                     CorrespondencePoints {
                         measured: projected_point_on_measured_line,
-                        reference: reference_line.0.inner,
+                        reference: reference_line.0,
                     }
                 } else {
                     CorrespondencePoints {
-                        measured: measured_line.0.inner,
+                        measured: measured_line.0,
                         reference: projected_point_on_reference_line,
                     }
                 };
 
                 let projected_point_on_measured_line =
-                    measured_line.project_onto_segment(reference_line.1).inner;
+                    measured_line.project_onto_segment(reference_line.1);
                 let projected_point_on_reference_line =
-                    reference_line.project_onto_segment(measured_line.1).inner;
+                    reference_line.project_onto_segment(measured_line.1);
 
                 let measured_distance =
-                    nalgebra::distance(&projected_point_on_measured_line, &reference_line.1.inner);
+                    distance(projected_point_on_measured_line, reference_line.1);
                 let reference_distance =
-                    nalgebra::distance(&measured_line.1.inner, &projected_point_on_reference_line);
+                    distance(measured_line.1, projected_point_on_reference_line);
                 let correspondence_1 = if measured_distance < reference_distance {
                     CorrespondencePoints {
                         measured: projected_point_on_measured_line,
-                        reference: reference_line.1.inner,
+                        reference: reference_line.1,
                     }
                 } else {
                     CorrespondencePoints {
-                        measured: measured_line.1.inner,
+                        measured: measured_line.1,
                         reference: projected_point_on_reference_line,
                     }
                 };
@@ -105,24 +104,25 @@ impl FieldMark {
                 let center_to_0 = measured_line.0 - center;
                 let center_to_1 = measured_line.1 - center;
 
-                let correspondence_0_measured = measured_line.0.inner;
-                let correspondence_0_reference = if center_to_0.inner == Vector2::zeros() {
-                    point![center.inner.x + radius, center.inner.y]
+                let correspondence_0_measured = measured_line.0;
+                let correspondence_0_reference = if center_to_0 == Vector2::zeros() {
+                    point![center.x() + radius, center.y()]
                 } else {
-                    center.inner + center_to_0.inner.normalize() * radius
+                    center + center_to_0.normalize() * radius
                 };
 
-                let correspondence_1_measured = measured_line.1.inner;
-                let correspondence_1_reference = if center_to_1.inner == Vector2::zeros() {
-                    point![center.inner.x + radius, center.inner.y]
+                let correspondence_1_measured = measured_line.1;
+                let correspondence_1_reference = if center_to_1 == Vector2::zeros() {
+                    point![center.x() + radius, center.y()]
                 } else {
-                    center.inner + center_to_1.inner.normalize() * radius
+                    center + center_to_1.normalize() * radius
                 };
 
-                let measured_direction = (measured_line.0 - measured_line.1).inner.normalize();
-                let center_vector = (correspondence_0_reference - center.inner)
-                    + (correspondence_1_reference - center.inner);
-                let center_vector_rotated_by_90_degree = vector![-center_vector.y, center_vector.x];
+                let measured_direction = (measured_line.0 - measured_line.1).normalize();
+                let center_vector =
+                    (correspondence_0_reference - center) + (correspondence_1_reference - center);
+                let center_vector_rotated_by_90_degree =
+                    vector![-center_vector.y(), center_vector.x()];
                 let reference_direction = center_vector_rotated_by_90_degree.normalize();
 
                 Correspondences {
@@ -147,22 +147,22 @@ impl FieldMark {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Correspondences {
     pub correspondence_points: (CorrespondencePoints, CorrespondencePoints),
-    pub measured_direction: Vector2<f32>,
-    pub reference_direction: Vector2<f32>,
+    pub measured_direction: Vector2<Field>,
+    pub reference_direction: Vector2<Field>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct CorrespondencePoints {
-    pub measured: Point2<f32>,
-    pub reference: Point2<f32>,
+    pub measured: Point2<Field>,
+    pub reference: Point2<Field>,
 }
 
 pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> Vec<FieldMark> {
     vec![
         FieldMark::Line {
             line: Line(
-                point![-field_dimensions.length / 2.0, field_dimensions.width / 2.0].framed(),
-                point![field_dimensions.length / 2.0, field_dimensions.width / 2.0].framed(),
+                point![-field_dimensions.length / 2.0, field_dimensions.width / 2.0],
+                point![field_dimensions.length / 2.0, field_dimensions.width / 2.0],
             ),
             direction: Direction::PositiveX,
         },
@@ -171,9 +171,8 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.width / 2.0
-                ]
-                .framed(),
-                point![field_dimensions.length / 2.0, -field_dimensions.width / 2.0].framed(),
+                ],
+                point![field_dimensions.length / 2.0, -field_dimensions.width / 2.0],
             ),
             direction: Direction::PositiveX,
         },
@@ -182,16 +181,15 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.width / 2.0
-                ]
-                .framed(),
-                point![-field_dimensions.length / 2.0, field_dimensions.width / 2.0].framed(),
+                ],
+                point![-field_dimensions.length / 2.0, field_dimensions.width / 2.0],
             ),
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
             line: Line(
-                point![field_dimensions.length / 2.0, -field_dimensions.width / 2.0].framed(),
-                point![field_dimensions.length / 2.0, field_dimensions.width / 2.0].framed(),
+                point![field_dimensions.length / 2.0, -field_dimensions.width / 2.0],
+                point![field_dimensions.length / 2.0, field_dimensions.width / 2.0],
             ),
             direction: Direction::PositiveY,
         },
@@ -200,13 +198,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0,
                     field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
                     field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -215,13 +211,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
                     -field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -230,13 +224,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
                     -field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
                     field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveY,
         },
@@ -245,13 +237,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0,
                     field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
                     field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -260,13 +250,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
                     -field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -275,13 +263,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
                     -field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
                     field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveY,
         },
@@ -290,13 +276,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                     field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0,
                     field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -305,13 +289,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                     -field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0,
                     -field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -320,13 +302,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                     -field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                     field_dimensions.penalty_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveY,
         },
@@ -335,13 +315,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                     field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0,
                     field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -350,13 +328,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                     -field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0,
                     -field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -365,25 +341,23 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                     -field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                     field_dimensions.goal_box_area_width / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
             line: Line(
-                point![0.0, -field_dimensions.width / 2.0].framed(),
-                point![0.0, field_dimensions.width / 2.0].framed(),
+                point![0.0, -field_dimensions.width / 2.0],
+                point![0.0, field_dimensions.width / 2.0],
             ),
             direction: Direction::PositiveY,
         },
         FieldMark::Circle {
-            center: Point2::origin().framed(),
+            center: Point2::origin(),
             radius: field_dimensions.center_circle_diameter / 2.0,
         },
         FieldMark::Line {
@@ -392,15 +366,13 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance
                         - field_dimensions.penalty_marker_size / 2.0,
                     0.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0
                         + field_dimensions.penalty_marker_distance
                         + field_dimensions.penalty_marker_size / 2.0,
                     0.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -409,13 +381,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
                     -field_dimensions.penalty_marker_size / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
                     field_dimensions.penalty_marker_size / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveY,
         },
@@ -426,14 +396,12 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                         - field_dimensions.penalty_marker_distance
                         - field_dimensions.penalty_marker_size / 2.0,
                     0.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance
                         + field_dimensions.penalty_marker_size / 2.0,
                     0.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveX,
         },
@@ -442,13 +410,11 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
                     -field_dimensions.penalty_marker_size / 2.0
-                ]
-                .framed(),
+                ],
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
                     field_dimensions.penalty_marker_size / 2.0
-                ]
-                .framed(),
+                ],
             ),
             direction: Direction::PositiveY,
         },

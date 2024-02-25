@@ -18,14 +18,14 @@ where
     Inner: Clone,
 {
     fn clone(&self) -> Self {
-        Self::new(self.inner.clone())
+        Self::wrap(self.inner.clone())
     }
 }
 
 impl<From, To, Inner> Copy for Transform<From, To, Inner> where Inner: Copy {}
 
 impl<From, To, Transformer> Transform<From, To, Transformer> {
-    pub fn new(inner: Transformer) -> Self {
+    pub fn wrap(inner: Transformer) -> Self {
         Self {
             from: PhantomData,
             to: PhantomData,
@@ -39,7 +39,7 @@ where
     Inner: Default,
 {
     fn default() -> Self {
-        Self::new(Inner::default())
+        Self::wrap(Inner::default())
     }
 }
 
@@ -87,7 +87,7 @@ where
     type Output = Framed<To, Entity>;
 
     fn mul(self, rhs: Framed<From, Entity>) -> Self::Output {
-        Self::Output::new(self.inner * rhs.inner)
+        Self::Output::wrap(self.inner * rhs.inner)
     }
 }
 
@@ -99,7 +99,7 @@ where
     type Output = Transform<From, To, Inner>;
 
     fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
-        Self::Output::new(self.inner * rhs.inner)
+        Self::Output::wrap(self.inner * rhs.inner)
     }
 }
 
@@ -111,7 +111,7 @@ where
     type Output = Framed<To, Entity>;
 
     fn mul(self, rhs: &Framed<From, Entity>) -> Self::Output {
-        Self::Output::new(self.inner * rhs.inner)
+        Self::Output::wrap(self.inner * rhs.inner)
     }
 }
 
@@ -122,7 +122,7 @@ where
     type Output = Framed<To, Entity>;
 
     fn mul(self, rhs: Framed<From, Entity>) -> Self::Output {
-        Self::Output::new(self.inner * rhs.inner)
+        Self::Output::wrap(self.inner * rhs.inner)
     }
 }
 
@@ -155,7 +155,7 @@ where
     where
         D: serde::Deserializer<'a>,
     {
-        Ok(Self::new(Inner::deserialize(deserializer)?))
+        Ok(Self::wrap(Inner::deserialize(deserializer)?))
     }
 }
 

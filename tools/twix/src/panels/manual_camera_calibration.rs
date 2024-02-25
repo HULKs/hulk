@@ -1,9 +1,10 @@
+use std::{ops::RangeInclusive, sync::Arc};
+
 use color_eyre::eyre::Context;
 use eframe::egui::{Response, Slider, Ui, Widget};
 use log::{error, info};
 use nalgebra::Vector3;
 use serde_json::Value;
-use std::{ops::RangeInclusive, sync::Arc};
 use tokio::sync::mpsc;
 
 use crate::{

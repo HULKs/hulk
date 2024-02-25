@@ -1,16 +1,18 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::Orientation;
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{Isometry2, Translation2, UnitComplex, Vector2};
+use nalgebra::{Isometry2, Translation2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
+    coordinate_systems::Field,
     robot_kinematics::RobotKinematics,
     support_foot::{Side, SupportFoot},
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct Odometry {
-    last_orientation: UnitComplex<f32>,
+    last_orientation: Orientation<Field>,
     last_left_sole_to_right_sole: Vector2<f32>,
     last_accumulated_odometry: Isometry2<f32>,
 }
@@ -23,7 +25,7 @@ pub struct CycleContext {
     accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
 
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    robot_orientation: Input<UnitComplex<f32>, "robot_orientation">,
+    robot_orientation: Input<Orientation<Field>, "robot_orientation">,
     support_foot: Input<SupportFoot, "support_foot">,
 
     odometry_scale_factor: Parameter<Vector2<f32>, "odometry.odometry_scale_factor">,
@@ -39,7 +41,7 @@ impl Odometry {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_left_sole_to_right_sole: Vector2::zeros(),
-            last_orientation: UnitComplex::default(),
+            last_orientation: Orientation::default(),
             last_accumulated_odometry: Isometry2::identity(),
         })
     }
@@ -48,16 +50,15 @@ impl Odometry {
         let left_sole_to_right_sole = (context
             .robot_kinematics
             .right_sole_to_robot
-            .inner
-            .translation
-            .vector
+            .origin()
+            .coords()
             - context
                 .robot_kinematics
                 .left_sole_to_robot
-                .inner
-                .translation
-                .vector)
-            .xy();
+                .origin()
+                .coords())
+        .inner
+        .xy();
         let offset_to_last_position = calculate_offset_to_last_position(
             context.support_foot,
             &left_sole_to_right_sole,
@@ -67,12 +68,14 @@ impl Odometry {
         let corrected_offset_to_last_position =
             offset_to_last_position.component_mul(context.odometry_scale_factor);
 
-        let orientation_offset = self.last_orientation.rotation_to(context.robot_orientation);
+        let orientation_offset = self
+            .last_orientation
+            .rotation_to(*context.robot_orientation);
         self.last_orientation = *context.robot_orientation;
 
         let current_odometry_to_last_odometry = Isometry2::from_parts(
             Translation2::from(corrected_offset_to_last_position),
-            orientation_offset,
+            orientation_offset.inner,
         );
         let accumulated_odometry =
             current_odometry_to_last_odometry * self.last_accumulated_odometry;

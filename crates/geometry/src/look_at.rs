@@ -1,5 +1,6 @@
-use coordinate_systems::Framed;
 use nalgebra::{Point2, UnitComplex, Vector2};
+
+use coordinate_systems::Framed;
 
 pub trait LookAt<Target> {
     type Rotation;
@@ -21,6 +22,6 @@ where
     type Rotation = Framed<Frame, Inner::Rotation>;
 
     fn look_at(&self, target: &Self) -> Self::Rotation {
-        Self::Rotation::new(self.inner.look_at(&target.inner))
+        Self::Rotation::wrap(self.inner.look_at(&target.inner))
     }
 }

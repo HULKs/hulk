@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed};
+use coordinate_systems::{point, Point2};
 use framework::MainOutput;
 use geometry::circle::Circle;
-use nalgebra::{point, vector, Point2, Vector2};
 use projection::Projection;
-use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::CameraMatrix,
     coordinate_systems::Pixel,
@@ -58,7 +58,7 @@ impl PerspectiveGridCandidatesProvider {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let vertical_scanlines = &context.filtered_segments.scan_grid.vertical_scan_lines;
         let skip_segments = &context.line_data.used_segments;
-        let image_size = vector![context.image.width(), context.image.height()];
+        let image_size = point![context.image.width(), context.image.height()];
 
         let rows = generate_rows(
             context.camera_matrix,
@@ -77,31 +77,32 @@ impl PerspectiveGridCandidatesProvider {
 
 fn generate_rows(
     camera_matrix: &CameraMatrix,
-    image_size: Vector2<u32>,
+    image_size: Point2<Pixel, u32>,
     minimum_radius: f32,
     fallback_radius: f32,
     ball_radius: f32,
 ) -> Vec<Row> {
-    let higher_horizon_point =
+    let higher_horizon_point: Point2<Pixel> =
         if camera_matrix.horizon.left_horizon_y < camera_matrix.horizon.right_horizon_y {
             point![0.0, camera_matrix.horizon.left_horizon_y]
         } else {
             point![
-                image_size.x as f32 - 1.0,
+                image_size.x() as f32 - 1.0,
                 camera_matrix.horizon.left_horizon_y
             ]
         };
 
     let mut radius = fallback_radius;
-    let mut row_vertical_center = image_size.y as f32 - 1.0;
+    let mut row_vertical_center = image_size.y() as f32 - 1.0;
 
     let mut rows = vec![];
 
-    while row_vertical_center >= higher_horizon_point.y && row_vertical_center + ball_radius > 0.0 {
+    while row_vertical_center >= higher_horizon_point.y() && row_vertical_center + ball_radius > 0.0
+    {
         radius = camera_matrix
             .get_pixel_radius(
                 ball_radius,
-                point![higher_horizon_point.x, row_vertical_center].framed(),
+                point![higher_horizon_point.x(), row_vertical_center],
                 image_size,
             )
             .unwrap_or(radius);
@@ -130,7 +131,7 @@ fn find_matching_row(rows: &[Row], segment: &Segment) -> Option<(usize, Row)> {
 
 fn generate_candidates(
     vertical_scanlines: &[ScanLine],
-    skip_segments: &HashSet<Framed<Pixel, Point2<u16>>>,
+    skip_segments: &HashSet<Point2<Pixel, u16>>,
     rows: &[Row],
 ) -> PerspectiveGridCandidates {
     let mut already_added = HashSet::new();
@@ -138,7 +139,7 @@ fn generate_candidates(
 
     for scan_line in vertical_scanlines {
         for segment in &scan_line.segments {
-            if skip_segments.contains(&point![scan_line.position, segment.start].framed()) {
+            if skip_segments.contains(&point![scan_line.position, segment.start]) {
                 continue;
             }
 
@@ -153,8 +154,7 @@ fn generate_candidates(
                     center: point![
                         row.circle_radius + row.circle_radius * 2.0 * index_in_row as f32,
                         row.center_y
-                    ]
-                    .framed(),
+                    ],
                     radius: row.circle_radius,
                 })
             }
@@ -192,26 +192,22 @@ mod tests {
         let camera_matrix = CameraMatrix::default();
         let minimum_radius = 5.0;
 
-        assert!(!generate_rows(
-            &camera_matrix,
-            vector![512, 512],
-            minimum_radius,
-            42.0,
-            0.05,
-        )
-        .is_empty());
+        assert!(
+            !generate_rows(&camera_matrix, point![512, 512], minimum_radius, 42.0, 0.05,)
+                .is_empty()
+        );
     }
 
     #[test]
     fn rows_spaced_correctly() {
-        let image_size = vector![512, 512];
+        let image_size = point![512, 512];
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             vector![1.0, 1.0],
-            point![0.5, 0.5],
+            nalgebra::point![0.5, 0.5],
             image_size.map(|element| element as f32),
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
-                translation: Translation::from(point![0.0, 0.0, 0.5]),
+                translation: Translation::from(nalgebra::point![0.0, 0.0, 0.5]),
             }
             .framed_transform(),
             Isometry3::identity().framed_transform(),
@@ -267,7 +263,7 @@ mod tests {
             candidates,
             PerspectiveGridCandidates {
                 candidates: vec![Circle {
-                    center: point![50.0, 30.0].framed(),
+                    center: point![50.0, 30.0],
                     radius: 10.0
                 }]
             }
@@ -338,7 +334,7 @@ mod tests {
                 point![110, 5],
                 point![110, 18],
             ]
-            .map(|point| point.framed()),
+            .map(|point| point),
         );
         let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows);
         assert_relative_eq!(
@@ -346,19 +342,19 @@ mod tests {
             PerspectiveGridCandidates {
                 candidates: vec![
                     Circle {
-                        center: point![10.0, 50.0].framed(),
+                        center: point![10.0, 50.0],
                         radius: 10.0
                     },
                     Circle {
-                        center: point![110.0, 50.0].framed(),
+                        center: point![110.0, 50.0],
                         radius: 10.0
                     },
                     Circle {
-                        center: point![50.0, 30.0].framed(),
+                        center: point![50.0, 30.0],
                         radius: 10.0
                     },
                     Circle {
-                        center: point![10.0, 10.0].framed(),
+                        center: point![10.0, 10.0],
                         radius: 10.0
                     },
                 ]

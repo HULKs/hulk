@@ -3,6 +3,7 @@ use nalgebra::{vector, Vector3};
 #[derive(Debug)]
 pub struct RobotDimensions {}
 
+// TODO: consider wrapping in coordinate systems
 impl RobotDimensions {
     pub const ROBOT_TO_TORSO: Vector3<f32> = vector![-0.00413, 0.0, 0.12842];
     pub const ROBOT_TO_NECK: Vector3<f32> = vector![0.0, 0.0, 0.2115];

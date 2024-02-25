@@ -1,6 +1,6 @@
-use coordinate_systems::Framed;
-use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::coordinate_systems::Field;
@@ -10,10 +10,10 @@ pub enum PointOfInterest {
     #[default]
     Forward,
     FieldMark {
-        absolute_position: Framed<Field, Point2<f32>>,
+        absolute_position: Point2<Field>,
     },
     Ball,
     Obstacle {
-        absolute_position: Framed<Field, Point2<f32>>,
+        absolute_position: Point2<Field>,
     },
 }

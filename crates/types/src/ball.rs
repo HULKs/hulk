@@ -1,7 +1,6 @@
 use approx_derive::{AbsDiffEq, RelativeEq};
-use coordinate_systems::Framed;
+use coordinate_systems::Point2;
 use geometry::circle::Circle;
-use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -19,7 +18,7 @@ pub struct CandidateEvaluation {
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq)]
 #[abs_diff_eq(epsilon = "f32")]
 pub struct Ball {
-    pub position: Framed<Ground, Point2<f32>>,
+    pub position: Point2<Ground>,
     pub image_location: Circle<Pixel>,
 }
 

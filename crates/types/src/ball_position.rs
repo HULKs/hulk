@@ -1,14 +1,14 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use coordinate_systems::Framed;
-use nalgebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
+use coordinate_systems::{Point2, Vector2};
+
 #[derive(Clone, Copy, Serialize, Deserialize, SerializeHierarchy, Debug)]
 pub struct BallPosition<Frame> {
-    pub position: Framed<Frame, Point2<f32>>,
-    pub velocity: Framed<Frame, Vector2<f32>>,
+    pub position: Point2<Frame>,
+    pub velocity: Vector2<Frame>,
     pub last_seen: SystemTime,
 }
 

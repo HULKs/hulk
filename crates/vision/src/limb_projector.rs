@@ -1,10 +1,12 @@
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed, IntoTransform, Transform};
-use framework::MainOutput;
-use nalgebra::{Isometry3, Matrix2, Point2, Point3};
-use projection::Projection;
+
+use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::{point, Isometry3, Point2, Point3};
+use framework::MainOutput;
+use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
     coordinate_systems::{LeftElbow, LeftSole, LeftThigh, LeftWrist, Robot},
@@ -25,19 +27,14 @@ pub struct CycleContext {
 
     enable: Parameter<bool, "projected_limbs.$cycler_instance.enable">,
     sole_bounding_polygon:
-        Parameter<Vec<Framed<LeftSole, Point3<f32>>>, "projected_limbs.foot_bounding_polygon">,
+        Parameter<Vec<Point3<LeftSole>>, "projected_limbs.foot_bounding_polygon">,
     thigh_bounding_polygon:
-        Parameter<Vec<Framed<LeftThigh, Point3<f32>>>, "projected_limbs.knee_bounding_polygon">,
-    wrist_bounding_polygon: Parameter<
-        Vec<Framed<LeftWrist, Point3<f32>>>,
-        "projected_limbs.lower_arm_bounding_polygon",
-    >,
-    torso_bounding_polygon:
-        Parameter<Vec<Framed<Robot, Point3<f32>>>, "projected_limbs.torso_bounding_polygon">,
-    upper_arm_bounding_polygon: Parameter<
-        Vec<Framed<LeftElbow, Point3<f32>>>,
-        "projected_limbs.upper_arm_bounding_polygon",
-    >,
+        Parameter<Vec<Point3<LeftThigh>>, "projected_limbs.knee_bounding_polygon">,
+    wrist_bounding_polygon:
+        Parameter<Vec<Point3<LeftWrist>>, "projected_limbs.lower_arm_bounding_polygon">,
+    torso_bounding_polygon: Parameter<Vec<Point3<Robot>>, "projected_limbs.torso_bounding_polygon">,
+    upper_arm_bounding_polygon:
+        Parameter<Vec<Point3<LeftElbow>>, "projected_limbs.upper_arm_bounding_polygon">,
 }
 
 #[context]
@@ -58,7 +55,7 @@ impl LimbProjector {
             });
         }
         let torso_limb = project_bounding_polygon(
-            Isometry3::identity().framed_transform(),
+            Isometry3::identity(),
             context.camera_matrix,
             context.torso_bounding_polygon,
             false,
@@ -130,9 +127,9 @@ impl LimbProjector {
 }
 
 fn project_bounding_polygon<Frame>(
-    limb_to_robot: Transform<Frame, Robot, Isometry3<f32>>,
+    limb_to_robot: Isometry3<Frame, Robot>,
     camera_matrix: &CameraMatrix,
-    bounding_polygon: &[Framed<Frame, Point3<f32>>],
+    bounding_polygon: &[Point3<Frame>],
     use_convex_hull: bool,
 ) -> Limb {
     let points: Vec<_> = bounding_polygon
@@ -148,9 +145,7 @@ fn project_bounding_polygon<Frame>(
     }
 }
 
-fn reduce_to_convex_hull<Frame>(
-    points: &[Framed<Frame, Point2<f32>>],
-) -> Vec<Framed<Frame, Point2<f32>>>
+fn reduce_to_convex_hull<Frame>(points: &[Point2<Frame>]) -> Vec<Point2<Frame>>
 where
     Frame: Copy,
 {
@@ -194,9 +189,9 @@ where
     convex_hull
 }
 
-fn mirror_polygon<From, To>(polygon: &[Framed<From, Point3<f32>>]) -> Vec<Framed<To, Point3<f32>>> {
+fn mirror_polygon<From, To>(polygon: &[Point3<From>]) -> Vec<Point3<To>> {
     polygon
         .iter()
-        .map(|point| Point3::new(point.x(), -point.y(), point.z()).framed())
+        .map(|point| point![point.x(), -point.y(), point.z()])
         .collect()
 }

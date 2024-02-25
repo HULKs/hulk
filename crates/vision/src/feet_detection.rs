@@ -1,18 +1,18 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{distance, IntoFramed};
+use coordinate_systems::{distance, point, Point2};
 use filtering::{
     mean_clustering::MeanClustering,
     statistics::{mean, standard_deviation},
 };
 use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
-use nalgebra::{point, Point2};
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     camera_matrix::CameraMatrix,
+    coordinate_systems::Ground,
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},
@@ -28,7 +28,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cluster_points: AdditionalOutput<Vec<ClusterPoint>, "feet_detection.cluster_points">,
-    clusters_in_ground: AdditionalOutput<Vec<Point2<f32>>, "feet_detection.clusters_in_ground">,
+    clusters_in_ground: AdditionalOutput<Vec<Point2<Ground>>, "feet_detection.clusters_in_ground">,
 
     enable: Parameter<bool, "feet_detection.$cycler_instance.enable">,
     maximum_cluster_distance:
@@ -83,7 +83,7 @@ impl FeetDetection {
         context.clusters_in_ground.fill_if_subscribed(|| {
             clusters_in_ground
                 .iter()
-                .map(|cluster| cluster.mean.inner)
+                .map(|cluster| cluster.mean)
                 .collect()
         });
         let positions = clusters_in_ground
@@ -123,10 +123,9 @@ fn extract_segment_cluster_points(
             if luminance_standard_deviation < minimum_luminance_standard_deviation {
                 return None;
             }
-            let pixel_coordinates =
-                point![scan_line.position, cluster.last().unwrap().end].framed();
+            let pixel_coordinates = point![scan_line.position, cluster.last().unwrap().end];
             let position_in_ground = camera_matrix
-                .pixel_to_ground(pixel_coordinates.inner.map(|x| x as f32).framed())
+                .pixel_to_ground(pixel_coordinates.map(|x| x as f32))
                 .ok()?;
             let point = ClusterPoint {
                 pixel_coordinates,
@@ -146,10 +145,10 @@ fn find_last_consecutive_cluster(
     let filtered_segments = scan_line.segments.iter().filter(|segment| {
         let is_on_line = line_data
             .used_segments
-            .contains(&point![scan_line.position, segment.start].framed());
+            .contains(&point![scan_line.position, segment.start]);
         let is_on_ball = balls.iter().any(|ball| {
             ball.image_location
-                .contains(point![scan_line.position as f32, segment.center() as f32].framed())
+                .contains(point![scan_line.position as f32, segment.center() as f32])
         });
         !is_on_line && !is_on_ball
     });
@@ -186,7 +185,7 @@ fn cluster_scored_cluster_points(
         let nearest_cluster = clusters
             .iter_mut()
             .filter_map(|cluster| {
-                let distance = distance(&cluster.mean, &point.position_in_ground);
+                let distance = distance(cluster.mean, point.position_in_ground);
                 if distance < maximum_cluster_distance {
                     Some((cluster, distance))
                 } else {

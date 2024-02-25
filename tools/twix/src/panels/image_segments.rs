@@ -1,13 +1,14 @@
 use std::{str::FromStr, sync::Arc};
 
-use communication::client::CyclerOutput;
-use coordinate_systems::IntoFramed;
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},
 };
-use nalgebra::{point, vector, Similarity2};
+use nalgebra::Similarity2;
 use serde_json::Value;
+
+use communication::client::CyclerOutput;
+use coordinate_systems::{point, vector};
 use types::{
     camera_position::CameraPosition,
     color::{Rgb, RgbChannel},
@@ -15,9 +16,12 @@ use types::{
     image_segments::ImageSegments,
 };
 
-use crate::{nao::Nao, panel::Panel, twix_painter::CoordinateSystem, value_buffer::ValueBuffer};
-
-use crate::twix_painter::TwixPainter;
+use crate::{
+    nao::Nao,
+    panel::Panel,
+    twix_painter::{CoordinateSystem, TwixPainter},
+    value_buffer::ValueBuffer,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ColorMode {
@@ -175,8 +179,8 @@ impl Widget for &mut ImageSegmentsPanel {
             for segment in scanline.segments {
                 let ycbcr_color = segment.color;
                 let rgb_color = Rgb::from(ycbcr_color);
-                let start = point![x, segment.start as f32].framed();
-                let end = point![x, segment.end as f32].framed();
+                let start = point![x, segment.start as f32];
+                let end = point![x, segment.end as f32];
                 let original_color = Color32::from_rgb(rgb_color.r, rgb_color.g, rgb_color.b);
                 let medium_color = Color32::LIGHT_YELLOW;
                 let high_color = Color32::YELLOW;
@@ -205,8 +209,8 @@ impl Widget for &mut ImageSegmentsPanel {
                 };
                 painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
                 painter.line_segment(
-                    start - vector![1.0, 0.0].framed(),
-                    start + vector![1.0, 0.0].framed(),
+                    start - vector![1.0, 0.0],
+                    start + vector![1.0, 0.0],
                     Stroke::new(1.0, Color32::from_rgb(0, 0, 255)),
                 );
             }
