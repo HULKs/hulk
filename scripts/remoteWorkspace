@@ -69,8 +69,17 @@ remotePath="$(echo $remoteWorkspace | cut -d':' -f 2-)"
 # send local state to remote
 rsync -ah --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
 
+# if stdout is a tty/pty, make ssh behave as one as well
+SSH_FLAGS=""
+if [ -t 1 ]; then
+    SSH_FLAGS="-t"
+fi
+
 # invoke command remotely
-ssh $address "sh -c \" \
+ssh \
+    $SSH_FLAGS \
+    $address \
+    "sh -c \" \
     cd \"$remotePath\" \
     && $@
 \""
