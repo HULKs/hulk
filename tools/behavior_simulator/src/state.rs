@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    f32::consts::FRAC_PI_4,
     mem::take,
     time::{Duration, UNIX_EPOCH},
 };
@@ -111,11 +112,11 @@ impl State {
                     let previous_ground_to_field = *ground_to_field;
 
                     *ground_to_field = Isometry2::new(
-                        *ground_to_field * step,
-                        ground_to_field.inner.rotation.angle()
-                            + orientation.inner.angle().clamp(
-                                -std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
-                                std::f32::consts::FRAC_PI_4 * time_step.as_secs_f32(),
+                        (*ground_to_field * step.as_point()).coords(),
+                        ground_to_field.orientation().angle()
+                            + orientation.angle().clamp(
+                                -FRAC_PI_4 * time_step.as_secs_f32(),
+                                FRAC_PI_4 * time_step.as_secs_f32(),
                             ),
                     );
 
