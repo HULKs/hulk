@@ -1,5 +1,5 @@
 use approx_derive::{AbsDiffEq, RelativeEq};
-use nalgebra::{Isometry3, Matrix, Point2, Rotation3, Vector2};
+use nalgebra::{matrix, Isometry3, Matrix, Matrix3, Point2, Rotation3, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -36,6 +36,8 @@ impl CameraMatrices {
 pub struct CameraMatrix {
     pub camera_to_head: Isometry3<f32>,
     pub camera_to_ground: Isometry3<f32>,
+    pub intrinsic_camera_to_pixel: Matrix3<f32>,
+    pub intrinisic_pixel_to_camera: Matrix3<f32>,
     pub ground_to_camera: Isometry3<f32>,
     pub camera_to_robot: Isometry3<f32>,
     pub robot_to_camera: Isometry3<f32>,
@@ -50,6 +52,8 @@ impl Default for CameraMatrix {
         Self {
             camera_to_head: Isometry3::identity(),
             camera_to_ground: Isometry3::identity(),
+            intrinsic_camera_to_pixel: Matrix3::identity(),
+            intrinisic_pixel_to_camera: Matrix3::identity(),
             ground_to_camera: Isometry3::identity(),
             camera_to_robot: Isometry3::identity(),
             robot_to_camera: Isometry3::identity(),
@@ -87,9 +91,21 @@ impl CameraMatrix {
             image_size[0],
         );
 
+        let intrinsic_camera_to_pixel = matrix![
+            optical_center_scaled.x, -focal_length_scaled.x, 0.0;
+            optical_center_scaled.y, 0.0, -focal_length_scaled.y;
+            1.0, 0.0, 0.0;
+        ];
+
+        let intrinsic_pixel_to_camera = intrinsic_camera_to_pixel
+            .try_inverse()
+            .expect("failed to invert intrinsic camera matrix");
+
         Self {
             camera_to_head,
             camera_to_ground,
+            intrinsic_camera_to_pixel,
+            intrinisic_pixel_to_camera: intrinsic_pixel_to_camera,
             ground_to_camera: camera_to_ground.inverse(),
             camera_to_robot,
             robot_to_camera: camera_to_robot.inverse(),
@@ -135,6 +151,8 @@ impl CameraMatrix {
         CameraMatrix {
             camera_to_head: corrected_camera_to_head,
             camera_to_ground: robot_to_ground * camera_to_robot,
+            intrinsic_camera_to_pixel: self.intrinsic_camera_to_pixel,
+            intrinisic_pixel_to_camera: self.intrinisic_pixel_to_camera,
             ground_to_camera: robot_to_camera * ground_to_robot,
             camera_to_robot,
             robot_to_camera,
