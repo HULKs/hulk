@@ -77,7 +77,8 @@ impl Projection for CameraMatrix {
         struct ElevatedGround;
 
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
-        let camera_to_elevated_ground = Isometry3::<Ground, ElevatedGround>::translation(0., 0., -z) * self.camera_to_ground;
+        let camera_to_elevated_ground =
+            Isometry3::<Ground, ElevatedGround>::translation(0., 0., -z) * self.camera_to_ground;
 
         let camera_position = camera_to_elevated_ground.origin();
         let camera_ray_over_ground = camera_to_elevated_ground * camera_ray;

@@ -201,7 +201,8 @@ fn pixel_to_ground_with_z_pitch_45_degree_up() {
         nalgebra::point![1.0, 1.0],
         point![1.0, 1.0],
     );
-    camera_matrix.camera_to_ground.inner.translation = Translation::from(nalgebra::point![0.0, 0.0, 0.5]);
+    camera_matrix.camera_to_ground.inner.translation =
+        Translation::from(nalgebra::point![0.0, 0.0, 0.5]);
     camera_matrix.camera_to_ground.inner.rotation =
         UnitQuaternion::from_euler_angles(0.0, -std::f32::consts::PI / 4.0, 0.0);
 
