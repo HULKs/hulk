@@ -9,7 +9,7 @@ pub enum Error {
     TooClose,
     #[error("position is behind the camera")]
     BehindCamera,
-    #[error("the pixel position cannot be projected to the ground")]
+    #[error("the pixel position cannot be projected on the projection plane")]
     NotOnProjectionPlane,
 }
 
@@ -83,7 +83,7 @@ impl Projection for CameraMatrix {
         let intersection_scalar = -camera_position.z / camera_ray_over_ground.z;
 
         if intersection_scalar < 0.0 {
-            return Err(Error::NotOnProjectionPlane);
+            return Err(Error::BehindCamera);
         }
 
         let intersection_point = camera_position + camera_ray_over_ground * intersection_scalar;
