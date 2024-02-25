@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, orientation::Direction};
+use geometry::{arc::Arc, circle::Circle, line_segment::LineSegment, direction::Direction};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 

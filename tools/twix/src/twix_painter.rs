@@ -11,7 +11,7 @@ use eframe::{
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
 use coordinate_systems::{point, vector, IntoTransform, Isometry2, Point2, Pose, Vector2};
-use geometry::{arc::Arc, circle::Circle, orientation::Direction};
+use geometry::{arc::Arc, circle::Circle, direction::Direction};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
