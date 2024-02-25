@@ -1,5 +1,5 @@
 use approx::relative_eq;
-use nalgebra::{point, vector, Isometry3, Point2, Point3, Vector2, Vector3};
+use nalgebra::{point, Isometry3, Point2, Point3, Vector2, Vector3};
 use thiserror::Error;
 use types::camera_matrix::CameraMatrix;
 
@@ -44,20 +44,19 @@ pub trait Projection {
 
 impl Projection for CameraMatrix {
     fn pixel_to_camera(&self, pixel_coordinates: Point2<f32>) -> Vector3<f32> {
-        vector![
-            1.0,
-            (self.optical_center.x - pixel_coordinates.x) / self.focal_length.x,
-            (self.optical_center.y - pixel_coordinates.y) / self.focal_length.y,
-        ]
+        self.intrinisic_pixel_to_camera * pixel_coordinates.to_homogeneous()
     }
 
     fn camera_to_pixel(&self, camera_ray: Vector3<f32>) -> Result<Point2<f32>, Error> {
         if camera_ray.x <= 0.0 {
             return Err(Error::BehindCamera);
         }
+
+        let pixel_point = self.intrinsic_camera_to_pixel * camera_ray;
+
         Ok(point![
-            self.optical_center.x - self.focal_length.x * camera_ray.y / camera_ray.x,
-            self.optical_center.y - self.focal_length.y * camera_ray.z / camera_ray.x,
+            pixel_point.x / pixel_point.z,
+            pixel_point.y / pixel_point.z,
         ])
     }
 
