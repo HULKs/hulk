@@ -106,7 +106,7 @@ pub fn camera_to_head(
     camera_position: CameraPosition,
     extrinsic_rotation: Vector3<f32>,
 ) -> Isometry3<f32> {
-    let extrinsic_angles_in_radians = extrinsic_rotation.map(|a: f32| a.to_radians());
+    let extrinsic_angles_in_radians = extrinsic_rotation.map(|degree: f32| degree.to_radians());
     let extrinsic_rotation = UnitQuaternion::from_euler_angles(
         extrinsic_angles_in_radians.x,
         extrinsic_angles_in_radians.y,
