@@ -1,14 +1,14 @@
-use std::{ops::Bound, time::SystemTime};
+use std::{collections::BTreeSet, time::SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::kalman_filter::KalmanFilter;
-use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use geometry::circle::Circle;
-use nalgebra::{
-    linalg::LU, matrix, vector, Affine2, ArrayStorage, Isometry2, Matrix, Matrix2, Matrix2x4,
-    Matrix4, Matrix4x2, Perspective3, Point2, Similarity2, U8,
-};
+use framework::{HistoricInput, MainOutput, PerceptionInput};
+use hungarian_algorithm::AssignmentProblem;
+use itertools::{Either, Itertools};
+use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
+use ndarray::Array2;
+use ordered_float::NotNan;
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -18,12 +18,8 @@ use types::{
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::BoundingBox,
-    robot_filter::Hypothesis,
+    robot_filter::{Hypothesis, Measurement},
 };
-
-use crate::ground_contact_detector;
-
-type Matrix8<T> = Matrix<T, U8, U8, ArrayStorage<T, 8, 8>>;
 
 #[derive(Deserialize, Serialize)]
 pub struct RobotFilter {
@@ -56,7 +52,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_position: MainOutput<Vec<BoundingBox>>,
+    pub robot_position: MainOutput<Vec<Point2<f32>>>,
 }
 
 impl RobotFilter {
@@ -93,9 +89,10 @@ impl RobotFilter {
 
         for (detection_time, robots) in measurements {
             let current_odometry_to_last_odometry = context
-                .current_odometry_to_last_odometry
+                .historic_current_odometry_to_last_odometry
                 .get(detection_time)
                 .expect("current_odometry_to_last_odometry should not be None");
+
             let last_camera_matrices = context
                 .historic_camera_matrices
                 .get(detection_time)
@@ -107,76 +104,25 @@ impl RobotFilter {
             );
 
             // match measured robots to hypotheses
-            self.update_hypotheses_with_measurements(robots, *detection_time);
+            let measurements = Self::collect_measurements(robots, &last_camera_matrices.top);
+            self.update_hypotheses_with_measurements(&measurements, *detection_time);
         }
-
-        self.remove_hypotheses(
-            context.cycle_time.start_time,
-            context.ball_filter_configuration,
-            context.field_dimensions,
-        );
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let persistent_updates = Self::persistent_robots_in_control_cycle(&context);
         self.advance_all_hypotheses(persistent_updates, &context);
 
-        context
-            .ball_filter_hypotheses
-            .fill_if_subscribed(|| self.hypotheses.clone());
-        let ball_radius = context.field_dimensions.ball_radius;
-
-        let ball_positions = self
-            .hypotheses
-            .iter()
-            .map(|hypothesis| hypothesis.selected_ball_position(context.ball_filter_configuration))
-            .collect::<Vec<_>>();
-
-        let robot_positions = self
+        let robot_positions: Vec<Point2<f32>> = self
             .hypotheses
             .iter()
             .filter(|hypothesis| hypothesis.validity > *context.validity_threshold)
+            .map(|hypothesis| hypothesis.bounding_box.mean.xy().into())
             .collect();
 
         Ok(MainOutputs {
             robot_position: robot_positions.into(),
         })
-    }
-
-    fn decay_hypotheses(
-        &mut self,
-        camera_matrices: Option<&CameraMatrices>,
-        projected_limbs: Option<&ProjectedLimbs>,
-        ball_radius: f32,
-        configuration: &BallFilterParameters,
-    ) {
-        for hypothesis in self.hypotheses.iter_mut() {
-            let ball_in_view = match (camera_matrices.as_ref(), projected_limbs.as_ref()) {
-                (Some(camera_matrices), Some(projected_limbs)) => {
-                    is_visible_to_camera(
-                        hypothesis,
-                        &camera_matrices.bottom,
-                        ball_radius,
-                        &projected_limbs.limbs,
-                        configuration,
-                    ) || is_visible_to_camera(
-                        hypothesis,
-                        &camera_matrices.top,
-                        ball_radius,
-                        &[],
-                        configuration,
-                    )
-                }
-                _ => false,
-            };
-
-            let decay_factor = if ball_in_view {
-                configuration.visible_validity_exponential_decay_factor
-            } else {
-                configuration.hidden_validity_exponential_decay_factor
-            };
-            hypothesis.validity *= decay_factor;
-        }
     }
 
     fn predict_hypotheses_with_odometry(
@@ -219,42 +165,122 @@ impl RobotFilter {
         }
     }
 
+    fn collect_measurements(
+        detections: Vec<&BoundingBox>,
+        camera_matrix: &CameraMatrix,
+    ) -> Vec<Measurement> {
+        detections
+            .into_iter()
+            .filter_map(|detection| {
+                camera_matrix
+                    .pixel_to_ground_with_z(detection.bottom_center(), 0.0)
+                    .ok()
+                    .map(|location| {
+                        let projected_error = Matrix2::identity();
+                        Measurement {
+                            location,
+                            score: detection.score,
+                            projected_error,
+                        }
+                    })
+            })
+            .collect()
+    }
+
+    fn compute_distance_matrix(&self, measurements: &Vec<Measurement>) -> Array2<NotNan<f32>> {
+        let observation_matrix = matrix![
+            1.0, 0.0, 0.0, 0.0;
+            0.0, 1.0, 0.0, 0.0;
+        ];
+
+        Array2::from_shape_fn(
+            (measurements.len(), self.hypotheses.len()),
+            |(projected_measurement, hypothesis)| {
+                let observation = self.hypotheses[hypothesis].bounding_box;
+                let measurement = measurements[projected_measurement];
+
+                // Instead could also do: Matrix2::from_diagonal(&hypothesis.bounding_box.mean.xy())
+                let residual_distance =
+                    measurement.location.coords - observation_matrix * observation.mean;
+
+                // Same here
+                let residual_covariance =
+                    observation_matrix * observation.covariance * observation_matrix.transpose()
+                        + measurement.projected_error;
+
+                let normalized_mahalanobis_distance = (residual_distance.transpose()
+                    * residual_covariance.lu().solve(&residual_distance).unwrap())
+                .x + residual_covariance.determinant().ln();
+
+                NotNan::new(normalized_mahalanobis_distance).unwrap()
+            },
+        )
+    }
+
     fn update_hypotheses_with_measurements(
         &mut self,
-        detected_robots: &Vec<BoundingBox>,
+        measurements: &Vec<Measurement>,
         detection_time: SystemTime,
-        camera_matrix: &CameraMatrix,
     ) {
-        let projected_robot_positions: Vec<_> = detected_robots.into_iter().filter_map(|robot| {
-            camera_matrix.pixel_to_ground(robot.bottom_center).ok()
-        }).collect();
+        let distance_metrics = self.compute_distance_matrix(measurements);
 
-        for hypothesis in self.hypotheses {
-            let observation = hypothesis.bounding_box;
-            for projected_measurement in self.projected_robot_positions {
+        let assignment = AssignmentProblem::from_costs(distance_metrics).solve();
 
+        let (associated_hypotheses, remaining_hypotheses): (Vec<_>, Vec<_>) = self
+            .hypotheses
+            .into_iter()
+            .enumerate()
+            .partition_map(|(index, hypothesis)| match assignment[index] {
+                Some(measurement_index) => {
+                    Either::Left((hypothesis, measurements[measurement_index]))
+                }
+                None => Either::Right(hypothesis),
+            });
+        self.hypotheses.clear();
+
+        for (hypothesis, measurement) in associated_hypotheses {
+            hypothesis.update(Matrix2x4::identity(), measurement);
+            self.hypotheses.push(hypothesis);
+        }
+
+        for hypothesis in remaining_hypotheses {
+            if detection_time
+                .duration_since(hypothesis.last_update)
+                .expect("time ran backwards")
+                .as_secs_f32()
+                < 2.0
+            {
+                self.hypotheses.push(hypothesis);
             }
+        }
+
+        let mut remaining_detections: BTreeSet<usize> =
+            (0..measurements.len()).into_iter().collect();
+        for task in assignment {
+            if let Some(task) = task {
+                remaining_detections.remove(&task);
+            }
+        }
+
+        for detection in remaining_detections.iter().filter_map(|&index| {
+            if measurements[index].score > 0.5 {
+                Some(measurements[index])
+            } else {
+                None
+            }
+        }) {
+            self.spawn_hypothesis(&detection, detection_time);
+        }
+
+        for hypothesis in self.hypotheses.iter_mut() {
+            hypothesis.last_update = detection_time;
         }
     }
 
-    fn spawn_hypothesis(
-        &mut self,
-        detected_position: Point2<f32>,
-        detection_time: SystemTime,
-        configuration: &BallFilterParameters,
-    ) {
-        let initial_state = vector![
-            detected_position.coords.x,
-            detected_position.coords.y,
-            0.0,
-            0.0
-        ];
+    fn spawn_hypothesis(&mut self, measurement: &Measurement, detection_time: SystemTime) {
+        let initial_state = vector![measurement.location.x, measurement.location.y, 0.0, 0.0];
         let new_hypothesis = Hypothesis {
-            moving_state: MultivariateNormalDistribution {
-                mean: initial_state,
-                covariance: Matrix4::from_diagonal(&configuration.initial_covariance),
-            },
-            resting_state: MultivariateNormalDistribution {
+            bounding_box: MultivariateNormalDistribution {
                 mean: initial_state,
                 covariance: Matrix4::from_diagonal(&configuration.initial_covariance),
             },
@@ -263,102 +289,4 @@ impl RobotFilter {
         };
         self.hypotheses.push(new_hypothesis);
     }
-
-    fn remove_hypotheses(
-        &mut self,
-        now: SystemTime,
-        configuration: &BallFilterParameters,
-        field_dimensions: &FieldDimensions,
-    ) {
-        self.hypotheses.retain(|hypothesis| {
-            let selected_position = hypothesis.selected_ball_position(configuration).position;
-            let is_inside_field = {
-                selected_position.coords.x.abs()
-                    < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
-                    && selected_position.y.abs()
-                        < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
-            };
-            now.duration_since(hypothesis.last_update)
-                .expect("Time has run backwards")
-                < configuration.hypothesis_timeout
-                && hypothesis.validity > configuration.validity_discard_threshold
-                && is_inside_field
-        });
-        let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
-        for hypothesis in self.hypotheses.drain(..) {
-            let hypothesis_in_merge_distance =
-                deduplicated_hypotheses
-                    .iter_mut()
-                    .find(|existing_hypothesis| {
-                        (existing_hypothesis
-                            .selected_ball_position(configuration)
-                            .position
-                            .coords
-                            - hypothesis
-                                .selected_ball_position(configuration)
-                                .position
-                                .coords)
-                            .norm()
-                            < configuration.hypothesis_merge_distance
-                    });
-            match hypothesis_in_merge_distance {
-                Some(existing_hypothesis) => {
-                    let update_state = hypothesis.selected_state(configuration);
-                    existing_hypothesis.moving_state.update(
-                        Matrix4::identity(),
-                        update_state.mean,
-                        update_state.covariance,
-                    );
-                    
-                    existing_hypothesis.resting_state.update(
-                        Matrix4::identity(),
-                        update_state.mean,
-                        update_state.covariance,
-                    );
-                }
-                None => deduplicated_hypotheses.push(hypothesis),
-            }
-        }
-        self.hypotheses = deduplicated_hypotheses;
-    }
-}
-
-fn project_to_image(
-    ball_position: &[BallPosition],
-    camera_matrix: &CameraMatrix,
-    ball_radius: f32,
-) -> Vec<Circle> {
-    ball_position
-        .iter()
-        .filter_map(|ball_position| {
-            let position_in_image = camera_matrix
-                .ground_with_z_to_pixel(ball_position.position, ball_radius)
-                .ok()?;
-            let radius = camera_matrix
-                .get_pixel_radius(ball_radius, position_in_image, vector![640, 480])
-                .ok()?;
-            Some(Circle {
-                center: position_in_image,
-                radius,
-            })
-        })
-        .collect()
-}
-
-fn is_visible_to_camera(
-    hypothesis: &Hypothesis,
-    camera_matrix: &CameraMatrix,
-    ball_radius: f32,
-    projected_limbs: &[Limb],
-    configuration: &BallFilterParameters,
-) -> bool {
-    let position_on_ground = hypothesis.selected_ball_position(configuration).position;
-    let position_in_image =
-        match camera_matrix.ground_with_z_to_pixel(position_on_ground, ball_radius) {
-            Ok(position_in_image) => position_in_image,
-            Err(_) => return false,
-        };
-    (0.0..640.0).contains(&position_in_image.x)
-        && (0.0..480.0).contains(&position_in_image.y)
-        && is_above_limbs(position_in_image, projected_limbs)
 }
