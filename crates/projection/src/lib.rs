@@ -9,7 +9,7 @@ pub enum Error {
     TooClose,
     #[error("position is behind the camera")]
     BehindCamera,
-    #[error("the pixel position cannot be projected on the projection plane")]
+    #[error("the pixel position cannot be projected onto the projection plane")]
     NotOnProjectionPlane,
 }
 
