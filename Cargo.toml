@@ -19,6 +19,7 @@ members = [
   "crates/hulk_nao",
   "crates/hulk_webots",
   "crates/hulk",
+  "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/motionfile",
   "crates/nao_camera",
@@ -104,6 +105,7 @@ hardware = { path = "crates/hardware" }
 home = "0.5.4"
 hula-types = { path = "tools/hula/types" }
 hulk = { path = "crates/hulk" }
+hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 i2cdev = "0.5.1"
 image = "0.24.4"
 indicatif = "0.17.2"
@@ -130,6 +132,7 @@ ordered-float = "3.1.0"
 openvino = { version = "0.5.0", features = ["runtime-linking"] }
 opusfile-ng = "0.1.0"
 parameters = { path = "crates/parameters" }
+pathfinding = "4.9.1"
 parking_lot = "0.12.1"
 petgraph = "0.6.2"
 png = "0.17.6"
