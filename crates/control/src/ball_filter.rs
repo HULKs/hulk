@@ -271,13 +271,13 @@ impl BallFilter {
             Matrix2x4::identity(),
             detected_position.inner.coords,
             Matrix2::from_diagonal(&configuration.measurement_noise_moving)
-                * detected_position.inner.coords.norm_squared(),
+                * detected_position.coords().norm_squared(),
         );
         hypothesis.resting_state.update(
             Matrix2x4::identity(),
             detected_position.inner.coords,
             Matrix2::from_diagonal(&configuration.measurement_noise_resting)
-                * detected_position.inner.coords.norm_squared(),
+                * detected_position.coords().norm_squared(),
         );
 
         if !hypothesis.is_resting(configuration) {
