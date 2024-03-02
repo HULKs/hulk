@@ -1,11 +1,11 @@
 use color_eyre::Result;
-use context_attribute::context;
-use coordinate_systems::{IntoTransform, Transform};
-use framework::MainOutput;
-use nalgebra::{vector, Isometry3, Translation, Vector3};
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::{vector, Isometry3, Vector3};
+use framework::MainOutput;
 use types::{
-    coordinate_systems::{Ground, Robot},
+    coordinate_systems::{Ground, LeftSole, RightSole, Robot},
     robot_kinematics::RobotKinematics,
     sensor_data::SensorData,
     support_foot::{Side, SupportFoot},
@@ -27,8 +27,8 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_to_ground: MainOutput<Option<Transform<Robot, Ground, Isometry3<f32>>>>,
-    pub ground_to_robot: MainOutput<Option<Transform<Ground, Robot, Isometry3<f32>>>>,
+    pub robot_to_ground: MainOutput<Option<Isometry3<Robot, Ground>>>,
+    pub ground_to_robot: MainOutput<Option<Isometry3<Ground, Robot>>>,
 }
 
 impl GroundProvider {
@@ -37,36 +37,38 @@ impl GroundProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        struct ImuAdjustedRobot;
+
         let imu_roll_pitch = context.sensor_data.inertial_measurement_unit.roll_pitch;
         let imu_roll = imu_roll_pitch.x;
         let imu_pitch = imu_roll_pitch.y;
 
         let left_sole_to_robot = context.robot_kinematics.left_sole_to_robot;
-        // TODO: coordinate systems
-        let imu_adjusted_robot_to_left_sole = Isometry3::rotation(Vector3::y() * imu_pitch)
-            * Isometry3::rotation(Vector3::x() * imu_roll)
-            * Isometry3::from(left_sole_to_robot.inner.translation.inverse());
+        let imu_adjusted_robot_to_left_sole =
+            Isometry3::<ImuAdjustedRobot, LeftSole>::rotation(Vector3::y_axis() * imu_pitch)
+                * Isometry3::rotation(Vector3::x_axis() * imu_roll)
+                * Isometry3::from(-left_sole_to_robot.origin());
 
         let right_sole_to_robot = context.robot_kinematics.right_sole_to_robot;
-        let imu_adjusted_robot_to_right_sole = Isometry3::rotation(Vector3::y() * imu_pitch)
-            * Isometry3::rotation(Vector3::x() * imu_roll)
-            * Isometry3::from(right_sole_to_robot.inner.translation.inverse());
+        let imu_adjusted_robot_to_right_sole =
+            Isometry3::<ImuAdjustedRobot, RightSole>::rotation(Vector3::y_axis() * imu_pitch)
+                * Isometry3::rotation(Vector3::x_axis() * imu_roll)
+                * Isometry3::from(-right_sole_to_robot.origin());
 
-        let left_sole_to_right_sole = right_sole_to_robot.inner.translation.vector
-            - left_sole_to_robot.inner.translation.vector;
-        let left_sole_to_ground =
-            0.5 * vector![left_sole_to_right_sole.x, left_sole_to_right_sole.y, 0.0];
+        let left_sole_to_right_sole =
+            right_sole_to_robot.origin().coords() - left_sole_to_robot.origin().coords();
+        let left_sole_to_ground = vector![
+            left_sole_to_right_sole.x(),
+            left_sole_to_right_sole.y(),
+            0.0
+        ] * 0.5;
 
-        let robot_to_ground = context.support_foot.support_side.map(|side| {
-            match side {
-                Side::Left => {
-                    Translation::from(-left_sole_to_ground) * imu_adjusted_robot_to_left_sole
-                }
-                Side::Right => {
-                    Translation::from(left_sole_to_ground) * imu_adjusted_robot_to_right_sole
-                }
-            }
-            .framed_transform()
+        let right_sole_to_ground = Isometry3::from(-left_sole_to_ground);
+        let left_sole_to_ground = Isometry3::from(left_sole_to_ground);
+
+        let robot_to_ground = context.support_foot.support_side.map(|side| match side {
+            Side::Left => left_sole_to_ground * imu_adjusted_robot_to_left_sole,
+            Side::Right => right_sole_to_ground * imu_adjusted_robot_to_right_sole,
         });
         Ok(MainOutputs {
             robot_to_ground: robot_to_ground.into(),
