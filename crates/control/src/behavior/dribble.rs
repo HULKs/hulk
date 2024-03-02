@@ -1,4 +1,4 @@
-use coordinate_systems::{Framed, Pose};
+use coordinate_systems::{Point, Pose};
 use geometry::look_at::LookAt;
 use types::{
     coordinate_systems::Ground,
@@ -57,7 +57,7 @@ pub fn execute(
         types::motion_command::OrientationMode::AlignWithPath
             if ball_position.coords().norm() > 0.0 =>
         {
-            OrientationMode::Override(Framed::origin().look_at(&ball_position))
+            OrientationMode::Override(Point::origin().look_at(&ball_position))
         }
         orientation_mode => orientation_mode,
     };
