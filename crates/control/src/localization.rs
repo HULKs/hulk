@@ -10,7 +10,7 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{distance, point, vector, IntoTransform, Isometry2, Point2, Pose};
+use coordinate_systems::{distance, point, vector, IntoTransform, Isometry2, Pose};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
@@ -276,7 +276,7 @@ impl Localization {
                     scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
                 }
                 if *context.use_line_measurements {
-                    let ground_to_field: coordinate_systems::Isometry2<Ground, Field> =
+                    let ground_to_field: Isometry2<Ground, Field> =
                         scored_state.state.as_isometry().framed_transform();
                     let current_measured_lines_in_field: Vec<_> = line_data_top
                         .iter()
@@ -1008,6 +1008,8 @@ fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Pose<Fiel
 #[cfg(test)]
 mod tests {
     use std::f32::consts::FRAC_PI_4;
+
+    use coordinate_systems::Point2;
 
     use super::*;
 
