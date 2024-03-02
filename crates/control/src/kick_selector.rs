@@ -187,6 +187,7 @@ fn generate_decisions_for_instant_kicks(
     default_kick_strength: f32,
     goal_accuracy_margin: f32,
 ) -> Vec<KickDecision> {
+    let field_to_ground = ground_to_field.inverse();
     instant_kick_targets.fill_if_subscribed(Default::default);
     iproduct!(sides, kick_variants)
         .filter_map(|(&kicking_side, &variant)| {
@@ -203,10 +204,8 @@ fn generate_decisions_for_instant_kicks(
             let is_intersecting_with_an_obstacle = obstacle_circles
                 .iter()
                 .any(|circle| circle.intersects_line_segment(&ball_to_target));
-            let opponent_goal_center =
-                ground_to_field.inverse() * point![field_dimensions.length / 2.0, 0.0];
-            let own_goal_center =
-                ground_to_field.inverse() * point![-field_dimensions.length / 2.0, 0.0];
+            let opponent_goal_center = field_to_ground * point![field_dimensions.length / 2.0, 0.0];
+            let own_goal_center = field_to_ground * point![-field_dimensions.length / 2.0, 0.0];
             let is_target_closer_to_opponent_goal = (distance(target, opponent_goal_center)
                 + closer_threshold)
                 < distance(ball_position, opponent_goal_center);
