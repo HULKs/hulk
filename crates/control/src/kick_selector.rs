@@ -6,7 +6,7 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{distance, point, vector, Isometry2, Point2, Pose, UnitComplex};
+use coordinate_systems::{distance, point, vector, Isometry2, Point2, Pose, UnitComplex, Vector2};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{
     circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
@@ -192,10 +192,10 @@ fn generate_decisions_for_instant_kicks(
         .filter_map(|(&kicking_side, &variant)| {
             let kick_info = &in_walk_kicks[variant];
             let shot_angle = match kicking_side {
-                Side::Left => UnitComplex::<Ground, Ground>::new(kick_info.shot_angle),
-                Side::Right => UnitComplex::<Ground, Ground>::new(kick_info.shot_angle).inverse(),
+                Side::Left => UnitComplex::new(kick_info.shot_angle),
+                Side::Right => UnitComplex::new(kick_info.shot_angle).inverse(),
             };
-            let shot_distance = vector![kick_info.shot_distance, 0.0];
+            let shot_distance: Vector2<Ground> = vector![kick_info.shot_distance, 0.0];
             let target = ball_position + shot_angle * shot_distance;
 
             let is_inside_field = field_dimensions.is_inside_field(ground_to_field * target);
