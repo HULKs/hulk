@@ -44,7 +44,7 @@ impl CurrentMinimizer {
                 let (joint, maximal_current) = currents
                     .enumerate()
                     .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
-                    .expect("Currents should not be empty.");
+                    .expect("currents must not be empty.");
 
                 let minimum_reached = maximal_current <= self.parameters.allowed_current;
                 if !minimum_reached {
