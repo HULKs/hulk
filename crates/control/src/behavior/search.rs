@@ -67,7 +67,7 @@ pub fn execute(
         .unwrap_or(point![0.0, 0.0]);
     let head = HeadMotion::SearchForLostBall;
     if let Some(SearchRole::Goal) = search_role {
-        let goal_pose = Pose::from_position(search_position);
+        let goal_pose = Pose::from(search_position);
         walk_and_stand.execute(goal_pose, head, path_obstacles_output)
     } else {
         let path = walk_path_planner.plan(
