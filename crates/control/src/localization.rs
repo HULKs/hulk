@@ -913,7 +913,7 @@ fn get_translation_and_rotation_measurement(
     };
     let measured_line_in_field_vector = measured_line_in_field.1 - measured_line_in_field.0;
     let signed_distance_to_line =
-        measured_line_in_field.signed_distance_to_point(ground_to_field * Point2::origin());
+        measured_line_in_field.signed_distance_to_point(ground_to_field.origin());
     match field_mark_line_direction {
         Direction::PositiveX => {
             nalgebra::vector![
