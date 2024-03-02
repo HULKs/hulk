@@ -52,10 +52,10 @@ fn support_pose(
         .or(world_state.ball)
         .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
     let side = field_side.unwrap_or_else(|| ball.field_side.opposite());
-    let offset_vector = UnitComplex::<Field, Field>::new(match side {
+    let offset_vector = UnitComplex::new(match side {
         Side::Left => -FRAC_PI_4,
         Side::Right => FRAC_PI_4,
-    }) * -(Vector2::x_axis() * distance_to_ball);
+    }) * -(Vector2::<Field>::x_axis() * distance_to_ball);
     let supporting_position = ball.ball_in_field + offset_vector;
 
     let filtered_game_state = world_state
