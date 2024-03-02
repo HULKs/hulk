@@ -1,21 +1,20 @@
 use std::{collections::BTreeSet, time::SystemTime};
 
-use color_eyre::Result;
+use color_eyre::{eyre::ContextCompat, Result};
 use context_attribute::context;
 use filtering::kalman_filter::KalmanFilter;
 use framework::{HistoricInput, MainOutput, PerceptionInput};
 use hungarian_algorithm::AssignmentProblem;
 use itertools::{Either, Itertools};
-use nalgebra::{matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2};
+use nalgebra::{
+    matrix, vector, Isometry2, Matrix2, Matrix2x4, Matrix4, Matrix4x2, Point2, Vector4,
+};
 use ndarray::Array2;
 use ordered_float::NotNan;
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{
-    ball::Ball,
     camera_matrix::{CameraMatrices, CameraMatrix},
-    cycle_time::CycleTime,
-    field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::BoundingBox,
     robot_filter::{Hypothesis, Measurement},
@@ -31,28 +30,25 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    initial_covariance: Parameter<Vector4<f32>, "robot_filter.initial_covariance">,
+    validity_threshold: Parameter<f32, "robot_filter.validity_threshold">,
+
     current_odometry_to_last_odometry:
         Input<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_current_odometry_to_last_odometry:
         HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
 
-    validity_threshold: Parameter<f32, "robot_filter.validity_threshold">,
-
     camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-
-    balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
-    balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
     robot_detections: PerceptionInput<Option<Vec<BoundingBox>>, "DetectionTop", "detections?">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_position: MainOutput<Vec<Point2<f32>>>,
+    pub robot_positions: MainOutput<Vec<Point2<f32>>>,
 }
 
 impl RobotFilter {
@@ -84,44 +80,45 @@ impl RobotFilter {
         &mut self,
         measurements: Vec<(&SystemTime, Vec<&BoundingBox>)>,
         context: &CycleContext,
-    ) {
+    ) -> Result<()> {
         let param_process_noise = vector![0.1, 0.1, 0.5, 0.5];
 
         for (detection_time, robots) in measurements {
             let current_odometry_to_last_odometry = context
                 .historic_current_odometry_to_last_odometry
                 .get(detection_time)
-                .expect("current_odometry_to_last_odometry should not be None");
+                .wrap_err("current_odometry_to_last_odometry should not be None")?;
 
             let last_camera_matrices = context
                 .historic_camera_matrices
                 .get(detection_time)
-                .expect("camera_matrices should not be None");
+                .wrap_err("camera_matrices should not be None")?;
 
             self.predict_hypotheses_with_odometry(
                 current_odometry_to_last_odometry.inverse(),
                 Matrix4::from_diagonal(&param_process_noise),
             );
 
-            // match measured robots to hypotheses
             let measurements = Self::collect_measurements(robots, &last_camera_matrices.top);
-            self.update_hypotheses_with_measurements(&measurements, *detection_time);
+            self.update_hypotheses_with_measurements(context.initial_covariance, &measurements, *detection_time);
         }
+
+        Ok(())
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let persistent_updates = Self::persistent_robots_in_control_cycle(&context);
-        self.advance_all_hypotheses(persistent_updates, &context);
+        self.advance_all_hypotheses(persistent_updates, &context)?;
 
         let robot_positions: Vec<Point2<f32>> = self
             .hypotheses
             .iter()
             .filter(|hypothesis| hypothesis.validity > *context.validity_threshold)
-            .map(|hypothesis| hypothesis.bounding_box.mean.xy().into())
+            .map(|hypothesis| hypothesis.robot_state.mean.xy().into())
             .collect();
 
         Ok(MainOutputs {
-            robot_position: robot_positions.into(),
+            robot_positions: robot_positions.into(),
         })
     }
 
@@ -156,7 +153,7 @@ impl RobotFilter {
             let control_input_model = Matrix4x2::identity();
 
             let odometry_translation = last_odometry_to_current_odometry.translation.vector;
-            hypothesis.bounding_box.predict(
+            hypothesis.robot_state.predict(
                 state_prediction,
                 control_input_model,
                 odometry_translation,
@@ -196,8 +193,8 @@ impl RobotFilter {
         Array2::from_shape_fn(
             (measurements.len(), self.hypotheses.len()),
             |(projected_measurement, hypothesis)| {
-                let observation = self.hypotheses[hypothesis].bounding_box;
-                let measurement = measurements[projected_measurement];
+                let observation = self.hypotheses[hypothesis].robot_state;
+                let measurement = &measurements[projected_measurement];
 
                 // Instead could also do: Matrix2::from_diagonal(&hypothesis.bounding_box.mean.xy())
                 let residual_distance =
@@ -219,7 +216,8 @@ impl RobotFilter {
 
     fn update_hypotheses_with_measurements(
         &mut self,
-        measurements: &Vec<Measurement>,
+        initial_covariance: &Vector4<f32>,
+        measurements: &[Measurement],
         detection_time: SystemTime,
     ) {
         let distance_metrics = self.compute_distance_matrix(measurements);
@@ -228,18 +226,25 @@ impl RobotFilter {
 
         let (associated_hypotheses, remaining_hypotheses): (Vec<_>, Vec<_>) = self
             .hypotheses
+            .drain(..)
             .into_iter()
             .enumerate()
             .partition_map(|(index, hypothesis)| match assignment[index] {
                 Some(measurement_index) => {
-                    Either::Left((hypothesis, measurements[measurement_index]))
+                    Either::Left((hypothesis, &measurements[measurement_index]))
                 }
                 None => Either::Right(hypothesis),
             });
+        dbg!(associated_hypotheses.len(), remaining_hypotheses.len());
+
         self.hypotheses.clear();
 
-        for (hypothesis, measurement) in associated_hypotheses {
-            hypothesis.update(Matrix2x4::identity(), measurement);
+        for (mut hypothesis, measurement) in associated_hypotheses {
+            hypothesis.robot_state.update(
+                Matrix2x4::identity(),
+                measurement.location.coords,
+                measurement.projected_error,
+            );
             self.hypotheses.push(hypothesis);
         }
 
@@ -255,21 +260,22 @@ impl RobotFilter {
         }
 
         let mut remaining_detections: BTreeSet<usize> =
-            (0..measurements.len()).into_iter().collect();
+        (0..measurements.len()).into_iter().collect();
         for task in assignment {
             if let Some(task) = task {
                 remaining_detections.remove(&task);
             }
         }
 
-        for detection in remaining_detections.iter().filter_map(|&index| {
+        dbg!(remaining_detections.len());
+        for measurement in remaining_detections.iter().filter_map(|&index| {
             if measurements[index].score > 0.5 {
-                Some(measurements[index])
+                Some(&measurements[index])
             } else {
                 None
             }
         }) {
-            self.spawn_hypothesis(&detection, detection_time);
+            self.spawn_hypothesis(initial_covariance, &measurement, detection_time);
         }
 
         for hypothesis in self.hypotheses.iter_mut() {
@@ -277,12 +283,17 @@ impl RobotFilter {
         }
     }
 
-    fn spawn_hypothesis(&mut self, measurement: &Measurement, detection_time: SystemTime) {
+    fn spawn_hypothesis(
+        &mut self,
+        initial_covariance: &Vector4<f32>,
+        measurement: &Measurement,
+        detection_time: SystemTime,
+    ) {
         let initial_state = vector![measurement.location.x, measurement.location.y, 0.0, 0.0];
         let new_hypothesis = Hypothesis {
-            bounding_box: MultivariateNormalDistribution {
+            robot_state: MultivariateNormalDistribution {
                 mean: initial_state,
-                covariance: Matrix4::from_diagonal(&configuration.initial_covariance),
+                covariance: Matrix4::from_diagonal(initial_covariance),
             },
             validity: 1.0,
             last_update: detection_time,

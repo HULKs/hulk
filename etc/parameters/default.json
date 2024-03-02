@@ -13,7 +13,9 @@
   },
   "robot_filter": {
     "detection_variance_width": 0.1,
-    "detection_variance_height": 0.1
+    "detection_variance_height": 0.1,
+    "initial_covariance": [0.1, 0.1, 0.5, 0.5],
+    "validity_threshold": 0.3
   },
   "whistle_detection": {
     "detection_band": {

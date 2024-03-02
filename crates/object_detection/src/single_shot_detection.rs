@@ -204,7 +204,7 @@ impl SingleShotDetection {
             .columns()
             .into_iter()
             .filter_map(|row| {
-                let confidence = row[5];
+                let confidence = row[4];
 
                 if confidence < confidence_threshold {
                     return None;

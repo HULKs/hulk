@@ -17,7 +17,6 @@ use types::{
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::BoundingBox,
     parameters::BallFilterParameters,
 };
 

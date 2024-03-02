@@ -83,6 +83,7 @@ fn main() -> Result<()> {
                     "control::orientation_filter",
                     "control::penalty_shot_direction_estimation",
                     "control::primary_state_filter",
+                    "control::robot_filter",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
                     "control::sole_pressure_filter",
