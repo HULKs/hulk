@@ -2,7 +2,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, vector, Framed};
+use coordinate_systems::{point, vector, Point};
 use framework::MainOutput;
 use geometry::{circle::Circle, rectangle::Rectangle};
 use spl_network_messages::{SubState, Team};
@@ -76,7 +76,7 @@ impl RuleObstacleComposer {
                 _,
             ) => {
                 let center_circle_obstacle = RuleObstacle::Circle(Circle::new(
-                    Framed::origin(),
+                    Point::origin(),
                     context.field_dimensions.center_circle_diameter / 2.0
                         * context.center_circle_obstacle_increase,
                 ));

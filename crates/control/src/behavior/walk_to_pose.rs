@@ -1,4 +1,4 @@
-use coordinate_systems::{point, Framed, Isometry2, Orientation, Point2, Pose};
+use coordinate_systems::{point, Isometry2, Orientation, Point, Point2, Pose};
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use types::{
@@ -92,10 +92,10 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             ];
 
         let path = planner
-            .plan(Framed::origin(), clamped_target_in_robot)
+            .plan(Point::origin(), clamped_target_in_robot)
             .unwrap();
         path_obstacles_output.fill_if_subscribed(|| planner.obstacles.clone());
-        path.unwrap_or_else(|| direct_path(Framed::origin(), Framed::origin()))
+        path.unwrap_or_else(|| direct_path(Point::origin(), Point::origin()))
     }
 
     pub fn walk_with_obstacle_avoiding_arms(

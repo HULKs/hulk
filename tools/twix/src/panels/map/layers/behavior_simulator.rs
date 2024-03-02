@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
-use coordinate_systems::{Framed, IntoFramed, Isometry2, Point2};
+use coordinate_systems::{IntoFramed, Isometry2, Point2};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -99,7 +99,7 @@ impl Layer for BehaviorSimulator {
                 let fov_corner = nalgebra::point![fov_range, 0.0];
                 let head_rotation = nalgebra::UnitComplex::from_angle(head_yaw);
                 painter.line_segment(
-                    ground_to_field * Framed::origin(),
+                    ground_to_field * Point2::origin(),
                     (ground_to_field.inner * head_rotation * fov_rotation * fov_corner).framed(),
                     fov_stroke,
                 );

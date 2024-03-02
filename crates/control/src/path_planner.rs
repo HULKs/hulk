@@ -1,5 +1,5 @@
 use color_eyre::{eyre::eyre, Result};
-use coordinate_systems::{distance, point, vector, Framed, Isometry2, Orientation, Point2};
+use coordinate_systems::{distance, point, vector, Isometry2, Orientation, Point2};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
@@ -137,7 +137,7 @@ impl PathPlanner {
         margin: f32,
         distance_weight: f32,
     ) -> &mut Self {
-        let own_position = ground_to_field * Framed::origin();
+        let own_position = ground_to_field * Point2::origin();
 
         let distance_to_left_field_border = (field_length / 2.0 - -own_position.x()).max(0.0);
         let distance_to_right_field_border = (field_length / 2.0 - own_position.x()).max(0.0);
@@ -736,7 +736,7 @@ mod tests {
             0.3,
         );
         run_test_scenario(
-            Framed::origin(),
+            Point2::origin(),
             point![2.641_596_3, -0.247_508_54],
             &mut planner,
             &[
@@ -778,7 +778,7 @@ mod tests {
             0.3,
         );
         run_test_scenario(
-            Framed::origin(),
+            Point2::origin(),
             point![3.944_771_8, 1.034_277_4],
             &mut map,
             &[
@@ -819,7 +819,7 @@ mod tests {
             0.0,
         );
         assert!(map
-            .plan(Framed::origin(), point![2.0, 0.0])
+            .plan(Point2::origin(), point![2.0, 0.0])
             .expect("Path error")
             .is_none());
     }
@@ -837,7 +837,7 @@ mod tests {
             0.0,
         );
         assert!(map
-            .plan(point![2.0, 0.0], Framed::origin())
+            .plan(point![2.0, 0.0], Point2::origin())
             .expect("Path error")
             .is_none());
     }

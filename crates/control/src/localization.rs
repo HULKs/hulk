@@ -1009,8 +1009,6 @@ fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Pose<Fiel
 mod tests {
     use std::f32::consts::FRAC_PI_4;
 
-    use coordinate_systems::Framed;
-
     use super::*;
 
     #[test]
@@ -1551,9 +1549,9 @@ mod tests {
     fn circle_mark_correspondence_translates() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
+            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
-                center: Framed::origin(),
+                center: Point2::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1571,9 +1569,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
+            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
-                center: Framed::origin(),
+                center: Point2::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1591,9 +1589,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, -1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
+            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
-                center: Framed::origin(),
+                center: Point2::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1611,9 +1609,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, 1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
+            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
-                center: Framed::origin(),
+                center: Point2::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1631,9 +1629,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
+            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
-                center: Framed::origin(),
+                center: Point2::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1651,9 +1649,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![1.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
+            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
-                center: Framed::origin(),
+                center: Point2::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
@@ -1671,9 +1669,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, -1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Framed::origin(), Framed::origin()),
+            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
-                center: Framed::origin(),
+                center: Point2::origin(),
                 radius: 0.0,
             },
             correspondence_points: (
