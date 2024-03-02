@@ -16,7 +16,7 @@ pub fn execute(
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     walk_and_stand.execute(
-        ground_to_field.inverse() * Pose::from_position(striker_set_position),
+        ground_to_field.inverse() * Pose::from(striker_set_position),
         look_action.execute(),
         path_obstacles_output,
     )

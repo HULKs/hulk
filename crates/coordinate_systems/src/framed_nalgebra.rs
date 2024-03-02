@@ -242,10 +242,6 @@ impl<Frame> Pose<Frame> {
         ))
     }
 
-    pub fn from_position(position: Point2<Frame>) -> Self {
-        Pose::wrap(nalgebra::Isometry::from(position.inner))
-    }
-
     pub fn as_transform<From>(&self) -> Isometry2<From, Frame> {
         Isometry2::wrap(self.inner)
     }
@@ -260,6 +256,13 @@ impl<Frame> Pose<Frame> {
 
     pub fn angle(&self) -> f32 {
         self.inner.rotation.angle()
+    }
+}
+
+impl<Frame> From<Point2<Frame>> for Pose<Frame>
+{
+    fn from(value: Point2<Frame>) -> Self {
+        Self::wrap(nalgebra::Isometry2::from(value.inner))
     }
 }
 

@@ -148,7 +148,7 @@ impl Localization {
                     kicking_team: Team::Hulks,
                 }),
             ) => {
-                let penalty_shoot_out_striker_pose = Pose::from_position(point![
+                let penalty_shoot_out_striker_pose = Pose::from(point![
                     -context.field_dimensions.penalty_area_length
                         + (context.field_dimensions.length / 2.0),
                     0.0,
@@ -168,7 +168,7 @@ impl Localization {
                 }),
             ) => {
                 let penalty_shoot_out_keeper_pose =
-                    Pose::from_position(point![-context.field_dimensions.length / 2.0, 0.0]);
+                    Pose::from(point![-context.field_dimensions.length / 2.0, 0.0]);
                 self.hypotheses = vec![ScoredPose::from_isometry(
                     penalty_shoot_out_keeper_pose,
                     *context.initial_hypothesis_covariance,

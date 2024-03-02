@@ -15,7 +15,7 @@ pub fn execute(
     field_dimensions: &FieldDimensions,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
-    let kick_off_pose = Pose::from_position(point![
+    let kick_off_pose = Pose::from(point![
         field_dimensions.length / 2.0
             - field_dimensions.penalty_marker_distance
             - field_dimensions.penalty_marker_size * 2.0,
