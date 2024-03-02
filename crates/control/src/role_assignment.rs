@@ -4,7 +4,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Framed, IntoFramed, IntoTransform, Isometry2, Point2};
+use coordinate_systems::{IntoFramed, IntoTransform, Isometry2, Point2, Vector};
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use spl_network_messages::{
@@ -242,7 +242,7 @@ impl RoleAssignment {
                 self.last_received_spl_striker_message = Some(cycle_start_time);
                 let sender_position = ground_to_field.inverse()
                     * spl_message.ground_to_field.framed_transform()
-                    * Framed::<Ground, _>::origin();
+                    * Point2::<Ground, _>::origin();
                 if spl_message.player_number != *context.player_number {
                     network_robot_obstacles.push(sender_position);
                 }
@@ -644,7 +644,7 @@ fn team_ball_from_spl_message(
         .as_ref()
         .map(|ball_position| BallPosition {
             position: (spl_message.ground_to_field * ball_position.relative_position).framed(),
-            velocity: Framed::zeros(),
+            velocity: Vector::zeros(),
             last_seen: cycle_start_time - ball_position.age,
         })
 }
@@ -656,7 +656,7 @@ fn team_ball_from_seen_ball(
 ) -> Option<BallPosition<Field>> {
     ball.as_ref().map(|ball| BallPosition {
         position: (ground_to_field * ball.position),
-        velocity: Framed::zeros(),
+        velocity: Vector::zeros(),
         last_seen: cycle_start_time,
     })
 }
