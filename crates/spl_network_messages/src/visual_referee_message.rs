@@ -26,10 +26,9 @@ use crate::{
 };
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy,
+    Clone, Copy, Debug, Default, Deserialize, Eq, FromPrimitive, PartialEq, Serialize, SerializeHierarchy,
 )]
 #[repr(u8)]
-#[derive(FromPrimitive)]
 pub enum VisualRefereeDecision {
     #[default]
     KickInBlueTeam = GAMECONTROLLER_RETURN_STRUCT_VRC_GESTURE_KICK_IN_BLUE_TEAM,
