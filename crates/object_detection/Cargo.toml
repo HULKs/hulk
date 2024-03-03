@@ -8,6 +8,7 @@ homepage = "https://github.com/hulks/hulk"
 
 [dependencies]
 color-eyre = { workspace = true }
+control = { workspace = true }
 context_attribute = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
@@ -19,4 +20,6 @@ openvino = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
 nalgebra = { workspace = true }
-projection =  { workspace = true }
+projection = { workspace = true }
+ordered-float = { workspace = true }
+spl_network_messages = { workspace = true }
