@@ -232,6 +232,18 @@ where
     pub fn z(&self) -> Scalar {
         self.inner.z
     }
+
+    pub fn xy(&self) -> Point2<Frame, Scalar> {
+        Point2::wrap(self.inner.xy())
+    }
+
+    pub fn xz(&self) -> Point2<Frame, Scalar> {
+        Point2::wrap(self.inner.xz())
+    }
+
+    pub fn yz(&self) -> Point2<Frame, Scalar> {
+        Point2::wrap(self.inner.yz())
+    }
 }
 
 impl<Frame, const DIMENSION: usize, Scalar> From<nalgebra::SVector<Scalar, DIMENSION>>
