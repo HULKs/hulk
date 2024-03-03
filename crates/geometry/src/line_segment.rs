@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::{cmp::PartialEq, f32::consts::TAU};
 
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
@@ -7,18 +7,13 @@ use coordinate_systems::{vector, Point2, Vector2};
 
 use crate::{arc::Arc, direction::Direction};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-#[serde(bound = "")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct LineSegment<Frame>(pub Point2<Frame>, pub Point2<Frame>);
 
-// Manual implementation required because the derived version imposes Frame to be PartialEq
-impl<Frame> PartialEq for LineSegment<Frame> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
-    }
-}
-
-impl<Frame> AbsDiffEq for LineSegment<Frame> {
+impl<Frame> AbsDiffEq for LineSegment<Frame>
+where
+    Frame: PartialEq,
+{
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -31,7 +26,10 @@ impl<Frame> AbsDiffEq for LineSegment<Frame> {
     }
 }
 
-impl<Frame> RelativeEq for LineSegment<Frame> {
+impl<Frame> RelativeEq for LineSegment<Frame>
+where
+    Frame: PartialEq,
+{
     fn default_max_relative() -> f32 {
         f32::default_max_relative()
     }
