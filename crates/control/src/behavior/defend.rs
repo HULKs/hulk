@@ -247,8 +247,8 @@ fn defend_kick_off_pose(
 }
 
 pub fn block_on_circle(
-    ball_position: Point2<Field, f32>,
-    target: Point2<Field, f32>,
+    ball_position: Point2<Field>,
+    target: Point2<Field>,
     distance_to_target: f32,
 ) -> Pose<Field> {
     let target_to_ball = ball_position - target;
@@ -260,8 +260,8 @@ pub fn block_on_circle(
 }
 
 fn block_on_line(
-    ball_position: Point2<Field, f32>,
-    target: Point2<Field, f32>,
+    ball_position: Point2<Field>,
+    target: Point2<Field>,
     defense_line_x: f32,
     defense_line_y_range: Range<f32>,
 ) -> Pose<Field> {
