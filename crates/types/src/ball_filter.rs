@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{vector, Vector};
+use coordinate_systems::{vector, Point};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
@@ -43,7 +43,7 @@ impl Hypothesis {
         let selected_state = self.selected_state(configuration);
 
         BallPosition {
-            position: Vector::wrap(selected_state.mean.xy()).as_point(),
+            position: Point::from(selected_state.mean.xy()),
             velocity: vector![selected_state.mean.z, selected_state.mean.w],
             last_seen: self.last_update,
         }
