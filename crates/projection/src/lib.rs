@@ -56,7 +56,7 @@ impl Projection for CameraMatrix {
     }
 
     fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error> {
-        if camera_ray.inner.x <= 0.0 {
+        if camera_ray.x() <= 0.0 {
             return Err(Error::BehindCamera);
         }
         Ok(point![
@@ -113,7 +113,7 @@ impl Projection for CameraMatrix {
     ) -> Result<Point2<Pixel>, Error> {
         self.camera_to_pixel(
             (self.ground_to_camera
-                * point![ground_coordinates.inner.x, ground_coordinates.inner.y, z])
+                * point![ground_coordinates.x(), ground_coordinates.y(), z])
             .coords(),
         )
     }
@@ -152,8 +152,8 @@ impl Projection for CameraMatrix {
         let robot_coordinates =
             self.pixel_to_ground_with_z(pixel_coordinates, radius_in_robot_coordinates)?;
         let camera_coordinates = self.ground_to_camera
-            * point![robot_coordinates.inner.x, robot_coordinates.inner.y, 0.0];
-        let distance = camera_coordinates.inner.coords.norm();
+            * point![robot_coordinates.x(), robot_coordinates.y(), 0.0];
+        let distance = camera_coordinates.coords().norm();
         if distance <= radius_in_robot_coordinates {
             return Err(Error::TooClose);
         }
