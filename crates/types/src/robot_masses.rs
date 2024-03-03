@@ -9,7 +9,7 @@ use coordinate_systems::{point, Point3};
 #[derive(Debug)]
 pub struct RobotMass<Frame> {
     pub mass: f32,
-    pub center: Point3<Frame, f32>,
+    pub center: Point3<Frame>,
 }
 
 pub const TORSO: RobotMass<Torso> = RobotMass {
