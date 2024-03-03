@@ -1,6 +1,6 @@
 use approx::assert_relative_eq;
-use coordinate_systems::{point, vector, IntoTransform, Point2};
-use nalgebra::{Isometry3, Translation, UnitQuaternion, Vector2};
+use coordinate_systems::{point, vector, IntoTransform, Isometry3, Point2};
+use nalgebra::{Translation, UnitQuaternion, Vector2};
 use projection::Projection;
 use types::{camera_matrix::CameraMatrix, coordinate_systems::Pixel};
 
@@ -13,9 +13,9 @@ fn from_normalized_focal_and_center_short(
         focal_length,
         optical_center,
         image_size,
-        Isometry3::identity().framed_transform(),
-        Isometry3::identity().framed_transform(),
-        Isometry3::identity().framed_transform(),
+        Isometry3::identity(),
+        Isometry3::identity(),
+        Isometry3::identity(),
     )
 }
 
