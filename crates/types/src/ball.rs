@@ -15,15 +15,9 @@ pub struct CandidateEvaluation {
     pub merge_weight: Option<f32>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq, PartialEq)]
 #[abs_diff_eq(epsilon = "f32")]
 pub struct Ball {
     pub position: Point2<Ground>,
     pub image_location: Circle<Pixel>,
-}
-
-impl PartialEq for Ball {
-    fn eq(&self, other: &Self) -> bool {
-        self.position == other.position && self.image_location == other.image_location
-    }
 }
