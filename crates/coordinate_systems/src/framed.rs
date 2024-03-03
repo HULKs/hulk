@@ -2,7 +2,7 @@ use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
-    hash::Hash,
+    hash::{Hash, Hasher},
     iter::Sum,
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign},
@@ -234,9 +234,7 @@ impl<Frame, Inner> Hash for Framed<Frame, Inner>
 where
     Inner: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // TODO: do we want to hash the state? does it even do anything?
-        self.frame.hash(state);
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
