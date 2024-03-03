@@ -21,10 +21,10 @@ pub struct Keypoints {
     pub right_ear: Keypoint,
     pub left_shoulder: Keypoint,
     pub right_shoulder: Keypoint,
-    pub left_elbow: Keypoint,
-    pub right_elbow: Keypoint,
     pub left_hand: Keypoint,
     pub right_hand: Keypoint,
+    pub left_elbow: Keypoint,
+    pub right_elbow: Keypoint,
     pub left_hip: Keypoint,
     pub right_hip: Keypoint,
     pub left_knee: Keypoint,
@@ -52,10 +52,10 @@ impl Keypoints {
             right_ear: keypoints_iter.next()?,
             left_shoulder: keypoints_iter.next()?,
             right_shoulder: keypoints_iter.next()?,
-            left_elbow: keypoints_iter.next()?,
-            right_elbow: keypoints_iter.next()?,
             left_hand: keypoints_iter.next()?,
             right_hand: keypoints_iter.next()?,
+            left_elbow: keypoints_iter.next()?,
+            right_elbow: keypoints_iter.next()?,
             left_hip: keypoints_iter.next()?,
             right_hip: keypoints_iter.next()?,
             left_knee: keypoints_iter.next()?,
@@ -68,7 +68,7 @@ impl Keypoints {
 impl Index<usize> for Keypoints {
     fn index(&self, index: usize) -> &Keypoint {
         assert!((0..=16).contains(&index));
-        match index {
+        match index as usize {
             0 => &self.left_eye,
             1 => &self.right_eye,
             2 => &self.nose,
@@ -76,17 +76,17 @@ impl Index<usize> for Keypoints {
             4 => &self.right_ear,
             5 => &self.left_shoulder,
             6 => &self.right_shoulder,
+            9 => &self.left_hand,
+            10 => &self.right_hand,
             7 => &self.left_hand,
             8 => &self.right_hand,
-            9 => &self.left_elbow,
-            10 => &self.right_elbow,
             11 => &self.left_hip,
             12 => &self.right_hip,
             13 => &self.left_knee,
             14 => &self.right_knee,
             15 => &self.left_foot,
             16 => &self.right_foot,
-            17.. => todo!(),
+            _ => unreachable!(),
         }
     }
     type Output = Keypoint;
