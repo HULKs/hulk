@@ -54,6 +54,10 @@ impl<Frame, const DIMENSION: usize> Framed<Frame, SVector<f32, DIMENSION>> {
     pub fn angle(&self, rhs: Self) -> f32 {
         self.inner.angle(&rhs.inner)
     }
+
+    pub fn component_mul(&self, rhs: Self) -> Self {
+        Self::wrap(self.inner.component_mul(&rhs.inner))
+    }
 }
 
 impl<Frame, From, const DIMENSION: usize> Framed<Frame, SVector<From, DIMENSION>>
@@ -129,6 +133,18 @@ where
 
     pub fn z_axis() -> Self {
         Framed::wrap(*SVector::z_axis())
+    }
+
+    pub fn xy(&self) -> Vector2<Frame, Scalar> {
+        Vector2::wrap(self.inner.xy())
+    }
+
+    pub fn xz(&self) -> Vector2<Frame, Scalar> {
+        Vector2::wrap(self.inner.xz())
+    }
+
+    pub fn yz(&self) -> Vector2<Frame, Scalar> {
+        Vector2::wrap(self.inner.yz())
     }
 }
 
