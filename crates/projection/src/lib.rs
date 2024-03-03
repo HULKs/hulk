@@ -95,7 +95,11 @@ impl Projection for CameraMatrix {
 
         let intersection_point = camera_position + camera_ray_over_ground * intersection_scalar;
 
-        Ok(intersection_point.inner.xy().framed())
+        let elevated_ground_to_ground =
+            Isometry3::<ElevatedGround, Ground>::from(vector![0.0, 0.0, -z]);
+        let intersection_point_in_ground = elevated_ground_to_ground * intersection_point;
+
+        Ok(intersection_point_in_ground.xy())
     }
 
     fn ground_to_pixel(&self, ground_coordinates: Point2<Ground>) -> Result<Point2<Pixel>, Error> {
