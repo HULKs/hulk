@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
-use coordinate_systems::Transform;
-use nalgebra::{matrix, point, Isometry2, Point2};
+use coordinate_systems::Isometry2;
+use nalgebra::{matrix, point, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -21,7 +21,7 @@ impl Interpolated {
     const ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![3.0, 0.0];
     const ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL: Point2<f32> = point![3.0, PI];
 
-    pub fn evaluate_at(&self, ground_to_field: Transform<Ground, Field, Isometry2<f32>>) -> f32 {
+    pub fn evaluate_at(&self, ground_to_field: Isometry2<Ground, Field>) -> f32 {
         let argument = point![
             ground_to_field.as_pose().position().x(),
             ground_to_field.orientation().angle().abs()
@@ -90,8 +90,7 @@ impl From<f32> for Interpolated {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use coordinate_systems::IntoTransform;
-    use nalgebra::{Rotation2, Translation2};
+    use coordinate_systems::vector;
 
     use super::*;
 
@@ -110,53 +109,43 @@ mod tests {
 
         let cases = [
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
-                    ),
-                    Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y)
-                        .into(),
-                )
-                .framed_transform(),
+                    ],
+                    Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
+                ),
                 0.0,
             ),
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.x,
                         0.0,
-                    ),
-                    Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y)
-                        .into(),
-                )
-                .framed_transform(),
+                    ],
+                    Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y,
+                ),
                 1.0,
             ),
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
-                    ),
-                    Rotation2::new(
-                        Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.y,
-                    )
-                    .into(),
-                )
-                .framed_transform(),
+                    ],
+                    Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.y,
+                ),
                 2.0,
             ),
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.x,
                         0.0,
-                    ),
-                    Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y)
-                        .into(),
-                )
-                .framed_transform(),
+                    ],
+                    Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y,
+                ),
                 3.0,
             ),
         ];
@@ -182,63 +171,55 @@ mod tests {
 
         let cases = [
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         half_between(
                             Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
                             Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x,
                         ),
                         0.0,
-                    ),
-                    Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y)
-                        .into(),
-                )
-                .framed_transform(),
+                    ],
+                    Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
+                ),
                 1.0,
             ),
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
-                    ),
-                    Rotation2::new(half_between(
+                    ],
+                    half_between(
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.y,
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y,
-                    ))
-                    .into(),
-                )
-                .framed_transform(),
+                    ),
+                ),
                 2.5,
             ),
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         half_between(
                             Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.x,
                             Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.x,
                         ),
                         0.0,
-                    ),
-                    Rotation2::new(Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y)
-                        .into(),
-                )
-                .framed_transform(),
+                    ],
+                    Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y,
+                ),
                 2.0,
             ),
             (
-                Isometry2::from_parts(
-                    Translation2::new(
+                Isometry2::new(
+                    vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
-                    ),
-                    Rotation2::new(half_between(
+                    ],
+                    half_between(
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.y,
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.y,
-                    ))
-                    .into(),
-                )
-                .framed_transform(),
+                    ),
+                ),
                 0.5,
             ),
         ];
@@ -263,23 +244,19 @@ mod tests {
         };
 
         assert_relative_eq!(
-            interpolated.evaluate_at(
-                Isometry2::from_parts(
-                    Translation2::new(
-                        half_between(
-                            Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
-                            Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x
-                        ),
-                        0.0
+            interpolated.evaluate_at(Isometry2::new(
+                vector![
+                    half_between(
+                        Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
+                        Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x
                     ),
-                    Rotation2::new(half_between(
-                        Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
-                        Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y
-                    ))
-                    .into()
+                    0.0
+                ],
+                half_between(
+                    Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
+                    Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y
                 )
-                .framed_transform()
-            ),
+            )),
             1.5,
             epsilon = 0.001
         );
