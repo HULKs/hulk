@@ -72,7 +72,8 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
     iou_threshold: Parameter<f32, "detection.$cycler_instance.iou_threshold">,
-    confidence_threshold: Parameter<f32, "detection.$cycler_instance.confidence_threshold">,
+    keypoint_confidence_threshold:
+        Parameter<f32, "detection.$cycler_instance.keypoint_confidence_threshold">,
     enable: Parameter<bool, "detection.$cycler_instance.enable">,
 }
 
@@ -185,7 +186,7 @@ impl PoseDetection {
             .into_iter()
             .filter_map(|row| {
                 let prob = row[4];
-                if prob < *context.confidence_threshold {
+                if prob < *context.keypoint_confidence_threshold {
                     return None;
                 }
                 let bounding_box_slice = row.slice(s![0..4]);
