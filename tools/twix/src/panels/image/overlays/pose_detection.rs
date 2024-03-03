@@ -42,7 +42,7 @@ impl Overlay for PoseDetection {
         let cycler = match selected_cycler {
             Cycler::VisionTop => Cycler::DetectionTop,
             Cycler::VisionBottom => Cycler::DetectionBottom,
-            _ => panic!("SingleShotDetection only works with vision cyclers"),
+            _ => panic!("PoseDetection only works with vision cyclers"),
         };
 
         Self {
@@ -73,14 +73,6 @@ impl Overlay for PoseDetection {
                     FontId::default(),
                     Color32::WHITE,
                 );
-
-                // painter.text(
-                //     keypoint.point,
-                //     Align2::RIGHT_BOTTOM,
-                //     format!("{:.2}", keypoint_id),
-                //     FontId::default(),
-                //     Color32::WHITE,
-                // );
             }
 
             // draw skeleton
