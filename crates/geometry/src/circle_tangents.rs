@@ -1,27 +1,21 @@
+use std::cmp::PartialEq;
+
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{line_segment::LineSegment, two_line_segments::TwoLineSegments};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-#[serde(bound = "")]
-#[serialize_hierarchy(bound = "")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[serialize_hierarchy(bound = "for <'de> Frame: Serialize + Deserialize<'de>")]
 pub struct CircleTangents<Frame> {
     pub inner: Option<TwoLineSegments<Frame>>,
     pub outer: TwoLineSegments<Frame>,
 }
 
-// Manual implementation required because the derived version imposes Frame to be PartialEq
-impl<Frame> PartialEq for CircleTangents<Frame> {
-    fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner && self.outer == other.outer
-    }
-}
-
 impl<Frame> AbsDiffEq for CircleTangents<Frame>
 where
-    Frame: Copy,
+    Frame: Copy + PartialEq,
 {
     type Epsilon = f32;
 
@@ -48,7 +42,7 @@ where
 
 impl<Frame> RelativeEq for CircleTangents<Frame>
 where
-    Frame: Copy,
+    Frame: Copy + PartialEq,
 {
     fn default_max_relative() -> f32 {
         f32::default_max_relative()
