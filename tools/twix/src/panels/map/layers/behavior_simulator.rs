@@ -104,7 +104,7 @@ impl Layer for BehaviorSimulator {
                     fov_stroke,
                 );
                 painter.line_segment(
-                    ground_to_field.origin(),
+                    ground_to_field.translation(),
                     (ground_to_field.inner * head_rotation * fov_rotation.inverse() * fov_corner)
                         .framed(),
                     fov_stroke,

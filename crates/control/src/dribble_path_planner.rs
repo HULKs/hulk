@@ -30,7 +30,7 @@ pub fn plan(
     let ball_obstacle = should_avoid_ball.then_some(ball_position_in_ground);
 
     let ball_is_between_robot_and_own_goal =
-        ball_position_in_field.coords().x() - ground_to_field.origin().x() < 0.0;
+        ball_position_in_field.coords().x() - ground_to_field.translation().x() < 0.0;
     let ball_obstacle_radius_factor = if ball_is_between_robot_and_own_goal {
         1.0f32
     } else {
