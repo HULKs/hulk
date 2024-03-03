@@ -47,7 +47,7 @@ impl Residuals {
 
         let projected_lines = measurement
             .lines
-            .to_projected(&corrected)
+            .project_to_ground(&corrected)
             .map_err(ResidualsError::NotProjected)?;
 
         let border_to_connecting_angle = projected_lines
