@@ -22,8 +22,7 @@ where
         Transform::<To, From, _>::wrap(self.inner.inverse())
     }
 
-    // TODO: naming kloppen
-    pub fn origin(&self) -> Point<To, DIMENSION, Scalar> {
+    pub fn translation(&self) -> Point<To, DIMENSION, Scalar> {
         Point::wrap(self.inner.translation.vector.clone().into())
     }
 }
@@ -43,10 +42,6 @@ where
     Scalar::Element: SimdRealField,
     Scalar: SimdRealField,
 {
-    pub fn translation(x: Scalar, y: Scalar, z: Scalar) -> Self {
-        Transform::wrap(nalgebra::Isometry3::translation(x, y, z))
-    }
-
     pub fn rotation(axisangle: Vector3<To, Scalar>) -> Self {
         Self::wrap(nalgebra::Isometry3::rotation(axisangle.inner))
     }

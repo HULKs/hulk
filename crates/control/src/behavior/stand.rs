@@ -34,7 +34,7 @@ pub fn execute(
                     let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
                     ground_to_field.inverse() * penalty_spot_location
                 }
-                _ => ground_to_field.inverse().origin(),
+                _ => ground_to_field.inverse().as_pose().position(),
             };
             let target = world_state
                 .ball

@@ -366,7 +366,7 @@ impl Localization {
                         let line_center_point =
                             field_mark_correspondence.measured_line_in_field.center();
                         let line_distance_to_robot =
-                            distance(line_center_point, ground_to_field.origin());
+                            distance(line_center_point, ground_to_field.as_pose().position());
                         context.updates.mutate_if_subscribed(|updates| {
                             if let Some(updates) = updates {
                                 updates[hypothesis_index].push({
@@ -377,7 +377,7 @@ impl Localization {
                                                     Direction::PositiveX => {
                                                         nalgebra::Isometry2::new(
                                                             nalgebra::vector![
-                                                                ground_to_field.origin().x(),
+                                                                ground_to_field.translation().x(),
                                                                 update.x
                                                             ],
                                                             update.y,
@@ -387,7 +387,7 @@ impl Localization {
                                                         nalgebra::Isometry2::new(
                                                             nalgebra::vector![
                                                                 update.x,
-                                                                ground_to_field.origin().y()
+                                                                ground_to_field.translation().y()
                                                             ],
                                                             update.y,
                                                         )
@@ -913,7 +913,7 @@ fn get_translation_and_rotation_measurement(
     };
     let measured_line_in_field_vector = measured_line_in_field.1 - measured_line_in_field.0;
     let signed_distance_to_line =
-        measured_line_in_field.signed_distance_to_point(ground_to_field.origin());
+        measured_line_in_field.signed_distance_to_point(ground_to_field.as_pose().position());
     match field_mark_line_direction {
         Direction::PositiveX => {
             nalgebra::vector![
@@ -943,7 +943,7 @@ fn get_2d_translation_measurement(
     let reference_line_vector = field_mark_correspondence.correspondence_points.1.reference
         - field_mark_correspondence.correspondence_points.0.reference;
     let measured_line_point_0_to_robot_vector =
-        ground_to_field.origin() - field_mark_correspondence.correspondence_points.0.measured;
+        ground_to_field.as_pose().position() - field_mark_correspondence.correspondence_points.0.measured;
     // Signed angle between two vectors: https://wumbo.net/formula/angle-between-two-vectors-2d/
     let measured_rotation = f32::atan2(
         measured_line_point_0_to_robot_vector.y() * measured_line_vector.x()

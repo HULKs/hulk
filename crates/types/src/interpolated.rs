@@ -23,7 +23,7 @@ impl Interpolated {
 
     pub fn evaluate_at(&self, ground_to_field: Transform<Ground, Field, Isometry2<f32>>) -> f32 {
         let argument = point![
-            ground_to_field.origin().x(),
+            ground_to_field.as_pose().position().x(),
             ground_to_field.orientation().angle().abs()
         ];
         let argument = point![

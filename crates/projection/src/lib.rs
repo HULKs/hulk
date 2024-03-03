@@ -1,7 +1,7 @@
 use approx::relative_eq;
 use thiserror::Error;
 
-use coordinate_systems::{point, vector, IntoFramed, Isometry3, Point2, Point3, Vector3};
+use coordinate_systems::{point, vector, Isometry3, Point, Point2, Point3, Vector3};
 use types::{
     camera_matrix::CameraMatrix,
     coordinate_systems::{Camera, Ground, Pixel, Robot},
@@ -78,9 +78,9 @@ impl Projection for CameraMatrix {
 
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
         let camera_to_elevated_ground =
-            Isometry3::<Ground, ElevatedGround>::translation(0., 0., -z) * self.camera_to_ground;
+            Isometry3::<Ground, ElevatedGround>::from(vector![0., 0., -z]) * self.camera_to_ground;
 
-        let camera_position = camera_to_elevated_ground.origin();
+        let camera_position = Point::from(camera_to_elevated_ground.translation());
         let camera_ray_over_ground = camera_to_elevated_ground * camera_ray;
 
         if relative_eq!(camera_ray_over_ground.z(), 0.0) {
@@ -126,11 +126,11 @@ impl Projection for CameraMatrix {
         let camera_ray = self.pixel_to_camera(pixel_coordinates);
         let camera_ray_over_ground = self.camera_to_ground * camera_ray;
 
-        let distance_to_plane = x - self.camera_to_ground.origin().x();
+        let distance_to_plane = x - self.camera_to_ground.translation().x();
         let slope = distance_to_plane / camera_ray_over_ground.x();
 
         let intersection_point =
-            self.camera_to_ground.origin().coords() + camera_ray_over_ground * slope;
+            self.camera_to_ground.translation().coords() + camera_ray_over_ground * slope;
         Ok(point![x, intersection_point.y(), intersection_point.z()])
     }
 
