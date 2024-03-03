@@ -341,7 +341,7 @@ fn robot_to_pixel_inverse() {
     let pixel_coordinates = camera_matrix.robot_to_pixel(robot_coordinates).unwrap();
     assert_relative_eq!(
         camera_matrix
-            .pixel_to_robot_with_x(pixel_coordinates, robot_coordinates.inner.x)
+            .pixel_to_robot_with_x(pixel_coordinates, robot_coordinates.x())
             .unwrap(),
         robot_coordinates
     );

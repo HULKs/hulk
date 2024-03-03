@@ -169,7 +169,7 @@ impl LineDetection {
             }
 
             let is_too_far = *context.check_line_distance
-                && line_in_ground.center().inner.coords.norm() > *context.maximum_distance_to_robot;
+                && line_in_ground.center().coords().norm() > *context.maximum_distance_to_robot;
             if is_too_far {
                 discarded_lines.push((ransac_line, LineDiscardReason::TooFarAway));
                 continue;
