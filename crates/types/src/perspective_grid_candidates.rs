@@ -61,8 +61,7 @@ impl RelativeEq for PerspectiveGridCandidates {
 #[cfg(test)]
 mod tests {
     use approx::{assert_relative_eq, assert_relative_ne};
-    use coordinate_systems::IntoFramed;
-    use nalgebra::point;
+    use coordinate_systems::point;
 
     use super::*;
 
@@ -72,11 +71,11 @@ mod tests {
             PerspectiveGridCandidates {
                 candidates: vec![
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                 ],
@@ -84,11 +83,11 @@ mod tests {
             PerspectiveGridCandidates {
                 candidates: vec![
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                 ],
@@ -102,11 +101,11 @@ mod tests {
             PerspectiveGridCandidates {
                 candidates: vec![
                     Circle {
-                        center: point![0.3, 0.0].framed(),
+                        center: point![0.3, 0.0],
                         radius: 2.0
                     },
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                 ],
@@ -114,11 +113,11 @@ mod tests {
             PerspectiveGridCandidates {
                 candidates: vec![
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                 ],
@@ -132,18 +131,18 @@ mod tests {
             PerspectiveGridCandidates {
                 candidates: vec![
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                     Circle {
-                        center: point![0.0, 0.0].framed(),
+                        center: point![0.0, 0.0],
                         radius: 2.5
                     },
                 ],
             },
             PerspectiveGridCandidates {
                 candidates: vec![Circle {
-                    center: point![0.0, 0.0].framed(),
+                    center: point![0.0, 0.0],
                     radius: 2.5
                 },],
             }
