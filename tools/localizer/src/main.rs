@@ -75,14 +75,14 @@ fn main() -> Result<()> {
 }
 
 fn merge_line_data(line_data: &BTreeMap<SystemTime, Vec<Option<LineData>>>) -> LineData {
-    let lines_in_robot = line_data
+    let lines = line_data
         .values()
         .flatten()
         .flatten()
-        .flat_map(|line_data| line_data.lines_in_ground.clone())
+        .flat_map(|line_data| line_data.lines.clone())
         .collect();
     LineData {
-        lines_in_ground: lines_in_robot,
+        lines,
         used_segments: HashSet::new(),
     }
 }
@@ -93,7 +93,7 @@ fn line_correspondences(
     field_marks: &[FieldMark],
 ) -> Vec<Line2<Field>> {
     let lines: Vec<Line2<Field>> = lines
-        .lines_in_ground
+        .lines
         .iter()
         .copied()
         .map(|line| ground_to_field * line)

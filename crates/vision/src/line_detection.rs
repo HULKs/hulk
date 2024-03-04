@@ -181,7 +181,7 @@ impl LineDetection {
             }
         }
         let line_data = LineData {
-            lines_in_ground,
+            lines: lines_in_ground,
             used_segments,
         };
 

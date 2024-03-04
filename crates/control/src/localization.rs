@@ -284,7 +284,7 @@ impl Localization {
                         .filter_map(|data| data.as_ref())
                         .flat_map(|line_data| {
                             line_data
-                                .lines_in_ground
+                                .lines
                                 .iter()
                                 .map(|&measured_line_in_ground| {
                                     ground_to_field * measured_line_in_ground
