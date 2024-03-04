@@ -150,7 +150,7 @@ fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
     group
         .iter()
         .map(|point| point.coords())
-        .sum::<Vector2<Pixel>>()
+        .sum::<Vector2<_>>()
         .unscale(group.len() as f32)
         .as_point()
 }
