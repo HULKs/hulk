@@ -11,7 +11,7 @@ use crate::{
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct LineData {
-    pub lines_in_ground: Vec<Line2<Ground>>,
+    pub lines: Vec<Line2<Ground>>,
     pub used_segments: HashSet<Point2<Pixel, u16>>,
 }
 
