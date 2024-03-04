@@ -141,12 +141,12 @@ fn find_border_lines(
 
 fn best_fit_line(points: &[Point2<Pixel>]) -> Line2<Pixel> {
     let half_size = points.len() / 2;
-    let line_start = find_centre_of_group(&points[0..half_size]);
-    let line_end = find_centre_of_group(&points[half_size..points.len()]);
+    let line_start = find_center_of_group(&points[0..half_size]);
+    let line_end = find_center_of_group(&points[half_size..points.len()]);
     Line(line_start, line_end)
 }
 
-fn find_centre_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
+fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
     group
         .iter()
         .map(|point| point.coords())
@@ -239,7 +239,7 @@ mod test {
     #[test]
     fn find_centre_of_two_points() {
         let points = vec![point![2.0, 5.0], point![4.0, 7.0]];
-        let centre = find_centre_of_group(&points);
+        let centre = find_center_of_group(&points);
         assert_relative_eq!(centre, point![3.0, 6.0]);
     }
 
@@ -260,7 +260,7 @@ mod test {
                 vec![new_point, new_mirrored_point]
             })
             .collect();
-        let calculated_centre = find_centre_of_group(&points);
+        let calculated_centre = find_center_of_group(&points);
         assert_relative_eq!(centre, calculated_centre, epsilon = 0.0001);
     }
 }
