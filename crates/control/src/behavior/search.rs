@@ -1,4 +1,4 @@
-use coordinate_systems::{point, Isometry2, Orientation, Point2, Pose};
+use coordinate_systems::{point, Isometry2, Orientation2, Point2, Pose};
 use framework::AdditionalOutput;
 use types::{
     coordinate_systems::{Field, Ground},
@@ -82,7 +82,7 @@ pub fn execute(
         let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
         let orientation_mode = if is_reached {
-            OrientationMode::Override(Orientation::new(parameters.rotation_per_step))
+            OrientationMode::Override(Orientation2::new(parameters.rotation_per_step))
         } else {
             OrientationMode::AlignWithPath
         };

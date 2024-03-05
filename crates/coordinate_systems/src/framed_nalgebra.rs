@@ -2,7 +2,8 @@ use nalgebra::{ArrayStorage, Const, Matrix, SVector, Scalar};
 use num_traits::{identities::Zero, One};
 
 use crate::{
-    Framed, Isometry2, Orientation, Point, Point2, Point3, Pose, UnitComplex, Vector, Vector2,
+    Framed, Isometry2, Orientation2, Orientation3, Point, Point2, Point3, Pose, UnitComplex,
+    Vector, Vector2,
 };
 
 // Vectors
@@ -263,7 +264,7 @@ impl<Frame> Pose<Frame> {
         Pose::wrap(nalgebra::Isometry2::new(translation.inner, angle))
     }
 
-    pub fn from_parts(translation: Vector2<Frame, f32>, orientation: Orientation<Frame>) -> Self {
+    pub fn from_parts(translation: Vector2<Frame, f32>, orientation: Orientation2<Frame>) -> Self {
         Pose::wrap(nalgebra::Isometry2::from_parts(
             translation.inner.into(),
             orientation.inner,
@@ -278,8 +279,8 @@ impl<Frame> Pose<Frame> {
         Point2::wrap(self.inner.translation.vector.into())
     }
 
-    pub fn orientation(&self) -> Orientation<Frame> {
-        Orientation::wrap(self.inner.rotation)
+    pub fn orientation(&self) -> Orientation2<Frame> {
+        Orientation2::wrap(self.inner.rotation)
     }
 
     pub fn angle(&self) -> f32 {
@@ -287,8 +288,7 @@ impl<Frame> Pose<Frame> {
     }
 }
 
-impl<Frame> From<Point2<Frame>> for Pose<Frame>
-{
+impl<Frame> From<Point2<Frame>> for Pose<Frame> {
     fn from(value: Point2<Frame>) -> Self {
         Self::wrap(nalgebra::Isometry2::from(value.inner))
     }
@@ -296,7 +296,7 @@ impl<Frame> From<Point2<Frame>> for Pose<Frame>
 
 // Orientation
 
-impl<Frame> Orientation<Frame> {
+impl<Frame> Orientation2<Frame> {
     pub fn new(angle: f32) -> Self {
         Self::wrap(nalgebra::UnitComplex::new(angle))
     }
@@ -310,7 +310,7 @@ impl<Frame> Orientation<Frame> {
     }
 
     pub fn from_vector(direction: Vector2<Frame>) -> Self {
-        Orientation::wrap(nalgebra::UnitComplex::rotation_between(
+        Orientation2::wrap(nalgebra::UnitComplex::rotation_between(
             &nalgebra::Vector2::x_axis(),
             &direction.inner,
         ))
@@ -330,5 +330,17 @@ impl<Frame> Orientation<Frame> {
 
     pub fn rotation_to(&self, other: Self) -> Self {
         Self::wrap(self.inner.rotation_to(&other.inner))
+    }
+}
+
+impl<Frame> Orientation3<Frame> {
+    pub fn from_euler_angles(roll: f32, pitch: f32, yaw: f32) -> Self {
+        Self::wrap(nalgebra::UnitQuaternion::from_euler_angles(
+            roll, pitch, yaw,
+        ))
+    }
+
+    pub fn inverse(&self) -> Self {
+        Self::wrap(self.inner.inverse())
     }
 }

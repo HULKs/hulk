@@ -1,4 +1,4 @@
-use coordinate_systems::{Orientation, Point2};
+use coordinate_systems::{Orientation2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -10,7 +10,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum OrientationMode {
     AlignWithPath,
-    Override(Orientation<Ground>),
+    Override(Orientation2<Ground>),
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

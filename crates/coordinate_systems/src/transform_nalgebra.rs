@@ -1,8 +1,8 @@
 use nalgebra::{AbstractRotation, SimdRealField};
 
 use crate::{
-    Isometry, Isometry2, Isometry3, Orientation, Point, Point2, Point3, Pose, Transform,
-    UnitComplex, Vector2, Vector3,
+    Isometry, Isometry2, Isometry3, Orientation2, Orientation3, Point, Point2, Point3, Pose,
+    Transform, UnitComplex, Vector2, Vector3,
 };
 
 // Isometry
@@ -52,8 +52,8 @@ impl<From, To> Transform<From, To, nalgebra::Isometry2<f32>> {
         Pose::wrap(self.inner)
     }
 
-    pub fn orientation(&self) -> Orientation<To> {
-        Orientation::wrap(self.inner.rotation)
+    pub fn orientation(&self) -> Orientation2<To> {
+        Orientation2::wrap(self.inner.rotation)
     }
 }
 

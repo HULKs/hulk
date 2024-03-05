@@ -1,4 +1,4 @@
-use coordinate_systems::{Isometry2, Orientation, Point};
+use coordinate_systems::{Isometry2, Orientation2, Point};
 use geometry::line_segment::LineSegment;
 use spl_network_messages::{GamePhase, SubState};
 use types::{
@@ -85,7 +85,7 @@ pub fn execute(
                 path,
                 left_arm: types::motion_command::ArmMotion::Swing,
                 right_arm: types::motion_command::ArmMotion::Swing,
-                orientation_mode: OrientationMode::Override(Orientation::identity()),
+                orientation_mode: OrientationMode::Override(Orientation2::identity()),
             })
         }
         _ => None,

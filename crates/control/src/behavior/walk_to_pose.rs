@@ -1,4 +1,4 @@
-use coordinate_systems::{point, Isometry2, Orientation, Point, Point2, Pose};
+use coordinate_systems::{point, Isometry2, Orientation2, Point, Point2, Pose};
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use types::{
@@ -211,7 +211,7 @@ pub fn hybrid_alignment(
     if distance_to_target >= hybrid_align_distance {
         return OrientationMode::AlignWithPath;
     }
-    let target_facing_rotation = Orientation::from_vector(target_pose.position().coords());
+    let target_facing_rotation = Orientation2::from_vector(target_pose.position().coords());
 
     let t = ((distance_to_target - distance_to_be_aligned)
         / (hybrid_align_distance - distance_to_be_aligned))

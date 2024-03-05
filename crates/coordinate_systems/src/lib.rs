@@ -41,7 +41,8 @@ macro_rules! vector {
     };
 }
 
-pub type Orientation<Frame, Scalar = f32> = Framed<Frame, nalgebra::UnitComplex<Scalar>>;
+pub type Orientation2<Frame, Scalar = f32> = Framed<Frame, nalgebra::UnitComplex<Scalar>>;
+pub type Orientation3<Frame, Scalar = f32> = Framed<Frame, nalgebra::UnitQuaternion<Scalar>>;
 pub type UnitComplex<From, To, Scalar = f32> = Transform<From, To, nalgebra::UnitComplex<Scalar>>;
 
 pub type Isometry<

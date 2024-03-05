@@ -2,7 +2,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Orientation;
+use coordinate_systems::Orientation2;
 use filtering::orientation_filtering::OrientationFiltering;
 use framework::MainOutput;
 use types::{
@@ -33,7 +33,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_orientation: MainOutput<Orientation<Field>>,
+    pub robot_orientation: MainOutput<Orientation2<Field>>,
 }
 
 impl OrientationFilter {
@@ -61,7 +61,7 @@ impl OrientationFilter {
         );
 
         Ok(MainOutputs {
-            robot_orientation: Orientation::wrap(self.state.yaw()).into(),
+            robot_orientation: Orientation2::wrap(self.state.yaw()).into(),
         })
     }
 }
