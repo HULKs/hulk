@@ -15,7 +15,9 @@ pub struct CandidateEvaluation {
     pub merge_weight: Option<f32>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq, PartialEq)]
+#[derive(
+    Clone, Debug, Deserialize, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq, PartialEq,
+)]
 #[abs_diff_eq(epsilon = "f32")]
 pub struct Ball {
     pub position: Point2<Ground>,

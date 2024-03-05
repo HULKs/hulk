@@ -26,7 +26,16 @@ use crate::{
 };
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, Eq, FromPrimitive, PartialEq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Eq,
+    FromPrimitive,
+    PartialEq,
+    Serialize,
+    SerializeHierarchy,
 )]
 #[repr(u8)]
 pub enum VisualRefereeDecision {

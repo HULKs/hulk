@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use serialize_hierarchy::SerializeHierarchy;
 use coordinate_systems::Isometry3;
+use serialize_hierarchy::SerializeHierarchy;
 
 use crate::coordinate_systems::{
     Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder, LeftSole,

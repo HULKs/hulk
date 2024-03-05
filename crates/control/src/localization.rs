@@ -283,12 +283,9 @@ impl Localization {
                         .chain(line_data_bottom.iter())
                         .filter_map(|data| data.as_ref())
                         .flat_map(|line_data| {
-                            line_data
-                                .lines
-                                .iter()
-                                .map(|&measured_line_in_ground| {
-                                    ground_to_field * measured_line_in_ground
-                                })
+                            line_data.lines.iter().map(|&measured_line_in_ground| {
+                                ground_to_field * measured_line_in_ground
+                            })
                         })
                         .collect();
                     context.measured_lines_in_field.mutate_if_subscribed(
@@ -942,8 +939,8 @@ fn get_2d_translation_measurement(
         - field_mark_correspondence.correspondence_points.0.measured;
     let reference_line_vector = field_mark_correspondence.correspondence_points.1.reference
         - field_mark_correspondence.correspondence_points.0.reference;
-    let measured_line_point_0_to_robot_vector =
-        ground_to_field.as_pose().position() - field_mark_correspondence.correspondence_points.0.measured;
+    let measured_line_point_0_to_robot_vector = ground_to_field.as_pose().position()
+        - field_mark_correspondence.correspondence_points.0.measured;
     // Signed angle between two vectors: https://wumbo.net/formula/angle-between-two-vectors-2d/
     let measured_rotation = f32::atan2(
         measured_line_point_0_to_robot_vector.y() * measured_line_vector.x()

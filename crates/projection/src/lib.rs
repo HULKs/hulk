@@ -112,9 +112,8 @@ impl Projection for CameraMatrix {
         z: f32,
     ) -> Result<Point2<Pixel>, Error> {
         self.camera_to_pixel(
-            (self.ground_to_camera
-                * point![ground_coordinates.x(), ground_coordinates.y(), z])
-            .coords(),
+            (self.ground_to_camera * point![ground_coordinates.x(), ground_coordinates.y(), z])
+                .coords(),
         )
     }
 
@@ -151,8 +150,8 @@ impl Projection for CameraMatrix {
     ) -> Result<f32, Error> {
         let robot_coordinates =
             self.pixel_to_ground_with_z(pixel_coordinates, radius_in_robot_coordinates)?;
-        let camera_coordinates = self.ground_to_camera
-            * point![robot_coordinates.x(), robot_coordinates.y(), 0.0];
+        let camera_coordinates =
+            self.ground_to_camera * point![robot_coordinates.x(), robot_coordinates.y(), 0.0];
         let distance = camera_coordinates.coords().norm();
         if distance <= radius_in_robot_coordinates {
             return Err(Error::TooClose);
