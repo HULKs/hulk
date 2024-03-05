@@ -305,6 +305,10 @@ impl<Frame> Orientation2<Frame> {
         Self::wrap(nalgebra::UnitComplex::identity())
     }
 
+    pub fn inverse(&self) -> Self {
+        Self::wrap(self.inner.inverse())
+    }
+
     pub fn from_cos_sin_unchecked(cos: f32, sin: f32) -> Self {
         Self::wrap(nalgebra::UnitComplex::from_cos_sin_unchecked(cos, sin))
     }
