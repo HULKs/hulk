@@ -1,7 +1,7 @@
 use filtering::hysteresis::less_than_with_hysteresis;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{cycle_time::CycleTime, joints::Joints, motor_commands::MotorCommands};
+use types::{cycle_time::CycleTime, joints::Joints};
 
 use crate::parameters::CurrentMinimizerParameters;
 
@@ -14,12 +14,10 @@ enum State {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CurrentMinimizer {
-    last_motor_commands: MotorCommands<Joints<f32>>,
-    last_positions: Joints<f32>,
     minimum_reached: bool,
-    parameters: CurrentMinimizerParameters,
     position_offset: Joints<f32>,
     state: State,
+    parameters: CurrentMinimizerParameters,
 }
 
 impl CurrentMinimizer {
