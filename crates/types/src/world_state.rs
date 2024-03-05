@@ -28,10 +28,12 @@ pub struct WorldState {
 pub struct BallState {
     pub ball_in_ground: Point2<f32>,
     pub ball_in_field: Point2<f32>,
+    pub ball_in_ground_rest_position: Point2<f32>,
     pub ball_in_ground_velocity: Vector2<f32>,
     pub last_seen_ball: SystemTime,
     pub penalty_shot_direction: Option<PenaltyShotDirection>,
     pub field_side: Side,
+    pub is_resting: bool,
 }
 
 impl BallState {
@@ -39,10 +41,12 @@ impl BallState {
         Self {
             ball_in_field: Point2::origin(),
             ball_in_ground: robot_to_field.inverse() * Point2::origin(),
+            ball_in_ground_rest_position: Point2::origin(),
             ball_in_ground_velocity: Vector2::zeros(),
             last_seen_ball: UNIX_EPOCH,
             penalty_shot_direction: Default::default(),
             field_side: Side::Left,
+            is_resting: true,
         }
     }
 }

@@ -65,7 +65,11 @@ impl KickSelector {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let ball_position = context.ball_state.ball_in_ground;
+        let ball_position = if context.ball_state.is_resting {
+            context.ball_state.ball_in_ground
+        } else {
+            context.ball_state.ball_in_ground_rest_position
+        };
         let sides = [Side::Left, Side::Right];
         let mut kick_variants = Vec::new();
         if context.in_walk_kicks.forward.enabled {

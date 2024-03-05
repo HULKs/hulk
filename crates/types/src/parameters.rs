@@ -306,7 +306,8 @@ pub struct BallFilterParameters {
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
     pub validity_discard_threshold: f32,
-    pub velocity_decay_factor: f32,
+    pub linear_velocity_decay: f32,
+    pub square_velocity_decay: f32,
     pub resting_ball_velocity_threshold: f32,
 }
 

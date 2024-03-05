@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::Result;
 use communication::client::CyclerOutput;
 use eframe::epaint::Color32;
-use nalgebra::Isometry2;
+use nalgebra::{Isometry2, Point2};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
@@ -13,6 +13,7 @@ use crate::{
 pub struct BallPosition {
     robot_to_field: ValueBuffer,
     ball_position: ValueBuffer,
+    ball_rest_position: ValueBuffer,
 }
 
 impl Layer for BallPosition {
@@ -25,9 +26,12 @@ impl Layer for BallPosition {
         let ball_position =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.ball_position").unwrap());
         ball_position.reserve(100);
+        let ball_rest_position = nao
+            .subscribe_output(CyclerOutput::from_str("Control.main.ball_rest_position").unwrap());
         Self {
             robot_to_field,
             ball_position,
+            ball_rest_position,
         }
     }
 
@@ -35,6 +39,8 @@ impl Layer for BallPosition {
         let robot_to_fields: Vec<Option<Isometry2<f32>>> = self.robot_to_field.parse_buffered()?;
         let ball_positions: Vec<Option<types::ball_position::BallPosition>> =
             self.ball_position.parse_buffered()?;
+        let ball_rest_positions: Vec<Option<Point2<f32>>> =
+            self.ball_rest_position.parse_buffered()?;
 
         for (ball, robot_to_field) in ball_positions
             .iter()
@@ -57,6 +63,16 @@ impl Layer for BallPosition {
             painter.ball(
                 robot_to_field.unwrap_or_default() * ball.position,
                 field_dimensions.ball_radius,
+            );
+        }
+        if let (Some(Some(ball_rest)), Some(robot_to_field)) = (
+            &ball_rest_positions.first().map(Option::as_ref),
+            robot_to_fields.first(),
+        ) {
+            painter.circle_filled(
+                robot_to_field.unwrap_or_default() * *ball_rest,
+                field_dimensions.ball_radius,
+                Color32::from_rgba_unmultiplied(0, 0, 255, 127),
             );
         }
         Ok(())
