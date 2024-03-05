@@ -110,8 +110,8 @@ impl Index<KickVariant> for InWalkKicksParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InWalkKickInfoParameters {
-    pub offset: nalgebra::Vector2<f32>,
-    pub shot_angle: f32,
+    pub position: nalgebra::Point2<f32>,
+    pub orientation: f32,
     pub reached_thresholds: Vector3<f32>,
     pub shot_distance: f32,
     pub enabled: bool,

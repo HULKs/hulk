@@ -42,12 +42,26 @@ where
     Scalar::Element: SimdRealField,
     Scalar: SimdRealField,
 {
+    pub fn from_parts(
+        translation: Vector3<To, Scalar>,
+        orientation: Orientation3<To, Scalar>,
+    ) -> Self {
+        Self::wrap(nalgebra::Isometry3::from_parts(
+            translation.inner.into(),
+            orientation.inner,
+        ))
+    }
+
     pub fn rotation(axisangle: Vector3<To, Scalar>) -> Self {
         Self::wrap(nalgebra::Isometry3::rotation(axisangle.inner))
     }
 }
 
 impl<From, To> Transform<From, To, nalgebra::Isometry2<f32>> {
+    pub fn rotation(angle: f32) -> Self {
+        Self::wrap(nalgebra::Isometry2::rotation(angle))
+    }
+
     pub fn as_pose(&self) -> Pose<To> {
         Pose::wrap(self.inner)
     }
@@ -78,6 +92,15 @@ impl<From, To> core::convert::From<Point2<To, f32>> for Isometry2<From, To, f32>
 impl<From, To> core::convert::From<Point3<To, f32>> for Isometry3<From, To, f32> {
     fn from(value: Point3<To>) -> Self {
         Self::wrap(nalgebra::Isometry::from(value.inner))
+    }
+}
+
+impl<From, To> core::convert::From<nalgebra::UnitQuaternion<f32>> for Isometry3<From, To, f32> {
+    fn from(value: nalgebra::UnitQuaternion<f32>) -> Self {
+        Self::wrap(nalgebra::Isometry::from_parts(
+            nalgebra::Translation::identity(),
+            value,
+        ))
     }
 }
 

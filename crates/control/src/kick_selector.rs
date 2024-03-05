@@ -6,7 +6,10 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{distance, point, vector, Isometry2, Point2, Pose, UnitComplex, Vector2};
+use coordinate_systems::{
+    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose, UnitComplex,
+    Vector2,
+};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{
     circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
@@ -193,8 +196,8 @@ fn generate_decisions_for_instant_kicks(
         .filter_map(|(&kicking_side, &variant)| {
             let kick_info = &in_walk_kicks[variant];
             let shot_angle = match kicking_side {
-                Side::Left => UnitComplex::new(kick_info.shot_angle),
-                Side::Right => UnitComplex::new(kick_info.shot_angle).inverse(),
+                Side::Left => UnitComplex::new(kick_info.orientation),
+                Side::Right => UnitComplex::new(kick_info.orientation).inverse(),
             };
             let shot_distance: Vector2<Ground> = vector![kick_info.shot_distance, 0.0];
             let target = ball_position + shot_angle * shot_distance;
@@ -426,34 +429,37 @@ fn is_inside_any_obstacle(
     })
 }
 
-fn mirror_kick_offset(kick_offset: nalgebra::Vector2<f32>) -> nalgebra::Vector2<f32> {
-    nalgebra::vector![kick_offset.x, -kick_offset.y]
+fn mirror_kick_pose<Frame>(kick_pose: Pose<Frame>) -> Pose<Frame> {
+    Pose::from_parts(
+        vector![kick_pose.position().x(), -kick_pose.position().y()],
+        kick_pose.orientation().inverse(),
+    )
 }
 
-// TODO: not sure where to draw the line here between coordinate-safe and pure nalgebra operations
 fn compute_kick_pose(
     ball_position: Point2<Ground>,
     target_to_kick_to: Point2<Ground>,
     kick_info: &InWalkKickInfoParameters,
     side: Side,
 ) -> Pose<Ground> {
+    struct TargetAlignedBall;
     struct Ball;
 
-    let target_angle = ball_position.look_at(&target_to_kick_to).inner;
     let ball_to_ground = Isometry2::<Ball, Ground>::new(ball_position.coords(), 0.0);
-    let kick_rotation = nalgebra::UnitComplex::new(kick_info.shot_angle);
-    let offset_to_ball = kick_info.offset;
+    let aligned_ball_to_ball = Point::origin()
+        .look_at(&(ball_to_ground.inverse() * target_to_kick_to))
+        .as_transform::<TargetAlignedBall>();
+    let kick_pose_in_target_aligned_ball = Pose::<TargetAlignedBall>::from_parts(
+        kick_info.position.coords.framed(),
+        Orientation2::new(kick_info.orientation),
+    );
+
     ball_to_ground
-        * Pose::wrap(
-            target_angle
-                * match side {
-                    Side::Left => kick_rotation * nalgebra::Isometry2::from(offset_to_ball),
-                    Side::Right => {
-                        kick_rotation.inverse()
-                            * nalgebra::Isometry2::from(mirror_kick_offset(offset_to_ball))
-                    }
-                },
-        )
+        * aligned_ball_to_ball
+        * match side {
+            Side::Left => kick_pose_in_target_aligned_ball,
+            Side::Right => mirror_kick_pose(kick_pose_in_target_aligned_ball),
+        }
 }
 
 fn is_ball_in_opponents_corners(

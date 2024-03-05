@@ -91,12 +91,12 @@ where
     }
 }
 
-impl<From, Intermediate, To, Inner> Mul<Transform<From, Intermediate, Inner>>
-    for Transform<Intermediate, To, Inner>
+impl<From, Intermediate, To, Transformer, Inner, Output> Mul<Transform<From, Intermediate, Inner>>
+    for Transform<Intermediate, To, Transformer>
 where
-    Inner: Mul<Inner, Output = Inner>,
+    Transformer: Mul<Inner, Output = Output>,
 {
-    type Output = Transform<From, To, Inner>;
+    type Output = Transform<From, To, Output>;
 
     fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
         Self::Output::wrap(self.inner * rhs.inner)

@@ -9,6 +9,7 @@ use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     kick_decision::KickDecision,
+    kick_target::KickTarget,
 };
 
 use crate::{
@@ -58,7 +59,7 @@ impl Layer for KickDecisions {
         let best_kick_decision = kick_decisions.first();
         let instant_kick_decisions: Vec<KickDecision> =
             self.instant_kick_decisions.require_latest()?;
-        let kick_targets: Vec<Point2<Ground>> = self.kick_targets.require_latest()?;
+        let kick_targets: Vec<KickTarget> = self.kick_targets.require_latest()?;
         let instant_kick_targets: Vec<Point2<Ground>> =
             self.instant_kick_targets.require_latest()?;
 
@@ -89,7 +90,7 @@ impl Layer for KickDecisions {
 
         for kick_target in kick_targets {
             painter.target(
-                ground_to_field * kick_target,
+                ground_to_field * kick_target.position,
                 0.1,
                 Stroke {
                     width: 0.01,
