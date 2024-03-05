@@ -1,5 +1,5 @@
 use color_eyre::{eyre::eyre, Result};
-use coordinate_systems::{distance, point, vector, Isometry2, Orientation, Point2};
+use coordinate_systems::{distance, point, vector, Isometry2, Orientation2, Point2};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
@@ -40,7 +40,7 @@ pub struct PathPlanner {
     /// The first node is always the start, the second the destination
     pub nodes: Vec<PathNode>,
     pub obstacles: Vec<PathObstacle>,
-    pub last_path_direction: Option<Orientation<Ground>>,
+    pub last_path_direction: Option<Orientation2<Ground>>,
     pub rotation_penalty_factor: f32,
 }
 
@@ -59,9 +59,9 @@ impl PathPlanner {
                         .normalize(),
                 };
                 if direction.norm_squared() < f32::EPSILON {
-                    Orientation::identity()
+                    Orientation2::identity()
                 } else {
-                    Orientation::from_vector(direction)
+                    Orientation2::from_vector(direction)
                 }
             }),
             _ => None,
@@ -469,7 +469,7 @@ impl DynamicMap for PathPlanner {
 
         if index1 == 0 && distance > 0.0 {
             if let Some(current_rotation) = self.last_path_direction {
-                let rotation = current_rotation.rotation_to(Orientation::from_vector(direction));
+                let rotation = current_rotation.rotation_to(Orientation2::from_vector(direction));
 
                 distance += rotation.angle().abs() * self.rotation_penalty_factor;
             }

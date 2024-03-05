@@ -2,7 +2,7 @@ use color_eyre::{eyre::eyre, Result};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Orientation, Pose};
+use coordinate_systems::{Orientation2, Pose};
 use framework::MainOutput;
 use types::{
     motion_command::{MotionCommand, OrientationMode},
@@ -77,10 +77,10 @@ impl StepPlanner {
             PathSegment::LineSegment(line_segment) => {
                 let direction = line_segment.1;
                 let rotation = if direction.coords().norm_squared() < f32::EPSILON {
-                    Orientation::identity()
+                    Orientation2::identity()
                 } else {
                     let normalized_direction = direction.coords().normalize();
-                    Orientation::from_cos_sin_unchecked(
+                    Orientation2::from_cos_sin_unchecked(
                         normalized_direction.x(),
                         normalized_direction.y(),
                     )
@@ -91,7 +91,7 @@ impl StepPlanner {
                 let direction = orientation.rotate_vector_90_degrees(arc.start - arc.circle.center);
                 Pose::from_parts(
                     (arc.start + direction * 1.0).coords(),
-                    Orientation::from_vector(direction),
+                    Orientation2::from_vector(direction),
                 )
             }
         };

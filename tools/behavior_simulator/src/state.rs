@@ -8,7 +8,7 @@ use std::{
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{vector, Isometry2, Orientation, Point2, UnitComplex, Vector2};
+use coordinate_systems::{vector, Isometry2, Orientation2, Point2, UnitComplex, Vector2};
 use geometry::line_segment::LineSegment;
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
@@ -101,9 +101,9 @@ impl State {
                     let orientation = match orientation_mode {
                         OrientationMode::AlignWithPath => {
                             if step.norm_squared() < f32::EPSILON {
-                                Orientation::identity()
+                                Orientation2::identity()
                             } else {
-                                Orientation::from_vector(step)
+                                Orientation2::from_vector(step)
                             }
                         }
                         OrientationMode::Override(orientation) => *orientation,

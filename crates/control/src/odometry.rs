@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Orientation, Vector2};
+use coordinate_systems::{Orientation2, Vector2};
 use framework::{AdditionalOutput, MainOutput};
 use nalgebra::{Isometry2, Translation2};
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct Odometry {
-    last_orientation: Orientation<Field>,
+    last_orientation: Orientation2<Field>,
     last_left_sole_to_right_sole: Vector2<Robot>,
     accumulated_odometry: Isometry2<f32>,
 }
@@ -25,7 +25,7 @@ pub struct CycleContext {
     accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
 
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    robot_orientation: Input<Orientation<Field>, "robot_orientation">,
+    robot_orientation: Input<Orientation2<Field>, "robot_orientation">,
     support_foot: Input<SupportFoot, "support_foot">,
 
     odometry_scale_factor: Parameter<Vector2<Robot>, "odometry.odometry_scale_factor">,
@@ -41,7 +41,7 @@ impl Odometry {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_left_sole_to_right_sole: Vector2::zeros(),
-            last_orientation: Orientation::default(),
+            last_orientation: Orientation2::default(),
             accumulated_odometry: Isometry2::identity(),
         })
     }
