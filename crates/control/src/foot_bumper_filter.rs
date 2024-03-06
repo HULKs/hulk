@@ -91,9 +91,8 @@ impl FootBumperFilter {
             return Ok(MainOutputs::default());
         }
 
-        if context.sensor_data.touch_sensors.left_foot_left
-            || context.sensor_data.touch_sensors.left_foot_right
-        {
+        let touch_sensors = context.sensor_data.touch_sensors;
+        if touch_sensors.left_foot_left || touch_sensors.left_foot_right {
             if !self.left_pressed_last_cycle {
                 self.left_count += 1;
                 self.left_pressed_last_cycle = true;
@@ -103,9 +102,7 @@ impl FootBumperFilter {
             self.left_pressed_last_cycle = false;
         }
 
-        if context.sensor_data.touch_sensors.right_foot_left
-            || context.sensor_data.touch_sensors.right_foot_right
-        {
+        if touch_sensors.right_foot_left || touch_sensors.right_foot_right {
             if !self.right_pressed_last_cycle {
                 self.right_count += 1;
                 self.right_pressed_last_cycle = true;
