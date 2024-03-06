@@ -3,7 +3,7 @@ use num_traits::{identities::Zero, One};
 
 use crate::{
     Framed, Isometry2, Orientation2, Orientation3, Point, Point2, Point3, Pose, UnitComplex,
-    Vector, Vector2,
+    Vector, Vector2, Vector3,
 };
 
 // Vectors
@@ -338,6 +338,10 @@ impl<Frame> Orientation2<Frame> {
 }
 
 impl<Frame> Orientation3<Frame> {
+    pub fn new(axis_angle: Vector3<Frame>) -> Self {
+        Self::wrap(nalgebra::UnitQuaternion::new(axis_angle.inner))
+    }
+
     pub fn from_euler_angles(roll: f32, pitch: f32, yaw: f32) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::from_euler_angles(
             roll, pitch, yaw,

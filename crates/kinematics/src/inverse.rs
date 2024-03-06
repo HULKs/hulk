@@ -2,22 +2,23 @@ use std::f32::consts::PI;
 
 use nalgebra::{geometry::Isometry3, Rotation3, Translation3, Vector3};
 use types::{
+    coordinate_systems::{LeftFoot, RightFoot, Robot},
     joints::{body::LowerBodyJoints, leg::LegJoints},
     robot_dimensions::RobotDimensions,
 };
 
 pub fn leg_angles(
-    left_foot_to_robot: Isometry3<f32>,
-    right_foot_to_robot: Isometry3<f32>,
+    left_foot_to_robot: coordinate_systems::Isometry3<LeftFoot, Robot>,
+    right_foot_to_robot: coordinate_systems::Isometry3<RightFoot, Robot>,
 ) -> (bool, LowerBodyJoints<f32>) {
     let ratio = 0.5;
     let robot_to_left_pelvis = Isometry3::rotation(Vector3::x() * -1.0 * PI / 4.0)
-        * Translation3::from(-RobotDimensions::ROBOT_TO_LEFT_PELVIS);
+        * Translation3::from(-RobotDimensions::ROBOT_TO_LEFT_PELVIS.inner);
     let robot_to_right_pelvis = Isometry3::rotation(Vector3::x() * PI / 4.0)
-        * Translation3::from(-RobotDimensions::ROBOT_TO_RIGHT_PELVIS);
+        * Translation3::from(-RobotDimensions::ROBOT_TO_RIGHT_PELVIS.inner);
 
-    let left_foot_to_left_pelvis = robot_to_left_pelvis * left_foot_to_robot;
-    let right_foot_to_right_pelvis = robot_to_right_pelvis * right_foot_to_robot;
+    let left_foot_to_left_pelvis = robot_to_left_pelvis * left_foot_to_robot.inner;
+    let right_foot_to_right_pelvis = robot_to_right_pelvis * right_foot_to_robot.inner;
     let vector_left_foot_to_left_pelvis = left_foot_to_left_pelvis.inverse().translation;
     let vector_right_foot_to_right_pelvis = right_foot_to_right_pelvis.inverse().translation;
 
@@ -86,8 +87,8 @@ pub fn leg_angles(
             * Isometry3::rotation(Vector3::x() * -1.0 * right_hip_roll_in_hip)
             * (right_foot_to_right_hip.rotation * Vector3::z());
 
-    let upper_leg = RobotDimensions::HIP_TO_KNEE.z.abs();
-    let lower_leg = RobotDimensions::KNEE_TO_ANKLE.z.abs();
+    let upper_leg = RobotDimensions::LEFT_HIP_TO_LEFT_KNEE.z().abs();
+    let lower_leg = RobotDimensions::LEFT_KNEE_TO_LEFT_ANKLE.z().abs();
     let left_height = left_foot_to_left_hip.translation.vector.norm();
     let right_height = right_foot_to_right_hip.translation.vector.norm();
 

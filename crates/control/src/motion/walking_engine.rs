@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::IntoTransform;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use log::warn;
@@ -740,7 +741,8 @@ impl WalkingEngine {
             self.left_foot_lift,
             torso_shift_offset,
             walk_hip_height,
-        );
+        )
+        .framed_transform();
         let right_foot_to_robot = calculate_foot_to_robot(
             Side::Right,
             self.right_foot,
@@ -748,7 +750,8 @@ impl WalkingEngine {
             self.right_foot_lift,
             torso_shift_offset,
             walk_hip_height,
-        );
+        )
+        .framed_transform();
         let (is_reachable, legs) = kinematics::leg_angles(left_foot_to_robot, right_foot_to_robot);
         if !is_reachable {
             warn!("Not reachable!");
