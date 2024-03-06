@@ -4755,6 +4755,8 @@ dependencies = [
  "bincode",
  "bindgen 0.65.1",
  "color-eyre",
+ "coordinate_systems",
+ "linear_algebra",
  "nalgebra",
  "num-derive 0.3.3",
  "num-traits",

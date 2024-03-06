@@ -11,6 +11,8 @@ bindgen = { workspace = true }
 [dependencies]
 approx = { workspace = true }
 color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 num-derive = {workspace = true}
 num-traits = {workspace = true}
