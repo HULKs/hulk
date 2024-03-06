@@ -12,8 +12,8 @@ pub fn calculate_foot_to_robot(
     walk_hip_height: f32,
 ) -> Isometry3<f32> {
     let hip_to_robot = match side {
-        Side::Left => Isometry3::from(RobotDimensions::ROBOT_TO_LEFT_PELVIS),
-        Side::Right => Isometry3::from(RobotDimensions::ROBOT_TO_RIGHT_PELVIS),
+        Side::Left => Isometry3::from(RobotDimensions::ROBOT_TO_LEFT_PELVIS.inner),
+        Side::Right => Isometry3::from(RobotDimensions::ROBOT_TO_RIGHT_PELVIS.inner),
     };
     let foot_rotation = match side {
         Side::Left => turn_left_right,

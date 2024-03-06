@@ -123,7 +123,7 @@ pub fn camera_to_head(
         CameraPosition::Top => 1.2f32.to_radians(),
         CameraPosition::Bottom => 39.7f32.to_radians(),
     };
-    (nalgebra::Isometry3::from(neck_to_camera)
+    (nalgebra::Isometry3::from(neck_to_camera.inner)
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * camera_pitch)
         * extrinsic_rotation)
         .framed_transform()
