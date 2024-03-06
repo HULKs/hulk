@@ -8,7 +8,8 @@ use std::{
     time::Duration,
 };
 
-use nalgebra::{Isometry2, Point2};
+use coordinate_systems::Field;
+use linear_algebra::{Point2, Pose};
 use serde::{Deserialize, Serialize};
 
 pub use game_controller_return_message::GameControllerReturnMessage;
@@ -23,14 +24,14 @@ pub use visual_referee_message::{VisualRefereeDecision, VisualRefereeMessage};
 pub struct HulkMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,
-    pub ground_to_field: Isometry2<f32>,
-    pub ball_position: Option<BallPosition>,
+    pub ground_to_field: Pose<Field>,
+    pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct BallPosition {
-    pub relative_position: Point2<f32>,
+pub struct BallPosition<Frame> {
+    pub position: Point2<Frame>,
     pub age: Duration,
 }
 
@@ -70,7 +71,7 @@ impl Display for PlayerNumber {
 mod tests {
     use std::time::Duration;
 
-    use nalgebra::Isometry2;
+    use linear_algebra::{Point, Pose};
 
     use crate::{BallPosition, HulkMessage, PlayerNumber};
 
@@ -79,9 +80,9 @@ mod tests {
         let test_message = HulkMessage {
             player_number: PlayerNumber::Seven,
             fallen: false,
-            ground_to_field: Isometry2::identity(),
+            ground_to_field: Pose::default(),
             ball_position: Some(BallPosition {
-                relative_position: nalgebra::OPoint::origin(),
+                position: Point::origin(),
                 age: Duration::MAX,
             }),
             time_to_reach_kick_position: Some(Duration::MAX),

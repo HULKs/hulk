@@ -7,7 +7,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use linear_algebra::{IntoFramed, IntoTransform, Isometry2, Point2, Vector};
+use linear_algebra::{Isometry2, Point2, Vector};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, Team,
 };
@@ -177,8 +177,8 @@ impl RoleAssignment {
                     GameControllerReturnMessage {
                         player_number: *context.player_number,
                         fallen: matches!(context.fall_state, FallState::Fallen { .. }),
-                        ground_to_field: ground_to_field.inner,
-                        ball_position: seen_ball_to_network_ball_position(
+                        pose: ground_to_field.as_pose(),
+                        ball: seen_ball_to_game_controller_ball_position(
                             context.ball_position,
                             cycle_start_time,
                         ),
@@ -240,9 +240,8 @@ impl RoleAssignment {
         } else {
             for spl_message in spl_messages {
                 self.last_received_spl_striker_message = Some(cycle_start_time);
-                let sender_position = ground_to_field.inverse()
-                    * spl_message.ground_to_field.framed_transform()
-                    * Point2::<Ground, _>::origin();
+                let sender_position =
+                    ground_to_field.inverse() * spl_message.ground_to_field.position();
                 if spl_message.player_number != *context.player_number {
                     network_robot_obstacles.push(sender_position);
                 }
@@ -290,20 +289,20 @@ impl RoleAssignment {
                         .remaining_amount_of_messages_to_stop_sending
                 {
                     let ball_position = if context.ball_position.is_none() && team_ball.is_some() {
-                        team_ball_to_network_ball_position(
-                            team_ball,
+                        team_ball_to_network_ball_position(team_ball, cycle_start_time)
+                    } else {
+                        seen_ball_to_hulks_network_ball_position(
+                            context.ball_position,
                             ground_to_field,
                             cycle_start_time,
                         )
-                    } else {
-                        seen_ball_to_network_ball_position(context.ball_position, cycle_start_time)
                     };
                     context
                         .hardware
                         .write_to_network(OutgoingMessage::Spl(HulkMessage {
                             player_number: *context.player_number,
                             fallen: matches!(context.fall_state, FallState::Fallen { .. }),
-                            ground_to_field: ground_to_field.inner,
+                            ground_to_field: ground_to_field.as_pose(),
                             ball_position,
                             time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
                         }))?;
@@ -612,26 +611,36 @@ fn decide_if_claiming_striker_or_other_role(
     }
 }
 
-fn seen_ball_to_network_ball_position(
+fn seen_ball_to_game_controller_ball_position(
     ball: Option<&BallPosition<Ground>>,
     cycle_start_time: SystemTime,
-) -> Option<spl_network_messages::BallPosition> {
+) -> Option<spl_network_messages::BallPosition<Ground>> {
     ball.map(|ball| spl_network_messages::BallPosition {
         age: cycle_start_time.duration_since(ball.last_seen).unwrap(),
-        relative_position: ball.position.inner,
+        position: ball.position,
+    })
+}
+
+fn seen_ball_to_hulks_network_ball_position(
+    ball: Option<&BallPosition<Ground>>,
+    ground_to_field: Isometry2<Ground, Field>,
+    cycle_start_time: SystemTime,
+) -> Option<spl_network_messages::BallPosition<Field>> {
+    ball.map(|ball| spl_network_messages::BallPosition {
+        age: cycle_start_time.duration_since(ball.last_seen).unwrap(),
+        position: ground_to_field * ball.position,
     })
 }
 
 fn team_ball_to_network_ball_position(
     team_ball: Option<BallPosition<Field>>,
-    ground_to_field: Isometry2<Ground, Field>,
     cycle_start_time: SystemTime,
-) -> Option<spl_network_messages::BallPosition> {
+) -> Option<spl_network_messages::BallPosition<Field>> {
     team_ball.map(|team_ball| spl_network_messages::BallPosition {
         age: cycle_start_time
             .duration_since(team_ball.last_seen)
             .unwrap(),
-        relative_position: (ground_to_field.inverse() * team_ball.position).inner,
+        position: team_ball.position,
     })
 }
 
@@ -643,7 +652,7 @@ fn team_ball_from_spl_message(
         .ball_position
         .as_ref()
         .map(|ball_position| BallPosition {
-            position: (spl_message.ground_to_field * ball_position.relative_position).framed(),
+            position: ball_position.position,
             velocity: Vector::zeros(),
             last_seen: cycle_start_time - ball_position.age,
         })
