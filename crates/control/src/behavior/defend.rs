@@ -1,8 +1,8 @@
 use std::ops::Range;
 
-use coordinate_systems::{distance, point, Point2, Pose};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
+use linear_algebra::{distance, point, Point2, Pose};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     coordinate_systems::{Field, Ground},

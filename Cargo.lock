@@ -667,13 +667,13 @@ dependencies = [
  "color-eyre",
  "communication",
  "control",
- "coordinate_systems",
  "ctrlc",
  "fern",
  "framework",
  "geometry",
  "hardware",
  "ittapi",
+ "linear_algebra",
  "log",
  "mlua",
  "nalgebra",
@@ -905,8 +905,8 @@ checksum = "a3e368af43e418a04d52505cf3dbc23dda4e3407ae2fa99fd0e4f308ce546acc"
 name = "calibration"
 version = "0.1.0"
 dependencies = [
- "coordinate_systems",
  "levenberg-marquardt",
+ "linear_algebra",
  "nalgebra",
  "projection",
  "thiserror",
@@ -1307,7 +1307,6 @@ dependencies = [
  "bincode",
  "color-eyre",
  "context_attribute",
- "coordinate_systems",
  "energy_optimization",
  "filtering",
  "framework",
@@ -1315,6 +1314,7 @@ dependencies = [
  "hardware",
  "itertools",
  "kinematics",
+ "linear_algebra",
  "log",
  "motionfile",
  "nalgebra",
@@ -1336,17 +1336,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
 dependencies = [
  "unicode-segmentation",
-]
-
-[[package]]
-name = "coordinate_systems"
-version = "0.1.0"
-dependencies = [
- "approx",
- "nalgebra",
- "num-traits",
- "serde",
- "serialize_hierarchy",
 ]
 
 [[package]]
@@ -2067,7 +2056,7 @@ name = "filtering"
 version = "0.1.0"
 dependencies = [
  "approx",
- "coordinate_systems",
+ "linear_algebra",
  "nalgebra",
  "rand",
  "rand_distr",
@@ -2253,7 +2242,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "approx_derive",
- "coordinate_systems",
+ "linear_algebra",
  "nalgebra",
  "serde",
  "serialize_hierarchy",
@@ -2595,12 +2584,12 @@ dependencies = [
  "color-eyre",
  "communication",
  "control",
- "coordinate_systems",
  "energy_optimization",
  "framework",
  "geometry",
  "hardware",
  "ittapi",
+ "linear_algebra",
  "nalgebra",
  "serde",
  "serialize_hierarchy",
@@ -2968,7 +2957,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 name = "kinematics"
 version = "0.1.0"
 dependencies = [
- "coordinate_systems",
+ "linear_algebra",
  "nalgebra",
  "types",
 ]
@@ -3077,6 +3066,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "linear_algebra"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "nalgebra",
+ "num-traits",
+ "serde",
+ "serialize_hierarchy",
+]
+
+[[package]]
 name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3103,8 +3103,8 @@ dependencies = [
  "color-eyre",
  "communication",
  "control",
- "coordinate_systems",
  "framework",
+ "linear_algebra",
  "nalgebra",
  "serde",
  "serialize_hierarchy",
@@ -4057,7 +4057,7 @@ name = "projection"
 version = "0.1.0"
 dependencies = [
  "approx",
- "coordinate_systems",
+ "linear_algebra",
  "nalgebra",
  "thiserror",
  "types",
@@ -5255,7 +5255,6 @@ dependencies = [
  "color-eyre",
  "communication",
  "convert_case",
- "coordinate_systems",
  "eframe",
  "egui_dock",
  "egui_extras",
@@ -5266,6 +5265,7 @@ dependencies = [
  "gilrs",
  "image",
  "itertools",
+ "linear_algebra",
  "log",
  "mlua",
  "nalgebra",
@@ -5291,10 +5291,10 @@ dependencies = [
  "approx",
  "approx_derive",
  "color-eyre",
- "coordinate_systems",
  "enum-iterator",
  "geometry",
  "image",
+ "linear_algebra",
  "nalgebra",
  "ordered-float",
  "petgraph",
@@ -5423,13 +5423,13 @@ dependencies = [
  "color-eyre",
  "compiled-nn",
  "context_attribute",
- "coordinate_systems",
  "fast_image_resize",
  "filtering",
  "framework",
  "geometry",
  "hardware",
  "itertools",
+ "linear_algebra",
  "nalgebra",
  "ordered-float",
  "projection",

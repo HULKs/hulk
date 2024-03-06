@@ -4,8 +4,8 @@ use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, Isometry3, Point2, Point3};
 use framework::MainOutput;
+use linear_algebra::{point, Isometry3, Point2, Point3};
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,

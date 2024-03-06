@@ -1,4 +1,4 @@
-use coordinate_systems::Point2;
+use linear_algebra::Point2;
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,

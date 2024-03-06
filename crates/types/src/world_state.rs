@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::PlayerNumber;
 

@@ -1,5 +1,5 @@
-use coordinate_systems::{Point, Pose};
 use geometry::look_at::LookAt;
+use linear_algebra::{Point, Pose};
 use types::{
     coordinate_systems::Ground,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},

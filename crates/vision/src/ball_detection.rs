@@ -3,10 +3,10 @@ use compiled_nn::CompiledNN;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, vector, Vector2};
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, rectangle::Rectangle};
 use hardware::PathsInterface;
+use linear_algebra::{point, vector, Vector2};
 use projection::Projection;
 use types::{
     ball::{Ball, CandidateEvaluation},
@@ -354,7 +354,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use approx::assert_relative_eq;
-    use coordinate_systems::IntoTransform;
+    use linear_algebra::IntoTransform;
     use nalgebra::{Isometry3, Translation, UnitQuaternion};
 
     use super::*;

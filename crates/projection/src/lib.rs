@@ -1,7 +1,7 @@
 use approx::relative_eq;
 use thiserror::Error;
 
-use coordinate_systems::{point, vector, Isometry3, Point, Point2, Point3, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point, Point2, Point3, Vector3};
 use types::{
     camera_matrix::CameraMatrix,
     coordinate_systems::{Camera, Ground, Pixel, Robot},

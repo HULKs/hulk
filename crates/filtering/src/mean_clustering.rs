@@ -1,4 +1,4 @@
-use coordinate_systems::Point2;
+use linear_algebra::Point2;
 use types::coordinate_systems::Ground;
 use types::detected_feet::CountedCluster;
 

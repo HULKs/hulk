@@ -8,7 +8,7 @@ use std::{
 use color_eyre::{eyre::WrapErr, Result};
 
 use control::localization::generate_initial_pose;
-use coordinate_systems::point;
+use linear_algebra::point;
 use parameters::directory::deserialize;
 use spl_network_messages::PlayerNumber;
 use types::{camera_matrix::CameraMatrix, messages::IncomingMessage};

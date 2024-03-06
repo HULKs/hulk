@@ -2,9 +2,9 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::IntoTransform;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::IntoTransform;
 use log::warn;
 use nalgebra::{Isometry3, Point3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};

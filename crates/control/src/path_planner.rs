@@ -1,6 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
-use coordinate_systems::{distance, point, vector, Isometry2, Orientation2, Point2};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
+use linear_algebra::{distance, point, vector, Isometry2, Orientation2, Point2};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
@@ -534,7 +534,7 @@ mod tests {
     use std::f32::consts::PI;
 
     use approx::assert_relative_eq;
-    use coordinate_systems::point;
+    use linear_algebra::point;
 
     use super::*;
 

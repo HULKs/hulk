@@ -7,7 +7,7 @@ use eframe::{
 use serde_json::Value;
 
 use communication::client::CyclerOutput;
-use coordinate_systems::{point, Point2};
+use linear_algebra::{point, Point2};
 use types::{
     camera_position::CameraPosition,
     coordinate_systems::Ground,

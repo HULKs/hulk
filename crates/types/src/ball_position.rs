@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use coordinate_systems::{Point2, Vector2};
+use linear_algebra::{Point2, Vector2};
 
 #[derive(Clone, Copy, Serialize, Deserialize, SerializeHierarchy, Debug)]
 pub struct BallPosition<Frame> {

@@ -1,4 +1,4 @@
-use coordinate_systems::{Orientation2, Point2};
+use linear_algebra::{Orientation2, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 

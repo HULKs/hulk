@@ -3,7 +3,7 @@ use std::{cmp::PartialEq, f32::consts::TAU};
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{vector, Point2, Vector2};
+use linear_algebra::{vector, Point2, Vector2};
 
 use crate::{arc::Arc, direction::Direction};
 
@@ -193,7 +193,7 @@ where
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use coordinate_systems::point;
+    use linear_algebra::point;
 
     use super::*;
 

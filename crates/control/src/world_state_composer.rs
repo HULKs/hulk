@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Isometry2, Point2};
 use framework::MainOutput;
+use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{

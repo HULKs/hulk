@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{point, Point2};
+use linear_algebra::{point, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{coordinate_systems::Pixel, line::Line};

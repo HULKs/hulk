@@ -7,7 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 approx = { workspace = true }
-coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }

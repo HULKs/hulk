@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::Point2;
+use linear_algebra::Point2;
 
 use crate::coordinate_systems::Ground;
 

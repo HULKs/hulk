@@ -2,8 +2,8 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{distance, Isometry2, Point2, Vector2};
 use framework::MainOutput;
+use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Team};
 use types::{

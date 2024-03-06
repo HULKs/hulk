@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{vector, Point};
+use linear_algebra::{vector, Point};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{

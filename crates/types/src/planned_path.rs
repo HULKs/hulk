@@ -1,6 +1,6 @@
 use approx::{AbsDiffEq, RelativeEq};
-use coordinate_systems::Point2;
 use geometry::{arc::Arc, direction::Direction, line_segment::LineSegment};
+use linear_algebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 

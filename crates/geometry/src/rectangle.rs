@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Point2, Vector2};
+use linear_algebra::{Point2, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]

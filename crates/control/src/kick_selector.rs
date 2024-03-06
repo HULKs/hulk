@@ -6,13 +6,13 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{
-    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose, UnitComplex,
-    Vector2,
-};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{
     circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
+};
+use linear_algebra::{
+    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose, UnitComplex,
+    Vector2,
 };
 use types::{
     coordinate_systems::{Field, Ground},

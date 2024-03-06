@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 
 use communication::client::{Cycler, CyclerOutput, Output};
-use coordinate_systems::vector;
+use linear_algebra::vector;
 
 use crate::{
     image_buffer::ImageBuffer,

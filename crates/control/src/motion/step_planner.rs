@@ -2,8 +2,8 @@ use color_eyre::{eyre::eyre, Result};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Orientation2, Pose};
 use framework::MainOutput;
+use linear_algebra::{Orientation2, Pose};
 use types::{
     motion_command::{MotionCommand, OrientationMode},
     planned_path::PathSegment,

@@ -1,7 +1,7 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
-use coordinate_systems::{Point2, Vector2};
+use linear_algebra::{Point2, Vector2};
 use nalgebra::{Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;

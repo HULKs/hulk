@@ -1,8 +1,8 @@
 use std::f32::consts::FRAC_PI_4;
 
-use coordinate_systems::{point, Pose, UnitComplex, Vector2};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
+use linear_algebra::{point, Pose, UnitComplex, Vector2};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,

@@ -1,4 +1,4 @@
-use coordinate_systems::{vector, Vector3};
+use linear_algebra::{vector, Vector3};
 
 use crate::coordinate_systems::{
     LeftFoot, LeftForearm, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightFoot, RightForearm,

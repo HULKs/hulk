@@ -1,12 +1,12 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{distance, point, Point2};
 use filtering::{
     mean_clustering::MeanClustering,
     statistics::{mean, standard_deviation},
 };
 use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
+use linear_algebra::{distance, point, Point2};
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::{

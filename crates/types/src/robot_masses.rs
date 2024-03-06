@@ -4,7 +4,7 @@ use crate::coordinate_systems::{
     RightForearm, RightHip, RightPelvis, RightShoulder, RightThigh, RightTibia, RightUpperArm,
     RightWrist, Torso,
 };
-use coordinate_systems::{point, Point3};
+use linear_algebra::{point, Point3};
 
 #[derive(Debug)]
 pub struct RobotMass<Frame> {

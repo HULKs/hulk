@@ -6,7 +6,7 @@ use crate::{
     field_dimensions::FieldDimensions,
     line::{Line, Line2},
 };
-use coordinate_systems::{distance, point, vector, Point2, Vector2};
+use linear_algebra::{distance, point, vector, Point2, Vector2};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum FieldMark {

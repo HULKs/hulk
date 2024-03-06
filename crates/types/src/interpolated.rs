@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use coordinate_systems::Isometry2;
+use linear_algebra::Isometry2;
 use nalgebra::{matrix, point, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -90,7 +90,7 @@ impl From<f32> for Interpolated {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use coordinate_systems::vector;
+    use linear_algebra::vector;
 
     use super::*;
 

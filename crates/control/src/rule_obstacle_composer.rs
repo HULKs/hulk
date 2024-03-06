@@ -2,9 +2,9 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, vector, Point};
 use framework::MainOutput;
 use geometry::{circle::Circle, rectangle::Rectangle};
+use linear_algebra::{point, vector, Point};
 use spl_network_messages::{SubState, Team};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,

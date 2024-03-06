@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::Color32;
 
 use communication::client::{Cycler, CyclerOutput, Output};
-use coordinate_systems::{Isometry2, Point2};
+use linear_algebra::{Isometry2, Point2};
 use types::{
     coordinate_systems::{Field, Ground},
     detected_feet::ClusterPoint,

@@ -8,8 +8,8 @@ use std::{
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{vector, Isometry2, Orientation2, Point2, UnitComplex, Vector2};
 use geometry::line_segment::LineSegment;
+use linear_algebra::{vector, Isometry2, Orientation2, Point2, UnitComplex, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
 use types::{

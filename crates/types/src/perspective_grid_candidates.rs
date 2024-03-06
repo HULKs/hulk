@@ -61,7 +61,7 @@ impl RelativeEq for PerspectiveGridCandidates {
 #[cfg(test)]
 mod tests {
     use approx::{assert_relative_eq, assert_relative_ne};
-    use coordinate_systems::point;
+    use linear_algebra::point;
 
     use super::*;
 

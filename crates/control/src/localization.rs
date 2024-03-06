@@ -10,9 +10,9 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{distance, point, vector, IntoTransform, Isometry2, Pose};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
+use linear_algebra::{distance, point, vector, IntoTransform, Isometry2, Pose};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
     coordinate_systems::{Field, Ground},
@@ -1006,7 +1006,7 @@ fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Pose<Fiel
 mod tests {
     use std::f32::consts::FRAC_PI_4;
 
-    use coordinate_systems::Point2;
+    use linear_algebra::Point2;
 
     use super::*;
 

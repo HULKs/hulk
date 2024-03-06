@@ -1,5 +1,5 @@
-use coordinate_systems::{Isometry2, Orientation2, Point};
 use geometry::line_segment::LineSegment;
+use linear_algebra::{Isometry2, Orientation2, Point};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     coordinate_systems::{Field, Ground},

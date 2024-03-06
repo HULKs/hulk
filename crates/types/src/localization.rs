@@ -1,4 +1,4 @@
-use coordinate_systems::{Isometry2, Point2, Pose};
+use linear_algebra::{Isometry2, Point2, Pose};
 use nalgebra::{vector, Matrix3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;

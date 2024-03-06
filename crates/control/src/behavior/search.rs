@@ -1,5 +1,5 @@
-use coordinate_systems::{point, Isometry2, Orientation2, Point2, Pose};
 use framework::AdditionalOutput;
+use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,

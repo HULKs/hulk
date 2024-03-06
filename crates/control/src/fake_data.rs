@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use color_eyre::Result;
-use coordinate_systems::Isometry2;
+use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;

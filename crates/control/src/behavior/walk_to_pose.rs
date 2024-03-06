@@ -1,6 +1,6 @@
-use coordinate_systems::{point, Isometry2, Orientation2, Point, Point2, Pose};
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
+use linear_algebra::{point, Isometry2, Orientation2, Point, Point2, Pose};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,

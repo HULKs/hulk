@@ -7,11 +7,11 @@ use std::{
 };
 
 use color_eyre::eyre::{self, WrapErr};
-use coordinate_systems::Point2;
 use image::{
     codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, ImageError, ImageFormat,
     RgbImage,
 };
+use linear_algebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 

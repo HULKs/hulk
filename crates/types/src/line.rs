@@ -4,7 +4,7 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
-use coordinate_systems::{
+use linear_algebra::{
     center, distance, distance_squared, point, vector, Isometry, Point, Point2, UnitComplex,
     Vector2,
 };
