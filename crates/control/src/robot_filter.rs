@@ -191,8 +191,8 @@ impl RobotFilter {
         ];
 
         Array2::from_shape_fn(
-            (measurements.len(), self.hypotheses.len()),
-            |(projected_measurement, hypothesis)| {
+            (self.hypotheses.len(), measurements.len()),
+            |(hypothesis, projected_measurement)| {
                 let observation = self.hypotheses[hypothesis].robot_state;
                 let measurement = &measurements[projected_measurement];
 
