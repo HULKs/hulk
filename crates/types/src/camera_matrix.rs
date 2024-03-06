@@ -45,8 +45,6 @@ pub struct CameraMatrix {
     pub ground_to_camera: Isometry3<Ground, Camera>,
     pub camera_to_robot: Isometry3<Camera, Robot>,
     pub robot_to_camera: Isometry3<Robot, Camera>,
-    // TODO: I don't know enough about this to say which
-    // (if any) coordinate system these belong to
     pub focal_length: nalgebra::Vector2<f32>,
     pub optical_center: nalgebra::Point2<f32>,
     pub field_of_view: nalgebra::Vector2<f32>,
