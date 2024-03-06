@@ -483,6 +483,10 @@ impl Localization {
         }
 
         let robot_to_field = match primary_state {
+            PrimaryState::Initial => Some(generate_initial_pose(
+                &context.initial_poses[*context.player_number],
+                context.field_dimensions,
+            )),
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
                 self.update_state(&mut context)?;
                 Some(*context.robot_to_field)
