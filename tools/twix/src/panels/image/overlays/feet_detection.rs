@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
+use coordinate_systems::Pixel;
 use eframe::epaint::Color32;
-use types::{coordinate_systems::Pixel, detected_feet::ClusterPoint};
+use types::detected_feet::ClusterPoint;
 
 use crate::{
     nao::Nao, panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,

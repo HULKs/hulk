@@ -1,6 +1,6 @@
 use linear_algebra::{vector, Vector3};
 
-use crate::coordinate_systems::{
+use coordinate_systems::{
     LeftFoot, LeftForearm, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightFoot, RightForearm,
     RightThigh, RightTibia, RightUpperArm, Robot,
 };

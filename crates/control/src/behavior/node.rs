@@ -4,12 +4,12 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
-    coordinate_systems::Field,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,

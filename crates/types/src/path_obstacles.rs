@@ -4,7 +4,7 @@ use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::Lin
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::Ground;
+use coordinate_systems::Ground;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum PathObstacleShape {

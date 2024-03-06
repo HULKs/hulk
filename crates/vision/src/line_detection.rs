@@ -4,13 +4,13 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
-    coordinate_systems::{Ground, Pixel},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, Segment},
     line::{Line, Line2},

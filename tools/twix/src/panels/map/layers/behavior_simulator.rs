@@ -4,12 +4,9 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
+use coordinate_systems::{Field, Ground};
 use linear_algebra::{IntoFramed, Isometry2, Point2};
-use types::{
-    coordinate_systems::{Field, Ground},
-    field_dimensions::FieldDimensions,
-    motion_command::MotionCommand,
-};
+use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, players_value_buffer::PlayersValueBuffer,

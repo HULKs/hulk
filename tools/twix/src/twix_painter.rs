@@ -10,13 +10,10 @@ use eframe::{
 };
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
+use coordinate_systems::{Field, Ground};
 use geometry::{arc::Arc, circle::Circle, direction::Direction};
 use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose, Vector2};
-use types::{
-    coordinate_systems::{Field, Ground},
-    field_dimensions::FieldDimensions,
-    planned_path::PathSegment,
-};
+use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
 pub enum CoordinateSystem {
     RightHand,

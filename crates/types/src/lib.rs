@@ -9,7 +9,6 @@ pub mod camera_matrix;
 pub mod camera_position;
 pub mod color;
 pub mod condition_input;
-pub mod coordinate_systems;
 pub mod cycle_time;
 pub mod detected_feet;
 pub mod fall_state;

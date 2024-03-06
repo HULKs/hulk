@@ -2,13 +2,13 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::Pixel;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2, Vector2};
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
     color::Intensity,
-    coordinate_systems::Pixel,
     field_border::FieldBorder,
     horizon::Horizon,
     image_segments::{ImageSegments, Segment},

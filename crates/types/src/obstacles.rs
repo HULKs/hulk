@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use linear_algebra::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::Ground;
+use coordinate_systems::Ground;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub enum ObstacleKind {

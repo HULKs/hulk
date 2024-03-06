@@ -3,6 +3,7 @@ use compiled_nn::CompiledNN;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::Pixel;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, rectangle::Rectangle};
 use hardware::PathsInterface;
@@ -11,7 +12,6 @@ use projection::Projection;
 use types::{
     ball::{Ball, CandidateEvaluation},
     camera_matrix::CameraMatrix,
-    coordinate_systems::Pixel,
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
     ycbcr422_image::YCbCr422Image,

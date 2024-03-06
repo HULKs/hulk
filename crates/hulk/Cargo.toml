@@ -11,11 +11,13 @@ bincode = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
-linear_algebra = { workspace = true }
+coordinate_systems = { workspace = true }
+energy_optimization = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = {  workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
@@ -25,7 +27,6 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
-energy_optimization = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use linear_algebra::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::Field;
+use coordinate_systems::Field;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub enum PointOfInterest {

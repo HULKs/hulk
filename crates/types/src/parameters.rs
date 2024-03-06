@@ -1,13 +1,13 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
+use coordinate_systems::{Field, Ground};
 use linear_algebra::{Point2, Vector2};
 use nalgebra::{Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    coordinate_systems::{Field, Ground},
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
     kick_step::KickStep,
     motion_command::{KickVariant, MotionCommand},

@@ -5,6 +5,7 @@ use nalgebra::{matrix, Matrix2, Matrix2x4, Matrix4, Matrix4x2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Ground, Pixel};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
@@ -15,7 +16,6 @@ use types::{
     ball_filter::Hypothesis,
     ball_position::BallPosition,
     camera_matrix::{CameraMatrices, CameraMatrix},
-    coordinate_systems::{Ground, Pixel},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},

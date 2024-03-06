@@ -3,9 +3,9 @@ use std::sync::Arc;
 use color_eyre::Result;
 use communication::client::Cycler;
 use convert_case::Casing;
+use coordinate_systems::Pixel;
 use eframe::egui::Ui;
 use serde_json::{json, Value};
-use types::coordinate_systems::Pixel;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 

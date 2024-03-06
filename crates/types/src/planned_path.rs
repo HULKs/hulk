@@ -4,7 +4,7 @@ use linear_algebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::Ground;
+use coordinate_systems::Ground;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
 pub enum PathSegment {

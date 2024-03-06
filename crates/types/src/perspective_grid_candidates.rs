@@ -3,7 +3,7 @@ use geometry::circle::Circle;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::Pixel;
+use coordinate_systems::Pixel;
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct PerspectiveGridCandidates {

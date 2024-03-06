@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use linear_algebra::Point2;
 
-use crate::coordinate_systems::Ground;
+use coordinate_systems::Ground;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct KickTarget {

@@ -4,11 +4,9 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
+use coordinate_systems::{Field, Ground};
 use linear_algebra::Isometry2;
-use types::{
-    coordinate_systems::{Field, Ground},
-    field_dimensions::FieldDimensions,
-};
+use types::field_dimensions::FieldDimensions;
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,

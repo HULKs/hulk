@@ -10,13 +10,14 @@ approx = { workspace = true }
 color-eyre = { workspace = true }
 compiled-nn = { workspace = true }
 context_attribute = { workspace = true }
-linear_algebra = { workspace = true }
+coordinate_systems = { workspace = true }
 fast_image_resize = { workspace = true }
 filtering = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 itertools = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }

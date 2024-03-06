@@ -22,11 +22,11 @@ use control::{
     },
     localization_recorder::RecordedCycleContext,
 };
+use coordinate_systems::{Field, Ground};
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use linear_algebra::Isometry2;
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,

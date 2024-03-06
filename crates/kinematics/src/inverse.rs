@@ -1,8 +1,9 @@
 use std::f32::consts::PI;
 
 use nalgebra::{geometry::Isometry3, Rotation3, Translation3, Vector3};
+
+use coordinate_systems::{LeftFoot, RightFoot, Robot};
 use types::{
-    coordinate_systems::{LeftFoot, RightFoot, Robot},
     joints::{body::LowerBodyJoints, leg::LegJoints},
     robot_dimensions::RobotDimensions,
 };

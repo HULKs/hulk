@@ -4,7 +4,8 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
-use types::{coordinate_systems::Field, field_dimensions::FieldDimensions, line::Line2};
+use coordinate_systems::Field;
+use types::{field_dimensions::FieldDimensions, line::Line2};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,

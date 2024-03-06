@@ -2,12 +2,12 @@ use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 
+use coordinate_systems::Ground;
 use linear_algebra::{vector, Point};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    ball_position::BallPosition, coordinate_systems::Ground,
-    multivariate_normal_distribution::MultivariateNormalDistribution,
+    ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallFilterParameters,
 };
 

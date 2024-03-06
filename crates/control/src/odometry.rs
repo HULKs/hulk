@@ -1,11 +1,11 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Field, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{Orientation2, Vector2};
 use nalgebra::{Isometry2, Translation2};
 use serde::{Deserialize, Serialize};
 use types::{
-    coordinate_systems::{Field, Robot},
     robot_kinematics::RobotKinematics,
     support_foot::{Side, SupportFoot},
 };

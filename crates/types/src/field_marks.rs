@@ -1,8 +1,9 @@
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
+use coordinate_systems::Field;
+
 use crate::{
-    coordinate_systems::Field,
     field_dimensions::FieldDimensions,
     line::{Line, Line2},
 };

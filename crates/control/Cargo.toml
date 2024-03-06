@@ -10,13 +10,15 @@ approx = { workspace = true }
 bincode = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
-linear_algebra = { workspace = true }
+coordinate_systems = { workspace = true }
+energy_optimization = { workspace = true }
 filtering = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 itertools = { workspace = true }
 kinematics = { workspace = true }
+linear_algebra = { workspace = true }
 log = { workspace = true }
 motionfile = { workspace = true }
 nalgebra = { workspace = true }
@@ -29,4 +31,3 @@ serialize_hierarchy = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }
 types = { workspace = true }
-energy_optimization = { workspace = true }

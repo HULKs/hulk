@@ -1,8 +1,10 @@
 use approx::assert_relative_eq;
-use linear_algebra::{point, vector, IntoTransform, Isometry3, Point2};
 use nalgebra::{Translation, UnitQuaternion, Vector2};
+
+use coordinate_systems::Pixel;
+use linear_algebra::{point, vector, IntoTransform, Isometry3, Point2};
 use projection::Projection;
-use types::{camera_matrix::CameraMatrix, coordinate_systems::Pixel};
+use types::camera_matrix::CameraMatrix;
 
 fn from_normalized_focal_and_center_short(
     focal_length: Vector2<f32>,

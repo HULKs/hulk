@@ -5,10 +5,10 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use linear_algebra::{point, Isometry2, Point2, Vector2};
 use types::{
-    coordinate_systems::{Field, Ground},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     obstacles::{Obstacle, ObstacleKind},

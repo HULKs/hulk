@@ -1,11 +1,11 @@
 use std::ops::Range;
 
+use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
 use linear_algebra::{distance, point, Point2, Pose};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     line::Line,

@@ -1,11 +1,9 @@
 use approx::relative_eq;
 use thiserror::Error;
 
+use coordinate_systems::{Camera, Ground, Pixel, Robot};
 use linear_algebra::{point, vector, Isometry3, Point, Point2, Point3, Vector3};
-use types::{
-    camera_matrix::CameraMatrix,
-    coordinate_systems::{Camera, Ground, Pixel, Robot},
-};
+use types::camera_matrix::CameraMatrix;
 
 #[derive(Debug, Error)]
 pub enum Error {

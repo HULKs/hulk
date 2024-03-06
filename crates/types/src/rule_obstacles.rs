@@ -2,7 +2,7 @@ use geometry::{circle::Circle, rectangle::Rectangle};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::Field;
+use coordinate_systems::Field;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum RuleObstacle {

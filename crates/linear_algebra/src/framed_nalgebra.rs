@@ -264,9 +264,9 @@ impl<Frame> Pose<Frame> {
         Pose::wrap(nalgebra::Isometry2::new(translation.inner, angle))
     }
 
-    pub fn from_parts(translation: Vector2<Frame, f32>, orientation: Orientation2<Frame>) -> Self {
+    pub fn from_parts(position: Point2<Frame, f32>, orientation: Orientation2<Frame>) -> Self {
         Pose::wrap(nalgebra::Isometry2::from_parts(
-            translation.inner.into(),
+            position.inner.into(),
             orientation.inner,
         ))
     }

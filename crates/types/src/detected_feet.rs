@@ -2,7 +2,7 @@ use linear_algebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::{Ground, Pixel};
+use coordinate_systems::{Ground, Pixel};
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct DetectedFeet {
