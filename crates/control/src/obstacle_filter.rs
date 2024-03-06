@@ -168,7 +168,7 @@ impl ObstacleFilter {
                     .use_foot_bumper_measurements
                 {
                     self.update_hypotheses_with_measurement(
-                        foot_bumper_obstacle.position_in_robot,
+                        foot_bumper_obstacle.position,
                         ObstacleKind::Unknown,
                         *detection_time,
                         context
