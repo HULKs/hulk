@@ -91,7 +91,7 @@ impl FootBumperFilter {
             return Ok(MainOutputs::default());
         }
 
-        let touch_sensors = context.sensor_data.touch_sensors;
+        let touch_sensors = &context.sensor_data.touch_sensors;
         if touch_sensors.left_foot_left || touch_sensors.left_foot_right {
             if !self.left_pressed_last_cycle {
                 self.left_count += 1;
