@@ -1,10 +1,14 @@
-use color_eyre::Result;
-use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{point, Point2};
-use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::{Duration, SystemTime};
+
+use color_eyre::Result;
+use coordinate_systems::Ground;
+use linear_algebra::{point, UnitComplex};
+use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use framework::{AdditionalOutput, MainOutput};
+
 use types::{
     cycle_time::CycleTime, fall_state::FallState, foot_bumper_obstacle::FootBumperObstacle,
     foot_bumper_values::FootBumperValues, sensor_data::SensorData,
@@ -12,9 +16,6 @@ use types::{
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct FootBumperFilter {
-    left_point: Point2<f32>,
-    right_point: Point2<f32>,
-    middle_point: Point2<f32>,
     left_in_use: bool,
     right_in_use: bool,
     left_detection_buffer: VecDeque<bool>,
@@ -30,16 +31,14 @@ pub struct FootBumperFilter {
 #[context]
 pub struct CreationContext {
     pub buffer_size: Parameter<usize, "foot_bumper_filter.buffer_size">,
-    pub obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
-    pub sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
 }
 
 #[context]
 pub struct CycleContext {
-    pub acceptance_duration: Parameter<Duration, "foot_bumper_filter.acceptance_duration">,
-    pub activations_needed: Parameter<i32, "foot_bumper_filter.activations_needed">,
-    pub enabled: Parameter<bool, "obstacle_filter.use_foot_bumper_measurements">,
-    pub number_of_detections_in_buffer_for_defective_declaration: Parameter<
+    acceptance_duration: Parameter<Duration, "foot_bumper_filter.acceptance_duration">,
+    activations_needed: Parameter<i32, "foot_bumper_filter.activations_needed">,
+    enabled: Parameter<bool, "obstacle_filter.use_foot_bumper_measurements">,
+    number_of_detections_in_buffer_for_defective_declaration: Parameter<
         usize,
         "foot_bumper_filter.number_of_detections_in_buffer_for_defective_declaration",
     >,
@@ -63,19 +62,7 @@ pub struct MainOutputs {
 
 impl FootBumperFilter {
     pub fn new(context: CreationContext) -> Result<Self> {
-        let left_point = point![
-            context.sensor_angle.cos() * *context.obstacle_distance,
-            context.sensor_angle.sin() * *context.obstacle_distance
-        ];
-        let right_point = point![
-            context.sensor_angle.cos() * *context.obstacle_distance,
-            -context.sensor_angle.sin() * *context.obstacle_distance
-        ];
-        let middle_point = point![*context.obstacle_distance, 0.0];
         Ok(Self {
-            left_point,
-            right_point,
-            middle_point,
             left_in_use: true,
             right_in_use: true,
             left_detection_buffer: VecDeque::from(vec![false; *context.buffer_size]),
@@ -147,24 +134,18 @@ impl FootBumperFilter {
 
         self.check_for_bumper_errors(&context);
 
-        let obstacle_positions = match (
+        let obstacle_angle = match (
             fall_state,
-            obstacle_detected_on_left,
-            obstacle_detected_on_right,
-            self.left_in_use,
-            self.right_in_use,
+            obstacle_detected_on_left && self.left_in_use,
+            obstacle_detected_on_right && self.right_in_use,
         ) {
-            (FallState::Upright, true, true, true, true) => vec![self.middle_point],
-            (FallState::Upright, true, false, true, _) => vec![self.left_point],
-            (FallState::Upright, false, true, _, true) => vec![self.right_point],
-            _ => vec![],
+            (FallState::Upright, true, true) => 0.0,
+            (FallState::Upright, true, false) => *context.sensor_angle,
+            (FallState::Upright, false, true) => -context.sensor_angle,
+            _ => return Ok(Default::default()),
         };
-        let foot_bumper_obstacles: Vec<_> = obstacle_positions
-            .iter()
-            .map(|position_in_robot| FootBumperObstacle {
-                position_in_robot: *position_in_robot,
-            })
-            .collect();
+        let obstacle_position = UnitComplex::<Ground, Ground>::new(obstacle_angle)
+            * point![*context.obstacle_distance, 0.0];
 
         context
             .foot_bumper_values
@@ -176,7 +157,7 @@ impl FootBumperFilter {
             });
 
         Ok(MainOutputs {
-            foot_bumper_obstacle: foot_bumper_obstacles.into(),
+            foot_bumper_obstacle: vec![obstacle_position.into()].into(),
         })
     }
 
