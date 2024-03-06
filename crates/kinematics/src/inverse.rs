@@ -8,8 +8,8 @@ use types::{
 };
 
 pub fn leg_angles(
-    left_foot_to_robot: coordinate_systems::Isometry3<LeftFoot, Robot>,
-    right_foot_to_robot: coordinate_systems::Isometry3<RightFoot, Robot>,
+    left_foot_to_robot: linear_algebra::Isometry3<LeftFoot, Robot>,
+    right_foot_to_robot: linear_algebra::Isometry3<RightFoot, Robot>,
 ) -> (bool, LowerBodyJoints<f32>) {
     let ratio = 0.5;
     let robot_to_left_pelvis = Isometry3::rotation(Vector3::x() * -1.0 * PI / 4.0)

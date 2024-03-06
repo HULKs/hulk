@@ -1,5 +1,5 @@
-use coordinate_systems::{Point2, Pose};
 use framework::AdditionalOutput;
+use linear_algebra::{Point2, Pose};
 use types::{
     coordinate_systems::Field, motion_command::MotionCommand, path_obstacles::PathObstacle,
     world_state::WorldState,

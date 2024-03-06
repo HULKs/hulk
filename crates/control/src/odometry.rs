@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Orientation2, Vector2};
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::{Orientation2, Vector2};
 use nalgebra::{Isometry2, Translation2};
 use serde::{Deserialize, Serialize};
 use types::{

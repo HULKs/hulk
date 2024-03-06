@@ -5,10 +5,10 @@ use nalgebra::{matrix, Matrix2, Matrix2x4, Matrix4, Matrix4x2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, Point2};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
+use linear_algebra::{point, Point2};
 use projection::Projection;
 use types::{
     ball::Ball,

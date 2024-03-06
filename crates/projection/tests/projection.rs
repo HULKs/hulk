@@ -1,5 +1,5 @@
 use approx::assert_relative_eq;
-use coordinate_systems::{point, vector, IntoTransform, Isometry3, Point2};
+use linear_algebra::{point, vector, IntoTransform, Isometry3, Point2};
 use nalgebra::{Translation, UnitQuaternion, Vector2};
 use projection::Projection;
 use types::{camera_matrix::CameraMatrix, coordinate_systems::Pixel};

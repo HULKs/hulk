@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::{Cycler, CyclerOutput};
-use coordinate_systems::Point2;
+use linear_algebra::Point2;
 use types::{coordinate_systems::Pixel, line::Line2, line_data::LineDiscardReason};
 
 use crate::{

@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::point;
 use framework::MainOutput;
+use linear_algebra::point;
 use serde::{Deserialize, Serialize};
 use types::{
     color::Intensity,

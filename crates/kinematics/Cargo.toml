@@ -6,6 +6,6 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 types = { workspace = true }

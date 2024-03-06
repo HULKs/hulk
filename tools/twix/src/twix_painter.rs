@@ -10,8 +10,8 @@ use eframe::{
 };
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
-use coordinate_systems::{point, vector, IntoTransform, Isometry2, Point2, Pose, Vector2};
 use geometry::{arc::Arc, circle::Circle, direction::Direction};
+use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose, Vector2};
 use types::{
     coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
@@ -322,7 +322,7 @@ impl TwixPainter<Field> {
         self.circle(center, circle_radius, fill_color, stroke);
         self.line_segment(
             center,
-            pose.as_transform::<Ground>() * coordinate_systems::point![line_length, 0.0],
+            pose.as_transform::<Ground>() * point![line_length, 0.0],
             stroke,
         );
     }

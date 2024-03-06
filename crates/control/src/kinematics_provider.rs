@@ -1,6 +1,5 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Isometry3;
 use framework::MainOutput;
 use kinematics::{
     head_to_neck, left_ankle_to_left_tibia, left_elbow_to_left_upper_arm, left_foot_to_left_ankle,
@@ -12,6 +11,7 @@ use kinematics::{
     right_shoulder_to_robot, right_thigh_to_right_hip, right_tibia_to_right_thigh,
     right_upper_arm_to_right_shoulder, right_wrist_to_right_forearm,
 };
+use linear_algebra::Isometry3;
 use serde::{Deserialize, Serialize};
 use types::{
     robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics, sensor_data::SensorData,

@@ -8,7 +8,7 @@ homepage.workspace = true
 [dependencies]
 approx = { workspace = true }
 approx_derive = { workspace = true }
-coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }

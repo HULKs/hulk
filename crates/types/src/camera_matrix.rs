@@ -2,7 +2,7 @@ use approx_derive::{AbsDiffEq, RelativeEq};
 use nalgebra::{Matrix, Rotation3};
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{IntoTransform, Isometry3, Point2};
+use linear_algebra::{IntoTransform, Isometry3, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
@@ -165,7 +165,7 @@ impl CameraMatrix {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use coordinate_systems::IntoFramed;
+    use linear_algebra::IntoFramed;
     use nalgebra::{point, vector, Isometry3, Translation3, Vector2};
 
     use super::*;

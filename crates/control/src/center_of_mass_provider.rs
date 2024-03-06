@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Point3;
 use framework::MainOutput;
+use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
 use types::{coordinate_systems::Robot, robot_kinematics::RobotKinematics, robot_masses};
 

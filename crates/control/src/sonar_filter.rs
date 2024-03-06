@@ -2,9 +2,9 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::point;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::point;
 use types::{
     fall_state::FallState, sensor_data::SensorData, sonar_obstacle::SonarObstacle,
     sonar_values::SonarValues,

@@ -3,8 +3,8 @@ use nalgebra::{Rotation3, UnitQuaternion};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, IntoTransform, Isometry3};
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::{point, IntoTransform, Isometry3};
 use projection::Projection;
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},

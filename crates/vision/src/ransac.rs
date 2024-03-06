@@ -1,4 +1,4 @@
-use coordinate_systems::Point2;
+use linear_algebra::Point2;
 use ordered_float::NotNan;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, SeedableRng};
 use types::line::{Line, Line2};
@@ -73,7 +73,7 @@ impl<Frame> Ransac<Frame> {
 #[cfg(test)]
 mod test {
     use approx::assert_relative_eq;
-    use coordinate_systems::point;
+    use linear_algebra::point;
 
     use super::*;
 

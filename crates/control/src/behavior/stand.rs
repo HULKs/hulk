@@ -1,4 +1,4 @@
-use coordinate_systems::point;
+use linear_algebra::point;
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,

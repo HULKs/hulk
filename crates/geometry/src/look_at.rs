@@ -1,6 +1,6 @@
 use nalgebra::{Point2, UnitComplex, Vector2};
 
-use coordinate_systems::Framed;
+use linear_algebra::Framed;
 
 pub trait LookAt<Target> {
     type Rotation;

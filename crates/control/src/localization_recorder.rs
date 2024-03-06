@@ -8,8 +8,8 @@ use std::{
 use bincode::serialize;
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
-use coordinate_systems::Isometry2;
 use framework::{HistoricInput, PerceptionInput};
+use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use types::{
     coordinate_systems::{Field, Ground},

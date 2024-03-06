@@ -11,7 +11,6 @@ bincode = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
 convert_case = { workspace = true }
-coordinate_systems = { workspace = true }
 eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
@@ -22,6 +21,7 @@ geometry = { workspace = true }
 gilrs = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
+linear_algebra = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
 nalgebra = { workspace = true }

@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use coordinate_systems::{IntoFramed, Isometry3, Orientation3, Vector3};
+use linear_algebra::{IntoFramed, Isometry3, Orientation3, Vector3};
 use types::{
     coordinate_systems::{
         Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder,

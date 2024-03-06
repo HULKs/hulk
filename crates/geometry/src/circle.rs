@@ -3,7 +3,7 @@ use std::f32::consts::TAU;
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{distance, vector, Point2};
+use linear_algebra::{distance, vector, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
@@ -220,7 +220,7 @@ where
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-    use coordinate_systems::point;
+    use linear_algebra::point;
 
     use super::*;
 

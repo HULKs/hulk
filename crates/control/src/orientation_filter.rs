@@ -2,9 +2,9 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Orientation2;
 use filtering::orientation_filtering::OrientationFiltering;
 use framework::MainOutput;
+use linear_algebra::Orientation2;
 use types::{
     coordinate_systems::Field,
     cycle_time::CycleTime,

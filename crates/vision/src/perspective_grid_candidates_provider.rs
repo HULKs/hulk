@@ -4,9 +4,9 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, Point2};
 use framework::MainOutput;
 use geometry::circle::Circle;
+use linear_algebra::{point, Point2};
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
@@ -177,7 +177,7 @@ mod tests {
     use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
-    use coordinate_systems::IntoTransform;
+    use linear_algebra::IntoTransform;
     use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
     use types::{
         camera_matrix::CameraMatrix,

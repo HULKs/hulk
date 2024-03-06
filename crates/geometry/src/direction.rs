@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{vector, Vector2};
+use linear_algebra::{vector, Vector2};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Direction {

@@ -1,7 +1,7 @@
 use crate::coordinate_systems::Camera;
 use crate::coordinate_systems::Ground;
 use approx::{AbsDiffEq, RelativeEq};
-use coordinate_systems::Transform;
+use linear_algebra::Transform;
 use nalgebra::{Isometry3, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;

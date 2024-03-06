@@ -24,7 +24,7 @@ pub type Point3<Frame, Scalar = f32> = Point<Frame, 3, Scalar>;
 #[macro_export]
 macro_rules! point {
     ($($parameters:expr),* $(,)?) => {
-        coordinate_systems::Framed::wrap(nalgebra::point![$($parameters),*])
+        linear_algebra::Framed::wrap(nalgebra::point![$($parameters),*])
 
     };
 }
@@ -37,7 +37,7 @@ pub type Vector3<Frame, Scalar = f32> = Vector<Frame, 3, Scalar>;
 #[macro_export]
 macro_rules! vector {
     ($($parameters:expr),* $(,)?) => {
-        coordinate_systems::Framed::wrap(nalgebra::vector![$($parameters),*])
+        linear_algebra::Framed::wrap(nalgebra::vector![$($parameters),*])
     };
 }
 

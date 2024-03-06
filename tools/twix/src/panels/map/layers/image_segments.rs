@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
-use coordinate_systems::{center, point, Isometry2, Point2};
+use linear_algebra::{center, point, Isometry2, Point2};
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::Isometry3;
+use linear_algebra::Isometry3;
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::coordinate_systems::{

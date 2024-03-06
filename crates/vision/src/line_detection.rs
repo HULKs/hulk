@@ -4,8 +4,8 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{distance, point, vector, Point2, Vector2};
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use projection::Projection;
 use types::{
@@ -402,7 +402,7 @@ fn is_segment_shorter_than(
 
 #[cfg(test)]
 mod tests {
-    use coordinate_systems::IntoTransform;
+    use linear_algebra::IntoTransform;
     use nalgebra::{Isometry3, Translation, UnitQuaternion};
 
     use super::*;

@@ -4,8 +4,8 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, Isometry2, Transform};
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::{point, Isometry2, Transform};
 use types::{
     camera_matrix::CameraMatrix,
     color::{Intensity, Rgb, RgbChannel, YCbCr444},

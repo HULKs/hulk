@@ -4,8 +4,8 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{point, Point2};
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::{point, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,

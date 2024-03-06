@@ -1,6 +1,6 @@
 use approx_derive::{AbsDiffEq, RelativeEq};
-use coordinate_systems::Point2;
 use geometry::circle::Circle;
+use linear_algebra::Point2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 

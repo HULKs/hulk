@@ -3,7 +3,7 @@ use std::f32::consts::TAU;
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::Point2;
+use linear_algebra::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{circle::Circle, direction::Direction};
@@ -81,7 +81,7 @@ mod tests {
     use std::f32::consts::PI;
 
     use approx::assert_relative_eq;
-    use coordinate_systems::{point, vector, UnitComplex};
+    use linear_algebra::{point, vector, UnitComplex};
 
     use super::*;
 

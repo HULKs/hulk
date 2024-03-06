@@ -22,8 +22,8 @@ use control::{
     },
     localization_recorder::RecordedCycleContext,
 };
-use coordinate_systems::Isometry2;
 use framework::{multiple_buffer_with_slots, Reader, Writer};
+use linear_algebra::Isometry2;
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
     coordinate_systems::{Field, Ground},

@@ -4,9 +4,9 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{distance, point, vector, Isometry3, Point2};
 use framework::MainOutput;
 use kinematics::{head_to_neck, neck_to_robot};
+use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     camera_matrix::CameraMatrices,
     camera_position::CameraPosition,

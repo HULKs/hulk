@@ -1,4 +1,4 @@
-use coordinate_systems::Pose;
+use linear_algebra::Pose;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
