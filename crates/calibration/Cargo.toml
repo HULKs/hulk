@@ -6,8 +6,12 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+image = { workspace = true }
+imageproc = { workspace = true }
 levenberg-marquardt = { workspace = true }
 nalgebra = { workspace = true }
 projection = { workspace = true }
+serde = { workspace = true }
+serialize_hierarchy = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }

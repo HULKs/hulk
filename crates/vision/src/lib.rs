@@ -1,8 +1,10 @@
 pub mod ball_detection;
+pub mod calibration_line_detection;
 pub mod camera_matrix_extractor;
 pub mod feet_detection;
 pub mod field_border_detection;
 pub mod field_color_detection;
+pub mod image_ops;
 pub mod image_receiver;
 pub mod image_segmenter;
 pub mod limb_projector;

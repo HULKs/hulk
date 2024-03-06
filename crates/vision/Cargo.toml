@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 approx = { workspace = true }
+calibration = { workspace = true }
 color-eyre = { workspace = true }
 compiled-nn = { workspace = true }
 context_attribute = { workspace = true }
@@ -15,7 +16,10 @@ filtering = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
+image = { workspace = true }
+imageproc = { workspace = true }
 itertools = { workspace = true }
+lstsq = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }

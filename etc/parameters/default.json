@@ -1159,5 +1159,24 @@
     }
   },
   "angular_velocity_smoothing_factor": 0.1,
-  "center_circle_obstacle_increase": 1.2
+  "center_circle_obstacle_increase": 1.2,
+  "calibration_line_detection": {
+    "vision_top": {
+      "enable": true
+    },
+    "vision_bottom": {
+      "enable": false
+    },
+    "gaussian_sigma": 2.0,
+    "canny_low_threshold": 15.0,
+    "canny_high_threshold": 50.0,
+    "maximum_number_of_lines": 20,
+    "ransac_iterations": 50,
+    "ransac_maximum_distance": 3.0,
+    "ransac_maximum_gap": 5.0,
+    "debug_image_resized_width": 300,
+    "run_next_cycle_after_ms": 100,
+    "skip_rgb_based_difference_image": false,
+    "use_clustering_ransac": true
+  }
 }

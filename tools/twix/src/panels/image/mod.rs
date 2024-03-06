@@ -29,6 +29,9 @@ mod overlays;
 enum ImageKind {
     YCbCr422,
     Luminance,
+    Difference,
+    Blurred,
+    Edges,
 }
 
 impl ImageKind {
@@ -39,6 +42,15 @@ impl ImageKind {
             },
             ImageKind::Luminance => Output::Additional {
                 path: "robot_detection.luminance_image.jpeg".to_string(),
+            },
+            ImageKind::Difference => Output::Additional {
+                path: "calibration_line_detection.difference_image.jpeg".to_string(),
+            },
+            ImageKind::Blurred => Output::Additional {
+                path: "calibration_line_detection.blurred_image.jpeg".to_string(),
+            },
+            ImageKind::Edges => Output::Additional {
+                path: "calibration_line_detection.edges_image.jpeg".to_string(),
             },
         }
     }
@@ -133,6 +145,24 @@ impl Widget for &mut ImagePanel {
                     };
                     if ui
                         .selectable_value(&mut self.image_kind, ImageKind::Luminance, "Luminance")
+                        .changed()
+                    {
+                        image_selection_changed = true;
+                    }
+                    if ui
+                        .selectable_value(&mut self.image_kind, ImageKind::Difference, "Difference")
+                        .changed()
+                    {
+                        image_selection_changed = true;
+                    }
+                    if ui
+                        .selectable_value(&mut self.image_kind, ImageKind::Blurred, "Blurred")
+                        .changed()
+                    {
+                        image_selection_changed = true;
+                    }
+                    if ui
+                        .selectable_value(&mut self.image_kind, ImageKind::Edges, "Edges")
                         .changed()
                     {
                         image_selection_changed = true;
