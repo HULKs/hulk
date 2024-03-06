@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-
+use serde::{Deserialize, Serialize};
 use crate::{
     image_ops::{generate_luminance_image, gray_image_to_hulks_grayscale_image},
     ransac::{ClusteringRansac, Ransac},
@@ -14,12 +14,13 @@ use imageproc::{edges::canny, filter::gaussian_blur_f32, map::map_colors};
 use lstsq::lstsq;
 use nalgebra::{distance, point, DMatrix, DVector};
 use types::{
-    grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image, CameraMatrix, CameraPosition,
-    Line, Line2,
+    grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image, camera_matrix::CameraMatrix, camera_position::CameraPosition,
+    line::Line, line::Line2,
 };
 
+#[derive(Deserialize, Serialize)]
 pub struct CalibrationLineDetection {
-    last_processed_instance: Instant,
+    last_processed_instance: ,
 }
 
 #[context]
@@ -289,7 +290,7 @@ fn detect_lines(
     } else {
         let mut ransac = Ransac::new(edge_points);
 
-        let ransac_result = ransac.next_line(ransac_iterations, ransac_maximum_distance);
+        let ransac_result = ransac.next_line(ransac_iterations, ransac_maximum_distance, ransac_maximum_distance);
         if let Some(line) = ransac_result.line {
             lines.push(line);
         }
