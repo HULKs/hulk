@@ -1,9 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::Robot;
 use framework::MainOutput;
 use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
-use types::{coordinate_systems::Robot, robot_kinematics::RobotKinematics, robot_masses};
+use types::{robot_kinematics::RobotKinematics, robot_masses};
 
 #[derive(Deserialize, Serialize)]
 pub struct CenterOfMassProvider {}

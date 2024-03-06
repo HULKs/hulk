@@ -4,8 +4,8 @@ use linear_algebra::{distance, point, vector, Isometry2, Orientation2, Point2};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
+use coordinate_systems::{Field, Ground};
 use types::{
-    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     motion_command::MotionCommand,
     obstacles::Obstacle,

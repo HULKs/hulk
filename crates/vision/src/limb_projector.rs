@@ -4,12 +4,12 @@ use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{LeftElbow, LeftSole, LeftThigh, LeftWrist, Robot};
 use framework::MainOutput;
 use linear_algebra::{point, Isometry3, Point2, Point3};
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
-    coordinate_systems::{LeftElbow, LeftSole, LeftThigh, LeftWrist, Robot},
     limb::{Limb, ProjectedLimbs},
     robot_kinematics::RobotKinematics,
 };

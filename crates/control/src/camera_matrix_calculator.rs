@@ -3,13 +3,13 @@ use nalgebra::{Rotation3, UnitQuaternion};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, IntoTransform, Isometry3};
 use projection::Projection;
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},
     camera_position::CameraPosition,
-    coordinate_systems::{Camera, Ground, Head, Pixel, Robot},
     field_dimensions::FieldDimensions,
     line::{Line, Line2},
     parameters::CameraMatrixParameters,

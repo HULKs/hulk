@@ -5,7 +5,7 @@ use nalgebra::{matrix, point, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Interpolated {

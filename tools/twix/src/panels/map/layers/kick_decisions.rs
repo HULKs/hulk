@@ -4,12 +4,10 @@ use color_eyre::Result;
 use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 
+use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
 use types::{
-    coordinate_systems::{Field, Ground},
-    field_dimensions::FieldDimensions,
-    kick_decision::KickDecision,
-    kick_target::KickTarget,
+    field_dimensions::FieldDimensions, kick_decision::KickDecision, kick_target::KickTarget,
 };
 
 use crate::{

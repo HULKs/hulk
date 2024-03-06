@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use coordinate_systems::Field;
 use eframe::egui::{Response, Ui, Widget};
 use nalgebra::{vector, Similarity2, Translation2};
 use serde_json::{from_value, json, Value};
-use types::{self, coordinate_systems::Field, field_dimensions::FieldDimensions};
+use types::{self, field_dimensions::FieldDimensions};
 
 use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 

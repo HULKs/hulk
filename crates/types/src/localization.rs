@@ -1,12 +1,11 @@
-use linear_algebra::{Isometry2, Point2, Pose};
 use nalgebra::{vector, Matrix3};
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::{Field, Ground};
+use linear_algebra::{Isometry2, Point2, Pose};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{
-    coordinate_systems::{Field, Ground},
-    multivariate_normal_distribution::MultivariateNormalDistribution,
-};
+use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Update {

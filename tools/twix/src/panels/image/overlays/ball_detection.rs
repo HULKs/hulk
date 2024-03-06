@@ -2,12 +2,10 @@ use std::str::FromStr;
 
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
+use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use geometry::circle::Circle;
-use types::{
-    ball::{Ball, CandidateEvaluation},
-    coordinate_systems::Pixel,
-};
+use types::ball::{Ball, CandidateEvaluation};
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,

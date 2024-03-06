@@ -8,14 +8,13 @@ use std::{
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
+use coordinate_systems::{Field, Head};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, UnitComplex, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
 use types::{
     ball_position::BallPosition,
-    coordinate_systems::Field,
-    coordinate_systems::Head,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     game_controller_state::GameControllerState,

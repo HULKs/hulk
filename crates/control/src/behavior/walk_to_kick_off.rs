@@ -1,9 +1,7 @@
+use coordinate_systems::Field;
 use framework::AdditionalOutput;
 use linear_algebra::{Point2, Pose};
-use types::{
-    coordinate_systems::Field, motion_command::MotionCommand, path_obstacles::PathObstacle,
-    world_state::WorldState,
-};
+use types::{motion_command::MotionCommand, path_obstacles::PathObstacle, world_state::WorldState};
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
 

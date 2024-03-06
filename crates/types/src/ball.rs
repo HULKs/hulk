@@ -1,10 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use approx_derive::{AbsDiffEq, RelativeEq};
+use coordinate_systems::{Ground, Pixel};
 use geometry::circle::Circle;
 use linear_algebra::Point2;
-use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-
-use crate::coordinate_systems::{Ground, Pixel};
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct CandidateEvaluation {

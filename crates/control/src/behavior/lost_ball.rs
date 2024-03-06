@@ -1,8 +1,8 @@
+use coordinate_systems::Field;
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
 use linear_algebra::Point2;
 use types::{
-    coordinate_systems::Field,
     motion_command::HeadMotion,
     motion_command::{MotionCommand, OrientationMode},
     parameters::LostBallParameters,

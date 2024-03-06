@@ -1,5 +1,5 @@
+use coordinate_systems::Ground;
 use linear_algebra::Point2;
-use types::coordinate_systems::Ground;
 use types::detected_feet::CountedCluster;
 
 pub trait MeanClustering {

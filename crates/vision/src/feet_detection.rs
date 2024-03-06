@@ -1,18 +1,19 @@
 use color_eyre::Result;
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
+use coordinate_systems::Ground;
 use filtering::{
     mean_clustering::MeanClustering,
     statistics::{mean, standard_deviation},
 };
 use framework::{AdditionalOutput, MainOutput};
-use itertools::Itertools;
 use linear_algebra::{distance, point, Point2};
 use projection::Projection;
-use serde::{Deserialize, Serialize};
 use types::{
     ball::Ball,
     camera_matrix::CameraMatrix,
-    coordinate_systems::Ground,
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},

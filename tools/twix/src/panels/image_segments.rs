@@ -8,11 +8,11 @@ use nalgebra::Similarity2;
 use serde_json::Value;
 
 use communication::client::CyclerOutput;
+use coordinate_systems::Pixel;
 use linear_algebra::{point, vector};
 use types::{
     camera_position::CameraPosition,
     color::{Rgb, RgbChannel},
-    coordinate_systems::Pixel,
     image_segments::ImageSegments,
 };
 

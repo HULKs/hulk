@@ -10,12 +10,12 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use linear_algebra::{distance, point, vector, IntoTransform, Isometry2, Pose};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
-    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,

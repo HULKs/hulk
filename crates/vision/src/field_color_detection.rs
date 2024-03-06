@@ -2,13 +2,10 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use linear_algebra::Isometry2;
-use types::{
-    coordinate_systems::{Field, Ground},
-    field_color::FieldColor,
-    interpolated::Interpolated,
-};
+use types::{field_color::FieldColor, interpolated::Interpolated};
 
 #[derive(Deserialize, Serialize)]
 pub struct FieldColorDetection {

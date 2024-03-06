@@ -1,8 +1,8 @@
+use coordinate_systems::{Ground, Pixel};
 use linear_algebra::Point2;
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
-    coordinate_systems::{Ground, Pixel},
     line::{Line, Line2},
 };
 

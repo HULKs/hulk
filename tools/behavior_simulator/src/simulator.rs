@@ -7,8 +7,9 @@ use color_eyre::{
 use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
 use parking_lot::Mutex;
 
+use coordinate_systems::Field;
 use linear_algebra::{Isometry2, Point2, Vector2};
-use types::{coordinate_systems::Field, obstacles::Obstacle, players::Players};
+use types::{obstacles::Obstacle, players::Players};
 
 use crate::{
     cycler::Database,

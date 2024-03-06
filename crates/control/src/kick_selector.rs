@@ -6,6 +6,7 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{
     circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
@@ -15,7 +16,6 @@ use linear_algebra::{
     Vector2,
 };
 use types::{
-    coordinate_systems::{Field, Ground},
     field_dimensions::FieldDimensions,
     kick_decision::KickDecision,
     kick_target::KickTarget,
@@ -431,7 +431,7 @@ fn is_inside_any_obstacle(
 
 fn mirror_kick_pose<Frame>(kick_pose: Pose<Frame>) -> Pose<Frame> {
     Pose::from_parts(
-        vector![kick_pose.position().x(), -kick_pose.position().y()],
+        point![kick_pose.position().x(), -kick_pose.position().y()],
         kick_pose.orientation().inverse(),
     )
 }
@@ -450,7 +450,7 @@ fn compute_kick_pose(
         .look_at(&(ball_to_ground.inverse() * target_to_kick_to))
         .as_transform::<TargetAlignedBall>();
     let kick_pose_in_target_aligned_ball = Pose::<TargetAlignedBall>::from_parts(
-        kick_info.position.coords.framed(),
+        kick_info.position.framed(),
         Orientation2::new(kick_info.orientation),
     );
 

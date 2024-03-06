@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Pixel;
+use linear_algebra::Point2;
 use serialize_hierarchy::SerializeHierarchy;
 
-use linear_algebra::Point2;
-
-use crate::{coordinate_systems::Pixel, line::Line2};
+use crate::line::Line2;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct FieldBorder {

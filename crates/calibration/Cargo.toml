@@ -6,9 +6,10 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+coordinate_systems = { workspace = true }
 levenberg-marquardt = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 projection = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
-linear_algebra = { workspace = true }

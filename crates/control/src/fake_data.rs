@@ -5,11 +5,11 @@ use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::BallPosition,
-    coordinate_systems::{Field, Ground},
     cycle_time::CycleTime,
     fall_state::FallState,
     filtered_whistle::FilteredWhistle,

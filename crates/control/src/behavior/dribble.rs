@@ -1,7 +1,7 @@
+use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
 use linear_algebra::{Point, Pose};
 use types::{
-    coordinate_systems::Ground,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,

@@ -4,14 +4,10 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
+use coordinate_systems::{Field, Ground};
 use linear_algebra::{center, point, Isometry2, Point2};
 use projection::Projection;
-use types::{
-    camera_matrix::CameraMatrix,
-    color::Rgb,
-    coordinate_systems::{Field, Ground},
-    field_dimensions::FieldDimensions,
-};
+use types::{camera_matrix::CameraMatrix, color::Rgb, field_dimensions::FieldDimensions};
 
 use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 

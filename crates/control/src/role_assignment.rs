@@ -4,6 +4,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use linear_algebra::{IntoFramed, IntoTransform, Isometry2, Point2, Vector};
@@ -12,7 +13,6 @@ use spl_network_messages::{
 };
 use types::{
     ball_position::BallPosition,
-    coordinate_systems::{Field, Ground},
     cycle_time::CycleTime,
     fall_state::FallState,
     field_dimensions::FieldDimensions,

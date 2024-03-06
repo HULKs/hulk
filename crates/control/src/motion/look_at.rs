@@ -4,13 +4,13 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::MainOutput;
 use kinematics::{head_to_neck, neck_to_robot};
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     camera_matrix::CameraMatrices,
     camera_position::CameraPosition,
-    coordinate_systems::{Camera, Ground, Head, Pixel, Robot},
     cycle_time::CycleTime,
     joints::{head::HeadJoints, Joints},
     motion_command::{GlanceDirection, HeadMotion, MotionCommand},

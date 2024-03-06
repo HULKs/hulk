@@ -11,6 +11,7 @@ bincode = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
 convert_case = { workspace = true }
+coordinate_systems = { workspace = true }
 eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }

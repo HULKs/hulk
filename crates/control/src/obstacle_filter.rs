@@ -2,6 +2,7 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use itertools::{chain, iproduct};
@@ -9,7 +10,6 @@ use linear_algebra::{distance, point, IntoFramed, Isometry2, Point2};
 use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
 use types::{
-    coordinate_systems::{Field, Ground},
     cycle_time::CycleTime,
     detected_feet::DetectedFeet,
     field_dimensions::FieldDimensions,

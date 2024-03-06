@@ -3,9 +3,10 @@ use std::sync::Arc;
 use color_eyre::Result;
 use convert_case::{Case, Casing};
 use eframe::egui::Ui;
-
 use serde_json::{json, Value};
-use types::{coordinate_systems::Field, field_dimensions::FieldDimensions};
+
+use coordinate_systems::Field;
+use types::field_dimensions::FieldDimensions;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 

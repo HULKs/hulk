@@ -9,16 +9,17 @@ homepage.workspace = true
 approx = { workspace = true }
 approx_derive = { workspace = true }
 color-eyre = { workspace = true }
-linear_algebra = { workspace = true }
+coordinate_systems = { workspace = true }
 enum-iterator = { workspace = true }
 geometry = { workspace = true }
 image = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
-splines = { workspace = true }
 spl_network_messages = { workspace = true }
+splines = { workspace = true }
 
 [build-dependencies]
 petgraph = { workspace = true }

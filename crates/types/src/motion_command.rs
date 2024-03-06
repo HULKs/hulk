@@ -1,11 +1,10 @@
-use linear_algebra::{Orientation2, Point2};
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Ground;
+use linear_algebra::{Orientation2, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{
-    camera_position::CameraPosition, coordinate_systems::Ground, planned_path::PathSegment,
-    support_foot::Side,
-};
+use crate::{camera_position::CameraPosition, planned_path::PathSegment, support_foot::Side};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum OrientationMode {

@@ -2,8 +2,9 @@ use std::str::FromStr;
 
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
+use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
-use types::{coordinate_systems::Pixel, limb::ProjectedLimbs};
+use types::limb::ProjectedLimbs;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,

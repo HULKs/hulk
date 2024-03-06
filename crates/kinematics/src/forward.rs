@@ -1,13 +1,13 @@
 use std::f32::consts::PI;
 
+use coordinate_systems::{
+    Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder,
+    LeftThigh, LeftTibia, LeftUpperArm, LeftWrist, Neck, RightAnkle, RightElbow, RightFoot,
+    RightForearm, RightHip, RightPelvis, RightShoulder, RightThigh, RightTibia, RightUpperArm,
+    RightWrist, Robot,
+};
 use linear_algebra::{IntoFramed, Isometry3, Orientation3, Vector3};
 use types::{
-    coordinate_systems::{
-        Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder,
-        LeftThigh, LeftTibia, LeftUpperArm, LeftWrist, Neck, RightAnkle, RightElbow, RightFoot,
-        RightForearm, RightHip, RightPelvis, RightShoulder, RightThigh, RightTibia, RightUpperArm,
-        RightWrist, Robot,
-    },
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
     robot_dimensions::RobotDimensions,
 };

@@ -11,14 +11,13 @@ use image::{
     codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, ImageError, ImageFormat,
     RgbImage,
 };
-use linear_algebra::Point2;
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Pixel;
+use linear_algebra::Point2;
 use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
 
-use crate::{
-    color::{Rgb, YCbCr422, YCbCr444},
-    coordinate_systems::Pixel,
-};
+use crate::color::{Rgb, YCbCr422, YCbCr444};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(as_jpeg)]

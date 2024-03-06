@@ -1,15 +1,12 @@
-use approx_derive::{AbsDiffEq, RelativeEq};
 use nalgebra::{Matrix, Rotation3};
 use serde::{Deserialize, Serialize};
 
+use approx_derive::{AbsDiffEq, RelativeEq};
+use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use linear_algebra::{IntoTransform, Isometry3, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{
-    coordinate_systems::{Camera, Ground, Head, Pixel, Robot},
-    horizon::Horizon,
-    line::Line2,
-};
+use crate::{horizon::Horizon, line::Line2};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrices {

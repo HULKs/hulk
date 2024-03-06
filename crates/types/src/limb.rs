@@ -2,10 +2,11 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{coordinate_systems::Pixel, line::Line};
+use crate::line::Line;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Limb {
