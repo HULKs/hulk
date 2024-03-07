@@ -51,19 +51,26 @@ impl AssignmentProblem {
             Ordering::Equal => costs,
         };
 
-        Self { costs, number_of_workers, number_of_tasks }
+        Self {
+            costs,
+            number_of_workers,
+            number_of_tasks,
+        }
     }
 
-    pub fn solve(self) -> Vec<Option<usize>>{
+    pub fn solve(self) -> Vec<Option<usize>> {
         let (_, assignment) = kuhn_munkres(&self);
 
-        assignment[..self.number_of_tasks].iter().map(|&job_assignment| {
-            if job_assignment < self.number_of_workers {
-                Some(job_assignment)
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>()
+        assignment[..self.number_of_tasks]
+            .iter()
+            .map(|&job_assignment| {
+                if job_assignment < self.number_of_workers {
+                    Some(job_assignment)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
     }
 }
 
@@ -108,5 +115,4 @@ mod tests {
         let solution = problem.solve();
         assert_eq!(solution, vec![Some(0), None, Some(1)]);
     }
-
 }

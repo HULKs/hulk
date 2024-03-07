@@ -38,9 +38,11 @@ impl Layer for RobotFilter {
     }
 
     fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
-        let robot_to_field = self.robot_to_field.parse_latest::<Option<Isometry2<f32>>>()?.unwrap_or_default();
-        let filtered_robots: Vec<Point2<f32>> =
-            self.filtered_robots.parse_latest()?;
+        let robot_to_field = self
+            .robot_to_field
+            .parse_latest::<Option<Isometry2<f32>>>()?
+            .unwrap_or_default();
+        let filtered_robots: Vec<Point2<f32>> = self.filtered_robots.parse_latest()?;
 
         for robot in filtered_robots {
             let position = robot_to_field * robot;

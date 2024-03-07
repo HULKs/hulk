@@ -94,7 +94,11 @@ impl RobotFilter {
             );
 
             let measurements = Self::collect_measurements(robots, &last_camera_matrices.top);
-            self.update_hypotheses_with_measurements(context.initial_covariance, &measurements, *detection_time);
+            self.update_hypotheses_with_measurements(
+                context.initial_covariance,
+                &measurements,
+                *detection_time,
+            );
         }
 
         Ok(())
@@ -218,12 +222,12 @@ impl RobotFilter {
             return;
         }
         if self.hypotheses.is_empty() {
-            measurements.iter().filter(|measurement| {
-                measurement.score > 0.5
-            })
-            .for_each(|measurement| {
-                self.spawn_hypothesis(initial_covariance, measurement, detection_time);
-            })
+            measurements
+                .iter()
+                .filter(|measurement| measurement.score > 0.5)
+                .for_each(|measurement| {
+                    self.spawn_hypothesis(initial_covariance, measurement, detection_time);
+                })
         }
         let distance_metrics = self.compute_distance_matrix(measurements);
 
@@ -263,9 +267,8 @@ impl RobotFilter {
             }
         }
 
-        let mut remaining_detections: BTreeSet<usize> =
-        (0..measurements.len()).collect();
-        
+        let mut remaining_detections: BTreeSet<usize> = (0..measurements.len()).collect();
+
         for task in assignment.into_iter().flatten() {
             remaining_detections.remove(&task);
         }
