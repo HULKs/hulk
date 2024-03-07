@@ -84,6 +84,7 @@ impl NetworkInterface for ReplayerHardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
         panic!("Replayer cannot produce data from hardware")
     }
+
     fn write_to_network(&self, _message: OutgoingMessage) -> Result<()> {
         Ok(())
     }
@@ -103,6 +104,7 @@ impl RecordingInterface for ReplayerHardwareInterface {
     fn should_record(&self) -> bool {
         false
     }
+
     fn set_whether_to_record(&self, _enable: bool) {}
 }
 
