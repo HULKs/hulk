@@ -1,10 +1,8 @@
 use nalgebra::Point2;
-use spl_network_messages::{GamePhase, Player, PlayerNumber};
+use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
-    game_controller_state::{self, GameControllerState},
     motion_command::{HeadMotion, MotionCommand},
-    primary_state::PrimaryState,
     world_state::WorldState,
 };
 

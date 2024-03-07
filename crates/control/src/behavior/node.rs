@@ -13,8 +13,7 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::{self, FilteredGameState},
-    game_controller_state::GameControllerState,
+    filtered_game_state::FilteredGameState,
     motion_command::MotionCommand,
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
@@ -25,7 +24,7 @@ use types::{
     roles::Role,
     step_plan::Step,
     support_foot::Side,
-    world_state::{self, WorldState},
+    world_state::WorldState,
 };
 
 use crate::dribble_path_planner;
