@@ -45,7 +45,7 @@ impl Overlay for SingleShotDetection {
             painter.text(
                 detection.bounding_box.min,
                 Align2::LEFT_BOTTOM,
-                format!("{:?} - {:.2}", detection.class, detection.score),
+                format!("Robot - {:.2}", detection.score),
                 FontId::default(),
                 Color32::RED,
             );
