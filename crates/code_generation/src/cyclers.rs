@@ -801,10 +801,6 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
         }
     }).collect::<Vec<_>>();
 
-    if extractions.is_empty() {
-        return Default::default();
-    }
-
     quote! {
         #(#extractions)*
     }
