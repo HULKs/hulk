@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix},
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::BoundingBox,
+    object_detection::DetectedRobot,
     robot_filter::{Hypothesis, Measurement},
 };
 
@@ -35,14 +35,9 @@ pub struct CycleContext {
 
     current_odometry_to_last_odometry:
         Input<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    historic_current_odometry_to_last_odometry:
-        HistoricInput<Option<Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
 
-    camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
-    cycle_time: Input<CycleTime, "cycle_time">,
-
-    robot_detections: PerceptionInput<Option<Vec<BoundingBox>>, "DetectionTop", "detections?">,
+    robot_detections: PerceptionInput<Option<Vec<DetectedRobot>>, "DetectionTop", "detections?">,
 }
 
 #[context]
@@ -60,7 +55,7 @@ impl RobotFilter {
 
     fn persistent_robots_in_control_cycle<'a>(
         context: &'a CycleContext,
-    ) -> Vec<(&'a SystemTime, Vec<&'a BoundingBox>)> {
+    ) -> Vec<(&'a SystemTime, Vec<&'a DetectedRobot>)> {
         context
             .robot_detections
             .persistent
@@ -78,15 +73,14 @@ impl RobotFilter {
 
     fn advance_all_hypotheses(
         &mut self,
-        measurements: Vec<(&SystemTime, Vec<&BoundingBox>)>,
+        measurements: Vec<(&SystemTime, Vec<&DetectedRobot>)>,
         context: &CycleContext,
     ) -> Result<()> {
         let param_process_noise = vector![0.1, 0.1, 0.5, 0.5];
 
         for (detection_time, robots) in measurements {
             let current_odometry_to_last_odometry = context
-                .historic_current_odometry_to_last_odometry
-                .get(detection_time)
+                .current_odometry_to_last_odometry
                 .wrap_err("current_odometry_to_last_odometry should not be None")?;
 
             let last_camera_matrices = context
@@ -163,7 +157,7 @@ impl RobotFilter {
     }
 
     fn collect_measurements(
-        detections: Vec<&BoundingBox>,
+        detections: Vec<&DetectedRobot>,
         camera_matrix: &CameraMatrix,
     ) -> Vec<Measurement> {
         detections
@@ -184,7 +178,7 @@ impl RobotFilter {
             .collect()
     }
 
-    fn compute_distance_matrix(&self, measurements: &Vec<Measurement>) -> Array2<NotNan<f32>> {
+    fn compute_distance_matrix(&self, measurements: &[Measurement]) -> Array2<NotNan<f32>> {
         let observation_matrix = matrix![
             1.0, 0.0, 0.0, 0.0;
             0.0, 1.0, 0.0, 0.0;
@@ -224,7 +218,7 @@ impl RobotFilter {
             return;
         }
         if self.hypotheses.is_empty() {
-            measurements.into_iter().filter(|measurement| {
+            measurements.iter().filter(|measurement| {
                 measurement.score > 0.5
             })
             .for_each(|measurement| {
@@ -238,7 +232,6 @@ impl RobotFilter {
         let (associated_hypotheses, remaining_hypotheses): (Vec<_>, Vec<_>) = self
             .hypotheses
             .drain(..)
-            .into_iter()
             .enumerate()
             .partition_map(|(index, hypothesis)| match assignment[index] {
                 Some(measurement_index) => {
@@ -271,11 +264,10 @@ impl RobotFilter {
         }
 
         let mut remaining_detections: BTreeSet<usize> =
-        (0..measurements.len()).into_iter().collect();
-        for task in assignment {
-            if let Some(task) = task {
-                remaining_detections.remove(&task);
-            }
+        (0..measurements.len()).collect();
+        
+        for task in assignment.into_iter().flatten() {
+            remaining_detections.remove(&task);
         }
 
         dbg!(remaining_detections.len());
@@ -286,7 +278,7 @@ impl RobotFilter {
                 None
             }
         }) {
-            self.spawn_hypothesis(initial_covariance, &measurement, detection_time);
+            self.spawn_hypothesis(initial_covariance, measurement, detection_time);
         }
 
         for hypothesis in self.hypotheses.iter_mut() {

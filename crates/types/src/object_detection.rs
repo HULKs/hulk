@@ -3,32 +3,16 @@ use nalgebra::{vector, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, SerializeHierarchy)]
-pub enum DetectedObject {
-    Robot,
-}
-
-impl DetectedObject {
-    pub fn from_u8(index: u8) -> Option<DetectedObject> {
-        match index {
-            0 => Some(DetectedObject::Robot),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
-pub struct BoundingBox {
+pub struct DetectedRobot {
     pub bounding_box: Rectangle,
-    pub class: DetectedObject,
     pub score: f32,
 }
 
-impl BoundingBox {
-    pub const fn new(class: DetectedObject, score: f32, bounding_box: Rectangle) -> Self {
+impl DetectedRobot {
+    pub const fn new(score: f32, bounding_box: Rectangle) -> Self {
         Self {
             bounding_box,
-            class,
             score,
         }
     }

@@ -6,7 +6,7 @@ use eframe::{
     emath::Align2,
     epaint::{Color32, FontId, Stroke},
 };
-use types::object_detection::BoundingBox;
+use types::object_detection::DetectedRobot;
 
 use crate::{
     nao::Nao, panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -35,7 +35,7 @@ impl Overlay for SingleShotDetection {
     }
 
     fn paint(&self, painter: &TwixPainter) -> Result<()> {
-        let detections: Vec<BoundingBox> = self.detections.require_latest()?;
+        let detections: Vec<DetectedRobot> = self.detections.require_latest()?;
         for detection in detections.iter() {
             painter.rect_stroke(
                 detection.bounding_box.min,

@@ -13,11 +13,7 @@ use lazy_static::lazy_static;
 use ndarray::{s, ArrayView};
 use openvino::{Blob, Core, ExecutableNetwork, InferRequest, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
-use types::{
-    color::Rgb,
-    object_detection::{BoundingBox, DetectedObject},
-    ycbcr422_image::YCbCr422Image,
-};
+use types::{color::Rgb, object_detection::DetectedRobot, ycbcr422_image::YCbCr422Image};
 
 const DETECTION_IMAGE_HEIGHT: usize = 96;
 const DETECTION_IMAGE_WIDTH: usize = 128;
@@ -78,7 +74,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detections: MainOutput<Option<Vec<BoundingBox>>>,
+    pub detections: MainOutput<Option<Vec<DetectedRobot>>>,
 }
 
 impl SingleShotDetection {
@@ -158,7 +154,7 @@ impl SingleShotDetection {
         let earlier = context.hardware_interface.get_now();
         let detections = self.parse_outputs(prediction, *context.confidence_threshold)?;
 
-        let bounding_boxes = multiclass_non_maximum_suppression(detections, *context.iou_threshold);
+        let bounding_boxes = non_maximum_suppression(detections, *context.iou_threshold);
 
         context.postprocess_time.fill_if_subscribed(|| {
             context
@@ -197,7 +193,7 @@ impl SingleShotDetection {
         &self,
         prediction: &[f32],
         confidence_threshold: f32,
-    ) -> Result<Vec<BoundingBox>> {
+    ) -> Result<Vec<DetectedRobot>> {
         let prediction = ArrayView::from_shape((4 + NUMBER_OF_CLASSES, MAX_DETECTION), prediction)?;
 
         let detections = prediction
@@ -214,8 +210,7 @@ impl SingleShotDetection {
                 const X_SCALE: f32 = 640.0 / DETECTION_IMAGE_WIDTH as f32;
                 const Y_SCALE: f32 = 480.0 / DETECTION_IMAGE_HEIGHT as f32;
 
-                Some(BoundingBox::new(
-                    DetectedObject::Robot,
+                Some(DetectedRobot::new(
                     confidence,
                     Rectangle::from_cxcywh(
                         bbox[0] * X_SCALE,
@@ -257,20 +252,17 @@ fn as_bytes(float_slice: &[f32]) -> &[u8] {
     }
 }
 
-fn multiclass_non_maximum_suppression(
-    mut candidate_detections: Vec<BoundingBox>,
+fn non_maximum_suppression(
+    mut candidate_detections: Vec<DetectedRobot>,
     iou_threshold: f32,
-) -> Vec<BoundingBox> {
+) -> Vec<DetectedRobot> {
     let mut detections = Vec::new();
     candidate_detections.sort_unstable_by(|bbox1, bbox2| bbox1.score.total_cmp(&bbox2.score));
 
     while let Some(detection) = candidate_detections.pop() {
         candidate_detections = candidate_detections
             .into_iter()
-            .filter(|detection_candidate| {
-                detection.class != detection_candidate.class
-                    || detection.iou(detection_candidate) < iou_threshold
-            })
+            .filter(|detection_candidate| detection.iou(detection_candidate) < iou_threshold)
             .collect_vec();
 
         detections.push(detection)
@@ -284,12 +276,11 @@ mod tests {
     use approx::assert_relative_eq;
     use geometry::rectangle::Rectangle;
     use nalgebra::point;
-    use types::object_detection::{BoundingBox, DetectedObject};
+    use types::object_detection::DetectedRobot;
 
-    use super::multiclass_non_maximum_suppression;
+    use super::non_maximum_suppression;
 
-    const BOX_1: BoundingBox = BoundingBox::new(
-        DetectedObject::Robot,
+    const BOX_1: DetectedRobot = DetectedRobot::new(
         0.8,
         Rectangle {
             min: point![10.0, 10.0],
@@ -297,8 +288,7 @@ mod tests {
         },
     );
 
-    const BOX_2: BoundingBox = BoundingBox::new(
-        DetectedObject::Robot,
+    const BOX_2: DetectedRobot = DetectedRobot::new(
         0.2,
         Rectangle {
             min: point![200.0, 200.0],
@@ -306,8 +296,7 @@ mod tests {
         },
     );
 
-    const BOX_3: BoundingBox = BoundingBox::new(
-        DetectedObject::Robot,
+    const BOX_3: DetectedRobot = DetectedRobot::new(
         0.4,
         Rectangle {
             min: point![11.0, 11.0],
@@ -315,11 +304,10 @@ mod tests {
         },
     );
 
-    fn assert_approx_bbox_equality(bbox1: BoundingBox, bbox2: BoundingBox) {
+    fn assert_approx_bbox_equality(bbox1: DetectedRobot, bbox2: DetectedRobot) {
         assert_relative_eq!(bbox1.score, bbox2.score);
         assert_relative_eq!(bbox1.bounding_box.min, bbox2.bounding_box.min);
         assert_relative_eq!(bbox1.bounding_box.max, bbox2.bounding_box.max);
-        assert_eq!(bbox1.class, bbox2.class);
     }
 
     #[test]
@@ -331,14 +319,14 @@ mod tests {
 
     #[test]
     fn test_non_maximum_suppression_for_single_box() {
-        let results = multiclass_non_maximum_suppression(vec![BOX_1], 0.6);
+        let results = non_maximum_suppression(vec![BOX_1], 0.6);
         assert!(results.len() == 1);
         assert_approx_bbox_equality(results[0], BOX_1);
     }
 
     #[test]
     fn test_non_maximum_suppression_non_overlapping_boxes() {
-        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_2], 0.6);
+        let results = non_maximum_suppression(vec![BOX_1, BOX_2], 0.6);
         assert!(results.len() == 2);
 
         assert_approx_bbox_equality(results[0], BOX_1);
@@ -347,14 +335,14 @@ mod tests {
 
     #[test]
     fn test_non_maximum_suppression_overlapping_boxes() {
-        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_3], 0.6);
+        let results = non_maximum_suppression(vec![BOX_1, BOX_3], 0.6);
         assert!(results.len() == 1);
         assert_approx_bbox_equality(results[0], BOX_1);
     }
 
     #[test]
     fn test_non_maximum_suppression_overlapping_boxes_with_stricter_threshold() {
-        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_3], 1.0);
+        let results = non_maximum_suppression(vec![BOX_1, BOX_3], 1.0);
         assert!(results.len() == 2);
         assert_approx_bbox_equality(results[0], BOX_1);
         assert_approx_bbox_equality(results[1], BOX_3);
@@ -362,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_non_maximum_suppression_all_boxes() {
-        let results = multiclass_non_maximum_suppression(vec![BOX_1, BOX_2, BOX_3], 0.6);
+        let results = non_maximum_suppression(vec![BOX_1, BOX_2, BOX_3], 0.6);
         assert!(results.len() == 2);
         assert_approx_bbox_equality(results[0], BOX_1);
         assert_approx_bbox_equality(results[1], BOX_2);
