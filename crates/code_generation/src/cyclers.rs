@@ -781,7 +781,7 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
                     ..
                 }),
                 ..
-            } if !segments.is_empty() && segments.last().unwrap().ident == "Option" => {
+            } if segments.last().is_some_and(|segment| segment.ident == "Option") => {
                 let name = path_to_extraction_variable_name(&cycler_instance, &path, "required_input");
                 let data_type = match &segments.last().unwrap().arguments {
                     PathArguments::AngleBracketed(AngleBracketedGenericArguments {
@@ -1109,7 +1109,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                 Type::Path(TypePath {
                                     path: SynPath { segments, .. },
                                     ..
-                                }) => !segments.is_empty() && segments.last().unwrap().ident == "Option",
+                                }) => segments.last().is_some_and(|segment| segment.ident == "Option"),
                                 _ => false,
                             };
                             if is_option {
@@ -1154,7 +1154,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                         Type::Path(TypePath {
                                             path: SynPath { segments, .. },
                                             ..
-                                        }) => !segments.is_empty() && segments.last().unwrap().ident == "Option",
+                                        }) => segments.last().is_some_and(|segment| segment.ident == "Option"),
                                         _ => false,
                                     };
                                     if is_option {
@@ -1251,7 +1251,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                 Type::Path(TypePath {
                                     path: SynPath { segments, .. },
                                     ..
-                                }) => !segments.is_empty() && segments.last().unwrap().ident == "Option",
+                                }) => segments.last().is_some_and(|segment| segment.ident == "Option"),
                                 _ => false,
                             };
                             let map_operation = if is_option {
