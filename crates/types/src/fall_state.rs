@@ -3,7 +3,7 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use crate::motion_command::{Facing, FallDirection};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy, PartialEq)]
 pub enum FallState {
     Upright,
     Falling { direction: FallDirection },
