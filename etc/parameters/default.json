@@ -6,7 +6,7 @@
         1.0
       ],
       "distance_to_referee_position_threshhold": 1.0,
-      "keypoint.onfidence_threshold": 0.2,
+      "keypoint_confidence_threshold": 0.2,
       "foot_z_offset": 0.15
     }
   },
