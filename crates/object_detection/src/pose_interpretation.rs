@@ -91,7 +91,6 @@ impl PoseInterpretation {
             .coords
             .component_mul(&half_field_size);
 
-        dbg!(expected_referee_position);
         let referee_pose = Self::get_referee_pose_type(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
