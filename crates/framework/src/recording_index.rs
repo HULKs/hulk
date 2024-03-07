@@ -64,7 +64,10 @@ impl RecordingIndex {
         })
     }
 
-    pub fn before_or_equal_of(&mut self, timestamp: SystemTime) -> Result<Option<RecordingFrame>> {
+    pub fn find_latest_frame_before(
+        &mut self,
+        timestamp: SystemTime,
+    ) -> Result<Option<RecordingFrame>> {
         let frame = match self
             .frames
             .iter()
