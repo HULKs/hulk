@@ -240,8 +240,7 @@ impl RoleAssignment {
         } else {
             for spl_message in spl_messages {
                 self.last_received_spl_striker_message = Some(cycle_start_time);
-                let sender_position =
-                    ground_to_field.inverse() * spl_message.pose.position();
+                let sender_position = ground_to_field.inverse() * spl_message.pose.position();
                 if spl_message.player_number != *context.player_number {
                     network_robot_obstacles.push(sender_position);
                 }
