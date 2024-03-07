@@ -1,4 +1,22 @@
 {
+  "detection": {
+    "detection_top": {
+      "iou_threshold": 0.45,
+      "confidence_threshold": 0.2,
+      "enable": true
+    },
+    "detection_bottom": {
+      "iou_threshold": 0.45,
+      "confidence_threshold": 0.2,
+      "enable": true
+    }
+  },
+  "robot_filter": {
+    "detection_variance_width": 0.1,
+    "detection_variance_height": 0.1,
+    "initial_covariance": [0.1, 0.1, 0.5, 0.5],
+    "validity_threshold": 0.3
+  },
   "whistle_detection": {
     "detection_band": {
       "start": 2000,
@@ -65,6 +83,14 @@
       "camera_position": "Top"
     },
     "vision_bottom": {
+      "resolution": 42,
+      "camera_position": "Bottom"
+    },
+    "detection_top": {
+      "resolution": 42,
+      "camera_position": "Top"
+    },
+    "detection_bottom": {
       "resolution": 42,
       "camera_position": "Bottom"
     }

@@ -11,6 +11,13 @@ fn main() -> Result<()> {
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
+                name: "Detection",
+                kind: CyclerKind::Perception,
+                instances: vec!["Top"],
+                setup_nodes: vec!["object_detection::image_receiver"],
+                nodes: vec!["object_detection::single_shot_detection"],
+            },
+            CyclerManifest {
                 name: "Vision",
                 kind: CyclerKind::Perception,
                 instances: vec!["Top", "Bottom"],
@@ -76,6 +83,7 @@ fn main() -> Result<()> {
                     "control::orientation_filter",
                     "control::penalty_shot_direction_estimation",
                     "control::primary_state_filter",
+                    "control::robot_filter",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
                     "control::sole_pressure_filter",

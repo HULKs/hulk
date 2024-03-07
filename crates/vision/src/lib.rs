@@ -1,3 +1,5 @@
+// #![feature(test)]
+
 pub mod ball_detection;
 pub mod camera_matrix_extractor;
 pub mod feet_detection;

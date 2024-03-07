@@ -16,21 +16,23 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
-  "crates/hulk",
   "crates/hulk_nao",
   "crates/hulk_webots",
+  "crates/hulk",
+  "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/motionfile",
-  "crates/nao",
   "crates/nao_camera",
+  "crates/nao",
+  "crates/object_detection",
   "crates/parameters",
   "crates/projection",
   "crates/repository",
-  "crates/serialize_hierarchy",
   "crates/serialize_hierarchy_derive",
+  "crates/serialize_hierarchy",
   "crates/source_analyzer",
-  "crates/spl_network",
   "crates/spl_network_messages",
+  "crates/spl_network",
   "crates/types",
   "crates/vision",
   "tools/annotato",
@@ -103,6 +105,7 @@ hardware = { path = "crates/hardware" }
 home = "0.5.4"
 hula-types = { path = "tools/hula/types" }
 hulk = { path = "crates/hulk" }
+hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 i2cdev = "0.5.1"
 image = "0.24.4"
 indicatif = "0.17.2"
@@ -119,13 +122,17 @@ motionfile = { path = "crates/motionfile" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
+ndarray = "0.15.6"
 # Pinned git version since the latest release does not contained https://github.com/nix-rust/nix/pull/2022 yet
 nix = { git = "https://github.com/nix-rust/nix.git", version = "0.26.1", rev = "89b4976" }
 num-derive = "0.3"
 num-traits = "0.2"
+object_detection = { path = "crates/object_detection" }
 ordered-float = "3.1.0"
+openvino = { version = "0.5.0", features = ["runtime-linking"] }
 opusfile-ng = "0.1.0"
 parameters = { path = "crates/parameters" }
+pathfinding = "4.9.1"
 parking_lot = "0.12.1"
 petgraph = "0.6.2"
 png = "0.17.6"

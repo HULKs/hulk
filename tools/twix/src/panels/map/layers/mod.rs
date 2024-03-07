@@ -11,6 +11,7 @@ mod obstacle_filter;
 mod obstacles;
 mod path;
 mod path_obstacles;
+mod robot_filter;
 mod robot_pose;
 
 pub use self::behavior_simulator::BehaviorSimulator;
@@ -26,4 +27,5 @@ pub use obstacle_filter::ObstacleFilter;
 pub use obstacles::Obstacles;
 pub use path::Path;
 pub use path_obstacles::PathObstacles;
+pub use robot_filter::RobotFilter;
 pub use robot_pose::RobotPose;

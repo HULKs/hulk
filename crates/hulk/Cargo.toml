@@ -16,6 +16,7 @@ geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = {  workspace = true }
 nalgebra = { workspace = true }
+object_detection = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }
