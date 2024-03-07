@@ -102,6 +102,7 @@ impl Overlays {
         let feet_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let field_border = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let limb_projector = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
+        let pose_detection = EnabledOverlay::new(nao, storage, true, selected_cycler);
 
         Self {
             line_detection,
@@ -112,6 +113,7 @@ impl Overlays {
             feet_detection,
             field_border,
             limb_projector,
+            pose_detection,
         }
     }
 
@@ -124,6 +126,7 @@ impl Overlays {
         self.feet_detection.update_cycler(selected_cycler);
         self.field_border.update_cycler(selected_cycler);
         self.limb_projector.update_cycler(selected_cycler);
+        self.pose_detection.update_cycler(selected_cycler);
     }
 
     pub fn combo_box(&mut self, ui: &mut Ui, selected_cycler: Cycler) {
@@ -136,7 +139,6 @@ impl Overlays {
             self.feet_detection.checkbox(ui, selected_cycler);
             self.field_border.checkbox(ui, selected_cycler);
             self.limb_projector.checkbox(ui, selected_cycler);
-            self.perspective_grid.checkbox(ui, selected_cycler);
             self.pose_detection.checkbox(ui, selected_cycler);
         });
     }
@@ -164,7 +166,6 @@ impl Overlays {
             "feet_detection": self.feet_detection.save(),
             "field_border": self.field_border.save(),
             "limb_projector": self.line_detection.save(),
-            "perspective_grid": self.perspective_grid.save(),
             "pose_detection": self.pose_detection.save(),
         })
     }
