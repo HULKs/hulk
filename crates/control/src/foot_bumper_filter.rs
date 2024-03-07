@@ -134,14 +134,17 @@ impl FootBumperFilter {
 
         self.check_for_bumper_errors(&context);
 
+        if *fall_state != FallState::Upright {
+            return Ok(Default::default());
+        }
+
         let obstacle_angle = match (
-            fall_state,
             obstacle_detected_on_left && self.left_in_use,
             obstacle_detected_on_right && self.right_in_use,
         ) {
-            (FallState::Upright, true, true) => 0.0,
-            (FallState::Upright, true, false) => *context.sensor_angle,
-            (FallState::Upright, false, true) => -context.sensor_angle,
+            (true, true) => 0.0,
+            (true, false) => *context.sensor_angle,
+            (false, true) => -context.sensor_angle,
             _ => return Ok(Default::default()),
         };
         let obstacle_position = UnitComplex::<Ground, Ground>::new(obstacle_angle)
