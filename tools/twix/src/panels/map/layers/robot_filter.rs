@@ -27,7 +27,7 @@ impl Layer for RobotFilter {
         });
         let filtered_robots = nao.subscribe_output(CyclerOutput {
             cycler: Cycler::Control,
-            output: Output::Additional {
+            output: Output::Main {
                 path: "robot_positions".to_string(),
             },
         });
