@@ -24,7 +24,7 @@ pub use visual_referee_message::{VisualRefereeDecision, VisualRefereeMessage};
 pub struct HulkMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,
-    pub ground_to_field: Pose<Field>,
+    pub pose: Pose<Field>,
     pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
 }
@@ -80,7 +80,7 @@ mod tests {
         let test_message = HulkMessage {
             player_number: PlayerNumber::Seven,
             fallen: false,
-            ground_to_field: Pose::default(),
+            pose: Pose::default(),
             ball_position: Some(BallPosition {
                 position: Point::origin(),
                 age: Duration::MAX,
