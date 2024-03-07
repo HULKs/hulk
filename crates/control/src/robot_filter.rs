@@ -220,6 +220,17 @@ impl RobotFilter {
         measurements: &[Measurement],
         detection_time: SystemTime,
     ) {
+        if measurements.is_empty() {
+            return;
+        }
+        if self.hypotheses.is_empty() {
+            measurements.into_iter().filter(|measurement| {
+                measurement.score > 0.5
+            })
+            .for_each(|measurement| {
+                self.spawn_hypothesis(initial_covariance, measurement, detection_time);
+            })
+        }
         let distance_metrics = self.compute_distance_matrix(measurements);
 
         let assignment = AssignmentProblem::from_costs(distance_metrics).solve();
