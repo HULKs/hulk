@@ -64,7 +64,7 @@ impl RecordingIndex {
         })
     }
 
-    pub fn find_latest_frame_before(
+    pub fn find_latest_frame_up_to(
         &mut self,
         timestamp: SystemTime,
     ) -> Result<Option<RecordingFrame>> {

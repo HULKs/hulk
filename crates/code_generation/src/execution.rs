@@ -133,7 +133,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
                 })
             }
 
-            pub fn seek_to_latest_frame_before(&mut self, timestamp: std::time::SystemTime) -> color_eyre::Result<()> {
+            pub fn seek_to_latest_frame_up_to(&mut self, timestamp: std::time::SystemTime) -> color_eyre::Result<()> {
                 use color_eyre::eyre::WrapErr;
 
                 #cycler_seeks
@@ -426,7 +426,7 @@ fn generate_cycler_seeks(cyclers: &Cyclers) -> TokenStream {
                 format_ident!("{}_cycler", instance.to_case(Case::Snake));
             let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
             quote! {
-                if let Some(frame) = self.#cycler_index_identifier.find_latest_frame_before(timestamp).wrap_err("failed to seek")? {
+                if let Some(frame) = self.#cycler_index_identifier.find_latest_frame_up_to(timestamp).wrap_err("failed to seek")? {
                     self.#cycler_variable_identifier.cycle(frame.timestamp, &frame.data).wrap_err("failed to replay cycle")?;
                 }
             }
