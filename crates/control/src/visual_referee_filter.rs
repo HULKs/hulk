@@ -25,7 +25,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
-    pub game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     player_number: Parameter<PlayerNumber, "player_number">,

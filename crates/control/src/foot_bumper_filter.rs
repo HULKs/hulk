@@ -10,7 +10,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 
 use types::{
-    cycle_time::CycleTime, fall_state::FallState, foot_bumper_obstacle::FootBumperObstacle,
+    fall_state::FallState, foot_bumper_obstacle::FootBumperObstacle,
     foot_bumper_values::FootBumperValues, sensor_data::SensorData,
 };
 
@@ -30,7 +30,7 @@ pub struct FootBumperFilter {
 
 #[context]
 pub struct CreationContext {
-    pub buffer_size: Parameter<usize, "foot_bumper_filter.buffer_size">,
+    buffer_size: Parameter<usize, "foot_bumper_filter.buffer_size">,
 }
 
 #[context]
@@ -42,16 +42,15 @@ pub struct CycleContext {
         usize,
         "foot_bumper_filter.number_of_detections_in_buffer_for_defective_declaration",
     >,
-    pub number_of_detections_in_buffer_to_reset_in_use:
+    number_of_detections_in_buffer_to_reset_in_use:
         Parameter<usize, "foot_bumper_filter.number_of_detections_in_buffer_to_reset_in_use">,
-    pub obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
-    pub sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
+    obstacle_distance: Parameter<f32, "foot_bumper_filter.obstacle_distance">,
+    sensor_angle: Parameter<f32, "foot_bumper_filter.sensor_angle">,
 
-    pub cycle_time: Input<CycleTime, "cycle_time">,
-    pub fall_state: Input<FallState, "fall_state">,
-    pub sensor_data: Input<SensorData, "sensor_data">,
+    fall_state: Input<FallState, "fall_state">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
-    pub foot_bumper_values: AdditionalOutput<FootBumperValues, "foot_bumper_values">,
+    foot_bumper_values: AdditionalOutput<FootBumperValues, "foot_bumper_values">,
 }
 
 #[context]

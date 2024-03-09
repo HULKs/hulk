@@ -8,9 +8,9 @@ use types::{cycle_time::CycleTime, filtered_whistle::FilteredWhistle, whistle::W
 
 #[derive(Deserialize, Serialize)]
 pub struct WhistleFilter {
-    pub detection_buffer: VecDeque<bool>,
-    pub was_detected_last_cycle: bool,
-    pub last_detection: Option<SystemTime>,
+    detection_buffer: VecDeque<bool>,
+    was_detected_last_cycle: bool,
+    last_detection: Option<SystemTime>,
 }
 
 #[context]
