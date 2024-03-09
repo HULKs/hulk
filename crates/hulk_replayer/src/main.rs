@@ -128,8 +128,10 @@ impl HardwareInterface for ReplayerHardwareInterface {}
 
 fn main() -> Result<()> {
     install()?;
+    let body_id = args().nth(1).expect("expected body ID as first parameter");
+    let head_id = args().nth(2).expect("expected head ID as second parameter");
     let framework_parameters_path = args()
-        .nth(1)
+        .nth(3)
         .unwrap_or("etc/parameters/framework.json".to_string());
     let keep_running = CancellationToken::new();
     set_handler({
@@ -145,10 +147,7 @@ fn main() -> Result<()> {
         from_reader(file).wrap_err("failed to parse framework parameters")?;
 
     let hardware_interface = ReplayerHardwareInterface {
-        ids: Ids {
-            body_id: "webots".to_string(),
-            head_id: "webots".to_string(),
-        },
+        ids: Ids { body_id, head_id },
     };
 
     let ids = hardware_interface.get_ids();
