@@ -836,43 +836,44 @@ fn generate_node_execution(
 ) -> TokenStream {
     match (node_type, mode) {
         (NodeType::Setup, Execution::Run) => {
-            let write_main_outputs_from_node =
-                generate_write_main_outputs_from_node(node, cycler, mode);
+            let execute_node_and_write_main_outputs =
+                generate_execute_node_and_write_main_outputs(node, cycler, mode);
             let record_main_outputs = generate_record_main_outputs(node);
             quote! {
-                #write_main_outputs_from_node
+                #execute_node_and_write_main_outputs
                 #record_main_outputs
             }
         }
         (NodeType::Cycle, Execution::Run) => {
             let record_node_state = generate_record_node_state(node);
-            let write_main_outputs_from_node =
-                generate_write_main_outputs_from_node(node, cycler, mode);
+            let execute_node_and_write_main_outputs =
+                generate_execute_node_and_write_main_outputs(node, cycler, mode);
             quote! {
                 #record_node_state
-                #write_main_outputs_from_node
+                #execute_node_and_write_main_outputs
             }
         }
         (NodeType::Setup, Execution::Replay) => {
-            let write_main_outputs_from_frame = generate_write_main_outputs_from_frame(node);
+            let deserialize_frame_and_write_main_outputs =
+                generate_deserialize_frame_and_write_main_outputs(node);
             quote! {
-                #write_main_outputs_from_frame
+                #deserialize_frame_and_write_main_outputs
             }
         }
         (NodeType::Cycle, Execution::Replay) => {
             let restore_node_state = generate_restore_node_state(node);
-            let write_main_outputs_from_node =
-                generate_write_main_outputs_from_node(node, cycler, mode);
+            let execute_node_and_write_main_outputs =
+                generate_execute_node_and_write_main_outputs(node, cycler, mode);
             quote! {
                 #restore_node_state
-                #write_main_outputs_from_node
+                #execute_node_and_write_main_outputs
             }
         }
         (_, Execution::None) => panic!("unexpected Execution::Mode"),
     }
 }
 
-fn generate_write_main_outputs_from_node(
+fn generate_execute_node_and_write_main_outputs(
     node: &Node,
     cycler: &Cycler,
     mode: Execution,
@@ -883,8 +884,8 @@ fn generate_write_main_outputs_from_node(
     let node_module = &node.module;
     let context_initializers = generate_context_initializers(node, cycler, mode);
     let cycle_error_message = format!("failed to execute cycle of `{}`", node.name);
-    let database_updates = generate_database_updates(node);
-    let database_updates_from_defaults = generate_database_updates_from_defaults(node);
+    let write_main_outputs = generate_write_main_outputs(node);
+    let write_main_outputs_from_defaults = generate_write_main_outputs_from_defaults(node);
 
     quote! {
         {
@@ -899,10 +900,10 @@ fn generate_write_main_outputs_from_node(
                     )
                     .wrap_err(#cycle_error_message)?
                 };
-                #database_updates
+                #write_main_outputs
             }
             else {
-                #database_updates_from_defaults
+                #write_main_outputs_from_defaults
             }
         }
     }
@@ -936,7 +937,7 @@ fn generate_record_node_state(node: &Node) -> TokenStream {
     }
 }
 
-fn generate_write_main_outputs_from_frame(node: &Node) -> TokenStream {
+fn generate_deserialize_frame_and_write_main_outputs(node: &Node) -> TokenStream {
     node.contexts
         .main_outputs
         .iter()
@@ -1325,7 +1326,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
     }
 }
 
-fn generate_database_updates(node: &Node) -> TokenStream {
+fn generate_write_main_outputs(node: &Node) -> TokenStream {
     node.contexts
         .main_outputs
         .iter()
@@ -1338,7 +1339,7 @@ fn generate_database_updates(node: &Node) -> TokenStream {
         .collect()
 }
 
-fn generate_database_updates_from_defaults(node: &Node) -> TokenStream {
+fn generate_write_main_outputs_from_defaults(node: &Node) -> TokenStream {
     node.contexts
         .main_outputs
         .iter()
