@@ -186,7 +186,7 @@ fn main() -> Result<()> {
                 start,
                 move |timestamp| {
                     replayer
-                        .seek_to_latest_frame_before(timestamp)
+                        .seek_to_latest_frame_up_to(timestamp)
                         .expect("failed to seek");
                 },
             ))
