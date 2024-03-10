@@ -207,6 +207,11 @@ impl BehaviorCycler {
                             own_database.main_outputs.ground_to_field.as_ref().unwrap(),
                             own_database.main_outputs.ball_state.as_ref().unwrap(),
                             &own_database.main_outputs.obstacles,
+                            own_database
+                                .main_outputs
+                                .filtered_game_controller_state
+                                .as_ref()
+                                .map(|s| &s.game_phase),
                             &parameters.field_dimensions,
                             &parameters.in_walk_kicks,
                             &parameters.kick_selector.angle_distance_weight,
