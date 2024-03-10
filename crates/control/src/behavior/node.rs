@@ -251,6 +251,11 @@ impl Behavior {
                         context.in_walk_kicks,
                         &context.parameters.dribbling,
                         dribble_path.clone(),
+                        world_state
+                            .filtered_game_controller_state
+                            .as_ref()
+                            .map(|state| &state.game_phase)
+                            .unwrap_or(&GamePhase::default()),
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),

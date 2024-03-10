@@ -1,6 +1,7 @@
 use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
 use linear_algebra::{Point, Pose};
+use spl_network_messages::GamePhase;
 use types::{
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
@@ -17,6 +18,7 @@ pub fn execute(
     in_walk_kicks: &InWalkKicksParameters,
     parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
+    game_phase: &GamePhase,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let head = HeadMotion::LookLeftAndRightOf {
@@ -29,7 +31,11 @@ pub fn execute(
         .iter()
         .chain(instant_kick_decisions.iter())
         .find(|decision| {
-            is_kick_pose_reached(decision.kick_pose, &in_walk_kicks[decision.variant])
+            is_kick_pose_reached(
+                decision.kick_pose,
+                &in_walk_kicks[decision.variant],
+                game_phase,
+            )
         });
     if let Some(kick) = available_kick {
         let command = MotionCommand::InWalkKick {
@@ -72,10 +78,26 @@ pub fn execute(
 fn is_kick_pose_reached(
     kick_pose_to_robot: Pose<Ground>,
     kick_info: &InWalkKickInfoParameters,
+    game_phase: &GamePhase,
 ) -> bool {
-    let is_x_reached = kick_pose_to_robot.position().x().abs() < kick_info.reached_thresholds.x;
-    let is_y_reached = kick_pose_to_robot.position().y().abs() < kick_info.reached_thresholds.y;
-    let is_orientation_reached =
-        kick_pose_to_robot.orientation().angle().abs() < kick_info.reached_thresholds.z;
-    is_x_reached && is_y_reached && is_orientation_reached
+    match game_phase {
+        GamePhase::PenaltyShootout { .. } => {
+            let is_x_reached = kick_pose_to_robot.position().x().abs()
+                < kick_info.penalty_shootout_reached_thresholds.x;
+            let is_y_reached = kick_pose_to_robot.position().y().abs()
+                < kick_info.penalty_shootout_reached_thresholds.y;
+            let is_orientation_reached = kick_pose_to_robot.orientation().angle().abs()
+                < kick_info.penalty_shootout_reached_thresholds.z;
+            is_x_reached && is_y_reached && is_orientation_reached
+        }
+        _ => {
+            let is_x_reached =
+                kick_pose_to_robot.position().x().abs() < kick_info.reached_thresholds.x;
+            let is_y_reached =
+                kick_pose_to_robot.position().y().abs() < kick_info.reached_thresholds.y;
+            let is_orientation_reached =
+                kick_pose_to_robot.orientation().angle().abs() < kick_info.reached_thresholds.z;
+            is_x_reached && is_y_reached && is_orientation_reached
+        }
+    }
 }
