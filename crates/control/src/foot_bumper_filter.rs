@@ -155,8 +155,8 @@ impl FootBumperFilter {
             .fill_if_subscribed(|| FootBumperValues {
                 left_foot_bumper_count: self.left_count,
                 right_foot_bumper_count: self.right_count,
-                obstacle_deteced_on_left: obstacle_detected_on_left,
-                obstacle_deteced_on_right: obstacle_detected_on_right,
+                obstacle_detected_on_left,
+                obstacle_detected_on_right,
             });
 
         Ok(MainOutputs {
