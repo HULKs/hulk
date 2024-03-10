@@ -15,6 +15,7 @@ use linear_algebra::{
     distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose, UnitComplex,
     Vector2,
 };
+use spl_network_messages::GamePhase;
 use types::{
     field_dimensions::FieldDimensions,
     kick_decision::KickDecision,
@@ -37,7 +38,7 @@ pub struct CycleContext {
     ground_to_field: RequiredInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     ball_state: RequiredInput<Option<BallState>, "ball_state?">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
-
+    game_phase: Input<Option<GamePhase>, "filtered_game_controller_state?.game_phase">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
@@ -71,15 +72,18 @@ impl KickSelector {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
+        let penalty_shootout =
+            matches!(context.game_phase, Some(GamePhase::PenaltyShootout { .. }));
+
         let sides = [Side::Left, Side::Right];
         let mut kick_variants = Vec::new();
         if context.in_walk_kicks.forward.enabled {
             kick_variants.push(KickVariant::Forward)
         }
-        if context.in_walk_kicks.turn.enabled {
+        if context.in_walk_kicks.turn.enabled && !penalty_shootout {
             kick_variants.push(KickVariant::Turn)
         }
-        if context.in_walk_kicks.side.enabled {
+        if context.in_walk_kicks.side.enabled && !penalty_shootout {
             kick_variants.push(KickVariant::Side)
         }
 
