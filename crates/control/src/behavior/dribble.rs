@@ -1,10 +1,14 @@
 use coordinate_systems::{Ground, UpcomingSupport};
+use std::time::{Duration, SystemTime};
+
 use geometry::look_at::LookAt;
 use linear_algebra::{Isometry2, Point, Pose2};
-use spl_network_messages::GamePhase;
+use spl_network_messages::{GamePhase, Team};
 use types::{
     camera_position::CameraPosition,
     filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
+    last_filtered_game_controller_state_change::LastFilteredGameControllerStateChanges,
     motion_command::{
         ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed,
     },
@@ -23,6 +27,9 @@ pub fn execute(
     parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
     mut walk_speed: WalkSpeed,
+    game_controller_state: Option<FilteredGameControllerState>,
+    game_controller_state_change: Option<LastFilteredGameControllerStateChanges>,
+    precision_kick_timeout: u8,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let distance_to_ball = ball_position.coords().norm();
@@ -39,6 +46,11 @@ pub fn execute(
     };
     let kick_decisions = world_state.kick_decisions.as_ref()?;
     let instant_kick_decisions = world_state.instant_kick_decisions.as_ref()?;
+    let do_precision_kick = precision_kick(
+        game_controller_state_change,
+        game_controller_state,
+        precision_kick_timeout,
+    );
 
     let available_kick = kick_decisions
         .iter()
@@ -48,6 +60,7 @@ pub fn execute(
                 decision.kick_pose,
                 &in_walk_kicks[decision.variant],
                 world_state.robot.ground_to_upcoming_support,
+                do_precision_kick,
             )
         });
     if let Some(kick) = available_kick {
@@ -106,11 +119,50 @@ fn is_kick_pose_reached(
     kick_pose: Pose2<Ground>,
     kick_info: &InWalkKickInfoParameters,
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
+    precision_kick: bool,
 ) -> bool {
     let upcoming_kick_pose = ground_to_upcoming_support * kick_pose;
-    let is_x_reached = upcoming_kick_pose.position().x().abs() < kick_info.reached_thresholds.x;
-    let is_y_reached = upcoming_kick_pose.position().y().abs() < kick_info.reached_thresholds.y;
-    let is_orientation_reached =
-        upcoming_kick_pose.orientation().angle().abs() < kick_info.reached_thresholds.z;
+    let thresholds = if precision_kick {
+        kick_info.precision_kick_reached_thresholds
+    } else {
+        kick_info.reached_thresholds
+    };
+
+    let is_x_reached = upcoming_kick_pose.position().x().abs() < thresholds.x;
+    let is_y_reached = upcoming_kick_pose.position().y().abs() < thresholds.y;
+    let is_orientation_reached = upcoming_kick_pose.orientation().angle().abs() < thresholds.z;
+
     is_x_reached && is_y_reached && is_orientation_reached
+}
+
+pub fn precision_kick(
+    game_controller_state_change: Option<LastFilteredGameControllerStateChanges>,
+    game_controller_state: Option<FilteredGameControllerState>,
+    precision_kick_timeout: u8,
+) -> bool {
+    let game_controller_state = game_controller_state.unwrap_or_default();
+    let game_controller_state_change = game_controller_state_change.unwrap_or_default();
+
+    let now = SystemTime::now();
+    let time_difference = now
+        .duration_since(game_controller_state_change.game_state)
+        .expect("time ran backwards");
+
+    let precision_kick = matches!(
+        game_controller_state.game_phase,
+        GamePhase::PenaltyShootout { .. }
+    ) || game_controller_state.sub_state.is_some();
+
+    let own_kick_off = matches!(
+        game_controller_state.game_state,
+        FilteredGameState::Playing {
+            kick_off: true,
+            ball_is_free: true
+        }
+    );
+    let sub_state = game_controller_state.sub_state.is_some();
+    let kicking = matches!(game_controller_state.kicking_team, Team::Hulks);
+
+    (precision_kick || own_kick_off || sub_state && kicking)
+        && time_difference < Duration::from_secs(precision_kick_timeout.into())
 }

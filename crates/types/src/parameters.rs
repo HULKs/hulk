@@ -129,6 +129,7 @@ pub struct InWalkKickInfoParameters {
     pub position_offset: nalgebra::Vector2<f32>,
     pub orientation: f32,
     pub reached_thresholds: nalgebra::Vector3<f32>,
+    pub precision_kick_reached_thresholds: nalgebra::Vector3<f32>,
     pub shot_distance: f32,
     pub enabled: bool,
 }

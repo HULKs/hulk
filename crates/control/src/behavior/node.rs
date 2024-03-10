@@ -62,7 +62,6 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
-
     parameters: Parameter<BehaviorParameters, "behavior">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -82,6 +81,7 @@ pub struct CycleContext {
     support_walk_speed: Parameter<WalkSpeed, "walk_speed.support">,
     walk_to_kickoff_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_kickoff">,
     walk_to_penalty_kick_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_penalty_kick">,
+    precision_kick_timeout: Parameter<u8, "precision_kick_timeout">,
 }
 
 #[context]
@@ -376,6 +376,9 @@ impl Behavior {
                         &context.parameters.dribbling,
                         dribble_path.clone(),
                         *context.dribble_walk_speed,
+                        world_state.filtered_game_controller_state.clone(),
+                        world_state.last_filtered_game_controller_state_change,
+                        *context.precision_kick_timeout,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),

@@ -221,6 +221,42 @@ impl Widget for &mut ImageSegmentsPanel {
         for scanline in scan_lines {
             for segment in scanline.segments {
                 self.draw_segment(scanline.position as f32, self.direction, segment, &painter);
+                let ycbcr_color = segment.color;
+                let rgb = Rgb::from(ycbcr_color);
+                let start = point![x, segment.start as f32];
+                let end = point![x, segment.end as f32];
+                let original_color = Color32::from_rgb(rgb.red, rgb.green, rgb.blue);
+                let high_color = Color32::YELLOW;
+                let chromaticity = RgChromaticity::from(rgb);
+                let visualized_color = match self.color_mode {
+                    ColorMode::Original => original_color,
+                    ColorMode::FieldColor => match segment.field_color {
+                        types::color::Intensity::Low => original_color,
+                        types::color::Intensity::High => high_color,
+                    },
+                    ColorMode::Y => Color32::from_gray(ycbcr_color.y),
+                    ColorMode::Cb => Color32::from_gray(ycbcr_color.cb),
+                    ColorMode::Cr => Color32::from_gray(ycbcr_color.cr),
+                    ColorMode::Red => Color32::from_gray(rgb.red),
+                    ColorMode::Green => Color32::from_gray(rgb.green),
+                    ColorMode::Blue => Color32::from_gray(rgb.blue),
+                    ColorMode::RedChromaticity => {
+                        Color32::from_gray((chromaticity.red * 255.0) as u8)
+                    }
+                    ColorMode::GreenChromaticity => {
+                        Color32::from_gray((chromaticity.green * 255.0) as u8)
+                    }
+                    ColorMode::BlueChromaticity => Color32::from_gray(
+                        ((1.0 - chromaticity.red - chromaticity.green) * 255.0) as u8,
+                    ),
+                };
+                painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
+                painter.line_segment(
+                    start - vector![1.0, 0.0],
+                    start + vector![1.0, 0.0],
+                    Stroke::new(1.0, Color32::from_rgb(0, 0, 255)),
+                );
+>>>>>>> 798657c7 (use other kick_decision parameters for PenaltyShootout)
             }
         }
 
