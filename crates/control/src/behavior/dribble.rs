@@ -80,24 +80,16 @@ fn is_kick_pose_reached(
     kick_info: &InWalkKickInfoParameters,
     game_phase: &GamePhase,
 ) -> bool {
-    match game_phase {
-        GamePhase::PenaltyShootout { .. } => {
-            let is_x_reached = kick_pose_to_robot.position().x().abs()
-                < kick_info.penalty_shootout_reached_thresholds.x;
-            let is_y_reached = kick_pose_to_robot.position().y().abs()
-                < kick_info.penalty_shootout_reached_thresholds.y;
-            let is_orientation_reached = kick_pose_to_robot.orientation().angle().abs()
-                < kick_info.penalty_shootout_reached_thresholds.z;
-            is_x_reached && is_y_reached && is_orientation_reached
-        }
-        _ => {
-            let is_x_reached =
-                kick_pose_to_robot.position().x().abs() < kick_info.reached_thresholds.x;
-            let is_y_reached =
-                kick_pose_to_robot.position().y().abs() < kick_info.reached_thresholds.y;
-            let is_orientation_reached =
-                kick_pose_to_robot.orientation().angle().abs() < kick_info.reached_thresholds.z;
-            is_x_reached && is_y_reached && is_orientation_reached
-        }
-    }
+    let penalty_shootout = matches!(game_phase, GamePhase::PenaltyShootout { .. });
+    let thresholds = if penalty_shootout {
+        kick_info.penalty_shootout_reached_thresholds
+    } else {
+        kick_info.reached_thresholds
+    };
+
+    let is_x_reached = kick_pose_to_robot.position().x().abs() < thresholds.x;
+    let is_y_reached = kick_pose_to_robot.position().y().abs() < thresholds.y;
+    let is_orientation_reached = kick_pose_to_robot.orientation().angle().abs() < thresholds.z;
+
+    is_x_reached && is_y_reached && is_orientation_reached
 }
