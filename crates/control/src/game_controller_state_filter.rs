@@ -156,14 +156,20 @@ fn next_filtered_state(
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
 ) -> State {
-    match (current_state, game_controller_state.game_state) {
-        (State::Finished, _) => State::Finished,
+    match (
+        current_state,
+        game_controller_state.game_state,
+        game_controller_state.game_phase,
+    ) {
+        (State::Finished, _, GamePhase::PenaltyShootout { .. }) => State::Set,
+        (State::Finished, _, _) => State::Finished,
 
         (
             State::TentativeFinished {
                 time_when_finished_clicked,
             },
             GameState::Finished,
+            _,
         ) if cycle_start_time
             .duration_since(time_when_finished_clicked)
             .unwrap()
@@ -176,25 +182,28 @@ fn next_filtered_state(
                 time_when_finished_clicked,
             },
             GameState::Finished,
+            _,
         ) => State::TentativeFinished {
             time_when_finished_clicked,
         },
-        (State::TentativeFinished { .. }, game_state) => State::from_game_state(game_state),
-        (_, GameState::Finished) => State::TentativeFinished {
+        (State::TentativeFinished { .. }, game_state, _) => State::from_game_state(game_state),
+        (_, GameState::Finished, _) => State::TentativeFinished {
             time_when_finished_clicked: cycle_start_time,
         },
-        (State::Initial | State::Ready, _)
-        | (State::Set, GameState::Initial | GameState::Ready | GameState::Playing)
+        (State::Initial | State::Ready, _, _)
+        | (State::Set, GameState::Initial | GameState::Ready | GameState::Playing, _)
         | (
             State::WhistleInSet { .. },
             GameState::Initial | GameState::Ready | GameState::Playing,
+            _,
         )
-        | (State::Playing, GameState::Initial | GameState::Ready | GameState::Set)
+        | (State::Playing, GameState::Initial | GameState::Ready | GameState::Set, _)
         | (
             State::WhistleInPlaying { .. },
             GameState::Initial | GameState::Ready | GameState::Set,
+            _,
         ) => State::from_game_state(game_controller_state.game_state),
-        (State::Set, GameState::Set) => {
+        (State::Set, GameState::Set, _) => {
             if is_whistle_detected {
                 State::WhistleInSet {
                     time_when_whistle_was_detected: cycle_start_time,
@@ -208,6 +217,7 @@ fn next_filtered_state(
                 time_when_whistle_was_detected,
             },
             GameState::Set,
+            _,
         ) => {
             if cycle_start_time
                 .duration_since(time_when_whistle_was_detected)
@@ -221,7 +231,7 @@ fn next_filtered_state(
                 State::Set
             }
         }
-        (State::Playing, GameState::Playing) => {
+        (State::Playing, GameState::Playing, _) => {
             if is_whistle_detected && !ball_detected_far_from_any_goal {
                 State::WhistleInPlaying {
                     time_when_whistle_was_detected: cycle_start_time,
@@ -235,6 +245,7 @@ fn next_filtered_state(
                 time_when_whistle_was_detected,
             },
             GameState::Playing,
+            _,
         ) => {
             if cycle_start_time
                 .duration_since(time_when_whistle_was_detected)
