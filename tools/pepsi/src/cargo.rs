@@ -1,5 +1,8 @@
 use clap::Args;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 use tokio::process::Command as TokioCommand;
 
 use repository::Repository;
@@ -117,10 +120,14 @@ pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
             command.arg("--");
             command.args(arguments.passthrough_arguments);
 
-            command
+            let status = command
                 .status()
                 .await
                 .wrap_err("failed to execute remote script")?;
+
+            if !status.success() {
+                bail!("remote script exited with code {}", status.code().unwrap())
+            }
 
             Ok(())
         }
