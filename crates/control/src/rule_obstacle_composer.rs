@@ -25,6 +25,7 @@ pub struct CycleContext {
 
     center_circle_obstacle_increase: Parameter<f32, "center_circle_obstacle_increase">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    free_kick_obstacle_radius: Parameter<f32, "free_kick_obstacle_radius">
 }
 
 #[context]
@@ -39,8 +40,6 @@ impl RuleObstacleComposer {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let free_kick_obstacle_radius = 0.75;
-
         let mut rule_obstacles = Vec::new();
         match (context.filtered_game_controller_state, context.ball_state) {
             (
@@ -60,7 +59,7 @@ impl RuleObstacleComposer {
             ) => {
                 let free_kick_obstacle = RuleObstacle::Circle(Circle::new(
                     ball.ball_in_field,
-                    free_kick_obstacle_radius,
+                    *context.free_kick_obstacle_radius,
                 ));
                 rule_obstacles.push(free_kick_obstacle);
             }

@@ -119,6 +119,7 @@ impl BehaviorCycler {
                         own_database.main_outputs.ball_state.as_ref(),
                         &parameters.center_circle_obstacle_increase,
                         &parameters.field_dimensions,
+                        &parameters.free_kick_obstacle_radius,
                     ))
                     .wrap_err("failed to execute cycle of node `RuleObstacleComposer`")?
             };
