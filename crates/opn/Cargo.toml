@@ -1,0 +1,13 @@
+[package]
+name = "opn"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+color-eyre = { workspace = true }
+byteorder = { workspace = true }
+sha2 = { workspace = true }
