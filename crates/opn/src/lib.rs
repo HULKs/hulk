@@ -11,21 +11,6 @@ use color_eyre::{
 };
 use sha2::{Digest, Sha256};
 
-// #[repr(packed)]
-// pub struct OpnHeader {
-//     magic: [u8; 8],
-//     flags: u8,
-//     zero_a: [u8; 86],
-//     unknown_a: u8,
-//     installer_size_raw: u64,
-//     zero_b: [u8; 64],
-//     unknown_b: u8,
-//     robot_kind: u8,
-//     unknown_c: u8,
-//     version: u64,
-//     zero_c: [u8; 3896],
-// }
-
 pub fn verify_image(image_path: impl AsRef<Path>) -> Result<()> {
     let mut file = File::open(&image_path)
         .wrap_err_with(|| format!("failed to open {}", image_path.as_ref().display()))?;
@@ -64,7 +49,7 @@ fn verify_checksum(data: &[u8], expected_checksum: u64) -> Result<()> {
     let calulated_checksum = Sha256::digest(data);
     let calulated_checksum = BigEndian::read_u64(&calulated_checksum);
     if calulated_checksum != expected_checksum {
-        bail!("expected: {expected_checksum}, actual: {calulated_checksum}");
+        bail!("expected: {expected_checksum}\n  actual: {calulated_checksum}");
     }
 
     Ok(())
