@@ -564,17 +564,22 @@ async fn download_sdk(
             .context("Failed to create download directory")?;
     }
     let installer_path = downloads_directory.as_ref().join(installer_name);
+    let download_path = installer_path.with_extension("tmp");
     let urls = [
         format!("http://bighulk.hulks.dev/sdk/{installer_name}"),
         format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{installer_name}"),
     ];
 
     println!("Downloading SDK from {}", urls[0]);
-    download_with_fallback(&installer_path, urls, CONNECT_TIMEOUT).await?;
+    download_with_fallback(&download_path, urls, CONNECT_TIMEOUT).await?;
 
-    set_permissions(&installer_path, Permissions::from_mode(0o755))
+    set_permissions(&download_path, Permissions::from_mode(0o755))
         .await
-        .context("Failed to make installer executable")
+        .context("Failed to make installer executable")?;
+
+    rename(download_path, installer_path)
+        .await
+        .wrap_err("failed to rename sdk installer")
 }
 
 async fn install_sdk(
