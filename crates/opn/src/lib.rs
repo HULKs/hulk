@@ -6,10 +6,12 @@ use std::{
 
 use byteorder::{BigEndian, ByteOrder};
 use color_eyre::{
-    eyre::{bail, Context, OptionExt},
+    eyre::{bail, Context},
     Result,
 };
 use sha2::{Digest, Sha256};
+
+const MAGIC: [u8; 8] = *b"ALDIMAGE";
 
 pub fn verify_image(image_path: impl AsRef<Path>) -> Result<()> {
     let mut file = File::open(&image_path)
@@ -18,10 +20,13 @@ pub fn verify_image(image_path: impl AsRef<Path>) -> Result<()> {
     let mut buffer = [0; 8];
     file.read_exact(&mut buffer)
         .wrap_err("failed to read magic from header")?;
-    println!("Magic: {}", String::from_utf8_lossy(&buffer));
-    (buffer == b"ALDIMAGE"[..])
-        .then_some(())
-        .ok_or_eyre("magic doesn't match")?;
+    if buffer != MAGIC {
+        bail!(
+            "magic doesn't match\nfound   : {}\nexpected: {}",
+            String::from_utf8_lossy(&buffer),
+            String::from_utf8_lossy(&MAGIC)
+        );
+    }
 
     let header_data = read_exact_at(&mut file, 56, 4040).wrap_err("failed to read header data")?;
     let header_checksum = read_u64(&mut file, 24).wrap_err("failed to read header checksum")?;
@@ -49,7 +54,7 @@ fn verify_checksum(data: &[u8], expected_checksum: u64) -> Result<()> {
     let calulated_checksum = Sha256::digest(data);
     let calulated_checksum = BigEndian::read_u64(&calulated_checksum);
     if calulated_checksum != expected_checksum {
-        bail!("expected: {expected_checksum}\n  actual: {calulated_checksum}");
+        bail!("found   : {calulated_checksum}\nexpected: {expected_checksum}");
     }
 
     Ok(())
