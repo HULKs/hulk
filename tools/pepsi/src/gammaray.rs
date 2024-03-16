@@ -5,6 +5,7 @@ use color_eyre::{eyre::WrapErr, Result};
 
 use constants::OS_VERSION;
 use nao::Nao;
+use opn::verify_image;
 use repository::get_image_path;
 
 use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
@@ -29,6 +30,8 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
         None => get_image_path(version).await?,
     };
     let image_path = image_path.as_path();
+
+    verify_image(image_path).wrap_err("image verification failed")?;
 
     ProgressIndicator::map_tasks(
         arguments.naos,

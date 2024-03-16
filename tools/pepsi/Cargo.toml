@@ -15,6 +15,7 @@ constants = { workspace = true }
 futures-util = { workspace = true }
 indicatif = { workspace = true }
 nao = { workspace = true }
+opn = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
 serde_json = { workspace = true }
