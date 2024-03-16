@@ -503,7 +503,7 @@ async fn download_with_fallback(
             .arg(url)
             .status()
             .await
-            .context("Failed to spawn command")?;
+            .wrap_err("Failed to spawn command")?;
 
         if status.success() {
             return Ok(());
@@ -561,7 +561,7 @@ async fn download_sdk(
     if !downloads_directory.as_ref().exists() {
         create_dir_all(&downloads_directory)
             .await
-            .context("Failed to create download directory")?;
+            .wrap_err("Failed to create download directory")?;
     }
     let installer_path = downloads_directory.as_ref().join(installer_name);
     let download_path = installer_path.with_extension("tmp");
@@ -575,7 +575,7 @@ async fn download_sdk(
 
     set_permissions(&download_path, Permissions::from_mode(0o755))
         .await
-        .context("Failed to make installer executable")?;
+        .wrap_err("Failed to make installer executable")?;
 
     rename(download_path, installer_path)
         .await
@@ -591,7 +591,7 @@ async fn install_sdk(
         .arg(installation_directory.as_ref().as_os_str())
         .status()
         .await
-        .context("Failed to spawn command")?;
+        .wrap_err("Failed to spawn command")?;
 
     if !status.success() {
         bail!("SDK installer exited with {status}");
@@ -603,11 +603,11 @@ async fn create_symlink(source: &Path, destination: &Path) -> Result<()> {
     if destination.read_link().is_ok() {
         remove_file(&destination)
             .await
-            .context("Failed to remove current symlink")?;
+            .wrap_err("Failed to remove current symlink")?;
     }
     symlink(&source, &destination)
         .await
-        .context("Failed to create symlink")?;
+        .wrap_err("Failed to create symlink")?;
     Ok(())
 }
 
