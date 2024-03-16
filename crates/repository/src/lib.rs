@@ -29,8 +29,8 @@ use serde_json::{from_slice, from_str, to_string_pretty, to_value, Value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
     fs::{
-        create_dir_all, read_dir, read_link, read_to_string, remove_file, set_permissions, symlink,
-        try_exists, write, File,
+        create_dir_all, read_dir, read_link, read_to_string, remove_file, rename, set_permissions,
+        symlink, try_exists, write, File,
     },
     io::AsyncReadExt,
     process::Command,
@@ -521,16 +521,23 @@ async fn download_image(
     if !downloads_directory.as_ref().exists() {
         create_dir_all(&downloads_directory)
             .await
-            .context("Failed to create download directory")?;
+            .wrap_err("Failed to create download directory")?;
     }
     let image_path = downloads_directory.as_ref().join(image_name);
+    let download_path = image_path.with_extension("tmp");
     let urls = [
         format!("http://bighulk.hulks.dev/image/{image_name}"),
         format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{image_name}"),
     ];
 
     println!("Downloading image from {}", urls[0]);
-    download_with_fallback(&image_path, urls, CONNECT_TIMEOUT).await
+    download_with_fallback(&download_path, urls, CONNECT_TIMEOUT)
+        .await
+        .wrap_err("failed to download image")?;
+
+    rename(download_path, image_path)
+        .await
+        .wrap_err("failed to rename image")
 }
 
 pub async fn get_image_path(version: &str) -> Result<PathBuf> {
