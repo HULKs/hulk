@@ -96,7 +96,7 @@ fn is_kick_pose_reached(
     is_x_reached && is_y_reached && is_orientation_reached
 }
 
-fn precision_kick(game_controller_state: Option<FilteredGameControllerState>) -> bool {
+pub fn precision_kick(game_controller_state: Option<FilteredGameControllerState>) -> bool {
     let game_controller_state = game_controller_state.unwrap_or_default();
 
     let penalty_shootout = matches!(

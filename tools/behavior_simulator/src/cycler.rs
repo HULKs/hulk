@@ -210,10 +210,7 @@ impl BehaviorCycler {
                             own_database
                                 .main_outputs
                                 .filtered_game_controller_state
-                                .as_ref()
-                                .map(|filtered_game_controller_state| {
-                                    &filtered_game_controller_state.game_phase
-                                }),
+                                .as_ref(),
                             &parameters.field_dimensions,
                             &parameters.in_walk_kicks,
                             &parameters.kick_selector.angle_distance_weight,

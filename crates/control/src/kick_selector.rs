@@ -15,9 +15,9 @@ use linear_algebra::{
     distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose, UnitComplex,
     Vector2,
 };
-use spl_network_messages::GamePhase;
 use types::{
     field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
     kick_target::KickTarget,
     motion_command::KickVariant,
@@ -26,6 +26,8 @@ use types::{
     support_foot::Side,
     world_state::BallState,
 };
+
+use crate::behavior::dribble::precision_kick;
 
 #[derive(Deserialize, Serialize)]
 pub struct KickSelector {}
@@ -38,7 +40,8 @@ pub struct CycleContext {
     ground_to_field: RequiredInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     ball_state: RequiredInput<Option<BallState>, "ball_state?">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
-    game_phase: Input<Option<GamePhase>, "filtered_game_controller_state?.game_phase">,
+    game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
@@ -72,18 +75,17 @@ impl KickSelector {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
-        let penalty_shootout =
-            matches!(context.game_phase, Some(GamePhase::PenaltyShootout { .. }));
+        let precision_kick = precision_kick(context.game_controller_state.copied());
 
         let sides = [Side::Left, Side::Right];
         let mut kick_variants = Vec::new();
         if context.in_walk_kicks.forward.enabled {
             kick_variants.push(KickVariant::Forward)
         }
-        if context.in_walk_kicks.turn.enabled && !penalty_shootout {
+        if context.in_walk_kicks.turn.enabled && !precision_kick {
             kick_variants.push(KickVariant::Turn)
         }
-        if context.in_walk_kicks.side.enabled && !penalty_shootout {
+        if context.in_walk_kicks.side.enabled && !precision_kick {
             kick_variants.push(KickVariant::Side)
         }
 
