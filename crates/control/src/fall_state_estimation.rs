@@ -178,7 +178,7 @@ impl FallStateEstimation {
             (
                 current @ FallState::Falling { start_time, .. }
                 | current @ FallState::Sitting { start_time },
-                None | Some(_),
+                _,
                 Some(facing),
             ) => {
                 if context
@@ -209,9 +209,7 @@ impl FallStateEstimation {
                 }
             }
             (FallState::Fallen { .. }, None, None) => FallState::Upright,
-            (FallState::Fallen { .. }, None | Some(_), Some(facing)) => {
-                FallState::Fallen { facing }
-            }
+            (FallState::Fallen { .. }, _, Some(facing)) => FallState::Fallen { facing },
             (FallState::Fallen { facing }, Some(_), None) => FallState::Fallen { facing },
             (current @ FallState::Sitting { .. }, Some(_), None) => current,
         };
