@@ -567,7 +567,7 @@ async fn download_sdk(
     let download_path = installer_path.with_extension("tmp");
     let urls = [
         format!("http://bighulk.hulks.dev/sdk/{installer_name}"),
-        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{installer_name}"),
+        format!("https://github.com/HULKs/meta-nao/releases/download/{version}/{installer_name}"),
     ];
 
     println!("Downloading SDK from {}", urls[0]);
