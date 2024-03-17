@@ -16,7 +16,7 @@ impl FootLeveling {
     pub fn tick(&mut self, context: &Context, normalized_time_since_start: f32) {
         let imu_roll_pitch = context.sensor_data.inertial_measurement_unit.roll_pitch;
         let imu_orientation =
-            Orientation3::<Robot>::from_euler_angles(imu_roll_pitch.x, imu_roll_pitch.y, 0.0)
+            Orientation3::<Robot>::from_euler_angles(imu_roll_pitch.x(), imu_roll_pitch.y(), 0.0)
                 .mirror();
         let level_orientation = context.robot_to_walk.rotation() * imu_orientation;
 
