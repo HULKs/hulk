@@ -11,7 +11,6 @@ pub enum Action {
     StandUp,
     Stand,
     LookAround,
-    LookAtReferee,
     InterceptBall,
     Calibrate,
     Dribble,

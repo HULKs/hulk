@@ -34,8 +34,8 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    initial, intercept_ball, jump, look_around, look_at_referee, lost_ball, penalize, prepare_jump,
-    search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off, walk_to_penalty_kick,
+    initial, intercept_ball, jump, look_around, lost_ball, penalize, prepare_jump, search,
+    sit_down, stand, stand_up, support, unstiff, walk_to_kick_off, walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
@@ -134,10 +134,6 @@ impl Behavior {
         let filtered_game_state = world_state
             .filtered_game_controller_state
             .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
-
-        if let Some(FilteredGameState::Initial) = filtered_game_state {
-            actions.push(Action::LookAtReferee);
-        }
 
         match world_state.robot.role {
             Role::DefenderLeft => actions.push(Action::DefendLeft),
@@ -243,9 +239,6 @@ impl Behavior {
                     }
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-                    Action::LookAtReferee => {
-                        look_at_referee::execute(world_state, *context.expected_referee_position)
-                    }
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
