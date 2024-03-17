@@ -18,7 +18,9 @@ pub enum MotionCommand {
     FallProtection {
         direction: FallDirection,
     },
-    Initial,
+    Initial {
+        head: HeadMotion,
+    },
     Jump {
         direction: JumpDirection,
     },
@@ -53,10 +55,11 @@ impl MotionCommand {
     pub fn head_motion(&self) -> Option<HeadMotion> {
         match self {
             MotionCommand::SitDown { head }
+            | MotionCommand::Initial { head }
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
-            MotionCommand::Penalized | MotionCommand::Initial => Some(HeadMotion::ZeroAngles),
+            MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
             MotionCommand::ArmsUpSquat
             | MotionCommand::FallProtection { .. }
@@ -74,6 +77,7 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt {
         target: Point2<Ground>,
+        pixel_target: Point2<Pixel>,
         camera: Option<CameraPosition>,
     },
     LookLeftAndRightOf {

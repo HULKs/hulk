@@ -72,7 +72,8 @@ impl LookAt {
             None => return default_output,
         };
 
-        let head_motion = match *context.motion_command {
+        let head_motion = match context.motion_command {
+            MotionCommand::Initial { head } => head,
             MotionCommand::SitDown { head } => head,
             MotionCommand::Stand { head, .. } => head,
             MotionCommand::Walk { head, .. } => head,
@@ -113,6 +114,8 @@ impl LookAt {
             _ => return default_output,
         };
 
+        dbg!("LookAt");
+
         let zero_head_to_robot =
             neck_to_robot(&HeadJoints::default()) * head_to_neck(&HeadJoints::default());
         let robot_to_zero_head = zero_head_to_robot.inverse();
@@ -120,7 +123,7 @@ impl LookAt {
 
         let request = match camera {
             Some(camera) => {
-                let (head_to_camera, focal_length) = match camera {
+                let (head_to_camera, focal_length, optical_center) = match camera {
                     CameraPosition::Top => (
                         camera_matrices.top.head_to_camera,
                         camera_matrices.top.focal_length,
@@ -132,6 +135,9 @@ impl LookAt {
                         camera_matrices.bottom.optical_center,
                     ),
                 };
+                dbg!("Camera position");
+                dbg!(target);
+                dbg!(pixel_target);
                 look_at_with_camera(
                     target,
                     head_to_camera * ground_to_zero_head,

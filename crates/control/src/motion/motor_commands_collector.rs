@@ -86,7 +86,10 @@ impl MotorCommandCollector {
             MotionType::Initial => (
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,
-                    *context.initial_pose,
+                    Joints::from_head_and_body(
+                        head_joints_command.positions,
+                        context.initial_pose.body(),
+                    ),
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),

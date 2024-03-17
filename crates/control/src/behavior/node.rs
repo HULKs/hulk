@@ -10,6 +10,7 @@ use linear_algebra::{point, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
+    camera_matrix::CameraMatrices,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -55,6 +56,7 @@ pub struct CycleContext {
     dribble_path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
     active_action_output: AdditionalOutput<Action, "active_action">,
 
+    camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -68,6 +70,7 @@ pub struct CycleContext {
     striker_set_position: Parameter<Point2<Field>, "behavior.role_positions.striker_set_position">,
     expected_referee_position:
         Parameter<Point2<f32>, "detection.detection_top.expected_referee_position">,
+    referee_pixel_offset: Parameter<Point2<f32>, "detection.detection_top.referee_pixel_offset">,
 }
 
 #[context]
@@ -233,7 +236,11 @@ impl Behavior {
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
-                    Action::Initial => initial::execute(world_state),
+                    Action::Initial => initial::execute(
+                        world_state,
+                        *context.expected_referee_position * context.field_dimensions.width / 2.0,
+                        *context.referee_pixel_offset,
+                    ),
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)
                     }
