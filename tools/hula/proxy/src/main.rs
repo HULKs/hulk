@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    iter::once,
+    sync::{Arc, Mutex},
+};
 
 use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr};
@@ -47,7 +50,7 @@ fn main() -> Result<()> {
     let _connection = serve_dbus(shared_state.clone()).wrap_err("failed to initialize DBus")?;
 
     let proxy = Proxy::initialize(shared_state).wrap_err("failed to initialize proxy")?;
-    notify(false, [(STATE_READY, "1")].iter())
+    notify(false, once(&(STATE_READY, "1")))
         .wrap_err("failed to contact SystemD for ready notification")?;
     debug!("Initialized Proxy. HuLA ready");
     proxy.run()
