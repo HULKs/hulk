@@ -97,8 +97,8 @@ impl FallStateEstimation {
 
         const GRAVITATIONAL_CONSTANT: f32 = 9.81;
 
-        let gravitational_force_down = vector![0.0, GRAVITATIONAL_CONSTANT, 0.0];
-        let gravitational_force_up = vector![0.0, -GRAVITATIONAL_CONSTANT, 0.0];
+        let gravitational_force_down = vector![-GRAVITATIONAL_CONSTANT, 0.0, 0.0];
+        let gravitational_force_up = vector![GRAVITATIONAL_CONSTANT, 0.0, 0.0];
 
         let fallen_down_gravitational_difference =
             (self.linear_acceleration_filter.state() - gravitational_force_down).norm();
