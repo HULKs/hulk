@@ -110,8 +110,11 @@ impl FallProtector {
             (FallDirection::Backward { side: Side::Right }, FallPhase::Late) => *context.back_late,
         };
 
-        let is_head_protected = measured_positions.head.pitch.abs() < *context.reached_threshold
-            && measured_positions.head.yaw.abs() < *context.reached_threshold;
+        let is_head_protected = (measured_positions.head.pitch - protection_angles.head.pitch)
+            .abs()
+            < *context.reached_threshold
+            && (measured_positions.head.yaw - protection_angles.head.yaw).abs()
+                < *context.reached_threshold;
 
         let head_stiffnesses = if is_head_protected {
             HeadJoints::fill(context.head_stiffness.end)
