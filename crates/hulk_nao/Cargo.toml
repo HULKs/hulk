@@ -15,7 +15,7 @@ enum-iterator = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
-hulk = { workspace = true }
+hulk = { workspace = true, features = ["systemd"] }
 libc = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }

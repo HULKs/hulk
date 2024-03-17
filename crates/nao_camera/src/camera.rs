@@ -245,15 +245,17 @@ impl Camera {
             source,
             hue_auto: parameters.hue_auto,
         })?;
-        set_control(
-            file_descriptor,
-            V4L2_CID_WHITE_BALANCE_TEMPERATURE,
-            parameters.white_balance_temperature,
-        )
-        .map_err(|source| OpenError::WhiteBalanceTemperatureNotSet {
-            source,
-            white_balance_temperature: parameters.white_balance_temperature,
-        })?;
+        if !parameters.white_balance_temperature_auto {
+            set_control(
+                file_descriptor,
+                V4L2_CID_WHITE_BALANCE_TEMPERATURE,
+                parameters.white_balance_temperature,
+            )
+            .map_err(|source| OpenError::WhiteBalanceTemperatureNotSet {
+                source,
+                white_balance_temperature: parameters.white_balance_temperature,
+            })?;
+        }
         set_control(file_descriptor, V4L2_CID_SHARPNESS, parameters.sharpness).map_err(
             |source| OpenError::SharpnessNotSet {
                 source,
@@ -269,24 +271,17 @@ impl Camera {
             source,
             exposure_auto: parameters.exposure_auto,
         })?;
-        set_control(
-            file_descriptor,
-            V4L2_CID_EXPOSURE_ABSOLUTE,
-            parameters.exposure_absolute,
-        )
-        .map_err(|source| OpenError::ExposureAbsoluteNotSet {
-            source,
-            exposure_absolute: parameters.exposure_absolute,
-        })?;
-        set_control(
-            file_descriptor,
-            V4L2_CID_FOCUS_ABSOLUTE,
-            parameters.focus_absolute,
-        )
-        .map_err(|source| OpenError::FocusAbsoluteNotSet {
-            source,
-            focus_absolute: parameters.focus_absolute,
-        })?;
+        if parameters.exposure_auto == ExposureMode::Manual {
+            set_control(
+                file_descriptor,
+                V4L2_CID_EXPOSURE_ABSOLUTE,
+                parameters.exposure_absolute,
+            )
+            .map_err(|source| OpenError::ExposureAbsoluteNotSet {
+                source,
+                exposure_absolute: parameters.exposure_absolute,
+            })?;
+        }
         set_control(
             file_descriptor,
             V4L2_CID_FOCUS_AUTO,
@@ -299,6 +294,17 @@ impl Camera {
             source,
             focus_auto: parameters.focus_auto,
         })?;
+        if !parameters.focus_auto {
+            set_control(
+                file_descriptor,
+                V4L2_CID_FOCUS_ABSOLUTE,
+                parameters.focus_absolute,
+            )
+            .map_err(|source| OpenError::FocusAbsoluteNotSet {
+                source,
+                focus_absolute: parameters.focus_absolute,
+            })?;
+        }
 
         set_automatic_exposure_control_weights(
             file_descriptor,

@@ -46,6 +46,10 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
 
             #start_cyclers
 
+            #[cfg(feature = "systemd")]
+            systemd::daemon::notify(false, [(systemd::daemon::STATE_READY, "1")].iter())
+                .wrap_err("failed to contact SystemD for ready notification")?;
+
             let mut encountered_error = false;
             #join_cyclers
             match recording_thread.join() {
