@@ -57,9 +57,7 @@ impl StandUpFront {
         self.interpolator
             .advance_by(last_cycle_duration, condition_input);
 
-        if self.interpolator.is_finished() {
-            context.motion_safe_exits[MotionType::StandUpFront] = true;
-        }
+        context.motion_safe_exits[MotionType::StandUpFront] = self.interpolator.is_finished();
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
