@@ -1,13 +1,13 @@
 use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration};
 
 use clap::{arg, Args};
-use color_eyre::owo_colors::OwoColorize;
+use color_eyre::owo_colors::{OwoColorize, Style};
 
 use crate::parsers::NaoAddress;
 use aliveness::{
     query_aliveness,
     service_manager::{ServiceState, SystemServices},
-    AlivenessError, AlivenessState,
+    AlivenessError, AlivenessState, Battery, JointsArray,
 };
 use constants::OS_VERSION;
 
@@ -58,93 +58,137 @@ pub async fn aliveness(arguments: Arguments) -> Result<(), Error> {
     Ok(())
 }
 
-fn print_summary(states: &AlivenessList) {
-    const SPACING: usize = 3;
-    const CHARGE_OK_THRESHOLD: f32 = 0.95;
-    const CHARGING_ICON: &str = "󱐋";
-    const DISCHARGING_ICON: &str = "󰁽";
-    const OS_ICON: &str = "󱑞";
-    const ALL_OK_ICON: &str = "✔";
-    const UNKNOWN_CHARGE_ICON: &str = "󰁽?";
-    const NETWORK_ICON: &str = "󰖩 ";
-    const TEMPERATURE_ICON: &str = "";
+struct SummaryElements {
+    output: String,
+}
 
+const SPACING: usize = 3;
+const BATTERY_CHARGE_FULL: f32 = 0.95;
+const BATTERY_CHARGE_WARN: f32 = 0.7;
+const CHARGING_ICON: &str = "󱐋";
+const DISCHARGING_ICON: &str = "󰁽";
+const OS_ICON: &str = "󱑞";
+const ALL_OK_ICON: &str = "✔";
+const UNKNOWN_CHARGE_ICON: &str = "󰁽?";
+const NETWORK_ICON: &str = "󰖩 ";
+const TEMPERATURE_ICON: &str = "";
+const TEMPERATURE_WARN_THRESHOLD: f32 = 40.0;
+const TEMPERATURE_ERROR_THRESHOLD: f32 = 60.0;
+
+impl SummaryElements {
+    fn new() -> Self {
+        Self {
+            output: String::new(),
+        }
+    }
+
+    fn show(self) -> String {
+        if self.output.is_empty() {
+            format!("{}", ALL_OK_ICON.green())
+        } else {
+            self.output
+        }
+    }
+
+    fn append(&mut self, icon: &str, text: &str, style: Style) {
+        let spacing = " ".repeat(SPACING);
+        let output = style.style(format!("{icon} {text} {spacing}")).to_string();
+        self.output.push_str(&output);
+    }
+
+    fn append_battery(&mut self, battery: &Option<Battery>) {
+        let Some(battery) = battery else {
+            self.append(UNKNOWN_CHARGE_ICON, "?%", Style::new());
+            return;
+        };
+        let charge = (battery.charge * 100.0) as u32;
+        let is_discharging = battery.current.is_sign_negative();
+        if is_discharging {
+            let style = if battery.charge < BATTERY_CHARGE_WARN {
+                Style::new().red()
+            } else {
+                Style::new().yellow()
+            };
+            self.append(DISCHARGING_ICON, &format!("{charge}%"), style);
+        } else if battery.charge < BATTERY_CHARGE_FULL {
+            self.append(CHARGING_ICON, &format!("{charge}%"), Style::new());
+        }
+    }
+
+    fn append_temperature(&mut self, temperatures: &Option<JointsArray>) {
+        let Some(temperatures) = temperatures else {
+            self.append(TEMPERATURE_ICON, "?°C", Style::new().blink());
+            return;
+        };
+        let maximum_temperature = temperatures.into_lola().into_iter().fold(0.0, f32::max);
+        if maximum_temperature > TEMPERATURE_ERROR_THRESHOLD {
+            self.append(
+                TEMPERATURE_ICON,
+                &format!("{maximum_temperature}°C"),
+                Style::new().red(),
+            );
+        } else if maximum_temperature > TEMPERATURE_WARN_THRESHOLD {
+            self.append(
+                TEMPERATURE_ICON,
+                &format!("{maximum_temperature}°C"),
+                Style::new().yellow(),
+            );
+        }
+    }
+
+    fn append_os_version(&mut self, version: &str) {
+        if version != OS_VERSION {
+            self.append(OS_ICON, version, Style::new());
+        }
+    }
+
+    fn append_service(&mut self, service: &str, state: ServiceState) {
+        match state {
+            ServiceState::Active => (),
+            ServiceState::Activating => {
+                self.append(service, state.to_string().as_str(), Style::new().yellow())
+            }
+            _ => self.append(service, state.to_string().as_str(), Style::new().red()),
+        }
+    }
+}
+
+fn print_summary(states: &AlivenessList) {
     for (ip, state) in states.iter() {
         let id = match ip {
             IpAddr::V4(ip) => ip.octets()[3],
             IpAddr::V6(ip) => ip.octets()[15],
         };
 
-        let mut output = String::new();
+        let mut output = SummaryElements::new();
 
-        if let Some(battery) = state.battery {
-            if battery.charge < CHARGE_OK_THRESHOLD || battery.current.is_sign_negative() {
-                let charge = (battery.charge * 100.0) as u32;
-                let icon = if battery.current.is_sign_positive() {
-                    CHARGING_ICON
-                } else {
-                    DISCHARGING_ICON
-                };
-                output.push_str(&format!("{:SPACING$}{icon} {charge}%", ""))
-            }
-        } else {
-            output.push_str(&format!("{:SPACING$}{UNKNOWN_CHARGE_ICON}", ""))
-        }
-
-        let version = &state.hulks_os_version;
-        if version != OS_VERSION {
-            output.push_str(&format!("{:SPACING$}{OS_ICON} {version}", ""))
-        }
-
+        output.append_battery(&state.battery);
+        output.append_temperature(&state.temperature);
+        output.append_os_version(&state.hulks_os_version);
         let SystemServices {
             hal,
             hula,
             hulk,
             lola,
         } = state.system_services;
-        match hal {
-            ServiceState::Active => (),
-            _ => output.push_str(&format!("{:SPACING$}HAL: {hal}", "")),
-        }
-        match hula {
-            ServiceState::Active => (),
-            _ => output.push_str(&format!("{:SPACING$}HuLA: {hula}", "")),
-        }
-        match hulk {
-            ServiceState::Active => (),
-            _ => output.push_str(&format!("{:SPACING$}HULK: {hulk}", "")),
-        }
-        match lola {
-            ServiceState::Active => (),
-            _ => output.push_str(&format!("{:SPACING$}LoLA: {lola}", "")),
-        }
-
-        if output.is_empty() {
-            output = format!("{:SPACING$}{}", "", ALL_OK_ICON.green());
-        }
+        output.append_service("[HAL]", hal);
+        output.append_service("[LoLA]", lola);
+        output.append_service("[HuLA]", hula);
+        output.append_service("[HULK]", hulk);
 
         let no_network = "None ".to_owned();
         let network = state.network.as_ref().unwrap_or(&no_network);
-        let temperature = state
-            .temperature
-            .map(|temperatures| {
-                format!(
-                    "{}°C",
-                    temperatures.into_lola().into_iter().fold(0.0, f32::max)
-                )
-            })
-            .unwrap_or("?".to_owned());
 
         println!(
-            "[{id}] {NETWORK_ICON} {network}{:SPACING$}{TEMPERATURE_ICON} {temperature}{output}",
-            ""
+            "[{id}] {NETWORK_ICON} {network}{:SPACING$} {}",
+            "",
+            output.show()
         );
     }
 }
 
 fn print_verbose(states: &AlivenessList) {
     const INDENTATION: usize = 2;
-    const SPACING: usize = 3;
 
     for (ip, state) in states.iter() {
         let AlivenessState {
