@@ -45,7 +45,7 @@ pub struct Fraction {
     pub denominator: u32,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub enum ExposureMode {
     Auto = v4l2_exposure_auto_type_V4L2_EXPOSURE_AUTO as isize,
     Manual = v4l2_exposure_auto_type_V4L2_EXPOSURE_MANUAL as isize,

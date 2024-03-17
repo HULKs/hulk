@@ -155,6 +155,7 @@ spl_network_messages = { path = "crates/spl_network_messages" }
 splines = { version = "4.2.0", features = ["serde"] }
 structopt = "0.3.26"
 syn = { version = "1.0.101", features = ["full", "extra-traits"] }
+systemd = "0.10.0"
 tempfile = "3.3.0"
 thiserror = "1.0.37"
 threadbound = "0.1.6"
