@@ -133,7 +133,7 @@ impl FootBumperFilter {
 
         self.check_for_bumper_errors(&context);
 
-        if matches!(fall_state, FallState::Upright) {
+        if *fall_state != FallState::Upright {
             return Ok(Default::default());
         }
 
