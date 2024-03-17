@@ -90,8 +90,12 @@ impl LookAt {
             self.last_glance_direction_toggle = Some(cycle_start_time);
         }
 
-        let (target, camera) = match head_motion {
-            HeadMotion::LookAt { target, camera } => (target, camera),
+        let (target, pixel_target, camera) = match head_motion {
+            HeadMotion::LookAt {
+                target,
+                pixel_target,
+                camera,
+            } => (*target, *pixel_target, *camera),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
@@ -102,6 +106,7 @@ impl LookAt {
                         GlanceDirection::LeftOfTarget => target + left_right_shift,
                         GlanceDirection::RightOfTarget => target - left_right_shift,
                     },
+                    Point2::origin(),
                     None,
                 )
             }
@@ -119,17 +124,20 @@ impl LookAt {
                     CameraPosition::Top => (
                         camera_matrices.top.head_to_camera,
                         camera_matrices.top.focal_length,
+                        camera_matrices.top.optical_center,
                     ),
                     CameraPosition::Bottom => (
                         camera_matrices.bottom.head_to_camera,
                         camera_matrices.bottom.focal_length,
+                        camera_matrices.bottom.optical_center,
                     ),
                 };
                 look_at_with_camera(
                     target,
                     head_to_camera * ground_to_zero_head,
-                    *context.offset_in_image,
-                    focal_length,
+                    pixel_target,
+                    optical_center,
+                    focal_length.into(),
                 )
             }
             None => look_at(
@@ -152,7 +160,7 @@ fn look_at(
     joint_angles: Joints<f32>,
     ground_to_zero_head: Isometry3<Ground, Head>,
     camera_matrices: &CameraMatrices,
-    offset_in_image: Point2<Pixel>,
+    pixel_target: Point2<Pixel>,
     target: Point2<Ground>,
     minimum_bottom_focus_pitch: f32,
 ) -> HeadJoints<f32> {
@@ -160,18 +168,22 @@ fn look_at(
     let head_to_bottom_camera = camera_matrices.bottom.head_to_camera;
     let focal_length_top = camera_matrices.top.focal_length;
     let focal_length_bottom = camera_matrices.bottom.focal_length;
+    let optical_center_top = camera_matrices.top.optical_center;
+    let optical_center_bottom = camera_matrices.bottom.optical_center;
 
     let top_focus_angles = look_at_with_camera(
         target,
         head_to_top_camera * ground_to_zero_head,
-        offset_in_image,
-        focal_length_top,
+        pixel_target,
+        optical_center_top,
+        focal_length_top.into(),
     );
     let bottom_focus_angles = look_at_with_camera(
         target,
         head_to_bottom_camera * ground_to_zero_head,
-        offset_in_image,
-        focal_length_bottom,
+        pixel_target,
+        optical_center_bottom,
+        focal_length_bottom.into(),
     );
 
     let pitch_movement_top = (top_focus_angles.pitch - joint_angles.head.pitch).abs();
@@ -189,13 +201,15 @@ fn look_at(
 fn look_at_with_camera(
     target: Point2<Ground>,
     ground_to_camera: Isometry3<Ground, Camera>,
-    offset_in_image: Point2<Pixel>,
+    pixel_target: Point2<Pixel>,
+    optical_center: Point2<Pixel>,
     focal_length: nalgebra::Vector2<f32>,
 ) -> HeadJoints<f32> {
     let target_in_camera = ground_to_camera * point![target.x(), target.y(), 0.0];
 
-    let yaw_offset = f32::atan2(offset_in_image.x(), focal_length.x);
-    let pitch_offset = f32::atan2(offset_in_image.y(), focal_length.y);
+    let offset_to_center = pixel_target - optical_center.coords;
+    let yaw_offset = f32::atan2(offset_to_center.x, focal_length.x);
+    let pitch_offset = f32::atan2(offset_to_center.y, focal_length.y);
 
     let yaw = f32::atan2(-target_in_camera.x(), target_in_camera.z()) + yaw_offset;
     let pitch = -f32::atan2(-target_in_camera.y(), target_in_camera.z()) - pitch_offset;

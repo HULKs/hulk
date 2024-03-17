@@ -80,6 +80,7 @@ pub fn execute(
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
+                    pixel_target: Point2::origin(),
                     camera: None,
                 },
                 path,

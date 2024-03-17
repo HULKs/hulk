@@ -43,6 +43,7 @@ pub fn execute(
             Some(MotionCommand::Stand {
                 head: HeadMotion::LookAt {
                     target,
+                    pixel_target: Point2::origin(),
                     camera: None,
                 },
             })

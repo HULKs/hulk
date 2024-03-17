@@ -233,6 +233,7 @@ fn send_standing_look_at(
     let motion_command = Some(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: look_at_target,
+            pixel_target: Point2::origin(),
             camera: camera_option,
         },
     });
