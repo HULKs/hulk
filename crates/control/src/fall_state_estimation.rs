@@ -1,7 +1,8 @@
-use std::{f32::consts::FRAC_PI_2, time::Duration};
+use std::time::Duration;
 
 use color_eyre::Result;
-use nalgebra::{vector, Rotation3, Vector2, Vector3};
+use coordinate_systems::Robot;
+use linear_algebra::{vector, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -15,9 +16,9 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct FallStateEstimation {
-    roll_pitch_filter: LowPassFilter<Vector2<f32>>,
-    angular_velocity_filter: LowPassFilter<Vector3<f32>>,
-    linear_acceleration_filter: LowPassFilter<Vector3<f32>>,
+    roll_pitch_filter: LowPassFilter<Vector2<Robot>>,
+    angular_velocity_filter: LowPassFilter<Vector3<Robot>>,
+    linear_acceleration_filter: LowPassFilter<Vector3<Robot>>,
     last_fall_state: FallState,
 }
 
@@ -33,16 +34,16 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     fallen_up_gravitational_difference: AdditionalOutput<f32, "fallen_up_gravitational_difference">,
-    filtered_angular_velocity: AdditionalOutput<Vector3<f32>, "filtered_angular_velocity">,
-    filtered_linear_acceleration: AdditionalOutput<Vector3<f32>, "filtered_linear_acceleration">,
-    filtered_roll_pitch: AdditionalOutput<Vector2<f32>, "filtered_roll_pitch">,
+    filtered_angular_velocity: AdditionalOutput<Vector3<Robot>, "filtered_angular_velocity">,
+    filtered_linear_acceleration: AdditionalOutput<Vector3<Robot>, "filtered_linear_acceleration">,
+    filtered_roll_pitch: AdditionalOutput<Vector2<Robot>, "filtered_roll_pitch">,
     fallen_down_gravitational_difference:
         AdditionalOutput<f32, "fallen_down_gravitational_difference">,
 
     gravitational_acceleration_threshold:
         Parameter<f32, "fall_state_estimation.gravitational_acceleration_threshold">,
     falling_angle_threshold_forward:
-        Parameter<Vector2<f32>, "fall_state_estimation.falling_angle_threshold_forward">,
+        Parameter<Vector2<Robot>, "fall_state_estimation.falling_angle_threshold_forward">,
     falling_timeout: Parameter<Duration, "fall_state_estimation.falling_timeout">,
 
     sensor_data: Input<SensorData, "sensor_data">,
@@ -96,16 +97,13 @@ impl FallStateEstimation {
 
         const GRAVITATIONAL_CONSTANT: f32 = 9.81;
 
-        let gravitational_force = vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
-        let robot_to_fallen_down = Rotation3::from_axis_angle(&Vector3::y_axis(), -FRAC_PI_2);
-        let robot_to_fallen_up = Rotation3::from_axis_angle(&Vector3::y_axis(), FRAC_PI_2);
+        let gravitational_force_down = vector![0.0, GRAVITATIONAL_CONSTANT, 0.0];
+        let gravitational_force_up = vector![0.0, -GRAVITATIONAL_CONSTANT, 0.0];
 
-        let fallen_down_gravitational_difference = (self.linear_acceleration_filter.state()
-            - robot_to_fallen_down * gravitational_force)
-            .norm();
-        let fallen_up_gravitational_difference = (self.linear_acceleration_filter.state()
-            - robot_to_fallen_up * gravitational_force)
-            .norm();
+        let fallen_down_gravitational_difference =
+            (self.linear_acceleration_filter.state() - gravitational_force_down).norm();
+        let fallen_up_gravitational_difference =
+            (self.linear_acceleration_filter.state() - gravitational_force_up).norm();
         let fallen_direction = if fallen_down_gravitational_difference
             < *context.gravitational_acceleration_threshold
         {
@@ -123,12 +121,12 @@ impl FallStateEstimation {
             .fallen_up_gravitational_difference
             .fill_if_subscribed(|| fallen_up_gravitational_difference);
 
-        let estimated_roll = self.roll_pitch_filter.state().x;
-        let estimated_pitch = self.roll_pitch_filter.state().y;
+        let estimated_roll = self.roll_pitch_filter.state().x();
+        let estimated_pitch = self.roll_pitch_filter.state().y();
 
         let falling_direction = {
-            if !(context.falling_angle_threshold_forward[0]
-                ..context.falling_angle_threshold_forward[1])
+            if !(context.falling_angle_threshold_forward.x()
+                ..context.falling_angle_threshold_forward.y())
                 .contains(&estimated_pitch)
             {
                 let side = {
