@@ -335,7 +335,7 @@ impl Repository {
             }
             install_sdk(installer_path, &sdk)
                 .await
-                .wrap_err("Failed to install SDK")?;
+                .wrap_err("failed to install SDK")?;
         }
         Ok(())
     }
@@ -374,7 +374,7 @@ impl Repository {
         let hardware_ids_path = self.root.join("etc/parameters/hardware_ids.json");
         let mut hardware_ids = File::open(&hardware_ids_path)
             .await
-            .wrap_err_with(|| format!("Failed to open {}", hardware_ids_path.display()))?;
+            .wrap_err_with(|| format!("failed to open {}", hardware_ids_path.display()))?;
         let mut contents = vec![];
         hardware_ids.read_to_end(&mut contents).await?;
         let hardware_ids_with_string_keys: HashMap<String, HardwareIds> = from_slice(&contents)?;
@@ -384,7 +384,7 @@ impl Repository {
                 Ok((
                     nao_number
                         .parse()
-                        .wrap_err_with(|| format!("Failed to parse NAO number: {nao_number:?}"))?,
+                        .wrap_err_with(|| format!("failed to parse NAO number: {nao_number:?}"))?,
                     hardware_ids,
                 ))
             })
@@ -503,7 +503,7 @@ async fn download_with_fallback(
             .arg(url)
             .status()
             .await
-            .wrap_err("Failed to spawn command")?;
+            .wrap_err("failed to spawn command")?;
 
         if status.success() {
             return Ok(());
@@ -521,7 +521,7 @@ async fn download_image(
     if !downloads_directory.as_ref().exists() {
         create_dir_all(&downloads_directory)
             .await
-            .wrap_err("Failed to create download directory")?;
+            .wrap_err("failed to create download directory")?;
     }
     let image_path = downloads_directory.as_ref().join(image_name);
     let download_path = image_path.with_extension("tmp");
@@ -561,7 +561,7 @@ async fn download_sdk(
     if !downloads_directory.as_ref().exists() {
         create_dir_all(&downloads_directory)
             .await
-            .wrap_err("Failed to create download directory")?;
+            .wrap_err("failed to create download directory")?;
     }
     let installer_path = downloads_directory.as_ref().join(installer_name);
     let download_path = installer_path.with_extension("tmp");
@@ -575,7 +575,7 @@ async fn download_sdk(
 
     set_permissions(&download_path, Permissions::from_mode(0o755))
         .await
-        .wrap_err("Failed to make installer executable")?;
+        .wrap_err("failed to make installer executable")?;
 
     rename(download_path, installer_path)
         .await
@@ -591,7 +591,7 @@ async fn install_sdk(
         .arg(installation_directory.as_ref().as_os_str())
         .status()
         .await
-        .wrap_err("Failed to spawn command")?;
+        .wrap_err("failed to spawn command")?;
 
     if !status.success() {
         bail!("SDK installer exited with {status}");
@@ -603,11 +603,11 @@ async fn create_symlink(source: &Path, destination: &Path) -> Result<()> {
     if destination.read_link().is_ok() {
         remove_file(&destination)
             .await
-            .wrap_err("Failed to remove current symlink")?;
+            .wrap_err("failed to remove current symlink")?;
     }
     symlink(&source, &destination)
         .await
-        .wrap_err("Failed to create symlink")?;
+        .wrap_err("failed to create symlink")?;
     Ok(())
 }
 
