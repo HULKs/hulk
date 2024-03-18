@@ -36,12 +36,18 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
                 format_ident!("CyclerState"),
                 &derives,
             );
+            let cycle_times = hierarchy_to_token_stream(
+                &cycler_structs.cycle_times,
+                format_ident!("CycleTimings"),
+                &derives,
+            );
 
             quote! {
                 pub mod #cycler_module_identifier {
                     #main_outputs
                     #additional_outputs
                     #cycler_state
+                    #cycle_times
                 }
             }
         });
