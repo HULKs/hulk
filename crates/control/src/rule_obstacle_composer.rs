@@ -25,7 +25,7 @@ pub struct CycleContext {
 
     center_circle_obstacle_increase: Parameter<f32, "center_circle_obstacle_increase">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    free_kick_obstacle_radius: Parameter<f32, "free_kick_obstacle_radius">
+    free_kick_obstacle_radius: Parameter<f32, "free_kick_obstacle_radius">,
 }
 
 #[context]
@@ -80,6 +80,15 @@ impl RuleObstacleComposer {
                         * context.center_circle_obstacle_increase,
                 ));
                 rule_obstacles.push(center_circle_obstacle);
+
+                let opponent_half_obstacle = RuleObstacle::Rectangle(Rectangle {
+                    min: point!(0.0, context.field_dimensions.width / 2.0),
+                    max: point!(
+                        context.field_dimensions.length / 2.0,
+                        -context.field_dimensions.width / 2.0
+                    ),
+                });
+                rule_obstacles.push(opponent_half_obstacle);
             }
             (
                 FilteredGameControllerState {
