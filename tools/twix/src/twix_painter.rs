@@ -57,6 +57,19 @@ impl<Frame> TwixPainter<Frame> {
         (response, twix_painter)
     }
 
+    pub fn transform_painter<NewFrame>(
+        &self,
+        isometry: Isometry2<Frame, NewFrame>,
+    ) -> TwixPainter<NewFrame> {
+        TwixPainter::<NewFrame> {
+            painter: self.painter.clone(),
+            pixel_rect: self.pixel_rect,
+            world_to_pixel: (self.world_to_pixel * isometry.inverse().inner),
+            camera_coordinate_system: self.camera_coordinate_system.clone(),
+            frame: PhantomData,
+        }
+    }
+
     pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
         let painter = ui.painter_at(pixel_rect);
         let world_to_pixel = Similarity2::new(
@@ -95,6 +108,50 @@ impl<Frame> TwixPainter<Frame> {
 
     pub fn append_transform(&mut self, transformation: Similarity2<f32>) {
         self.world_to_pixel = transformation * self.world_to_pixel;
+    }
+
+    pub fn arc(&self, arc: Arc<Frame>, orientation: Direction, stroke: Stroke) {
+        let Arc {
+            circle: Circle { center, radius },
+            start,
+            end,
+        } = arc;
+        let start_relative = start - center;
+        let end_relative = end - center;
+        let angle_difference = start_relative.angle(end_relative);
+        let end_right_of_start = Direction::Counterclockwise
+            .rotate_vector_90_degrees(start_relative)
+            .dot(end_relative)
+            < 0.0;
+        let counterclockwise_angle_difference = if end_right_of_start {
+            TAU - angle_difference
+        } else {
+            angle_difference
+        };
+
+        let signed_angle_difference = match orientation {
+            Direction::Clockwise => -TAU + counterclockwise_angle_difference,
+            Direction::Counterclockwise => counterclockwise_angle_difference,
+            Direction::Colinear => 0.0,
+        };
+
+        const PIXELS_PER_SAMPLE: f32 = 5.0;
+        let samples = 1.max(
+            (signed_angle_difference.abs() * radius * self.world_to_pixel.scaling()
+                / PIXELS_PER_SAMPLE) as usize,
+        );
+        let points = (0..samples + 1)
+            .map(|index| {
+                let angle = signed_angle_difference / samples as f32 * index as f32;
+                let point = center + Rotation2::new(angle).framed_transform() * start_relative;
+                self.transform_world_to_pixel(point)
+            })
+            .collect();
+
+        let stroke = self.transform_stroke(stroke);
+
+        self.painter
+            .add(Shape::Path(PathShape::line(points, stroke)));
     }
 
     pub fn ball(&self, position: Point2<Frame>, radius: f32) {
@@ -142,6 +199,23 @@ impl<Frame> TwixPainter<Frame> {
             Color32::TRANSPARENT,
             stroke,
         )));
+    }
+
+    pub fn pose(
+        &self,
+        pose: Pose<Frame>,
+        circle_radius: f32,
+        line_length: f32,
+        fill_color: Color32,
+        stroke: Stroke,
+    ) {
+        let center = pose.position();
+        self.circle(center, circle_radius, fill_color, stroke);
+        self.line_segment(
+            center,
+            pose.as_transform::<Ground>() * point![line_length, 0.0],
+            stroke,
+        );
     }
 
     pub fn transform_world_to_pixel(&self, point: Point2<Frame>) -> Pos2 {
@@ -296,17 +370,16 @@ impl<Frame> TwixPainter<Frame> {
         );
     }
 }
-
-impl TwixPainter<Field> {
-    pub fn with_map_transforms(self, field_dimensions: &FieldDimensions) -> Self {
-        let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
-        let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
+impl TwixPainter<Ground> {
+    pub fn with_ground_transforms(self) -> Self {
+        let length = 2.0;
+        let width = 2.0;
         let dimensions = vector![length, width];
         let world_to_camera =
-            Similarity2::new(nalgebra::vector![length / 2.0, width / 2.0], 0.0, 1.0);
+            Similarity2::new(nalgebra::vector![length / 2.0, -width / 2.0], 0.0, 1.0);
         self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
     }
-
+    
     pub fn pose(
         &self,
         pose: Pose2<Field>,
@@ -326,7 +399,6 @@ impl TwixPainter<Field> {
 
     pub fn path(
         &self,
-        ground_to_field: Isometry2<Ground, Field>,
         path: Vec<PathSegment>,
         line_color: Color32,
         arc_color: Color32,
@@ -335,8 +407,8 @@ impl TwixPainter<Field> {
         for segment in path {
             match segment {
                 PathSegment::LineSegment(line_segment) => self.line_segment(
-                    ground_to_field * line_segment.0,
-                    ground_to_field * line_segment.1,
+                    line_segment.0,
+                    line_segment.1,
                     Stroke {
                         width,
                         color: line_color,
@@ -349,61 +421,20 @@ impl TwixPainter<Field> {
                         width,
                         color: arc_color,
                     },
-                    ground_to_field,
                 ),
             }
         }
     }
+}
 
-    pub fn arc(
-        &self,
-        arc: Arc<Ground>,
-        orientation: Direction,
-        stroke: Stroke,
-        pose: Isometry2<Ground, Field>,
-    ) {
-        let Arc {
-            circle: Circle { center, radius },
-            start,
-            end,
-        } = arc;
-        let start_relative = start - center;
-        let end_relative = end - center;
-        let angle_difference = start_relative.angle(end_relative);
-        let end_right_of_start = Direction::Counterclockwise
-            .rotate_vector_90_degrees(start_relative)
-            .dot(end_relative)
-            < 0.0;
-        let counterclockwise_angle_difference = if end_right_of_start {
-            TAU - angle_difference
-        } else {
-            angle_difference
-        };
-
-        let signed_angle_difference = match orientation {
-            Direction::Clockwise => -TAU + counterclockwise_angle_difference,
-            Direction::Counterclockwise => counterclockwise_angle_difference,
-            Direction::Colinear => 0.0,
-        };
-
-        const PIXELS_PER_SAMPLE: f32 = 5.0;
-        let samples = 1.max(
-            (signed_angle_difference.abs() * radius * self.world_to_pixel.scaling()
-                / PIXELS_PER_SAMPLE) as usize,
-        );
-        let points = (0..samples + 1)
-            .map(|index| {
-                let angle = signed_angle_difference / samples as f32 * index as f32;
-                let point =
-                    pose * (center + Rotation2::new(angle).framed_transform() * start_relative);
-                self.transform_world_to_pixel(point)
-            })
-            .collect();
-
-        let stroke = self.transform_stroke(stroke);
-
-        self.painter
-            .add(Shape::Path(PathShape::line(points, stroke)));
+impl TwixPainter<Field> {
+    pub fn with_map_transforms(self, field_dimensions: &FieldDimensions) -> Self {
+        let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
+        let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
+        let dimensions = vector![length, width];
+        let world_to_camera =
+            Similarity2::new(nalgebra::vector![length / 2.0, -width / 2.0], 0.0, 1.0);
+        self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
     }
 
     pub fn field(&self, field_dimensions: &FieldDimensions) {

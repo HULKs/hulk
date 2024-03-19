@@ -7,7 +7,7 @@ use crate::{nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 pub struct Field {}
 
-impl Layer for Field {
+impl Layer<coordinate_systems::Field> for Field {
     const NAME: &'static str = "Field";
 
     fn new(_nao: Arc<Nao>) -> Self {

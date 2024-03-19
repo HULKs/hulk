@@ -16,7 +16,7 @@ pub struct LineCorrespondences {
     correspondence_lines: ValueBuffer,
 }
 
-impl Layer for LineCorrespondences {
+impl Layer<Field> for LineCorrespondences {
     const NAME: &'static str = "Line Correspondences";
 
     fn new(nao: Arc<Nao>) -> Self {
