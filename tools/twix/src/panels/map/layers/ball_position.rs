@@ -17,7 +17,7 @@ pub struct BallPosition {
     ball_position: ValueBuffer,
 }
 
-impl Layer for BallPosition {
+impl Layer<Field> for BallPosition {
     const NAME: &'static str = "Ball Position";
 
     fn new(nao: Arc<Nao>) -> Self {

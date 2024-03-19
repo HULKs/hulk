@@ -23,7 +23,7 @@ pub struct BehaviorSimulator {
     ball: ValueBuffer,
 }
 
-impl Layer for BehaviorSimulator {
+impl Layer<Field> for BehaviorSimulator {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(nao: Arc<Nao>) -> Self {
@@ -76,8 +76,8 @@ impl Layer for BehaviorSimulator {
             if let Ok(MotionCommand::Walk { path, .. }) =
                 self.motion_command.0[player_number].parse_latest()
             {
-                painter.path(
-                    ground_to_field,
+                let ground_painter = painter.transform_painter(ground_to_field.inverse());
+                ground_painter.path(
                     path,
                     TRANSPARENT_BLUE,
                     TRANSPARENT_LIGHT_BLUE,

@@ -1,34 +1,34 @@
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use color_eyre::Result;
 use convert_case::{Case, Casing};
 use eframe::egui::Ui;
 use serde_json::{json, Value};
 
-use coordinate_systems::Field;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-pub trait Layer {
+pub trait Layer<Frame> {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>) -> Self;
-    fn paint(&self, painter: &TwixPainter<Field>, field_dimensions: &FieldDimensions)
+    fn paint(&self, painter: &TwixPainter<Frame>, field_dimensions: &FieldDimensions)
         -> Result<()>;
 }
 
-pub struct EnabledLayer<T>
+pub struct EnabledLayer<T, Frame>
 where
-    T: Layer,
+    T: Layer<Frame>,
 {
     nao: Arc<Nao>,
     layer: Option<T>,
     active: bool,
+    frame: PhantomData<Frame>,
 }
 
-impl<T> EnabledLayer<T>
+impl<T, Frame> EnabledLayer<T, Frame>
 where
-    T: Layer,
+    T: Layer<Frame>,
 {
     pub fn new(nao: Arc<Nao>, value: Option<&Value>, active: bool) -> Self {
         let active = value
@@ -37,7 +37,12 @@ where
             .and_then(|value| value.as_bool())
             .unwrap_or(active);
         let layer = active.then(|| T::new(nao.clone()));
-        Self { nao, layer, active }
+        Self {
+            nao,
+            layer,
+            active,
+            frame: PhantomData,
+        }
     }
 
     pub fn checkbox(&mut self, ui: &mut Ui) {
@@ -52,7 +57,7 @@ where
 
     pub fn paint(
         &self,
-        painter: &TwixPainter<Field>,
+        painter: &TwixPainter<Frame>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         if let Some(layer) = &self.layer {

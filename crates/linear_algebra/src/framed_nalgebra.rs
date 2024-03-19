@@ -271,6 +271,10 @@ impl<Frame> Pose<Frame> {
         ))
     }
 
+    pub fn zero() -> Self {
+        Default::default()
+    }
+
     pub fn as_transform<From>(&self) -> Isometry2<From, Frame> {
         Isometry2::wrap(self.inner)
     }
