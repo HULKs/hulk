@@ -4,8 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
-use coordinate_systems::{Field, Ground};
-use linear_algebra::Isometry2;
+use coordinate_systems::Ground;
 use types::{field_dimensions::FieldDimensions, path_obstacles::PathObstacle};
 
 use crate::{
@@ -13,30 +12,23 @@ use crate::{
 };
 
 pub struct PathObstacles {
-    ground_to_field: ValueBuffer,
     path_obstacles: ValueBuffer,
 }
 
-impl Layer for PathObstacles {
+impl Layer<Ground> for PathObstacles {
     const NAME: &'static str = "Path Obstacles";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let ground_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let path_obstacles = nao
             .subscribe_output(CyclerOutput::from_str("Control.additional.path_obstacles").unwrap());
-        Self {
-            ground_to_field,
-            path_obstacles,
-        }
+        Self { path_obstacles }
     }
 
     fn paint(
         &self,
-        painter: &TwixPainter<Field>,
+        painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ground_to_field: Isometry2<Ground, Field> = self.ground_to_field.require_latest()?;
         let path_obstacles: Vec<PathObstacle> = self.path_obstacles.require_latest()?;
 
         let path_obstacle_stroke = Stroke {
@@ -45,17 +37,12 @@ impl Layer for PathObstacles {
         };
         for path_obstacle in path_obstacles {
             match path_obstacle.shape {
-                types::path_obstacles::PathObstacleShape::Circle(circle) => painter.circle_stroke(
-                    ground_to_field * circle.center,
-                    circle.radius,
-                    path_obstacle_stroke,
-                ),
-                types::path_obstacles::PathObstacleShape::LineSegment(line_segment) => painter
-                    .line_segment(
-                        ground_to_field * line_segment.0,
-                        ground_to_field * line_segment.1,
-                        path_obstacle_stroke,
-                    ),
+                types::path_obstacles::PathObstacleShape::Circle(circle) => {
+                    painter.circle_stroke(circle.center, circle.radius, path_obstacle_stroke)
+                }
+                types::path_obstacles::PathObstacleShape::LineSegment(line_segment) => {
+                    painter.line_segment(line_segment.0, line_segment.1, path_obstacle_stroke)
+                }
             }
         }
         Ok(())
