@@ -5,7 +5,10 @@ use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
 use coordinate_systems::Ground;
-use types::{field_dimensions::FieldDimensions, path_obstacles::PathObstacle};
+use types::{
+    field_dimensions::FieldDimensions,
+    path_obstacles::{PathObstacle, PathObstacleShape},
+};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -37,10 +40,10 @@ impl Layer<Ground> for PathObstacles {
         };
         for path_obstacle in path_obstacles {
             match path_obstacle.shape {
-                types::path_obstacles::PathObstacleShape::Circle(circle) => {
+                PathObstacleShape::Circle(circle) => {
                     painter.circle_stroke(circle.center, circle.radius, path_obstacle_stroke)
                 }
-                types::path_obstacles::PathObstacleShape::LineSegment(line_segment) => {
+                PathObstacleShape::LineSegment(line_segment) => {
                     painter.line_segment(line_segment.0, line_segment.1, path_obstacle_stroke)
                 }
             }
