@@ -6,7 +6,7 @@ use std::{
 use eframe::{
     egui::{Painter, Response, Sense, Ui},
     emath::{Pos2, Rect},
-    epaint::{Color32, PathShape, Rounding, Shape, Stroke},
+    epaint::{Color32, PathShape, Shape, Stroke},
 };
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
@@ -15,6 +15,7 @@ use geometry::{arc::Arc, circle::Circle, direction::Direction};
 use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Vector2};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
+#[derive(Clone)]
 pub enum CoordinateSystem {
     RightHand,
     LeftHand,
@@ -43,7 +44,7 @@ impl<Frame> TwixPainter<Frame> {
             ui.allocate_painter(ui.available_size_before_wrap(), Sense::click_and_drag());
         let pixel_rect = response.rect;
         let world_to_pixel = Similarity2::new(
-            nalgebra::vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
+            nalgebra::vector![pixel_rect.left_top().x, -pixel_rect.left_top().y],
             0.0,
             1.0,
         );
@@ -73,7 +74,7 @@ impl<Frame> TwixPainter<Frame> {
     pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
         let painter = ui.painter_at(pixel_rect);
         let world_to_pixel = Similarity2::new(
-            nalgebra::vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
+            nalgebra::vector![pixel_rect.left_top().x, -pixel_rect.left_top().y],
             0.0,
             1.0,
         );
@@ -94,8 +95,10 @@ impl<Frame> TwixPainter<Frame> {
     ) -> Self {
         let width_scale = self.pixel_rect.width() / camera_dimensions.x();
         let height_scale = self.pixel_rect.height() / camera_dimensions.y();
-        let top_left =
-            nalgebra::vector![self.pixel_rect.left_top().x, self.pixel_rect.left_top().y];
+        let top_left = nalgebra::vector![
+            self.pixel_rect.left_top().x,
+            self.pixel_rect.left_top().y * camera_coordinate_system.y_scale()
+        ];
         let camera_to_pixel = Similarity2::new(top_left, 0.0, width_scale.min(height_scale));
         Self {
             painter: self.painter,
@@ -219,23 +222,17 @@ impl<Frame> TwixPainter<Frame> {
     }
 
     pub fn transform_world_to_pixel(&self, point: Point2<Frame>) -> Pos2 {
-        let normalized = self.world_to_pixel
-            * nalgebra::point![
-                point.x(),
-                point.y() * self.camera_coordinate_system.y_scale()
-            ];
+        let normalized = self.world_to_pixel * nalgebra::point![point.x(), point.y()];
         Pos2 {
             x: normalized.x,
-            y: normalized.y,
+            y: normalized.y * self.camera_coordinate_system.y_scale(),
         }
     }
 
     pub fn transform_pixel_to_world(&self, pos: Pos2) -> Point2<Frame> {
-        let world_point = self.world_to_pixel.inverse() * nalgebra::point![pos.x, pos.y];
-        point![
-            world_point.x,
-            world_point.y * self.camera_coordinate_system.y_scale()
-        ]
+        let world_point = self.world_to_pixel.inverse()
+            * nalgebra::point![pos.x, pos.y * self.camera_coordinate_system.y_scale()];
+        point![world_point.x, world_point.y]
     }
 
     fn transform_stroke(&self, stroke: Stroke) -> Stroke {
@@ -253,22 +250,39 @@ impl<Frame> TwixPainter<Frame> {
     }
 
     pub fn rect_filled(&self, min: Point2<Frame>, max: Point2<Frame>, fill_color: Color32) {
-        let rect = Rect {
-            min: self.transform_world_to_pixel(min),
-            max: self.transform_world_to_pixel(max),
-        };
-        self.painter
-            .rect_filled(sort_rect(rect), Rounding::ZERO, fill_color);
+        let right_bottom = point![max.x(), min.y()];
+        let left_top = point![min.x(), max.y()];
+
+        let points: Vec<_> = vec![
+            self.transform_world_to_pixel(min),
+            self.transform_world_to_pixel(right_bottom),
+            self.transform_world_to_pixel(max),
+            self.transform_world_to_pixel(left_top),
+        ];
+
+        self.painter.add(Shape::Path(PathShape::convex_polygon(
+            points,
+            fill_color,
+            Stroke::default(),
+        )));
     }
 
     pub fn rect_stroke(&self, min: Point2<Frame>, max: Point2<Frame>, stroke: Stroke) {
-        let rect = Rect {
-            min: self.transform_world_to_pixel(min),
-            max: self.transform_world_to_pixel(max),
-        };
-        let stroke = self.transform_stroke(stroke);
-        self.painter
-            .rect_stroke(sort_rect(rect), Rounding::ZERO, stroke);
+        let right_bottom = point![max.x(), min.y()];
+        let left_top = point![min.x(), max.y()];
+
+        let points: Vec<_> = vec![
+            self.transform_world_to_pixel(min),
+            self.transform_world_to_pixel(right_bottom),
+            self.transform_world_to_pixel(max),
+            self.transform_world_to_pixel(left_top),
+        ];
+
+        self.painter.add(Shape::Path(PathShape::convex_polygon(
+            points,
+            Color32::TRANSPARENT,
+            self.transform_stroke(stroke),
+        )));
     }
 
     pub fn circle(&self, center: Point2<Frame>, radius: f32, fill_color: Color32, stroke: Stroke) {
@@ -618,19 +632,5 @@ impl TwixPainter<Field> {
             Color32::WHITE,
             goal_post_stroke,
         );
-    }
-}
-
-fn sort_rect(rect: Rect) -> Rect {
-    let Rect { min, max } = rect;
-    Rect {
-        min: Pos2 {
-            x: min.x.min(max.x),
-            y: min.y.min(max.y),
-        },
-        max: Pos2 {
-            x: min.x.max(max.x),
-            y: min.y.max(max.y),
-        },
     }
 }
