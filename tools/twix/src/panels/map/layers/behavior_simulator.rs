@@ -77,12 +77,7 @@ impl Layer<Field> for BehaviorSimulator {
                 self.motion_command.0[player_number].parse_latest()
             {
                 let ground_painter = painter.transform_painter(ground_to_field.inverse());
-                ground_painter.path(
-                    path,
-                    TRANSPARENT_BLUE,
-                    TRANSPARENT_LIGHT_BLUE,
-                    0.025,
-                );
+                ground_painter.path(path, TRANSPARENT_BLUE, TRANSPARENT_LIGHT_BLUE, 0.025);
             }
 
             if let Ok(head_yaw) = self.head_yaw.0[player_number].parse_latest::<f32>() {
