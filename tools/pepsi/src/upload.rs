@@ -84,7 +84,7 @@ async fn upload_with_progress(
         progress.set_message("Restarting HULK...");
         nao.execute_systemctl(SystemctlAction::Start, "hulk")
             .await
-            .wrap_err_with(|| format!("failed to stop HULK service on {nao_address}"))?;
+            .wrap_err_with(|| format!("failed to start HULK service on {nao_address}"))?;
     }
     Ok(())
 }
