@@ -317,9 +317,10 @@ impl App for TwixApp {
             }
 
             if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::D)) {
-                let (_, tab) = self.dock_state.find_active_focused().unwrap();
-                let newtab = &tab.panel.save();
-                self.dock_state.push_to_focused_leaf(Tab::from(SelectablePanel::new(self.nao.clone(), Some(&newtab)).unwrap()));
+                if let Some((_, tab)) = self.dock_state.find_active_focused() {
+                    let new_tab = &tab.panel.save();
+                    self.dock_state.push_to_focused_leaf(Tab::from(SelectablePanel::new(self.nao.clone(), Some(&new_tab)).unwrap()));
+                }
             }
 
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
