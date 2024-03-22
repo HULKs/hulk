@@ -108,11 +108,11 @@ impl<From, To> core::convert::From<nalgebra::UnitQuaternion<f32>> for Isometry3<
 
 impl<From, To> UnitComplex<From, To> {
     pub fn new(angle: f32) -> Self {
-        UnitComplex::wrap(nalgebra::UnitComplex::new(angle))
+        Self::wrap(nalgebra::UnitComplex::new(angle))
     }
 
     pub fn from_vector(direction: Vector2<To>) -> Self {
-        UnitComplex::wrap(nalgebra::UnitComplex::rotation_between(
+        Self::wrap(nalgebra::UnitComplex::rotation_between(
             &nalgebra::Vector2::x_axis(),
             &direction.inner,
         ))
@@ -129,11 +129,10 @@ impl<From, To> UnitComplex<From, To> {
     pub fn as_orientation(&self) -> Orientation2<To> {
         Orientation2::wrap(self.inner)
     }
-
 }
 
 impl<Frame> UnitComplex<Frame, Frame> {
     pub fn rotation_between(a: Vector2<Frame>, b: Vector2<Frame>) -> Self {
-        UnitComplex::wrap(nalgebra::UnitComplex::rotation_between(&a.inner, &b.inner))
+        Self::wrap(nalgebra::UnitComplex::rotation_between(&a.inner, &b.inner))
     }
 }
