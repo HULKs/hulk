@@ -100,11 +100,11 @@ where
     }
 
     pub fn x_axis() -> Self {
-        Framed::wrap(*SVector::x_axis())
+        Self::wrap(*SVector::x_axis())
     }
 
     pub fn y_axis() -> Self {
-        Framed::wrap(*SVector::y_axis())
+        Self::wrap(*SVector::y_axis())
     }
 }
 
@@ -125,15 +125,15 @@ where
     }
 
     pub fn x_axis() -> Self {
-        Framed::wrap(*SVector::x_axis())
+        Self::wrap(*SVector::x_axis())
     }
 
     pub fn y_axis() -> Self {
-        Framed::wrap(*SVector::y_axis())
+        Self::wrap(*SVector::y_axis())
     }
 
     pub fn z_axis() -> Self {
-        Framed::wrap(*SVector::z_axis())
+        Self::wrap(*SVector::z_axis())
     }
 
     pub fn xy(&self) -> Vector2<Frame, Scalar> {
@@ -261,11 +261,11 @@ where
 
 impl<Frame> Pose<Frame> {
     pub fn new(translation: Vector2<Frame, f32>, angle: f32) -> Self {
-        Pose::wrap(nalgebra::Isometry2::new(translation.inner, angle))
+        Self::wrap(nalgebra::Isometry2::new(translation.inner, angle))
     }
 
     pub fn from_parts(position: Point2<Frame, f32>, orientation: Orientation2<Frame>) -> Self {
-        Pose::wrap(nalgebra::Isometry2::from_parts(
+        Self::wrap(nalgebra::Isometry2::from_parts(
             position.inner.into(),
             orientation.inner,
         ))
@@ -314,7 +314,7 @@ impl<Frame> Orientation2<Frame> {
     }
 
     pub fn from_vector(direction: Vector2<Frame>) -> Self {
-        Orientation2::wrap(nalgebra::UnitComplex::rotation_between(
+        Self::wrap(nalgebra::UnitComplex::rotation_between(
             &nalgebra::Vector2::x_axis(),
             &direction.inner,
         ))
