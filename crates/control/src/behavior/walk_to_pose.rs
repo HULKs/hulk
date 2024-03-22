@@ -1,7 +1,9 @@
+use std::f32::consts::PI;
+
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
-use linear_algebra::{point, Isometry2, Orientation2, Point, Point2, Pose};
+use linear_algebra::{point, Isometry2, Point, Point2, Pose, UnitComplex};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::ArmMotion,
@@ -211,10 +213,22 @@ pub fn hybrid_alignment(
     if distance_to_target >= hybrid_align_distance {
         return OrientationMode::AlignWithPath;
     }
-    let target_facing_rotation = Orientation2::from_vector(target_pose.position().coords());
 
     let t = ((distance_to_target - distance_to_be_aligned)
         / (hybrid_align_distance - distance_to_be_aligned))
         .clamp(0.0, 1.0);
-    OrientationMode::Override(target_pose.orientation().slerp(target_facing_rotation, t))
+
+    struct TargetOriention;
+    struct ClampedTargetOriention;
+
+    let target_orientation_to_ground = target_pose.orientation().as_transform::<TargetOriention>();
+    let ground_to_target_orientation = target_orientation_to_ground.inverse();
+    let angle = ground_to_target_orientation.angle();
+    let angle_limit = PI * t;
+    let clamped_angle = angle.clamp(-angle_limit, angle_limit);
+    let ground_to_clamped_target_orientation =
+        UnitComplex::<Ground, ClampedTargetOriention>::new(clamped_angle);
+    let clamped_target_orientation_to_ground = ground_to_clamped_target_orientation.inverse();
+    let orientation = clamped_target_orientation_to_ground.as_orientation();
+    OrientationMode::Override(orientation)
 }

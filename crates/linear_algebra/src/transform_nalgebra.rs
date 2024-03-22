@@ -125,6 +125,11 @@ impl<From, To> UnitComplex<From, To> {
     pub fn inverse(&self) -> UnitComplex<To, From> {
         Transform::<To, From, _>::wrap(self.inner.inverse())
     }
+
+    pub fn as_orientation(&self) -> Orientation2<To> {
+        Orientation2::wrap(self.inner)
+    }
+
 }
 
 impl<Frame> UnitComplex<Frame, Frame> {
