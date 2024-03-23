@@ -177,7 +177,7 @@ mod tests {
     use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
-    use linear_algebra::IntoTransform;
+    use linear_algebra::{IntoFramed, IntoTransform};
     use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
     use types::{
         camera_matrix::CameraMatrix,
@@ -204,7 +204,7 @@ mod tests {
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             vector![1.0, 1.0],
             nalgebra::point![0.5, 0.5],
-            image_size.map(|element| element as f32),
+            image_size.inner.coords.map(|element| element as f32).framed(),
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
                 translation: Translation::from(nalgebra::point![0.0, 0.0, 0.5]),

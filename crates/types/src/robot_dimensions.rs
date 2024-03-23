@@ -1,7 +1,7 @@
 use linear_algebra::{vector, Vector3};
 
 use coordinate_systems::{
-    LeftFoot, LeftForearm, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightFoot, RightForearm,
+    Head, LeftFoot, LeftForearm, LeftThigh, LeftTibia, LeftUpperArm, RightFoot, RightForearm,
     RightThigh, RightTibia, RightUpperArm, Robot,
 };
 
@@ -25,6 +25,6 @@ impl RobotDimensions {
     pub const RIGHT_SHOULDER_TO_RIGHT_ELBOW: Vector3<RightUpperArm> = vector![0.105, -0.015, 0.0];
     pub const LEFT_ELBOW_TO_LEFT_WRIST: Vector3<LeftForearm> = vector![0.05595, 0.0, 0.0];
     pub const RIGHT_ELBOW_TO_RIGHT_WRIST: Vector3<RightForearm> = vector![0.05595, 0.0, 0.0];
-    pub const NECK_TO_TOP_CAMERA: Vector3<Neck> = vector![0.05871, 0.0, 0.06364];
-    pub const NECK_TO_BOTTOM_CAMERA: Vector3<Neck> = vector![0.05071, 0.0, 0.01774];
+    pub const HEAD_TO_TOP_CAMERA: Vector3<Head> = vector![0.05871, 0.0, 0.06364];
+    pub const HEAD_TO_BOTTOM_CAMERA: Vector3<Head> = vector![0.05071, 0.0, 0.01774];
 }

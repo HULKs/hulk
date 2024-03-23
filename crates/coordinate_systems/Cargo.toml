@@ -11,3 +11,4 @@ homepage.workspace = true
 approx = { workspace = true }
 approx_derive = { workspace = true }
 serde = { workspace = true }
+serialize_hierarchy = { workspace = true }
