@@ -2,7 +2,7 @@ use nalgebra::{matrix, Matrix3};
 use thiserror::Error;
 
 use coordinate_systems::{Camera, Ground, Pixel, Robot};
-use linear_algebra::{point, vector, Point2, Point3, Vector2, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point2, Point3, Vector3};
 use types::camera_matrix::CameraMatrix;
 
 #[derive(Debug, Error)]
@@ -83,34 +83,20 @@ impl Projection for CameraMatrix {
         let ground_to_camera = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
 
         let bearing_in_ground = ground_to_camera.inverse() * bearing;
-        let camera = ground_to_camera.inverse().as_pose().position();
+        struct ElevatedGround;
+        let ground_to_elevated_ground =
+            Isometry3::<Ground, ElevatedGround>::from(vector![0., 0., -z]);
+        let camera = ground_to_elevated_ground * ground_to_camera.inverse().as_pose().position();
 
-        if bearing_in_ground.dot(camera.coords()) >= 0.0 {
+        let is_same_sign = bearing_in_ground.z() * camera.z() >= 0.0;
+        if is_same_sign {
             return Err(Error::NotOnProjectionPlane);
         }
 
-        // let camera_ray = self.pixel_to_camera(pixel_coordinates);
-        // let camera_to_elevated_ground = Isometry3::translation(0., 0., -z) * self.camera_to_ground;
-
-        // let camera_position = camera_to_elevated_ground * Point3::origin();
-        // let camera_ray_over_ground = camera_to_elevated_ground * camera_ray;
-
-        // if relative_eq!(camera_ray_over_ground.z, 0.0) {
-        //     return Err(Error::NotOnProjectionPlane);
-        // }
-
-        // let intersection_scalar = -camera_position.z / camera_ray_over_ground.z;
-
-        // if intersection_scalar < 0.0 {
-        //     return Err(Error::BehindCamera);
-        // }
-
-        // let intersection_point = camera_position + camera_ray_over_ground * intersection_scalar;
-
-        // Ok(intersection_point.xy())
-
         let camera_matrix = self.camera_matrix_for_z(z);
-        let inverse_camera_matrix = camera_matrix.try_inverse().ok_or(Error::NotInvertible)?;
+        let inverse_camera_matrix = camera_matrix
+            .try_inverse()
+            .expect("camera matrix must be invertible");
 
         let ground = inverse_camera_matrix * pixel_coordinates.inner.to_homogeneous();
 
@@ -155,13 +141,29 @@ impl Projection for CameraMatrix {
     ) -> Result<f32, Error> {
         let ground_coordinates =
             self.pixel_to_ground_with_z(pixel_coordinates, radius_in_ground_coordinates)?;
-        let ball_center = point![ground_coordinates.x(), ground_coordinates.y(), radius_in_ground_coordinates];
+        let ball_center = point![
+            ground_coordinates.x(),
+            ground_coordinates.y(),
+            radius_in_ground_coordinates
+        ];
 
         let camera_coordinates =
             self.head_to_camera * self.robot_to_head * self.ground_to_robot * ball_center;
 
-        let angle = f32::atan2(radius_in_ground_coordinates, camera_coordinates.coords().norm());
+        let angle = f32::atan2(
+            radius_in_ground_coordinates,
+            camera_coordinates.coords().norm(),
+        );
 
         Ok(self.image_size.y() as f32 * angle / self.field_of_view.y)
+    }
+
+    fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
+        // TODO: test case for this
+        vector![
+            (pixel_coordinates.x() - self.optical_center.x()) / self.focal_length.x,
+            (pixel_coordinates.y() - self.optical_center.y()) / self.focal_length.y,
+            1.0,
+        ]
     }
 }
