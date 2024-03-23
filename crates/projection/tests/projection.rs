@@ -31,6 +31,20 @@ fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3
 }
 
 #[test]
+fn bearing_projects_back_to_pixel() {
+    let camera_matrix = from_normalized_focal_and_center_short(
+        nalgebra::vector![2.0, 2.0],
+        nalgebra::point![1.0, 1.0],
+        vector![640, 480],
+    );
+
+    let pixel = point![32.0, 42.0];
+    let bearing = camera_matrix.bearing(pixel);
+
+    assert_relative_eq!(camera_matrix.camera_to_pixel(bearing).unwrap(), pixel);
+}
+
+#[test]
 fn camera_to_pixel_default_center() {
     let camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
