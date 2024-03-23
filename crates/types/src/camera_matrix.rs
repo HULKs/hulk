@@ -86,6 +86,8 @@ impl CameraMatrix {
             0.0, 0.0, 1.0, 0.0;
         ];
 
+        let horizon = Horizon::from_parameters(ground_to_camera.inverse(), intrinsics);
+
         Self {
             intrinsics,
             focal_length: focal_length_scaled,
