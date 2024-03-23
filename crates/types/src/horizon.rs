@@ -1,95 +1,47 @@
-use approx::{AbsDiffEq, RelativeEq};
-use coordinate_systems::{Ground, Pixel};
-use linear_algebra::{Point2, Transform};
-use nalgebra::{Isometry3, Vector2};
+use coordinate_systems::{Camera, Ground, Pixel};
+use linear_algebra::{point, vector, Isometry3, Point2, Vector2, Vector3};
+use nalgebra::Matrix3x4;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Horizon {
-    pub left_horizon_y: f32,
-    pub right_horizon_y: f32,
+    pub point_on_horizon: Point2<Pixel>,
+    pub horizon_normal: Vector2<Pixel>,
 }
 
 impl Horizon {
     pub fn horizon_y_minimum(&self) -> f32 {
-        self.left_horizon_y.min(self.right_horizon_y)
+        self.y_at_x(0.0).min(self.y_at_x(640.0))
     }
 
-    pub fn y_at_x(&self, x: f32, image_width: f32) -> f32 {
-        self.left_horizon_y + x / image_width * (self.right_horizon_y - self.left_horizon_y)
+    pub fn y_at_x(&self, x: f32) -> f32 {
+        let normal = self.horizon_normal;
+        let point = self.point_on_horizon;
+
+        -normal.x() * (x - point.x()) / normal.y() + point.y()
     }
 
-    pub fn from_parameters<Camera>(
-        camera_to_ground: Transform<Camera, Ground, Isometry3<f32>>,
-        focal_length: Vector2<f32>,
-        optical_center: Point2<Pixel>,
-        image_width: f32,
+    pub fn from_parameters(
+        camera_to_ground: Isometry3<Camera, Ground>,
+        intrinsics: Matrix3x4<f32>,
     ) -> Self {
-        let rotation_matrix = camera_to_ground.inner.rotation.to_rotation_matrix();
-        let horizon_slope_is_infinite = rotation_matrix[(2, 2)] == 0.0;
+        let horizon_normal = Vector3::z_axis();
+        let horizon_normal_camera = camera_to_ground.inverse() * horizon_normal;
+        let horizon_normal_camera: Vector3<Pixel> =
+            vector![horizon_normal_camera.x(), horizon_normal_camera.y(), 0.0].normalize();
+        let horizon_normal_image = intrinsics * horizon_normal_camera.inner.to_homogeneous();
 
-        if horizon_slope_is_infinite {
-            Self {
-                left_horizon_y: 0.0,
-                right_horizon_y: 0.0,
-            }
-        } else {
-            let left_horizon_y = optical_center.y()
-                + focal_length.y
-                    * (rotation_matrix[(2, 0)]
-                        + optical_center.x() * rotation_matrix[(2, 1)] / focal_length.x)
-                    / rotation_matrix[(2, 2)];
-            let slope = -focal_length.y * rotation_matrix[(2, 1)]
-                / (focal_length.x * rotation_matrix[(2, 2)]);
+        let camera_front = Vector3::z_axis();
+        let ground_front = camera_to_ground * camera_front;
+        let ground_front = vector![ground_front.x(), ground_front.y(), 0.0].normalize();
 
-            // Guesses if image size is in "normalized" (1.0 x 1.0) dimensions
-            let adjusted_image_width = if image_width <= 1.0 {
-                image_width
-            } else {
-                image_width - 1.0
-            };
-            let right_horizon_y = left_horizon_y + (slope * adjusted_image_width);
+        let horizon_point_camera = camera_to_ground.inverse() * ground_front;
+        let horizon_point_image = intrinsics * horizon_point_camera.inner.to_homogeneous();
 
-            Self {
-                left_horizon_y,
-                right_horizon_y,
-            }
+        Self {
+            point_on_horizon: point![horizon_point_image.x, horizon_point_image.y],
+            horizon_normal: vector![horizon_normal_image.x, horizon_normal_image.y],
         }
-    }
-}
-
-impl AbsDiffEq for Horizon {
-    type Epsilon = f32;
-
-    fn default_epsilon() -> Self::Epsilon {
-        Self::Epsilon::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        self.left_horizon_y
-            .abs_diff_eq(&other.left_horizon_y, epsilon)
-            && self
-                .right_horizon_y
-                .abs_diff_eq(&other.right_horizon_y, epsilon)
-    }
-}
-
-impl RelativeEq for Horizon {
-    fn default_max_relative() -> Self::Epsilon {
-        Self::Epsilon::default_max_relative()
-    }
-
-    fn relative_eq(
-        &self,
-        other: &Self,
-        epsilon: Self::Epsilon,
-        max_relative: Self::Epsilon,
-    ) -> bool {
-        self.left_horizon_y
-            .relative_eq(&other.left_horizon_y, epsilon, max_relative)
-            && self
-                .right_horizon_y
-                .relative_eq(&other.right_horizon_y, epsilon, max_relative)
     }
 }
