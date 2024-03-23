@@ -4,12 +4,8 @@ use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
-use geometry::circle::Circle;
 use linear_algebra::point;
-use types::{
-    ball::{Ball, CandidateEvaluation},
-    horizon,
-};
+use types::horizon;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
