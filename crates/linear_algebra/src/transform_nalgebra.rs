@@ -126,6 +126,10 @@ impl<From, To> UnitComplex<From, To> {
         Transform::<To, From, _>::wrap(self.inner.inverse())
     }
 
+    pub fn clamp_angle<To2>(&self, min: f32, max: f32) -> UnitComplex<From, To2> {
+        UnitComplex::new(self.angle().clamp(min, max))
+    }
+
     pub fn as_orientation(&self) -> Orientation2<To> {
         Orientation2::wrap(self.inner)
     }

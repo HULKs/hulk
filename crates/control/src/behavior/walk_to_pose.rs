@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
-use linear_algebra::{point, Isometry2, Point, Point2, Pose, UnitComplex};
+use linear_algebra::{point, Isometry2, Orientation2, Point, Point2, Pose};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::ArmMotion,
@@ -214,21 +214,94 @@ pub fn hybrid_alignment(
         return OrientationMode::AlignWithPath;
     }
 
-    let t = ((distance_to_target - distance_to_be_aligned)
+    let angle_limit = ((distance_to_target - distance_to_be_aligned)
         / (hybrid_align_distance - distance_to_be_aligned))
-        .clamp(0.0, 1.0);
+        .clamp(0.0, 1.0) * PI;
 
-    struct TargetOriention;
-    struct ClampedTargetOriention;
+    let orientation = clamp_around(
+        Orientation2::identity(),
+        target_pose.orientation(),
+        angle_limit,
+    );
 
-    let target_orientation_to_ground = target_pose.orientation().as_transform::<TargetOriention>();
-    let ground_to_target_orientation = target_orientation_to_ground.inverse();
-    let angle = ground_to_target_orientation.angle();
-    let angle_limit = PI * t;
-    let clamped_angle = angle.clamp(-angle_limit, angle_limit);
-    let ground_to_clamped_target_orientation =
-        UnitComplex::<Ground, ClampedTargetOriention>::new(clamped_angle);
-    let clamped_target_orientation_to_ground = ground_to_clamped_target_orientation.inverse();
-    let orientation = clamped_target_orientation_to_ground.as_orientation();
     OrientationMode::Override(orientation)
+}
+
+pub fn clamp_around(
+    input: Orientation2<Ground>,
+    center: Orientation2<Ground>,
+    angle_limit: f32,
+) -> Orientation2<Ground> {
+    let center_to_input = center.rotation_to(input);
+    let clamped = center_to_input.clamp_angle::<Ground>(-angle_limit, angle_limit);
+
+    clamped * center
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::f32::consts::{FRAC_PI_2, PI};
+
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn clamp_noop_when_less_than_limit_around_center() {
+        let testcases = [
+            (0.0, 0.0),
+            (0.0, PI),
+            (1.0, FRAC_PI_2),
+            (-1.0, FRAC_PI_2),
+            (FRAC_PI_2, FRAC_PI_2),
+            (-FRAC_PI_2, FRAC_PI_2),
+        ];
+
+        for (input, angle_limit) in testcases {
+            let input = Orientation2::new(input);
+            let center = Orientation2::new(0.0);
+            assert_relative_eq!(clamp_around(input, center, angle_limit), input);
+        }
+    }
+
+    #[test]
+    fn clamp_clamps_to_limit_around_center() {
+        let testcases = [
+            (0.0, 0.0),
+            (PI, PI),
+            (2.0, FRAC_PI_2),
+            (-2.0, FRAC_PI_2),
+            (FRAC_PI_2, FRAC_PI_2),
+            (-FRAC_PI_2, FRAC_PI_2),
+            (PI, FRAC_PI_2),
+            (-PI, FRAC_PI_2),
+        ];
+
+        for (input, angle_limit) in testcases {
+            let input = Orientation2::new(input);
+            let center = Orientation2::new(0.0);
+            assert_relative_eq!(
+                clamp_around(input, center, angle_limit).angle().abs(),
+                angle_limit
+            );
+        }
+    }
+
+    #[test]
+    fn clamped_always_closer_than_limit() {
+        let angles = [0.0, PI, -PI, FRAC_PI_2, -FRAC_PI_2, 1.0, -1.0, 2.0, -2.0];
+
+        for input in angles {
+            for center in angles {
+                for angle_limit in angles {
+                    let angle_limit = angle_limit.abs();
+                    let input = Orientation2::new(input);
+                    let center = Orientation2::new(center);
+                    let output = clamp_around(input, center, angle_limit);
+
+                    assert!(center.rotation_to(output).angle().abs() <= angle_limit);
+                }
+            }
+        }
+    }
 }
