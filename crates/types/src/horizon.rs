@@ -1,8 +1,7 @@
 use approx::{AbsDiffEq, RelativeEq};
-use coordinate_systems::Camera;
-use coordinate_systems::Ground;
-use linear_algebra::Transform;
-use nalgebra::{Isometry3, Point2, Vector2};
+use coordinate_systems::{Ground, Pixel};
+use linear_algebra::{Point2, Transform};
+use nalgebra::{Isometry3, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -21,10 +20,10 @@ impl Horizon {
         self.left_horizon_y + x / image_width * (self.right_horizon_y - self.left_horizon_y)
     }
 
-    pub fn from_parameters(
+    pub fn from_parameters<Camera>(
         camera_to_ground: Transform<Camera, Ground, Isometry3<f32>>,
         focal_length: Vector2<f32>,
-        optical_center: Point2<f32>,
+        optical_center: Point2<Pixel>,
         image_width: f32,
     ) -> Self {
         let rotation_matrix = camera_to_ground.inner.rotation.to_rotation_matrix();
@@ -36,10 +35,10 @@ impl Horizon {
                 right_horizon_y: 0.0,
             }
         } else {
-            let left_horizon_y = optical_center.y
+            let left_horizon_y = optical_center.y()
                 + focal_length.y
                     * (rotation_matrix[(2, 0)]
-                        + optical_center.x * rotation_matrix[(2, 1)] / focal_length.x)
+                        + optical_center.x() * rotation_matrix[(2, 1)] / focal_length.x)
                     / rotation_matrix[(2, 2)];
             let slope = -focal_length.y * rotation_matrix[(2, 1)]
                 / (focal_length.x * rotation_matrix[(2, 2)]);

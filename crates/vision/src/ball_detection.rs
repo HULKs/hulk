@@ -493,7 +493,7 @@ mod tests {
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             focal_length,
             optical_center,
-            point![image.width() as f32, image.height() as f32],
+            vector![image.width() as f32, image.height() as f32],
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0),
                 translation: Translation::from(nalgebra::point![0.0, 0.0, 0.75]),

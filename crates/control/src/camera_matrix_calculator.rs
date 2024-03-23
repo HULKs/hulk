@@ -1,16 +1,17 @@
+use std::f32::consts::FRAC_PI_2;
+
 use color_eyre::Result;
-use nalgebra::{Rotation3, UnitQuaternion};
+use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::line::{Line, Line2};
-use linear_algebra::{point, IntoTransform, Isometry3};
+use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector3};
 use projection::Projection;
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},
-    camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
     parameters::CameraMatrixParameters,
     robot_dimensions::RobotDimensions,
@@ -35,10 +36,6 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
-
-    correction_in_camera_top: CyclerState<Rotation3<f32>, "correction_in_camera_top">,
-    correction_in_camera_bottom: CyclerState<Rotation3<f32>, "correction_in_camera_bottom">,
-    correction_in_robot: CyclerState<Rotation3<f32>, "correction_in_robot">,
 }
 
 #[context]
@@ -53,31 +50,39 @@ impl CameraMatrixCalculator {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let image_size = point![640.0, 480.0];
-        let top_camera_to_head = camera_to_head(
-            CameraPosition::Top,
+        let image_size = vector![640.0, 480.0];
+        let head_to_top_camera = head_to_camera(
             context.top_camera_matrix_parameters.extrinsic_rotations,
+            context
+                .top_camera_matrix_parameters
+                .camera_pitch
+                .to_radians(),
+            RobotDimensions::HEAD_TO_TOP_CAMERA,
         );
         let top_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             context.top_camera_matrix_parameters.focal_lengths,
             context.top_camera_matrix_parameters.cc_optical_center,
             image_size,
-            top_camera_to_head,
-            context.robot_kinematics.head_to_robot,
-            *context.robot_to_ground,
+            context.robot_to_ground.inverse(),
+            context.robot_kinematics.head_to_robot.inverse(),
+            head_to_top_camera,
         );
 
-        let bottom_camera_to_head = camera_to_head(
-            CameraPosition::Bottom,
+        let head_to_bottom_camera = head_to_camera(
             context.bottom_camera_matrix_parameters.extrinsic_rotations,
+            context
+                .bottom_camera_matrix_parameters
+                .camera_pitch
+                .to_radians(),
+            RobotDimensions::HEAD_TO_TOP_CAMERA,
         );
         let bottom_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             context.bottom_camera_matrix_parameters.focal_lengths,
             context.bottom_camera_matrix_parameters.cc_optical_center,
             image_size,
-            bottom_camera_to_head,
-            context.robot_kinematics.head_to_robot,
-            *context.robot_to_ground,
+            context.robot_to_ground.inverse(),
+            context.robot_kinematics.head_to_robot.inverse(),
+            head_to_bottom_camera,
         );
 
         let field_dimensions = context.field_dimensions;
@@ -91,42 +96,12 @@ impl CameraMatrixCalculator {
             });
         Ok(MainOutputs {
             camera_matrices: Some(CameraMatrices {
-                top: top_camera_matrix.to_corrected(
-                    *context.correction_in_robot,
-                    *context.correction_in_camera_top,
-                ),
-                bottom: bottom_camera_matrix.to_corrected(
-                    *context.correction_in_robot,
-                    *context.correction_in_camera_bottom,
-                ),
+                top: top_camera_matrix,
+                bottom: bottom_camera_matrix,
             })
             .into(),
         })
     }
-}
-
-pub fn camera_to_head(
-    camera_position: CameraPosition,
-    extrinsic_rotation: nalgebra::Vector3<f32>,
-) -> Isometry3<Camera, Head> {
-    let extrinsic_angles_in_radians = extrinsic_rotation.map(|degree: f32| degree.to_radians());
-    let extrinsic_rotation = UnitQuaternion::from_euler_angles(
-        extrinsic_angles_in_radians.x,
-        extrinsic_angles_in_radians.y,
-        extrinsic_angles_in_radians.z,
-    );
-    let neck_to_camera = match camera_position {
-        CameraPosition::Top => RobotDimensions::NECK_TO_TOP_CAMERA,
-        CameraPosition::Bottom => RobotDimensions::NECK_TO_BOTTOM_CAMERA,
-    };
-    let camera_pitch = match camera_position {
-        CameraPosition::Top => 1.2f32.to_radians(),
-        CameraPosition::Bottom => 39.7f32.to_radians(),
-    };
-    (nalgebra::Isometry3::from(neck_to_camera.inner)
-        * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * camera_pitch)
-        * extrinsic_rotation)
-        .framed_transform()
 }
 
 fn project_penalty_area_on_images(
@@ -170,4 +145,24 @@ fn project_penalty_area_on_images(
         Line(penalty_bottom_right, penalty_top_right),
         Line(corner_left, corner_right),
     ])
+}
+
+fn head_to_camera(
+    extrinsic_rotation: nalgebra::Vector3<f32>,
+    camera_pitch: f32,
+    head_to_camera: Vector3<Head>,
+) -> Isometry3<Head, Camera> {
+    let extrinsic_angles_in_radians = extrinsic_rotation.map(|degree: f32| degree.to_radians());
+    let extrinsic_rotation = UnitQuaternion::from_euler_angles(
+        extrinsic_angles_in_radians.x,
+        extrinsic_angles_in_radians.y,
+        extrinsic_angles_in_radians.z,
+    );
+
+    (extrinsic_rotation
+        * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
+        * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * -FRAC_PI_2)
+        * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
+        * nalgebra::Isometry3::from(-head_to_camera.inner))
+    .framed_transform()
 }

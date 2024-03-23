@@ -1,12 +1,10 @@
 use geometry::line::Line2;
-use nalgebra::{matrix, Matrix, Rotation3};
+use nalgebra::matrix;
 use std::ops::Index;
-
-use approx_derive::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
-use linear_algebra::{IntoTransform, Isometry3, Point2};
+use linear_algebra::{IntoFramed, Isometry3, Point2, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{camera_position::CameraPosition, horizon::Horizon};
@@ -17,29 +15,11 @@ pub struct CameraMatrices {
     pub bottom: CameraMatrix,
 }
 
-impl CameraMatrices {
-    pub fn to_corrected(
-        &self,
-        correction_in_robot: nalgebra::Rotation3<f32>,
-        correction_in_camera_top: nalgebra::Rotation3<f32>,
-        correction_in_camera_bottom: nalgebra::Rotation3<f32>,
-    ) -> Self {
-        Self {
-            top: self
-                .top
-                .to_corrected(correction_in_robot, correction_in_camera_top),
-            bottom: self
-                .bottom
-                .to_corrected(correction_in_robot, correction_in_camera_bottom),
-        }
-    }
-}
-
 impl Index<CameraPosition> for CameraMatrices {
     type Output = CameraMatrix;
 
-    fn index(&self, position: CameraPosition) -> &Self::Output {
-        match position {
+    fn index(&self, index: CameraPosition) -> &Self::Output {
+        match index {
             CameraPosition::Top => &self.top,
             CameraPosition::Bottom => &self.bottom,
         }
@@ -47,19 +27,16 @@ impl Index<CameraPosition> for CameraMatrices {
 }
 
 #[derive(
-    Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq,
+    Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy
 )]
-#[abs_diff_eq(epsilon = "f32")]
+#[serialize_hierarchy(bound = "Camera: SerializeHierarchy + Serialize, for<'de> Camera: Deserialize<'de>")]
 pub struct CameraMatrix {
-    pub camera_to_head: Isometry3<Camera, Head>,
-    pub camera_to_ground: Isometry3<Camera, Ground>,
-    pub ground_to_camera: Isometry3<Ground, Camera>,
-    pub intrinsic_camera_to_pixel: nalgebra::Matrix3<f32>,
-    pub intrinsic_pixel_to_camera: nalgebra::Matrix3<f32>,
-    pub camera_to_robot: Isometry3<Camera, Robot>,
-    pub robot_to_camera: Isometry3<Robot, Camera>,
+    pub ground_to_robot: Isometry3<Ground, Robot>,
+    pub robot_to_head: Isometry3<Robot, Head>,
+    pub head_to_camera: Isometry3<Head, Camera>,
+    pub intrinsics: nalgebra::Matrix3x4<f32>,
     pub focal_length: nalgebra::Vector2<f32>,
-    pub optical_center: nalgebra::Point2<f32>,
+    pub optical_center: Point2<Pixel>,
     pub field_of_view: nalgebra::Vector2<f32>,
     pub horizon: Horizon,
 }
@@ -67,15 +44,12 @@ pub struct CameraMatrix {
 impl Default for CameraMatrix {
     fn default() -> Self {
         Self {
-            camera_to_head: Isometry3::identity(),
-            camera_to_ground: Isometry3::identity(),
-            intrinsic_camera_to_pixel: nalgebra::Matrix3::identity(),
-            intrinsic_pixel_to_camera: nalgebra::Matrix3::identity(),
-            ground_to_camera: Isometry3::identity(),
-            camera_to_robot: Isometry3::identity(),
-            robot_to_camera: Isometry3::identity(),
+            intrinsics: nalgebra::Matrix3x4::identity(),
+            ground_to_robot: Isometry3::identity(),
+            robot_to_head: Isometry3::identity(),
+            head_to_camera: Isometry3::identity(),
             focal_length: Default::default(),
-            optical_center: nalgebra::Point2::origin(),
+            optical_center: Point2::origin(),
             field_of_view: Default::default(),
             horizon: Default::default(),
         }
@@ -87,107 +61,53 @@ impl CameraMatrix {
     pub fn from_normalized_focal_and_center(
         focal_length: nalgebra::Vector2<f32>,
         optical_center: nalgebra::Point2<f32>,
-        image_size: Point2<Pixel, f32>,
-        camera_to_head: Isometry3<Camera, Head>,
-        head_to_robot: Isometry3<Head, Robot>,
-        robot_to_ground: Isometry3<Robot, Ground>,
+        image_size: Vector2<Pixel>,
+        ground_to_robot: Isometry3<Ground, Robot>,
+        robot_to_head: Isometry3<Robot, Head>,
+        head_to_camera: Isometry3<Head, Camera>,
     ) -> Self {
-        let camera_to_robot = head_to_robot * camera_to_head;
-        let camera_to_ground = robot_to_ground * camera_to_robot;
+        let focal_length_scaled = focal_length.component_mul(&image_size.inner);
+        let optical_center_scaled = optical_center.coords.component_mul(&image_size.inner).framed().as_point();
 
-        let image_size_diagonal = Matrix::from_diagonal(&image_size.coords().inner);
-        let focal_length_scaled = image_size_diagonal * focal_length;
-        let optical_center_scaled = image_size_diagonal * optical_center;
+        let field_of_view = Self::calculate_field_of_view(focal_length_scaled, image_size);
 
-        let field_of_view = CameraMatrix::calculate_field_of_view(focal_length_scaled, image_size);
+        let ground_to_camera = head_to_camera * robot_to_head * ground_to_robot; 
 
         let horizon = Horizon::from_parameters(
-            camera_to_ground,
+            ground_to_camera.inverse(),
             focal_length_scaled,
             optical_center_scaled,
             image_size.x(),
         );
 
-        let intrinsic_camera_to_pixel = matrix![
-            optical_center_scaled.x, -focal_length_scaled.x, 0.0;
-            optical_center_scaled.y, 0.0, -focal_length_scaled.y;
-            1.0, 0.0, 0.0;
+        let intrinsics = matrix![
+            focal_length_scaled.x, 0.0, optical_center_scaled.x(), 0.0;
+            0.0, focal_length_scaled.y, optical_center_scaled.y(), 0.0;
+            0.0, 0.0, 1.0, 0.0;
         ];
 
-        let intrinsic_pixel_to_camera = intrinsic_camera_to_pixel
-            .try_inverse()
-            .expect("failed to invert intrinsic camera matrix");
-
         Self {
-            camera_to_head,
-            camera_to_ground,
-            intrinsic_camera_to_pixel,
-            intrinsic_pixel_to_camera,
-            ground_to_camera: camera_to_ground.inverse(),
-            camera_to_robot,
-            robot_to_camera: camera_to_robot.inverse(),
+            intrinsics,
             focal_length: focal_length_scaled,
             optical_center: optical_center_scaled,
             field_of_view,
             horizon,
+            ground_to_robot,
+            robot_to_head,
+            head_to_camera,
         }
     }
 
     pub fn calculate_field_of_view(
         focal_lengths: nalgebra::Vector2<f32>,
-        image_size: Point2<Pixel, f32>,
+        image_size: Vector2<Pixel>,
     ) -> nalgebra::Vector2<f32> {
         // Ref:  https://www.edmundoptics.eu/knowledge-center/application-notes/imaging/understanding-focal-length-and-field-of-view/
         image_size
-            .coords()
             .inner
             .zip_map(&focal_lengths, |image_dim, focal_length| -> f32 {
                 2.0 * (image_dim * 0.5 / focal_length).atan()
             })
-    }
-
-    pub fn to_corrected(
-        &self,
-        correction_in_robot: Rotation3<f32>,
-        correction_in_camera: Rotation3<f32>,
-    ) -> Self {
-        let camera_to_head = self.camera_to_head;
-        let robot_to_head = self.camera_to_head * self.robot_to_camera;
-        let head_to_robot = robot_to_head.inverse();
-        let ground_to_robot = self.camera_to_robot * self.ground_to_camera;
-        let robot_to_ground = ground_to_robot.inverse();
-
-        let corrected_camera_to_head = camera_to_head
-            * nalgebra::Isometry3::from_parts(
-                Default::default(),
-                correction_in_camera.inverse().into(),
-            )
-            .framed_transform();
-        let head_to_corrected_camera = corrected_camera_to_head.inverse();
-        let head_to_corrected_robot = nalgebra::Isometry3::from_parts(
-            Default::default(),
-            correction_in_robot.inverse().into(),
-        )
-        .framed_transform()
-            * head_to_robot;
-        let corrected_robot_to_head = head_to_corrected_robot.inverse();
-
-        let camera_to_robot = head_to_corrected_robot * corrected_camera_to_head;
-        let robot_to_camera = head_to_corrected_camera * corrected_robot_to_head;
-
-        CameraMatrix {
-            camera_to_head: corrected_camera_to_head,
-            camera_to_ground: robot_to_ground * camera_to_robot,
-            intrinsic_camera_to_pixel: self.intrinsic_camera_to_pixel,
-            intrinsic_pixel_to_camera: self.intrinsic_pixel_to_camera,
-            ground_to_camera: robot_to_camera * ground_to_robot,
-            camera_to_robot,
-            robot_to_camera,
-            focal_length: self.focal_length,
-            optical_center: self.optical_center,
-            field_of_view: self.field_of_view,
-            horizon: self.horizon,
-        }
     }
 }
 
@@ -195,7 +115,7 @@ impl CameraMatrix {
 mod tests {
     use approx::assert_relative_eq;
     use linear_algebra::IntoFramed;
-    use nalgebra::{point, vector, Isometry3, Translation3, Vector2};
+    use nalgebra::{vector, Vector2};
 
     use super::*;
 
@@ -207,11 +127,10 @@ mod tests {
         }
 
         let focals = vector![0.63, 1.34];
-        let image_size = point![1.0, 1.0];
+        let image_size = vector![1.0, 1.0];
+        let image_size_abs = vector![640.0, 480.0];
 
-        let image_size_abs = point![640.0, 480.0];
         let focals_scaled = image_size_abs
-            .coords
             .zip_map(&focals, |dim, focal| dim * focal);
 
         assert_relative_eq!(
@@ -223,34 +142,6 @@ mod tests {
             old_fov(focals),
             CameraMatrix::calculate_field_of_view(focals_scaled, image_size_abs.framed())
         );
-    }
-
-    #[test]
-    fn zero_corrections_result_in_identity() {
-        let original = CameraMatrix::from_normalized_focal_and_center(
-            vector![0.42, 0.1337],
-            point![0.42, 0.1337],
-            point![640.0, 480.0].framed(),
-            Isometry3::from_parts(
-                Translation3::new(0.42, 0.1337, 0.17),
-                Rotation3::from_euler_angles(0.42, 0.1337, 0.17).into(),
-            )
-            .framed_transform(),
-            Isometry3::from_parts(
-                Translation3::new(0.42, 0.1337, 0.17),
-                Rotation3::from_euler_angles(0.42, 0.1337, 0.17).into(),
-            )
-            .framed_transform(),
-            Isometry3::from_parts(
-                Translation3::new(0.42, 0.1337, 0.17),
-                Rotation3::from_euler_angles(0.42, 0.1337, 0.17).into(),
-            )
-            .framed_transform(),
-        );
-
-        let corrected = original.to_corrected(Rotation3::default(), Rotation3::default());
-
-        assert_relative_eq!(original, corrected, epsilon = 0.001);
     }
 }
 
