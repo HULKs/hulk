@@ -197,8 +197,8 @@ fn look_at_with_camera(
     let yaw_offset = f32::atan2(offset_in_image.x(), focal_length.x);
     let pitch_offset = f32::atan2(offset_in_image.y(), focal_length.y);
 
-    let yaw = f32::atan2(target_in_camera.y(), target_in_camera.x()) + yaw_offset;
-    let pitch = -f32::atan2(target_in_camera.z(), target_in_camera.x()) - pitch_offset;
+    let yaw = f32::atan2(-target_in_camera.x(), target_in_camera.z()) + yaw_offset;
+    let pitch = -f32::atan2(-target_in_camera.y(), target_in_camera.z()) - pitch_offset;
 
     HeadJoints { yaw, pitch }
 }
