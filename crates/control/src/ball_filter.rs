@@ -9,7 +9,7 @@ use coordinate_systems::{Ground, Pixel};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
-use linear_algebra::{point, Point2};
+use linear_algebra::Point2;
 use projection::Projection;
 use types::{
     ball::Ball,
@@ -413,7 +413,7 @@ fn project_to_image(
                 .ground_with_z_to_pixel(ball_position.position, ball_radius)
                 .ok()?;
             let radius = camera_matrix
-                .get_pixel_radius(ball_radius, position_in_image, point![640, 480])
+                .get_pixel_radius(ball_radius, position_in_image)
                 .ok()?;
             Some(Circle {
                 center: position_in_image,
