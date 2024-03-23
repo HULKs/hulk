@@ -9,7 +9,10 @@ use serde_json::{json, Value};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-use super::overlays::{BallDetection, FeetDetection, Horizon, LimbProjector, LineDetection, PenaltyBoxes};
+use super::overlays::{
+    BallDetection, FeetDetection, Horizon, LimbProjector, LineDetection, PenaltyBoxes,
+    PerspectiveGrid,
+};
 
 pub trait Overlay {
     const NAME: &'static str;
@@ -84,6 +87,7 @@ pub struct Overlays {
     pub penalty_boxes: EnabledOverlay<PenaltyBoxes>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
+    pub perspective_grid: EnabledOverlay<PerspectiveGrid>,
 }
 
 impl Overlays {
@@ -94,6 +98,8 @@ impl Overlays {
         let penalty_boxes = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let feet_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let limb_projector = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
+        let perspective_grid = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
+
         Self {
             line_detection,
             ball_detection,
@@ -101,6 +107,7 @@ impl Overlays {
             penalty_boxes,
             feet_detection,
             limb_projector,
+            perspective_grid,
         }
     }
 
@@ -111,6 +118,7 @@ impl Overlays {
         self.penalty_boxes.update_cycler(selected_cycler);
         self.feet_detection.update_cycler(selected_cycler);
         self.limb_projector.update_cycler(selected_cycler);
+        self.perspective_grid.update_cycler(selected_cycler);
     }
 
     pub fn combo_box(&mut self, ui: &mut Ui, selected_cycler: Cycler) {
@@ -121,6 +129,7 @@ impl Overlays {
             self.penalty_boxes.checkbox(ui, selected_cycler);
             self.feet_detection.checkbox(ui, selected_cycler);
             self.limb_projector.checkbox(ui, selected_cycler);
+            self.perspective_grid.checkbox(ui, selected_cycler);
         });
     }
 
@@ -131,6 +140,7 @@ impl Overlays {
         let _ = self.penalty_boxes.paint(painter);
         let _ = self.feet_detection.paint(painter);
         let _ = self.limb_projector.paint(painter);
+        let _ = self.perspective_grid.paint(painter);
         Ok(())
     }
 
@@ -142,6 +152,7 @@ impl Overlays {
             "penalty_boxes": self.penalty_boxes.save(),
             "feet_detection": self.feet_detection.save(),
             "limb_projector": self.line_detection.save(),
+            "perspective_grid": self.perspective_grid.save(),
         })
     }
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::Pixel;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use geometry::circle::Circle;
 use linear_algebra::{point, vector, Point2, Vector2};
 use projection::Projection;
@@ -14,15 +14,9 @@ use types::{
     filtered_segments::FilteredSegments,
     image_segments::{ScanLine, Segment},
     line_data::LineData,
-    perspective_grid_candidates::PerspectiveGridCandidates,
+    perspective_grid_candidates::{PerspectiveGridCandidates, Row},
     ycbcr422_image::YCbCr422Image,
 };
-
-#[derive(Clone, Copy, Debug)]
-struct Row {
-    circle_radius: f32,
-    center_y: f32,
-}
 
 #[derive(Deserialize, Serialize)]
 pub struct PerspectiveGridCandidatesProvider {}
@@ -38,10 +32,11 @@ pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
 
     ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
-    fallback_radius:
-        Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.fallback_radius">,
     minimum_radius:
         Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
+
+    rows: AdditionalOutput<Vec<Row>, "rows">,
+    horizon_center_y: AdditionalOutput<f32, "horizon_center_y">,
 }
 
 #[context]
@@ -55,19 +50,27 @@ impl PerspectiveGridCandidatesProvider {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let vertical_scanlines = &context.filtered_segments.scan_grid.vertical_scan_lines;
         let skip_segments = &context.line_data.used_segments;
         let image_size = vector![context.image.width(), context.image.height()];
+
+        context.horizon_center_y.fill_if_subscribed(|| {
+            context
+                .camera_matrix
+                .horizon
+                .y_at_x(image_size.x() as f32 / 2.0)
+        });
 
         let rows = generate_rows(
             context.camera_matrix,
             image_size,
             *context.minimum_radius,
-            *context.fallback_radius,
             *context.ball_radius,
         );
+
         let candidates = generate_candidates(vertical_scanlines, skip_segments, &rows);
+        context.rows.fill_if_subscribed(|| rows);
 
         Ok(MainOutputs {
             perspective_grid_candidates: Some(candidates).into(),
@@ -79,35 +82,21 @@ fn generate_rows(
     camera_matrix: &CameraMatrix,
     image_size: Vector2<Pixel, u32>,
     minimum_radius: f32,
-    fallback_radius: f32,
     ball_radius: f32,
 ) -> Vec<Row> {
-    let left_horizon_height = camera_matrix.horizon.y_at_x(0.0);
-    let right_horizon_height = camera_matrix.horizon.y_at_x(image_size.x() as f32 - 1.0);
+    let half_width = image_size.x() as f32 / 2.0;
+    let horizon_at_center = camera_matrix.horizon.y_at_x(half_width);
 
-    let higher_horizon_point: Point2<Pixel> =
-        if left_horizon_height > right_horizon_height{
-            point![0.0, left_horizon_height]
-        } else {
-            point![
-                image_size.x() as f32 - 1.0,
-                right_horizon_height
-            ]
-        };
-
-    let mut radius = fallback_radius;
     let mut row_vertical_center = image_size.y() as f32 - 1.0;
 
     let mut rows = vec![];
 
-    while row_vertical_center >= higher_horizon_point.y() && row_vertical_center + ball_radius > 0.0
-    {
-        radius = camera_matrix
-            .get_pixel_radius(
-                ball_radius,
-                point![higher_horizon_point.x(), row_vertical_center],
-            )
-            .unwrap_or(radius);
+    while row_vertical_center >= horizon_at_center && row_vertical_center + ball_radius > 0.0 {
+        let pixel = point![half_width, row_vertical_center];
+        let radius = camera_matrix
+            .get_pixel_radius(ball_radius, pixel)
+            .expect("projection of ball radius to pixel");
+
         if radius < minimum_radius {
             break;
         }
@@ -194,10 +183,7 @@ mod tests {
         let camera_matrix = CameraMatrix::default();
         let minimum_radius = 5.0;
 
-        assert!(
-            !generate_rows(&camera_matrix, point![512, 512], minimum_radius, 42.0, 0.05,)
-                .is_empty()
-        );
+        assert!(!generate_rows(&camera_matrix, point![512, 512], minimum_radius, 42.0).is_empty());
     }
 
     #[test]
@@ -217,7 +203,7 @@ mod tests {
         );
         let minimum_radius = 5.0;
 
-        let circles = generate_rows(&camera_matrix, image_size, minimum_radius, 42.0, 0.05);
+        let circles = generate_rows(&camera_matrix, image_size, minimum_radius, 42.0);
 
         circles.iter().reduce(|previous, current| {
             println!("Previous: {previous:#?}");
