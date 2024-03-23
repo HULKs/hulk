@@ -7,7 +7,7 @@ use context_attribute::context;
 use coordinate_systems::Pixel;
 use framework::MainOutput;
 use geometry::circle::Circle;
-use linear_algebra::{point, Point2};
+use linear_algebra::{point, vector, Point2, Vector2};
 use projection::Projection;
 use types::{
     camera_matrix::CameraMatrix,
@@ -58,7 +58,7 @@ impl PerspectiveGridCandidatesProvider {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let vertical_scanlines = &context.filtered_segments.scan_grid.vertical_scan_lines;
         let skip_segments = &context.line_data.used_segments;
-        let image_size = point![context.image.width(), context.image.height()];
+        let image_size = vector![context.image.width(), context.image.height()];
 
         let rows = generate_rows(
             context.camera_matrix,
@@ -77,18 +77,21 @@ impl PerspectiveGridCandidatesProvider {
 
 fn generate_rows(
     camera_matrix: &CameraMatrix,
-    image_size: Point2<Pixel, u32>,
+    image_size: Vector2<Pixel, u32>,
     minimum_radius: f32,
     fallback_radius: f32,
     ball_radius: f32,
 ) -> Vec<Row> {
+    let left_horizon_height = camera_matrix.horizon.y_at_x(0.0);
+    let right_horizon_height = camera_matrix.horizon.y_at_x(image_size.x() as f32 - 1.0);
+
     let higher_horizon_point: Point2<Pixel> =
-        if camera_matrix.horizon.left_horizon_y < camera_matrix.horizon.right_horizon_y {
-            point![0.0, camera_matrix.horizon.left_horizon_y]
+        if left_horizon_height > right_horizon_height{
+            point![0.0, left_horizon_height]
         } else {
             point![
                 image_size.x() as f32 - 1.0,
-                camera_matrix.horizon.left_horizon_y
+                right_horizon_height
             ]
         };
 
@@ -103,7 +106,6 @@ fn generate_rows(
             .get_pixel_radius(
                 ball_radius,
                 point![higher_horizon_point.x(), row_vertical_center],
-                image_size,
             )
             .unwrap_or(radius);
         if radius < minimum_radius {
@@ -177,8 +179,8 @@ mod tests {
     use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
-    use linear_algebra::{IntoFramed, IntoTransform};
-    use nalgebra::{vector, Isometry3, Translation, UnitQuaternion};
+    use linear_algebra::{vector, IntoTransform};
+    use nalgebra::{Isometry3, Translation, UnitQuaternion};
     use types::{
         camera_matrix::CameraMatrix,
         color::{Intensity, YCbCr444},
@@ -200,11 +202,11 @@ mod tests {
 
     #[test]
     fn rows_spaced_correctly() {
-        let image_size = point![512, 512];
+        let image_size = vector![512, 512];
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
-            vector![1.0, 1.0],
+            nalgebra::vector![1.0, 1.0],
             nalgebra::point![0.5, 0.5],
-            image_size.inner.coords.map(|element| element as f32).framed(),
+            image_size,
             Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
                 translation: Translation::from(nalgebra::point![0.0, 0.0, 0.5]),

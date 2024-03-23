@@ -118,7 +118,7 @@ fn project_segment_to_field(
     let end_in_field = ground_to_field * end_in_ground;
 
     let midpoint = center(start, end);
-    let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint, point![640, 480])?;
+    let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint)?;
     let line_width = 3.0 / pixel_radius;
 
     Ok(SegmentInField {

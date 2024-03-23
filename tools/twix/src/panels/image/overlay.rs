@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-use super::overlays::{BallDetection, FeetDetection, LimbProjector, LineDetection, PenaltyBoxes};
+use super::overlays::{BallDetection, FeetDetection, Horizon, LimbProjector, LineDetection, PenaltyBoxes};
 
 pub trait Overlay {
     const NAME: &'static str;
@@ -80,6 +80,7 @@ where
 pub struct Overlays {
     pub line_detection: EnabledOverlay<LineDetection>,
     pub ball_detection: EnabledOverlay<BallDetection>,
+    pub horizon: EnabledOverlay<Horizon>,
     pub penalty_boxes: EnabledOverlay<PenaltyBoxes>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
@@ -89,12 +90,14 @@ impl Overlays {
     pub fn new(nao: Arc<Nao>, storage: Option<&Value>, selected_cycler: Cycler) -> Self {
         let line_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let ball_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
+        let horizon = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let penalty_boxes = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let feet_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let limb_projector = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         Self {
             line_detection,
             ball_detection,
+            horizon,
             penalty_boxes,
             feet_detection,
             limb_projector,
@@ -104,6 +107,7 @@ impl Overlays {
     pub fn update_cycler(&mut self, selected_cycler: Cycler) {
         self.line_detection.update_cycler(selected_cycler);
         self.ball_detection.update_cycler(selected_cycler);
+        self.horizon.update_cycler(selected_cycler);
         self.penalty_boxes.update_cycler(selected_cycler);
         self.feet_detection.update_cycler(selected_cycler);
         self.limb_projector.update_cycler(selected_cycler);
@@ -113,6 +117,7 @@ impl Overlays {
         ui.menu_button("Overlays", |ui| {
             self.line_detection.checkbox(ui, selected_cycler);
             self.ball_detection.checkbox(ui, selected_cycler);
+            self.horizon.checkbox(ui, selected_cycler);
             self.penalty_boxes.checkbox(ui, selected_cycler);
             self.feet_detection.checkbox(ui, selected_cycler);
             self.limb_projector.checkbox(ui, selected_cycler);
@@ -122,6 +127,7 @@ impl Overlays {
     pub fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let _ = self.line_detection.paint(painter);
         let _ = self.ball_detection.paint(painter);
+        let _ = self.horizon.paint(painter);
         let _ = self.penalty_boxes.paint(painter);
         let _ = self.feet_detection.paint(painter);
         let _ = self.limb_projector.paint(painter);
@@ -132,6 +138,7 @@ impl Overlays {
         json!({
             "line_detection": self.line_detection.save(),
             "ball_detection": self.ball_detection.save(),
+            "horizon": self.horizon.save(),
             "penalty_boxes": self.penalty_boxes.save(),
             "feet_detection": self.feet_detection.save(),
             "limb_projector": self.line_detection.save(),
