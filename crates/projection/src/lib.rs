@@ -159,7 +159,6 @@ impl Projection for CameraMatrix {
     }
 
     fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
-        // TODO: test case for this
         vector![
             (pixel_coordinates.x() - self.optical_center.x()) / self.focal_length.x,
             (pixel_coordinates.y() - self.optical_center.y()) / self.focal_length.y,
