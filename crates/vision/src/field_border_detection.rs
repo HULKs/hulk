@@ -176,6 +176,7 @@ fn is_orthogonal(
 #[cfg(test)]
 mod test {
     use approx::assert_relative_eq;
+    use linear_algebra::vector;
     use rand::{rngs::StdRng, Rng, SeedableRng};
     use types::{
         color::YCbCr444,
@@ -228,8 +229,8 @@ mod test {
         let green_segment = get_first_field_segment(
             &scanline.segments,
             &Horizon {
-                left_horizon_y: 0.0,
-                right_horizon_y: 0.0,
+                point_on_horizon: point![0.0, 0.0],
+                horizon_normal: vector![0.0, 1.0],
             },
             5.0,
         );

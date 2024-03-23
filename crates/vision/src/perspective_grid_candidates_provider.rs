@@ -168,8 +168,8 @@ mod tests {
     use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
-    use linear_algebra::{vector, IntoTransform};
-    use nalgebra::{Isometry3, Translation, UnitQuaternion};
+    use linear_algebra::{vector, IntoTransform, Isometry3};
+    use nalgebra::{Translation, UnitQuaternion};
     use types::{
         camera_matrix::CameraMatrix,
         color::{Intensity, YCbCr444},
@@ -180,10 +180,24 @@ mod tests {
 
     #[test]
     fn rows_non_empty() {
-        let camera_matrix = CameraMatrix::default();
+        let focal_length = nalgebra::vector![0.95, 1.27];
+        let optical_center = nalgebra::point![0.5, 0.5];
+
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            focal_length,
+            optical_center,
+            vector![640, 480],
+            nalgebra::Isometry3 {
+                rotation: UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0),
+                translation: Translation::from(nalgebra::point![0.0, 0.0, 0.75]),
+            }
+            .framed_transform(),
+            Isometry3::identity(),
+            Isometry3::identity(),
+        );
         let minimum_radius = 5.0;
 
-        assert!(!generate_rows(&camera_matrix, point![512, 512], minimum_radius, 42.0).is_empty());
+        assert!(!generate_rows(&camera_matrix, vector![512, 512], minimum_radius, 42.0).is_empty());
     }
 
     #[test]
@@ -193,13 +207,13 @@ mod tests {
             nalgebra::vector![1.0, 1.0],
             nalgebra::point![0.5, 0.5],
             image_size,
-            Isometry3 {
+            nalgebra::Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
                 translation: Translation::from(nalgebra::point![0.0, 0.0, 0.5]),
             }
             .framed_transform(),
-            Isometry3::identity().framed_transform(),
-            Isometry3::identity().framed_transform(),
+            Isometry3::identity(),
+            Isometry3::identity(),
         );
         let minimum_radius = 5.0;
 
