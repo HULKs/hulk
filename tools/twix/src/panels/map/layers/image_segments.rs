@@ -105,7 +105,7 @@ fn project_segment_to_ground(
     let end_in_ground = camera_matrix.pixel_to_ground(end)?;
 
     let midpoint = center(start, end);
-    let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint, point![640, 480])?;
+    let pixel_radius = 100.0 * camera_matrix.get_pixel_radius(0.01, midpoint)?;
     let line_width = 3.0 / pixel_radius;
 
     Ok(SegmentInGround {

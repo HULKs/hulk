@@ -35,18 +35,16 @@ pub trait Projection {
     fn robot_to_pixel(&self, robot_coordinates: Point3<Robot>) -> Result<Point2<Pixel>, Error>;
     fn get_pixel_radius(
         &self,
-        radius_in_robot_coordinates: f32,
+        radius_in_ground_coordinates: f32,
         pixel_coordinates: Point2<Pixel>,
-        resolution: Point2<Pixel, u32>,
     ) -> Result<f32, Error>;
     fn camera_matrix_for_z(&self, z: f32) -> Matrix3<f32>;
 }
 
 impl Projection for CameraMatrix {
     fn camera_matrix_for_z(&self, z: f32) -> Matrix3<f32> {
-        let extrinsics  = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
-        let total_camera_matrix =
-            self.intrinsics * extrinsics.inner.to_matrix();
+        let extrinsics = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
+        let total_camera_matrix = self.intrinsics * extrinsics.inner.to_matrix();
 
         let projection = matrix![
             1.0, 0.0, 0.0;
@@ -88,7 +86,7 @@ impl Projection for CameraMatrix {
         let camera = ground_to_camera.inverse().as_pose().position();
 
         if bearing_in_ground.dot(camera.coords()) >= 0.0 {
-            return Err(Error::NotOnProjectionPlane)
+            return Err(Error::NotOnProjectionPlane);
         }
 
         // let camera_ray = self.pixel_to_camera(pixel_coordinates);
@@ -129,7 +127,8 @@ impl Projection for CameraMatrix {
         z: f32,
     ) -> Result<Point2<Pixel>, Error> {
         let ground_to_camera = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
-        let camera_ray = ground_to_camera * point![ground_coordinates.x(), ground_coordinates.y(), z];
+        let camera_ray =
+            ground_to_camera * point![ground_coordinates.x(), ground_coordinates.y(), z];
 
         if camera_ray.z() <= 0.0 {
             return Err(Error::BehindCamera);
@@ -151,19 +150,18 @@ impl Projection for CameraMatrix {
 
     fn get_pixel_radius(
         &self,
-        radius_in_robot_coordinates: f32,
+        radius_in_ground_coordinates: f32,
         pixel_coordinates: Point2<Pixel>,
-        resolution: Point2<Pixel, u32>,
     ) -> Result<f32, Error> {
-        let robot_coordinates =
-            self.pixel_to_ground_with_z(pixel_coordinates, radius_in_robot_coordinates)?;
+        let ground_coordinates =
+            self.pixel_to_ground_with_z(pixel_coordinates, radius_in_ground_coordinates)?;
+        let ball_center = point![ground_coordinates.x(), ground_coordinates.y(), radius_in_ground_coordinates];
+
         let camera_coordinates =
-            self.ground_to_robot * point![robot_coordinates.x(), robot_coordinates.y(), 0.0];
-        let distance = camera_coordinates.coords().norm();
-        if distance <= radius_in_robot_coordinates {
-            return Err(Error::TooClose);
-        }
-        let angle = (radius_in_robot_coordinates / distance).asin();
-        Ok(resolution.y() as f32 * angle / self.field_of_view.y)
+            self.head_to_camera * self.robot_to_head * self.ground_to_robot * ball_center;
+
+        let angle = f32::atan2(radius_in_ground_coordinates, camera_coordinates.coords().norm());
+
+        Ok(self.image_size.y() as f32 * angle / self.field_of_view.y)
     }
 }
