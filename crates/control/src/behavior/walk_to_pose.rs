@@ -216,7 +216,8 @@ pub fn hybrid_alignment(
 
     let angle_limit = ((distance_to_target - distance_to_be_aligned)
         / (hybrid_align_distance - distance_to_be_aligned))
-        .clamp(0.0, 1.0) * PI;
+        .clamp(0.0, 1.0)
+        * PI;
 
     let orientation = clamp_around(
         Orientation2::identity(),
