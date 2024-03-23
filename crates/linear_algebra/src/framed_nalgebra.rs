@@ -332,8 +332,8 @@ impl<Frame> Orientation2<Frame> {
         Self::wrap(self.inner.slerp(&other.inner, t))
     }
 
-    pub fn rotation_to(&self, other: Self) -> Self {
-        Self::wrap(self.inner.rotation_to(&other.inner))
+    pub fn rotation_to(&self, other: Self) -> UnitComplex<Frame, Frame> {
+        UnitComplex::wrap(self.inner.rotation_to(&other.inner))
     }
 }
 
