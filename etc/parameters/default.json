@@ -40,11 +40,13 @@
   },
   "camera_matrix_parameters": {
     "vision_top": {
+      "camera_pitch": -1.2,
       "extrinsic_rotations": [0, 0, 0],
       "focal_lengths": [0.95, 1.27],
       "cc_optical_center": [0.5, 0.5]
     },
     "vision_bottom": {
+      "camera_pitch": -39.7,
       "extrinsic_rotations": [0, 0, 0],
       "focal_lengths": [0.95, 1.27],
       "cc_optical_center": [0.5, 0.5]

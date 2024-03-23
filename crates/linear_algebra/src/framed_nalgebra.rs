@@ -2,7 +2,7 @@ use nalgebra::{ArrayStorage, Const, Matrix, SVector, Scalar};
 use num_traits::{identities::Zero, One};
 
 use crate::{
-    Framed, Isometry2, Orientation2, Orientation3, Point, Point2, Point3, Pose, UnitComplex,
+    Framed, Isometry2, Orientation2, Orientation3, Point, Point2, Point3, Pose, Pose3, UnitComplex,
     Vector, Vector2, Vector3,
 };
 
@@ -291,6 +291,12 @@ impl<Frame> Pose<Frame> {
 impl<Frame> From<Point2<Frame>> for Pose<Frame> {
     fn from(value: Point2<Frame>) -> Self {
         Self::wrap(nalgebra::Isometry2::from(value.inner))
+    }
+}
+
+impl<Frame> Pose3<Frame> {
+    pub fn position(&self) -> Point3<Frame> {
+        Point3::wrap(self.inner.translation.vector.into())
     }
 }
 

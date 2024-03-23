@@ -1,5 +1,6 @@
 use approx_derive::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 macro_rules! generate_coordinate_system {
     ($($(#[$doc:meta])* $i:ident),* $(,)?) => {
@@ -16,6 +17,7 @@ macro_rules! generate_coordinate_system {
                 Serialize,
                 RelativeEq,
                 AbsDiffEq,
+                SerializeHierarchy
             )]
             #[abs_diff_eq(epsilon = "f32")]
             $(#[$doc])*

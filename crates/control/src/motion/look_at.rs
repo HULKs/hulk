@@ -117,11 +117,11 @@ impl LookAt {
             Some(camera) => {
                 let (head_to_camera, focal_length) = match camera {
                     CameraPosition::Top => (
-                        camera_matrices.top.camera_to_head.inverse(),
+                        camera_matrices.top.head_to_camera,
                         camera_matrices.top.focal_length,
                     ),
                     CameraPosition::Bottom => (
-                        camera_matrices.bottom.camera_to_head.inverse(),
+                        camera_matrices.bottom.head_to_camera,
                         camera_matrices.bottom.focal_length,
                     ),
                 };
@@ -156,8 +156,8 @@ fn look_at(
     target: Point2<Ground>,
     minimum_bottom_focus_pitch: f32,
 ) -> HeadJoints<f32> {
-    let head_to_top_camera = camera_matrices.top.camera_to_head.inverse();
-    let head_to_bottom_camera = camera_matrices.bottom.camera_to_head.inverse();
+    let head_to_top_camera = camera_matrices.top.head_to_camera;
+    let head_to_bottom_camera = camera_matrices.bottom.head_to_camera;
     let focal_length_top = camera_matrices.top.focal_length;
     let focal_length_bottom = camera_matrices.bottom.focal_length;
 
