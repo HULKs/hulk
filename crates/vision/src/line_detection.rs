@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn check_fixed_segment_size() {
-        let image_size = vector![1.0, 1.0];
+        let image_size = vector![1, 1];
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             nalgebra::vector![2.0, 2.0],
             nalgebra::point![1.0, 1.0],
