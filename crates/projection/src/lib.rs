@@ -1,8 +1,8 @@
-use approx::relative_eq;
+use nalgebra::{matrix, Matrix3};
 use thiserror::Error;
 
 use coordinate_systems::{Camera, Ground, Pixel, Robot};
-use linear_algebra::{point, vector, IntoFramed, Isometry3, Point, Point2, Point3, Vector3};
+use linear_algebra::{point, IntoFramed, Point2, Point3, Vector2, Vector3};
 use types::camera_matrix::CameraMatrix;
 
 #[derive(Debug, Error)]
@@ -13,6 +13,8 @@ pub enum Error {
     BehindCamera,
     #[error("the pixel position cannot be projected onto the projection plane")]
     NotOnProjectionPlane,
+    #[error("camera matrix is not invertible")]
+    NotInvertible,
 }
 
 pub trait Projection {
@@ -42,11 +44,32 @@ pub trait Projection {
         pixel_coordinates: Point2<Pixel>,
         resolution: Point2<Pixel, u32>,
     ) -> Result<f32, Error>;
+    fn camera_matrix_for_z(&self, z: f32) -> Matrix3<f32>;
 }
 
 impl Projection for CameraMatrix {
     fn pixel_to_camera(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
-        (self.intrinisic_pixel_to_camera * pixel_coordinates.inner.to_homogeneous()).framed()
+        (self.intrinsic_pixel_to_camera * pixel_coordinates.inner.to_homogeneous()).framed()
+    }
+
+    fn camera_matrix_for_z(&self, z: f32) -> Matrix3<f32> {
+        let remove_homogeneous = matrix![
+            1.0, 0.0, 0.0, 0.0;
+            0.0, 1.0, 0.0, 0.0;
+            0.0, 0.0, 1.0, 0.0;
+        ];
+
+        let total_camera_matrix =
+            self.intrinsic_camera_to_pixel * remove_homogeneous * self.ground_to_camera.inner.to_matrix();
+
+        let projection = matrix![
+            1.0, 0.0, 0.0;
+            0.0, 1.0, 0.0;
+            0.0, 0.0, z;
+            0.0, 0.0, 1.0;
+        ];
+
+        total_camera_matrix * projection
     }
 
     fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error> {
@@ -71,32 +94,32 @@ impl Projection for CameraMatrix {
         pixel_coordinates: Point2<Pixel>,
         z: f32,
     ) -> Result<Point2<Ground>, Error> {
-        struct ElevatedGround;
+        // let camera_ray = self.pixel_to_camera(pixel_coordinates);
+        // let camera_to_elevated_ground = Isometry3::translation(0., 0., -z) * self.camera_to_ground;
 
-        let camera_ray = self.pixel_to_camera(pixel_coordinates);
-        let camera_to_elevated_ground =
-            Isometry3::<Ground, ElevatedGround>::from(vector![0., 0., -z]) * self.camera_to_ground;
+        // let camera_position = camera_to_elevated_ground * Point3::origin();
+        // let camera_ray_over_ground = camera_to_elevated_ground * camera_ray;
 
-        let camera_position = Point::from(camera_to_elevated_ground.translation());
-        let camera_ray_over_ground = camera_to_elevated_ground * camera_ray;
+        // if relative_eq!(camera_ray_over_ground.z, 0.0) {
+        //     return Err(Error::NotOnProjectionPlane);
+        // }
 
-        if relative_eq!(camera_ray_over_ground.z(), 0.0) {
-            return Err(Error::NotOnProjectionPlane);
-        }
+        // let intersection_scalar = -camera_position.z / camera_ray_over_ground.z;
 
-        let intersection_scalar = -camera_position.z() / camera_ray_over_ground.z();
+        // if intersection_scalar < 0.0 {
+        //     return Err(Error::BehindCamera);
+        // }
 
-        if intersection_scalar < 0.0 {
-            return Err(Error::BehindCamera);
-        }
+        // let intersection_point = camera_position + camera_ray_over_ground * intersection_scalar;
 
-        let intersection_point = camera_position + camera_ray_over_ground * intersection_scalar;
+        // Ok(intersection_point.xy())
 
-        let elevated_ground_to_ground =
-            Isometry3::<ElevatedGround, Ground>::from(vector![0.0, 0.0, -z]);
-        let intersection_point_in_ground = elevated_ground_to_ground * intersection_point;
+        let camera_matrix = self.camera_matrix_for_z(z);
+        let inverse_camera_matrix = camera_matrix.try_inverse().ok_or(Error::NotInvertible)?;
 
-        Ok(intersection_point_in_ground.xy())
+        let ground = inverse_camera_matrix * pixel_coordinates.inner.to_homogeneous();
+
+        Ok(point![ground.x, ground.y] / ground.z)
     }
 
     fn ground_to_pixel(&self, ground_coordinates: Point2<Ground>) -> Result<Point2<Pixel>, Error> {
@@ -108,10 +131,16 @@ impl Projection for CameraMatrix {
         ground_coordinates: Point2<Ground>,
         z: f32,
     ) -> Result<Point2<Pixel>, Error> {
-        self.camera_to_pixel(
-            (self.ground_to_camera * point![ground_coordinates.x(), ground_coordinates.y(), z])
-                .coords(),
-        )
+        let camera_matrix = self.camera_matrix_for_z(z);
+        let projected = camera_matrix * ground_coordinates.inner.to_homogeneous();
+
+        let pixel = point![projected.x / projected.z, projected.y / projected.z];
+
+        Ok(pixel)
+
+        // self.camera_to_pixel(
+        //     (self.ground_to_camera * point![ground_coordinates.x, ground_coordinates.y, z]).coords,
+        // )
     }
 
     fn pixel_to_robot_with_x(

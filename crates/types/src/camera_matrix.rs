@@ -1,13 +1,15 @@
 use geometry::line::Line2;
 use nalgebra::{matrix, Matrix, Rotation3};
-use serde::{Deserialize, Serialize};
+use std::ops::Index;
 
 use approx_derive::{AbsDiffEq, RelativeEq};
+use serde::{Deserialize, Serialize};
+
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use linear_algebra::{IntoTransform, Isometry3, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::horizon::Horizon;
+use crate::{camera_position::CameraPosition, horizon::Horizon};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrices {
@@ -33,6 +35,17 @@ impl CameraMatrices {
     }
 }
 
+impl Index<CameraPosition> for CameraMatrices {
+    type Output = CameraMatrix;
+
+    fn index(&self, position: CameraPosition) -> &Self::Output {
+        match position {
+            CameraPosition::Top => &self.top,
+            CameraPosition::Bottom => &self.bottom,
+        }
+    }
+}
+
 #[derive(
     Clone, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq,
 )]
@@ -42,7 +55,7 @@ pub struct CameraMatrix {
     pub camera_to_ground: Isometry3<Camera, Ground>,
     pub ground_to_camera: Isometry3<Ground, Camera>,
     pub intrinsic_camera_to_pixel: nalgebra::Matrix3<f32>,
-    pub intrinisic_pixel_to_camera: nalgebra::Matrix3<f32>,
+    pub intrinsic_pixel_to_camera: nalgebra::Matrix3<f32>,
     pub camera_to_robot: Isometry3<Camera, Robot>,
     pub robot_to_camera: Isometry3<Robot, Camera>,
     pub focal_length: nalgebra::Vector2<f32>,
@@ -57,7 +70,7 @@ impl Default for CameraMatrix {
             camera_to_head: Isometry3::identity(),
             camera_to_ground: Isometry3::identity(),
             intrinsic_camera_to_pixel: nalgebra::Matrix3::identity(),
-            intrinisic_pixel_to_camera: nalgebra::Matrix3::identity(),
+            intrinsic_pixel_to_camera: nalgebra::Matrix3::identity(),
             ground_to_camera: Isometry3::identity(),
             camera_to_robot: Isometry3::identity(),
             robot_to_camera: Isometry3::identity(),
@@ -109,7 +122,7 @@ impl CameraMatrix {
             camera_to_head,
             camera_to_ground,
             intrinsic_camera_to_pixel,
-            intrinisic_pixel_to_camera: intrinsic_pixel_to_camera,
+            intrinsic_pixel_to_camera,
             ground_to_camera: camera_to_ground.inverse(),
             camera_to_robot,
             robot_to_camera: camera_to_robot.inverse(),
@@ -166,7 +179,7 @@ impl CameraMatrix {
             camera_to_head: corrected_camera_to_head,
             camera_to_ground: robot_to_ground * camera_to_robot,
             intrinsic_camera_to_pixel: self.intrinsic_camera_to_pixel,
-            intrinisic_pixel_to_camera: self.intrinisic_pixel_to_camera,
+            intrinsic_pixel_to_camera: self.intrinsic_pixel_to_camera,
             ground_to_camera: robot_to_camera * ground_to_robot,
             camera_to_robot,
             robot_to_camera,
