@@ -225,12 +225,10 @@
   },
   "perspective_grid_candidates_provider": {
     "vision_top": {
-      "minimum_radius": 3.0,
-      "fallback_radius": 42.0
+      "minimum_radius": 3.0
     },
     "vision_bottom": {
-      "minimum_radius": 3.0,
-      "fallback_radius": 42.0
+      "minimum_radius": 3.0
     }
   },
   "feet_detection": {
