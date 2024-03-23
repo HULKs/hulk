@@ -351,11 +351,15 @@ fn project_balls_to_ground(
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
+    use std::{
+        f32::consts::FRAC_PI_2,
+        path::{Path, PathBuf},
+    };
 
     use approx::assert_relative_eq;
-    use linear_algebra::IntoTransform;
-    use nalgebra::{Isometry3, Translation, UnitQuaternion};
+    use coordinate_systems::{Camera, Head};
+    use linear_algebra::{IntoTransform, Isometry3, Vector3};
+    use nalgebra::{Translation, UnitQuaternion};
 
     use super::*;
 
@@ -364,6 +368,14 @@ mod tests {
     const POSITIONER_PATH: &str = "../../etc/neural_networks/positioner.hdf5";
 
     const BALL_SAMPLE_PATH: &str = "../../tests/data/ball_sample.png";
+
+    fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3<Head, Camera> {
+        (nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
+            * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * -FRAC_PI_2)
+            * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
+            * nalgebra::Isometry3::from(-head_to_camera.inner))
+        .framed_transform()
+    }
 
     #[test]
     fn preclassify_ball() {
@@ -493,14 +505,14 @@ mod tests {
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             focal_length,
             optical_center,
-            vector![image.width() as f32, image.height() as f32],
-            Isometry3 {
+            vector![image.width(), image.height()],
+            nalgebra::Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0),
                 translation: Translation::from(nalgebra::point![0.0, 0.0, 0.75]),
             }
             .framed_transform(),
-            Isometry3::identity().framed_transform(),
-            Isometry3::identity().framed_transform(),
+            nalgebra::Isometry3::identity().framed_transform(),
+            head_to_camera(0.0, Vector3::zeros()),
         );
 
         let mut additional_output_buffer = None;
@@ -537,7 +549,7 @@ mod tests {
         assert_relative_eq!(
             balls.value.unwrap()[0],
             Ball {
-                position: point![0.374, 0.008],
+                position: point![1.53, 0.02],
                 image_location: Circle {
                     center: point![308.93, 176.42],
                     radius: 42.92,
