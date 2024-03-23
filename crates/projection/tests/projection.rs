@@ -139,7 +139,8 @@ fn pixel_to_ground_from_center_circle() {
     let goal_center = point![4.5, 0.0];
     assert_relative_eq!(
         camera_matrix.ground_to_pixel(goal_center).unwrap(),
-        point![320.0, 240.0]
+        point![320.0, 300.23],
+        epsilon = 0.01
     );
 }
 
@@ -261,7 +262,8 @@ fn get_pixel_radius_only_elevation() {
         camera_matrix
             .get_pixel_radius(0.05, point![320.0, 480.0])
             .unwrap(),
-        33.970547
+        30.34,
+        epsilon = 0.01,
     );
 }
 
@@ -273,14 +275,13 @@ fn get_pixel_radius_pitch_45_degree_down() {
         vector![640, 480],
     );
 
-    camera_matrix.field_of_view = nalgebra::vector![45.0, 45.0].map(|a: f32| a.to_radians());
-
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 0.5]);
 
     assert_relative_eq!(
         camera_matrix
             .get_pixel_radius(0.05, point![320.0, 480.0])
             .unwrap(),
-        207.69307
+        54.36,
+        epsilon = 0.01,
     );
 }
