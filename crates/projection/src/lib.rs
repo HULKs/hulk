@@ -2,7 +2,7 @@ use approx::relative_eq;
 use thiserror::Error;
 
 use coordinate_systems::{Camera, Ground, Pixel, Robot};
-use linear_algebra::{point, vector, Isometry3, Point, Point2, Point3, Vector3};
+use linear_algebra::{point, vector, IntoFramed, Isometry3, Point, Point2, Point3, Vector3};
 use types::camera_matrix::CameraMatrix;
 
 #[derive(Debug, Error)]
@@ -46,20 +46,19 @@ pub trait Projection {
 
 impl Projection for CameraMatrix {
     fn pixel_to_camera(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
-        vector![
-            1.0,
-            (self.optical_center.x - pixel_coordinates.x()) / self.focal_length.x,
-            (self.optical_center.y - pixel_coordinates.y()) / self.focal_length.y,
-        ]
+        (self.intrinisic_pixel_to_camera * pixel_coordinates.inner.to_homogeneous()).framed()
     }
 
     fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error> {
         if camera_ray.x() <= 0.0 {
             return Err(Error::BehindCamera);
         }
+
+        let pixel_point = self.intrinsic_camera_to_pixel * camera_ray.inner;
+
         Ok(point![
-            self.optical_center.x - self.focal_length.x * camera_ray.y() / camera_ray.x(),
-            self.optical_center.y - self.focal_length.y * camera_ray.z() / camera_ray.x(),
+            pixel_point.x / pixel_point.z,
+            pixel_point.y / pixel_point.z,
         ])
     }
 
