@@ -19,10 +19,12 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
 
     quote! {
         #[allow(clippy::redundant_clone)]
+        #[allow(clippy::too_many_arguments)]
         pub fn run(
             hardware_interface: std::sync::Arc<impl crate::HardwareInterface + Send + Sync + 'static>,
             addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
             parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
+            log_path: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
             body_id: String,
             head_id: String,
             keep_running: tokio_util::sync::CancellationToken,
@@ -216,11 +218,11 @@ fn generate_future_queues(cyclers: &Cyclers) -> TokenStream {
 fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
     let file_creations = cyclers.instances().map(|(_cycler, instance)| {
         let instance_name_snake_case = format_ident!("{}", instance.to_case(Case::Snake));
-        let recording_file_name = format!("{instance}.{{seconds}}.bincode");
+        let recording_file_name = format!("{instance}.bincode");
         let error_message_file = format!("failed to create recording file for {instance}");
 
         quote! {
-            let recording_file_path = std::path::Path::new("logs").join(format!(#recording_file_name));
+            let recording_file_path = log_path.as_ref().join(#recording_file_name);
             std::fs::create_dir_all(
                 recording_file_path.parent()
                     .expect("recording file path has no parent directory")
@@ -252,7 +254,6 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
                 .spawn(move || -> color_eyre::Result<()> {
                     let result = (|| {
                         use std::io::Write;
-                        let seconds = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH).unwrap().as_secs();
                         #(#file_creations)*
                         for recording_frame in recording_receiver {
                             match recording_frame {
