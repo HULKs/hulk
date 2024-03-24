@@ -246,6 +246,7 @@ mod test {
     use std::f32::consts::{FRAC_PI_2, PI};
 
     use approx::assert_relative_eq;
+    use num_traits::Zero;
 
     #[test]
     fn clamp_noop_when_less_than_limit_around_center() {
@@ -281,16 +282,27 @@ mod test {
         for (input, angle_limit) in testcases {
             let input = Orientation2::new(input);
             let center = Orientation2::new(0.0);
-            assert_relative_eq!(
-                clamp_around(input, center, angle_limit).angle().abs(),
-                angle_limit
-            );
+
+            let output = clamp_around(input, center, angle_limit);
+
+            assert_relative_eq!(output.angle().abs(), angle_limit);
+            assert_eq!(output.angle().signum(), input.angle().signum())
         }
     }
 
     #[test]
     fn clamped_always_closer_than_limit() {
-        let angles = [0.0, PI, -PI, FRAC_PI_2, -FRAC_PI_2, 1.0, -1.0, 2.0, -2.0];
+        let angles = [
+            0.0,
+            PI - 0.01,
+            -PI + 0.01,
+            FRAC_PI_2,
+            -FRAC_PI_2,
+            1.0,
+            -1.0,
+            2.0,
+            -2.0,
+        ];
 
         for input in angles {
             for center in angles {
@@ -298,9 +310,18 @@ mod test {
                     let angle_limit = angle_limit.abs();
                     let input = Orientation2::new(input);
                     let center = Orientation2::new(center);
+
                     let output = clamp_around(input, center, angle_limit);
 
-                    assert!(center.rotation_to(output).angle().abs() <= angle_limit);
+                    let relative_output = center.rotation_to(output);
+                    let relative_input = center.rotation_to(input);
+                    assert!(relative_output.angle().abs() <= angle_limit);
+                    if !relative_output.angle().is_zero() {
+                        assert_eq!(
+                            relative_output.angle().signum(),
+                            relative_input.angle().signum()
+                        )
+                    }
                 }
             }
         }
