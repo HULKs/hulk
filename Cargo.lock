@@ -2699,6 +2699,7 @@ version = "0.1.0"
 dependencies = [
  "alsa",
  "chrono",
+ "clap 4.5.3",
  "color-eyre",
  "constants",
  "ctrlc",

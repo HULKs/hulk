@@ -71,6 +71,7 @@ fn main() -> Result<()> {
         Arc::new(hardware_interface),
         framework_parameters.communication_addresses,
         framework_parameters.parameters_directory,
+        "logs",
         ids.body_id,
         ids.head_id,
         keep_running,

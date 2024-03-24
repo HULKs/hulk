@@ -1,6 +1,12 @@
 #![recursion_limit = "256"]
-use std::{env::args, fs::File, io::stdout, sync::Arc};
+use std::{
+    fs::File,
+    io::stdout,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
+use clap::Parser;
 use color_eyre::{
     eyre::{Result, WrapErr},
     install,
@@ -39,12 +45,18 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
     Ok(())
 }
 
+#[derive(Parser)]
+struct Arguments {
+    #[arg(short, long, default_value = "logs")]
+    log_path: String,
+
+    #[arg(short, long, default_value = "etc/parameters/framework.json")]
+    framework_parameters_path: String,
+}
+
 fn main() -> Result<()> {
     setup_logger()?;
     install()?;
-    let framework_parameters_path = args()
-        .nth(1)
-        .unwrap_or("etc/parameters/framework.json".to_string());
     let keep_running = CancellationToken::new();
     set_handler({
         let keep_running = keep_running.clone();
@@ -52,6 +64,10 @@ fn main() -> Result<()> {
             keep_running.cancel();
         }
     })?;
+
+    let arguments = Arguments::parse();
+    let framework_parameters_path = Path::new(&arguments.framework_parameters_path);
+    let log_path = PathBuf::from(arguments.log_path);
 
     let file =
         File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
@@ -72,6 +88,7 @@ fn main() -> Result<()> {
         Arc::new(hardware_interface),
         framework_parameters.communication_addresses,
         framework_parameters.parameters_directory,
+        log_path,
         ids.body_id,
         ids.head_id,
         keep_running,
