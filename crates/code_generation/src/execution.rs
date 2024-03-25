@@ -249,11 +249,13 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
     quote! {
         {
             let keep_running = keep_running.clone();
+            let parameters_reader = communication_server.get_parameters_reader();
             std::thread::Builder::new()
                 .name("Recording".to_string())
                 .spawn(move || -> color_eyre::Result<()> {
                     let result = (|| {
                         use std::io::Write;
+                        std::fs::write(log_path.as_ref().join("default.json"), serde_json::to_string_pretty(&*parameters_reader.next())?)?;
                         #(#file_creations)*
                         for recording_frame in recording_receiver {
                             match recording_frame {
