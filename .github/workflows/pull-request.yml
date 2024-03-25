@@ -9,20 +9,6 @@ env:
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
 jobs:
-  required_checks:
-    name: Require all CI jobs
-    runs-on:
-      - self-hosted
-      - v3
-    needs:
-      - check
-      - format
-      - test
-      - build
-      - build_tools
-    steps:
-      - name: Status message
-        run: echo 'All other jobs exited successfully!'
   check:
     name: Check
     runs-on:
