@@ -1,7 +1,7 @@
 use nalgebra::{AbstractRotation, SimdRealField};
 
 use crate::{
-    Isometry, Isometry2, Isometry3, Orientation2, Orientation3, Point, Point2, Point3, Pose,
+    Isometry, Isometry2, Isometry3, Orientation2, Orientation3, Point, Point2, Point3, Pose, Pose3,
     Transform, UnitComplex, Vector2, Vector3,
 };
 
@@ -54,6 +54,14 @@ where
 
     pub fn rotation(axisangle: Vector3<To, Scalar>) -> Self {
         Self::wrap(nalgebra::Isometry3::rotation(axisangle.inner))
+    }
+
+    pub fn from_translation(x: Scalar, y: Scalar, z: Scalar) -> Self {
+        Self::wrap(nalgebra::Isometry3::translation(x, y, z))
+    }
+
+    pub fn as_pose(self) -> Pose3<To, Scalar> {
+        Pose3::wrap(self.inner)
     }
 }
 

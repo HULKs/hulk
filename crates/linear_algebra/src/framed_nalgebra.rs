@@ -2,7 +2,7 @@ use nalgebra::{ArrayStorage, Const, Matrix, SVector, Scalar};
 use num_traits::{identities::Zero, One};
 
 use crate::{
-    Framed, Isometry2, Orientation2, Orientation3, Point, Point2, Point3, Pose, UnitComplex,
+    Framed, Isometry2, Orientation2, Orientation3, Point, Point2, Point3, Pose, Pose3, UnitComplex,
     Vector, Vector2, Vector3,
 };
 
@@ -58,6 +58,10 @@ impl<Frame, const DIMENSION: usize> Framed<Frame, SVector<f32, DIMENSION>> {
 
     pub fn component_mul(&self, rhs: Self) -> Self {
         Self::wrap(self.inner.component_mul(&rhs.inner))
+    }
+
+    pub fn abs(&self) -> Self {
+        Self::wrap(self.inner.abs())
     }
 }
 
@@ -190,6 +194,10 @@ impl<Frame, const DIMENSION: usize> Point<Frame, DIMENSION> {
     pub fn coords(&self) -> Framed<Frame, SVector<f32, DIMENSION>> {
         Framed::wrap(self.inner.coords)
     }
+
+    pub fn lerp(&self, other: Self, t: f32) -> Self {
+        Self::wrap(self.inner.lerp(&other.inner, t))
+    }
 }
 
 impl<Frame, From, const DIMENSION: usize> Point<Frame, DIMENSION, From>
@@ -291,6 +299,12 @@ impl<Frame> Pose<Frame> {
 impl<Frame> From<Point2<Frame>> for Pose<Frame> {
     fn from(value: Point2<Frame>) -> Self {
         Self::wrap(nalgebra::Isometry2::from(value.inner))
+    }
+}
+
+impl<Frame> Pose3<Frame> {
+    pub fn position(&self) -> Point3<Frame> {
+        Point3::wrap(self.inner.translation.vector.into())
     }
 }
 

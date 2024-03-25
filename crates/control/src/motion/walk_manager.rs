@@ -34,20 +34,26 @@ impl WalkManager {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let command = match (
-            context.motion_command,
-            context.motion_selection.current_motion,
-        ) {
-            (MotionCommand::Walk { .. }, MotionType::Walk) => WalkCommand::Walk(*context.step_plan),
-            (
-                MotionCommand::InWalkKick {
-                    kick,
-                    kicking_side,
-                    strength,
-                    ..
-                },
-                MotionType::Walk,
-            ) => WalkCommand::Kick(*kick, *kicking_side, *strength),
+        if !(matches!(context.motion_selection.current_motion, MotionType::Walk)) {
+            return Ok(MainOutputs {
+                walk_command: WalkCommand::Stand.into(),
+            });
+        }
+
+        let command = match context.motion_command {
+            MotionCommand::Walk { .. } => WalkCommand::Walk {
+                step: *context.step_plan,
+            },
+            MotionCommand::InWalkKick {
+                kick,
+                kicking_side,
+                strength,
+                ..
+            } => WalkCommand::Kick {
+                variant: *kick,
+                side: *kicking_side,
+                strength: *strength,
+            },
             _ => WalkCommand::Stand,
         };
 
