@@ -172,7 +172,7 @@ impl Nao {
     ) -> Result<()> {
         let status = self
             .ssh_to_nao()
-            .arg("dmesg > /home/nao/hulk/logs/kernel.log")
+            .arg("sudo dmesg > /home/nao/hulk/logs/kernel.log")
             .status()
             .await
             .wrap_err("failed to write dmesg to kernel.log")?;
