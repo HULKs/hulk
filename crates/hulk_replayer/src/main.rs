@@ -1,7 +1,7 @@
 #![recursion_limit = "256"]
 mod user_interface;
 
-use std::{env::args, fs::File, sync::Arc, time::SystemTime};
+use std::{env::args, fs::File, path::PathBuf, sync::Arc, time::SystemTime};
 
 use color_eyre::{
     eyre::{Result, WrapErr},
@@ -128,10 +128,13 @@ impl HardwareInterface for ReplayerHardwareInterface {}
 
 fn main() -> Result<()> {
     install()?;
-    let body_id = args().nth(1).expect("expected body ID as first parameter");
-    let head_id = args().nth(2).expect("expected head ID as second parameter");
+    let replay_path = PathBuf::from(
+        args()
+            .nth(1)
+            .expect("expected replay path as first parameter"),
+    );
     let framework_parameters_path = args()
-        .nth(3)
+        .nth(2)
         .unwrap_or("etc/parameters/framework.json".to_string());
     let keep_running = CancellationToken::new();
     set_handler({
@@ -147,7 +150,10 @@ fn main() -> Result<()> {
         from_reader(file).wrap_err("failed to parse framework parameters")?;
 
     let hardware_interface = ReplayerHardwareInterface {
-        ids: Ids { body_id, head_id },
+        ids: Ids {
+            body_id: "replayer".to_string(),
+            head_id: "replayer".to_string(),
+        },
     };
 
     let ids = hardware_interface.get_ids();
@@ -155,16 +161,16 @@ fn main() -> Result<()> {
     let mut replayer = Replayer::new(
         Arc::new(hardware_interface),
         framework_parameters.communication_addresses,
-        framework_parameters.parameters_directory,
+        replay_path.clone(),
         ids.body_id,
         ids.head_id,
         keep_running,
         RecordingFilePaths {
-            vision_top: "logs/VisionTop.bincode".into(),
-            vision_bottom: "logs/VisionBottom.bincode".into(),
-            control: "logs/Control.bincode".into(),
-            spl_network: "logs/SplNetwork.bincode".into(),
-            audio: "logs/Audio.bincode".into(),
+            vision_top: replay_path.join("VisionTop.bincode"),
+            vision_bottom: replay_path.join("VisionBottom.bincode"),
+            control: replay_path.join("Control.bincode"),
+            spl_network: replay_path.join("SplNetwork.bincode"),
+            audio: replay_path.join("Audio.bincode"),
         },
     )
     .wrap_err("failed to create replayer")?;

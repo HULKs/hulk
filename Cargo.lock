@@ -2675,6 +2675,7 @@ dependencies = [
  "linear_algebra",
  "nalgebra",
  "serde",
+ "serde_json",
  "serialize_hierarchy",
  "source_analyzer",
  "spl_network",
