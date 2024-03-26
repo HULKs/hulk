@@ -15,13 +15,17 @@ use types::{
     robot_kinematics::RobotKinematics,
     sensor_data::SensorData,
     step_plan::Step,
+    support_foot::Side,
     walk_command::WalkCommand,
     walking_engine::{KickStepsParameters, WalkingEngineParameters},
 };
 
 use self::{
     arms::Arm,
-    mode::{standing::Standing, Mode, WalkTransition},
+    mode::{
+        kicking::Kicking, standing::Standing, stopping::Stopping, walking::Walking, Mode,
+        WalkTransition,
+    },
 };
 
 mod anatomic_constraints;
@@ -60,7 +64,7 @@ pub struct CycleContext {
     kick_steps: Parameter<KickStepsParameters, "kick_steps">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    _walk_return_offset: CyclerState<Step, "walk_return_offset">,
+    walk_return_offset: CyclerState<Step, "walk_return_offset">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
     center_of_mass: Input<Point3<Robot>, "center_of_mass">,
@@ -140,6 +144,25 @@ impl WalkingEngine {
 
         self.left_arm = Some(left_arm);
         self.right_arm = Some(right_arm);
+
+        *context.walk_return_offset = match self.mode {
+            Mode::Standing(_) => Step::ZERO,
+            Mode::Starting(_) => Step::ZERO,
+            Mode::Walking(Walking { step, .. })
+            | Mode::Kicking(Kicking { step, .. })
+            | Mode::Stopping(Stopping { step }) => {
+                let feet = step.feet_at(context.cycle_time.start_time, context.parameters);
+                let swing_foot_base_offset = match step.support_side {
+                    Side::Left => context.parameters.base.foot_offset_right,
+                    Side::Right => context.parameters.base.foot_offset_left,
+                };
+                Step {
+                    forward: feet.swing_foot.x(),
+                    left: feet.swing_foot.y() - swing_foot_base_offset.y(),
+                    turn: feet.swing_turn,
+                }
+            }
+        };
 
         context.motion_safe_exits[MotionType::Walk] = matches!(self.mode, Mode::Standing(..));
 
