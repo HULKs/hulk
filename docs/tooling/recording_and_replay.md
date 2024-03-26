@@ -22,15 +22,11 @@ Data is only recorded during `PrimaryState::Ready`, `PrimaryState::Set`, and `Pr
 ## Replay(er)
 
 Assuming you already recorded some data on a robot, you can now use the "replayer" tool to replay the recorded data.
-First, you need to prepare the data.
-The replayer assumes the recording files in `logs/<cycler_instance>.bincode`.
-All cycler instance files need to be present, regardless whether they were enabled during recording (they will be empty then).
 
-- Download the logs into a `logs` directory within the repository via, e.g., `./pepsi postgame ... logs ...`
-- The `logs` directory contains directories per robot. Move all files of the robot that you want to replay into the `logs` directory.
-- Rename all `*.bincode` files to remove the timestamp from the name to match the path `logs/<cycler_instance>.bincode`.
-- Somehow™ obtain the head and body IDs of the robot that you want to replay
-- Start the replayer tool via `./pepsi run --target replayer -- <BODY_ID> <HEAD_ID>`
+- Download the logs into a `logs` directory within the repository via, e.g., `./pepsi postgame ... my_awesome_replay ...`
+- The `my_awesome_replay` directory now contains directories for each robot. Each robot directory contains one directory with the replay data from one execution of the `hulk` binary.
+  All cycler instance files need to be present, regardless whether they were enabled during recording (they will be empty then).
+- Start the replayer tool by pointing it to the log directory you want to replay, e.g., `./pepsi run --target replayer -- my_awesome_replay/10.1.24.42/12345678`.
 - Connect your Twix to `localhost` and open some panels
 - Move the slider to make data available to Twix. Pro Tip: Click into the text box and use your arrow keys to "animate".
 - ...
