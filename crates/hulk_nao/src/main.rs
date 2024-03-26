@@ -48,10 +48,10 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
 #[derive(Parser)]
 struct Arguments {
     #[arg(short, long, default_value = "logs")]
-    log_path: String,
+    log_path: PathBuf,
 
     #[arg(short, long, default_value = "etc/parameters/framework.json")]
-    framework_parameters_path: String,
+    framework_parameters_path: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -67,7 +67,6 @@ fn main() -> Result<()> {
 
     let arguments = Arguments::parse();
     let framework_parameters_path = Path::new(&arguments.framework_parameters_path);
-    let log_path = PathBuf::from(arguments.log_path);
 
     let file =
         File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
@@ -88,7 +87,7 @@ fn main() -> Result<()> {
         Arc::new(hardware_interface),
         framework_parameters.communication_addresses,
         framework_parameters.parameters_directory,
-        log_path,
+        arguments.log_path,
         ids.body_id,
         ids.head_id,
         keep_running,
