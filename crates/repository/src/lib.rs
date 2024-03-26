@@ -527,7 +527,7 @@ async fn download_image(
     let download_path = image_path.with_extension("tmp");
     let urls = [
         format!("http://bighulk.hulks.dev/image/{image_name}"),
-        format!("https://github.com/HULKs/meta-hulks/releases/download/{version}/{image_name}"),
+        format!("https://github.com/HULKs/meta-nao/releases/download/{version}/{image_name}"),
     ];
 
     println!("Downloading image from {}", urls[0]);
