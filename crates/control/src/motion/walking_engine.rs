@@ -1,9 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
@@ -11,8 +9,6 @@ use types::{
     motion_command::{ArmMotion, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
     motor_commands::MotorCommands,
-    parameters::StepPlannerParameters,
-    robot_kinematics::RobotKinematics,
     sensor_data::SensorData,
     step_plan::Step,
     support_foot::Side,
@@ -31,7 +27,6 @@ use self::{
 mod anatomic_constraints;
 mod arms;
 mod balancing;
-mod catching_steps;
 mod feet;
 mod kicking;
 mod mode;
@@ -66,9 +61,7 @@ pub struct CycleContext {
     walk_return_offset: CyclerState<Step, "walk_return_offset">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
-    center_of_mass: Input<Point3<Robot>, "center_of_mass">,
     motion_command: Input<MotionCommand, "motion_command">,
-    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     sensor_data: Input<SensorData, "sensor_data">,
     walk_command: Input<WalkCommand, "walk_command">,
 }
