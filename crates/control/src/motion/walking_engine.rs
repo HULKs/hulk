@@ -60,7 +60,6 @@ pub struct CreationContext {
 #[derive(Debug)]
 pub struct CycleContext {
     parameters: Parameter<WalkingEngineParameters, "walking_engine">,
-    _step_planner_config: Parameter<StepPlannerParameters, "step_planner">,
     kick_steps: Parameter<KickStepsParameters, "kick_steps">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
