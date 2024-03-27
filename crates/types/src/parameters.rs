@@ -349,6 +349,7 @@ pub struct FallStateEstimationParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrixParameters {
+    pub camera_pitch: f32,
     pub extrinsic_rotations: Vector3<f32>,
     pub focal_lengths: nalgebra::Vector2<f32>,
     pub cc_optical_center: nalgebra::Point2<f32>,

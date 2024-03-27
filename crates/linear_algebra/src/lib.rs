@@ -58,3 +58,4 @@ pub type Isometry3<From, To, Scalar = f32> =
     Isometry<From, To, 3, Scalar, nalgebra::UnitQuaternion<Scalar>>;
 
 pub type Pose<Frame, Scalar = f32> = Framed<Frame, nalgebra::Isometry2<Scalar>>;
+pub type Pose3<Frame, Scalar = f32> = Framed<Frame, nalgebra::Isometry3<Scalar>>;

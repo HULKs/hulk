@@ -5,6 +5,12 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use coordinate_systems::Pixel;
 
+#[derive(Default, Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+pub struct Row {
+    pub circle_radius: f32,
+    pub center_y: f32,
+}
+
 #[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct PerspectiveGridCandidates {
     pub candidates: Vec<Circle<Pixel>>,
