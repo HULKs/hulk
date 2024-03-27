@@ -8,20 +8,32 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.fall_state {
         FallState::Fallen {
             variant: Variant::Front,
+        }
+        | FallState::StandingUp {
+            variant: Variant::Front,
         } => Some(MotionCommand::StandUp {
             variant: StandUpVariant::Front,
         }),
         FallState::Fallen {
+            variant: Variant::Back,
+        }
+        | FallState::StandingUp {
             variant: Variant::Back,
         } => Some(MotionCommand::StandUp {
             variant: StandUpVariant::Back,
         }),
         FallState::Fallen {
             variant: Variant::Sitting,
+        }
+        | FallState::StandingUp {
+            variant: Variant::Sitting,
         } => Some(MotionCommand::StandUp {
             variant: StandUpVariant::Sitting,
         }),
         FallState::Fallen {
+            variant: Variant::Squatting,
+        }
+        | FallState::StandingUp {
             variant: Variant::Squatting,
         } => Some(MotionCommand::StandUp {
             variant: StandUpVariant::Squatting,

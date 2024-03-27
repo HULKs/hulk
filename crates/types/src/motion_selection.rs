@@ -5,12 +5,12 @@ use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
 pub struct MotionSelection {
-    pub current_motion: MotionType,
-    pub dispatching_motion: Option<MotionType>,
+    pub current_motion: MotionVariant,
+    pub dispatching_motion: Option<MotionVariant>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
-pub enum MotionType {
+pub enum MotionVariant {
     ArmsUpSquat,
     Dispatching,
     FallProtection,
@@ -28,7 +28,7 @@ pub enum MotionType {
     Walk,
 }
 
-impl Default for MotionType {
+impl Default for MotionVariant {
     fn default() -> Self {
         Self::Unstiff
     }
@@ -75,48 +75,48 @@ impl Default for MotionSafeExits {
     }
 }
 
-impl Index<MotionType> for MotionSafeExits {
+impl Index<MotionVariant> for MotionSafeExits {
     type Output = bool;
 
-    fn index(&self, motion_type: MotionType) -> &Self::Output {
+    fn index(&self, motion_type: MotionVariant) -> &Self::Output {
         match motion_type {
-            MotionType::ArmsUpSquat => &self.arms_up_squat,
-            MotionType::Dispatching => &self.dispatching,
-            MotionType::Initial => &self.initial,
-            MotionType::JumpLeft => &self.jump_left,
-            MotionType::JumpRight => &self.jump_right,
-            MotionType::FallProtection => &self.fall_protection,
-            MotionType::Penalized => &self.penalized,
-            MotionType::SitDown => &self.sit_down,
-            MotionType::Stand => &self.stand,
-            MotionType::StandUpBack => &self.stand_up_back,
-            MotionType::StandUpFront => &self.stand_up_front,
-            MotionType::StandUpSitting => &self.stand_up_sitting,
-            MotionType::StandUpSquatting => &self.stand_up_squatting,
-            MotionType::Unstiff => &self.unstiff,
-            MotionType::Walk => &self.walk,
+            MotionVariant::ArmsUpSquat => &self.arms_up_squat,
+            MotionVariant::Dispatching => &self.dispatching,
+            MotionVariant::Initial => &self.initial,
+            MotionVariant::JumpLeft => &self.jump_left,
+            MotionVariant::JumpRight => &self.jump_right,
+            MotionVariant::FallProtection => &self.fall_protection,
+            MotionVariant::Penalized => &self.penalized,
+            MotionVariant::SitDown => &self.sit_down,
+            MotionVariant::Stand => &self.stand,
+            MotionVariant::StandUpBack => &self.stand_up_back,
+            MotionVariant::StandUpFront => &self.stand_up_front,
+            MotionVariant::StandUpSitting => &self.stand_up_sitting,
+            MotionVariant::StandUpSquatting => &self.stand_up_squatting,
+            MotionVariant::Unstiff => &self.unstiff,
+            MotionVariant::Walk => &self.walk,
         }
     }
 }
 
-impl IndexMut<MotionType> for MotionSafeExits {
-    fn index_mut(&mut self, motion_type: MotionType) -> &mut Self::Output {
+impl IndexMut<MotionVariant> for MotionSafeExits {
+    fn index_mut(&mut self, motion_type: MotionVariant) -> &mut Self::Output {
         match motion_type {
-            MotionType::ArmsUpSquat => &mut self.arms_up_squat,
-            MotionType::Dispatching => &mut self.dispatching,
-            MotionType::Initial => &mut self.initial,
-            MotionType::JumpLeft => &mut self.jump_left,
-            MotionType::JumpRight => &mut self.jump_right,
-            MotionType::FallProtection => &mut self.fall_protection,
-            MotionType::Penalized => &mut self.penalized,
-            MotionType::SitDown => &mut self.sit_down,
-            MotionType::Stand => &mut self.stand,
-            MotionType::StandUpBack => &mut self.stand_up_back,
-            MotionType::StandUpFront => &mut self.stand_up_front,
-            MotionType::StandUpSitting => &mut self.stand_up_sitting,
-            MotionType::StandUpSquatting => &mut self.stand_up_squatting,
-            MotionType::Unstiff => &mut self.unstiff,
-            MotionType::Walk => &mut self.walk,
+            MotionVariant::ArmsUpSquat => &mut self.arms_up_squat,
+            MotionVariant::Dispatching => &mut self.dispatching,
+            MotionVariant::Initial => &mut self.initial,
+            MotionVariant::JumpLeft => &mut self.jump_left,
+            MotionVariant::JumpRight => &mut self.jump_right,
+            MotionVariant::FallProtection => &mut self.fall_protection,
+            MotionVariant::Penalized => &mut self.penalized,
+            MotionVariant::SitDown => &mut self.sit_down,
+            MotionVariant::Stand => &mut self.stand,
+            MotionVariant::StandUpBack => &mut self.stand_up_back,
+            MotionVariant::StandUpFront => &mut self.stand_up_front,
+            MotionVariant::StandUpSitting => &mut self.stand_up_sitting,
+            MotionVariant::StandUpSquatting => &mut self.stand_up_squatting,
+            MotionVariant::Unstiff => &mut self.unstiff,
+            MotionVariant::Walk => &mut self.walk,
         }
     }
 }

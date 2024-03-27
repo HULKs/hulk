@@ -10,7 +10,7 @@ use types::{
     joints::{
         arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints, mirror::Mirror, Joints,
     },
-    motion_selection::{MotionSafeExits, MotionType},
+    motion_selection::{MotionSafeExits, MotionVariant},
     motor_commands::MotorCommands,
     sensor_data::SensorData,
 };
@@ -66,10 +66,10 @@ impl FallProtector {
             direction,
         } = *context.fall_state
         else {
-            context.motion_safe_exits[MotionType::FallProtection] = true;
+            context.motion_safe_exits[MotionVariant::FallProtection] = true;
             return Ok(MainOutputs::default());
         };
-        context.motion_safe_exits[MotionType::FallProtection] = false;
+        context.motion_safe_exits[MotionVariant::FallProtection] = false;
 
         let phase = if context
             .cycle_time

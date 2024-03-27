@@ -1333,6 +1333,7 @@ dependencies = [
  "serialize_hierarchy",
  "smallvec",
  "spl_network_messages",
+ "splines",
  "types",
 ]
 

@@ -294,37 +294,6 @@
       }
     }
   },
-  "fall_protection": {
-    "ground_impact_angular_threshold": 0.9,
-    "ground_impact_body_stiffness": 0.2,
-    "ground_impact_head_stiffness": 0.2,
-    "time_free_motion_exit": {
-      "nanos": 0,
-      "secs": 1
-    },
-    "time_prolong_ground_impact": {
-      "nanos": 200000000,
-      "secs": 0
-    },
-    "left_arm_positions": {
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": 0.3,
-      "elbow_yaw": 0.0,
-      "elbow_roll": 0.0,
-      "wrist_yaw": -1.57,
-      "hand": 0.0
-    },
-    "right_arm_positions": {
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": -0.3,
-      "elbow_yaw": 0.0,
-      "elbow_roll": 0.0,
-      "wrist_yaw": 1.57,
-      "hand": 0.0
-    },
-    "arm_stiffness": 0.8,
-    "leg_stiffness": 0.2
-  },
   "ball_filter": {
     "hypothesis_timeout": {
       "nanos": 0,
@@ -665,25 +634,26 @@
     },
     "fallen_acceleration_threshold": 4.0,
     "fallen_sitting_rotation": 0.3,
+    "fallen_squatting_rotation": -0.5,
     "fallen_squatting_joints": {
       "left_leg": {
         "hip_yaw_pitch": 0.0,
         "hip_roll": 0.0,
-        "hip_pitch": 0.0,
-        "knee_pitch": 0.0,
-        "ankle_pitch": 0.0,
+        "hip_pitch": -1.5707963267948966,
+        "knee_pitch": 1.9198621771937625,
+        "ankle_pitch": -0.7853981633974483,
         "ankle_roll": 0.0
       },
       "right_leg": {
         "hip_yaw_pitch": 0.0,
         "hip_roll": 0.0,
-        "hip_pitch": 0.0,
-        "knee_pitch": 0.0,
-        "ankle_pitch": 0.0,
+        "hip_pitch": -1.5707963267948966,
+        "knee_pitch": 1.9198621771937625,
+        "ankle_pitch": -0.7853981633974483,
         "ankle_roll": 0.0
-      },
+      }
     },
-    "joints_difference_threshold": 0.1,
+    "joints_difference_threshold": 0.3
   },
   "initial_pose": {
     "head": {

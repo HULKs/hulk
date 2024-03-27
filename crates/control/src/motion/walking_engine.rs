@@ -12,7 +12,7 @@ use types::{
     cycle_time::CycleTime,
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
     motion_command::{KickVariant, MotionCommand},
-    motion_selection::{MotionSafeExits, MotionType},
+    motion_selection::{MotionSafeExits, MotionVariant},
     motor_commands::MotorCommands,
     parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
     robot_kinematics::RobotKinematics,
@@ -363,7 +363,7 @@ impl WalkingEngine {
             },
         };
 
-        context.motion_safe_exits[MotionType::Walk] =
+        context.motion_safe_exits[MotionVariant::Walk] =
             matches!(self.walk_state, WalkState::Standing);
 
         let leg_stiffness = match self.walk_state {

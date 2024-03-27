@@ -4,7 +4,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     motion_command::MotionCommand,
-    motion_selection::{MotionSelection, MotionType},
+    motion_selection::{MotionSelection, MotionVariant},
     step_plan::Step,
     walk_command::WalkCommand,
 };
@@ -38,7 +38,9 @@ impl WalkManager {
             context.motion_command,
             context.motion_selection.current_motion,
         ) {
-            (MotionCommand::Walk { .. }, MotionType::Walk) => WalkCommand::Walk(*context.step_plan),
+            (MotionCommand::Walk { .. }, MotionVariant::Walk) => {
+                WalkCommand::Walk(*context.step_plan)
+            }
             (
                 MotionCommand::InWalkKick {
                     kick,
@@ -46,7 +48,7 @@ impl WalkManager {
                     strength,
                     ..
                 },
-                MotionType::Walk,
+                MotionVariant::Walk,
             ) => WalkCommand::Kick(*kick, *kicking_side, *strength),
             _ => WalkCommand::Stand,
         };

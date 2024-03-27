@@ -40,6 +40,7 @@ pub struct CycleContext {
     fallen_acceleration_threshold:
         Parameter<f32, "fall_state_estimation.fallen_acceleration_threshold">,
     fallen_sitting_rotation: Parameter<f32, "fall_state_estimation.fallen_sitting_rotation">,
+    fallen_squatting_rotation: Parameter<f32, "fall_state_estimation.fallen_squatting_rotation">,
     fallen_squatting_joints:
         Parameter<LowerBodyJoints<f32>, "fall_state_estimation.fallen_squatting_joints">,
     joints_difference_threshold:
@@ -181,24 +182,23 @@ fn estimate_fallen_variant(
     let acceleration_sitting =
         Isometry3::<Robot, _>::rotation(Vector3::y_axis() * *context.fallen_sitting_rotation)
             * vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
+    let acceleration_squatting =
+        Isometry3::<Robot, _>::rotation(Vector3::y_axis() * *context.fallen_squatting_rotation)
+            * vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
 
     let fallen_front_difference = (estimated_acceleration - acceleration_front).norm();
     let fallen_back_difference = (estimated_acceleration - acceleration_back).norm();
     let fallen_sitting_difference = (estimated_acceleration - acceleration_sitting).norm();
+    let fallen_squatting_difference = (estimated_acceleration - acceleration_squatting).norm();
 
-    let legs_squatting = (*context.fallen_squatting_joints
-        - context.sensor_data.positions.body().lower())
-    .into_iter()
-    .all(|joint| joint.abs() < *context.joints_difference_threshold);
-
-    if *context.has_ground_contact && legs_squatting {
-        Some(Variant::Squatting)
-    } else if fallen_front_difference < *context.fallen_acceleration_threshold {
+    if fallen_front_difference < *context.fallen_acceleration_threshold {
         Some(Variant::Front)
     } else if fallen_back_difference < *context.fallen_acceleration_threshold {
         Some(Variant::Back)
     } else if fallen_sitting_difference < *context.fallen_acceleration_threshold {
         Some(Variant::Sitting)
+    } else if fallen_squatting_difference < *context.fallen_acceleration_threshold {
+        Some(Variant::Squatting)
     } else {
         Some(Variant::Unknown)
     }
