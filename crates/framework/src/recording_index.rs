@@ -27,13 +27,13 @@ impl RecordingIndex {
         recording_file
             .seek(SeekFrom::End(0))
             .wrap_err("failed to seek to end of file")?;
-        let end_of_file_offset = recording_file
+        let file_length = recording_file
             .stream_position()
             .wrap_err("failed to get stream position of end of file")?;
         recording_file.rewind().wrap_err("failed to rewind file")?;
 
         let mut offset = 0;
-        while offset < end_of_file_offset {
+        while offset < file_length {
             let Some(timestamp) =
                 end_of_file_error_as_option(deserialize_from(&mut recording_file))
                     .wrap_err("failed to deserialize timestamp")?
@@ -47,21 +47,21 @@ impl RecordingIndex {
                 eprintln!("unexpected end of file of recording file while deserializing length");
                 break;
             };
-            let header_offset = recording_file
+            let header_length = recording_file
                 .stream_position()
                 .wrap_err("failed to get stream position")?
                 - offset;
             recording_file
                 .seek(SeekFrom::Current(length as i64))
                 .wrap_err("failed to seek to end of data")?;
-            if offset + header_offset + length as u64 > end_of_file_offset {
+            if offset + header_length + length as u64 > file_length {
                 eprintln!("unexpected end of file of recording file");
                 break;
             }
             frames.push(RecordingFrameMetadata {
                 timestamp,
                 offset: offset.try_into().unwrap(),
-                header_offset: header_offset.try_into().unwrap(),
+                header_offset: header_length.try_into().unwrap(),
                 length,
             });
             offset = recording_file
