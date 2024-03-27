@@ -13,6 +13,7 @@ fern = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
 hulk = { workspace = true }
+linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
 parking_lot = { workspace = true }

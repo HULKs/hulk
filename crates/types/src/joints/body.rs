@@ -1,4 +1,8 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::{
+    array::IntoIter,
+    iter::Chain,
+    ops::{Add, Div, Mul, Sub},
+};
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -34,6 +38,13 @@ impl<T> BodyJoints<T> {
             right_arm: upper.right_arm,
             left_leg: lower.left_leg,
             right_leg: lower.right_leg,
+        }
+    }
+
+    pub fn lower(self) -> LowerBodyJoints<T> {
+        LowerBodyJoints {
+            left_leg: self.left_leg,
+            right_leg: self.right_leg,
         }
     }
 }
@@ -154,6 +165,30 @@ where
         Self {
             left_leg: LegJoints::fill(value.clone()),
             right_leg: LegJoints::fill(value),
+        }
+    }
+}
+
+impl<T> IntoIterator for LowerBodyJoints<T> {
+    type Item = T;
+
+    type IntoIter = Chain<IntoIter<T, 6>, IntoIter<T, 6>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.left_leg.into_iter().chain(self.right_leg)
+    }
+}
+
+impl<T> Sub for LowerBodyJoints<T>
+where
+    LegJoints<T>: Sub<Output = LegJoints<T>>,
+{
+    type Output = LowerBodyJoints<T>;
+
+    fn sub(self, right: Self) -> Self::Output {
+        Self::Output {
+            left_leg: self.left_leg - right.left_leg,
+            right_leg: self.right_leg - right.right_leg,
         }
     }
 }

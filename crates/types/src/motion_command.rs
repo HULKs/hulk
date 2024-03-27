@@ -4,7 +4,10 @@ use coordinate_systems::Ground;
 use linear_algebra::{Orientation2, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{camera_position::CameraPosition, planned_path::PathSegment, support_foot::Side};
+use crate::{
+    camera_position::CameraPosition, fall_state::Direction, planned_path::PathSegment,
+    support_foot::Side,
+};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum OrientationMode {
@@ -12,11 +15,19 @@ pub enum OrientationMode {
     Override(Orientation2<Ground>),
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+pub enum StandUpVariant {
+    Back,
+    Front,
+    Sitting,
+    Squatting,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub enum MotionCommand {
     ArmsUpSquat,
     FallProtection {
-        direction: FallDirection,
+        direction: Direction,
     },
     Initial,
     Jump {
@@ -30,7 +41,7 @@ pub enum MotionCommand {
         head: HeadMotion,
     },
     StandUp {
-        facing: Facing,
+        variant: StandUpVariant,
     },
     #[default]
     Unstiff,
@@ -104,23 +115,9 @@ pub enum KickVariant {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
-pub enum Facing {
-    Down,
-    Up,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum SitDirection {
     Down,
     Up,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
-pub enum FallDirection {
-    Backward,
-    Forward,
-    Left,
-    Right,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]

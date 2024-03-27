@@ -12,7 +12,7 @@ use types::{
     cycle_time::CycleTime,
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
     motion_command::{KickVariant, MotionCommand},
-    motion_selection::{MotionSafeExits, MotionType},
+    motion_selection::{MotionSafeExits, MotionVariant},
     motor_commands::MotorCommands,
     parameters::{KickStepsParameters, StepPlannerParameters, WalkingEngineParameters},
     robot_kinematics::RobotKinematics,
@@ -181,10 +181,11 @@ impl WalkingEngine {
                 .sensor_data
                 .inertial_measurement_unit
                 .angular_velocity
-                .xy(),
+                .xy()
+                .inner,
         );
         self.filtered_imu_pitch
-            .update(context.sensor_data.inertial_measurement_unit.roll_pitch.y);
+            .update(context.sensor_data.inertial_measurement_unit.roll_pitch.y());
         self.filter_robot_tilt_shift(
             context.robot_kinematics,
             &context.sensor_data.inertial_measurement_unit,
@@ -362,7 +363,7 @@ impl WalkingEngine {
             },
         };
 
-        context.motion_safe_exits[MotionType::Walk] =
+        context.motion_safe_exits[MotionVariant::Walk] =
             matches!(self.walk_state, WalkState::Standing);
 
         let leg_stiffness = match self.walk_state {
@@ -402,8 +403,8 @@ impl WalkingEngine {
             Side::Left => robot_kinematics.left_sole_to_robot.translation().z(),
             Side::Right => robot_kinematics.right_sole_to_robot.translation().z(),
         };
-        let robot_rotation = Isometry3::rotation(Vector3::y() * imu.roll_pitch.y)
-            * Isometry3::rotation(Vector3::x() * imu.roll_pitch.x);
+        let robot_rotation = Isometry3::rotation(Vector3::y() * imu.roll_pitch.y())
+            * Isometry3::rotation(Vector3::x() * imu.roll_pitch.x());
         let robot_projected_to_ground =
             robot_rotation.inverse() * Isometry3::translation(0.0, 0.0, robot_height);
         let measured_robot_tilt_shift = (robot_projected_to_ground * Point3::origin()).x;

@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     joints::{body::BodyJoints, head::HeadJoints, Joints},
-    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    motion_file_player::MotionFileState,
+    motion_selection::{MotionSafeExits, MotionSelection, MotionVariant},
     motor_commands::MotorCommands,
 };
 
@@ -17,7 +18,7 @@ pub struct DispatchingInterpolator {
     interpolator: SplineInterpolator<Joints<f32>>,
     stiffnesses: Joints<f32>,
     was_dispatching: bool,
-    last_dispatching_motion: MotionType,
+    last_dispatching_motion: MotionVariant,
 }
 
 #[context]
@@ -25,14 +26,17 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
-    jump_left_joints_command: Input<MotorCommands<Joints<f32>>, "jump_left_joints_command">,
-    jump_right_joints_command: Input<MotorCommands<Joints<f32>>, "jump_right_joints_command">,
+    arms_up_squat: Input<MotionFileState, "arms_up_squat">,
+    jump_left: Input<MotionFileState, "jump_left">,
+    jump_right: Input<MotionFileState, "jump_right">,
+    sit_down: Input<MotionFileState, "sit_down">,
+    stand_up_back: Input<MotionFileState, "stand_up_back">,
+    stand_up_front: Input<MotionFileState, "stand_up_front">,
+    stand_up_sitting: Input<MotionFileState, "stand_up_sitting">,
+    stand_up_squatting: Input<MotionFileState, "stand_up_squatting">,
+
     motion_selection: Input<MotionSelection, "motion_selection">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    sit_down_joints_command: Input<MotorCommands<Joints<f32>>, "sit_down_joints_command">,
-    stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
-    stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
 
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
@@ -57,14 +61,14 @@ impl DispatchingInterpolator {
             interpolator: Default::default(),
             stiffnesses: Default::default(),
             was_dispatching: false,
-            last_dispatching_motion: MotionType::Unstiff,
+            last_dispatching_motion: MotionVariant::Unstiff,
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        context.motion_safe_exits[MotionType::Dispatching] = false;
+        context.motion_safe_exits[MotionVariant::Dispatching] = false;
 
-        let dispatching = context.motion_selection.current_motion == MotionType::Dispatching;
+        let dispatching = context.motion_selection.current_motion == MotionVariant::Dispatching;
         if !dispatching {
             context.transition_time.fill_if_subscribed(|| None);
 
@@ -82,22 +86,24 @@ impl DispatchingInterpolator {
 
         if interpolator_reset_required {
             let target_position = match dispatching_motion {
-                MotionType::ArmsUpSquat => context.arms_up_squat_joints_command.positions,
-                MotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
-                MotionType::FallProtection => panic!("Is executed immediately"),
-                MotionType::Initial => *context.initial_pose,
-                MotionType::JumpLeft => context.jump_left_joints_command.positions,
-                MotionType::JumpRight => context.jump_right_joints_command.positions,
-                MotionType::Penalized => *context.penalized_pose,
-                MotionType::SitDown => context.sit_down_joints_command.positions,
-                MotionType::Stand => Joints::from_head_and_body(
+                MotionVariant::ArmsUpSquat => context.arms_up_squat.commands.positions,
+                MotionVariant::Dispatching => panic!("Dispatching cannot dispatch itself"),
+                MotionVariant::FallProtection => panic!("Is executed immediately"),
+                MotionVariant::Initial => *context.initial_pose,
+                MotionVariant::JumpLeft => context.jump_left.commands.positions,
+                MotionVariant::JumpRight => context.jump_right.commands.positions,
+                MotionVariant::Penalized => *context.penalized_pose,
+                MotionVariant::SitDown => context.sit_down.commands.positions,
+                MotionVariant::Stand => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),
                     context.walk_motor_commands.positions,
                 ),
-                MotionType::StandUpBack => *context.stand_up_back_positions,
-                MotionType::StandUpFront => *context.stand_up_front_positions,
-                MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
-                MotionType::Walk => Joints::from_head_and_body(
+                MotionVariant::StandUpBack => context.stand_up_back.commands.positions,
+                MotionVariant::StandUpFront => context.stand_up_front.commands.positions,
+                MotionVariant::StandUpSitting => context.stand_up_sitting.commands.positions,
+                MotionVariant::StandUpSquatting => context.stand_up_squatting.commands.positions,
+                MotionVariant::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
+                MotionVariant::Walk => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),
                     context.walk_motor_commands.positions,
                 ),
@@ -115,7 +121,7 @@ impl DispatchingInterpolator {
         self.interpolator
             .advance_by(context.cycle_time.last_cycle_duration);
 
-        context.motion_safe_exits[MotionType::Dispatching] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionVariant::Dispatching] = self.interpolator.is_finished();
         context.transition_time.fill_if_subscribed(|| {
             if self.interpolator.is_finished() {
                 None

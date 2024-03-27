@@ -43,7 +43,8 @@ impl ConditionInputProvider {
             context
                 .sensor_data
                 .inertial_measurement_unit
-                .angular_velocity,
+                .angular_velocity
+                .inner,
         );
         Ok(MainOutputs {
             condition_input: ConditionInput {

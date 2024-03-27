@@ -1,4 +1,5 @@
-use nalgebra::{Vector2, Vector3};
+use coordinate_systems::Robot;
+use linear_algebra::{Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -7,9 +8,9 @@ use crate::joints::Joints;
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct InertialMeasurementUnitData {
     // Linear acceleration is coming from a left handed coordinate system
-    pub linear_acceleration: Vector3<f32>,
-    pub angular_velocity: Vector3<f32>,
-    pub roll_pitch: Vector2<f32>,
+    pub linear_acceleration: Vector3<Robot>,
+    pub angular_velocity: Vector3<Robot>,
+    pub roll_pitch: Vector2<Robot>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

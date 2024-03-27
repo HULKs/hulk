@@ -18,6 +18,7 @@ framework = { workspace = true }
 hardware = { workspace = true }
 hulk = { workspace = true, features = ["systemd"] }
 libc = { workspace = true }
+linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
 nao_camera = { workspace = true }

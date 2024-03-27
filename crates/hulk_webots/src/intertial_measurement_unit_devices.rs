@@ -1,5 +1,5 @@
 use color_eyre::{eyre::WrapErr, Result};
-use nalgebra::vector;
+use linear_algebra::vector;
 use types::sensor_data::InertialMeasurementUnitData;
 use webots::{Accelerometer, Gyro, InertialUnit, Robot};
 
