@@ -72,8 +72,8 @@ const ALL_OK_ICON: &str = "✔";
 const UNKNOWN_CHARGE_ICON: &str = "󰁽?";
 const NETWORK_ICON: &str = "󰖩 ";
 const TEMPERATURE_ICON: &str = "";
-const TEMPERATURE_WARN_THRESHOLD: f32 = 40.0;
-const TEMPERATURE_ERROR_THRESHOLD: f32 = 60.0;
+const TEMPERATURE_WARN_THRESHOLD: f32 = 45.0;
+const TEMPERATURE_ERROR_THRESHOLD: f32 = 80.0;
 
 impl SummaryElements {
     fn new() -> Self {
