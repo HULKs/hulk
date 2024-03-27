@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
     Debug, Clone, Copy, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
 )]
 pub enum Action {
+    Animation,
+    Animationstiff,
     Calibrate,
     DefendGoal,
     DefendKickOff,

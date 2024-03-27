@@ -38,6 +38,7 @@ use super::{
     prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
     walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
+    animation, animationstiff, calibrate, defend::Defend, dribble, fall_safely, head::LookAction, initial, intercept_ball, jump, look_around, lost_ball, penalize, prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off, walk_to_penalty_kick, walk_to_pose::{WalkAndStand, WalkPathPlanner}
 };
 
 #[derive(Deserialize, Serialize)]
@@ -124,6 +125,7 @@ impl Behavior {
         }
 
         let mut actions = vec![
+            Action::Animation,
             Action::Unstiff,
             Action::SitDown,
             Action::Penalize,
@@ -134,6 +136,7 @@ impl Behavior {
             Action::Stand,
             Action::InterceptBall,
             Action::Calibrate,
+            Action::Animationstiff
         ];
 
         if let Some(active_since) = self.active_since {
@@ -244,6 +247,8 @@ impl Behavior {
             .iter()
             .find_map(|action| {
                 let motion_command = match action {
+                    Action::Animation => animation::execute(world_state),
+                    Action::Animationstiff => animationstiff::execute(world_state),
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),

@@ -164,6 +164,7 @@ impl State {
                         + glance_factor * robot.parameters.look_at.glance_angle
                 }
                 HeadMotion::Unstiff => 0.0,
+                HeadMotion::Animation => 0.0,
             };
 
             let max_head_rotation_per_cycle =

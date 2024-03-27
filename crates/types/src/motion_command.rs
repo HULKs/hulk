@@ -44,6 +44,8 @@ pub enum MotionCommand {
     },
     #[default]
     Unstiff,
+    Animation,
+    AnimationStiff,
     Walk {
         head: HeadMotion,
         path: Vec<PathSegment>,
@@ -71,6 +73,8 @@ impl MotionCommand {
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
             MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
+            MotionCommand::Animation => Some(HeadMotion::Animation),
+            MotionCommand::AnimationStiff => Some(HeadMotion::AnimationStiff),
             MotionCommand::ArmsUpSquat
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
@@ -126,6 +130,8 @@ pub enum HeadMotion {
         target: Point2<Ground>,
     },
     Unstiff,
+    Animation,
+    AnimationStiff,
 }
 
 #[derive(

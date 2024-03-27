@@ -77,6 +77,8 @@ impl MotorCommandCollector {
         let walk = context.walk_motor_commands;
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
+            MotionType::Animation => (current_positions, Joints::fill(0.0)),
+            MotionType::AnimationStiff => (current_positions, Joints::fill(1.0)),
             MotionType::ArmsUpSquat => (arms_up_squat.positions, arms_up_squat.stiffnesses),
             MotionType::Dispatching => {
                 self.current_minimizer.reset();

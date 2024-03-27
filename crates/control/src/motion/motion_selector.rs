@@ -86,6 +86,8 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
             Kind::Sitting => MotionType::StandUpSitting,
         },
         MotionCommand::Unstiff => MotionType::Unstiff,
+        MotionCommand::Animation => MotionType::Animation,
+        MotionCommand::AnimationStiff => MotionType::AnimationStiff,
         MotionCommand::Walk { .. } => MotionType::Walk,
         MotionCommand::InWalkKick { .. } => MotionType::Walk,
     }

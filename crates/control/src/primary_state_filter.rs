@@ -61,12 +61,16 @@ impl PrimaryStateFilter {
         self.last_primary_state = match (
             self.last_primary_state,
             context.buttons.head_buttons_touched,
-            context.buttons.is_chest_button_pressed,
+            context.buttons.is_chest_button_pressed_once,
             context.buttons.calibration_buttons_touched,
-            context.filtered_game_controller_state,
+            context.filtered_game_controller_state,               //these four lines translate to four positions down there (_,_,_,_)
+            context.buttons.is_chest_button_pressed_twice,
         ) {
+            // Animation transitions 
+            
+            
             // Unstiff transitions (entering and exiting)
-            (last_primary_state, true, _, _, _) => {
+            (last_primary_state, true, _, _, _, _) => {
                 if last_primary_state != PrimaryState::Unstiff {
                     context
                         .hardware_interface
@@ -77,11 +81,11 @@ impl PrimaryStateFilter {
 
             (PrimaryState::Calibration, ..) => PrimaryState::Calibration,
 
-            (PrimaryState::Initial, _, _, true, _) => PrimaryState::Calibration,
+            (PrimaryState::Initial, _, _, true, _, _) => PrimaryState::Calibration,
 
             // GameController transitions (entering listening mode and staying within)
-            (PrimaryState::Unstiff, _, true, _, Some(filtered_game_controller_state))
-            | (PrimaryState::Finished, _, true, _, Some(filtered_game_controller_state)) => {
+            (PrimaryState::Unstiff, _, true, _, Some(filtered_game_controller_state),_)
+            | (PrimaryState::Finished, _, true, _, Some(filtered_game_controller_state),_) => {
                 Self::game_state_to_primary_state(
                     filtered_game_controller_state.game_state,
                     is_penalized,
@@ -102,13 +106,15 @@ impl PrimaryStateFilter {
             }
 
             // non-GameController transitions
-            (PrimaryState::Unstiff, _, true, _, None) => PrimaryState::Initial,
-            (PrimaryState::Finished, _, true, _, None) => PrimaryState::Initial,
-            (PrimaryState::Initial, _, true, _, None) => PrimaryState::Penalized,
-            (PrimaryState::Penalized, _, true, _, None) => PrimaryState::Playing,
-            (PrimaryState::Playing, _, true, _, None) => PrimaryState::Penalized,
+            (PrimaryState::Unstiff, _, true, _, None, _) => PrimaryState::Initial,
+            (PrimaryState::Unstiff, _, false, _, None, true) => PrimaryState::Animation, //here double tap = true & single tap = false => Animation mode
+            (PrimaryState::Animation, _, false, _, None, true) => PrimaryState::AnimationStiff,
+            (PrimaryState::Finished, _, true, _, None, _) => PrimaryState::Initial,
+            (PrimaryState::Initial, _, true, _, None, _) => PrimaryState::Penalized,
+            (PrimaryState::Penalized, _, true, _, None, _) => PrimaryState::Playing,
+            (PrimaryState::Playing, _, true, _, None, _) => PrimaryState::Penalized,
 
-            (_, _, _, _, _) => self.last_primary_state,
+            (_, _, _, _, _, _) => self.last_primary_state,
         };
 
         context.hardware_interface.set_whether_to_record(

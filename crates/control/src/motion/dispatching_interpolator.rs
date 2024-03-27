@@ -99,6 +99,8 @@ impl DispatchingInterpolator {
                 MotionType::StandUpFront => *context.stand_up_front_positions,
                 MotionType::StandUpSitting => *context.stand_up_sitting_positions,
                 MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
+                MotionType::Animation => panic!("Dispatching Animation doesn't make sense"),
+                MotionType::AnimationStiff => panic!("Dispatching AnimationStiff should not happen"),
                 MotionType::Walk => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),
                     context.walk_motor_commands.positions,

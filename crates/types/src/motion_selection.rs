@@ -24,6 +24,8 @@ pub struct MotionSelection {
     PathIntrospect,
 )]
 pub enum MotionType {
+    Animation,
+    AnimationStiff,
     ArmsUpSquat,
     Dispatching,
     FallProtection,
@@ -48,6 +50,8 @@ impl Default for MotionType {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct MotionSafeExits {
+    animation: bool,
+    animationstiff: bool,
     arms_up_squat: bool,
     dispatching: bool,
     fall_protection: bool,
@@ -88,6 +92,8 @@ impl MotionSafeExits {
 impl Default for MotionSafeExits {
     fn default() -> Self {
         Self {
+            animation: true,
+            animationstiff: true,
             arms_up_squat: true,
             dispatching: false,
             fall_protection: true,
@@ -111,6 +117,8 @@ impl Index<MotionType> for MotionSafeExits {
 
     fn index(&self, motion_type: MotionType) -> &Self::Output {
         match motion_type {
+            MotionType::Animation => &self.animation,
+            MotionType::AnimationStiff => &self.animationstiff,  
             MotionType::ArmsUpSquat => &self.arms_up_squat,
             MotionType::Dispatching => &self.dispatching,
             MotionType::Initial => &self.initial,
@@ -132,6 +140,8 @@ impl Index<MotionType> for MotionSafeExits {
 impl IndexMut<MotionType> for MotionSafeExits {
     fn index_mut(&mut self, motion_type: MotionType) -> &mut Self::Output {
         match motion_type {
+            MotionType::Animation => &mut self.animation,
+            MotionType::AnimationStiff => &mut self.animationstiff,
             MotionType::ArmsUpSquat => &mut self.arms_up_squat,
             MotionType::Dispatching => &mut self.dispatching,
             MotionType::Initial => &mut self.initial,

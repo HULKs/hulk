@@ -90,7 +90,8 @@ impl ButtonFilter {
 
         Ok(MainOutputs {
             buttons: Buttons {
-                is_chest_button_pressed: self.chest_button_tap_detector.is_single_tapped(),
+                is_chest_button_pressed_once: self.chest_button_tap_detector.is_single_tapped,
+                is_chest_button_pressed_twice: self.chest_button_tap_detector.is_double_tapped,
                 head_buttons_touched: debounced_head_buttons_touched,
                 calibration_buttons_touched: debounced_calibration_buttons_touched,
             }
@@ -98,3 +99,6 @@ impl ButtonFilter {
         })
     }
 }
+
+// I inserted this under MainOutputs Buttons
+//is_chest_button_pressed_twice: self.chest_button_tap_detector.is_double_tapped(),
