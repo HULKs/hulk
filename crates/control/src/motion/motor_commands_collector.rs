@@ -33,6 +33,7 @@ pub struct CycleContext {
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     stand_up_sitting_positions: Input<Joints<f32>, "stand_up_sitting_positions">,
+    stand_up_squatting_positions: Input<Joints<f32>, "stand_up_squatting_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
@@ -70,9 +71,10 @@ impl MotorCommandCollector {
         let jump_left = context.jump_left_joints_command;
         let jump_right = context.jump_right_joints_command;
         let sit_down = context.sit_down_joints_command;
-        let stand_up_back_positions = context.stand_up_back_positions;
-        let stand_up_front_positions = context.stand_up_front_positions;
-        let stand_up_sitting_positions = context.stand_up_sitting_positions;
+        let stand_up_back = context.stand_up_back_positions;
+        let stand_up_front = context.stand_up_front_positions;
+        let stand_up_sitting = context.stand_up_sitting_positions;
+        let stand_up_squatting = context.stand_up_squatting_positions;
         let walk = context.walk_motor_commands;
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
@@ -115,9 +117,10 @@ impl MotorCommandCollector {
                 ),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),
-            MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(1.0)),
-            MotionType::StandUpFront => (*stand_up_front_positions, Joints::fill(1.0)),
-            MotionType::StandUpSitting => (*stand_up_sitting_positions, Joints::fill(1.0)),
+            MotionType::StandUpBack => (*stand_up_back, Joints::fill(1.0)),
+            MotionType::StandUpFront => (*stand_up_front, Joints::fill(1.0)),
+            MotionType::StandUpSitting => (*stand_up_sitting, Joints::fill(1.0)),
+            MotionType::StandUpSquatting => (*stand_up_squatting, Joints::fill(1.0)),
             MotionType::Unstiff => (measured_positions, Joints::fill(0.0)),
             MotionType::Walk => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),

@@ -656,13 +656,34 @@
   "fall_state_estimation": {
     "linear_acceleration_low_pass_factor": 0.05,
     "angular_velocity_low_pass_factor": 0.2,
-    "roll_pitch_low_pass_factor": 0.9,
-    "gravitational_acceleration_threshold": 4.0,
-    "falling_angle_threshold_forward": [-0.3, 0.5],
+    "roll_pitch_low_pass_factor": 0.99,
+    "upright_range": [-0.3, 0.5],
+    "moving_velocity_threshold": 0.1,
     "falling_timeout": {
       "nanos": 0,
       "secs": 1
-    }
+    },
+    "fallen_acceleration_threshold": 4.0,
+    "fallen_sitting_rotation": 0.3,
+    "fallen_squatting_joints": {
+      "left_leg": {
+        "hip_yaw_pitch": 0.0,
+        "hip_roll": 0.0,
+        "hip_pitch": 0.0,
+        "knee_pitch": 0.0,
+        "ankle_pitch": 0.0,
+        "ankle_roll": 0.0
+      },
+      "right_leg": {
+        "hip_yaw_pitch": 0.0,
+        "hip_roll": 0.0,
+        "hip_pitch": 0.0,
+        "knee_pitch": 0.0,
+        "ankle_pitch": 0.0,
+        "ankle_roll": 0.0
+      },
+    },
+    "joints_difference_threshold": 0.1,
   },
   "initial_pose": {
     "head": {

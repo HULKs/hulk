@@ -15,6 +15,7 @@ pub mod sit_down;
 pub mod stand_up_back;
 pub mod stand_up_front;
 pub mod stand_up_sitting;
+pub mod stand_up_squatting;
 pub mod step_planner;
 pub mod walk_manager;
 pub mod walking_engine;
