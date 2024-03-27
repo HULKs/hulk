@@ -1,36 +1,83 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
-use coordinate_systems::Field;
-use eframe::egui::{Response, Ui, Widget};
+use color_eyre::Result;
+use communication::client::CyclerOutput;
+use coordinate_systems::{Field, Ground};
+use eframe::egui::{ComboBox, Response, Ui, Widget};
+use linear_algebra::Isometry2;
 use nalgebra::{vector, Similarity2, Translation2};
+use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 use types::{self, field_dimensions::FieldDimensions};
 
 use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 
-use self::layer::EnabledLayer;
+use self::layer::{EnabledLayer, Layer};
 
 mod layer;
 mod layers;
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+enum PlotType {
+    Field,
+    Ground,
+}
+
+trait GenericLayer {
+    fn generic_paint(
+        &mut self,
+        painter: &TwixPainter<Field>,
+        ground_to_field: Isometry2<Ground, Field>,
+        field_dimensions: &FieldDimensions,
+    ) -> Result<()>;
+}
+
+impl<T: Layer<Field>> GenericLayer for EnabledLayer<T, Field> {
+    fn generic_paint(
+        &mut self,
+        painter: &TwixPainter<Field>,
+        _ground_to_field: Isometry2<Ground, Field>,
+        field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
+        self.paint(painter, field_dimensions)
+    }
+}
+
+impl<T: Layer<Ground>> GenericLayer for EnabledLayer<T, Ground> {
+    fn generic_paint(
+        &mut self,
+        painter: &TwixPainter<Field>,
+        ground_to_field: Isometry2<Ground, Field>,
+        field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
+        self.paint(
+            &painter.transform_painter(ground_to_field.inverse()),
+            field_dimensions,
+        )
+    }
+}
+
 pub struct MapPanel {
+    current_plot_type: PlotType,
+
     field_dimensions: ValueBuffer,
+    ground_to_field: ValueBuffer,
     transformation: Similarity2<f32>,
 
-    field: EnabledLayer<layers::Field>,
-    image_segments: EnabledLayer<layers::ImageSegments>,
-    lines: EnabledLayer<layers::Lines>,
-    line_correspondences: EnabledLayer<layers::LineCorrespondences>,
-    path_obstacles: EnabledLayer<layers::PathObstacles>,
-    obstacles: EnabledLayer<layers::Obstacles>,
-    path: EnabledLayer<layers::Path>,
-    behavior_simulator: EnabledLayer<layers::BehaviorSimulator>,
-    robot_pose: EnabledLayer<layers::RobotPose>,
-    ball_position: EnabledLayer<layers::BallPosition>,
-    kick_decisions: EnabledLayer<layers::KickDecisions>,
-    feet_detection: EnabledLayer<layers::FeetDetection>,
-    ball_filter: EnabledLayer<layers::BallFilter>,
-    obstacle_filter: EnabledLayer<layers::ObstacleFilter>,
+    field: EnabledLayer<layers::Field, Field>,
+    image_segments: EnabledLayer<layers::ImageSegments, Ground>,
+    lines: EnabledLayer<layers::Lines, Ground>,
+    line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
+    path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
+    obstacles: EnabledLayer<layers::Obstacles, Ground>,
+    path: EnabledLayer<layers::Path, Ground>,
+    behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
+    robot_pose: EnabledLayer<layers::RobotPose, Ground>,
+    ball_position: EnabledLayer<layers::BallPosition, Field>,
+    kick_decisions: EnabledLayer<layers::KickDecisions, Ground>,
+    feet_detection: EnabledLayer<layers::FeetDetection, Ground>,
+    ball_filter: EnabledLayer<layers::BallFilter, Ground>,
+    obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
 }
 
 impl Panel for MapPanel {
@@ -53,9 +100,13 @@ impl Panel for MapPanel {
         let obstacle_filter = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
+        let ground_to_field =
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let transformation = Similarity2::identity();
         Self {
+            current_plot_type: PlotType::Field,
             field_dimensions,
+            ground_to_field,
             transformation,
 
             field,
@@ -77,6 +128,7 @@ impl Panel for MapPanel {
 
     fn save(&self) -> Value {
         json!({
+            "current_plot_type": self.current_plot_type,
             "field": self.field.save(),
             "image_segments": self.image_segments.save(),
             "line_correspondences": self.line_correspondences.save(),
@@ -97,46 +149,97 @@ impl Panel for MapPanel {
 
 impl Widget for &mut MapPanel {
     fn ui(self, ui: &mut Ui) -> eframe::egui::Response {
-        ui.menu_button("Overlays", |ui| {
-            self.field.checkbox(ui);
-            self.image_segments.checkbox(ui);
-            self.line_correspondences.checkbox(ui);
-            self.lines.checkbox(ui);
-            self.path_obstacles.checkbox(ui);
-            self.obstacles.checkbox(ui);
-            self.path.checkbox(ui);
-            self.behavior_simulator.checkbox(ui);
-            self.robot_pose.checkbox(ui);
-            self.ball_position.checkbox(ui);
-            self.kick_decisions.checkbox(ui);
-            self.feet_detection.checkbox(ui);
-            self.ball_filter.checkbox(ui);
-            self.obstacle_filter.checkbox(ui);
+        ui.horizontal(|ui| {
+            ui.menu_button("Overlays", |ui| {
+                self.field.checkbox(ui);
+                self.image_segments.checkbox(ui);
+                self.line_correspondences.checkbox(ui);
+                self.lines.checkbox(ui);
+                self.path_obstacles.checkbox(ui);
+                self.obstacles.checkbox(ui);
+                self.path.checkbox(ui);
+                self.behavior_simulator.checkbox(ui);
+                self.robot_pose.checkbox(ui);
+                self.ball_position.checkbox(ui);
+                self.kick_decisions.checkbox(ui);
+                self.feet_detection.checkbox(ui);
+                self.ball_filter.checkbox(ui);
+                self.obstacle_filter.checkbox(ui);
+            });
+            ComboBox::from_id_source("plot_type_selector")
+                .selected_text(format!("{:?}", self.current_plot_type))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.current_plot_type, PlotType::Ground, "Ground");
+                    ui.selectable_value(&mut self.current_plot_type, PlotType::Field, "Field");
+                });
         });
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
             Ok(value) => from_value(value).unwrap(),
             Err(error) => return ui.label(format!("{error:?}")),
         };
-        let (response, painter) = TwixPainter::allocate_new(ui);
-        let mut painter = painter.with_map_transforms(&field_dimensions);
-        painter.append_transform(self.transformation);
+
+        let ground_to_field: Isometry2<Ground, Field> =
+            self.ground_to_field.parse_latest().unwrap_or_default();
+        let (response, mut painter) = match self.current_plot_type {
+            PlotType::Field => {
+                let (response, painter) = TwixPainter::allocate_new(ui);
+                let mut painter = painter.with_map_transforms(&field_dimensions);
+                painter.append_transform(self.transformation);
+                (response, painter)
+            }
+            PlotType::Ground => {
+                let (response, painter) = TwixPainter::allocate_new(ui);
+                let mut painter = painter.with_ground_transforms();
+                painter.append_transform(self.transformation);
+
+                (response, painter.transform_painter(ground_to_field))
+            }
+        };
 
         // draw largest layers first so they don't obscure smaller ones
-        let _ = self.field.paint(&painter, &field_dimensions);
-        let _ = self.image_segments.paint(&painter, &field_dimensions);
-        let _ = self.line_correspondences.paint(&painter, &field_dimensions);
-        let _ = self.lines.paint(&painter, &field_dimensions);
-        let _ = self.path_obstacles.paint(&painter, &field_dimensions);
-        let _ = self.obstacles.paint(&painter, &field_dimensions);
-        let _ = self.path.paint(&painter, &field_dimensions);
-        let _ = self.behavior_simulator.paint(&painter, &field_dimensions);
-        let _ = self.robot_pose.paint(&painter, &field_dimensions);
-        let _ = self.ball_position.paint(&painter, &field_dimensions);
-        let _ = self.kick_decisions.paint(&painter, &field_dimensions);
-        let _ = self.feet_detection.paint(&painter, &field_dimensions);
-        let _ = self.ball_filter.paint(&painter, &field_dimensions);
-        let _ = self.obstacle_filter.paint(&painter, &field_dimensions);
+        let _ = self
+            .field
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .image_segments
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ =
+            self.line_correspondences
+                .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .lines
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .path_obstacles
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .obstacles
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .path
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .behavior_simulator
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .robot_pose
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .ball_position
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .kick_decisions
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .feet_detection
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .ball_filter
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .obstacle_filter
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
 
         self.apply_zoom_and_pan(ui, &mut painter, &response);
         if response.double_clicked() {
@@ -166,11 +269,11 @@ impl MapPanel {
         let pointer_in_pixel_after_zoom =
             painter.transform_world_to_pixel(pointer_in_world_before_zoom);
         let shift_from_zoom = pointer_position - pointer_in_pixel_after_zoom;
-        let pixel_drag = vector![response.drag_delta().x, response.drag_delta().y];
+        let pixel_drag = vector![response.drag_delta().x, -response.drag_delta().y];
         self.transformation.append_scaling_mut(zoom_factor);
         self.transformation
             .append_translation_mut(&Translation2::from(
-                pixel_drag + vector![shift_from_zoom.x, shift_from_zoom.y],
+                pixel_drag + vector![shift_from_zoom.x, -shift_from_zoom.y],
             ));
     }
 }

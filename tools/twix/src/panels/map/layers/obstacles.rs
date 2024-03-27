@@ -4,8 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
-use coordinate_systems::{Field, Ground};
-use linear_algebra::Isometry2;
+use coordinate_systems::Ground;
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
 use crate::{
@@ -13,31 +12,23 @@ use crate::{
 };
 
 pub struct Obstacles {
-    ground_to_field: ValueBuffer,
     obstacles: ValueBuffer,
 }
 
-impl Layer for Obstacles {
+impl Layer<Ground> for Obstacles {
     const NAME: &'static str = "Obstacles";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let ground_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
         let obstacles =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.obstacles").unwrap());
-        Self {
-            ground_to_field,
-            obstacles,
-        }
+        Self { obstacles }
     }
 
     fn paint(
         &self,
-        painter: &TwixPainter<Field>,
+        painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ground_to_field: Isometry2<Ground, Field> =
-            self.ground_to_field.parse_latest().unwrap_or_default();
         let obstacles: Vec<Obstacle> = self.obstacles.require_latest()?;
 
         let hip_height_stroke = Stroke {
@@ -50,12 +41,12 @@ impl Layer for Obstacles {
         };
         for obstacle in obstacles {
             painter.circle_stroke(
-                ground_to_field * obstacle.position,
+                obstacle.position,
                 obstacle.radius_at_hip_height,
                 hip_height_stroke,
             );
             painter.circle_stroke(
-                ground_to_field * obstacle.position,
+                obstacle.position,
                 obstacle.radius_at_foot_height,
                 foot_height_stroke,
             );
