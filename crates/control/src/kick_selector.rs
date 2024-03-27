@@ -17,6 +17,7 @@ use linear_algebra::{
 };
 use types::{
     field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
     kick_target::KickTarget,
     motion_command::KickVariant,
@@ -25,6 +26,8 @@ use types::{
     support_foot::Side,
     world_state::BallState,
 };
+
+use crate::behavior::dribble::precision_kick;
 
 #[derive(Deserialize, Serialize)]
 pub struct KickSelector {}
@@ -37,7 +40,8 @@ pub struct CycleContext {
     ground_to_field: RequiredInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     ball_state: RequiredInput<Option<BallState>, "ball_state?">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
-
+    game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
@@ -71,15 +75,17 @@ impl KickSelector {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
+        let precision_kick = precision_kick(context.game_controller_state.copied());
+
         let sides = [Side::Left, Side::Right];
         let mut kick_variants = Vec::new();
         if context.in_walk_kicks.forward.enabled {
             kick_variants.push(KickVariant::Forward)
         }
-        if context.in_walk_kicks.turn.enabled {
+        if context.in_walk_kicks.turn.enabled && !precision_kick {
             kick_variants.push(KickVariant::Turn)
         }
-        if context.in_walk_kicks.side.enabled {
+        if context.in_walk_kicks.side.enabled && !precision_kick {
             kick_variants.push(KickVariant::Side)
         }
 

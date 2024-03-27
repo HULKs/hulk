@@ -1,7 +1,10 @@
 use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
 use linear_algebra::{Point, Pose};
+use spl_network_messages::{GamePhase, Team};
 use types::{
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
@@ -17,6 +20,7 @@ pub fn execute(
     in_walk_kicks: &InWalkKicksParameters,
     parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
+    game_controller_state: Option<FilteredGameControllerState>,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let head = HeadMotion::LookLeftAndRightOf {
@@ -24,12 +28,17 @@ pub fn execute(
     };
     let kick_decisions = world_state.kick_decisions.as_ref()?;
     let instant_kick_decisions = world_state.instant_kick_decisions.as_ref()?;
+    let do_precision_kick = precision_kick(game_controller_state);
 
     let available_kick = kick_decisions
         .iter()
         .chain(instant_kick_decisions.iter())
         .find(|decision| {
-            is_kick_pose_reached(decision.kick_pose, &in_walk_kicks[decision.variant])
+            is_kick_pose_reached(
+                decision.kick_pose,
+                &in_walk_kicks[decision.variant],
+                do_precision_kick,
+            )
         });
     if let Some(kick) = available_kick {
         let command = MotionCommand::InWalkKick {
@@ -72,10 +81,37 @@ pub fn execute(
 fn is_kick_pose_reached(
     kick_pose_to_robot: Pose<Ground>,
     kick_info: &InWalkKickInfoParameters,
+    precision_kick: bool,
 ) -> bool {
-    let is_x_reached = kick_pose_to_robot.position().x().abs() < kick_info.reached_thresholds.x;
-    let is_y_reached = kick_pose_to_robot.position().y().abs() < kick_info.reached_thresholds.y;
-    let is_orientation_reached =
-        kick_pose_to_robot.orientation().angle().abs() < kick_info.reached_thresholds.z;
+    let thresholds = if precision_kick {
+        kick_info.precision_kick_reached_thresholds
+    } else {
+        kick_info.reached_thresholds
+    };
+
+    let is_x_reached = kick_pose_to_robot.position().x().abs() < thresholds.x;
+    let is_y_reached = kick_pose_to_robot.position().y().abs() < thresholds.y;
+    let is_orientation_reached = kick_pose_to_robot.orientation().angle().abs() < thresholds.z;
+
     is_x_reached && is_y_reached && is_orientation_reached
+}
+
+pub fn precision_kick(game_controller_state: Option<FilteredGameControllerState>) -> bool {
+    let game_controller_state = game_controller_state.unwrap_or_default();
+
+    let penalty_shootout = matches!(
+        game_controller_state.game_phase,
+        GamePhase::PenaltyShootout { .. }
+    );
+    let own_kick_off = matches!(
+        game_controller_state.game_state,
+        FilteredGameState::Playing {
+            kick_off: true,
+            ball_is_free: true
+        }
+    );
+    let sub_state = game_controller_state.sub_state.is_some();
+    let kicking = matches!(game_controller_state.kicking_team, Team::Hulks);
+
+    penalty_shootout || own_kick_off || sub_state && kicking
 }

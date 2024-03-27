@@ -59,7 +59,7 @@ fn generate_module(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
     let cycler_implementation = generate_implementation(cycler, cyclers, mode);
 
     quote! {
-        #[allow(dead_code, unused_mut, unused_variables, clippy::too_many_arguments, clippy::needless_question_mark, clippy::borrow_deref_ref)]
+        #[allow(dead_code, unused_mut, unused_variables, clippy::too_many_arguments, clippy::needless_question_mark, clippy::borrow_deref_ref, clippy::explicit_auto_deref)]
         pub(crate) mod #module_name {
             use color_eyre::eyre::WrapErr;
             use crate::structs::#module_name::{MainOutputs, AdditionalOutputs};
