@@ -20,7 +20,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationLineDetection {
-    last_processed_instance: ,
+    last_processed_instance: Instant,
 }
 
 #[context]
