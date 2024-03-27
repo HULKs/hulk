@@ -5,12 +5,11 @@ use std::{
 };
 
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use hula_types::JointsArray;
-use tokio::{net::UdpSocket, time};
-
-pub use hula_types::Battery;
 use serde::{Deserialize, Serialize};
 use service_manager::SystemServices;
+use tokio::{net::UdpSocket, time};
+
+pub use hula_types::{Battery, JointsArray};
 
 pub mod service_manager;
 
