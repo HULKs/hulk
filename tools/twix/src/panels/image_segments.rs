@@ -5,8 +5,9 @@ use eframe::{
     epaint::{Color32, Stroke},
 };
 use nalgebra::Similarity2;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 
+use serde_json::{json, Value};
 use communication::client::CyclerOutput;
 use coordinate_systems::Pixel;
 use linear_algebra::{point, vector};
@@ -23,7 +24,7 @@ use crate::{
     value_buffer::ValueBuffer,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 enum ColorMode {
     Original,
     FieldColor,
@@ -49,16 +50,33 @@ pub struct ImageSegmentsPanel {
 impl Panel for ImageSegmentsPanel {
     const NAME: &'static str = "Image Segments";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+        let camera_position = match value.and_then(|value| value.get("camera_position")) {
+            Some(Value::String(string)) if string == "Bottom" => CameraPosition::Bottom,
+            _ => CameraPosition::Top,
+        };
         let value_buffer =
-            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.image_segments").unwrap());
+            nao.subscribe_output(CyclerOutput::from_str(&format!("Vision{camera_position:?}.main.image_segments")).unwrap());
+        let color_mode = match value.and_then(|value| value.get("color_mode")) {
+            Some(Value::String(string)) => serde_json::from_str(&format!("\"{string}\"")).unwrap(),
+            _ => ColorMode::Original,
+        };
+        let use_filtered_segments = value.and_then(|value| value.get("use_filtered_segments")).and_then(|value| value.as_bool()).unwrap_or_default();
         Self {
             nao,
             value_buffer,
-            camera_position: CameraPosition::Top,
-            color_mode: ColorMode::Original,
-            use_filtered_segments: false,
+            camera_position,
+            color_mode,
+            use_filtered_segments,
         }
+    }
+
+    fn save(&self) -> Value {
+        json!({
+            "camera_position": self.camera_position.clone(),
+            "color_mode": self.color_mode.clone(),
+            "use_filtered_segments": self.use_filtered_segments.clone()
+        })
     }
 }
 

@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Arc};
 
 use communication::client::CyclerOutput;
 use eframe::egui::{Response, Slider, Ui, Widget};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
@@ -23,7 +23,7 @@ pub struct BehaviorSimulatorPanel {
 impl Panel for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let value_buffer = nao.subscribe_parameter("selected_frame");
         let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
         value_buffer.listen_to_updates(update_notify_sender);
@@ -31,18 +31,31 @@ impl Panel for BehaviorSimulatorPanel {
         let frame_count = nao.subscribe_output(
             CyclerOutput::from_str("BehaviorSimulator.main_outputs.frame_count").unwrap(),
         );
+        let selected_frame = value.and_then(|value| value.get("selected_frame")).and_then(|value| value.as_bool()).unwrap_or_default() as usize;
+        let selected_robot = value.and_then(|value| value.get("selected_robot")).and_then(|value| value.as_u64()).unwrap_or_default() as usize;
+        let playing = value.and_then(|value| value.get("playing")).and_then(|value| value.as_bool()).unwrap_or_default();
+        let playing_start = value.and_then(|value| value.get("playing_start")).and_then(|value| value.as_f64()).unwrap_or_default();
         Self {
             nao,
             update_notify_receiver,
 
-            selected_frame: 0,
-            selected_robot: 0,
-            playing: false,
-            playing_start: 0.0,
+            selected_frame,
+            selected_robot,
+            playing,
+            playing_start,
 
             value_buffer,
             frame_count,
         }
+    }
+
+    fn save(&self) -> Value {
+        json!({
+            "selected_frame": self.selected_frame.clone(),
+            "selected_robot": self.selected_robot.clone(),
+            "playing": self.playing.clone(),
+            "playing_start": self.playing_start.clone()
+        })
     }
 }
 
