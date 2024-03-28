@@ -7,10 +7,10 @@ use eframe::{
 use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 
-use serde_json::{json, Value};
 use communication::client::CyclerOutput;
 use coordinate_systems::Pixel;
 use linear_algebra::{point, vector};
+use serde_json::{json, Value};
 use types::{
     camera_position::CameraPosition,
     color::{Rgb, RgbChannel},
@@ -55,13 +55,18 @@ impl Panel for ImageSegmentsPanel {
             Some(Value::String(string)) if string == "Bottom" => CameraPosition::Bottom,
             _ => CameraPosition::Top,
         };
-        let value_buffer =
-            nao.subscribe_output(CyclerOutput::from_str(&format!("Vision{camera_position:?}.main.image_segments")).unwrap());
+        let value_buffer = nao.subscribe_output(
+            CyclerOutput::from_str(&format!("Vision{camera_position:?}.main.image_segments"))
+                .unwrap(),
+        );
         let color_mode = match value.and_then(|value| value.get("color_mode")) {
             Some(Value::String(string)) => serde_json::from_str(&format!("\"{string}\"")).unwrap(),
             _ => ColorMode::Original,
         };
-        let use_filtered_segments = value.and_then(|value| value.get("use_filtered_segments")).and_then(|value| value.as_bool()).unwrap_or_default();
+        let use_filtered_segments = value
+            .and_then(|value| value.get("use_filtered_segments"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or_default();
         Self {
             nao,
             value_buffer,
