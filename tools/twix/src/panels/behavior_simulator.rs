@@ -31,10 +31,22 @@ impl Panel for BehaviorSimulatorPanel {
         let frame_count = nao.subscribe_output(
             CyclerOutput::from_str("BehaviorSimulator.main_outputs.frame_count").unwrap(),
         );
-        let selected_frame = value.and_then(|value| value.get("selected_frame")).and_then(|value| value.as_bool()).unwrap_or_default() as usize;
-        let selected_robot = value.and_then(|value| value.get("selected_robot")).and_then(|value| value.as_u64()).unwrap_or_default() as usize;
-        let playing = value.and_then(|value| value.get("playing")).and_then(|value| value.as_bool()).unwrap_or_default();
-        let playing_start = value.and_then(|value| value.get("playing_start")).and_then(|value| value.as_f64()).unwrap_or_default();
+        let selected_frame = value
+            .and_then(|value| value.get("selected_frame"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or_default() as usize;
+        let selected_robot = value
+            .and_then(|value| value.get("selected_robot"))
+            .and_then(|value| value.as_u64())
+            .unwrap_or_default() as usize;
+        let playing = value
+            .and_then(|value| value.get("playing"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or_default();
+        let playing_start = value
+            .and_then(|value| value.get("playing_start"))
+            .and_then(|value| value.as_f64())
+            .unwrap_or_default();
         Self {
             nao,
             update_notify_receiver,
