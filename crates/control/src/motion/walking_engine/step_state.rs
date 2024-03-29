@@ -12,6 +12,7 @@ use types::{step_plan::Step, support_foot::Side, walking_engine::WalkingEnginePa
 
 use super::{
     anatomic_constraints::AnatomicConstraints,
+    catching_steps::CatchingSteps,
     feet::{parabolic_return, parabolic_step, Feet},
     CycleContext,
 };
@@ -24,6 +25,7 @@ pub struct StepState {
     pub end_feet: Feet,
     pub support_side: Side,
     pub max_swing_foot_lift: f32,
+    pub step_adjustment: CatchingSteps,
     pub midpoint: f32,
 }
 
@@ -76,7 +78,15 @@ impl StepState {
             end_feet,
             support_side,
             max_swing_foot_lift,
+            step_adjustment: CatchingSteps::default(),
             midpoint,
+        }
+    }
+
+    pub fn advance(self, context: &CycleContext) -> Self {
+        StepState {
+            step_adjustment: self.step_adjustment.advance(context, &self),
+            ..self
         }
     }
 

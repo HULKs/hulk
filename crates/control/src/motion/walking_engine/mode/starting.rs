@@ -24,7 +24,9 @@ impl WalkTransition for Starting {
         if self.step.is_support_switched(context) {
             Mode::Standing(Standing {})
         } else {
-            Mode::Starting(self)
+            Mode::Starting(Self {
+                step: self.step.advance(context),
+            })
         }
     }
 
@@ -40,7 +42,9 @@ impl WalkTransition for Starting {
                 Step::ZERO,
             ))
         } else {
-            Mode::Starting(self)
+            Mode::Starting(Self {
+                step: current_step.advance(context),
+            })
         }
     }
 
@@ -67,7 +71,9 @@ impl WalkTransition for Starting {
                 ))
             }
         } else {
-            Mode::Starting(self)
+            Mode::Starting(Self {
+                step: current_step.advance(context),
+            })
         }
     }
 }
