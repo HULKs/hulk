@@ -13,6 +13,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
+use geometry::line::{Line, Line2};
 use linear_algebra::{distance, point, vector, IntoTransform, Isometry2, Pose2};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
@@ -20,7 +21,6 @@ use types::{
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,
     initial_pose::InitialPose,
-    line::{Line, Line2},
     line_data::LineData,
     localization::{ScoredPose, Update},
     multivariate_normal_distribution::MultivariateNormalDistribution,

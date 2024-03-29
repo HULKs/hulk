@@ -5,8 +5,9 @@ use eframe::epaint::{Color32, Stroke};
 
 use communication::client::{Cycler, CyclerOutput};
 use coordinate_systems::Pixel;
+use geometry::line::Line2;
 use linear_algebra::Point2;
-use types::{line::Line2, line_data::LineDiscardReason};
+use types::line_data::LineDiscardReason;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,

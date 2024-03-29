@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
+use geometry::line::{Line, Line2};
 use linear_algebra::{point, IntoTransform, Isometry3};
 use projection::Projection;
 use types::{
     camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},
     camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
-    line::{Line, Line2},
     parameters::CameraMatrixParameters,
     robot_dimensions::RobotDimensions,
     robot_kinematics::RobotKinematics,

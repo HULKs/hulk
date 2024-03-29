@@ -1,7 +1,7 @@
+use geometry::line::{Line, Line2};
 use linear_algebra::Point2;
 use ordered_float::NotNan;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, SeedableRng};
-use types::line::{Line, Line2};
 
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {

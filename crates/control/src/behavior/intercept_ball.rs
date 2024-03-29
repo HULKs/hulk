@@ -1,11 +1,11 @@
 use coordinate_systems::{Field, Ground};
+use geometry::line::Line;
 use geometry::line_segment::LineSegment;
 use linear_algebra::{Isometry2, Orientation2, Point};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    line::Line,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::InterceptBallParameters,
     planned_path::PathSegment,

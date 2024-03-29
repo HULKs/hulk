@@ -1,6 +1,7 @@
 use std::{collections::HashSet, iter::Peekable, ops::Range};
 
 use color_eyre::Result;
+use geometry::line::{Line, Line2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -13,7 +14,6 @@ use types::{
     camera_matrix::CameraMatrix,
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, Segment},
-    line::{Line, Line2},
     line_data::{LineData, LineDiscardReason},
     ycbcr422_image::YCbCr422Image,
 };

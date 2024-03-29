@@ -4,7 +4,7 @@ use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
-use types::line::Line2;
+use geometry::line::Line2;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,

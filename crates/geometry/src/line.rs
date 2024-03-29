@@ -16,6 +16,7 @@ pub struct Line<Frame, const DIMENSION: usize>(
 );
 
 pub type Line2<Frame> = Line<Frame, 2>;
+pub type Line3<Frame> = Line<Frame, 3>;
 
 impl<Frame> Line2<Frame> {
     pub fn signed_acute_angle(&self, other: Self) -> f32 {
