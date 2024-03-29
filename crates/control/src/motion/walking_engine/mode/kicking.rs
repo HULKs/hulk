@@ -35,6 +35,7 @@ impl Kicking {
             end_feet,
             support_side,
             max_swing_foot_lift,
+            step_adjustment: Default::default(),
             midpoint: kick_step.midpoint,
         };
         Self { kick, step }
@@ -72,7 +73,10 @@ impl WalkTransition for Kicking {
                 ))
             }
         } else {
-            Mode::Kicking(self)
+            Mode::Kicking(Self {
+                kick: self.kick,
+                step: current_step.advance(context),
+            })
         }
     }
 
@@ -97,7 +101,10 @@ impl WalkTransition for Kicking {
                 current_step.feet_at(now, context.parameters).swap_sides(),
             ))
         } else {
-            Mode::Kicking(self)
+            Mode::Kicking(Self {
+                kick: self.kick,
+                step: current_step.advance(context),
+            })
         }
     }
 
@@ -129,7 +136,10 @@ impl WalkTransition for Kicking {
                 ))
             }
         } else {
-            Mode::Kicking(self)
+            Mode::Kicking(Self {
+                kick: self.kick,
+                step: current_step.advance(context),
+            })
         }
     }
 }

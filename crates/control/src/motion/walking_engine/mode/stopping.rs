@@ -25,7 +25,9 @@ impl WalkTransition for Stopping {
         if self.step.is_finished(context) {
             Mode::Standing(Standing {})
         } else {
-            Mode::Stopping(self)
+            Mode::Stopping(Self {
+                step: self.step.advance(context),
+            })
         }
     }
 
@@ -41,7 +43,9 @@ impl WalkTransition for Stopping {
                 Step::ZERO,
             ))
         } else {
-            Mode::Stopping(self)
+            Mode::Stopping(Self {
+                step: current_step.advance(context),
+            })
         }
     }
 
@@ -68,7 +72,9 @@ impl WalkTransition for Stopping {
                 ))
             }
         } else {
-            Mode::Stopping(self)
+            Mode::Stopping(Self {
+                step: current_step.advance(context),
+            })
         }
     }
 }
