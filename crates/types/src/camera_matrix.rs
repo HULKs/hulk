@@ -1,3 +1,4 @@
+use geometry::line::Line2;
 use nalgebra::{Matrix, Rotation3};
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +7,7 @@ use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use linear_algebra::{IntoTransform, Isometry3, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{horizon::Horizon, line::Line2};
+use crate::horizon::Horizon;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrices {

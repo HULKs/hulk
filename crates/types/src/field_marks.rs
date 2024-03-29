@@ -1,12 +1,10 @@
+use geometry::line::{Line, Line2};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Field;
 
-use crate::{
-    field_dimensions::FieldDimensions,
-    line::{Line, Line2},
-};
+use crate::field_dimensions::FieldDimensions;
 use linear_algebra::{distance, point, vector, Point2, Vector2};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]

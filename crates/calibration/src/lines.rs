@@ -1,10 +1,8 @@
 use coordinate_systems::{Ground, Pixel};
+use geometry::line::{Line, Line2};
 use linear_algebra::Point2;
 use projection::Projection;
-use types::{
-    camera_matrix::CameraMatrix,
-    line::{Line, Line2},
-};
+use types::camera_matrix::CameraMatrix;
 
 #[derive(Clone)]
 pub struct Lines<Frame> {

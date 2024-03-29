@@ -37,7 +37,6 @@ pub mod kick_step;
 pub mod kick_target;
 pub mod led;
 pub mod limb;
-pub mod line;
 pub mod line_data;
 pub mod localization;
 pub mod message_event;

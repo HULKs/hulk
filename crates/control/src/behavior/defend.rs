@@ -2,13 +2,12 @@ use std::ops::Range;
 
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
-use geometry::look_at::LookAt;
+use geometry::{line::Line, look_at::LookAt};
 use linear_algebra::{distance, point, Point2, Pose2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    line::Line,
     motion_command::MotionCommand,
     parameters::RolePositionsParameters,
     path_obstacles::PathObstacle,

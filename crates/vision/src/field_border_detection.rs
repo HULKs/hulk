@@ -1,4 +1,5 @@
 use color_eyre::Result;
+use geometry::line::{Line, Line2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -12,7 +13,6 @@ use types::{
     field_border::FieldBorder,
     horizon::Horizon,
     image_segments::{ImageSegments, Segment},
-    line::{Line, Line2},
 };
 
 use crate::ransac::Ransac;
