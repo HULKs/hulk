@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
-use linear_algebra::{point, Isometry2, Orientation2, Point, Point2, Pose};
+use linear_algebra::{point, Isometry2, Orientation2, Point, Point2, Pose2};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::ArmMotion,
@@ -156,7 +156,7 @@ impl<'cycle> WalkAndStand<'cycle> {
 
     pub fn execute(
         &self,
-        target_pose: Pose<Ground>,
+        target_pose: Pose2<Ground>,
         head: HeadMotion,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Option<MotionCommand> {
@@ -204,7 +204,7 @@ impl<'cycle> WalkAndStand<'cycle> {
 }
 
 pub fn hybrid_alignment(
-    target_pose: Pose<Ground>,
+    target_pose: Pose2<Ground>,
     hybrid_align_distance: f32,
     distance_to_be_aligned: f32,
 ) -> OrientationMode {

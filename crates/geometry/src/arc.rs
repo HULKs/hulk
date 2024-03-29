@@ -81,7 +81,7 @@ mod tests {
     use std::f32::consts::PI;
 
     use approx::assert_relative_eq;
-    use linear_algebra::{point, vector, UnitComplex};
+    use linear_algebra::{point, vector, Rotation2};
 
     use super::*;
 
@@ -118,8 +118,8 @@ mod tests {
             let angle = angle_index as f32 / 100.0 * TAU;
             for angle_distance_index in 1..100 {
                 let angle_distance = angle_distance_index as f32 / 100.0 * TAU;
-                let start = UnitComplex::<SomeFrame, SomeFrame>::new(angle) * vector![1.0, 0.0];
-                let end = UnitComplex::<SomeFrame, SomeFrame>::new(angle + angle_distance)
+                let start = Rotation2::<SomeFrame, SomeFrame>::new(angle) * vector![1.0, 0.0];
+                let end = Rotation2::<SomeFrame, SomeFrame>::new(angle + angle_distance)
                     * vector![1.0, 0.0];
                 let center = point![PI, 4.20];
                 let radius = 5.0;

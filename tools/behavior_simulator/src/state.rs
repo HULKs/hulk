@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Head};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{vector, Isometry2, Orientation2, Point2, UnitComplex, Vector2};
+use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
 use types::{
@@ -206,7 +206,7 @@ impl State {
             let ball_visible = self.ball.as_ref().is_some_and(|ball| {
                 let ball_in_ground = ground_to_field.inverse() * ball.position;
                 let head_to_ground =
-                    UnitComplex::new(robot.database.main_outputs.sensor_data.positions.head.yaw);
+                    Rotation2::new(robot.database.main_outputs.sensor_data.positions.head.yaw);
                 let ball_in_head: Point2<Head> = head_to_ground.inverse() * ball_in_ground;
                 let field_of_view = robot.field_of_view();
                 let angle_to_ball = ball_in_head.coords().angle(Vector2::x_axis());

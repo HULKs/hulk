@@ -3,7 +3,7 @@ use std::ops::Range;
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
-use linear_algebra::{distance, point, Point2, Pose};
+use linear_algebra::{distance, point, Point2, Pose2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
@@ -45,7 +45,7 @@ impl<'cycle> Defend<'cycle> {
 
     fn with_pose(
         &self,
-        pose: Pose<Ground>,
+        pose: Pose2<Ground>,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Option<MotionCommand> {
         self.walk_and_stand
@@ -99,7 +99,7 @@ fn defend_left_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Pose<Ground>> {
+) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
@@ -129,7 +129,7 @@ fn defend_right_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Pose<Ground>> {
+) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
@@ -158,7 +158,7 @@ fn defend_penalty_kick(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Pose<Ground>> {
+) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
@@ -188,7 +188,7 @@ fn defend_goal_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Pose<Ground>> {
+) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
@@ -227,7 +227,7 @@ fn defend_kick_off_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     role_positions: &RolePositionsParameters,
-) -> Option<Pose<Ground>> {
+) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let absolute_ball_position = match world_state.ball {
         Some(ball) => ball.ball_in_field,
@@ -250,10 +250,10 @@ pub fn block_on_circle(
     ball_position: Point2<Field>,
     target: Point2<Field>,
     distance_to_target: f32,
-) -> Pose<Field> {
+) -> Pose2<Field> {
     let target_to_ball = ball_position - target;
     let block_position = target + (target_to_ball.normalize() * distance_to_target);
-    Pose::new(
+    Pose2::new(
         block_position.coords(),
         block_position.look_at(&ball_position).angle(),
     )
@@ -264,7 +264,7 @@ fn block_on_line(
     target: Point2<Field>,
     defense_line_x: f32,
     defense_line_y_range: Range<f32>,
-) -> Pose<Field> {
+) -> Pose2<Field> {
     let is_ball_in_front_of_defense_line = defense_line_x < ball_position.x();
     if is_ball_in_front_of_defense_line {
         let defense_line = Line(
@@ -279,7 +279,7 @@ fn block_on_line(
                 .y()
                 .clamp(defense_line_y_range.start, defense_line_y_range.end)
         ];
-        Pose::new(
+        Pose2::new(
             defense_position.coords(),
             defense_position.look_at(&ball_position).angle(),
         )
@@ -288,7 +288,7 @@ fn block_on_line(
             defense_line_x,
             (defense_line_y_range.start + defense_line_y_range.end) / 2.0
         ];
-        Pose::new(
+        Pose2::new(
             defense_position.coords(),
             defense_position.look_at(&ball_position).angle(),
         )
