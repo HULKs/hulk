@@ -5,7 +5,7 @@ use std::{
 
 use approx::{AbsDiffEq, RelativeEq};
 use linear_algebra::{
-    center, distance, distance_squared, point, vector, Isometry, Point, Point2, Rotation2, Vector2,
+    center, distance, distance_squared, point, vector, Point, Point2, Rotation2, Transform, Vector2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -142,12 +142,10 @@ impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
     }
 }
 
-impl<From, To, const DIMENSION: usize, Scalar, Rotation> Mul<Line<From, DIMENSION>>
-    for Isometry<From, To, DIMENSION, Scalar, Rotation>
+impl<From, To, const DIMENSION: usize, Inner> Mul<Line<From, DIMENSION>>
+    for Transform<From, To, Inner>
 where
-    Isometry<From, To, DIMENSION, Scalar, Rotation>:
-        Mul<Point<From, DIMENSION>, Output = Point<To, DIMENSION>>,
-    Self: Copy,
+    Self: Mul<Point<From, DIMENSION>, Output = Point<To, DIMENSION>> + Copy,
 {
     type Output = Line<To, DIMENSION>;
 
