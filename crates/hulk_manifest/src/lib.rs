@@ -48,7 +48,6 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::kinematics_provider",
                     "control::led_status",
                     "control::localization",
-                    "control::localization_recorder",
                     "control::motion::arms_up_squat",
                     "control::motion::condition_input_provider",
                     "control::motion::dispatching_interpolator",

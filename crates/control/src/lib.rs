@@ -18,7 +18,6 @@ pub mod kick_selector;
 pub mod kinematics_provider;
 pub mod led_status;
 pub mod localization;
-pub mod localization_recorder;
 pub mod motion;
 pub mod obstacle_filter;
 pub mod odometry;

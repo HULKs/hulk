@@ -43,7 +43,6 @@ members = [
   "tools/depp",
   "tools/fanta",
   "tools/hula/types",
-  "tools/localizer",
   "tools/pepsi",
   "tools/twix",
 ]
