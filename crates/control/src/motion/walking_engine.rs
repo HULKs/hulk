@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
+use kinematics::inverse::leg_angles;
 use linear_algebra::IntoTransform;
 use log::warn;
 use nalgebra::{Isometry3, Point3, Vector2, Vector3};
@@ -752,7 +753,7 @@ impl WalkingEngine {
             walk_hip_height,
         )
         .framed_transform();
-        let (is_reachable, legs) = kinematics::leg_angles(left_foot_to_robot, right_foot_to_robot);
+        let (is_reachable, legs) = leg_angles(left_foot_to_robot, right_foot_to_robot);
         if !is_reachable {
             warn!("Not reachable!");
         }

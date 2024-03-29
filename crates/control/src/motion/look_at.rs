@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::MainOutput;
-use kinematics::{head_to_neck, neck_to_robot};
+use kinematics::forward::{head_to_neck, neck_to_robot};
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     camera_matrix::CameraMatrices,
