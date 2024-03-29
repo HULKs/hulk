@@ -1,6 +1,6 @@
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
-use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose};
+use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
@@ -67,7 +67,7 @@ pub fn execute(
         .unwrap_or(point![0.0, 0.0]);
     let head = HeadMotion::SearchForLostBall;
     if let Some(SearchRole::Goal) = search_role {
-        let goal_pose = Pose::from(search_position);
+        let goal_pose = Pose2::from(search_position);
         walk_and_stand.execute(goal_pose, head, path_obstacles_output)
     } else {
         let path = walk_path_planner.plan(

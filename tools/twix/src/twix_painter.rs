@@ -12,7 +12,7 @@ use nalgebra::{Rotation2, SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground};
 use geometry::{arc::Arc, circle::Circle, direction::Direction};
-use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose, Vector2};
+use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Vector2};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
 pub enum CoordinateSystem {
@@ -309,7 +309,7 @@ impl TwixPainter<Field> {
 
     pub fn pose(
         &self,
-        pose: Pose<Field>,
+        pose: Pose2<Field>,
         circle_radius: f32,
         line_length: f32,
         fill_color: Color32,

@@ -1,5 +1,5 @@
 use framework::AdditionalOutput;
-use linear_algebra::{point, Pose};
+use linear_algebra::{point, Pose2};
 use types::{
     field_dimensions::FieldDimensions, motion_command::MotionCommand, path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -15,7 +15,7 @@ pub fn execute(
     field_dimensions: &FieldDimensions,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
-    let kick_off_pose = Pose::from(point![
+    let kick_off_pose = Pose2::from(point![
         field_dimensions.length / 2.0
             - field_dimensions.penalty_marker_distance
             - field_dimensions.penalty_marker_size * 2.0,

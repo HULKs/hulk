@@ -9,7 +9,7 @@ use std::{
 };
 
 use coordinate_systems::Field;
-use linear_algebra::{Point2, Pose};
+use linear_algebra::{Point2, Pose2};
 use serde::{Deserialize, Serialize};
 
 pub use game_controller_return_message::GameControllerReturnMessage;
@@ -24,7 +24,7 @@ pub use visual_referee_message::{VisualRefereeDecision, VisualRefereeMessage};
 pub struct HulkMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,
-    pub pose: Pose<Field>,
+    pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
 }
@@ -71,7 +71,7 @@ impl Display for PlayerNumber {
 mod tests {
     use std::time::Duration;
 
-    use linear_algebra::{Point, Pose};
+    use linear_algebra::{Point, Pose2};
 
     use crate::{BallPosition, HulkMessage, PlayerNumber};
 
@@ -80,7 +80,7 @@ mod tests {
         let test_message = HulkMessage {
             player_number: PlayerNumber::Seven,
             fallen: false,
-            pose: Pose::default(),
+            pose: Pose2::default(),
             ball_position: Some(BallPosition {
                 position: Point::origin(),
                 age: Duration::MAX,

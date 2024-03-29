@@ -2,7 +2,7 @@ use nalgebra::{vector, Matrix3};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Point2, Pose};
+use linear_algebra::{Isometry2, Point2, Pose2};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
@@ -24,7 +24,7 @@ pub struct ScoredPose {
 }
 
 impl ScoredPose {
-    pub fn from_isometry(pose: Pose<Field>, covariance: Matrix3<f32>, score: f32) -> Self {
+    pub fn from_isometry(pose: Pose2<Field>, covariance: Matrix3<f32>, score: f32) -> Self {
         Self {
             state: MultivariateNormalDistribution {
                 mean: vector![

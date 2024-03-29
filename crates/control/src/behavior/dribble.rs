@@ -1,6 +1,6 @@
 use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
-use linear_algebra::{Point, Pose};
+use linear_algebra::{Point, Pose2};
 use types::{
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
@@ -70,7 +70,7 @@ pub fn execute(
 }
 
 fn is_kick_pose_reached(
-    kick_pose_to_robot: Pose<Ground>,
+    kick_pose_to_robot: Pose2<Ground>,
     kick_info: &InWalkKickInfoParameters,
 ) -> bool {
     let is_x_reached = kick_pose_to_robot.position().x().abs() < kick_info.reached_thresholds.x;

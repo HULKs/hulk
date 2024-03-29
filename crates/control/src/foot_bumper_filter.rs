@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use coordinate_systems::Ground;
-use linear_algebra::{point, UnitComplex};
+use linear_algebra::{point, Rotation2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -146,7 +146,7 @@ impl FootBumperFilter {
             (false, true) => -context.sensor_angle,
             _ => return Ok(Default::default()),
         };
-        let obstacle_position = UnitComplex::<Ground, Ground>::new(obstacle_angle)
+        let obstacle_position = Rotation2::<Ground, Ground>::new(obstacle_angle)
             * point![*context.obstacle_distance, 0.0];
 
         context

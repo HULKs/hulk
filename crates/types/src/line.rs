@@ -5,8 +5,7 @@ use std::{
 
 use approx::{AbsDiffEq, RelativeEq};
 use linear_algebra::{
-    center, distance, distance_squared, point, vector, Isometry, Point, Point2, UnitComplex,
-    Vector2,
+    center, distance, distance_squared, point, vector, Isometry, Point, Point2, Rotation2, Vector2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -93,7 +92,7 @@ impl<Frame> Line2<Frame> {
 }
 
 fn signed_acute_angle<Frame>(first: Vector2<Frame>, second: Vector2<Frame>) -> f32 {
-    let difference = UnitComplex::rotation_between(first, second).angle();
+    let difference = Rotation2::rotation_between(first, second).angle();
     if difference > FRAC_PI_2 {
         difference - PI
     } else if difference < -FRAC_PI_2 {
@@ -143,9 +142,12 @@ impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
     }
 }
 
-impl<From, To, const DIMENSION: usize> Mul<Line<From, DIMENSION>> for Isometry<From, To, DIMENSION>
+impl<From, To, const DIMENSION: usize, Scalar, Rotation> Mul<Line<From, DIMENSION>>
+    for Isometry<From, To, DIMENSION, Scalar, Rotation>
 where
-    Isometry<From, To, DIMENSION>: Mul<Point<From, DIMENSION>, Output = Point<To, DIMENSION>>,
+    Isometry<From, To, DIMENSION, Scalar, Rotation>:
+        Mul<Point<From, DIMENSION>, Output = Point<To, DIMENSION>>,
+    Self: Copy,
 {
     type Output = Line<To, DIMENSION>;
 

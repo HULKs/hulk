@@ -94,33 +94,33 @@ where
     }
 }
 
-impl<Frame, Inner> Mul<f32> for Framed<Frame, Inner>
+impl<Frame, Inner, T> Mul<T> for Framed<Frame, Inner>
 where
-    Inner: Mul<f32, Output = Inner>,
+    Inner: Mul<T, Output = Inner>,
 {
     type Output = Framed<Frame, Inner::Output>;
 
-    fn mul(self, rhs: f32) -> Self::Output {
+    fn mul(self, rhs: T) -> Self::Output {
         Self::wrap(self.inner * rhs)
     }
 }
 
-impl<Frame, Inner> MulAssign<f32> for Framed<Frame, Inner>
+impl<Frame, Inner, T> MulAssign<T> for Framed<Frame, Inner>
 where
-    Inner: MulAssign<f32>,
+    Inner: MulAssign<T>,
 {
-    fn mul_assign(&mut self, rhs: f32) {
+    fn mul_assign(&mut self, rhs: T) {
         self.inner *= rhs;
     }
 }
 
-impl<Frame, Inner> Div<f32> for Framed<Frame, Inner>
+impl<Frame, Inner, T> Div<T> for Framed<Frame, Inner>
 where
-    Inner: Div<f32, Output = Inner>,
+    Inner: Div<T, Output = Inner>,
 {
     type Output = Framed<Frame, Inner::Output>;
 
-    fn div(self, rhs: f32) -> Self::Output {
+    fn div(self, rhs: T) -> Self::Output {
         Self::wrap(self.inner / rhs)
     }
 }

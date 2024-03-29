@@ -12,7 +12,7 @@ use geometry::{
     circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
 };
 use linear_algebra::{
-    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose, UnitComplex,
+    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Rotation2,
     Vector2,
 };
 use types::{
@@ -196,8 +196,8 @@ fn generate_decisions_for_instant_kicks(
         .filter_map(|(&kicking_side, &variant)| {
             let kick_info = &in_walk_kicks[variant];
             let shot_angle = match kicking_side {
-                Side::Left => UnitComplex::new(kick_info.orientation),
-                Side::Right => UnitComplex::new(kick_info.orientation).inverse(),
+                Side::Left => Rotation2::new(kick_info.orientation),
+                Side::Right => Rotation2::new(kick_info.orientation).inverse(),
             };
             let shot_distance: Vector2<Ground> = vector![kick_info.shot_distance, 0.0];
             let target = ball_position + shot_angle * shot_distance;
@@ -409,13 +409,13 @@ fn kick_decisions_from_targets(
     )
 }
 
-fn distance_to_kick_pose(kick_pose: Pose<Ground>, angle_distance_weight: f32) -> f32 {
+fn distance_to_kick_pose(kick_pose: Pose2<Ground>, angle_distance_weight: f32) -> f32 {
     kick_pose.position().coords().norm()
         + angle_distance_weight * kick_pose.orientation().angle().abs()
 }
 
 fn is_inside_any_obstacle(
-    kick_pose: Pose<Ground>,
+    kick_pose: Pose2<Ground>,
     obstacles: &[Obstacle],
     kick_pose_obstacle_radius: f32,
 ) -> bool {
@@ -429,8 +429,8 @@ fn is_inside_any_obstacle(
     })
 }
 
-fn mirror_kick_pose<Frame>(kick_pose: Pose<Frame>) -> Pose<Frame> {
-    Pose::from_parts(
+fn mirror_kick_pose<Frame>(kick_pose: Pose2<Frame>) -> Pose2<Frame> {
+    Pose2::from_parts(
         point![kick_pose.position().x(), -kick_pose.position().y()],
         kick_pose.orientation().inverse(),
     )
@@ -441,7 +441,7 @@ fn compute_kick_pose(
     target_to_kick_to: Point2<Ground>,
     kick_info: &InWalkKickInfoParameters,
     side: Side,
-) -> Pose<Ground> {
+) -> Pose2<Ground> {
     struct TargetAlignedBall;
     struct Ball;
 
@@ -449,7 +449,7 @@ fn compute_kick_pose(
     let aligned_ball_to_ball = Point::origin()
         .look_at(&(ball_to_ground.inverse() * target_to_kick_to))
         .as_transform::<TargetAlignedBall>();
-    let kick_pose_in_target_aligned_ball = Pose::<TargetAlignedBall>::from_parts(
+    let kick_pose_in_target_aligned_ball = Pose2::<TargetAlignedBall>::from_parts(
         kick_info.position.framed(),
         Orientation2::new(kick_info.orientation),
     );

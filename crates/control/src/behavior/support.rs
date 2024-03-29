@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_4;
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
-use linear_algebra::{point, Pose, UnitComplex, Vector2};
+use linear_algebra::{point, Pose2, Rotation2, Vector2};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_state::FilteredGameState,
@@ -45,14 +45,14 @@ fn support_pose(
     distance_to_ball: f32,
     maximum_x_in_ready_and_when_ball_is_not_free: f32,
     minimum_x: f32,
-) -> Option<Pose<Ground>> {
+) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
         .rule_ball
         .or(world_state.ball)
         .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
     let side = field_side.unwrap_or_else(|| ball.field_side.opposite());
-    let offset_vector = UnitComplex::new(match side {
+    let offset_vector = Rotation2::new(match side {
         Side::Left => -FRAC_PI_4,
         Side::Right => FRAC_PI_4,
     }) * -(Vector2::<Field>::x_axis() * distance_to_ball);
@@ -78,7 +78,7 @@ fn support_pose(
         .y()
         .clamp(-field_dimensions.width / 2.0, field_dimensions.width / 2.0);
     let clamped_position = point![clamped_x, clamped_y];
-    let support_pose = Pose::new(
+    let support_pose = Pose2::new(
         clamped_position.coords(),
         clamped_position.look_at(&ball.ball_in_field).angle(),
     );

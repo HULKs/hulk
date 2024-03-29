@@ -13,7 +13,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use linear_algebra::{distance, point, vector, IntoTransform, Isometry2, Pose};
+use linear_algebra::{distance, point, vector, IntoTransform, Isometry2, Pose2};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
     field_dimensions::FieldDimensions,
@@ -148,7 +148,7 @@ impl Localization {
                     kicking_team: Team::Hulks,
                 }),
             ) => {
-                let penalty_shoot_out_striker_pose = Pose::from(point![
+                let penalty_shoot_out_striker_pose = Pose2::from(point![
                     -context.field_dimensions.penalty_area_length
                         + (context.field_dimensions.length / 2.0),
                     0.0,
@@ -168,7 +168,7 @@ impl Localization {
                 }),
             ) => {
                 let penalty_shoot_out_keeper_pose =
-                    Pose::from(point![-context.field_dimensions.length / 2.0, 0.0]);
+                    Pose2::from(point![-context.field_dimensions.length / 2.0, 0.0]);
                 self.hypotheses = vec![ScoredPose::from_isometry(
                     penalty_shoot_out_keeper_pose,
                     *context.initial_hypothesis_covariance,
@@ -964,16 +964,16 @@ fn get_2d_translation_measurement(
 pub fn generate_initial_pose(
     initial_pose: &InitialPose,
     field_dimensions: &FieldDimensions,
-) -> Pose<Field> {
+) -> Pose2<Field> {
     match initial_pose.side {
-        Side::Left => Pose::new(
+        Side::Left => Pose2::new(
             vector!(
                 initial_pose.center_line_offset_x,
                 field_dimensions.width * 0.5
             ),
             -FRAC_PI_2,
         ),
-        Side::Right => Pose::new(
+        Side::Right => Pose2::new(
             vector!(
                 initial_pose.center_line_offset_x,
                 -field_dimensions.width * 0.5
@@ -983,16 +983,16 @@ pub fn generate_initial_pose(
     }
 }
 
-fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Pose<Field>> {
+fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Pose2<Field>> {
     vec![
-        Pose::new(
+        Pose2::new(
             vector!(
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
                 -field_dimensions.width * 0.5
             ),
             FRAC_PI_2,
         ),
-        Pose::new(
+        Pose2::new(
             vector!(
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
                 field_dimensions.width * 0.5
