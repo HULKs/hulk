@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use kinematics::{
+use kinematics::forward::{
     head_to_neck, left_ankle_to_left_tibia, left_elbow_to_left_upper_arm, left_foot_to_left_ankle,
     left_forearm_to_left_elbow, left_hip_to_left_pelvis, left_pelvis_to_robot,
     left_shoulder_to_robot, left_thigh_to_left_hip, left_tibia_to_left_thigh,
