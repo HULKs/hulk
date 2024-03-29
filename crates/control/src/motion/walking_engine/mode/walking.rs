@@ -45,7 +45,10 @@ impl WalkTransition for Walking {
                 current_step.feet_at(now, context.parameters).swap_sides(),
             ))
         } else {
-            Mode::Walking(self)
+            Mode::Walking(Self {
+                step: current_step.advance(context),
+                ..self
+            })
         }
     }
 
@@ -61,7 +64,10 @@ impl WalkTransition for Walking {
                 self.requested_step,
             ))
         } else {
-            Mode::Walking(self)
+            Mode::Walking(Self {
+                step: current_step.advance(context),
+                ..self
+            })
         }
     }
 
@@ -88,7 +94,10 @@ impl WalkTransition for Walking {
                 ))
             }
         } else {
-            Mode::Walking(self)
+            Mode::Walking(Self {
+                step: current_step.advance(context),
+                ..self
+            })
         }
     }
 }
