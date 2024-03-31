@@ -10,7 +10,7 @@ use types::{
 
 pub fn execute(
     world_state: &WorldState,
-    expected_referee_position: Point2<f32>,
+    expected_referee_position: Point2<Ground>,
     referee_pixel_offset: Point2<Pixel>,
 ) -> Option<MotionCommand> {
     let filtered_game_controller_state = world_state.filtered_game_controller_state?;
