@@ -32,6 +32,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 setup_nodes: vec!["object_detection::image_receiver"],
                 nodes: vec![
                     "object_detection::pose_detection",
+                    "object_detection::pose_interpretation",
                 ],
             },
             CyclerManifest {
@@ -83,6 +84,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::primary_state_filter",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
+                    "control::referee_position_provider",
                     "control::sole_pressure_filter",
                     "control::sonar_filter",
                     "control::support_foot_estimation",

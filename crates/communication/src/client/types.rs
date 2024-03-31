@@ -46,6 +46,8 @@ pub enum Cycler {
     Control,
     VisionTop,
     VisionBottom,
+    DetectionTop,
+    DetectionBottom,
     BehaviorSimulator,
 }
 
@@ -55,6 +57,8 @@ impl Display for Cycler {
             Cycler::Control => f.write_str("Control"),
             Cycler::VisionTop => f.write_str("VisionTop"),
             Cycler::VisionBottom => f.write_str("VisionBottom"),
+            Cycler::DetectionTop => f.write_str("DetectionTop"),
+            Cycler::DetectionBottom => f.write_str("DetectionBottom"),
             Cycler::BehaviorSimulator => f.write_str("BehaviorSimulator"),
         }
     }
