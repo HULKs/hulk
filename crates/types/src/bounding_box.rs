@@ -1,15 +1,16 @@
+use coordinate_systems::Pixel;
 use geometry::rectangle::Rectangle;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
 pub struct BoundingBox {
-    pub bounding_box: Rectangle,
+    pub bounding_box: Rectangle<Pixel>,
     pub score: f32,
 }
 
 impl BoundingBox {
-    pub fn new(score: f32, bounding_box: Rectangle) -> Self {
+    pub fn new(score: f32, bounding_box: Rectangle<Pixel>) -> Self {
         Self {
             bounding_box,
             score,

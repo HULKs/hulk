@@ -5,12 +5,13 @@ use color_eyre::{
     Result,
 };
 use context_attribute::context;
+use coordinate_systems::Pixel;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::rectangle::Rectangle;
 use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use nalgebra::{Point2, Vector2};
+use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
 use serde::{Deserialize, Serialize};
@@ -201,7 +202,7 @@ impl PoseDetection {
                 let h = bounding_box_slice[3] * Y_SCALE;
                 let bounding_box = BoundingBox::new(
                     prob,
-                    Rectangle::new_with_center_and_size(Point2::new(cx, cy), Vector2::new(w, h)),
+                    Rectangle::<Pixel>::new_with_center_and_size(point![cx, cy], vector![w, h]),
                 );
 
                 let keypoints_slice = row.slice(s![5..]);

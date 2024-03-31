@@ -1,30 +1,28 @@
-use std::f32::consts::PI;
-
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::Field;
+use coordinate_systems::Ground;
+use coordinate_systems::Pixel;
 use framework::AdditionalOutput;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use hardware::TimeInterface;
-use nalgebra::center;
-use nalgebra::distance;
-use nalgebra::point;
-use nalgebra::vector;
-use nalgebra::Isometry2;
-use nalgebra::Point2;
-use nalgebra::Rotation2;
+use linear_algebra::center;
+use linear_algebra::distance;
+use linear_algebra::Isometry2;
+use linear_algebra::Point2;
+use linear_algebra::Transform;
 use ordered_float::NotNan;
 use projection::Projection;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::camera_matrix::CameraMatrices;
 use types::camera_matrix::CameraMatrix;
-use types::line::Line;
+use types::field_dimensions::FieldDimensions;
+use types::initial_pose::InitialPose;
+use types::players::Players;
 use types::pose_detection::Keypoints;
-use types::{
-    field_dimensions::FieldDimensions, initial_pose::InitialPose, players::Players,
-    pose_detection::HumanPose, pose_types::PoseType, ycbcr422_image::YCbCr422Image,
-};
+use types::ycbcr422_image::YCbCr422Image;
+use types::{pose_detection::HumanPose, pose_types::PoseType};
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseInterpretation {
@@ -43,11 +41,11 @@ pub struct CycleContext {
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
     human_poses: Input<Vec<HumanPose>, "human_poses">,
     image: Input<YCbCr422Image, "image">,
-    robot_to_field: Input<Option<Isometry2<f32>>, "Control", "robot_to_field?">,
-    robot_to_field_of_home_after_coin_toss_before_second_half: Input<
-        Option<Isometry2<f32>>,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
+    ground_to_field_of_home_after_coin_toss_before_second_half: Input<
+        Option<Isometry2<Ground, Field>>,
         "Control",
-        "robot_to_field_of_home_after_coin_toss_before_second_half?",
+        "ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
 
     shoulder_angle_left: AdditionalOutput<f32, "shoulder_angle_left">,
@@ -70,7 +68,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub detected_referee_pose_type: MainOutput<PoseType>,
-    pub detected_pose_types: MainOutput<Vec<(PoseType, Point2<f32>)>>,
+    pub detected_pose_types: MainOutput<Vec<(PoseType, Point2<Field>)>>,
 }
 
 impl PoseInterpretation {
@@ -81,28 +79,19 @@ impl PoseInterpretation {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
-        let interpreted_pose_types: Vec<(PoseType, Point2<f32>)> = Self::get_all_pose_types(
+        let interpreted_pose_types: Vec<(PoseType, Point2<Field>)> = Self::get_all_pose_types(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
-            context.robot_to_field,
+            context.ground_to_field,
             *context.foot_z_offset,
             *context.keypoint_confidence_threshold,
             *context.shoulder_angle_threshhold,
         );
-        let half_field_size = vector!(
-            context.field_dimensions.length / 2.0,
-            context.field_dimensions.width / 2.0,
-        );
-
-        let expected_referee_position = *context
-            .expected_referee_position
-            .coords
-            .component_mul(&half_field_size);
 
         let referee_pose = Self::get_referee_pose_type(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
-            context.robot_to_field,
+            context.ground_to_field,
             *context.distance_to_referee_position_threshhold,
             point!(expected_referee_position.x, expected_referee_position.y),
             *context.foot_z_offset,
@@ -122,15 +111,15 @@ impl PoseInterpretation {
     pub fn get_all_pose_types(
         poses: Vec<HumanPose>,
         camera_matrix_top: CameraMatrix,
-        robot_to_field: Option<&Isometry2<f32>>,
+        ground_to_field: Option<&Isometry2<Ground, Field>>,
         foot_z_offset: f32,
         keypoint_confidence_threshold: f32,
         shoulder_angle_threshhold: f32,
-    ) -> Vec<(PoseType, Point2<f32>)> {
+    ) -> Vec<(PoseType, Point2<Field>)> {
         let pose_type_tuple = poses
             .iter()
             .filter_map(|pose| {
-                if let Some(robot_to_field) = robot_to_field {
+                if let Some(ground_to_field) = ground_to_field {
                     let left_foot_ground_position = camera_matrix_top
                         .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
                         .ok();
@@ -148,8 +137,8 @@ impl PoseInterpretation {
                         Some((
                             interpreted_pose,
                             center(
-                                &(robot_to_field * &left_foot_ground_position),
-                                &(robot_to_field * &right_foot_ground_position),
+                                ground_to_field * left_foot_ground_position,
+                                ground_to_field * right_foot_ground_position,
                             ),
                         ))
                     } else {
@@ -166,7 +155,7 @@ impl PoseInterpretation {
     pub fn get_referee_pose_type(
         poses: Vec<HumanPose>,
         camera_matrix_top: CameraMatrix,
-        robot_to_field: Option<&Isometry2<f32>>,
+        ground_to_field: Option<&Isometry2<Ground, Field>>,
         distance_to_referee_position_threshhold: f32,
         expected_referee_position: Point2<f32>,
         foot_z_offset: f32,
@@ -175,7 +164,7 @@ impl PoseInterpretation {
             // Get all poses that are near the referee position within a threshhold
             .iter()
             .filter_map(|pose| {
-                if let Some(robot_to_field) = robot_to_field {
+                if let Some(ground_to_field) = ground_to_field {
                     let left_foot_ground_position = camera_matrix_top
                         .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
                         .ok();
@@ -186,9 +175,9 @@ impl PoseInterpretation {
                         left_foot_ground_position.zip(right_foot_ground_position)
                     {
                         let distance_to_referee_position = distance(
-                            &center(
-                                &(robot_to_field * &left_foot_ground_position),
-                                &(robot_to_field * &right_foot_ground_position),
+                            center(
+                                ground_to_field * left_foot_ground_position,
+                                ground_to_field * right_foot_ground_position,
                             ),
                             &expected_referee_position,
                         );
@@ -236,30 +225,31 @@ impl PoseInterpretation {
         keypoint_confidence_threshold: f32,
         shoulder_angle_threshhold: f32,
     ) -> bool {
+        struct RotatedPixel;
+
         let are_hands_visible = keypoints.left_hand.confidence > keypoint_confidence_threshold
             && keypoints.right_hand.confidence > keypoint_confidence_threshold;
-        let are_hands_over_shoulder = keypoints.left_shoulder.point.y > keypoints.left_hand.point.y
-            && keypoints.right_shoulder.point.y > keypoints.right_hand.point.y;
+        let are_hands_over_shoulder = keypoints.left_shoulder.point.y()
+            > keypoints.left_hand.point.y()
+            && keypoints.right_shoulder.point.y() > keypoints.right_hand.point.y();
 
-        let shoulder_line = Line(
-            keypoints.right_shoulder.point,
-            keypoints.left_shoulder.point,
-        );
         let left_to_right_shoulder =
-            keypoints.right_shoulder.point.coords - keypoints.left_shoulder.point.coords;
-        let shoudler_line_angle = f32::atan2(left_to_right_shoulder.y, left_to_right_shoulder.x);
-        let shoulder_rotation = Rotation2::new(shoudler_line_angle);
+            keypoints.right_shoulder.point.coords() - keypoints.left_shoulder.point.coords();
+        let shoulder_line_angle =
+            f32::atan2(left_to_right_shoulder.y(), left_to_right_shoulder.x());
+        let shoulder_rotation =
+            Transform::<Pixel, RotatedPixel, nalgebra::Isometry2<_>>::rotation(shoulder_line_angle);
         let left_shoulder = shoulder_rotation * keypoints.left_shoulder.point;
         let right_shoulder = shoulder_rotation * keypoints.right_shoulder.point;
         let left_elbow = shoulder_rotation * keypoints.left_elbow.point;
         let right_elbow = shoulder_rotation * keypoints.right_elbow.point;
-        let left_shoulder_to_elbow = left_elbow.coords - left_shoulder.coords;
-        let right_shoulder_to_elbow = right_elbow.coords - right_shoulder.coords;
+        let left_shoulder_to_elbow = left_elbow.coords() - left_shoulder.coords();
+        let right_shoulder_to_elbow = right_elbow.coords() - right_shoulder.coords();
         let is_left_shoulder_angled_up =
-            f32::atan2(right_shoulder_to_elbow.y, right_shoulder_to_elbow.x)
+            f32::atan2(right_shoulder_to_elbow.y(), right_shoulder_to_elbow.x())
                 > shoulder_angle_threshhold;
         let is_right_shoulder_angled_up =
-            f32::atan2(left_shoulder_to_elbow.y, -left_shoulder_to_elbow.x)
+            f32::atan2(left_shoulder_to_elbow.y(), -left_shoulder_to_elbow.x())
                 > shoulder_angle_threshhold;
 
         if are_hands_visible {

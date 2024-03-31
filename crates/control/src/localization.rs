@@ -504,10 +504,13 @@ impl Localization {
         }
 
         let ground_to_field = match primary_state {
-            PrimaryState::Initial => Some(generate_initial_pose(
-                &context.initial_poses[*context.player_number],
-                context.field_dimensions,
-            )),
+            PrimaryState::Initial => Some(
+                generate_initial_pose(
+                    &context.initial_poses[*context.player_number],
+                    context.field_dimensions,
+                )
+                .as_transform(),
+            ),
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
                 self.update_state(&mut context)?;
                 Some(*context.ground_to_field)

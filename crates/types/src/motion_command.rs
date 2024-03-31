@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::Ground;
+use coordinate_systems::{Ground, Pixel};
 use linear_algebra::{Orientation2, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 

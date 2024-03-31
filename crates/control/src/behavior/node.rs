@@ -4,13 +4,12 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Field;
+use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
-    camera_matrix::CameraMatrices,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -68,9 +67,7 @@ pub struct CycleContext {
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     striker_set_position: Parameter<Point2<Field>, "behavior.role_positions.striker_set_position">,
-    expected_referee_position:
-        Parameter<Point2<f32>, "detection.detection_top.expected_referee_position">,
-    referee_pixel_offset: Parameter<Point2<f32>, "detection.detection_top.referee_pixel_offset">,
+    referee_pixel_offset: Parameter<Point2<Pixel>, "detection.detection_top.referee_pixel_offset">,
 }
 
 #[context]

@@ -2,13 +2,14 @@ use std::ops::Index;
 
 use crate::bounding_box::BoundingBox;
 use color_eyre::Result;
-use nalgebra::Point2;
+use coordinate_systems::Pixel;
+use linear_algebra::{point, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Keypoint {
-    pub point: Point2<f32>,
+    pub point: Point2<Pixel>,
     pub confidence: f32,
 }
 
@@ -40,7 +41,7 @@ impl Keypoints {
                 .chunks(3)
                 .into_iter()
                 .map(|keypoint_chunk| Keypoint {
-                    point: Point2::new(keypoint_chunk[0] * x_scale, keypoint_chunk[1] * y_scale),
+                    point: point![keypoint_chunk[0] * x_scale, keypoint_chunk[1] * y_scale],
                     confidence: keypoint_chunk[2],
                 });
 
@@ -68,7 +69,7 @@ impl Keypoints {
 impl Index<usize> for Keypoints {
     fn index(&self, index: usize) -> &Keypoint {
         assert!((0..=16).contains(&index));
-        match index as usize {
+        match index {
             0 => &self.left_eye,
             1 => &self.right_eye,
             2 => &self.nose,

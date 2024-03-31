@@ -1,5 +1,6 @@
-use nalgebra::Point2;
-use spl_network_messages::{GameState, PlayerNumber};
+use coordinate_systems::{Ground, Pixel};
+use linear_algebra::Point2;
+use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
     filtered_game_state::FilteredGameState,
@@ -10,7 +11,7 @@ use types::{
 pub fn execute(
     world_state: &WorldState,
     expected_referee_position: Point2<f32>,
-    referee_pixel_offset: Point2<f32>,
+    referee_pixel_offset: Point2<Pixel>,
 ) -> Option<MotionCommand> {
     let filtered_game_controller_state = world_state.filtered_game_controller_state?;
 

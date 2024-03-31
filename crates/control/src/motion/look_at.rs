@@ -8,7 +8,7 @@ use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::MainOutput;
 use kinematics::forward::{head_to_neck, neck_to_robot};
-use linear_algebra::{distance, point, vector, Isometry3, Point2};
+use linear_algebra::{distance, point, vector, IntoFramed, Isometry3, Point2};
 use types::{
     camera_position::CameraPosition,
     cycle_time::CycleTime,
@@ -100,12 +100,12 @@ impl LookAt {
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
-                    f32::tan(*context.glance_angle) * distance(target, Point2::origin())
+                    f32::tan(*context.glance_angle) * distance(*target, Point2::origin())
                 ];
                 (
                     match self.current_glance_direction {
-                        GlanceDirection::LeftOfTarget => target + left_right_shift,
-                        GlanceDirection::RightOfTarget => target - left_right_shift,
+                        GlanceDirection::LeftOfTarget => *target + left_right_shift,
+                        GlanceDirection::RightOfTarget => *target - left_right_shift,
                     },
                     Point2::origin(),
                     None,
@@ -142,8 +142,8 @@ impl LookAt {
                     target,
                     head_to_camera * ground_to_zero_head,
                     pixel_target,
-                    optical_center,
-                    focal_length.into(),
+                    optical_center.framed(),
+                    focal_length,
                 )
             }
             None => look_at(
@@ -174,22 +174,22 @@ fn look_at(
     let head_to_bottom_camera = camera_matrices.bottom.head_to_camera;
     let focal_length_top = camera_matrices.top.focal_length;
     let focal_length_bottom = camera_matrices.bottom.focal_length;
-    let optical_center_top = camera_matrices.top.optical_center;
-    let optical_center_bottom = camera_matrices.bottom.optical_center;
+    let optical_center_top = camera_matrices.top.optical_center.framed();
+    let optical_center_bottom = camera_matrices.bottom.optical_center.framed();
 
     let top_focus_angles = look_at_with_camera(
         target,
         head_to_top_camera * ground_to_zero_head,
         pixel_target,
         optical_center_top,
-        focal_length_top.into(),
+        focal_length_top,
     );
     let bottom_focus_angles = look_at_with_camera(
         target,
         head_to_bottom_camera * ground_to_zero_head,
         pixel_target,
         optical_center_bottom,
-        focal_length_bottom.into(),
+        focal_length_bottom,
     );
 
     let pitch_movement_top = (top_focus_angles.pitch - joint_angles.head.pitch).abs();
@@ -213,9 +213,9 @@ fn look_at_with_camera(
 ) -> HeadJoints<f32> {
     let target_in_camera = ground_to_camera * point![target.x(), target.y(), 0.0];
 
-    let offset_to_center = pixel_target - optical_center.coords;
-    let yaw_offset = f32::atan2(offset_to_center.x, focal_length.x);
-    let pitch_offset = f32::atan2(offset_to_center.y, focal_length.y);
+    let offset_to_center = pixel_target - optical_center.coords();
+    let yaw_offset = f32::atan2(offset_to_center.x(), focal_length.x);
+    let pitch_offset = f32::atan2(offset_to_center.y(), focal_length.y);
 
     let yaw = f32::atan2(-target_in_camera.x(), target_in_camera.z()) + yaw_offset;
     let pitch = -f32::atan2(-target_in_camera.y(), target_in_camera.z()) - pitch_offset;
