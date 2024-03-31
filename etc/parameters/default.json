@@ -1,9 +1,9 @@
 {
   "detection": {
     "detection_top": {
-      "expected_referee_position": [
+      "normed_expected_referee_position": [
         0.0,
-        1.0
+        0.5
       ],
       "distance_to_referee_position_threshhold": 1.0,
       "keypoint_confidence_threshold": 0.2,

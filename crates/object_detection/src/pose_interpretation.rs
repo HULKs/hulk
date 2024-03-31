@@ -48,6 +48,7 @@ pub struct CycleContext {
         "ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
 
+    expected_referee_position: Input<Point2<Ground>, "Control", "expected_referee_position">,
     shoulder_angle_left: AdditionalOutput<f32, "shoulder_angle_left">,
     shoulder_angle_right: AdditionalOutput<f32, "shoulder_angle_right">,
     distance_to_referee: AdditionalOutput<f32, "distance_to_referee">,
@@ -57,8 +58,6 @@ pub struct CycleContext {
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     distance_to_referee_position_threshhold:
         Parameter<f32, "detection.$cycler_instance.distance_to_referee_position_threshhold">,
-    expected_referee_position:
-        Parameter<Point2<f32>, "detection.$cycler_instance.expected_referee_position">,
     foot_z_offset: Parameter<f32, "detection.$cycler_instance.foot_z_offset">,
     shoulder_angle_threshhold:
         Parameter<f32, "detection.$cycler_instance.shoulder_angle_threshhold">,
@@ -93,7 +92,7 @@ impl PoseInterpretation {
             context.camera_matrices.top.clone(),
             context.ground_to_field,
             *context.distance_to_referee_position_threshhold,
-            point!(expected_referee_position.x, expected_referee_position.y),
+            *context.expected_referee_position,
             *context.foot_z_offset,
         );
         let pose_type = Self::interpret_pose(
@@ -157,7 +156,7 @@ impl PoseInterpretation {
         camera_matrix_top: CameraMatrix,
         ground_to_field: Option<&Isometry2<Ground, Field>>,
         distance_to_referee_position_threshhold: f32,
-        expected_referee_position: Point2<f32>,
+        expected_referee_position: Point2<Ground>,
         foot_z_offset: f32,
     ) -> Option<HumanPose> {
         let pose_type_tuple = poses
@@ -179,7 +178,7 @@ impl PoseInterpretation {
                                 ground_to_field * left_foot_ground_position,
                                 ground_to_field * right_foot_ground_position,
                             ),
-                            &expected_referee_position,
+                            ground_to_field * expected_referee_position,
                         );
                         Some((pose, distance_to_referee_position))
                     } else {
