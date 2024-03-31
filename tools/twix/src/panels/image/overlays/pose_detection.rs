@@ -2,9 +2,10 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput};
+use coordinate_systems::Pixel;
 use eframe::{
-    emath::Align2,
-    epaint::{Color32, FontId, Stroke},
+    egui::{Align2, FontId},
+    epaint::{Color32, Stroke},
 };
 use types::pose_detection::{HumanPose, Keypoint};
 
@@ -53,7 +54,7 @@ impl Overlay for PoseDetection {
         }
     }
 
-    fn paint(&self, painter: &crate::twix_painter::TwixPainter) -> Result<()> {
+    fn paint(&self, painter: &crate::twix_painter::TwixPainter<Pixel>) -> Result<()> {
         let poses: Vec<HumanPose> = self.human_poses.require_latest()?;
 
         for pose in poses {

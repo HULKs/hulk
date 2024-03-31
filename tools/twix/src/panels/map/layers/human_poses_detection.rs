@@ -2,12 +2,13 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
 use communication::client::CyclerOutput;
+use coordinate_systems::Field;
 use eframe::{
     emath::Align2,
     epaint::{Color32, FontId, Stroke},
 };
-use nalgebra::{Isometry2, Point2};
-use types::{field_dimensions::FieldDimensions, pose_detection::HumanPose, pose_types::PoseType};
+use linear_algebra::Point2;
+use types::{field_dimensions::FieldDimensions, pose_types::PoseType};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -29,12 +30,16 @@ impl Layer for HumanPoseDetection {
         }
     }
 
-    fn paint(&self, painter: &TwixPainter, _field_dimensions: &FieldDimensions) -> Result<()> {
+    fn paint(
+        &self,
+        painter: &TwixPainter<Field>,
+        _field_dimensions: &FieldDimensions,
+    ) -> Result<()> {
         let position_stroke = Stroke {
             width: 0.10,
             color: Color32::BLACK,
         };
-        let detected_human_pose_types: Vec<(PoseType, Point2<f32>)> =
+        let detected_human_pose_types: Vec<(PoseType, Point2<Field>)> =
             self.detected_human_pose_types.require_latest()?;
 
         for (pose_type, position) in detected_human_pose_types {
