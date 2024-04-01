@@ -432,7 +432,7 @@ fn is_inside_any_obstacle(
 fn mirror_kick_pose<Frame>(kick_pose: Pose2<Frame>) -> Pose2<Frame> {
     Pose2::from_parts(
         point![kick_pose.position().x(), -kick_pose.position().y()],
-        kick_pose.orientation().inverse(),
+        kick_pose.orientation().mirror(),
     )
 }
 
