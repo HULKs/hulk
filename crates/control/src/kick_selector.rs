@@ -445,7 +445,7 @@ fn compute_kick_pose(
     struct TargetAlignedBall;
     struct Ball;
 
-    let ball_to_ground = Isometry2::<Ball, Ground>::new(ball_position.coords(), 0.0);
+    let ball_to_ground = Isometry2::<Ball, Ground>::from_parts(ball_position.coords(), 0.0);
     let aligned_ball_to_ball = Point::origin()
         .look_at(&(ball_to_ground.inverse() * target_to_kick_to))
         .as_transform::<TargetAlignedBall>();
