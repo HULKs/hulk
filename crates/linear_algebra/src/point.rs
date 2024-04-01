@@ -46,10 +46,9 @@ where
     Point::wrap(nalgebra::center(&p1.inner, &p2.inner))
 }
 
-impl<Frame, const DIMENSION: usize, T> Point<Frame, DIMENSION, T>
-where
-    T: Scalar + Copy,
-{
+// Any Dimension
+
+impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
     pub fn origin() -> Self
     where
         T: Zero,
@@ -57,7 +56,10 @@ where
         Self::wrap(nalgebra::Point::origin())
     }
 
-    pub fn coords(&self) -> Vector<Frame, DIMENSION, T> {
+    pub fn coords(&self) -> Vector<Frame, DIMENSION, T>
+    where
+        T: Copy,
+    {
         Framed::wrap(self.inner.coords)
     }
 
@@ -77,6 +79,8 @@ where
     }
 }
 
+// 2 Dimension
+
 impl<Frame, T> Point2<Frame, T>
 where
     T: Scalar + Copy,
@@ -89,6 +93,8 @@ where
         self.inner.y
     }
 }
+
+// 3 Dimension
 
 impl<Frame, T> Point3<Frame, T>
 where
