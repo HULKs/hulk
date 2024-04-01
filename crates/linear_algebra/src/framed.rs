@@ -1,12 +1,12 @@
 use approx::{AbsDiffEq, RelativeEq};
-use nalgebra::SimdComplexField;
+use num_traits::Num;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
     hash::{Hash, Hasher},
     iter::Sum,
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 #[derive(Debug)]
@@ -98,7 +98,7 @@ where
 impl<Frame, Inner, T> Mul<T> for Framed<Frame, Inner>
 where
     Inner: Mul<T, Output = Inner>,
-    T: SimdComplexField,
+    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -110,7 +110,7 @@ where
 impl<Frame, Inner, T> MulAssign<T> for Framed<Frame, Inner>
 where
     Inner: MulAssign<T>,
-    T: SimdComplexField,
+    T: Num,
 {
     fn mul_assign(&mut self, rhs: T) {
         self.inner *= rhs;
@@ -120,12 +120,22 @@ where
 impl<Frame, Inner, T> Div<T> for Framed<Frame, Inner>
 where
     Inner: Div<T, Output = Inner>,
-    T: SimdComplexField,
+    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
     fn div(self, rhs: T) -> Self::Output {
         Self::wrap(self.inner / rhs)
+    }
+}
+
+impl<Frame, Inner, T> DivAssign<T> for Framed<Frame, Inner>
+where
+    Inner: DivAssign<T>,
+    T: Num,
+{
+    fn div_assign(&mut self, rhs: T) {
+        self.inner /= rhs;
     }
 }
 
