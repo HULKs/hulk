@@ -110,7 +110,7 @@ impl State {
 
                     let previous_ground_to_field = *ground_to_field;
 
-                    *ground_to_field = Isometry2::new(
+                    *ground_to_field = Isometry2::from_parts(
                         (*ground_to_field * step.as_point()).coords(),
                         ground_to_field.orientation().angle()
                             + orientation.angle().clamp(

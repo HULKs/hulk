@@ -109,7 +109,7 @@ mod tests {
 
         let cases = [
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
@@ -119,7 +119,7 @@ mod tests {
                 0.0,
             ),
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.x,
                         0.0,
@@ -129,7 +129,7 @@ mod tests {
                 1.0,
             ),
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
@@ -139,7 +139,7 @@ mod tests {
                 2.0,
             ),
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL.x,
                         0.0,
@@ -171,7 +171,7 @@ mod tests {
 
         let cases = [
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         half_between(
                             Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
@@ -184,7 +184,7 @@ mod tests {
                 1.0,
             ),
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
@@ -197,7 +197,7 @@ mod tests {
                 2.5,
             ),
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         half_between(
                             Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.x,
@@ -210,7 +210,7 @@ mod tests {
                 2.0,
             ),
             (
-                Isometry2::new(
+                Isometry2::from_parts(
                     vector![
                         Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,
                         0.0,
@@ -244,7 +244,7 @@ mod tests {
         };
 
         assert_relative_eq!(
-            interpolated.evaluate_at(Isometry2::new(
+            interpolated.evaluate_at(Isometry2::from_parts(
                 vector![
                     half_between(
                         Interpolated::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.x,

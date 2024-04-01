@@ -38,7 +38,7 @@ where
     T::Element: SimdRealField,
     T: SimdRealField + Copy,
 {
-    pub fn new(translation: Vector2<To, T>, angle: T) -> Self {
+    pub fn from_parts(translation: Vector2<To, T>, angle: T) -> Self {
         Transform::wrap(nalgebra::Isometry2::new(translation.inner, angle))
     }
 

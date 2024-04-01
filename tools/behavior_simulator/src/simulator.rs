@@ -159,7 +159,7 @@ impl Simulator {
                             .unwrap()
                             .database
                             .main_outputs
-                            .ground_to_field = Some(Isometry2::new(position, angle));
+                            .ground_to_field = Some(Isometry2::from_parts(position, angle));
 
                         Ok(())
                     },
