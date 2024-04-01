@@ -1,4 +1,5 @@
 use approx::{AbsDiffEq, RelativeEq};
+use nalgebra::SimdComplexField;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use std::{
@@ -97,6 +98,7 @@ where
 impl<Frame, Inner, T> Mul<T> for Framed<Frame, Inner>
 where
     Inner: Mul<T, Output = Inner>,
+    T: SimdComplexField,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -108,6 +110,7 @@ where
 impl<Frame, Inner, T> MulAssign<T> for Framed<Frame, Inner>
 where
     Inner: MulAssign<T>,
+    T: SimdComplexField,
 {
     fn mul_assign(&mut self, rhs: T) {
         self.inner *= rhs;
@@ -117,6 +120,7 @@ where
 impl<Frame, Inner, T> Div<T> for Framed<Frame, Inner>
 where
     Inner: Div<T, Output = Inner>,
+    T: SimdComplexField,
 {
     type Output = Framed<Frame, Inner::Output>;
 
