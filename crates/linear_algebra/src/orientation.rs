@@ -18,7 +18,7 @@ where
         Self::wrap(nalgebra::UnitComplex::identity())
     }
 
-    pub fn inverse(&self) -> Self {
+    pub fn mirror(&self) -> Self {
         Self::wrap(self.inner.inverse())
     }
 
@@ -68,7 +68,7 @@ where
         ))
     }
 
-    pub fn inverse(&self) -> Self {
+    pub fn mirror(&self) -> Self {
         Self::wrap(self.inner.inverse())
     }
 }
