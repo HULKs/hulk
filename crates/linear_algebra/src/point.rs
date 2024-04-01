@@ -48,41 +48,32 @@ where
 
 impl<Frame, const DIMENSION: usize, T> Point<Frame, DIMENSION, T>
 where
-    T: Scalar + Zero,
-{
-    pub fn origin() -> Self {
-        Self::wrap(nalgebra::Point::origin())
-    }
-}
-
-impl<Frame, const DIMENSION: usize, T> Point<Frame, DIMENSION, T>
-where
     T: Scalar + Copy,
 {
+    pub fn origin() -> Self
+    where
+        T: Zero,
+    {
+        Self::wrap(nalgebra::Point::origin())
+    }
+
     pub fn coords(&self) -> Vector<Frame, DIMENSION, T> {
         Framed::wrap(self.inner.coords)
     }
-}
 
-impl<Frame, const DIMENSION: usize, T> Point<Frame, DIMENSION, T>
-where
-    T: Scalar + Zero + One + ClosedAdd + ClosedSub + ClosedMul,
-{
-    pub fn lerp(&self, other: Self, t: T) -> Self {
-        Self::wrap(self.inner.lerp(&other.inner, t))
-    }
-}
-
-impl<Frame, T1, const DIMENSION: usize> Point<Frame, DIMENSION, T1>
-where
-    T1: Scalar,
-{
     pub fn map<F, T2>(&self, f: F) -> Point<Frame, DIMENSION, T2>
     where
         T2: Scalar,
-        F: FnMut(T1) -> T2,
+        F: FnMut(T) -> T2,
     {
         Framed::wrap(self.inner.map(f))
+    }
+
+    pub fn lerp(&self, other: Self, t: T) -> Self
+    where
+        T: Zero + One + ClosedAdd + ClosedSub + ClosedMul,
+    {
+        Self::wrap(self.inner.lerp(&other.inner, t))
     }
 }
 
