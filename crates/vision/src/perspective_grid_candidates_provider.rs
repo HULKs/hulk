@@ -35,7 +35,7 @@ pub struct CycleContext {
     minimum_radius:
         Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
 
-    rows: AdditionalOutput<Vec<Row>, "rows">,
+    rows: AdditionalOutput<Vec<Row>, "perspective_grid_ball_sizes">,
 }
 
 #[context]
