@@ -315,6 +315,11 @@ impl BehaviorCycler {
                 .time_to_reach_kick_position
                 .cycle(control::time_to_reach_kick_position::CycleContext::new(
                     own_database.main_outputs.dribble_path.as_ref(),
+                    &own_database.main_outputs.motion_command,
+                    framework::AdditionalOutput::new(
+                        true,
+                        &mut own_database.additional_outputs.time_to_turn,
+                    ),
                     framework::AdditionalOutput::new(
                         true,
                         &mut own_database
