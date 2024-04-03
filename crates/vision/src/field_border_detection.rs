@@ -229,8 +229,8 @@ mod test {
         let green_segment = get_first_field_segment(
             &scanline.segments,
             &Horizon {
-                point_on_horizon: point![0.0, 0.0],
-                horizon_normal: vector![0.0, 1.0],
+                vanishing_point: point![0.0, 0.0],
+                normal: vector![0.0, 1.0],
             },
             5.0,
         );
