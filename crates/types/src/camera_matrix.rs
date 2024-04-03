@@ -39,7 +39,7 @@ pub struct CameraMatrix {
     pub optical_center: Point2<Pixel>,
     pub field_of_view: nalgebra::Vector2<f32>,
     pub horizon: Horizon,
-    pub image_size: Vector2<Pixel, u32>,
+    pub image_size: Vector2<Pixel>,
 }
 
 impl CameraMatrix {
@@ -47,7 +47,7 @@ impl CameraMatrix {
     pub fn from_normalized_focal_and_center(
         focal_length: nalgebra::Vector2<f32>,
         optical_center: nalgebra::Point2<f32>,
-        image_size: Vector2<Pixel, u32>,
+        image_size: Vector2<Pixel>,
         ground_to_robot: Isometry3<Ground, Robot>,
         robot_to_head: Isometry3<Robot, Head>,
         head_to_camera: Isometry3<Head, Camera>,
@@ -86,13 +86,13 @@ impl CameraMatrix {
 
     pub fn calculate_field_of_view(
         focal_lengths: nalgebra::Vector2<f32>,
-        image_size: Vector2<Pixel, u32>,
+        image_size: Vector2<Pixel>,
     ) -> nalgebra::Vector2<f32> {
         // Ref:  https://www.edmundoptics.eu/knowledge-center/application-notes/imaging/understanding-focal-length-and-field-of-view/
         image_size
             .inner
             .zip_map(&focal_lengths, |image_dim, focal_length| -> f32 {
-                2.0 * (image_dim as f32 * 0.5 / focal_length).atan()
+                2.0 * (image_dim * 0.5 / focal_length).atan()
             })
     }
 }

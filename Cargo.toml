@@ -4,6 +4,7 @@ members = [
   "crates/aliveness",
   "crates/approx_derive",
   "crates/audio",
+  "crates/calibration",
   "crates/code_generation",
   "crates/communication",
   "crates/constants",
@@ -70,6 +71,7 @@ bincode = "1.3.3"
 bindgen = "0.65.1"
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.4.3"
+calibration = { path = "crates/calibration" }
 chrono = "0.4.23"
 clap = { version = "4.2.4", features = ["derive"] }
 clap_complete = "4.2.1"
