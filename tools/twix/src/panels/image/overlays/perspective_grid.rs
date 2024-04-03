@@ -21,7 +21,7 @@ impl Overlay for PerspectiveGrid {
             perspective_grid: nao.subscribe_output(CyclerOutput {
                 cycler: selected_cycler,
                 output: Output::Additional {
-                    path: "rows".to_string(),
+                    path: "perspective_grid_ball_sizes".to_string(),
                 },
             }),
         }
