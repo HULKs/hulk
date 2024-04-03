@@ -3,15 +3,16 @@ use std::time::{Duration, SystemTime};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::MainOutput;
+use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, Team};
+use spl_network_messages::{GamePhase, GameState, HulkMessage, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
-    game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
+    game_controller_state::GameControllerState, messages::IncomingMessage,
+    parameters::GameStateFilterParameters,
 };
 #[derive(Deserialize, Serialize)]
 pub struct GameControllerStateFilter {
@@ -28,6 +29,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
 
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -49,6 +51,17 @@ impl GameControllerStateFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let spl_messages = context
+            .network_message
+            .persistent
+            .values()
+            .flatten()
+            .filter_map(|message| match message {
+                IncomingMessage::GameController(_) => None,
+                IncomingMessage::Spl(message) => Some(message),
+            })
+            .collect();
+
         let game_states = filter_game_states(
             *context.ground_to_field,
             context.ball_position,
@@ -56,6 +69,7 @@ impl GameControllerStateFilter {
             context.config,
             context.game_controller_state,
             context.filtered_whistle,
+            spl_messages,
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
@@ -74,6 +88,7 @@ impl GameControllerStateFilter {
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
         };
+
         Ok(MainOutputs {
             filtered_game_controller_state: Some(filtered_game_controller_state).into(),
         })
@@ -93,6 +108,7 @@ fn filter_game_states(
     config: &GameStateFilterParameters,
     game_controller_state: &GameControllerState,
     filtered_whistle: &FilteredWhistle,
+    spl_messages: Vec<&HulkMessage>,
     cycle_time: &CycleTime,
     state: &mut State,
     opponent_state: &mut State,
@@ -110,6 +126,7 @@ fn filter_game_states(
         cycle_time.start_time,
         config,
         ball_detected_far_from_any_goal,
+        &spl_messages,
     );
     *opponent_state = next_filtered_state(
         *opponent_state,
@@ -118,6 +135,7 @@ fn filter_game_states(
         cycle_time.start_time,
         config,
         ball_detected_far_from_any_goal,
+        &spl_messages,
     );
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
@@ -155,7 +173,15 @@ fn next_filtered_state(
     cycle_start_time: SystemTime,
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
+    spl_messages: &Vec<&HulkMessage>,
 ) -> State {
+    dbg!(&spl_messages);
+    if spl_messages
+        .iter()
+        .any(|message| message.over_arms_pose_detected)
+    {
+        println!("Over arm in spl message!");
+    }
     match (current_state, game_controller_state.game_state) {
         (State::Finished, GameState::Initial) => State::Initial,
         (State::Finished, _) => match game_controller_state.game_phase {
@@ -186,6 +212,23 @@ fn next_filtered_state(
         (_, GameState::Finished) => State::TentativeFinished {
             time_when_finished_clicked: cycle_start_time,
         },
+        (State::Initial, GameState::Initial) => {
+            // println!("{}", spl_messages);
+            if spl_messages
+                .iter()
+                .any(|message| message.over_arms_pose_detected)
+            {
+                println!("Lauf los!");
+                State::OverArmInReady {
+                    time_when_over_arm_pose_detected: cycle_start_time,
+                }
+            } else {
+                State::Initial
+            }
+        }
+        // TODO: Ready -> Unstiff -> sollte wieder GameController vertrauen
+        (State::Ready, GameState::Initial) => State::Ready,
+
         (State::Initial | State::Ready, _)
         | (State::Set, GameState::Initial | GameState::Ready | GameState::Playing)
         | (
@@ -251,6 +294,10 @@ fn next_filtered_state(
                 State::Playing
             }
         }
+        (State::OverArmInReady { .. }, GameState::Initial) => State::Ready,
+        (State::OverArmInReady { .. }, _) => {
+            State::from_game_state(game_controller_state.game_state)
+        }
     }
 }
 
@@ -287,6 +334,9 @@ fn in_kick_off_grace_period(
 enum State {
     Initial,
     Ready,
+    OverArmInReady {
+        time_when_over_arm_pose_detected: SystemTime,
+    },
     Set,
     WhistleInSet {
         time_when_whistle_was_detected: SystemTime,
@@ -361,6 +411,24 @@ impl State {
 
         match self {
             State::Initial => FilteredGameState::Initial,
+            State::OverArmInReady {
+                time_when_over_arm_pose_detected,
+            } => {
+                let over_arm_grace_period = in_kick_off_grace_period(
+                    cycle_start_time,
+                    *time_when_over_arm_pose_detected,
+                    Duration::from_secs_f32(30.0),
+                );
+                //TODO: voting
+
+                if over_arm_grace_period {
+                    FilteredGameState::Ready {
+                        kicking_team: game_controller_state.kicking_team,
+                    }
+                } else {
+                    FilteredGameState::Initial
+                }
+            }
             State::Ready => FilteredGameState::Ready {
                 kicking_team: game_controller_state.kicking_team,
             },

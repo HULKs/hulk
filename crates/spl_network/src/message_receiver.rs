@@ -31,6 +31,7 @@ impl MessageReceiver {
             .hardware_interface
             .read_from_network()
             .wrap_err("failed to read from network")?;
+        dbg!(&message);
         Ok(MainOutputs {
             message: message.into(),
         })
