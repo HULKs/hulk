@@ -123,7 +123,7 @@ impl BallDetection {
         for ball in &mut detected_balls {
             ball.merge_weight = Some(calculate_ball_merge_factor(
                 ball,
-                vector![context.image.width(), context.image.height()],
+                vector![context.image.width() as f32, context.image.height() as f32],
                 context.parameters.confidence_merge_factor,
                 context.parameters.correction_proximity_merge_factor,
                 context.parameters.image_containment_merge_factor,
@@ -261,10 +261,10 @@ fn bounding_box_patch_intersection(
     intersection_area / circle_box.area()
 }
 
-fn image_containment(circle: Circle<Pixel>, image_size: Vector2<Pixel, u32>) -> f32 {
+fn image_containment(circle: Circle<Pixel>, image_size: Vector2<Pixel>) -> f32 {
     let image_rectangle = Rectangle {
         min: point![0.0, 0.0],
-        max: point![image_size.x() as f32, image_size.y() as f32],
+        max: image_size.as_point(),
     };
     let circle_box = circle.bounding_box();
 
@@ -274,7 +274,7 @@ fn image_containment(circle: Circle<Pixel>, image_size: Vector2<Pixel, u32>) -> 
 
 fn calculate_ball_merge_factor(
     ball: &CandidateEvaluation,
-    image_size: Vector2<Pixel, u32>,
+    image_size: Vector2<Pixel>,
     confidence_merge_factor: f32,
     correction_proximity_merge_factor: f32,
     image_containment_merge_factor: f32,

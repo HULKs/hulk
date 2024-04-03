@@ -10,7 +10,7 @@ use types::camera_matrix::CameraMatrix;
 fn from_normalized_focal_and_center_short(
     focal_length: nalgebra::Vector2<f32>,
     optical_center: nalgebra::Point2<f32>,
-    image_size: Vector2<Pixel, u32>,
+    image_size: Vector2<Pixel>,
 ) -> CameraMatrix {
     CameraMatrix::from_normalized_focal_and_center(
         focal_length,
@@ -35,7 +35,7 @@ fn bearing_projects_back_to_pixel() {
     let camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![1.0, 1.0],
-        vector![640, 480],
+        vector![640.0, 480.0],
     );
 
     let pixel = point![32.0, 42.0];
@@ -49,7 +49,7 @@ fn camera_to_pixel_default_center() {
     let camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![1.0, 1.0],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
 
     assert_relative_eq!(
@@ -65,7 +65,7 @@ fn camera_to_pixel_default_top_left() {
     let camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![1.0, 1.0],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
 
     assert_relative_eq!(
@@ -81,7 +81,7 @@ fn camera_to_pixel_sample_camera_center() {
     let camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![0.95, 1.27],
         nalgebra::point![0.5, 0.5],
-        vector![640, 480],
+        vector![640.0, 480.0],
     );
 
     assert_relative_eq!(
@@ -97,7 +97,7 @@ fn camera_to_pixel_sample_camera_top_left() {
     let camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![0.95, 1.27],
         nalgebra::point![0.5, 0.5],
-        vector![640, 480],
+        vector![640.0, 480.0],
     );
 
     assert_relative_eq!(
@@ -114,7 +114,7 @@ fn pixel_to_ground_with_z_only_elevation() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![1.0, 1.0],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
 
     camera_matrix.head_to_camera = head_to_camera(0.0, vector![0.0, 0.0, 0.5]);
@@ -132,7 +132,7 @@ fn pixel_to_ground_from_center_circle() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![0.95, 1.27],
         nalgebra::point![0.5, 0.5],
-        vector![640, 480],
+        vector![640.0, 480.0],
     );
     camera_matrix.head_to_camera = head_to_camera(-1.2_f32.to_radians(), vector![0.0, 0.0, 0.54]);
 
@@ -149,7 +149,7 @@ fn pixel_to_ground_with_z_pitch_45_degree_down() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![1.0, 1.0],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 0.5]);
 
@@ -166,7 +166,7 @@ fn pixel_to_ground_with_z_pitch_45_degree_up() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![1.0, 1.0],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(FRAC_PI_4, vector![0.0, 0.0, 0.5]);
 
@@ -183,7 +183,7 @@ fn ground_to_pixel_only_elevation() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![0.5, 0.5],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(0.0, vector![0.0, 0.0, 0.75]);
 
@@ -201,7 +201,7 @@ fn ground_to_pixel_pitch_45_degree_down() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![1.0, 1.0],
         nalgebra::point![0.5, 0.5],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
 
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 1.0]);
@@ -219,7 +219,7 @@ fn robot_to_pixel_only_elevation() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![2.0, 2.0],
         nalgebra::point![1.0, 1.0],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(0.0, vector![0.0, 0.0, 0.75]);
 
@@ -237,7 +237,7 @@ fn robot_to_pixel_pitch_45_degree_down() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![1.0, 1.0],
         nalgebra::point![0.5, 0.5],
-        vector![1, 1],
+        vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 1.0]);
 
@@ -252,7 +252,7 @@ fn get_pixel_radius_only_elevation() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![1.0, 1.0],
         nalgebra::point![0.5, 0.5],
-        vector![640, 480],
+        vector![640.0, 480.0],
     );
     camera_matrix.field_of_view = nalgebra::vector![45.0, 45.0].map(|a: f32| a.to_radians());
 
@@ -272,7 +272,7 @@ fn get_pixel_radius_pitch_45_degree_down() {
     let mut camera_matrix = from_normalized_focal_and_center_short(
         nalgebra::vector![1.0, 1.0],
         nalgebra::point![0.5, 0.5],
-        vector![640, 480],
+        vector![640.0, 480.0],
     );
 
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 0.5]);

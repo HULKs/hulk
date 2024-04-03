@@ -155,7 +155,7 @@ impl Projection for CameraMatrix {
             camera_coordinates.coords().norm(),
         );
 
-        Ok(self.image_size.y() as f32 * angle / self.field_of_view.y)
+        Ok(self.image_size.y() * angle / self.field_of_view.y)
     }
 
     fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {

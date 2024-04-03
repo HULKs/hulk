@@ -53,13 +53,13 @@ impl PerspectiveGridCandidatesProvider {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let vertical_scanlines = &context.filtered_segments.scan_grid.vertical_scan_lines;
         let skip_segments = &context.line_data.used_segments;
-        let image_size = vector![context.image.width(), context.image.height()];
+        let image_size = vector![context.image.width() as f32, context.image.height() as f32];
 
         context.horizon_center_y.fill_if_subscribed(|| {
             context
                 .camera_matrix
                 .horizon
-                .y_at_x(image_size.x() as f32 / 2.0)
+                .y_at_x(image_size.x() / 2.0)
         });
 
         let rows = generate_rows(
@@ -80,13 +80,13 @@ impl PerspectiveGridCandidatesProvider {
 
 fn generate_rows(
     camera_matrix: &CameraMatrix,
-    image_size: Vector2<Pixel, u32>,
+    image_size: Vector2<Pixel>,
     minimum_radius: f32,
     ball_radius: f32,
 ) -> Vec<Row> {
-    let half_width = image_size.x() as f32 / 2.0;
+    let half_width = image_size.x() / 2.0;
 
-    let mut row_vertical_center = image_size.y() as f32 - 1.0;
+    let mut row_vertical_center = image_size.y() - 1.0;
 
     let mut rows = vec![];
 

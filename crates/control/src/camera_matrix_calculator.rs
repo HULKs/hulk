@@ -50,7 +50,7 @@ impl CameraMatrixCalculator {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let image_size = vector![640, 480];
+        let image_size = vector![640.0, 480.0];
         let head_to_top_camera = head_to_camera(
             context.top_camera_matrix_parameters.extrinsic_rotations,
             context
