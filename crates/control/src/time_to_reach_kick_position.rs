@@ -17,7 +17,7 @@ use context_attribute::context;
 #[context]
 pub struct CycleContext {
     dribble_path: Input<Option<Vec<PathSegment>>, "dribble_path?">,
-    motion_command: Input<MotionCommand, "motion_command?">,
+    motion_command: Input<MotionCommand, "motion_command">,
 
     time_to_turn: AdditionalOutput<Duration, "time_to_turn">,
     time_to_reach_kick_position_output:
