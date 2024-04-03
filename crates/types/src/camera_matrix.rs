@@ -69,7 +69,7 @@ impl CameraMatrix {
             0.0, 0.0, 1.0, 0.0;
         ];
 
-        let horizon = Horizon::from_parameters(ground_to_camera.inverse(), intrinsics);
+        let horizon = Horizon::from_parameters(ground_to_camera, intrinsics);
 
         Self {
             intrinsics,
