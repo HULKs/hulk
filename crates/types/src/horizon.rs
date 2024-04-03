@@ -24,10 +24,10 @@ impl Horizon {
         let ground_front = ground_to_camera.inverse() * camera_front;
         let ground_front = vector![ground_front.x(), ground_front.y(), 0.0].normalize();
 
-        let horizon_point_camera = ground_to_camera * ground_front;
-        let horizon_point_image = intrinsics * horizon_point_camera.inner.to_homogeneous();
+        let vanishing_point = ground_to_camera * ground_front;
+        let vanishing_point_image = intrinsics * vanishing_point.inner.to_homogeneous();
 
-        Point2::from(horizon_point_image.xy())
+        Point2::from(vanishing_point_image.xy())
     }
 
     fn find_horizon_normal(ground_to_camera: Isometry3<Ground, Camera>, intrinsics: Matrix3x4<f32>) -> Vector2<Pixel> {
