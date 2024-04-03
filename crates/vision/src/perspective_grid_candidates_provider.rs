@@ -85,27 +85,28 @@ fn generate_rows(
     ball_radius: f32,
 ) -> Vec<Row> {
     let half_width = image_size.x() as f32 / 2.0;
-    let horizon_at_center = camera_matrix.horizon.y_at_x(half_width);
 
     let mut row_vertical_center = image_size.y() as f32 - 1.0;
 
     let mut rows = vec![];
 
-    while row_vertical_center >= horizon_at_center && row_vertical_center + ball_radius > 0.0 {
+    loop {
         let pixel = point![half_width, row_vertical_center];
-        let radius = camera_matrix
-            .get_pixel_radius(ball_radius, pixel)
-            .expect("projection of ball radius to pixel");
+        let Ok(radius) = camera_matrix.get_pixel_radius(ball_radius, pixel) else {
+            break;
+        };
 
         if radius < minimum_radius {
             break;
         }
+
         rows.push(Row {
             circle_radius: radius,
             center_y: row_vertical_center,
         });
-        row_vertical_center -= radius * 2.0;
+        row_vertical_center -= 2.0 * radius;
     }
+
     rows
 }
 
