@@ -48,7 +48,7 @@ impl Overlay for Horizon {
         );
 
         painter.circle_stroke(
-            horizon.point_on_horizon,
+            horizon.vanishing_point,
             5.0,
             Stroke::new(3.0, Color32::GREEN),
         );

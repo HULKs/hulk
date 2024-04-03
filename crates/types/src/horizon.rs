@@ -6,8 +6,8 @@ use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Horizon {
-    pub point_on_horizon: Point2<Pixel>,
-    pub horizon_normal: Vector2<Pixel>,
+    pub vanishing_point: Point2<Pixel>,
+    pub normal: Vector2<Pixel>,
 }
 
 impl Horizon {
@@ -16,10 +16,7 @@ impl Horizon {
     }
 
     pub fn y_at_x(&self, x: f32) -> f32 {
-        let normal = self.horizon_normal;
-        let point = self.point_on_horizon;
-
-        -normal.x() * (x - point.x()) / normal.y() + point.y()
+        -self.normal.x() * (x - self.vanishing_point.x()) / self.normal.y() + self.vanishing_point.y()
     }
 
     pub fn from_parameters(
@@ -40,8 +37,8 @@ impl Horizon {
         let horizon_point_image = intrinsics * horizon_point_camera.inner.to_homogeneous();
 
         Self {
-            point_on_horizon: point![horizon_point_image.x, horizon_point_image.y],
-            horizon_normal: vector![horizon_normal_image.x, horizon_normal_image.y],
+            vanishing_point: point![horizon_point_image.x, horizon_point_image.y],
+            normal: vector![horizon_normal_image.x, horizon_normal_image.y],
         }
     }
 }
