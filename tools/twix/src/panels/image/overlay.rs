@@ -141,12 +141,12 @@ impl Overlays {
     pub fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let _ = self.line_detection.paint(painter);
         let _ = self.ball_detection.paint(painter);
+        let _ = self.perspective_grid.paint(painter);
         let _ = self.horizon.paint(painter);
         let _ = self.penalty_boxes.paint(painter);
         let _ = self.feet_detection.paint(painter);
         let _ = self.field_border.paint(painter);
         let _ = self.limb_projector.paint(painter);
-        let _ = self.perspective_grid.paint(painter);
         Ok(())
     }
 
