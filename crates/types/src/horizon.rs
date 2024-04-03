@@ -1,5 +1,5 @@
 use coordinate_systems::{Camera, Ground, Pixel};
-use linear_algebra::{point, vector, Isometry3, Point2, Vector2, Vector3};
+use linear_algebra::{vector, Isometry3, Point2, Vector2, Vector3};
 use nalgebra::Matrix3x4;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
@@ -19,26 +19,35 @@ impl Horizon {
         -self.normal.x() * (x - self.vanishing_point.x()) / self.normal.y() + self.vanishing_point.y()
     }
 
-    pub fn from_parameters(
-        camera_to_ground: Isometry3<Camera, Ground>,
-        intrinsics: Matrix3x4<f32>,
-    ) -> Self {
-        let horizon_normal = Vector3::z_axis();
-        let horizon_normal_camera = camera_to_ground.inverse() * horizon_normal;
-        let horizon_normal_camera: Vector3<Pixel> =
-            vector![horizon_normal_camera.x(), horizon_normal_camera.y(), 0.0].normalize();
-        let horizon_normal_image = intrinsics * horizon_normal_camera.inner.to_homogeneous();
-
+    fn find_vanishing_point(ground_to_camera: Isometry3<Ground, Camera>, intrinsics: Matrix3x4<f32>) -> Point2<Pixel> {
         let camera_front = Vector3::z_axis();
-        let ground_front = camera_to_ground * camera_front;
+        let ground_front = ground_to_camera.inverse() * camera_front;
         let ground_front = vector![ground_front.x(), ground_front.y(), 0.0].normalize();
 
-        let horizon_point_camera = camera_to_ground.inverse() * ground_front;
+        let horizon_point_camera = ground_to_camera * ground_front;
         let horizon_point_image = intrinsics * horizon_point_camera.inner.to_homogeneous();
 
+        Point2::from(horizon_point_image.xy())
+    }
+
+    fn find_horizon_normal(ground_to_camera: Isometry3<Ground, Camera>, intrinsics: Matrix3x4<f32>) -> Vector2<Pixel> {
+        let up = Vector3::z_axis();
+        let up_in_camera = ground_to_camera * up;
+        let horizon_normal_camera: Vector3<Pixel> =
+            vector![up_in_camera.x(), up_in_camera.y(), 0.0].normalize();
+        let horizon_normal_image = intrinsics * horizon_normal_camera.inner.to_homogeneous();
+
+        Vector2::wrap(horizon_normal_image.xy())
+    }
+
+    pub fn from_parameters(
+        ground_to_camera: Isometry3<Ground, Camera>,
+        intrinsics: Matrix3x4<f32>,
+    ) -> Self {
+
         Self {
-            vanishing_point: point![horizon_point_image.x, horizon_point_image.y],
-            normal: vector![horizon_normal_image.x, horizon_normal_image.y],
+            vanishing_point: Self::find_vanishing_point(ground_to_camera, intrinsics),
+            normal: Self::find_horizon_normal(ground_to_camera, intrinsics),
         }
     }
 }
