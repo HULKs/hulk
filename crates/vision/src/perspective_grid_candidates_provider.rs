@@ -36,7 +36,6 @@ pub struct CycleContext {
         Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
 
     rows: AdditionalOutput<Vec<Row>, "rows">,
-    horizon_center_y: AdditionalOutput<f32, "horizon_center_y">,
 }
 
 #[context]
@@ -54,13 +53,6 @@ impl PerspectiveGridCandidatesProvider {
         let vertical_scanlines = &context.filtered_segments.scan_grid.vertical_scan_lines;
         let skip_segments = &context.line_data.used_segments;
         let image_size = vector![context.image.width() as f32, context.image.height() as f32];
-
-        context.horizon_center_y.fill_if_subscribed(|| {
-            context
-                .camera_matrix
-                .horizon
-                .y_at_x(image_size.x() / 2.0)
-        });
 
         let rows = generate_rows(
             context.camera_matrix,
