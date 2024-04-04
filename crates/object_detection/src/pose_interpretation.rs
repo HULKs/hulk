@@ -90,7 +90,6 @@ impl PoseInterpretation {
         let referee_pose = Self::get_referee_pose_type(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
-            context.ground_to_field,
             *context.distance_to_referee_position_threshhold,
             *context.expected_referee_position,
             *context.foot_z_offset,
@@ -154,7 +153,6 @@ impl PoseInterpretation {
     pub fn get_referee_pose_type(
         poses: Vec<HumanPose>,
         camera_matrix_top: CameraMatrix,
-        ground_to_field: Option<&Isometry2<Ground, Field>>,
         distance_to_referee_position_threshhold: f32,
         expected_referee_position: Point2<Ground>,
         foot_z_offset: f32,
@@ -163,27 +161,20 @@ impl PoseInterpretation {
             // Get all poses that are near the referee position within a threshhold
             .iter()
             .filter_map(|pose| {
-                if let Some(ground_to_field) = ground_to_field {
-                    let left_foot_ground_position = camera_matrix_top
-                        .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
-                        .ok();
-                    let right_foot_ground_position = camera_matrix_top
-                        .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
-                        .ok();
-                    if let Some((left_foot_ground_position, right_foot_ground_position)) =
-                        left_foot_ground_position.zip(right_foot_ground_position)
-                    {
-                        let distance_to_referee_position = distance(
-                            center(
-                                ground_to_field * left_foot_ground_position,
-                                ground_to_field * right_foot_ground_position,
-                            ),
-                            ground_to_field * expected_referee_position,
-                        );
-                        Some((pose, distance_to_referee_position))
-                    } else {
-                        None
-                    }
+                let left_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
+                    .ok();
+                let right_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
+                    .ok();
+                if let Some((left_foot_ground_position, right_foot_ground_position)) =
+                    left_foot_ground_position.zip(right_foot_ground_position)
+                {
+                    let distance_to_referee_position = distance(
+                        center(left_foot_ground_position, right_foot_ground_position),
+                        expected_referee_position,
+                    );
+                    Some((pose, distance_to_referee_position))
                 } else {
                     None
                 }
