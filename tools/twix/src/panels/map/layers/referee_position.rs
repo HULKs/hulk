@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
+use communication::client::CyclerOutput;
 use coordinate_systems::{Field, Ground};
 use eframe::epaint::{Color32, Stroke};
 use linear_algebra::{Isometry2, Point2};
@@ -11,8 +12,8 @@ use crate::{
 
 pub struct RefereePosition {
     expected_referee_position: ValueBuffer,
-    threshhold: ValueBuffer,
     ground_to_field: ValueBuffer,
+    distance_to_referee_position_threshhold: ValueBuffer,
     // injected_robot_to_field_of_home_after_coin_toss_before_second_half: ValueBuffer,
 }
 
@@ -20,20 +21,21 @@ impl Layer for RefereePosition {
     const NAME: &'static str = "Referee Position";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let expected_referee_position =
-            nao.subscribe_parameter("control.expected_referee_position");
-        let threshhold = nao
+        let expected_referee_position = nao.subscribe_output(
+            CyclerOutput::from_str("Control.main.expected_referee_position").unwrap(),
+        );
+        let ground_to_field =
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
+        let distance_to_referee_position_threshhold = nao
             .subscribe_parameter("detection.detection_top.distance_to_referee_position_threshhold");
-        let ground_to_field = nao.subscribe_parameter("control.ground_to_field");
-        // let injected_robot_to_field_of_home_after_coin_toss_before_second_half = nao
-        //     .subscribe_parameter(
-        //         "injected_robot_to_field_of_home_after_coin_toss_before_second_half",
-        //     );
         Self {
             expected_referee_position,
-            threshhold,
             ground_to_field,
-            // injected_robot_to_field_of_home_after_coin_toss_before_second_half,
+            distance_to_referee_position_threshhold,
+            // injected_robot_to_field_of_home_after_coin_toss_before_second_half: nao
+            //     .subscribe_parameter(
+            //         "injected_robot_to_field_of_home_after_coin_toss_before_second_half",
+            //     ),
         }
     }
 
@@ -49,19 +51,22 @@ impl Layer for RefereePosition {
 
         let ground_to_field: Isometry2<Ground, Field> = self.ground_to_field.require_latest()?;
 
-        let expected_referee_position: Point2<Ground> =
+        let expected_referee_position_ground: Point2<Ground> =
             self.expected_referee_position.require_latest()?;
+
         painter.circle(
-            ground_to_field * expected_referee_position,
+            ground_to_field * expected_referee_position_ground,
             0.15,
             Color32::BLUE,
             position_stroke,
         );
 
-        let threshhold: f32 = self.threshhold.require_latest()?;
+        let distance_to_referee_position_threshhold: f32 = self
+            .distance_to_referee_position_threshhold
+            .require_latest()?;
         painter.circle(
-            ground_to_field * expected_referee_position,
-            threshhold,
+            ground_to_field * expected_referee_position_ground,
+            distance_to_referee_position_threshhold,
             Color32::TRANSPARENT,
             position_stroke,
         );
