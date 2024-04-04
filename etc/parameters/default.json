@@ -1,18 +1,20 @@
 {
   "detection": {
     "detection_top": {
+      "enable": true,
+      "iou_threshold": 0.45,
+      "distance_to_referee_position_threshhold": 1.0,
+      "keypoint_confidence_threshold": 0.2,
+      "shoulder_angle_threshhold": 0.2,
+      "foot_z_offset": 0.15,
       "normed_expected_referee_position": [
         0.0,
         0.5
       ],
-      "distance_to_referee_position_threshhold": 1.0,
-      "keypoint_confidence_threshold": 0.2,
-      "foot_z_offset": 0.15,
       "referee_pixel_offset": [
         0.0,
         100.0
-      ],
-      "shoulder_angle_threshhold": 0.2
+      ]
     }
   },
   "whistle_detection": {
@@ -102,6 +104,10 @@
   },
   "image_receiver": {
     "vision_top": {
+      "resolution": 42,
+      "camera_position": "Top"
+    },
+    "detection_top": {
       "resolution": 42,
       "camera_position": "Top"
     },
