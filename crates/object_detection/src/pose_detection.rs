@@ -122,12 +122,7 @@ impl PoseDetection {
     }
 
     fn as_bytes(v: &[f32]) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(
-                v.as_ptr() as *const u8,
-                v.len() * std::mem::size_of::<f32>(),
-            )
-        }
+        unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, std::mem::size_of_val(v)) }
     }
 
     pub fn cycle(&mut self, mut context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
@@ -238,8 +233,8 @@ impl PoseDetection {
             for &x in X_INDICES.iter() {
                 let pixel: Rgb = image.at(x, y).into();
 
-                scratchpad[scratchpad_index + 0 * STRIDE] = pixel.r as f32 / 255.;
-                scratchpad[scratchpad_index + 1 * STRIDE] = pixel.g as f32 / 255.;
+                scratchpad[scratchpad_index] = pixel.r as f32 / 255.;
+                scratchpad[scratchpad_index + STRIDE] = pixel.g as f32 / 255.;
                 scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
 
                 scratchpad_index += 1;
