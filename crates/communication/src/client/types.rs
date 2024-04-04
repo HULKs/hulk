@@ -72,6 +72,7 @@ impl FromStr for Cycler {
             "Control" => Cycler::Control,
             "VisionTop" => Cycler::VisionTop,
             "VisionBottom" => Cycler::VisionBottom,
+            "DetectionTop" => Cycler::DetectionTop,
             "BehaviorSimulator" => Cycler::BehaviorSimulator,
             _ => bail!("unknown cycler '{string}'"),
         })
