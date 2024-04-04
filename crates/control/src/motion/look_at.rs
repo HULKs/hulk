@@ -8,7 +8,7 @@ use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::MainOutput;
 use kinematics::forward::{head_to_neck, neck_to_robot};
-use linear_algebra::{distance, point, vector, IntoFramed, Isometry3, Point2};
+use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     camera_position::CameraPosition,
     cycle_time::CycleTime,
@@ -142,7 +142,7 @@ impl LookAt {
                     target,
                     head_to_camera * ground_to_zero_head,
                     pixel_target,
-                    optical_center.framed(),
+                    optical_center,
                     focal_length,
                 )
             }
@@ -174,8 +174,8 @@ fn look_at(
     let head_to_bottom_camera = camera_matrices.bottom.head_to_camera;
     let focal_length_top = camera_matrices.top.focal_length;
     let focal_length_bottom = camera_matrices.bottom.focal_length;
-    let optical_center_top = camera_matrices.top.optical_center.framed();
-    let optical_center_bottom = camera_matrices.bottom.optical_center.framed();
+    let optical_center_top = camera_matrices.top.optical_center;
+    let optical_center_bottom = camera_matrices.bottom.optical_center;
 
     let top_focus_angles = look_at_with_camera(
         target,
