@@ -1,8 +1,10 @@
-use color_eyre::Result;
+use std::default;
+
+use color_eyre::{eyre::eyre, Result};
 use context_attribute::context;
-use coordinate_systems::Ground;
+use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
-use linear_algebra::{point, Point2};
+use linear_algebra::{point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use types::field_dimensions::FieldDimensions;
 
@@ -14,6 +16,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     normed_expected_referee_position:
         Parameter<Point2<Ground>, "detection.detection_top.normed_expected_referee_position">,
@@ -31,16 +35,20 @@ impl RefereePositionProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let field_dimensions = context.field_dimensions;
-        let normed_expected_referee_position = context.normed_expected_referee_position;
+        if let Some(ground_to_field) = context.ground_to_field {
+            let expected_referee_position: Point2<Field> = point![
+                context.normed_expected_referee_position.x() * context.field_dimensions.length,
+                context.normed_expected_referee_position.y() * context.field_dimensions.width,
+            ];
 
-        let expected_referee_position = point![
-            normed_expected_referee_position.x() * field_dimensions.length,
-            normed_expected_referee_position.y() * field_dimensions.width,
-        ];
-
-        Ok(MainOutputs {
-            expected_referee_position: expected_referee_position.into(),
-        })
+            Ok(MainOutputs {
+                expected_referee_position: (ground_to_field.inverse() * expected_referee_position)
+                    .into(),
+            })
+        } else {
+            Ok(MainOutputs {
+                expected_referee_position: point![0.0, 0.0].into(),
+            })
+        }
     }
 }
