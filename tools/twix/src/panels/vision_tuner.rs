@@ -1,8 +1,4 @@
-use std::{
-    f32::consts::PI,
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::{f32::consts::PI, sync::Arc};
 
 use eframe::egui::{ComboBox, Response, Slider, Ui, Widget};
 use nalgebra::{Isometry2, Rotation2, Translation2};
@@ -16,7 +12,7 @@ use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
 pub struct VisionTunerPanel {
     nao: Arc<Nao>,
     cycler: Cycler,
-    position: Position,
+    position: Option<Position>,
     buffers: Buffers,
 }
 
@@ -30,7 +26,7 @@ impl Panel for VisionTunerPanel {
         Self {
             nao,
             cycler,
-            position: Position::FirstHalfOwnHalfTowardsOwnGoal,
+            position: None,
             buffers,
         }
     }
@@ -109,88 +105,93 @@ impl Widget for &mut VisionTunerPanel {
                 &mut self.buffers,
             );
 
-            let value = get_value_from_interpolated(self.position, &mut vertical_edge_threshold);
-            if ui
-                .add(
-                    Slider::new(value, 0.0..=255.0)
-                        .text("vertical_edge_threshold")
-                        .smart_aim(false),
-                )
-                .changed()
-            {
-                self.buffers
-                    .vertical_edge_threshold_buffer
-                    .update_parameter_value(to_value(vertical_edge_threshold).unwrap());
-            }
+            if let Some(position) = self.position {
+                let value = get_value_from_interpolated(position, &mut vertical_edge_threshold);
+                if ui
+                    .add(
+                        Slider::new(value, 0.0..=255.0)
+                            .text("vertical_edge_threshold")
+                            .smart_aim(false),
+                    )
+                    .changed()
+                {
+                    self.buffers
+                        .vertical_edge_threshold_buffer
+                        .update_parameter_value(to_value(vertical_edge_threshold).unwrap());
+                }
 
-            let value = get_value_from_interpolated(self.position, &mut red_chromaticity_threshold);
-            if ui
-                .add(
-                    Slider::new(value, 0.0..=1.0)
-                        .text("red_chromaticity_threshold")
-                        .smart_aim(false),
-                )
-                .changed()
-            {
-                self.buffers
-                    .red_chromaticity_threshold_buffer
-                    .update_parameter_value(to_value(red_chromaticity_threshold).unwrap());
-            }
+                let value = get_value_from_interpolated(position, &mut red_chromaticity_threshold);
+                if ui
+                    .add(
+                        Slider::new(value, 0.0..=1.0)
+                            .text("red_chromaticity_threshold")
+                            .smart_aim(false),
+                    )
+                    .changed()
+                {
+                    self.buffers
+                        .red_chromaticity_threshold_buffer
+                        .update_parameter_value(to_value(red_chromaticity_threshold).unwrap());
+                }
 
-            let value =
-                get_value_from_interpolated(self.position, &mut blue_chromaticity_threshold);
-            if ui
-                .add(
-                    Slider::new(value, 0.0..=1.0)
-                        .text("blue_chromaticity_threshold")
-                        .smart_aim(false),
-                )
-                .changed()
-            {
-                self.buffers
-                    .blue_chromaticity_threshold_buffer
-                    .update_parameter_value(to_value(blue_chromaticity_threshold).unwrap());
-            }
-            let value =
-                get_value_from_interpolated(self.position, &mut lower_green_chromaticity_threshold);
-            if ui
-                .add(
-                    Slider::new(value, 0.0..=1.0)
-                        .text("lower_green_chromaticity_threshold")
-                        .smart_aim(false),
-                )
-                .changed()
-            {
-                self.buffers
-                    .lower_green_chromaticity_threshold_buffer
-                    .update_parameter_value(to_value(lower_green_chromaticity_threshold).unwrap());
-            }
-            let value =
-                get_value_from_interpolated(self.position, &mut upper_green_chromaticity_threshold);
-            if ui
-                .add(
-                    Slider::new(value, 0.0..=1.0)
-                        .text("upper_green_chromaticity_threshold")
-                        .smart_aim(false),
-                )
-                .changed()
-            {
-                self.buffers
-                    .upper_green_chromaticity_threshold_buffer
-                    .update_parameter_value(to_value(upper_green_chromaticity_threshold).unwrap());
-            }
-            let value = get_value_from_interpolated(self.position, &mut green_luminance_threshold);
-            if ui
-                .add(
-                    Slider::new(value, 0.0..=255.0)
-                        .text("green_luminance_threshold")
-                        .smart_aim(false),
-                )
-                .changed()
-            {
-                self.buffers
-                    .green_luminance_threshold_buffer
-                    .update_parameter_value(to_value(green_luminance_threshold).unwrap());
+                let value = get_value_from_interpolated(position, &mut blue_chromaticity_threshold);
+                if ui
+                    .add(
+                        Slider::new(value, 0.0..=1.0)
+                            .text("blue_chromaticity_threshold")
+                            .smart_aim(false),
+                    )
+                    .changed()
+                {
+                    self.buffers
+                        .blue_chromaticity_threshold_buffer
+                        .update_parameter_value(to_value(blue_chromaticity_threshold).unwrap());
+                }
+                let value =
+                    get_value_from_interpolated(position, &mut lower_green_chromaticity_threshold);
+                if ui
+                    .add(
+                        Slider::new(value, 0.0..=1.0)
+                            .text("lower_green_chromaticity_threshold")
+                            .smart_aim(false),
+                    )
+                    .changed()
+                {
+                    self.buffers
+                        .lower_green_chromaticity_threshold_buffer
+                        .update_parameter_value(
+                            to_value(lower_green_chromaticity_threshold).unwrap(),
+                        );
+                }
+                let value =
+                    get_value_from_interpolated(position, &mut upper_green_chromaticity_threshold);
+                if ui
+                    .add(
+                        Slider::new(value, 0.0..=1.0)
+                            .text("upper_green_chromaticity_threshold")
+                            .smart_aim(false),
+                    )
+                    .changed()
+                {
+                    self.buffers
+                        .upper_green_chromaticity_threshold_buffer
+                        .update_parameter_value(
+                            to_value(upper_green_chromaticity_threshold).unwrap(),
+                        );
+                }
+                let value = get_value_from_interpolated(position, &mut green_luminance_threshold);
+                if ui
+                    .add(
+                        Slider::new(value, 0.0..=255.0)
+                            .text("green_luminance_threshold")
+                            .smart_aim(false),
+                    )
+                    .changed()
+                {
+                    self.buffers
+                        .green_luminance_threshold_buffer
+                        .update_parameter_value(to_value(green_luminance_threshold).unwrap());
+                }
             }
         })
         .response
@@ -241,52 +242,39 @@ enum Position {
     FirstHalfOpponentHalfAwayOwnGoal,
 }
 
-impl Display for Position {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Position::FirstHalfOwnHalfTowardsOwnGoal => {
-                formatter.write_str("Own Half Towards Own Goal")
-            }
-            Position::FirstHalfOwnHalfAwayOwnGoal => formatter.write_str("Own Half Away Own Goal"),
-            Position::FirstHalfOpponentHalfTowardsOwnGoal => {
-                formatter.write_str("Opponent Half Towards Own Goal")
-            }
-            Position::FirstHalfOpponentHalfAwayOwnGoal => {
-                formatter.write_str("Opponent Half Away Own Goal")
-            }
-        }
-    }
-}
-
 fn add_selector_row(
     ui: &mut Ui,
     nao: &Nao,
     cycler: &mut Cycler,
-    position: &mut Position,
+    position: &mut Option<Position>,
     buffers: &mut Buffers,
 ) -> Response {
     ui.horizontal(|ui| {
         add_vision_cycler_selector(ui, nao, cycler, buffers);
         let response = add_position_selector(ui, position);
         if response.changed() {
-            let injected_ground_to_field_translation = match position {
-                Position::FirstHalfOwnHalfTowardsOwnGoal
-                | Position::FirstHalfOwnHalfAwayOwnGoal => Translation2::new(-3.0, 0.0),
-                Position::FirstHalfOpponentHalfTowardsOwnGoal
-                | Position::FirstHalfOpponentHalfAwayOwnGoal => Translation2::new(3.0, 0.0),
+            let injected_ground_to_field = match position {
+                None => None,
+                Some(position) => {
+                    let injected_ground_to_field_translation = match position {
+                        Position::FirstHalfOwnHalfTowardsOwnGoal
+                        | Position::FirstHalfOwnHalfAwayOwnGoal => Translation2::new(-3.0, 0.0),
+                        Position::FirstHalfOpponentHalfTowardsOwnGoal
+                        | Position::FirstHalfOpponentHalfAwayOwnGoal => Translation2::new(3.0, 0.0),
+                    };
+                    let injected_ground_to_field_rotation = match position {
+                        Position::FirstHalfOwnHalfTowardsOwnGoal
+                        | Position::FirstHalfOpponentHalfTowardsOwnGoal => Rotation2::new(PI),
+                        Position::FirstHalfOwnHalfAwayOwnGoal
+                        | Position::FirstHalfOpponentHalfAwayOwnGoal => Rotation2::new(0.0),
+                    };
+                    Some(Isometry2::from_parts(
+                        injected_ground_to_field_translation,
+                        injected_ground_to_field_rotation.into(),
+                    ))
+                }
             };
-            let injected_ground_to_field_rotation = match position {
-                Position::FirstHalfOwnHalfTowardsOwnGoal
-                | Position::FirstHalfOpponentHalfTowardsOwnGoal => Rotation2::new(PI),
-                Position::FirstHalfOwnHalfAwayOwnGoal
-                | Position::FirstHalfOpponentHalfAwayOwnGoal => Rotation2::new(0.0),
-            };
-            let injected_ground_to_field = Isometry2::from_parts(
-                injected_ground_to_field_translation,
-                injected_ground_to_field_rotation.into(),
-            );
             let value = to_value(injected_ground_to_field).unwrap();
-            println!("update");
             nao.update_parameter_value(
                 "injected_ground_to_field_of_home_after_coin_toss_before_second_half",
                 value,
@@ -328,16 +316,28 @@ fn add_vision_cycler_selector(
     response
 }
 
-fn add_position_selector(ui: &mut Ui, position: &mut Position) -> Response {
+fn add_position_selector(ui: &mut Ui, position: &mut Option<Position>) -> Response {
     let mut position_selection_changed = false;
     let mut combo_box = ComboBox::from_label("Position")
-        .selected_text(format!("{}", position))
+        .selected_text(match position {
+            None => "No Injection",
+            Some(Position::FirstHalfOwnHalfTowardsOwnGoal) => "Own Half Towards Own Goal",
+            Some(Position::FirstHalfOwnHalfAwayOwnGoal) => "Own Half Away Own Goal",
+            Some(Position::FirstHalfOpponentHalfTowardsOwnGoal) => "Opponent Half Towards Own Goal",
+            Some(Position::FirstHalfOpponentHalfAwayOwnGoal) => "Opponent Half Away Own Goal",
+        })
         .show_ui(ui, |ui| {
             if ui
+                .selectable_value(position, None, "No Injection")
+                .clicked()
+            {
+                position_selection_changed = true;
+            }
+            if ui
                 .selectable_value(
                     position,
-                    Position::FirstHalfOwnHalfTowardsOwnGoal,
-                    format!("{}", Position::FirstHalfOwnHalfTowardsOwnGoal),
+                    Some(Position::FirstHalfOwnHalfTowardsOwnGoal),
+                    "Own Half Towards Own Goal",
                 )
                 .clicked()
             {
@@ -346,8 +346,8 @@ fn add_position_selector(ui: &mut Ui, position: &mut Position) -> Response {
             if ui
                 .selectable_value(
                     position,
-                    Position::FirstHalfOwnHalfAwayOwnGoal,
-                    format!("{}", Position::FirstHalfOwnHalfAwayOwnGoal),
+                    Some(Position::FirstHalfOwnHalfAwayOwnGoal),
+                    "Own Half Away Own Goal",
                 )
                 .clicked()
             {
@@ -356,8 +356,8 @@ fn add_position_selector(ui: &mut Ui, position: &mut Position) -> Response {
             if ui
                 .selectable_value(
                     position,
-                    Position::FirstHalfOpponentHalfTowardsOwnGoal,
-                    format!("{}", Position::FirstHalfOpponentHalfTowardsOwnGoal),
+                    Some(Position::FirstHalfOpponentHalfTowardsOwnGoal),
+                    "Opponent Half Towards Own Goal",
                 )
                 .clicked()
             {
@@ -366,8 +366,8 @@ fn add_position_selector(ui: &mut Ui, position: &mut Position) -> Response {
             if ui
                 .selectable_value(
                     position,
-                    Position::FirstHalfOpponentHalfAwayOwnGoal,
-                    format!("{}", Position::FirstHalfOpponentHalfAwayOwnGoal),
+                    Some(Position::FirstHalfOpponentHalfAwayOwnGoal),
+                    "Opponent Half Away Own Goal",
                 )
                 .clicked()
             {
