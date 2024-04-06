@@ -118,7 +118,7 @@ impl BehaviorCycler {
                     &parameters.search_suggestor,
                     own_database.main_outputs.ball_position.as_ref(),
                     &own_database.main_outputs.invalid_ball_positions,
-                    own_database.main_outputs.robot_to_field.as_ref(),
+                    own_database.main_outputs.ground_to_field.as_ref(),
                     &parameters.field_dimensions,
                     framework::AdditionalOutput::new(
                         true,
@@ -281,7 +281,6 @@ impl BehaviorCycler {
                         .as_ref(),
                     own_database.main_outputs.ground_to_field.as_ref(),
                     own_database.main_outputs.suggested_search_position.as_ref(),
-                    own_database.main_outputs.robot_to_field.as_ref(),
                     own_database.main_outputs.kick_decisions.as_ref(),
                     own_database.main_outputs.instant_kick_decisions.as_ref(),
                     &parameters.player_number,

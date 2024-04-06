@@ -75,10 +75,10 @@ pub fn execute(
     let search_role = assign_search_role(world_state);
     let search_position = match (world_state.suggested_search_position, search_role) {
         (Some(_), Some(SearchRole::Aggressive) | Some(SearchRole::Support { side: _ })) => {
-            robot_to_field.inverse() * world_state.suggested_search_position.unwrap()
+            ground_to_field.inverse() * world_state.suggested_search_position.unwrap()
         }
         _ => search_role
-            .map(|role| role.to_position(robot_to_field, field_dimensions))
+            .map(|role| role.to_position(ground_to_field, field_dimensions))
             .unwrap_or(point![0.0, 0.0]),
     };
     let head = HeadMotion::SearchForLostBall;
