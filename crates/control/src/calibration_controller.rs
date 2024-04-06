@@ -60,10 +60,8 @@ impl CalibrationController {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let calibration_grame_state_active = match context.primary_state {
-            PrimaryState::Calibration => true,
-            _ => false,
-        };
+        let calibration_grame_state_active =
+            matches!(context.primary_state, PrimaryState::Calibration);
         if !calibration_grame_state_active {
             self.current_calibration_state.phase = CalibrationPhase::INACTIVE;
             return Ok(MainOutputs::default());
@@ -98,7 +96,7 @@ impl CalibrationController {
                     let waiting_duration = current_cycle_time
                         .start_time
                         .duration_since(activated_time.start_time)
-                        .unwrap_or(Duration::default());
+                        .unwrap_or_default();
 
                     if waiting_duration >= self.initial_stabilization_delay {
                         self.current_measurements = vec![];
@@ -113,7 +111,7 @@ impl CalibrationController {
                 let time_diff = current_cycle_time
                     .start_time
                     .duration_since(dispatch_time.start_time)
-                    .unwrap_or(Duration::default());
+                    .unwrap_or_default();
 
                 if time_diff > self.look_at_dispatch_waiting {
                     Some(CalibrationPhase::CAPTURE {
@@ -157,7 +155,7 @@ impl CalibrationController {
                     .map(|m| (*m).clone())
                     .collect_vec();
 
-                let outcome = if !values_bottom.is_empty() || !values_bottom.is_empty() {
+                if !values_bottom.is_empty() || !values_bottom.is_empty() {
                     // TODO Require both cameras to give values or another mechanism to track that.
                     self.current_measurements.append(&mut values_top);
                     self.current_measurements.append(&mut values_bottom);
@@ -165,8 +163,7 @@ impl CalibrationController {
                     Some(self.try_transition_to_look_at(*context.cycle_time))
                 } else {
                     None
-                };
-                outcome
+                }
             }
             CalibrationPhase::PROCESS => {
                 info!(
@@ -228,11 +225,10 @@ fn generate_look_at_list() -> Result<Vec<(Point2<Ground>, Option<CameraPosition>
         point!(1.0, -0.5),
     ];
 
-    let attach_camera_to_lookat = |point: &Point2<Ground>,
-                                   camera_position: &CameraPosition|
-     -> (Point2<Ground>, Option<CameraPosition>) {
-        (point.clone(), Some(*camera_position))
-    };
+    let attach_camera_to_lookat =
+        |point: &Point2<Ground>,
+         camera_position: &CameraPosition|
+         -> (Point2<Ground>, Option<CameraPosition>) { (*point, Some(*camera_position)) };
 
     Ok(look_at_points
         .iter()

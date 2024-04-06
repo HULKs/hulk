@@ -30,7 +30,6 @@ path_serde = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
-rand = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }

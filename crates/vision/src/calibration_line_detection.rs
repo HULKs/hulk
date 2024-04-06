@@ -19,7 +19,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
-    image: Input<YCbCr422Image, "image">,
+    _image: Input<YCbCr422Image, "image">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     calibration_state: Input<CalibrationState, "control", "calibration_state">,
 }
@@ -54,7 +54,11 @@ impl CalibrationLineDetection {
                         });
                 // info!("Last command and current commands timestamps.");
                 if new_command {
-                    Some(Measurement::default())
+                    Some(Measurement {
+                        matrix: context.camera_matrix.clone(),
+                        position: *context.camera_position,
+                        ..Default::default()
+                    })
                 } else {
                     None
                 }

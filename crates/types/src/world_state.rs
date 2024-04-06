@@ -80,7 +80,9 @@ pub struct RobotState {
     pub has_ground_contact: bool,
     pub player_number: PlayerNumber,
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum CalibrationPhase {
     #[default]
     INACTIVE,
@@ -98,7 +100,9 @@ pub enum CalibrationPhase {
     PROCESS,
     FINISH,
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct CalibrationState {
     pub phase: CalibrationPhase,
 }
