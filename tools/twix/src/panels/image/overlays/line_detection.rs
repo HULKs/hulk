@@ -54,10 +54,10 @@ impl Overlay for LineDetection {
                 LineDiscardReason::LineTooLong => Color32::BROWN,
                 LineDiscardReason::TooFarAway => Color32::BLACK,
             };
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, color));
+            painter.line_segment(line.first, line.second, Stroke::new(3.0, color));
         }
         for line in lines_in_image {
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLUE));
+            painter.line_segment(line.first, line.second, Stroke::new(3.0, Color32::BLUE));
         }
         Ok(())
     }

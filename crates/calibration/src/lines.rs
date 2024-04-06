@@ -2,9 +2,11 @@ use coordinate_systems::{Ground, Pixel};
 use geometry::line::{Line, Line2};
 use linear_algebra::Point2;
 use projection::Projection;
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 use types::camera_matrix::CameraMatrix;
 
-#[derive(Clone)]
+#[derive(Clone, Default, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub struct Lines<Frame> {
     pub border_line: Line2<Frame>,
     pub goal_box_line: Line2<Frame>,
@@ -39,9 +41,9 @@ fn project_line_and_map_error(
     line: Line2<Pixel>,
     which: &str,
 ) -> Result<Line2<Ground>, LinesError> {
-    Ok(Line(
-        project_point_and_map_error(matrix, line.0, format!("{which} point 0"))?,
-        project_point_and_map_error(matrix, line.1, format!("{which} point 1"))?,
+    Ok(Line::new(
+        project_point_and_map_error(matrix, line.first, format!("{which} point 0"))?,
+        project_point_and_map_error(matrix, line.second, format!("{which} point 1"))?,
     ))
 }
 

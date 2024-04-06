@@ -33,10 +33,10 @@ impl FieldMark {
                 direction: _,
             } => {
                 let measured_line = match [
-                    distance(measured_line.0, reference_line.0),
-                    distance(measured_line.0, reference_line.1),
-                    distance(measured_line.1, reference_line.0),
-                    distance(measured_line.1, reference_line.1),
+                    distance(measured_line.first, reference_line.first),
+                    distance(measured_line.first, reference_line.second),
+                    distance(measured_line.second, reference_line.first),
+                    distance(measured_line.second, reference_line.second),
                 ]
                 .iter()
                 .enumerate()
@@ -44,51 +44,52 @@ impl FieldMark {
                 .unwrap()
                 .0
                 {
-                    1 | 2 => Line(measured_line.1, measured_line.0),
+                    1 | 2 => Line::new(measured_line.second, measured_line.first),
                     _ => measured_line,
                 };
 
-                let measured_direction = (measured_line.0 - measured_line.1).normalize();
-                let reference_direction = (reference_line.0 - reference_line.1).normalize();
+                let measured_direction = (measured_line.first - measured_line.second).normalize();
+                let reference_direction =
+                    (reference_line.first - reference_line.second).normalize();
 
                 let projected_point_on_measured_line =
-                    measured_line.project_onto_segment(reference_line.0);
+                    measured_line.project_onto_segment(reference_line.first);
                 let projected_point_on_reference_line =
-                    reference_line.project_onto_segment(measured_line.0);
+                    reference_line.project_onto_segment(measured_line.first);
 
                 let measured_distance =
-                    distance(projected_point_on_measured_line, reference_line.0);
+                    distance(projected_point_on_measured_line, reference_line.first);
                 let reference_distance =
-                    distance(measured_line.0, projected_point_on_reference_line);
+                    distance(measured_line.first, projected_point_on_reference_line);
                 let correspondence_0 = if measured_distance < reference_distance {
                     CorrespondencePoints {
                         measured: projected_point_on_measured_line,
-                        reference: reference_line.0,
+                        reference: reference_line.first,
                     }
                 } else {
                     CorrespondencePoints {
-                        measured: measured_line.0,
+                        measured: measured_line.first,
                         reference: projected_point_on_reference_line,
                     }
                 };
 
                 let projected_point_on_measured_line =
-                    measured_line.project_onto_segment(reference_line.1);
+                    measured_line.project_onto_segment(reference_line.second);
                 let projected_point_on_reference_line =
-                    reference_line.project_onto_segment(measured_line.1);
+                    reference_line.project_onto_segment(measured_line.second);
 
                 let measured_distance =
-                    distance(projected_point_on_measured_line, reference_line.1);
+                    distance(projected_point_on_measured_line, reference_line.second);
                 let reference_distance =
-                    distance(measured_line.1, projected_point_on_reference_line);
+                    distance(measured_line.second, projected_point_on_reference_line);
                 let correspondence_1 = if measured_distance < reference_distance {
                     CorrespondencePoints {
                         measured: projected_point_on_measured_line,
-                        reference: reference_line.1,
+                        reference: reference_line.second,
                     }
                 } else {
                     CorrespondencePoints {
-                        measured: measured_line.1,
+                        measured: measured_line.second,
                         reference: projected_point_on_reference_line,
                     }
                 };
@@ -100,24 +101,24 @@ impl FieldMark {
                 }
             }
             FieldMark::Circle { center, radius } => {
-                let center_to_0 = measured_line.0 - center;
-                let center_to_1 = measured_line.1 - center;
+                let center_to_0 = measured_line.first - center;
+                let center_to_1 = measured_line.second - center;
 
-                let correspondence_0_measured = measured_line.0;
+                let correspondence_0_measured = measured_line.first;
                 let correspondence_0_reference = if center_to_0 == Vector2::zeros() {
                     point![center.x() + radius, center.y()]
                 } else {
                     center + center_to_0.normalize() * radius
                 };
 
-                let correspondence_1_measured = measured_line.1;
+                let correspondence_1_measured = measured_line.second;
                 let correspondence_1_reference = if center_to_1 == Vector2::zeros() {
                     point![center.x() + radius, center.y()]
                 } else {
                     center + center_to_1.normalize() * radius
                 };
 
-                let measured_direction = (measured_line.0 - measured_line.1).normalize();
+                let measured_direction = (measured_line.first - measured_line.second).normalize();
                 let center_vector =
                     (correspondence_0_reference - center) + (correspondence_1_reference - center);
                 let center_vector_rotated_by_90_degree =
@@ -159,14 +160,14 @@ pub struct CorrespondencePoints {
 pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> Vec<FieldMark> {
     vec![
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![-field_dimensions.length / 2.0, field_dimensions.width / 2.0],
                 point![field_dimensions.length / 2.0, field_dimensions.width / 2.0],
             ),
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.width / 2.0
@@ -176,7 +177,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.width / 2.0
@@ -186,14 +187,14 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![field_dimensions.length / 2.0, -field_dimensions.width / 2.0],
                 point![field_dimensions.length / 2.0, field_dimensions.width / 2.0],
             ),
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0,
                     field_dimensions.penalty_area_width / 2.0
@@ -206,7 +207,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.penalty_area_width / 2.0
@@ -219,7 +220,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length,
                     -field_dimensions.penalty_area_width / 2.0
@@ -232,7 +233,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0,
                     field_dimensions.goal_box_area_width / 2.0
@@ -245,7 +246,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0,
                     -field_dimensions.goal_box_area_width / 2.0
@@ -258,7 +259,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.goal_box_area_length,
                     -field_dimensions.goal_box_area_width / 2.0
@@ -271,7 +272,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                     field_dimensions.penalty_area_width / 2.0
@@ -284,7 +285,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                     -field_dimensions.penalty_area_width / 2.0
@@ -297,7 +298,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_area_length,
                     -field_dimensions.penalty_area_width / 2.0
@@ -310,7 +311,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                     field_dimensions.goal_box_area_width / 2.0
@@ -323,7 +324,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                     -field_dimensions.goal_box_area_width / 2.0
@@ -336,7 +337,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length,
                     -field_dimensions.goal_box_area_width / 2.0
@@ -349,7 +350,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![0.0, -field_dimensions.width / 2.0],
                 point![0.0, field_dimensions.width / 2.0],
             ),
@@ -360,7 +361,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             radius: field_dimensions.center_circle_diameter / 2.0,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance
                         - field_dimensions.penalty_marker_size / 2.0,
@@ -376,7 +377,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     -field_dimensions.length / 2.0 + field_dimensions.penalty_marker_distance,
                     -field_dimensions.penalty_marker_size / 2.0
@@ -389,7 +390,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0
                         - field_dimensions.penalty_marker_distance
@@ -405,7 +406,7 @@ pub fn field_marks_from_field_dimensions(field_dimensions: &FieldDimensions) -> 
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: Line::new(
                 point![
                     field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance,
                     -field_dimensions.penalty_marker_size / 2.0

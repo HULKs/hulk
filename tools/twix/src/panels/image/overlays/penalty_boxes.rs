@@ -37,7 +37,7 @@ impl Overlay for PenaltyBoxes {
         let penalty_boxes_lines_in_image: Vec<Line2<Pixel>> =
             self.penalty_boxes.require_latest()?;
         for line in penalty_boxes_lines_in_image {
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLACK));
+            painter.line_segment(line.first, line.second, Stroke::new(3.0, Color32::BLACK));
         }
         Ok(())
     }

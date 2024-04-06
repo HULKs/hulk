@@ -23,7 +23,8 @@ pub fn is_above_limbs(pixel_position: Point2<Pixel>, projected_limbs: &[Limb]) -
                 }
 
                 // since Y is pointing downwards, "is above" is actually !Line::is_above()
-                !Line(points[0], points[1]).is_above(point![pixel_position.x(), pixel_position.y()])
+                !Line::new(points[0], points[1])
+                    .is_above(point![pixel_position.x(), pixel_position.y()])
             }
             None => true,
         }

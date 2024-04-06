@@ -164,10 +164,10 @@ fn project_penalty_area_on_images(
         .ok()?;
 
     Some(vec![
-        Line(penalty_top_left, penalty_top_right),
-        Line(penalty_bottom_left, penalty_bottom_right),
-        Line(penalty_bottom_left, penalty_top_left),
-        Line(penalty_bottom_right, penalty_top_right),
-        Line(corner_left, corner_right),
+        Line::new(penalty_top_left, penalty_top_right),
+        Line::new(penalty_bottom_left, penalty_bottom_right),
+        Line::new(penalty_bottom_left, penalty_top_left),
+        Line::new(penalty_bottom_right, penalty_top_right),
+        Line::new(corner_left, corner_right),
     ])
 }

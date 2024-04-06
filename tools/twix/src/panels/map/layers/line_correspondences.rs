@@ -44,7 +44,7 @@ impl Layer for LineCorrespondences {
             }
         };
         for line in lines {
-            painter.line_segment(line.0, line.1, Stroke::new(0.02, Color32::YELLOW));
+            painter.line_segment(line.first, line.second, Stroke::new(0.02, Color32::YELLOW));
         }
         Ok(())
     }

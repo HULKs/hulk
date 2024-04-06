@@ -52,8 +52,8 @@ impl Layer for Lines {
             .collect();
         for line in lines {
             painter.line_segment(
-                ground_to_field * line.0,
-                ground_to_field * line.1,
+                ground_to_field * line.first,
+                ground_to_field * line.second,
                 Stroke::new(0.04, Color32::RED),
             );
         }

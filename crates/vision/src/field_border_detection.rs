@@ -143,7 +143,7 @@ fn best_fit_line(points: &[Point2<Pixel>]) -> Line2<Pixel> {
     let half_size = points.len() / 2;
     let line_start = find_center_of_group(&points[0..half_size]);
     let line_end = find_center_of_group(&points[half_size..points.len()]);
-    Line(line_start, line_end)
+    Line::new(line_start, line_end)
 }
 
 fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
@@ -161,13 +161,13 @@ fn is_orthogonal(
     angle_threshold: f32,
 ) -> Result<bool> {
     let projected_lines = [
-        Line(
-            camera_matrix.pixel_to_ground(lines[0].0)?,
-            camera_matrix.pixel_to_ground(lines[0].1)?,
+        Line::new(
+            camera_matrix.pixel_to_ground(lines[0].first)?,
+            camera_matrix.pixel_to_ground(lines[0].second)?,
         ),
-        Line(
-            camera_matrix.pixel_to_ground(lines[1].0)?,
-            camera_matrix.pixel_to_ground(lines[1].1)?,
+        Line::new(
+            camera_matrix.pixel_to_ground(lines[1].first)?,
+            camera_matrix.pixel_to_ground(lines[1].second)?,
         ),
     ];
     Ok(projected_lines[0].is_orthogonal(projected_lines[1], angle_threshold))

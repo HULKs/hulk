@@ -266,11 +266,11 @@ fn block_on_line(
 ) -> Pose2<Field> {
     let is_ball_in_front_of_defense_line = defense_line_x < ball_position.x();
     if is_ball_in_front_of_defense_line {
-        let defense_line = Line(
+        let defense_line = Line::new(
             point![defense_line_x, defense_line_y_range.start],
             point![defense_line_x, defense_line_y_range.end],
         );
-        let ball_target_line = Line(ball_position, target);
+        let ball_target_line = Line::new(ball_position, target);
         let intersection_point = defense_line.intersection(&ball_target_line);
         let defense_position = point![
             intersection_point.x(),

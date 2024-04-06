@@ -153,7 +153,7 @@ impl LineDetection {
                 break;
             };
 
-            let line_in_ground = Line(start_point_in_robot, end_point_in_robot);
+            let line_in_ground = Line::new(start_point_in_robot, end_point_in_robot);
             let line_length_in_robot = line_in_ground.length();
             let is_too_short = *context.check_line_length
                 && line_length_in_robot < context.allowed_line_length_in_field.start;
@@ -177,7 +177,7 @@ impl LineDetection {
 
             lines_in_ground.push(line_in_ground);
             if context.lines_in_image.is_subscribed() {
-                image_lines.push(Line(start_point_in_ground, end_point_in_ground));
+                image_lines.push(Line::new(start_point_in_ground, end_point_in_ground));
             }
         }
         let line_data = LineData {
@@ -189,9 +189,9 @@ impl LineDetection {
             image_lines
                 .into_iter()
                 .map(|line| {
-                    Line(
-                        context.camera_matrix.ground_to_pixel(line.0).unwrap(),
-                        context.camera_matrix.ground_to_pixel(line.1).unwrap(),
+                    Line::new(
+                        context.camera_matrix.ground_to_pixel(line.first).unwrap(),
+                        context.camera_matrix.ground_to_pixel(line.second).unwrap(),
                     )
                 })
                 .collect()
@@ -201,9 +201,9 @@ impl LineDetection {
                 .into_iter()
                 .map(|(line, discard_reason)| {
                     (
-                        Line(
-                            context.camera_matrix.ground_to_pixel(line.0).unwrap(),
-                            context.camera_matrix.ground_to_pixel(line.1).unwrap(),
+                        Line::new(
+                            context.camera_matrix.ground_to_pixel(line.first).unwrap(),
+                            context.camera_matrix.ground_to_pixel(line.second).unwrap(),
                         ),
                         discard_reason,
                     )

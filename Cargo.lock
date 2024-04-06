@@ -917,6 +917,8 @@ dependencies = [
  "linear_algebra",
  "nalgebra",
  "projection",
+ "serde",
+ "serialize_hierarchy",
  "thiserror",
  "types",
 ]

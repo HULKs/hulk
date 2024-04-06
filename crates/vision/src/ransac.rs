@@ -45,7 +45,7 @@ impl<Frame> Ransac<Frame> {
                 let mut points = self
                     .unused_points
                     .choose_multiple(&mut self.random_number_generator, 2);
-                let line = Line(*points.next().unwrap(), *points.next().unwrap());
+                let line = Line::new(*points.next().unwrap(), *points.next().unwrap());
                 let score: f32 = self
                     .unused_points
                     .iter()
@@ -105,7 +105,7 @@ mod test {
         let result = ransac.next_line(10, 5.0, 5.0);
         assert_relative_eq!(
             result.line.expect("No line found"),
-            Line(point![15.0, 15.0], point![30.0, 30.0])
+            Line::new(point![15.0, 15.0], point![30.0, 30.0])
         );
         assert_relative_eq!(result.used_points[0], point![15.0, 15.0]);
         assert_relative_eq!(result.used_points[1], point![30.0, 30.0]);

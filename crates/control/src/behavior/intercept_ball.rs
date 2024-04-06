@@ -62,7 +62,7 @@ pub fn execute(
                 return None;
             }
 
-            let ball_line = Line(
+            let ball_line = Line::new(
                 ball.ball_in_ground,
                 ball.ball_in_ground + ball.ball_in_ground_velocity,
             );

@@ -58,13 +58,13 @@ impl Residuals {
             .signed_acute_angle_to_orthogonal(projected_lines.connecting_line);
         let distance_between_parallel_line_start_points = projected_lines
             .border_line
-            .distance_to_point(projected_lines.goal_box_line.0);
+            .distance_to_point(projected_lines.goal_box_line.first);
         let distance_between_parallel_line_center_points = projected_lines
             .border_line
             .distance_to_point(projected_lines.goal_box_line.center());
         let distance_between_parallel_line_end_points = projected_lines
             .border_line
-            .distance_to_point(projected_lines.goal_box_line.1);
+            .distance_to_point(projected_lines.goal_box_line.second);
 
         Ok(Residuals {
             border_to_connecting_angle,
