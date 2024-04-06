@@ -69,15 +69,18 @@ impl TimeToReachKickPosition {
                 orientation_mode: OrientationMode::Override(orientation),
                 ..
             } => Some(orientation.angle().abs()),
-            _ => match context.dribble_path {
-                Some(path) => match path.first() {
-                    Some(PathSegment::LineSegment(line_segment)) => {
-                        Some(line_segment.1.coords().angle(Vector2::x_axis()).abs())
-                    }
+            _ => {
+                let turning_angle_towards_path = match context.dribble_path {
+                    Some(path) => match path.first() {
+                        Some(PathSegment::LineSegment(line_segment)) => {
+                            Some(line_segment.1.coords().angle(Vector2::x_axis()).abs())
+                        }
+                        _ => None,
+                    },
                     _ => None,
-                },
-                _ => None,
-            },
+                };
+                turning_angle_towards_path
+            }
         };
         let time_to_turn = Duration::from_secs_f32(match turning_angle {
             Some(angle) => angle / PI * context.configuration.path_planning.half_turning_time,
