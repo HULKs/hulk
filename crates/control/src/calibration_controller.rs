@@ -1,7 +1,4 @@
-use std::{
-    time::{Duration, SystemTime},
-    vec,
-};
+use std::{time::Duration, vec};
 
 use calibration::measurement::Measurement;
 use color_eyre::Result;
@@ -10,7 +7,7 @@ use coordinate_systems::Ground;
 use framework::{MainOutput, PerceptionInput};
 use itertools::Itertools;
 use linear_algebra::{point, Point2};
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use types::{
     camera_position::CameraPosition,
@@ -27,8 +24,7 @@ pub struct CalibrationController {
     pub look_at_dispatch_waiting: Duration,
     pub initial_stabilization_delay: Duration,
     pub current_measurements: Vec<Measurement>,
-    pub calibration_gamestate_triggered_at: Option<SystemTime>,
-    pub currently_in_calibration_game_phase: bool,
+    pub current_primary_phase_is_calibration: bool,
 }
 
 #[context]
@@ -59,8 +55,7 @@ impl CalibrationController {
             look_at_dispatch_waiting: Duration::from_millis(500),
             initial_stabilization_delay: Duration::from_millis(2000),
             current_measurements: vec![],
-            currently_in_calibration_game_phase: false,
-            calibration_gamestate_triggered_at: None,
+            current_primary_phase_is_calibration: false,
         })
     }
 
@@ -70,48 +65,49 @@ impl CalibrationController {
             _ => false,
         };
         if !calibration_grame_state_active {
-            self.calibration_gamestate_triggered_at = None;
+            self.current_calibration_state.phase = CalibrationPhase::INACTIVE;
             return Ok(MainOutputs::default());
         }
 
+        let primary_state_transition_to_calibration =
+            calibration_grame_state_active && !self.current_primary_phase_is_calibration;
+        self.current_primary_phase_is_calibration = calibration_grame_state_active;
+
         let current_cycle_time = context.cycle_time;
-
-        let calibration_triggered_initially =
-            calibration_grame_state_active && !self.currently_in_calibration_game_phase;
-        self.currently_in_calibration_game_phase = calibration_grame_state_active;
-
-        if calibration_triggered_initially {
-            self.calibration_gamestate_triggered_at = Some(current_cycle_time.start_time);
-        }
-
         let current_calibration_phase = &self.current_calibration_state.phase;
-        let new_phase = match current_calibration_phase {
-            CalibrationPhase::INACTIVE => match (
-                context.primary_state,
-                self.calibration_gamestate_triggered_at,
-            ) {
-                (PrimaryState::Calibration, Some(triggered_time)) => {
+
+        let changed_phase: Option<CalibrationPhase> = match current_calibration_phase {
+            CalibrationPhase::INACTIVE => {
+                if primary_state_transition_to_calibration {
+                    info!(
+                        "Calibration is activated, waiting for {}s until the Robot is stable.",
+                        self.initial_stabilization_delay.as_secs_f32()
+                    );
+
+                    Some(CalibrationPhase::INITIALIZE {
+                        started_time: *current_cycle_time,
+                    })
+                } else {
+                    None
+                }
+            }
+            CalibrationPhase::INITIALIZE {
+                started_time: activated_time,
+            } => match context.primary_state {
+                PrimaryState::Calibration => {
                     let waiting_duration = current_cycle_time
                         .start_time
-                        .duration_since(triggered_time)
+                        .duration_since(activated_time.start_time)
                         .unwrap_or(Duration::default());
 
-                    if waiting_duration < self.initial_stabilization_delay {
-                        if calibration_triggered_initially {
-                            info!(
-                                "Calibration is active, waiting until [{} > {}] to stabilize.",
-                                waiting_duration.as_millis(),
-                                self.initial_stabilization_delay.as_millis()
-                            );
-                        }
-                        CalibrationPhase::INACTIVE
-                    } else {
-                        info!("Calibration stabilization wait is over. Try Go-to LOOKAT",);
+                    if waiting_duration >= self.initial_stabilization_delay {
                         self.current_measurements = vec![];
-                        self.try_transition_to_look_at(*context.cycle_time)
+                        Some(self.try_transition_to_look_at(*context.cycle_time))
+                    } else {
+                        None
                     }
                 }
-                _ => CalibrationPhase::INACTIVE,
+                _ => None,
             },
             CalibrationPhase::LOOKAT { dispatch_time, .. } => {
                 let time_diff = current_cycle_time
@@ -120,16 +116,14 @@ impl CalibrationController {
                     .unwrap_or(Duration::default());
 
                 if time_diff > self.look_at_dispatch_waiting {
-                    info!("Look-at reached. Goto CAPTURE");
-                    CalibrationPhase::CAPTURE {
+                    Some(CalibrationPhase::CAPTURE {
                         dispatch_time: *current_cycle_time,
-                    }
+                    })
                 } else {
-                    current_calibration_phase.clone()
+                    None
                 }
             }
             CalibrationPhase::CAPTURE { dispatch_time } => {
-                info!("Capture reached. Waiting for measurements");
                 // TODO verify if this mess is indeed correct!
                 let mut values_top = context
                     .measurement_top
@@ -164,20 +158,13 @@ impl CalibrationController {
                     .collect_vec();
 
                 let outcome = if !values_bottom.is_empty() || !values_bottom.is_empty() {
-                    info!(
-                        "Top & bottom count: {}, {}",
-                        values_top.len(),
-                        values_bottom.len()
-                    );
-                    // TODO complete this later
+                    // TODO Require both cameras to give values or another mechanism to track that.
                     self.current_measurements.append(&mut values_top);
                     self.current_measurements.append(&mut values_bottom);
 
-                    info!("\tFound captures, try goto next LOOKAT");
-                    // Once this capture is done, goto the next look-at
-                    self.try_transition_to_look_at(*context.cycle_time)
+                    Some(self.try_transition_to_look_at(*context.cycle_time))
                 } else {
-                    current_calibration_phase.clone()
+                    None
                 };
                 outcome
             }
@@ -186,14 +173,18 @@ impl CalibrationController {
                     "Switching to process!, found {} measurements",
                     self.current_measurements.len()
                 );
-                /// Proces...
-                info!("Transitioning to finished!");
-                CalibrationPhase::FINISH
+                // TODO Add processing logic
+                warn!("Processing is not defined yet!");
+
+                Some(CalibrationPhase::FINISH)
             }
-            CalibrationPhase::FINISH => CalibrationPhase::FINISH,
+            CalibrationPhase::FINISH => None,
         };
 
-        self.current_calibration_state.phase = new_phase;
+        if let Some(new_phase) = changed_phase {
+            info!("Phase change detected: {:?}", new_phase);
+            self.current_calibration_state.phase = new_phase;
+        }
 
         Ok(MainOutputs {
             calibration_state: self.current_calibration_state.clone().into(),

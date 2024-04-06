@@ -84,7 +84,9 @@ pub struct RobotState {
 pub enum CalibrationPhase {
     #[default]
     INACTIVE,
-    // READY,
+    INITIALIZE {
+        started_time: CycleTime,
+    },
     LOOKAT {
         target: Point2<Ground>,
         camera: Option<CameraPosition>,
