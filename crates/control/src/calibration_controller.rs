@@ -1,4 +1,7 @@
-use std::{time::Duration, vec};
+use std::{
+    time::{Duration, SystemTime},
+    vec,
+};
 
 use calibration::measurement::Measurement;
 use color_eyre::Result;
@@ -33,10 +36,12 @@ pub struct CreationContext {}
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    // measurement_bottom:
+    //     PerceptionInput<Option<Measurement>, "VisionBottom", "calibration_measurement?">,
+    // measurement_top: PerceptionInput<Option<Measurement>, "VisionTop", "calibration_measurement?">,
     measurement_bottom:
-        PerceptionInput<Option<Measurement>, "VisionBottom", "calibration_measurement?">,
-    measurement_top: PerceptionInput<Option<Measurement>, "VisionTop", "calibration_measurement?">,
-    // capture_count:AdditionalOutput<
+        PerceptionInput<Option<SystemTime>, "VisionBottom", "calibration_measurement?">,
+    measurement_top: PerceptionInput<Option<SystemTime>, "VisionTop", "calibration_measurement?">,
 }
 
 #[context]
@@ -132,8 +137,9 @@ impl CalibrationController {
                     .collect_vec();
 
                 let outcome = if !values_bottom.is_empty() || !values_bottom.is_empty() {
-                    self.current_measurements.append(&mut values_top);
-                    self.current_measurements.append(&mut values_bottom);
+                    // TODO complete this later
+                    // self.current_measurements.append(&mut values_top);
+                    // self.current_measurements.append(&mut values_bottom);
 
                     log!(Level::Info, "\tFound captures, try goto next LOOKAT");
                     // Once this capture is done, goto the next look-at

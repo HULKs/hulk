@@ -1,11 +1,16 @@
 use std::time::SystemTime;
 
 use calibration::measurement::Measurement;
-use color_eyre::Result;
+use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput};
+use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use types::{camera_matrix::CameraMatrix, ycbcr422_image::YCbCr422Image};
+use types::{
+    camera_matrix::CameraMatrix,
+    camera_position::CameraPosition,
+    world_state::{CalibrationPhase, CalibrationState},
+    ycbcr422_image::YCbCr422Image,
+};
 
 #[context]
 pub struct CreationContext {
@@ -16,8 +21,8 @@ pub struct CreationContext {
 pub struct CycleContext {
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     image: Input<YCbCr422Image, "image">,
-    // capture_command: Input<SystemTime, "capture_command_time">,
-    // TODO parameters
+    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
+    calibration_state: Input<CalibrationState, "control", "calibration_state">,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -29,11 +34,27 @@ pub struct CalibrationLineDetection {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub calibration_measurement: MainOutput<Option<Measurement>>,
+    // pub calibration_measurement: MainOutput<Option<Measurement>>,
+    pub calibration_measurement: MainOutput<Option<SystemTime>>,
 }
 
 impl CalibrationLineDetection {
     pub fn new(context: CreationContext) -> Result<Self> {
-        todo!()
+        Ok(Self {
+            last_capture_command_time: None,
+        })
+    }
+
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let measurement = match context.calibration_state.phase {
+            CalibrationPhase::CAPTURE { .. } => {
+                // TODO
+                None
+            }
+            _ => None,
+        };
+        Ok(MainOutputs {
+            calibration_measurement: measurement.into(),
+        })
     }
 }
