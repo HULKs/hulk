@@ -20,7 +20,8 @@ use types::{
     parameters::{BallFilterParameters, CameraMatrixParameters},
     penalty_shot_direction::PenaltyShotDirection,
     primary_state::PrimaryState,
-    sensor_data::SensorData, world_state::CalibrationState,
+    sensor_data::SensorData,
+    world_state::CalibrationState,
 };
 
 use crate::interfake::FakeDataInterface;
@@ -66,7 +67,7 @@ pub struct MainOutputs {
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
-    pub calibration_state: MainOutput<CalibrationState>
+    pub calibration_state: MainOutput<CalibrationState>,
 }
 
 impl FakeData {
