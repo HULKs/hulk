@@ -20,7 +20,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
-    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message">,
 }
 
 #[context]
@@ -42,6 +42,7 @@ impl GameControllerFilter {
             .network_message
             .persistent
             .values()
+            .flatten()
             .flatten()
             .filter_map(|message| match message {
                 IncomingMessage::GameController(message) => Some(message),
