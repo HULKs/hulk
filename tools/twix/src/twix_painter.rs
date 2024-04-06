@@ -203,10 +203,9 @@ impl<Frame> TwixPainter<Frame> {
             stroke,
         )));
     }
-
     pub fn pose(
         &self,
-        pose: Pose<Frame>,
+        pose: Pose2<Frame>,
         circle_radius: f32,
         line_length: f32,
         fill_color: Color32,
@@ -392,23 +391,6 @@ impl TwixPainter<Ground> {
         let world_to_camera =
             Similarity2::new(nalgebra::vector![length / 2.0, -width / 2.0], 0.0, 1.0);
         self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
-    }
-    
-    pub fn pose(
-        &self,
-        pose: Pose2<Field>,
-        circle_radius: f32,
-        line_length: f32,
-        fill_color: Color32,
-        stroke: Stroke,
-    ) {
-        let center = pose.position();
-        self.circle(center, circle_radius, fill_color, stroke);
-        self.line_segment(
-            center,
-            pose.as_transform::<Ground>() * point![line_length, 0.0],
-            stroke,
-        );
     }
 
     pub fn path(

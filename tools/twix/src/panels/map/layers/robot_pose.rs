@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
-use linear_algebra::Pose;
+use linear_algebra::Pose2;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter};
@@ -28,7 +28,7 @@ impl Layer<Ground> for RobotPose {
             width: 0.02,
             color: Color32::BLACK,
         };
-        painter.pose(Pose::zero(), 0.15, 0.25, pose_color, pose_stroke);
+        painter.pose(Pose2::zero(), 0.15, 0.25, pose_color, pose_stroke);
         Ok(())
     }
 }

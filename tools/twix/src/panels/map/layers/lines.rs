@@ -4,9 +4,8 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::Ground;
 use geometry::line::Line2;
-use linear_algebra::Isometry2;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
