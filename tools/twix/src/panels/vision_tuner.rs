@@ -1,19 +1,24 @@
 use std::{f32::consts::PI, sync::Arc};
 
+use color_eyre::{eyre::Context, Result};
 use eframe::egui::{ComboBox, Response, Slider, Ui, Widget};
+use log::error;
 use nalgebra::{Isometry2, Rotation2, Translation2};
 use serde_json::{to_value, Value};
 
 use communication::client::Cycler;
 use types::interpolated::Interpolated;
 
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao, panel::Panel, repository_parameters::RepositoryParameters, value_buffer::ValueBuffer,
+};
 
 pub struct VisionTunerPanel {
     nao: Arc<Nao>,
+    repository_parameters: Result<RepositoryParameters>,
     cycler: Cycler,
     position: Option<Position>,
-    buffers: Buffers,
+    parameters: Parameters<ValueBuffer>,
 }
 
 impl Panel for VisionTunerPanel {
@@ -21,78 +26,23 @@ impl Panel for VisionTunerPanel {
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let cycler = Cycler::VisionTop;
-        let buffers = Buffers::from(&nao, cycler);
+        let parameters = Parameters::from(&nao, cycler);
 
         Self {
             nao,
+            repository_parameters: RepositoryParameters::try_new(),
             cycler,
             position: None,
-            buffers,
+            parameters,
         }
     }
 }
 
 impl Widget for &mut VisionTunerPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        let mut vertical_edge_threshold = match self
-            .buffers
-            .vertical_edge_threshold_buffer
-            .parse_latest::<Interpolated>()
-        {
-            Ok(vertical_edge_threshold) => vertical_edge_threshold,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
-        };
-        let mut red_chromaticity_threshold = match self
-            .buffers
-            .red_chromaticity_threshold_buffer
-            .parse_latest::<Interpolated>()
-        {
-            Ok(red_chromaticity_threshold) => red_chromaticity_threshold,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
-        };
-        let mut blue_chromaticity_threshold = match self
-            .buffers
-            .blue_chromaticity_threshold_buffer
-            .parse_latest::<Interpolated>()
-        {
-            Ok(blue_chromaticity_threshold) => blue_chromaticity_threshold,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
-        };
-        let mut lower_green_chromaticity_threshold = match self
-            .buffers
-            .lower_green_chromaticity_threshold_buffer
-            .parse_latest::<Interpolated>()
-        {
-            Ok(lower_green_chromaticity_threshold) => lower_green_chromaticity_threshold,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
-        };
-        let mut upper_green_chromaticity_threshold = match self
-            .buffers
-            .upper_green_chromaticity_threshold_buffer
-            .parse_latest::<Interpolated>()
-        {
-            Ok(upper_green_chromaticity_threshold) => upper_green_chromaticity_threshold,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
-        };
-        let mut green_luminance_threshold = match self
-            .buffers
-            .green_luminance_threshold_buffer
-            .parse_latest::<Interpolated>()
-        {
-            Ok(green_luminance_threshold) => green_luminance_threshold,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
+        let mut parameters = match self.parameters.parse_latest() {
+            Ok(parameters) => parameters,
+            Err(error) => return ui.label(format!("{error:#?}")),
         };
 
         ui.style_mut().spacing.slider_width = ui.available_size().x - 250.0;
@@ -100,13 +50,15 @@ impl Widget for &mut VisionTunerPanel {
             add_selector_row(
                 ui,
                 &self.nao,
+                &self.repository_parameters,
                 &mut self.cycler,
                 &mut self.position,
-                &mut self.buffers,
+                &mut self.parameters,
             );
 
             if let Some(position) = self.position {
-                let value = get_value_from_interpolated(position, &mut vertical_edge_threshold);
+                let value =
+                    get_value_from_interpolated(position, &mut parameters.vertical_edge_threshold);
                 if ui
                     .add(
                         Slider::new(value, 0.0..=255.0)
@@ -115,12 +67,17 @@ impl Widget for &mut VisionTunerPanel {
                     )
                     .changed()
                 {
-                    self.buffers
-                        .vertical_edge_threshold_buffer
-                        .update_parameter_value(to_value(vertical_edge_threshold).unwrap());
+                    self.parameters
+                        .vertical_edge_threshold
+                        .update_parameter_value(
+                            to_value(parameters.vertical_edge_threshold).unwrap(),
+                        );
                 }
 
-                let value = get_value_from_interpolated(position, &mut red_chromaticity_threshold);
+                let value = get_value_from_interpolated(
+                    position,
+                    &mut parameters.red_chromaticity_threshold,
+                );
                 if ui
                     .add(
                         Slider::new(value, 0.0..=1.0)
@@ -129,12 +86,17 @@ impl Widget for &mut VisionTunerPanel {
                     )
                     .changed()
                 {
-                    self.buffers
-                        .red_chromaticity_threshold_buffer
-                        .update_parameter_value(to_value(red_chromaticity_threshold).unwrap());
+                    self.parameters
+                        .red_chromaticity_threshold
+                        .update_parameter_value(
+                            to_value(parameters.red_chromaticity_threshold).unwrap(),
+                        );
                 }
 
-                let value = get_value_from_interpolated(position, &mut blue_chromaticity_threshold);
+                let value = get_value_from_interpolated(
+                    position,
+                    &mut parameters.blue_chromaticity_threshold,
+                );
                 if ui
                     .add(
                         Slider::new(value, 0.0..=1.0)
@@ -143,12 +105,17 @@ impl Widget for &mut VisionTunerPanel {
                     )
                     .changed()
                 {
-                    self.buffers
-                        .blue_chromaticity_threshold_buffer
-                        .update_parameter_value(to_value(blue_chromaticity_threshold).unwrap());
+                    self.parameters
+                        .blue_chromaticity_threshold
+                        .update_parameter_value(
+                            to_value(parameters.blue_chromaticity_threshold).unwrap(),
+                        );
                 }
-                let value =
-                    get_value_from_interpolated(position, &mut lower_green_chromaticity_threshold);
+
+                let value = get_value_from_interpolated(
+                    position,
+                    &mut parameters.lower_green_chromaticity_threshold,
+                );
                 if ui
                     .add(
                         Slider::new(value, 0.0..=1.0)
@@ -157,14 +124,17 @@ impl Widget for &mut VisionTunerPanel {
                     )
                     .changed()
                 {
-                    self.buffers
-                        .lower_green_chromaticity_threshold_buffer
+                    self.parameters
+                        .lower_green_chromaticity_threshold
                         .update_parameter_value(
-                            to_value(lower_green_chromaticity_threshold).unwrap(),
+                            to_value(parameters.lower_green_chromaticity_threshold).unwrap(),
                         );
                 }
-                let value =
-                    get_value_from_interpolated(position, &mut upper_green_chromaticity_threshold);
+
+                let value = get_value_from_interpolated(
+                    position,
+                    &mut parameters.upper_green_chromaticity_threshold,
+                );
                 if ui
                     .add(
                         Slider::new(value, 0.0..=1.0)
@@ -173,13 +143,17 @@ impl Widget for &mut VisionTunerPanel {
                     )
                     .changed()
                 {
-                    self.buffers
-                        .upper_green_chromaticity_threshold_buffer
+                    self.parameters
+                        .upper_green_chromaticity_threshold
                         .update_parameter_value(
-                            to_value(upper_green_chromaticity_threshold).unwrap(),
+                            to_value(parameters.upper_green_chromaticity_threshold).unwrap(),
                         );
                 }
-                let value = get_value_from_interpolated(position, &mut green_luminance_threshold);
+
+                let value = get_value_from_interpolated(
+                    position,
+                    &mut parameters.green_luminance_threshold,
+                );
                 if ui
                     .add(
                         Slider::new(value, 0.0..=255.0)
@@ -188,9 +162,11 @@ impl Widget for &mut VisionTunerPanel {
                     )
                     .changed()
                 {
-                    self.buffers
-                        .green_luminance_threshold_buffer
-                        .update_parameter_value(to_value(green_luminance_threshold).unwrap());
+                    self.parameters
+                        .green_luminance_threshold
+                        .update_parameter_value(
+                            to_value(parameters.green_luminance_threshold).unwrap(),
+                        );
                 }
             }
         })
@@ -198,38 +174,114 @@ impl Widget for &mut VisionTunerPanel {
     }
 }
 
-struct Buffers {
-    vertical_edge_threshold_buffer: ValueBuffer,
-    red_chromaticity_threshold_buffer: ValueBuffer,
-    blue_chromaticity_threshold_buffer: ValueBuffer,
-    lower_green_chromaticity_threshold_buffer: ValueBuffer,
-    upper_green_chromaticity_threshold_buffer: ValueBuffer,
-    green_luminance_threshold_buffer: ValueBuffer,
+struct Parameters<T> {
+    vertical_edge_threshold: T,
+    red_chromaticity_threshold: T,
+    blue_chromaticity_threshold: T,
+    lower_green_chromaticity_threshold: T,
+    upper_green_chromaticity_threshold: T,
+    green_luminance_threshold: T,
 }
 
-impl Buffers {
+impl Parameters<ValueBuffer> {
     fn from(nao: &Nao, cycler: Cycler) -> Self {
-        let vertical_edge_threshold_buffer =
+        let vertical_edge_threshold =
             nao.subscribe_parameter(get_vertical_edge_threshold_path(cycler));
-        let red_chromaticity_threshold_buffer =
+        let red_chromaticity_threshold =
             nao.subscribe_parameter(get_red_chromaticity_threshold_path(cycler));
-        let blue_chromaticity_threshold_buffer =
+        let blue_chromaticity_threshold =
             nao.subscribe_parameter(get_blue_chromaticity_threshold_path(cycler));
-        let lower_green_chromaticity_threshold_buffer =
+        let lower_green_chromaticity_threshold =
             nao.subscribe_parameter(get_lower_green_chromaticity_threshold_path(cycler));
-        let upper_green_chromaticity_threshold_buffer =
+        let upper_green_chromaticity_threshold =
             nao.subscribe_parameter(get_upper_green_chromaticity_threshold_path(cycler));
-        let green_luminance_threshold_buffer =
+        let green_luminance_threshold =
             nao.subscribe_parameter(get_green_luminance_threshold_path(cycler));
 
         Self {
-            vertical_edge_threshold_buffer,
-            red_chromaticity_threshold_buffer,
-            blue_chromaticity_threshold_buffer,
-            lower_green_chromaticity_threshold_buffer,
-            upper_green_chromaticity_threshold_buffer,
-            green_luminance_threshold_buffer,
+            vertical_edge_threshold,
+            red_chromaticity_threshold,
+            blue_chromaticity_threshold,
+            lower_green_chromaticity_threshold,
+            upper_green_chromaticity_threshold,
+            green_luminance_threshold,
         }
+    }
+
+    fn parse_latest(&self) -> Result<Parameters<Interpolated>> {
+        Ok(Parameters {
+            vertical_edge_threshold: self
+                .vertical_edge_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest vertical_edge_threshold")?,
+            red_chromaticity_threshold: self
+                .red_chromaticity_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest red_chromaticity_threshold")?,
+            blue_chromaticity_threshold: self
+                .blue_chromaticity_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest blue_chromaticity_threshold")?,
+            lower_green_chromaticity_threshold: self
+                .lower_green_chromaticity_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest lower_green_chromaticity_threshold")?,
+            upper_green_chromaticity_threshold: self
+                .upper_green_chromaticity_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest upper_green_chromaticity_threshold")?,
+            green_luminance_threshold: self
+                .green_luminance_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest green_luminance_threshold")?,
+        })
+    }
+}
+
+impl Parameters<Interpolated> {
+    fn write_to(
+        &self,
+        repository_parameters: &RepositoryParameters,
+        address: &str,
+        cycler: Cycler,
+    ) -> Result<()> {
+        repository_parameters.write(
+            address,
+            get_vertical_edge_threshold_path(cycler).to_string(),
+            to_value(self.vertical_edge_threshold)
+                .wrap_err("failed to serialize vertical_edge_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_red_chromaticity_threshold_path(cycler).to_string(),
+            to_value(self.red_chromaticity_threshold)
+                .wrap_err("failed to serialize red_chromaticity_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_blue_chromaticity_threshold_path(cycler).to_string(),
+            to_value(self.blue_chromaticity_threshold)
+                .wrap_err("failed to serialize blue_chromaticity_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_lower_green_chromaticity_threshold_path(cycler).to_string(),
+            to_value(self.lower_green_chromaticity_threshold)
+                .wrap_err("failed to serialize lower_green_chromaticity_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_upper_green_chromaticity_threshold_path(cycler).to_string(),
+            to_value(self.upper_green_chromaticity_threshold)
+                .wrap_err("failed to serialize upper_green_chromaticity_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_green_luminance_threshold_path(cycler).to_string(),
+            to_value(self.green_luminance_threshold)
+                .wrap_err("failed to serialize green_luminance_threshold")?,
+        );
+        Ok(())
     }
 }
 
@@ -245,12 +297,13 @@ enum Position {
 fn add_selector_row(
     ui: &mut Ui,
     nao: &Nao,
+    repository_parameters: &Result<RepositoryParameters>,
     cycler: &mut Cycler,
     position: &mut Option<Position>,
-    buffers: &mut Buffers,
+    parameters: &mut Parameters<ValueBuffer>,
 ) -> Response {
     ui.horizontal(|ui| {
-        add_vision_cycler_selector(ui, nao, cycler, buffers);
+        add_vision_cycler_selector(ui, nao, cycler, parameters);
         let response = add_position_selector(ui, position);
         if response.changed() {
             let injected_ground_to_field = match position {
@@ -280,6 +333,25 @@ fn add_selector_row(
                 value,
             );
         }
+        match repository_parameters {
+            Ok(repository_parameters) => {
+                if ui
+                    .button("Save all interpolated parameters of this cycler to disk")
+                    .clicked()
+                {
+                    if let Some(address) = nao.get_address() {
+                        if let Err(error) = parameters.parse_latest().and_then(|parameters| {
+                            parameters.write_to(repository_parameters, &address, *cycler)
+                        }) {
+                            error!("Failed to parse parameters: {error:#?}");
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                ui.label(format!("{error:?}"));
+            }
+        }
     })
     .response
 }
@@ -288,7 +360,7 @@ fn add_vision_cycler_selector(
     ui: &mut Ui,
     nao: &Nao,
     cycler: &mut Cycler,
-    buffers: &mut Buffers,
+    parameters: &mut Parameters<ValueBuffer>,
 ) -> Response {
     let mut changed = false;
     let response = ComboBox::from_label("Cycler")
@@ -311,7 +383,7 @@ fn add_vision_cycler_selector(
         })
         .response;
     if changed {
-        *buffers = Buffers::from(nao, *cycler);
+        *parameters = Parameters::from(nao, *cycler);
     }
     response
 }
