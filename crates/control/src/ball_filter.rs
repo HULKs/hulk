@@ -61,8 +61,8 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
-    pub removed_ball_positions: MainOutput<Vec<Point2<f32>>>,
-    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition>>,
+    pub removed_ball_positions: MainOutput<Vec<Point2<Ground>>>,
+    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
 }
 
 impl BallFilter {
@@ -395,9 +395,9 @@ impl BallFilter {
             .partition::<Vec<_>, _>(|hypothesis| {
                 let selected_position = hypothesis.selected_ball_position(configuration).position;
                 let is_inside_field = {
-                    selected_position.coords.x.abs()
+                    selected_position.coords().x().abs()
                         < field_dimensions.length / 2.0 + field_dimensions.border_strip_width
-                        && selected_position.y.abs()
+                        && selected_position.y().abs()
                             < field_dimensions.width / 2.0 + field_dimensions.border_strip_width
                 };
                 now.duration_since(hypothesis.last_update)
