@@ -8,6 +8,7 @@ members = [
   "crates/ball_filter",
   "crates/buffered_watch",
   "crates/calibration",
+  "crates/calibration_control",
   "crates/code_generation",
   "crates/communication",
   "crates/constants",

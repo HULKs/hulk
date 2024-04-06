@@ -8,7 +8,8 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::PlayerNumber;
 
 use crate::{
-    ball_position::HypotheticalBallPosition, fall_state::FallState,
+    ball_position::HypotheticalBallPosition, camera_position::CameraPosition,
+    cycle_time::CycleTime, fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
     obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
     roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
@@ -27,6 +28,7 @@ pub struct WorldState {
     pub kick_decisions: Option<Vec<KickDecision>>,
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
+    pub calibration: Option<CalibrationState>,
 }
 
 #[derive(
@@ -77,4 +79,24 @@ pub struct RobotState {
     pub fall_state: FallState,
     pub has_ground_contact: bool,
     pub player_number: PlayerNumber,
+}
+#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+pub enum CalibrationPhase {
+    #[default]
+    INACTIVE,
+    // READY,
+    LOOKAT {
+        target: Point2<Ground>,
+        camera: Option<CameraPosition>,
+        dispatch_time: CycleTime,
+    },
+    CAPTURE {
+        dispatch_time: CycleTime,
+    },
+    PROCESS,
+    FINISH,
+}
+#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+pub struct CalibrationState {
+    pub phase: CalibrationPhase,
 }

@@ -14,7 +14,7 @@ use types::{
     primary_state::PrimaryState,
     roles::Role,
     rule_obstacles::RuleObstacle,
-    world_state::{BallState, RobotState, WorldState},
+    world_state::{BallState, CalibrationState, RobotState, WorldState},
 };
 
 #[derive(Deserialize, Serialize)]
@@ -45,6 +45,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
+    calibration_state: Input<Option<CalibrationState>, "calibration_state">,
 }
 
 #[context]
@@ -80,6 +81,7 @@ impl WorldStateComposer {
             instant_kick_decisions: context.instant_kick_decisions.cloned(),
             filtered_game_controller_state: context.filtered_game_controller_state.copied(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
+            calibration: context.calibration_state.cloned(),
         };
 
         Ok(MainOutputs {

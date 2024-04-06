@@ -983,6 +983,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "calibration_control"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "bincode",
+ "color-eyre",
+ "context_attribute",
+ "coordinate_systems",
+ "filtering",
+ "framework",
+ "geometry",
+ "itertools",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "nalgebra",
+ "num-traits",
+ "ordered-float",
+ "projection",
+ "rand",
+ "serde",
+ "serialize_hierarchy",
+ "smallvec",
+ "types",
+]
+
+[[package]]
 name = "calloop"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1429,6 +1456,7 @@ dependencies = [
  "approx",
  "ball_filter",
  "bincode",
+ "calibration",
  "color-eyre",
  "context_attribute",
  "coordinate_systems",
@@ -6202,6 +6230,7 @@ name = "vision"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "calibration",
  "color-eyre",
  "compiled-nn",
  "context_attribute",
