@@ -1,10 +1,9 @@
-use std::time::SystemTime;
-
 use calibration::measurement::Measurement;
 use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
+use std::time::SystemTime;
 use types::{
     camera_matrix::CameraMatrix,
     camera_position::CameraPosition,
@@ -39,17 +38,26 @@ pub struct MainOutputs {
 }
 
 impl CalibrationLineDetection {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_capture_command_time: None,
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let measurement = match context.calibration_state.phase {
-            CalibrationPhase::CAPTURE { .. } => {
-                // TODO
-                None
+        let measurement = match &context.calibration_state.phase {
+            CalibrationPhase::CAPTURE { dispatch_time } => {
+                let new_command =
+                    self.last_capture_command_time
+                        .map_or(true, |last_capture_command_time| {
+                            dispatch_time.start_time != last_capture_command_time
+                        });
+                // info!("Last command and current commands timestamps.");
+                if new_command {
+                    Some(Measurement::default())
+                } else {
+                    None
+                }
             }
             _ => None,
         };
