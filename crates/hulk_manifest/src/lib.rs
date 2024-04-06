@@ -88,7 +88,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
-                nodes: vec![],
+                nodes: vec!["spl_network::message_filter"],
             },
             CyclerManifest {
                 name: "Audio",
