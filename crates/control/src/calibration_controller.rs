@@ -36,12 +36,12 @@ pub struct CreationContext {}
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    // measurement_bottom:
-    //     PerceptionInput<Option<Measurement>, "VisionBottom", "calibration_measurement?">,
-    // measurement_top: PerceptionInput<Option<Measurement>, "VisionTop", "calibration_measurement?">,
     measurement_bottom:
-        PerceptionInput<Option<SystemTime>, "VisionBottom", "calibration_measurement?">,
-    measurement_top: PerceptionInput<Option<SystemTime>, "VisionTop", "calibration_measurement?">,
+        PerceptionInput<Option<Measurement>, "VisionBottom", "calibration_measurement?">,
+    measurement_top: PerceptionInput<Option<Measurement>, "VisionTop", "calibration_measurement?">,
+    // measurement_bottom:
+    //     PerceptionInput<Option<SystemTime>, "VisionBottom", "calibration_measurement?">,
+    // measurement_top: PerceptionInput<Option<SystemTime>, "VisionTop", "calibration_measurement?">,
 }
 
 #[context]

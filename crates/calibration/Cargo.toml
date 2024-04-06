@@ -14,3 +14,5 @@ nalgebra = { workspace = true }
 projection = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
+serde = { workspace = true }
+serialize_hierarchy = { workspace = true }

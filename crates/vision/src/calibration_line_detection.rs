@@ -34,8 +34,8 @@ pub struct CalibrationLineDetection {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    // pub calibration_measurement: MainOutput<Option<Measurement>>,
-    pub calibration_measurement: MainOutput<Option<SystemTime>>,
+    pub calibration_measurement: MainOutput<Option<Measurement>>,
+    // pub calibration_measurement: MainOutput<Option<SystemTime>>,
 }
 
 impl CalibrationLineDetection {

@@ -1,4 +1,5 @@
 pub mod ball_detection;
+pub mod calibration_line_detection;
 pub mod camera_matrix_extractor;
 pub mod feet_detection;
 pub mod field_border_detection;
@@ -9,4 +10,3 @@ pub mod limb_projector;
 pub mod line_detection;
 pub mod perspective_grid_candidates_provider;
 pub mod segment_filter;
-pub mod calibration_line_detection;
