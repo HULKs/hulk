@@ -50,7 +50,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message">,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -215,6 +215,7 @@ impl RoleAssignment {
             .network_message
             .persistent
             .values()
+            .flatten()
             .flatten()
             .filter_map(|message| match message {
                 IncomingMessage::GameController(_) => None,
