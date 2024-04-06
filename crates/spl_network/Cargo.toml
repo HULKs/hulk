@@ -13,6 +13,7 @@ framework = { workspace = true }
 hardware = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
+spl_network_messages = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
