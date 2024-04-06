@@ -245,16 +245,14 @@ impl Display for Position {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Position::FirstHalfOwnHalfTowardsOwnGoal => {
-                formatter.write_str("Own Half Towards ;) Own Goal")
+                formatter.write_str("Own Half Towards Own Goal")
             }
-            Position::FirstHalfOwnHalfAwayOwnGoal => {
-                formatter.write_str("Own Half Away ;) Own Goal")
-            }
+            Position::FirstHalfOwnHalfAwayOwnGoal => formatter.write_str("Own Half Away Own Goal"),
             Position::FirstHalfOpponentHalfTowardsOwnGoal => {
-                formatter.write_str("Opponent Half Towards ;) Own Goal")
+                formatter.write_str("Opponent Half Towards Own Goal")
             }
             Position::FirstHalfOpponentHalfAwayOwnGoal => {
-                formatter.write_str("Opponent Half Away ;) Own Goal")
+                formatter.write_str("Opponent Half Away Own Goal")
             }
         }
     }
@@ -279,9 +277,9 @@ fn add_selector_row(
             };
             let injected_ground_to_field_rotation = match position {
                 Position::FirstHalfOwnHalfTowardsOwnGoal
-                | Position::FirstHalfOpponentHalfTowardsOwnGoal => Rotation2::new(0.0),
+                | Position::FirstHalfOpponentHalfTowardsOwnGoal => Rotation2::new(PI),
                 Position::FirstHalfOwnHalfAwayOwnGoal
-                | Position::FirstHalfOpponentHalfAwayOwnGoal => Rotation2::new(PI),
+                | Position::FirstHalfOpponentHalfAwayOwnGoal => Rotation2::new(0.0),
             };
             let injected_ground_to_field = Isometry2::from_parts(
                 injected_ground_to_field_translation,
