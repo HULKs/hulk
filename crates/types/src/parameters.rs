@@ -169,6 +169,8 @@ pub struct GameStateFilterParameters {
     pub tentative_finish_duration: Duration,
     pub distance_to_consider_ball_moved_in_kick_off: f32,
     pub whistle_acceptance_goal_distance: Vector2<Field>,
+    pub initial_message_grace_period: Duration,
+    pub minimum_over_head_arms_detections: usize,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

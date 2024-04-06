@@ -8,8 +8,8 @@ use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, HulkMessage, Team};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
-    filtered_game_controller_state::FilteredGameControllerState,
+    ball_position::BallPosition, cycle_time::CycleTime, detected_feet,
+    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState, messages::IncomingMessage,
     parameters::GameStateFilterParameters,
@@ -18,6 +18,7 @@ use types::{
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
+    over_arms_pose_detected: Vec<Option<SystemTime>>,
 }
 
 #[context]
@@ -47,6 +48,7 @@ impl GameControllerStateFilter {
         Ok(Self {
             state: State::Initial,
             opponent_state: State::Initial,
+            over_arms_pose_detected: vec![None; 7],
         })
     }
 
@@ -73,6 +75,7 @@ impl GameControllerStateFilter {
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
+            &mut self.over_arms_pose_detected,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -112,6 +115,7 @@ fn filter_game_states(
     cycle_time: &CycleTime,
     state: &mut State,
     opponent_state: &mut State,
+    over_head_arms_detection_times: &mut Vec<Option<SystemTime>>,
 ) -> FilteredGameStates {
     let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
         ground_to_field,
@@ -127,6 +131,7 @@ fn filter_game_states(
         config,
         ball_detected_far_from_any_goal,
         &spl_messages,
+        over_head_arms_detection_times,
     );
     *opponent_state = next_filtered_state(
         *opponent_state,
@@ -136,6 +141,7 @@ fn filter_game_states(
         config,
         ball_detected_far_from_any_goal,
         &spl_messages,
+        over_head_arms_detection_times,
     );
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
@@ -174,13 +180,14 @@ fn next_filtered_state(
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
     spl_messages: &Vec<&HulkMessage>,
+    over_head_arms_detection_times: &mut Vec<Option<SystemTime>>,
 ) -> State {
-    dbg!(&spl_messages);
+    // dbg!(&spl_messages);
     if spl_messages
         .iter()
         .any(|message| message.over_arms_pose_detected)
     {
-        println!("Over arm in spl message!");
+        // println!("Over arm in spl message!");
     }
     match (current_state, game_controller_state.game_state) {
         (State::Finished, GameState::Initial) => State::Initial,
@@ -213,15 +220,29 @@ fn next_filtered_state(
             time_when_finished_clicked: cycle_start_time,
         },
         (State::Initial, GameState::Initial) => {
-            // println!("{}", spl_messages);
-            if spl_messages
-                .iter()
-                .any(|message| message.over_arms_pose_detected)
-            {
-                println!("Lauf los!");
-                State::OverArmInReady {
-                    time_when_over_arm_pose_detected: cycle_start_time,
+            for message in spl_messages {
+                if message.over_arms_pose_detected {
+                    over_head_arms_detection_times[message.player_number as usize] =
+                        Some(cycle_start_time);
                 }
+            }
+
+            let detected_over_head_arms_poses = 1;
+            over_head_arms_detection_times
+                .iter()
+                .filter(|detection_time| match detection_time {
+                    Some(detection_time) => in_grace_period(
+                        cycle_start_time,
+                        *detection_time,
+                        config.initial_message_grace_period,
+                    ),
+                    None => false,
+                })
+                .count();
+
+            dbg!(detected_over_head_arms_poses);
+            if detected_over_head_arms_poses >= config.minimum_over_head_arms_detections {
+                State::OverArmInReady
             } else {
                 State::Initial
             }
@@ -319,24 +340,22 @@ fn ball_detected_far_from_any_goal(
     }
 }
 
-fn in_kick_off_grace_period(
+fn in_grace_period(
     cycle_start_time: SystemTime,
-    time_entered_playing: SystemTime,
-    kick_off_grace_period: Duration,
+    earlier_time: SystemTime,
+    grace_period: Duration,
 ) -> bool {
     cycle_start_time
-        .duration_since(time_entered_playing)
+        .duration_since(earlier_time)
         .expect("Time ran backwards")
-        < kick_off_grace_period
+        < grace_period
 }
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 enum State {
     Initial,
     Ready,
-    OverArmInReady {
-        time_when_over_arm_pose_detected: SystemTime,
-    },
+    OverArmInReady,
     Set,
     WhistleInSet {
         time_when_whistle_was_detected: SystemTime,
@@ -411,24 +430,9 @@ impl State {
 
         match self {
             State::Initial => FilteredGameState::Initial,
-            State::OverArmInReady {
-                time_when_over_arm_pose_detected,
-            } => {
-                let over_arm_grace_period = in_kick_off_grace_period(
-                    cycle_start_time,
-                    *time_when_over_arm_pose_detected,
-                    Duration::from_secs_f32(30.0),
-                );
-                //TODO: voting
-
-                if over_arm_grace_period {
-                    FilteredGameState::Ready {
-                        kicking_team: game_controller_state.kicking_team,
-                    }
-                } else {
-                    FilteredGameState::Initial
-                }
-            }
+            State::OverArmInReady => FilteredGameState::Ready {
+                kicking_team: game_controller_state.kicking_team,
+            },
             State::Ready => FilteredGameState::Ready {
                 kicking_team: game_controller_state.kicking_team,
             },
@@ -436,7 +440,7 @@ impl State {
             State::WhistleInSet {
                 time_when_whistle_was_detected,
             } => {
-                let kick_off_grace_period = in_kick_off_grace_period(
+                let kick_off_grace_period = in_grace_period(
                     cycle_start_time,
                     *time_when_whistle_was_detected,
                     config.kick_off_grace_period + config.game_controller_controller_delay,

@@ -1275,11 +1275,16 @@
       "nanos": 0,
       "secs": 4
     },
-    "distance_to_consider_ball_moved_in_kick_off": 0.2,
+    "distance_to_consider_ball_moved_in_kick_off": 0.3,
     "whistle_acceptance_goal_distance": [
       0.5,
       0.5
-    ]
+    ],
+    "initial_message_grace_period": {
+      "nanos": 0,
+      "secs": 5
+    },
+    "minimum_over_head_arms_detections": 2
   },
   "ground_contact_detector": {
     "pressure_threshold": 0.6,
