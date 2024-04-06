@@ -138,7 +138,7 @@ async fn main() -> Result<()> {
 }
 
 #[derive(Parser)]
-#[clap(name = "pepsi")]
+#[clap(version, name = "pepsi")]
 struct Arguments {
     /// Alternative repository root (if not given the parent of .git is used)
     #[arg(long)]
