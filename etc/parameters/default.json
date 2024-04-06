@@ -634,6 +634,10 @@
     "minimum_line_length": 0.15,
     "odometry_noise": [0.05, 0.01, 0.008],
     "use_line_measurements": true,
+    "penalized_distance": 0.5,
+    "penalized_hypothesis_covariance": [
+      0.01, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0, 0.001
+    ],
     "good_matching_threshold": 0.5,
     "score_per_good_match": 1.0,
     "hypothesis_score_base_increase": 0.1

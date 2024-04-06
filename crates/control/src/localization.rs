@@ -83,6 +83,9 @@ pub struct CycleContext {
     minimum_fit_error: Parameter<f32, "localization.minimum_fit_error">,
     odometry_noise: Parameter<Vector3<f32>, "localization.odometry_noise">,
     player_number: Parameter<PlayerNumber, "player_number">,
+    penalized_distance: Parameter<f32, "localization.penalized_distance">,
+    penalized_hypothesis_covariance:
+        Parameter<Matrix3<f32>, "localization.initial_hypothesis_covariance">,
     score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
     use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
     injected_ground_to_field_of_home_after_coin_toss_before_second_half: Parameter<
@@ -193,13 +196,16 @@ impl Localization {
                     if self.was_picked_up_while_penalized_with_motion_in_set {
                         self.hypotheses = take(&mut self.hypotheses_when_entered_playing);
 
-                        let penalized_poses = generate_penalized_poses(context.field_dimensions);
+                        let penalized_poses = generate_penalized_poses(
+                            context.field_dimensions,
+                            *context.penalized_distance,
+                        );
                         self.hypotheses_when_entered_playing = penalized_poses
                             .into_iter()
                             .map(|pose| {
                                 ScoredPose::from_isometry(
                                     pose,
-                                    *context.initial_hypothesis_covariance,
+                                    *context.penalized_hypothesis_covariance,
                                     *context.initial_hypothesis_score,
                                 )
                             })
@@ -208,13 +214,16 @@ impl Localization {
                     self.is_penalized_with_motion_in_set = false;
                     self.was_picked_up_while_penalized_with_motion_in_set = false;
                 } else {
-                    let penalized_poses = generate_penalized_poses(context.field_dimensions);
+                    let penalized_poses = generate_penalized_poses(
+                        context.field_dimensions,
+                        *context.penalized_distance,
+                    );
                     self.hypotheses = penalized_poses
                         .into_iter()
                         .map(|pose| {
                             ScoredPose::from_isometry(
                                 pose,
-                                *context.initial_hypothesis_covariance,
+                                *context.penalized_hypothesis_covariance,
                                 *context.initial_hypothesis_score,
                             )
                         })
@@ -223,13 +232,14 @@ impl Localization {
                 }
             }
             (PrimaryState::Unstiff, _, _) => {
-                let penalized_poses = generate_penalized_poses(context.field_dimensions);
+                let penalized_poses =
+                    generate_penalized_poses(context.field_dimensions, *context.penalized_distance);
                 self.hypotheses = penalized_poses
                     .into_iter()
                     .map(|pose| {
                         ScoredPose::from_isometry(
                             pose,
-                            *context.initial_hypothesis_covariance,
+                            *context.penalized_hypothesis_covariance,
                             *context.initial_hypothesis_score,
                         )
                     })
@@ -983,19 +993,22 @@ pub fn generate_initial_pose(
     }
 }
 
-fn generate_penalized_poses(field_dimensions: &FieldDimensions) -> Vec<Pose2<Field>> {
+fn generate_penalized_poses(
+    field_dimensions: &FieldDimensions,
+    penalized_distance: f32,
+) -> Vec<Pose2<Field>> {
     vec![
         Pose2::new(
             vector!(
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
-                -field_dimensions.width * 0.5
+                -field_dimensions.width * 0.5 - penalized_distance
             ),
             FRAC_PI_2,
         ),
         Pose2::new(
             vector!(
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
-                field_dimensions.width * 0.5
+                field_dimensions.width * 0.5 + penalized_distance
             ),
             -FRAC_PI_2,
         ),

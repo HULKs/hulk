@@ -15,5 +15,8 @@
     "goal_inner_width": 1.5,
     "goal_post_diameter": 0.1,
     "goal_depth": 0.5
-  }
+  },
+  "localization": {
+    "penalized_distance" : 0.2
+  } 
 }
