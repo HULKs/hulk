@@ -50,7 +50,7 @@ pub struct MainOutputs {
     pub game_controller_state: MainOutput<Option<GameControllerState>>,
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
-    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition>>,
+    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub primary_state: MainOutput<PrimaryState>,

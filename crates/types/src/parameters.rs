@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::Duration};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Point2, Vector2};
-use nalgebra::{Point3, Vector3, Vector4};
+use nalgebra::{Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 

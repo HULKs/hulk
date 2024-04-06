@@ -1,7 +1,9 @@
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
-use nalgebra::{DMatrix, Isometry2, Point2};
+use linear_algebra::{point, Isometry2, Point2};
+use nalgebra::DMatrix;
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -24,9 +26,9 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     search_suggestor_configuration: Parameter<SearchSuggestorParameters, "search_suggestor">,
-    ball_position: Input<Option<BallPosition>, "ball_position?">,
-    invalid_ball_positions: Input<Vec<HypotheticalBallPosition>, "invalid_ball_positions">,
-    robot_to_field: Input<Option<Isometry2<f32>>, "robot_to_field?">,
+    ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+    invalid_ball_positions: Input<Vec<HypotheticalBallPosition<Ground>>, "invalid_ball_positions">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
 }
@@ -34,7 +36,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub suggested_search_position: MainOutput<Option<Point2<f32>>>,
+    pub suggested_search_position: MainOutput<Option<Point2<Field>>>,
 }
 
 impl SearchSuggestor {
@@ -55,42 +57,40 @@ impl SearchSuggestor {
         self.update_heatmap(
             context.ball_position,
             context.invalid_ball_positions,
-            context.robot_to_field.copied(),
+            context.ground_to_field.copied(),
             context.search_suggestor_configuration.cells_per_meter,
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
-        let mut suggested_search_position: Option<Point2<f32>> = None;
+        let mut suggested_search_position: Option<Point2<Field>> = None;
         if self.heatmap.get(maximum_heat_heatmap_position).is_some() {
             if self.heatmap[maximum_heat_heatmap_position]
                 > context.search_suggestor_configuration.minimum_validity
             {
-                let mut search_suggestion = Point2::new(
-                    maximum_heat_heatmap_position.0 as f32
-                        / context.search_suggestor_configuration.cells_per_meter as f32,
-                    maximum_heat_heatmap_position.1 as f32
-                        / context.search_suggestor_configuration.cells_per_meter as f32,
-                );
+                let mut search_suggestion_x = maximum_heat_heatmap_position.0 as f32
+                    / context.search_suggestor_configuration.cells_per_meter as f32;
+                let mut search_suggestion_y = maximum_heat_heatmap_position.1 as f32
+                    / context.search_suggestor_configuration.cells_per_meter as f32;
                 let length_half = context.field_dimensions.length / 2.0;
                 let width_half = context.field_dimensions.width / 2.0;
 
-                if search_suggestion.x >= length_half {
-                    search_suggestion.x -= length_half;
+                if search_suggestion_x >= length_half {
+                    search_suggestion_x -= length_half;
                 } else {
-                    search_suggestion.x = length_half - search_suggestion.x
+                    search_suggestion_x = length_half - search_suggestion_x
                 }
-                if search_suggestion.y >= width_half {
-                    search_suggestion.y -= width_half;
+                if search_suggestion_y >= width_half {
+                    search_suggestion_y -= width_half;
                 } else {
-                    search_suggestion.y = width_half - search_suggestion.y
+                    search_suggestion_y = width_half - search_suggestion_y
                 }
 
-                search_suggestion.x +=
+                search_suggestion_x +=
                     1.0 / context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
-                search_suggestion.y +=
+                search_suggestion_y +=
                     1.0 / context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
 
-                suggested_search_position = Some(search_suggestion);
+                suggested_search_position = Some(point![search_suggestion_x, search_suggestion_y]);
             }
         } else {
             println!("Invalid maximum heatmap position");
@@ -104,17 +104,17 @@ impl SearchSuggestor {
 
     fn update_heatmap(
         &mut self,
-        ball_position: Option<&BallPosition>,
-        invalid_ball_positions: &Vec<HypotheticalBallPosition>,
-        robot_to_field: Option<Isometry2<f32>>,
+        ball_position: Option<&BallPosition<Ground>>,
+        invalid_ball_positions: &Vec<HypotheticalBallPosition<Ground>>,
+        ground_to_field: Option<Isometry2<Ground, Field>>,
         cells_per_meter: usize,
         heatmap_decay_factor: f32,
     ) {
         if let Some(ball_position) = ball_position {
-            if let Some(robot_to_field) = robot_to_field {
+            if let Some(ground_to_field) = ground_to_field {
                 let ball_heatmap_position = self.calculate_heatmap_position(
                     cells_per_meter,
-                    robot_to_field * ball_position.position,
+                    ground_to_field * ball_position.position,
                 );
                 if self.heatmap.get(ball_heatmap_position).is_some() {
                     self.heatmap[ball_heatmap_position] = 1.0;
@@ -124,10 +124,10 @@ impl SearchSuggestor {
             }
         }
         for ball_hypothesis in invalid_ball_positions {
-            if let Some(robot_to_field) = robot_to_field {
+            if let Some(ground_to_field) = ground_to_field {
                 let heatmap_position = self.calculate_heatmap_position(
                     cells_per_meter,
-                    robot_to_field * ball_hypothesis.position,
+                    ground_to_field * ball_hypothesis.position,
                 );
                 if self.heatmap.get(heatmap_position).is_some() {
                     self.heatmap[heatmap_position] =
@@ -143,23 +143,23 @@ impl SearchSuggestor {
     fn calculate_heatmap_position(
         &mut self,
         cells_per_meter: usize,
-        hypothesis_position: Point2<f32>,
+        hypothesis_position: Point2<Field>,
     ) -> (usize, usize) {
         let mut x_position: usize = 0;
         let mut y_position: usize = 0;
-        if hypothesis_position.x > 0.0 {
+        if hypothesis_position.x() > 0.0 {
             x_position = (self.heatmap_dimensions.0 / 2)
-                + (hypothesis_position.x * cells_per_meter as f32).round() as usize;
-        } else if hypothesis_position.x < 0.0 {
+                + (hypothesis_position.x() * cells_per_meter as f32).round() as usize;
+        } else if hypothesis_position.x() < 0.0 {
             x_position = (self.heatmap_dimensions.0 / 2)
-                - (hypothesis_position.x.abs() * cells_per_meter as f32).round() as usize;
+                - (hypothesis_position.x().abs() * cells_per_meter as f32).round() as usize;
         }
-        if hypothesis_position.y > 0.0 {
+        if hypothesis_position.y() > 0.0 {
             y_position = (self.heatmap_dimensions.1 / 2)
-                + (hypothesis_position.y * cells_per_meter as f32).round() as usize;
-        } else if hypothesis_position.y < 0.0 {
+                + (hypothesis_position.y() * cells_per_meter as f32).round() as usize;
+        } else if hypothesis_position.y() < 0.0 {
             y_position = (self.heatmap_dimensions.1 / 2)
-                - (hypothesis_position.y.abs() * cells_per_meter as f32).round() as usize;
+                - (hypothesis_position.y().abs() * cells_per_meter as f32).round() as usize;
         }
         if x_position >= 1 {
             x_position -= 1;
