@@ -48,7 +48,7 @@ impl Camera {
 
     pub fn read(&self) -> Result<YCbCr422Image> {
         let mut this_receiver = self.image_receiver.clone();
-        this_receiver.borrow_and_update();
+        this_receiver.mark_unchanged();
         if let Some(_lock) = self.read_mutex.try_lock() {
             self.wait_for_device()
                 .wrap_err("failed to wait for device")?;
