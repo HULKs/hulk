@@ -85,7 +85,7 @@ pub struct CycleContext {
     player_number: Parameter<PlayerNumber, "player_number">,
     penalized_distance: Parameter<f32, "localization.penalized_distance">,
     penalized_hypothesis_covariance:
-        Parameter<Matrix3<f32>, "localization.initial_hypothesis_covariance">,
+        Parameter<Matrix3<f32>, "localization.penalized_hypothesis_covariance">,
     score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
     use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
     injected_ground_to_field_of_home_after_coin_toss_before_second_half: Parameter<
