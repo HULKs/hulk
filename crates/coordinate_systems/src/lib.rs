@@ -43,7 +43,7 @@ generate_coordinate_system!(
     /// X axis pointing towards the opponent goal
     Field,
     /// 3D Intrinsic coordinate system of the camera.
-    /// 
+    ///
     /// Origin: center of the camera model
     /// X axis pointing right, Y axis pointing down, Z axis pointing forward
     NormalizedDeviceCoordinates,

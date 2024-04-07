@@ -4,7 +4,6 @@ pub mod camera_projection;
 pub mod horizon;
 pub mod intrinsic;
 
-use camera_projection::CameraProjection;
 use thiserror::Error;
 
 use crate::camera_matrix::CameraMatrix;
@@ -44,16 +43,21 @@ pub trait Projection {
         radius_in_ground_coordinates: f32,
         pixel_coordinates: Point2<Pixel>,
     ) -> Result<f32, Error>;
-    fn camera_matrix(&self) -> CameraProjection<Ground>;
+    fn is_above_horizon(&self, pixel: Point2<Pixel>, plane_height: f32) -> bool;
 }
 
 impl Projection for CameraMatrix {
-    fn camera_matrix(&self) -> CameraProjection<Ground> {
-        let extrinsics = self.head_to_camera
-            * self.robot_to_head
-            * self.ground_to_robot;
+    fn is_above_horizon(&self, pixel: Point2<Pixel>, plane_height: f32) -> bool {
+        let bearing = self.bearing(pixel);
+        let bearing_in_ground = self.ground_to_camera.inverse() * bearing;
 
-        CameraProjection::new(extrinsics, self.intrinsics.clone())
+        struct ElevatedGround;
+        let ground_to_elevated_ground =
+            Isometry3::<Ground, ElevatedGround>::from(vector![0., 0., -plane_height]);
+        let camera =
+            ground_to_elevated_ground * self.ground_to_camera.inverse().as_pose().position();
+
+        bearing_in_ground.z() * camera.z() >= 0.0
     }
 
     fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error> {
@@ -65,33 +69,27 @@ impl Projection for CameraMatrix {
     }
 
     fn pixel_to_ground(&self, pixel_coordinates: Point2<Pixel>) -> Result<Point2<Ground>, Error> {
-        self.pixel_to_ground_with_z(pixel_coordinates, 0.0)
+        if self.is_above_horizon(pixel_coordinates, 0.0) {
+            return Err(Error::NotOnProjectionPlane);
+        }
+        Ok(self
+            .pixel_to_ground
+            .back_project_unchecked(pixel_coordinates)
+            .xy())
     }
 
     fn pixel_to_ground_with_z(
         &self,
-        pixel_coordinates: Point2<Pixel>,
+        pixel: Point2<Pixel>,
         z: f32,
     ) -> Result<Point2<Ground>, Error> {
-        let bearing = self.bearing(pixel_coordinates);
-
-        let ground_to_camera = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
-
-        let bearing_in_ground = ground_to_camera.inverse() * bearing;
-        struct ElevatedGround;
-        let ground_to_elevated_ground =
-            Isometry3::<Ground, ElevatedGround>::from(vector![0., 0., -z]);
-        let camera = ground_to_elevated_ground * ground_to_camera.inverse().as_pose().position();
-
-        let is_same_sign = bearing_in_ground.z() * camera.z() >= 0.0;
-        if is_same_sign {
+        if self.is_above_horizon(pixel, z) {
             return Err(Error::NotOnProjectionPlane);
         }
 
-        let camera_matrix = self.camera_matrix();
-        let inverse_camera_matrix = camera_matrix.inverse(z);
+        let inverse_camera_matrix = self.ground_to_pixel.inverse(z);
 
-        Ok(inverse_camera_matrix.back_project(pixel_coordinates).xy())
+        Ok(inverse_camera_matrix.back_project_unchecked(pixel).xy())
     }
 
     fn ground_to_pixel(&self, ground_coordinates: Point2<Ground>) -> Result<Point2<Pixel>, Error> {
@@ -104,16 +102,13 @@ impl Projection for CameraMatrix {
         z: f32,
     ) -> Result<Point2<Pixel>, Error> {
         let ground_coordinates = point![ground_coordinates.x(), ground_coordinates.y(), z];
-        let ground_to_camera = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
-        let camera_ray = ground_to_camera * ground_coordinates;
+        let camera_ray = self.ground_to_camera * ground_coordinates;
 
         if camera_ray.z() <= 0.0 {
             return Err(Error::BehindCamera);
         }
 
-        let camera_matrix = self.camera_matrix();
-
-        Ok(camera_matrix.project(ground_coordinates))
+        Ok(self.ground_to_pixel.project(ground_coordinates))
     }
 
     fn robot_to_pixel(&self, robot_coordinates: Point3<Robot>) -> Result<Point2<Pixel>, Error> {
@@ -135,8 +130,7 @@ impl Projection for CameraMatrix {
             radius_in_ground_coordinates
         ];
 
-        let camera_coordinates =
-            self.head_to_camera * self.robot_to_head * self.ground_to_robot * ball_center;
+        let camera_coordinates = self.ground_to_camera * ball_center;
 
         let angle = f32::atan2(
             radius_in_ground_coordinates,

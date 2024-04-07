@@ -1,8 +1,11 @@
 use coordinate_systems::{Camera, Pixel};
 use linear_algebra::{point, Isometry3, Point2, Point3, Transform};
+use serde::{Deserialize, Serialize};
+use serialize_hierarchy::SerializeHierarchy;
 
 use crate::intrinsic::Intrinsic;
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct CameraProjection<From> {
     extrinsic: Isometry3<From, Camera>,
     intrinsic: Intrinsic,
@@ -26,6 +29,7 @@ impl<From> CameraProjection<From> {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct InverseCameraProjection<To> {
     back_project: Transform<Pixel, To, nalgebra::Matrix3<f32>>,
     z: f32,
@@ -51,8 +55,23 @@ impl<To> InverseCameraProjection<To> {
         }
     }
 
-    pub fn back_project(&self, point: Point2<Pixel>) -> Point3<To> {
+    pub fn back_project_unchecked(&self, point: Point2<Pixel>) -> Point3<To> {
         let point_to = self.back_project.inner * point.inner.to_homogeneous();
         point![point_to.x / point_to.z, point_to.y / point_to.z, self.z]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use coordinate_systems::Ground;
+
+    #[test]
+    fn invertable() {
+        let camera_projection = CameraProjection::<Ground>::new(
+            Isometry3::from_translation(0.0, 0.0, 1.0),
+            Intrinsic::new(nalgebra::vector![1.0, 1.0], point![1.0, 1.0]),
+        );
+        camera_projection.inverse(0.0);
     }
 }

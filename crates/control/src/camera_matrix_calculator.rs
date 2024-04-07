@@ -11,7 +11,7 @@ use framework::{AdditionalOutput, MainOutput};
 use geometry::line::{Line, Line2};
 use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector3};
 use types::{
-    camera_matrix::ProjectedFieldLines, field_dimensions::FieldDimensions,
+    field_dimensions::FieldDimensions, field_lines::ProjectedFieldLines,
     parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
     robot_kinematics::RobotKinematics,
 };

@@ -4,7 +4,7 @@ use approx::assert_relative_eq;
 
 use coordinate_systems::{Camera, Head, Pixel};
 use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector2, Vector3};
-use projection::{Projection, camera_matrix::CameraMatrix};
+use projection::{camera_matrix::CameraMatrix, Projection};
 
 fn from_normalized_focal_and_center_short(
     focal_length: nalgebra::Vector2<f32>,
@@ -17,7 +17,7 @@ fn from_normalized_focal_and_center_short(
         image_size,
         Isometry3::identity(),
         Isometry3::identity(),
-        Isometry3::identity(),
+        Isometry3::from_translation(0.0, 0.0, 1.0),
     )
 }
 
@@ -117,6 +117,7 @@ fn pixel_to_ground_with_z_only_elevation() {
     );
 
     camera_matrix.head_to_camera = head_to_camera(0.0, vector![0.0, 0.0, 0.5]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix
@@ -134,6 +135,7 @@ fn pixel_to_ground_from_center_circle() {
         vector![640.0, 480.0],
     );
     camera_matrix.head_to_camera = head_to_camera(-1.2_f32.to_radians(), vector![0.0, 0.0, 0.54]);
+    camera_matrix.compute_memoized();
 
     let goal_center = point![4.5, 0.0];
     assert_relative_eq!(
@@ -151,6 +153,7 @@ fn pixel_to_ground_with_z_pitch_45_degree_down() {
         vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 0.5]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix
@@ -168,6 +171,7 @@ fn pixel_to_ground_with_z_pitch_45_degree_up() {
         vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(FRAC_PI_4, vector![0.0, 0.0, 0.5]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix
@@ -185,6 +189,7 @@ fn ground_to_pixel_only_elevation() {
         vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(0.0, vector![0.0, 0.0, 0.75]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix
@@ -204,6 +209,7 @@ fn ground_to_pixel_pitch_45_degree_down() {
     );
 
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 1.0]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix
@@ -221,6 +227,7 @@ fn robot_to_pixel_only_elevation() {
         vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(0.0, vector![0.0, 0.0, 0.75]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix
@@ -239,6 +246,7 @@ fn robot_to_pixel_pitch_45_degree_down() {
         vector![1.0, 1.0],
     );
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 1.0]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix.robot_to_pixel(point![0.5, 0.0, 0.5]).unwrap(),
@@ -256,6 +264,7 @@ fn get_pixel_radius_only_elevation() {
     camera_matrix.field_of_view = nalgebra::vector![45.0, 45.0].map(|a: f32| a.to_radians());
 
     camera_matrix.head_to_camera = head_to_camera(0.0, vector![0.0, 0.0, 0.5]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix
@@ -275,6 +284,7 @@ fn get_pixel_radius_pitch_45_degree_down() {
     );
 
     camera_matrix.head_to_camera = head_to_camera(-FRAC_PI_4, vector![0.0, 0.0, 0.5]);
+    camera_matrix.compute_memoized();
 
     assert_relative_eq!(
         camera_matrix

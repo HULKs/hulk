@@ -83,7 +83,9 @@ impl ImageSegmenter {
 
         let horizon = context
             .camera_matrix
-            .map_or(Horizon::default(), |camera_matrix| camera_matrix.horizon);
+            .and_then(|camera_matrix| camera_matrix.horizon)
+            .unwrap_or_default();
+
         let scan_grid = new_grid(
             context.image,
             &horizon,
