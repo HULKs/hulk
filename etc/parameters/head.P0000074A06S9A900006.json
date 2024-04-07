@@ -14,5 +14,8 @@
         1.244167685508728
       ]
     }
+  },
+  "walking_engine": {
+    "foot_pressure_threshold": 0.4
   }
 }
