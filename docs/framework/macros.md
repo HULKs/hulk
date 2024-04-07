@@ -31,9 +31,13 @@ TODO: Elaborate
         - Extracts data from cycle context and returns none for all main outputs if the input was none
         - `require_some!(...) => match ... { Some(...) => ..., None => return MainOutputs::none() }`
     - SerializeHierarchy
+        - Goal: Enable use of *field paths* to conveniently access inner fields inside a hierarchy.
+        - Definition: *Field path* a compact representations for the *path* of a field in hierarchial data.
+            - i.e. For `{ a: { b: 10, c: "someString", d: { c: 666 } } }`, field path `a.d.c` refers to `c: 666`.
+            - We use this notation extensively inside the framework and tooling (i.e. Twix)
         - Trait
             - Mostly used by Communication for (de-)serialization
-            - Adds support for field paths
+            - Adds support for field paths (Representation of the 'path' of a field in hierarchial data.)
             - Allows to (de-)serialize into/from field paths: `fn serialize_hierarchy(field_path)`, `fn deserialize_hierarchy(field_path, data)`
             - Allows to check if a field paths exists
             - Allows to generate a hierarchy object
