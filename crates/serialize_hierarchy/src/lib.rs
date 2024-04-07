@@ -55,6 +55,9 @@ mod tests {
         field: bool,
     }
 
+    #[derive(Deserialize, Serialize, SerializeHierarchy)]
+    struct TupleStruct(bool, f32, Inner, Outer);
+
     #[test]
     fn primitive_fields_are_empty() {
         assert_eq!(bool::get_fields(), Default::default());
