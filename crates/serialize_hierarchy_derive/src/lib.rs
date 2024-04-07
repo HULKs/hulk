@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Literal, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::{quote, ToTokens};
 use syn::{
@@ -165,23 +165,40 @@ fn generate_path_serializations(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
         .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
-        .map(|field| {
-            let identifier = &field.identifier;
-            let pattern = identifier.to_string();
-            quote! {
-                #pattern => self.#identifier.serialize_path(suffix, serializer)
+        .map(|field| match &field.identifier {
+            IdentOrEnumIndex::Ident(identifier) => {
+                let pattern = identifier.to_string();
+                quote! {
+                    #pattern => self.#identifier.serialize_path(suffix, serializer)
+                }
+            }
+            IdentOrEnumIndex::EnumIndex(index) => {
+                let pattern = index.to_string();
+                let tuple_accessor = Literal::usize_unsuffixed(*index);
+                quote! {
+                    #pattern => self.#tuple_accessor.serialize_path(suffix, serializer)
+                }
             }
         })
         .collect()
 }
 
 fn generate_serde_serializations(fields: &[&Field]) -> Vec<TokenStream> {
-    fields.iter().map(|field| {
-        let identifier = &field.identifier;
-        let pattern = identifier.to_string();
-        quote! {
-            #pattern => serde::Serialize::serialize(&self.#identifier, serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
-        }
+    fields.iter().map(|field|
+        match &field.identifier {
+            IdentOrEnumIndex::Ident(identifier) => {
+                let pattern = identifier.to_string();
+                quote! {
+                    #pattern => serde::Serialize::serialize(&self.#identifier, serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
+                }
+            },
+            IdentOrEnumIndex::EnumIndex(index) =>{
+                let pattern = index.to_string();
+                let tuple_accessor = Literal::usize_unsuffixed(*index);
+                quote! {
+                    #pattern => serde::Serialize::serialize(&self.#tuple_accessor, serializer).map_err(serialize_hierarchy::Error::SerializationFailed)
+                }
+            },
     }).collect()
 }
 
@@ -189,28 +206,50 @@ fn generate_path_deserializations(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
         .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
-        .map(|field| {
-            let identifier = &field.identifier;
-            let pattern = identifier.to_string();
-            quote! {
-                #pattern => self.#identifier.deserialize_path(suffix, deserializer)
+        .map(|field| match &field.identifier {
+            IdentOrEnumIndex::Ident(identifier) => {
+                let pattern = identifier.to_string();
+                quote! {
+                    #pattern => self.#identifier.deserialize_path(suffix, deserializer)
+                }
+            }
+            IdentOrEnumIndex::EnumIndex(index) => {
+                let pattern = index.to_string();
+                let tuple_accessor = Literal::usize_unsuffixed(*index);
+                quote! {
+                    #pattern => self.#tuple_accessor.deserialize_path(suffix, deserializer)
+                }
             }
         })
         .collect()
 }
 
 fn generate_serde_deserializations(fields: &[&Field]) -> Vec<TokenStream> {
-    fields.iter().map(|field| {
-        let identifier = &field.identifier;
-        let pattern = identifier.to_string();
-        let ty = &field.ty;
-        quote! {
-            #pattern => {
-                self.#identifier = <#ty as serde::Deserialize>::deserialize(deserializer).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
-                Ok(())
-            }
+    fields.iter().map(|field|
+        match &field.identifier {
+            IdentOrEnumIndex::Ident(identifier) => {
+                let pattern = identifier.to_string();
+                let ty = &field.ty;
+                quote! {
+                    #pattern => {
+                        self.#identifier = <#ty as serde::Deserialize>::deserialize(deserializer).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
+                        Ok(())
+                    }
 
-        }
+                }
+            },
+            IdentOrEnumIndex::EnumIndex(index) => {
+                let pattern = index.to_string();
+                let tuple_accessor = Literal::usize_unsuffixed(*index);
+                let ty = &field.ty;
+                quote! {
+                    #pattern => {
+                        self.#tuple_accessor = <#ty as serde::Deserialize>::deserialize(deserializer).map_err(serialize_hierarchy::Error::DeserializationFailed)?;
+                        Ok(())
+                    }
+
+                }
+            }
     }).collect()
 }
 
@@ -219,7 +258,10 @@ fn generate_path_exists_getters(fields: &[&Field]) -> Vec<TokenStream> {
         .iter()
         .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
         .map(|field| {
-            let pattern = field.identifier.to_string();
+            let pattern = match &field.identifier {
+                IdentOrEnumIndex::Ident(identifier) => identifier.to_string(),
+                IdentOrEnumIndex::EnumIndex(index) => index.to_string(),
+            };
             let ty = &field.ty;
             quote! {
                 #pattern => <#ty as serialize_hierarchy::SerializeHierarchy>::exists(suffix)
@@ -232,7 +274,10 @@ fn generate_field_exists_getters(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
         .map(|field| {
-            let pattern = field.identifier.to_string();
+            let pattern = match &field.identifier {
+                IdentOrEnumIndex::Ident(identifier) => identifier.to_string(),
+                IdentOrEnumIndex::EnumIndex(index) => index.to_string(),
+            };
             quote! {
                 #pattern => true
             }
@@ -244,7 +289,10 @@ fn generate_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
     fields
         .iter()
         .map(|field| {
-            let name_string = field.identifier.to_string();
+            let name_string = match &field.identifier {
+                IdentOrEnumIndex::Ident(identifier) => identifier.to_string(),
+                IdentOrEnumIndex::EnumIndex(index) => index.to_string(),
+            };
             quote! {
                 fields.insert(format!("{prefix}{}", #name_string));
             }
@@ -257,7 +305,10 @@ fn generate_path_field_chains(fields: &[&Field]) -> Vec<TokenStream> {
         .iter()
         .filter(|field| !field.attributes.contains(&FieldAttribute::Leaf))
         .map(|field| {
-            let field_name = &field.identifier.to_string();
+            let field_name =  match &field.identifier {
+                IdentOrEnumIndex::Ident(identifier) => identifier.to_string(),
+                IdentOrEnumIndex::EnumIndex(index)=>index.to_string(),
+            };
             let ty = &field.ty;
             quote! {
                 <#ty as serialize_hierarchy::SerializeHierarchy>::fill_fields(fields, &format!("{prefix}{}.", #field_name));
@@ -320,9 +371,15 @@ enum FieldAttribute {
 }
 
 #[derive(Debug)]
+enum IdentOrEnumIndex {
+    Ident(Ident),
+    EnumIndex(usize),
+}
+
+#[derive(Debug)]
 struct Field {
     attributes: HashSet<FieldAttribute>,
-    identifier: Ident,
+    identifier: IdentOrEnumIndex,
     ty: Type,
 }
 
@@ -368,10 +425,10 @@ fn read_fields(input: &DataStruct) -> Vec<Field> {
                     }
                 })
                 .collect();
-            let identifier = field
-                .ident
-                .clone()
-                .unwrap_or(Ident::new(&format!("_{}", field_index), Span::call_site()));
+            let identifier = field.ident.clone().map_or_else(
+                || IdentOrEnumIndex::EnumIndex(field_index),
+                |identifier| IdentOrEnumIndex::Ident(identifier),
+            );
             let ty = field.ty.clone();
             Field {
                 attributes,
