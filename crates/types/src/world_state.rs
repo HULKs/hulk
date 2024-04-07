@@ -28,7 +28,7 @@ pub struct WorldState {
     pub kick_decisions: Option<Vec<KickDecision>>,
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
-    pub calibration: Option<CalibrationState>,
+    pub calibration_command: Option<CalibrationCommand>,
 }
 
 #[derive(
@@ -83,7 +83,7 @@ pub struct RobotState {
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub enum CalibrationPhase {
+pub enum CalibrationCommand {
     #[default]
     INACTIVE,
     INITIALIZE {
@@ -99,10 +99,4 @@ pub enum CalibrationPhase {
     },
     PROCESS,
     FINISH,
-}
-#[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct CalibrationState {
-    pub phase: CalibrationPhase,
 }

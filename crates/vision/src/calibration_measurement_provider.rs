@@ -7,9 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use types::{
-    camera_position::CameraPosition,
-    world_state::{CalibrationPhase, CalibrationState},
-    ycbcr422_image::YCbCr422Image,
+    camera_position::CameraPosition, world_state::CalibrationCommand, ycbcr422_image::YCbCr422Image,
 };
 
 #[context]
@@ -20,7 +18,7 @@ pub struct CycleContext {
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     image: Input<YCbCr422Image, "image">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
-    calibration_state: Input<CalibrationState, "control", "calibration_state">,
+    calibration_command: Input<CalibrationCommand, "control", "calibration_command">,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -42,8 +40,8 @@ impl CalibrationMeasurementProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let calibration_measurement = match &context.calibration_state.phase {
-            CalibrationPhase::CAPTURE { dispatch_time } => {
+        let calibration_measurement = match &context.calibration_command {
+            CalibrationCommand::CAPTURE { dispatch_time } => {
                 let new_request =
                     self.last_capture_command_time
                         .map_or(true, |last_capture_command_time| {
