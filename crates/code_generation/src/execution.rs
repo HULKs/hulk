@@ -33,6 +33,18 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
         {
             use color_eyre::eyre::WrapErr;
 
+            {
+                let keep_running = keep_running.clone();
+                std::panic::set_hook(Box::new(move |panic_info| {
+                    keep_running.cancel();
+                    if let Some(payload) = panic_info.payload().downcast_ref::<&str>() {
+                        eprintln!("panic occurred: {payload:?} {:?}", panic_info.location());
+                    } else {
+                        eprintln!("panic occurred");
+                    }
+                }));
+            }
+
             #construct_multiple_buffers
             #construct_future_queues
             let (recording_sender, recording_receiver) = std::sync::mpsc::sync_channel(420);
@@ -59,22 +71,22 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             match recording_thread.join() {
                 Ok(Err(error)) => {
                     encountered_error = true;
-                    println!("{error:?}");
+                    eprintln!("recording thread returned error: {error:?}");
                 },
                 Err(error) => {
                     encountered_error = true;
-                    println!("{error:?}");
+                    eprintln!("failed to join recording thread: {error:?}");
                 },
                 _ => {},
             }
             match communication_server.join() {
                 Ok(Err(error)) => {
                     encountered_error = true;
-                    println!("{error:?}");
+                    eprintln!("communication thread returned error: {error:?}");
                 },
                 Err(error) => {
                     encountered_error = true;
-                    println!("{error:?}");
+                    eprintln!("failed to join communication thread: {error:?}");
                 },
                 _ => {},
             }
@@ -389,15 +401,19 @@ fn generate_cycler_joins(cyclers: &Cyclers) -> TokenStream {
         .map(|(_cycler, instance)| {
             let cycler_handle_identifier =
                 format_ident!("{}_handle", instance.to_case(Case::Snake));
+            let thread_return_error_message =
+                format!("cycler thread {instance} returned error: {{error:?}}");
+            let join_error_message =
+                format!("failed to join cycler thread {instance}: {{error:?}}");
             quote! {
                 match #cycler_handle_identifier.join() {
                     Ok(Err(error)) => {
                         encountered_error = true;
-                        println!("{error:?}");
+                        eprintln!(#thread_return_error_message);
                     },
                     Err(error) => {
                         encountered_error = true;
-                        println!("{error:?}");
+                        eprintln!(#join_error_message);
                     },
                     _ => {},
                 }
