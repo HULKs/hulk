@@ -90,7 +90,9 @@ impl RefereePoseDetectionFilter {
             })
             .last();
 
-        self.pose_detection_times[player_number as usize] = persistent_own_detected_pose_time;
+        if persistent_own_detected_pose_time.is_some() {
+            self.pose_detection_times[player_number as usize] = persistent_own_detected_pose_time;
+        }
 
         let mut temporary_pose_detection_times = self.pose_detection_times.clone();
 
@@ -120,9 +122,11 @@ impl RefereePoseDetectionFilter {
             })
             .last();
 
-        temporary_pose_detection_times[player_number as usize] = temporary_own_detected_pose_time;
+        if temporary_own_detected_pose_time.is_some() {
+            temporary_pose_detection_times[player_number as usize] =
+                temporary_own_detected_pose_time;
+        }
 
-        dbg!(&temporary_pose_detection_times);
         temporary_pose_detection_times
     }
 
@@ -143,7 +147,6 @@ impl RefereePoseDetectionFilter {
                 None => false,
             })
             .count();
-        dbg!(detected_over_head_arms_poses);
         detected_over_head_arms_poses >= parameters.minimum_over_head_arms_detections
     }
 
