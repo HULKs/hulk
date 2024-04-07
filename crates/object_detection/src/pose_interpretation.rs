@@ -48,7 +48,6 @@ pub struct CycleContext {
     player_number: Parameter<PlayerNumber, "player_number">,
     keypoint_confidence_threshold:
         Parameter<f32, "detection.$cycler_instance.keypoint_confidence_threshold">,
-    initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     distance_to_referee_position_threshhold:
         Parameter<f32, "detection.$cycler_instance.distance_to_referee_position_threshhold">,
     foot_z_offset: Parameter<f32, "detection.$cycler_instance.foot_z_offset">,
@@ -59,7 +58,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_referee_over_arms_pose_time: MainOutput<Option<SystemTime>>,
+    pub detected_referee_pose_type: MainOutput<PoseType>,
     pub detected_pose_types: MainOutput<Vec<(PoseType, Point2<Field>)>>,
 }
 
@@ -78,7 +77,7 @@ impl PoseInterpretation {
             *context.shoulder_angle_threshhold,
         );
 
-        let referee_pose = Self::get_referee_pose_type(
+        let referee_pose = Self::get_referee_pose(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
             *context.distance_to_referee_position_threshhold,
@@ -108,7 +107,7 @@ impl PoseInterpretation {
         };
 
         Ok(MainOutputs {
-            detected_referee_over_arms_pose_time: pose_type.into(),
+            detected_referee_pose_type: pose_type.into(),
             detected_pose_types: interpreted_pose_types.into(),
         })
     }
@@ -157,7 +156,7 @@ impl PoseInterpretation {
         pose_type_tuple
     }
 
-    pub fn get_referee_pose_type(
+    pub fn get_referee_pose(
         poses: Vec<HumanPose>,
         camera_matrix_top: CameraMatrix,
         distance_to_referee_position_threshhold: f32,
