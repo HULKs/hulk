@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::{quote, ToTokens};
 use syn::{
@@ -341,7 +341,8 @@ fn read_fields(input: &DataStruct) -> Vec<Field> {
     input
         .fields
         .iter()
-        .map(|field| {
+        .enumerate()
+        .map(|(field_index, field)| {
             let attributes = field
                 .attrs
                 .iter()
@@ -370,7 +371,7 @@ fn read_fields(input: &DataStruct) -> Vec<Field> {
             let identifier = field
                 .ident
                 .clone()
-                .unwrap_or_else(|| abort!(field, "field has to be named"));
+                .unwrap_or(Ident::new(&format!("_{}", field_index), Span::call_site()));
             let ty = field.ty.clone();
             Field {
                 attributes,
