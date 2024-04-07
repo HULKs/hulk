@@ -9,7 +9,7 @@ use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use linear_algebra::{Isometry2, Point2, Vector};
 use spl_network_messages::{
-    GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, Team,
+    GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, SubState, Team,
 };
 use types::{
     ball_position::BallPosition,
@@ -355,6 +355,9 @@ fn process_role_state_machine(
                 kicking_team: Team::Opponent,
             } => return (Role::Keeper, false, None),
             _ => {}
+        };
+        if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
+            return (current_role, false, None);
         }
     }
 
