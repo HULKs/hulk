@@ -3,7 +3,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Isometry2, Point2};
-use nalgebra::DMatrix;
+use nalgebra::{clamp, DMatrix, Similarity2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -13,8 +13,8 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct SearchSuggestor {
-    heatmap_dimensions: (usize, usize),
     heatmap: DMatrix<f32>,
+    field_to_heatmap: Similarity2<f32>,
 }
 
 #[context]
@@ -29,7 +29,6 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     invalid_ball_positions: Input<Vec<HypotheticalBallPosition<Ground>>, "invalid_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
 }
 
@@ -40,16 +39,26 @@ pub struct MainOutputs {
 }
 
 impl SearchSuggestor {
-    pub fn new(_context: CreationContext) -> Result<Self> {
-        let heatmap_dimensions = (
-            _context.field_dimensions.length.round() as usize
-                * _context.search_suggestor_configuration.cells_per_meter,
-            _context.field_dimensions.width.round() as usize
-                * _context.search_suggestor_configuration.cells_per_meter,
+    pub fn new(context: CreationContext) -> Result<Self> {
+        let (heatmap_length, heatmap_width) = (
+            (context.field_dimensions.length
+                * context.search_suggestor_configuration.cells_per_meter as f32)
+                .round() as usize,
+            (context.field_dimensions.width
+                * context.search_suggestor_configuration.cells_per_meter as f32)
+                .round() as usize,
+        );
+        let field_to_heatmap_transformation = Similarity2::new(
+            Vector2::new(
+                context.field_dimensions.length / 2.0,
+                context.field_dimensions.width / 2.0,
+            ),
+            0.0,
+            context.search_suggestor_configuration.cells_per_meter as f32,
         );
         Ok(Self {
-            heatmap_dimensions,
-            heatmap: DMatrix::from_element(heatmap_dimensions.0, heatmap_dimensions.1, 0.0),
+            heatmap: DMatrix::from_element(heatmap_length, heatmap_width, 0.0),
+            field_to_heatmap: field_to_heatmap_transformation,
         })
     }
 
@@ -58,42 +67,20 @@ impl SearchSuggestor {
             context.ball_position,
             context.invalid_ball_positions,
             context.ground_to_field.copied(),
-            context.search_suggestor_configuration.cells_per_meter,
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
         let maximum_heat_heatmap_position = self.heatmap.iamax_full();
         let mut suggested_search_position: Option<Point2<Field>> = None;
-        if self.heatmap.get(maximum_heat_heatmap_position).is_some() {
-            if self.heatmap[maximum_heat_heatmap_position]
-                > context.search_suggestor_configuration.minimum_validity
-            {
-                let mut search_suggestion_x = maximum_heat_heatmap_position.0 as f32
-                    / context.search_suggestor_configuration.cells_per_meter as f32;
-                let mut search_suggestion_y = maximum_heat_heatmap_position.1 as f32
-                    / context.search_suggestor_configuration.cells_per_meter as f32;
-                let length_half = context.field_dimensions.length / 2.0;
-                let width_half = context.field_dimensions.width / 2.0;
 
-                if search_suggestion_x >= length_half {
-                    search_suggestion_x -= length_half;
-                } else {
-                    search_suggestion_x = length_half - search_suggestion_x
-                }
-                if search_suggestion_y >= width_half {
-                    search_suggestion_y -= width_half;
-                } else {
-                    search_suggestion_y = width_half - search_suggestion_y
-                }
-
-                search_suggestion_x +=
-                    1.0 / context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
-                search_suggestion_y +=
-                    1.0 / context.search_suggestor_configuration.cells_per_meter as f32 / 2.0;
-
-                suggested_search_position = Some(point![search_suggestion_x, search_suggestion_y]);
-            }
-        } else {
-            println!("Invalid maximum heatmap position");
+        if self.heatmap[maximum_heat_heatmap_position]
+            > context.search_suggestor_configuration.minimum_validity
+        {
+            let search_position = Vector2::new(
+                maximum_heat_heatmap_position.0 as f32,
+                maximum_heat_heatmap_position.1 as f32,
+            );
+            let search_suggestion = self.field_to_heatmap.inverse() * search_position;
+            suggested_search_position = Some(point![search_suggestion.x, search_suggestion.y]);
         }
         context.heatmap.fill_if_subscribed(|| self.heatmap.clone());
 
@@ -107,69 +94,52 @@ impl SearchSuggestor {
         ball_position: Option<&BallPosition<Ground>>,
         invalid_ball_positions: &Vec<HypotheticalBallPosition<Ground>>,
         ground_to_field: Option<Isometry2<Ground, Field>>,
-        cells_per_meter: usize,
         heatmap_decay_factor: f32,
     ) {
         if let Some(ball_position) = ball_position {
             if let Some(ground_to_field) = ground_to_field {
-                let ball_heatmap_position = self.calculate_heatmap_position(
-                    cells_per_meter,
-                    ground_to_field * ball_position.position,
+                let ball_field_position = ground_to_field * ball_position.position;
+                let ball_heatmap_position = self.field_to_heatmap
+                    * Vector2::new(ball_field_position.x(), ball_field_position.y());
+                let clamped_ball_heatmap_position = (
+                    clamp(
+                        ball_heatmap_position.x.round() as usize,
+                        0,
+                        self.heatmap.shape().0 - 1,
+                    ),
+                    clamp(
+                        ball_heatmap_position.y.round() as usize,
+                        0,
+                        self.heatmap.shape().1 - 1,
+                    ),
                 );
-                if self.heatmap.get(ball_heatmap_position).is_some() {
-                    self.heatmap[ball_heatmap_position] = 1.0;
-                } else {
-                    println!("Invalid ball heatmap position");
-                }
+                self.heatmap[clamped_ball_heatmap_position] = 1.0;
             }
         }
         for ball_hypothesis in invalid_ball_positions {
             if let Some(ground_to_field) = ground_to_field {
-                let heatmap_position = self.calculate_heatmap_position(
-                    cells_per_meter,
-                    ground_to_field * ball_hypothesis.position,
+                let ball_hypothesis_field_position = ground_to_field * ball_hypothesis.position;
+                let ball_hypothesis_heatmap_position = self.field_to_heatmap
+                    * Vector2::new(
+                        ball_hypothesis_field_position.x(),
+                        ball_hypothesis_field_position.y(),
+                    );
+                let clamped_ball_heatmap_position = (
+                    clamp(
+                        ball_hypothesis_heatmap_position.x.round() as usize,
+                        0,
+                        self.heatmap.shape().0 - 1,
+                    ),
+                    clamp(
+                        ball_hypothesis_heatmap_position.y.round() as usize,
+                        0,
+                        self.heatmap.shape().1 - 1,
+                    ),
                 );
-                if self.heatmap.get(heatmap_position).is_some() {
-                    self.heatmap[heatmap_position] =
-                        (self.heatmap[heatmap_position] + ball_hypothesis.validity) / 2.0;
-                } else {
-                    println!("Invalid hypothesis heatmap position");
-                }
+                self.heatmap[clamped_ball_heatmap_position] =
+                    (self.heatmap[clamped_ball_heatmap_position] + ball_hypothesis.validity) / 2.0;
             }
         }
-        self.heatmap = self.heatmap.clone() * (1.0 - heatmap_decay_factor);
-    }
-
-    fn calculate_heatmap_position(
-        &mut self,
-        cells_per_meter: usize,
-        hypothesis_position: Point2<Field>,
-    ) -> (usize, usize) {
-        let mut x_position: usize = 0;
-        let mut y_position: usize = 0;
-        if hypothesis_position.x() > 0.0 {
-            x_position = (self.heatmap_dimensions.0 / 2)
-                + (hypothesis_position.x() * cells_per_meter as f32).round() as usize;
-        } else if hypothesis_position.x() < 0.0 {
-            x_position = (self.heatmap_dimensions.0 / 2)
-                - (hypothesis_position.x().abs() * cells_per_meter as f32).round() as usize;
-        }
-        if hypothesis_position.y() > 0.0 {
-            y_position = (self.heatmap_dimensions.1 / 2)
-                + (hypothesis_position.y() * cells_per_meter as f32).round() as usize;
-        } else if hypothesis_position.y() < 0.0 {
-            y_position = (self.heatmap_dimensions.1 / 2)
-                - (hypothesis_position.y().abs() * cells_per_meter as f32).round() as usize;
-        }
-        if x_position >= 1 {
-            x_position -= 1;
-        }
-        if y_position >= 1 {
-            y_position -= 1;
-        }
-        x_position = x_position.clamp(0, self.heatmap_dimensions.0 - 1);
-        y_position = y_position.clamp(0, self.heatmap_dimensions.1 - 1);
-
-        (x_position, y_position)
+        self.heatmap.scale_mut(1.0 - heatmap_decay_factor);
     }
 }
