@@ -9,7 +9,9 @@ use serde_json::{json, Value};
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-use super::overlays::{BallDetection, FeetDetection, LimbProjector, LineDetection, PenaltyBoxes};
+use super::overlays::{
+    BallDetection, FeetDetection, FieldBorder, LimbProjector, LineDetection, PenaltyBoxes,
+};
 
 pub trait Overlay {
     const NAME: &'static str;
@@ -82,6 +84,7 @@ pub struct Overlays {
     pub ball_detection: EnabledOverlay<BallDetection>,
     pub penalty_boxes: EnabledOverlay<PenaltyBoxes>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
+    pub field_border: EnabledOverlay<FieldBorder>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
 }
 
@@ -91,12 +94,14 @@ impl Overlays {
         let ball_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let penalty_boxes = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let feet_detection = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
+        let field_border = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         let limb_projector = EnabledOverlay::new(nao.clone(), storage, true, selected_cycler);
         Self {
             line_detection,
             ball_detection,
             penalty_boxes,
             feet_detection,
+            field_border,
             limb_projector,
         }
     }
@@ -106,6 +111,7 @@ impl Overlays {
         self.ball_detection.update_cycler(selected_cycler);
         self.penalty_boxes.update_cycler(selected_cycler);
         self.feet_detection.update_cycler(selected_cycler);
+        self.field_border.update_cycler(selected_cycler);
         self.limb_projector.update_cycler(selected_cycler);
     }
 
@@ -115,6 +121,7 @@ impl Overlays {
             self.ball_detection.checkbox(ui, selected_cycler);
             self.penalty_boxes.checkbox(ui, selected_cycler);
             self.feet_detection.checkbox(ui, selected_cycler);
+            self.field_border.checkbox(ui, selected_cycler);
             self.limb_projector.checkbox(ui, selected_cycler);
         });
     }
@@ -124,6 +131,7 @@ impl Overlays {
         let _ = self.ball_detection.paint(painter);
         let _ = self.penalty_boxes.paint(painter);
         let _ = self.feet_detection.paint(painter);
+        let _ = self.field_border.paint(painter);
         let _ = self.limb_projector.paint(painter);
         Ok(())
     }
@@ -134,6 +142,7 @@ impl Overlays {
             "ball_detection": self.ball_detection.save(),
             "penalty_boxes": self.penalty_boxes.save(),
             "feet_detection": self.feet_detection.save(),
+            "field_border": self.field_border.save(),
             "limb_projector": self.line_detection.save(),
         })
     }
