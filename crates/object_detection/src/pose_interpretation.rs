@@ -14,12 +14,12 @@ use linear_algebra::Isometry2;
 use linear_algebra::Point2;
 use linear_algebra::Transform;
 use ordered_float::NotNan;
+use projection::camera_matrices::CameraMatrices;
+use projection::camera_matrix::CameraMatrix;
 use projection::Projection;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::HulkMessage;
 use spl_network_messages::PlayerNumber;
-use types::camera_matrix::CameraMatrices;
-use types::camera_matrix::CameraMatrix;
 use types::fall_state::FallState;
 use types::messages::OutgoingMessage;
 use types::pose_detection::Keypoints;
@@ -39,8 +39,7 @@ pub struct CycleContext {
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    human_poses: Input<Vec<HumanPose>, "human_poses">,
-    image: Input<YCbCr422Image, "image">,
+    human_poses: RequiredInput<Option<Vec<HumanPose>>, "human_poses?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position: Input<Point2<Ground>, "Control", "expected_referee_position">,
     fall_state: Input<FallState, "Control", "fall_state">,

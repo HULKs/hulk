@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
     color::Rgb,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
     pose_detection::{HumanPose, Keypoints},
     ycbcr422_image::YCbCr422Image,
 };
@@ -65,12 +67,15 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
+    hardware_interface: HardwareInterface,
+
     preprocess_time: AdditionalOutput<Duration, "preprocess_time">,
     inference_time: AdditionalOutput<Duration, "inference_time">,
     postprocess_time: AdditionalOutput<Duration, "postprocess_time">,
 
     image: Input<YCbCr422Image, "image">,
-    hardware_interface: HardwareInterface,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "Control", "filtered_game_controller_state?">,
 
     iou_threshold: Parameter<f32, "detection.$cycler_instance.iou_threshold">,
     keypoint_confidence_threshold:
@@ -81,7 +86,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub human_poses: MainOutput<Vec<HumanPose>>,
+    pub human_poses: MainOutput<Option<Vec<HumanPose>>>,
 }
 
 impl PoseDetection {
@@ -128,6 +133,12 @@ impl PoseDetection {
     pub fn cycle(&mut self, mut context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
         if !context.enable {
             return Ok(MainOutputs::default());
+        }
+
+        if let Some(filtered_game_controller_state) = context.filtered_game_controller_state {
+            if filtered_game_controller_state.game_state != FilteredGameState::Initial {
+                return Ok(MainOutputs::default());
+            }
         }
 
         let image = context.image;
@@ -221,7 +232,7 @@ impl PoseDetection {
         });
 
         Ok(MainOutputs {
-            human_poses: poses.into(),
+            human_poses: Some(poses).into(),
         })
     }
 
