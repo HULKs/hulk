@@ -6,7 +6,7 @@
       "distance_to_referee_position_threshhold": 1.0,
       "keypoint_confidence_threshold": 0.2,
       "shoulder_angle_threshhold": 0.2,
-      "foot_z_offset": 0.15,
+      "foot_z_offset": 0.1,
       "normed_expected_referee_position": [
         0.0,
         0.5
@@ -1279,7 +1279,9 @@
     "whistle_acceptance_goal_distance": [
       0.5,
       0.5
-    ],
+    ]
+  },
+  "referee_pose_detection_filter": {
     "initial_message_grace_period": {
       "nanos": 0,
       "secs": 5
