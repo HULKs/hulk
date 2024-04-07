@@ -7,7 +7,7 @@ use communication::client::CyclerOutput;
 use coordinate_systems::Ground;
 use linear_algebra::{center, point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
-use types::{camera_matrix::CameraMatrix, color::Rgb, field_dimensions::FieldDimensions};
+use types::{color::Rgb, field_dimensions::FieldDimensions};
 
 use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 

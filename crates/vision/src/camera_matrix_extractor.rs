@@ -3,9 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix};
 use serde::{Deserialize, Serialize};
-use types::{
-    camera_position::CameraPosition,
-};
+use types::camera_position::CameraPosition;
 
 #[derive(Deserialize, Serialize)]
 pub struct CameraMatrixExtractor {}

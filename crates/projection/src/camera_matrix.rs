@@ -3,8 +3,11 @@ use linear_algebra::{IntoFramed, Isometry3, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-use crate::{horizon::Horizon, intrinsic::Intrinsic};
-
+use crate::{
+    camera_projection::{CameraProjection, InverseCameraProjection},
+    horizon::Horizon,
+    intrinsic::Intrinsic,
+};
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 #[serialize_hierarchy(
@@ -18,13 +21,14 @@ pub struct CameraMatrix {
     pub focal_length: nalgebra::Vector2<f32>,
     pub optical_center: Point2<Pixel>,
     pub field_of_view: nalgebra::Vector2<f32>,
-    pub horizon: Horizon,
+    pub horizon: Option<Horizon>,
     pub image_size: Vector2<Pixel>,
 
     // Precomputed values for faster calculations
-    // pub ground_to_camera: Isometry3<Ground, Camera>,
-    // pub ground_to_pixel: 
+    pub ground_to_camera: Isometry3<Ground, Camera>,
 
+    pub ground_to_pixel: CameraProjection<Ground>,
+    pub pixel_to_ground: InverseCameraProjection<Ground>,
 }
 
 impl CameraMatrix {
@@ -53,7 +57,7 @@ impl CameraMatrix {
         let horizon = Horizon::from_parameters(ground_to_camera, &intrinsics);
 
         Self {
-            intrinsics,
+            intrinsics: intrinsics.clone(),
             focal_length: focal_length_scaled,
             optical_center: optical_center_scaled,
             field_of_view,
@@ -62,7 +66,19 @@ impl CameraMatrix {
             robot_to_head,
             head_to_camera,
             image_size,
+            // Precomputed values
+            ground_to_camera,
+            ground_to_pixel: CameraProjection::new(ground_to_camera, intrinsics.clone()),
+            pixel_to_ground: CameraProjection::new(ground_to_camera, intrinsics).inverse(0.0),
         }
+    }
+
+    pub fn compute_memoized(&mut self) {
+        self.ground_to_camera = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
+        self.ground_to_pixel =
+            CameraProjection::new(self.ground_to_camera, self.intrinsics.clone());
+        self.pixel_to_ground =
+            CameraProjection::new(self.ground_to_camera, self.intrinsics.clone()).inverse(0.0);
     }
 
     pub fn calculate_field_of_view(

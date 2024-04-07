@@ -1,13 +1,21 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
-use linear_algebra::{Point2, Vector3, vector, point};
+use linear_algebra::{point, vector, Point2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Intrinsic {
     focals: nalgebra::Vector2<f32>,
     optical_center: Point2<Pixel>,
+}
+
+impl Default for Intrinsic {
+    fn default() -> Self {
+        Self {
+            focals: nalgebra::vector![1.0, 1.0],
+            optical_center: point![0.0, 0.0],
+        }
+    }
 }
 
 impl Intrinsic {
@@ -27,7 +35,7 @@ impl Intrinsic {
     }
 
     pub fn transform(&self, ray: Vector3<Camera>) -> Vector3<NormalizedDeviceCoordinates> {
-        let (x,y,z) = (ray.x(), ray.y(), ray.z());
+        let (x, y, z) = (ray.x(), ray.y(), ray.z());
 
         vector![
             self.focals.x * x + self.optical_center.x() * z,

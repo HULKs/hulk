@@ -34,7 +34,7 @@ pub struct CycleContext {
     minimum_radius:
         Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
 
-    rows: AdditionalOutput<Vec<Row>, "perspective_grid_ball_sizes">,
+    perspective_grid_ball_sizes: AdditionalOutput<Vec<Row>, "perspective_grid_ball_sizes">,
 }
 
 #[context]
@@ -53,15 +53,21 @@ impl PerspectiveGridCandidatesProvider {
         let skip_segments = &context.line_data.used_segments;
         let image_size = vector![context.image.width() as f32, context.image.height() as f32];
 
-        let rows = generate_rows(
+        let perspective_grid_ball_sizes = generate_rows(
             context.camera_matrix,
             image_size,
             *context.minimum_radius,
             *context.ball_radius,
         );
 
-        let candidates = generate_candidates(vertical_scanlines, skip_segments, &rows);
-        context.rows.fill_if_subscribed(|| rows);
+        let candidates = generate_candidates(
+            vertical_scanlines,
+            skip_segments,
+            &perspective_grid_ball_sizes,
+        );
+        context
+            .perspective_grid_ball_sizes
+            .fill_if_subscribed(|| perspective_grid_ball_sizes);
 
         Ok(MainOutputs {
             perspective_grid_candidates: Some(candidates).into(),
@@ -87,7 +93,7 @@ fn generate_rows(
             break;
         };
 
-        if radius < minimum_radius {
+        if radius < minimum_radius || row_vertical_center < 0.0 {
             break;
         }
 
@@ -188,7 +194,9 @@ mod tests {
         );
         let minimum_radius = 5.0;
 
-        assert!(!generate_rows(&camera_matrix, vector![512.0, 512.0], minimum_radius, 42.0).is_empty());
+        assert!(
+            !generate_rows(&camera_matrix, vector![512.0, 512.0], minimum_radius, 42.0).is_empty()
+        );
     }
 
     #[test]

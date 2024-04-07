@@ -10,9 +10,9 @@ use color_eyre::{eyre::WrapErr, Result};
 use control::localization::generate_initial_pose;
 use linear_algebra::vector;
 use parameters::directory::deserialize;
+use projection::camera_matrix::CameraMatrix;
 use spl_network_messages::PlayerNumber;
 use types::messages::IncomingMessage;
-use projection::camera_matrix::CameraMatrix;
 
 use crate::{
     cycler::{BehaviorCycler, Database},
