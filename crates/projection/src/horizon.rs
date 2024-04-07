@@ -30,9 +30,9 @@ impl Horizon {
         let ground_front = vector![ground_front.x(), ground_front.y(), 0.0].normalize();
 
         let vanishing_point = ground_to_camera * ground_front;
-        let vanishing_point_image = intrinsics.project(vanishing_point).inner;
+        let vanishing_point_image = intrinsics.transform(vanishing_point);
 
-        Point2::wrap(vanishing_point_image)
+        Vector2::wrap(vanishing_point_image.xy().inner).as_point()
     }
 
     fn find_horizon_normal(
@@ -43,9 +43,9 @@ impl Horizon {
         let up_in_camera = ground_to_camera * up;
         let horizon_normal_camera: Vector3<Camera> =
             vector![up_in_camera.x(), up_in_camera.y(), 0.0].normalize();
-        let horizon_normal_image = intrinsics.project(horizon_normal_camera).inner;
+        let horizon_normal_image = intrinsics.transform(horizon_normal_camera).inner;
 
-        Vector2::wrap(horizon_normal_image.coords)
+        Vector2::wrap(horizon_normal_image.xy())
     }
 
     pub fn from_parameters(
