@@ -249,7 +249,7 @@ impl RoleAssignment {
                     ground_to_field,
                     context.ball_position,
                     primary_state,
-                    Some(&spl_message),
+                    Some(spl_message),
                     Some(*context.time_to_reach_kick_position),
                     send_spl_striker_message,
                     team_ball,
