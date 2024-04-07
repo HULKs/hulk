@@ -140,6 +140,12 @@ impl Behavior {
                 Some(FilteredGameControllerState {
                     game_phase: GamePhase::PenaltyShootout { .. },
                     ..
+                })
+                | Some(FilteredGameControllerState {
+                    game_state: FilteredGameState::Playing { .. },
+                    kicking_team: Team::Opponent,
+                    sub_state: Some(SubState::PenaltyKick),
+                    ..
                 }) => {
                     actions.push(Action::Jump);
                     actions.push(Action::PrepareJump);
