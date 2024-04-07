@@ -5,13 +5,16 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
+[dev-dependencies]
+approx = { workspace = true }
+
 [dependencies]
 approx = { workspace = true }
 coordinate_systems = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 thiserror = { workspace = true }
+serde = { workspace = true}
+serialize_hierarchy = { workspace = true }
 types = { workspace = true }
 
-[dev-dependencies]
-approx = { workspace = true }

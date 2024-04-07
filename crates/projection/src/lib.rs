@@ -1,9 +1,15 @@
-use nalgebra::{matrix, Matrix3};
+pub mod camera_matrices;
+pub mod camera_matrix;
+pub mod camera_projection;
+pub mod horizon;
+pub mod intrinsic;
+
+use camera_projection::CameraProjection;
 use thiserror::Error;
 
+use crate::camera_matrix::CameraMatrix;
 use coordinate_systems::{Camera, Ground, Pixel, Robot};
 use linear_algebra::{point, vector, Isometry3, Point2, Point3, Vector3};
-use types::camera_matrix::CameraMatrix;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -38,22 +44,16 @@ pub trait Projection {
         radius_in_ground_coordinates: f32,
         pixel_coordinates: Point2<Pixel>,
     ) -> Result<f32, Error>;
-    fn camera_matrix_for_z(&self, z: f32) -> Matrix3<f32>;
+    fn camera_matrix(&self) -> CameraProjection<Ground>;
 }
 
 impl Projection for CameraMatrix {
-    fn camera_matrix_for_z(&self, z: f32) -> Matrix3<f32> {
-        let extrinsics = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
-        let total_camera_matrix = self.intrinsics * extrinsics.inner.to_matrix();
+    fn camera_matrix(&self) -> CameraProjection<Ground> {
+        let extrinsics = self.head_to_camera
+            * self.robot_to_head
+            * self.ground_to_robot;
 
-        let projection = matrix![
-            1.0, 0.0, 0.0;
-            0.0, 1.0, 0.0;
-            0.0, 0.0, z;
-            0.0, 0.0, 1.0;
-        ];
-
-        total_camera_matrix * projection
+        CameraProjection::new(extrinsics, self.intrinsics.clone())
     }
 
     fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error> {
@@ -61,12 +61,7 @@ impl Projection for CameraMatrix {
             return Err(Error::BehindCamera);
         }
 
-        let pixel_point = self.intrinsics * camera_ray.inner.to_homogeneous();
-
-        Ok(point![
-            pixel_point.x / pixel_point.z,
-            pixel_point.y / pixel_point.z,
-        ])
+        Ok(self.intrinsics.project(camera_ray))
     }
 
     fn pixel_to_ground(&self, pixel_coordinates: Point2<Pixel>) -> Result<Point2<Ground>, Error> {
@@ -93,14 +88,10 @@ impl Projection for CameraMatrix {
             return Err(Error::NotOnProjectionPlane);
         }
 
-        let camera_matrix = self.camera_matrix_for_z(z);
-        let inverse_camera_matrix = camera_matrix
-            .try_inverse()
-            .expect("camera matrix must be invertible");
+        let camera_matrix = self.camera_matrix();
+        let inverse_camera_matrix = camera_matrix.inverse(z);
 
-        let ground = inverse_camera_matrix * pixel_coordinates.inner.to_homogeneous();
-
-        Ok(point![ground.x, ground.y] / ground.z)
+        Ok(inverse_camera_matrix.back_project(pixel_coordinates).xy())
     }
 
     fn ground_to_pixel(&self, ground_coordinates: Point2<Ground>) -> Result<Point2<Pixel>, Error> {
@@ -112,20 +103,17 @@ impl Projection for CameraMatrix {
         ground_coordinates: Point2<Ground>,
         z: f32,
     ) -> Result<Point2<Pixel>, Error> {
+        let ground_coordinates = point![ground_coordinates.x(), ground_coordinates.y(), z];
         let ground_to_camera = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
-        let camera_ray =
-            ground_to_camera * point![ground_coordinates.x(), ground_coordinates.y(), z];
+        let camera_ray = ground_to_camera * ground_coordinates;
 
         if camera_ray.z() <= 0.0 {
             return Err(Error::BehindCamera);
         }
 
-        let camera_matrix = self.camera_matrix_for_z(z);
-        let projected = camera_matrix * ground_coordinates.inner.to_homogeneous();
+        let camera_matrix = self.camera_matrix();
 
-        let pixel = point![projected.x / projected.z, projected.y / projected.z];
-
-        Ok(pixel)
+        Ok(camera_matrix.project(ground_coordinates))
     }
 
     fn robot_to_pixel(&self, robot_coordinates: Point3<Robot>) -> Result<Point2<Pixel>, Error> {
@@ -159,10 +147,6 @@ impl Projection for CameraMatrix {
     }
 
     fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
-        vector![
-            (pixel_coordinates.x() - self.optical_center.x()) / self.focal_length.x,
-            (pixel_coordinates.y() - self.optical_center.y()) / self.focal_length.y,
-            1.0,
-        ]
+        self.intrinsics.bearing(pixel_coordinates)
     }
 }

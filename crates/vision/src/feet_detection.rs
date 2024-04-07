@@ -10,10 +10,9 @@ use filtering::{
 };
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, point, Point2};
-use projection::Projection;
+use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball::Ball,
-    camera_matrix::CameraMatrix,
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},

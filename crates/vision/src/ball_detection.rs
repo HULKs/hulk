@@ -8,10 +8,9 @@ use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, rectangle::Rectangle};
 use hardware::PathsInterface;
 use linear_algebra::{point, vector, Vector2};
-use projection::Projection;
+use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball::{Ball, CandidateEvaluation},
-    camera_matrix::CameraMatrix,
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
     ycbcr422_image::YCbCr422Image,
@@ -450,7 +449,7 @@ mod tests {
             merge_weight: None,
         };
         let merge_weight =
-            calculate_ball_merge_factor(&ball_candidate, vector!(90, 90), 1.0, 1.0, 1.0);
+            calculate_ball_merge_factor(&ball_candidate, vector!(90.0, 90.0), 1.0, 1.0, 1.0);
         assert_relative_eq!(merge_weight, 1.0);
     }
 
@@ -470,7 +469,7 @@ mod tests {
             merge_weight: None,
         };
         let merge_weight =
-            calculate_ball_merge_factor(&ball_candidate, vector!(90, 90), 1.0, 1.0, 1.0);
+            calculate_ball_merge_factor(&ball_candidate, vector!(90.0, 90.0), 1.0, 1.0, 1.0);
         assert_relative_eq!(merge_weight, 0.5 * 0.75 * (7.0 / 8.0));
     }
 
@@ -505,7 +504,7 @@ mod tests {
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             focal_length,
             optical_center,
-            vector![image.width(), image.height()],
+            vector![image.width() as f32, image.height() as f32],
             nalgebra::Isometry3 {
                 rotation: UnitQuaternion::from_euler_angles(0.0, 39.7_f32.to_radians(), 0.0),
                 translation: Translation::from(nalgebra::point![0.0, 0.0, 0.75]),

@@ -1,9 +1,9 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix};
 use serde::{Deserialize, Serialize};
 use types::{
-    camera_matrix::{CameraMatrices, CameraMatrix},
     camera_position::CameraPosition,
 };
 

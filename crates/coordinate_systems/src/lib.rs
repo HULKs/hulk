@@ -42,6 +42,11 @@ generate_coordinate_system!(
     /// Origin: center of the field
     /// X axis pointing towards the opponent goal
     Field,
+    /// 3D Intrinsic coordinate system of the camera.
+    /// 
+    /// Origin: center of the camera model
+    /// X axis pointing right, Y axis pointing down, Z axis pointing forward
+    NormalizedDeviceCoordinates,
     /// 3D coordinate system centered on the camera
     ///
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/video_naov6.html)

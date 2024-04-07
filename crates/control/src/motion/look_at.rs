@@ -1,6 +1,7 @@
 use std::{time::Duration, time::SystemTime};
 
 use color_eyre::Result;
+use projection::camera_matrices::CameraMatrices;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -9,7 +10,6 @@ use framework::MainOutput;
 use kinematics::forward::{head_to_neck, neck_to_robot};
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
-    camera_matrix::CameraMatrices,
     camera_position::CameraPosition,
     cycle_time::CycleTime,
     joints::{head::HeadJoints, Joints},

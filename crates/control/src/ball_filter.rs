@@ -10,12 +10,11 @@ use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
 use linear_algebra::Point2;
-use projection::Projection;
+use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use types::{
     ball::Ball,
     ball_filter::Hypothesis,
     ball_position::BallPosition,
-    camera_matrix::{CameraMatrices, CameraMatrix},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},

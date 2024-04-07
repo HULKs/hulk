@@ -9,9 +9,8 @@ use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
-use projection::Projection;
+use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    camera_matrix::CameraMatrix,
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, Segment},
     line_data::{LineData, LineDiscardReason},
@@ -412,7 +411,7 @@ mod tests {
 
     #[test]
     fn check_fixed_segment_size() {
-        let image_size = vector![1, 1];
+        let image_size = vector![1.0, 1.0];
         let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             nalgebra::vector![2.0, 2.0],
             nalgebra::point![1.0, 1.0],

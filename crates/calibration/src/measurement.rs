@@ -1,5 +1,6 @@
 use coordinate_systems::Pixel;
-use types::{camera_matrix::CameraMatrix, camera_position::CameraPosition};
+use projection::camera_matrix::CameraMatrix;
+use types::camera_position::CameraPosition;
 
 use crate::lines::Lines;
 

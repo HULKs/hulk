@@ -28,6 +28,7 @@ mlua = { workspace = true }
 nalgebra = { workspace = true }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
+projection = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }

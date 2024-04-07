@@ -6,12 +6,10 @@ use context_attribute::context;
 use coordinate_systems::Pixel;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2, Vector2};
-use projection::Projection;
+use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
 use types::{
-    camera_matrix::CameraMatrix,
     color::Intensity,
     field_border::FieldBorder,
-    horizon::Horizon,
     image_segments::{ImageSegments, Segment},
 };
 
