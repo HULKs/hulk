@@ -37,7 +37,7 @@ pub struct CycleContext {
 
     balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     sensor_data: Input<SensorData, "sensor_data">,
 }
 
@@ -176,7 +176,7 @@ impl LedStatus {
                 messages
                     .iter()
                     .flatten()
-                    .any(|message| matches!(message, IncomingMessage::GameController(_)))
+                    .any(|&message| matches!(message, IncomingMessage::GameController(_)))
                     .then_some(timestamp)
             })
         {

@@ -20,7 +20,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 }
 
 #[context]
