@@ -32,7 +32,7 @@ impl MessageFilter {
             IncomingMessage::GameController(message) => {
                 Some(IncomingMessage::GameController(message.clone()))
             }
-            IncomingMessage::Spl(message) if message.player_number == *context.player_number => {
+            IncomingMessage::Spl(message) if message.player_number != *context.player_number => {
                 Some(IncomingMessage::Spl(*message))
             }
             _ => None,

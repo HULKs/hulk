@@ -50,7 +50,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -214,12 +214,11 @@ impl RoleAssignment {
         let mut spl_messages = context
             .network_message
             .persistent
-            .values()
-            .flatten()
+            .into_values()
             .flatten()
             .filter_map(|message| match message {
-                IncomingMessage::GameController(_) => None,
-                IncomingMessage::Spl(message) => Some(message),
+                Some(IncomingMessage::GameController(_)) | None => None,
+                Some(IncomingMessage::Spl(message)) => Some(message),
             })
             .peekable();
         if spl_messages.peek().is_none() {
@@ -250,7 +249,7 @@ impl RoleAssignment {
                     ground_to_field,
                     context.ball_position,
                     primary_state,
-                    Some(spl_message),
+                    Some(&spl_message),
                     Some(*context.time_to_reach_kick_position),
                     send_spl_striker_message,
                     team_ball,
