@@ -17,6 +17,7 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = {  workspace = true }
+libc = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }

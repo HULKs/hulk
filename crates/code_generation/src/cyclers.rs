@@ -200,7 +200,7 @@ fn generate_node_fields(cycler: &Cycler) -> TokenStream {
 fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
     let new_method = generate_new_method(cycler, cyclers, mode);
     let start_method = match mode {
-        Execution::None | Execution::Run => generate_start_method(),
+        Execution::None | Execution::Run => generate_start_method(cycler.kind),
         Execution::Replay => Default::default(),
     };
     let cycle_method = generate_cycle_method(cycler, cyclers, mode);
@@ -379,7 +379,27 @@ fn generate_consumer_identifiers(cyclers: &Cyclers) -> Vec<Ident> {
         .collect()
 }
 
-fn generate_start_method() -> TokenStream {
+fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
+    let scheduler_tokens = match cycler_kind {
+        CyclerKind::Perception => quote! {
+            unsafe {
+                let priority = libc::sched_param {
+                    sched_priority: 10,
+                };
+                let process_id = libc::getpid();
+                assert!(process_id > 0, "failed to get process id");
+
+                let set_scheduler_return_value = libc::sched_setscheduler(
+                    process_id,
+                    libc::SCHED_FIFO,
+                    &priority as *const libc::sched_param,
+                );
+                assert!(set_scheduler_return_value == 0, "failed to set scheduler");
+            }
+        },
+        CyclerKind::RealTime => TokenStream::new(),
+    };
+
     quote! {
         pub(crate) fn start(
             mut self,
@@ -389,6 +409,7 @@ fn generate_start_method() -> TokenStream {
             std::thread::Builder::new()
                 .name(instance_name.clone())
                 .spawn(move || {
+                    #scheduler_tokens
                     while !keep_running.is_cancelled() {
                         if let Err(error) = self.cycle() {
                             keep_running.cancel();
