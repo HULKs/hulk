@@ -7,7 +7,7 @@ use std::{
 
 use communication::client::CyclerOutput;
 use eframe::{
-    egui::{show_tooltip_at_pointer, ComboBox, Response, Ui, Widget},
+    egui::{show_tooltip_at_pointer, ComboBox, Response, RichText, Ui, Widget},
     epaint::{Color32, Stroke},
 };
 use egui_plot::{Plot, PlotBounds, PlotPoint, PlotUi, Polygon, Text};
@@ -152,17 +152,19 @@ impl EnumPlotPanel {
         );
     }
 
-    fn update_changes(&mut self) {
+    fn update_changes(&mut self) -> Result<(), String> {
         if let Some(change_buffer) = &self.change_buffer {
             match change_buffer.get_and_reset() {
                 Ok(change_buffer_update) => {
                     self.messages_count = change_buffer_update.message_count;
                     self.changes.extend(change_buffer_update.updates);
+
+                    Ok(())
                 }
-                Err(error) => {
-                    error!("{error}");
-                }
+                Err(error) => Err(error),
             }
+        } else {
+            Ok(())
         }
     }
 
@@ -241,8 +243,6 @@ impl EnumPlotPanel {
     }
 
     fn plot(&mut self, ui: &mut Ui) -> Response {
-        self.update_changes();
-
         let plot = Plot::new("Jürgen")
             .height(64.0)
             .show_y(false)
@@ -285,10 +285,10 @@ impl EnumPlotPanel {
         plot.response
     }
 
-    fn subscribe_key(&mut self, nao: Arc<Nao>) {
+    fn subscribe(&mut self) {
         self.change_buffer = match CyclerOutput::from_str(&self.output_key) {
             Ok(output) => {
-                let buffer = nao.subscribe_changes(output);
+                let buffer = self.nao.subscribe_changes(output);
                 Some(buffer)
             }
             Err(error) => {
@@ -301,18 +301,27 @@ impl EnumPlotPanel {
 
 impl Widget for &mut EnumPlotPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        let error = self.update_changes().err();
+
         ui.vertical(|ui| {
             self.plot(ui);
+
+            if let Some(error) = error {
+                ui.label(RichText::new(error).color(Color32::RED));
+            }
+
             ui.horizontal_top(|ui| {
                 let subscription_field = ui.add(CompletionEdit::outputs(
                     &mut self.output_key,
                     self.nao.as_ref(),
                 ));
+
                 if subscription_field.changed() {
                     info!("Subscribing: {}", self.output_key);
                     self.changes.clear();
-                    self.subscribe_key(self.nao.clone());
+                    self.subscribe();
                 }
+
                 if ui.button("Clear").clicked() {
                     let last_change = self.changes.drain(..).next_back();
                     if let Some(change_buffer) = &self.change_buffer {
@@ -325,6 +334,7 @@ impl Widget for &mut EnumPlotPanel {
                         });
                     }
                 }
+
                 ui.label("Viewport mode:");
                 ComboBox::new("viewport_mode", "")
                     .selected_text(format!("{:?}", self.viewport_mode))
@@ -336,7 +346,7 @@ impl Widget for &mut EnumPlotPanel {
                             "Follow",
                         );
                         ui.selectable_value(&mut self.viewport_mode, ViewportMode::Free, "Free");
-                    })
+                    });
             });
         })
         .response

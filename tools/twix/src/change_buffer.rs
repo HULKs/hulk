@@ -39,7 +39,7 @@ async fn change_buffer(
     mut command_receiver: mpsc::Receiver<Message>,
 ) {
     let mut last_value: Option<Value> = None;
-    let mut changes = VecDeque::<Change>::new();
+    let mut changes = Ok(VecDeque::<Change>::new());
     let mut message_count: usize = 0;
 
     loop {
@@ -51,17 +51,13 @@ async fn change_buffer(
                             SubscriberMessage::Update{value} => {
                                 if !last_value.as_ref().is_some_and(|last_value|*last_value==value){
                                     last_value = Some(value.clone());
-                                    changes.push_back(Change {
-                                        message_number: message_count,
-                                        value,
-                                    });
+                                    add_change(&mut changes, Change { message_number: message_count, value });
                                 }
                             },
                             SubscriberMessage::SubscriptionSuccess => (),
                             SubscriberMessage::SubscriptionFailure{info} => {
                                 last_value = None;
-                                // TODO
-                                error!("{info}");
+                                changes = Err(info);
                             },
                             SubscriberMessage::UpdateBinary{..} => {
                                 error!("Got UpdateBinary message in change buffer");
@@ -77,17 +73,43 @@ async fn change_buffer(
                 match maybe_command {
                     Some(command) => match command {
                         Message::GetAndReset { response_sender } => {
-                            let updates = changes.drain(..).collect();
-                            response_sender.send(Ok(ChangeBufferUpdate{updates, message_count})).unwrap();
+                            match changes.as_mut() {
+                                Ok(changes) => {
+                                    let updates = changes.drain(..).collect();
+                                    response_sender.send(Ok(ChangeBufferUpdate{updates, message_count})).unwrap();
+                                }
+                                Err(error) => {
+                                    response_sender.send(Err(error.clone())).unwrap();
+                                }
+                            }
                         },
                         Message::Reset  => {
-                            changes.clear();
+                            match changes.as_mut() {
+                                Ok(changes) => changes.clear(),
+                                Err(_) => {changes = Ok(VecDeque::new())}
+                            }
                             message_count = 0;
                         }
                     },
                     None => break,
                 }
             }
+        }
+    }
+}
+
+fn add_change(changes: &mut Result<VecDeque<Change>, String>, change: Change) {
+    match changes {
+        Ok(changes) => {
+            changes.push_back(change);
+        }
+        Err(_) => {
+            *changes = Ok({
+                let mut changes = VecDeque::new();
+                changes.push_back(change);
+
+                changes
+            });
         }
     }
 }
