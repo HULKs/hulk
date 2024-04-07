@@ -119,7 +119,6 @@ impl BehaviorCycler {
                     own_database.main_outputs.ball_position.as_ref(),
                     &own_database.main_outputs.invalid_ball_positions,
                     own_database.main_outputs.ground_to_field.as_ref(),
-                    &parameters.field_dimensions,
                     framework::AdditionalOutput::new(
                         true,
                         &mut own_database.additional_outputs.ball_search_heatmap,
