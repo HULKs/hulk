@@ -5,7 +5,6 @@ use communication::client::{Cycler, CyclerOutput};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use linear_algebra::point;
-use types::horizon;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -36,7 +35,7 @@ impl Overlay for Horizon {
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        let horizon: horizon::Horizon = self.horizon.require_latest()?;
+        let horizon: projection::horizon::Horizon = self.horizon.require_latest()?;
 
         let left_horizon_height = horizon.y_at_x(0.0);
         let right_horizon_height = horizon.y_at_x(640.0);

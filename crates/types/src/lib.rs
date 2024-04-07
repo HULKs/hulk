@@ -25,7 +25,6 @@ pub mod foot_bumper_values;
 pub mod game_controller_state;
 pub mod grayscale_image;
 pub mod hardware;
-pub mod horizon;
 pub mod image_segments;
 pub mod initial_look_around;
 pub mod initial_pose;

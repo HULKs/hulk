@@ -2,6 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
 use nalgebra::UnitQuaternion;
+use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -9,12 +10,9 @@ use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::line::{Line, Line2};
 use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector3};
-use projection::Projection;
 use types::{
-    camera_matrix::{CameraMatrices, CameraMatrix, ProjectedFieldLines},
-    field_dimensions::FieldDimensions,
-    parameters::CameraMatrixParameters,
-    robot_dimensions::RobotDimensions,
+    camera_matrix::ProjectedFieldLines, field_dimensions::FieldDimensions,
+    parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
     robot_kinematics::RobotKinematics,
 };
 
