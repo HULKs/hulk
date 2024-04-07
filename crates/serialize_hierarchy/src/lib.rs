@@ -58,6 +58,14 @@ mod tests {
     #[derive(Deserialize, Serialize, SerializeHierarchy)]
     struct TupleStruct(bool, f32, Inner, Outer);
 
+    #[derive(Deserialize, Serialize, SerializeHierarchy)]
+    struct NestedTupleStruct(bool, Inner, TupleStruct);
+
+    #[derive(Deserialize, Serialize, SerializeHierarchy)]
+    struct OuterWithTupleStruct {
+        tuple_struct: TupleStruct,
+    }
+
     #[test]
     fn primitive_fields_are_empty() {
         assert_eq!(bool::get_fields(), Default::default());
@@ -73,6 +81,57 @@ mod tests {
         assert_eq!(
             Outer::get_fields(),
             ["inner".to_string(), "inner.field".to_string()].into()
+        );
+    }
+
+    #[test]
+    fn tuple_struct_fields_contain_fields() {
+        assert_eq!(
+            TupleStruct::get_fields(),
+            ["0", "1", "2", "2.field", "3", "3.inner", "3.inner.field"]
+                .map(|s| s.to_string())
+                .into()
+        );
+    }
+
+    #[test]
+    fn nested_tuple_struct_fields_contain_fields() {
+        assert_eq!(
+            NestedTupleStruct::get_fields(),
+            [
+                "0",
+                "1",
+                "1.field",
+                "2",
+                "2.0",
+                "2.1",
+                "2.2",
+                "2.2.field",
+                "2.3",
+                "2.3.inner",
+                "2.3.inner.field"
+            ]
+            .map(|s| s.to_string())
+            .into()
+        );
+    }
+
+    #[test]
+    fn flat_struct_contains_tuple_struct_fields() {
+        assert_eq!(
+            OuterWithTupleStruct::get_fields(),
+            [
+                "tuple_struct",
+                "tuple_struct.0",
+                "tuple_struct.1",
+                "tuple_struct.2",
+                "tuple_struct.2.field",
+                "tuple_struct.3",
+                "tuple_struct.3.inner",
+                "tuple_struct.3.inner.field"
+            ]
+            .map(|s| s.to_string())
+            .into()
         );
     }
 }
