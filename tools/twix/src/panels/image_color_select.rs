@@ -312,3 +312,5 @@ impl<'a> ImageColorSelectPanel {
         Ok(image)
     }
 }
+
+
