@@ -31,7 +31,11 @@ impl Overlay for FieldBorder {
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let border_lines_in_image: Vec<Line2<Pixel>> = self.border_lines.require_latest()?;
         for line in border_lines_in_image {
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::RED));
+            painter.line_segment(
+                line.0,
+                line.1,
+                Stroke::new(3.0, Color32::from_rgb(255, 0, 240)),
+            );
         }
 
         Ok(())
