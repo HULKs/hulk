@@ -44,6 +44,7 @@ pub struct Behavior {
     last_motion_command: MotionCommand,
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
+    previous_role: Role,
 }
 
 #[context]
@@ -81,6 +82,7 @@ impl Behavior {
             last_motion_command: MotionCommand::Unstiff,
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
+            previous_role: Role::Searcher,
         })
     }
 
@@ -109,6 +111,13 @@ impl Behavior {
                 PrimaryState::Ready { .. } | PrimaryState::Set | PrimaryState::Playing { .. },
             ) => {}
             (Some(_), _) => self.active_since = None,
+        }
+
+        if self.previous_role != context.world_state.robot.role
+            && context.world_state.robot.role != Role::Searcher
+            && context.world_state.robot.role != Role::Loser
+        {
+            self.previous_role = context.world_state.robot.role;
         }
 
         let mut actions = vec![
@@ -267,6 +276,7 @@ impl Behavior {
                         context.field_dimensions,
                         &context.parameters.search,
                         &mut context.path_obstacles_output,
+                        self.previous_role,
                     ),
                     Action::SearchForLostBall => lost_ball::execute(
                         world_state,
