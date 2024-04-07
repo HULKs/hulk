@@ -23,7 +23,7 @@ pub struct CycleContext {
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationMeasurementProvider {
-    last_capture_command_time: Option<SystemTime>,
+    last_completed_capture_command_time: Option<SystemTime>,
 }
 
 #[context]
@@ -35,19 +35,21 @@ pub struct MainOutputs {
 impl CalibrationMeasurementProvider {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_capture_command_time: None,
+            last_completed_capture_command_time: None,
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let calibration_measurement = match &context.calibration_command {
             CalibrationCommand::CAPTURE { dispatch_time } => {
-                let new_request =
-                    self.last_capture_command_time
-                        .map_or(true, |last_capture_command_time| {
-                            dispatch_time.start_time != last_capture_command_time
-                        });
+                let new_request = self.last_completed_capture_command_time.map_or(
+                    true,
+                    |last_capture_command_time| {
+                        dispatch_time.start_time != last_capture_command_time
+                    },
+                );
                 if new_request {
+                    self.last_completed_capture_command_time = Some(dispatch_time.start_time);
                     get_measurement_from_image(
                         context.image,
                         context.camera_matrix,
