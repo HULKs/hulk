@@ -404,7 +404,7 @@
     "max_step_size": {
       "forward": 0.055,
       "left": 0.12,
-      "turn": 1.0
+      "turn": 1.3
     },
     "max_step_size_backwards": 0.04,
     "translation_exponent": 1.5,
@@ -623,7 +623,7 @@
     },
     "injected_ground_to_field_of_home_after_coin_toss_before_second_half": null,
     "line_length_acceptance_factor": 1.5,
-    "line_measurement_noise": [1000.0, 320.0],
+    "line_measurement_noise": [400.0, 200.0],
     "maximum_amount_of_gradient_descent_iterations": 20,
     "maximum_amount_of_outer_iterations": 10,
     "maximum_association_distance": 0.4,
@@ -901,7 +901,7 @@
     },
     "search": {
       "position_reached_distance": 0.4,
-      "rotation_per_step": 0.5
+      "rotation_per_step": 1.3
     },
     "look_action": {
       "angle_threshold": 0.95,
