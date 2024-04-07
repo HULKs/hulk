@@ -391,6 +391,10 @@
     "calibration_buttons_timeout": {
       "nanos": 0,
       "secs": 1
+    },
+    "animation_button_timeout": {
+      "nanos": 0,
+      "secs": 2
     }
   },
   "center_head_position": {
