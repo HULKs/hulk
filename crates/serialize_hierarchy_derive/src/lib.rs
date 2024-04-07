@@ -427,7 +427,7 @@ fn read_fields(input: &DataStruct) -> Vec<Field> {
                 .collect();
             let identifier = field.ident.clone().map_or_else(
                 || IdentOrTupleIndex::TupleIndex(field_index),
-                |identifier| IdentOrTupleIndex::Ident(identifier),
+                IdentOrTupleIndex::Ident,
             );
             let ty = field.ty.clone();
             Field {
