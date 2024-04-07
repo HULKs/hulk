@@ -75,7 +75,10 @@ impl Robot {
         })
     }
 
-    pub fn cycle(&mut self, messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>) -> Result<()> {
+    pub fn cycle(
+        &mut self,
+        messages: BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
+    ) -> Result<()> {
         self.cycler.cycle(
             &mut self.database,
             &mut self.cycler_state,

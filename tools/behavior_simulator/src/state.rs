@@ -185,12 +185,17 @@ impl State {
         for (player_number, robot) in self.robots.iter_mut() {
             let incoming_messages: Vec<_> = incoming_messages
                 .iter()
-                .filter_map(|(sender, message)| {
+                .map(|(sender, message)| {
                     (sender != player_number).then_some(IncomingMessage::Spl(*message))
                 })
                 .collect();
-            let messages_with_time =
-                BTreeMap::from_iter([(now, incoming_messages.iter().collect())]);
+            let messages_with_time = BTreeMap::from_iter([(
+                now,
+                incoming_messages
+                    .iter()
+                    .map(|message| message.as_ref())
+                    .collect(),
+            )]);
 
             robot.database.main_outputs.cycle_time.start_time = now;
 

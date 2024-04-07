@@ -100,7 +100,7 @@ impl BehaviorCycler {
         own_database: &mut Database,
         cycler_state: &mut CyclerState,
         parameters: &Parameters,
-        incoming_messages: BTreeMap<SystemTime, Vec<&IncomingMessage>>,
+        incoming_messages: BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
     ) -> Result<()> {
         if own_database
             .main_outputs
