@@ -6,10 +6,10 @@ use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, HulkMessage, Team};
+use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, detected_feet,
-    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
+    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState, messages::IncomingMessage,
     parameters::GameStateFilterParameters,
@@ -18,7 +18,7 @@ use types::{
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
-    over_arms_pose_detected: Vec<Option<SystemTime>>,
+    over_head_arms_detection_times: Vec<Option<SystemTime>>,
 }
 
 #[context]
@@ -31,6 +31,12 @@ pub struct CycleContext {
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
+    detected_referee_over_arms_pose_time: Input<
+        Option<SystemTime>,
+        "Detection",
+        "detection_top.detected_referee_over_arms_pose_time?",
+    >,
+    player_number: Parameter<PlayerNumber, "player_number">,
 
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -48,7 +54,7 @@ impl GameControllerStateFilter {
         Ok(Self {
             state: State::Initial,
             opponent_state: State::Initial,
-            over_arms_pose_detected: vec![None; 7],
+            over_head_arms_detection_times: vec![None; 7],
         })
     }
 
@@ -75,7 +81,9 @@ impl GameControllerStateFilter {
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
-            &mut self.over_arms_pose_detected,
+            &mut self.over_head_arms_detection_times,
+            context.player_number,
+            context.detected_referee_over_arms_pose_time,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -115,7 +123,9 @@ fn filter_game_states(
     cycle_time: &CycleTime,
     state: &mut State,
     opponent_state: &mut State,
-    over_head_arms_detection_times: &mut Vec<Option<SystemTime>>,
+    over_head_arms_detection_times: &mut [Option<SystemTime>],
+    player_number: &PlayerNumber,
+    detected_referee_over_arms_pose_time: Option<&SystemTime>,
 ) -> FilteredGameStates {
     let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
         ground_to_field,
@@ -132,6 +142,8 @@ fn filter_game_states(
         ball_detected_far_from_any_goal,
         &spl_messages,
         over_head_arms_detection_times,
+        player_number,
+        detected_referee_over_arms_pose_time,
     );
     *opponent_state = next_filtered_state(
         *opponent_state,
@@ -142,6 +154,8 @@ fn filter_game_states(
         ball_detected_far_from_any_goal,
         &spl_messages,
         over_head_arms_detection_times,
+        player_number,
+        detected_referee_over_arms_pose_time,
     );
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
@@ -180,7 +194,9 @@ fn next_filtered_state(
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
     spl_messages: &Vec<&HulkMessage>,
-    over_head_arms_detection_times: &mut Vec<Option<SystemTime>>,
+    over_head_arms_detection_times: &mut [Option<SystemTime>],
+    player_number: &PlayerNumber,
+    detected_referee_over_arms_pose_time: Option<&SystemTime>,
 ) -> State {
     // dbg!(&spl_messages);
     if spl_messages
@@ -220,6 +236,10 @@ fn next_filtered_state(
             time_when_finished_clicked: cycle_start_time,
         },
         (State::Initial, GameState::Initial) => {
+            if let Some(detection_time) = detected_referee_over_arms_pose_time {
+                over_head_arms_detection_times[*player_number as usize] = Some(*detection_time);
+            }
+
             for message in spl_messages {
                 if message.over_arms_pose_detected {
                     over_head_arms_detection_times[message.player_number as usize] =

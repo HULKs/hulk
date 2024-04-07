@@ -17,6 +17,7 @@ use projection::Projection;
 use serde::{Deserialize, Serialize};
 use types::camera_matrix::CameraMatrices;
 use types::camera_matrix::CameraMatrix;
+use types::cycle_time::CycleTime;
 use types::field_dimensions::FieldDimensions;
 use types::initial_pose::InitialPose;
 use types::players::Players;
@@ -25,9 +26,7 @@ use types::ycbcr422_image::YCbCr422Image;
 use types::{pose_detection::HumanPose, pose_types::PoseType};
 
 #[derive(Deserialize, Serialize)]
-pub struct PoseInterpretation {
-    interpreted_pose_type: PoseType,
-}
+pub struct PoseInterpretation {}
 
 #[context]
 pub struct CreationContext {
@@ -39,6 +38,7 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
+    cycle_time: Input<CycleTime, "Control", "cycle_time">,
     human_poses: Input<Vec<HumanPose>, "human_poses">,
     image: Input<YCbCr422Image, "image">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
@@ -66,15 +66,13 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_referee_pose_type: MainOutput<PoseType>,
+    pub detected_referee_over_arms_pose_time: MainOutput<Option<SystemTime>>,
     pub detected_pose_types: MainOutput<Vec<(PoseType, Point2<Field>)>>,
 }
 
 impl PoseInterpretation {
     pub fn new(_context: CreationContext<impl PathsInterface>) -> Result<Self> {
-        Ok(PoseInterpretation {
-            interpreted_pose_type: PoseType::default(),
-        })
+        Ok(PoseInterpretation {})
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
@@ -94,14 +92,21 @@ impl PoseInterpretation {
             *context.expected_referee_position,
             *context.foot_z_offset,
         );
+
         let pose_type = Self::interpret_pose(
             referee_pose,
             *context.keypoint_confidence_threshold,
             *context.shoulder_angle_threshhold,
         );
 
+        if let PoseType::OverheadArms = pose_type {
+            let detected_referee_over_arms_pose_time = Some(context.cycle_time.start_time);
+        } else {
+            let detected_referee_over_arms_pose_time = None;
+        }
+
         Ok(MainOutputs {
-            detected_referee_pose_type: pose_type.into(),
+            detected_referee_over_arms_pose_time: pose_type.into(),
             detected_pose_types: interpreted_pose_types.into(),
         })
     }
