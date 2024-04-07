@@ -182,7 +182,6 @@ fn next_filtered_state(
     spl_messages: &Vec<&HulkMessage>,
     ready_to_initial_trigger: bool,
 ) -> State {
-    // dbg!(&spl_messages);
     if spl_messages
         .iter()
         .any(|message| message.over_arms_pose_detected)

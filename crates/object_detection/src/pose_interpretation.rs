@@ -92,7 +92,6 @@ impl PoseInterpretation {
         );
 
         if let PoseType::OverheadArms = pose_type {
-            dbg!("Detected OverHeadArms. Sending message!");
             if let Some(ground_to_field) = context.ground_to_field {
                 context
                     .hardware_interface

@@ -114,8 +114,6 @@ impl LookAt {
             _ => return default_output,
         };
 
-        dbg!("LookAt");
-
         let zero_head_to_robot =
             neck_to_robot(&HeadJoints::default()) * head_to_neck(&HeadJoints::default());
         let robot_to_zero_head = zero_head_to_robot.inverse();
@@ -135,9 +133,6 @@ impl LookAt {
                         camera_matrices.bottom.optical_center,
                     ),
                 };
-                dbg!("Camera position");
-                dbg!(target);
-                dbg!(pixel_target);
                 look_at_with_camera(
                     target,
                     head_to_camera * ground_to_zero_head,
