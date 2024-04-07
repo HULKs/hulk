@@ -363,7 +363,7 @@ fn is_line_segment(
     check_edge_gradient: bool,
     gradient_alignment: f32,
 ) -> bool {
-    if segment.start_edge_type != EdgeType::Rising || segment.end_edge_type != EdgeType::Falling {
+    if segment.start_edge_type == EdgeType::Falling || segment.end_edge_type == EdgeType::Rising {
         return false;
     }
     let is_too_long = check_line_segments_projection
@@ -377,7 +377,10 @@ fn is_line_segment(
     if is_too_long {
         return false;
     }
-    if !check_edge_gradient {
+    if !check_edge_gradient
+        || segment.start_edge_type != EdgeType::Rising
+        || segment.end_edge_type != EdgeType::Falling
+    {
         return true;
     }
     // gradients (approximately) point in opposite directions if their dot product is (close to) -1
