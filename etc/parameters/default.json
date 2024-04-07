@@ -623,7 +623,7 @@
     },
     "injected_ground_to_field_of_home_after_coin_toss_before_second_half": null,
     "line_length_acceptance_factor": 1.5,
-    "line_measurement_noise": [1000.0, 320.0],
+    "line_measurement_noise": [400.0, 200.0],
     "maximum_amount_of_gradient_descent_iterations": 20,
     "maximum_amount_of_outer_iterations": 10,
     "maximum_association_distance": 0.4,
