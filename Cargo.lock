@@ -2998,6 +2998,7 @@ dependencies = [
  "ball_filter",
  "bincode",
  "buffered_watch",
+ "calibration",
  "code_generation",
  "color-eyre",
  "coordinate_systems",

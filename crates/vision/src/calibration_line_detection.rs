@@ -2,10 +2,10 @@ use calibration::measurement::Measurement;
 use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
 use framework::MainOutput;
+use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use types::{
-    camera_matrix::CameraMatrix,
     camera_position::CameraPosition,
     world_state::{CalibrationPhase, CalibrationState},
     ycbcr422_image::YCbCr422Image,

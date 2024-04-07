@@ -7,9 +7,21 @@ use approx::{AbsDiffEq, RelativeEq};
 use linear_algebra::{
     center, distance, distance_squared, point, vector, Point, Point2, Rotation2, Transform, Vector2,
 };
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathIntrospect,
+    PathDeserialize,
+)]
+#[serde(bound = "")]
 pub struct Line<Frame, const DIMENSION: usize>(
     pub Point<Frame, DIMENSION>,
     pub Point<Frame, DIMENSION>,
