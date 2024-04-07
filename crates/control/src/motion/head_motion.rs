@@ -133,11 +133,11 @@ impl HeadMotion {
                 positions: context.sensor_data.positions.head,
                 stiffnesses: HeadJoints::fill(0.0),
             },
-            Some(HeadMotionCommand::Animation) => HeadMotorCommands {
+            Some(HeadMotionCommand::Animation) => MotorCommands {
                 positions: context.sensor_data.positions.head,
                 stiffnesses: HeadJoints::fill(0.0),
             },
-            Some(HeadMotionCommand::AnimationStiff) => HeadMotorCommands {
+            Some(HeadMotionCommand::AnimationStiff) => MotorCommands {
                 positions: context.sensor_data.positions.head,
                 stiffnesses: HeadJoints::fill(1.0),
             },

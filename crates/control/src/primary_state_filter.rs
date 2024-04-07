@@ -64,7 +64,7 @@ impl PrimaryStateFilter {
             context.buttons.is_chest_button_pressed_once,
             context.buttons.calibration_buttons_touched,
             context.filtered_game_controller_state,               //these four lines translate to four positions down there (_,_,_,_)
-            context.buttons.is_chest_button_pressed_twice,
+            context.buttons.animation_button_touched,
         ) {
             // Animation transitions 
             
@@ -91,7 +91,7 @@ impl PrimaryStateFilter {
                     is_penalized,
                 )
             }
-            (_, _, _, _, Some(filtered_game_controller_state))
+            (_, _, _, _, Some(filtered_game_controller_state),_)
                 if {
                     let finished_to_initial = self.last_primary_state == PrimaryState::Finished
                         && filtered_game_controller_state.game_state == FilteredGameState::Initial;
