@@ -1,12 +1,13 @@
+use std::time::Duration;
+
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Field;
 use coordinate_systems::Ground;
 use coordinate_systems::Pixel;
-use framework::AdditionalOutput;
 use framework::MainOutput;
+use hardware::NetworkInterface;
 use hardware::PathsInterface;
-use hardware::TimeInterface;
 use linear_algebra::center;
 use linear_algebra::distance;
 use linear_algebra::Isometry2;
@@ -15,14 +16,13 @@ use linear_algebra::Transform;
 use ordered_float::NotNan;
 use projection::Projection;
 use serde::{Deserialize, Serialize};
+use spl_network_messages::HulkMessage;
+use spl_network_messages::PlayerNumber;
 use types::camera_matrix::CameraMatrices;
 use types::camera_matrix::CameraMatrix;
-use types::cycle_time::CycleTime;
-use types::field_dimensions::FieldDimensions;
-use types::initial_pose::InitialPose;
-use types::players::Players;
+use types::fall_state::FallState;
+use types::messages::OutgoingMessage;
 use types::pose_detection::Keypoints;
-use types::ycbcr422_image::YCbCr422Image;
 use types::{pose_detection::HumanPose, pose_types::PoseType};
 
 #[derive(Deserialize, Serialize)]
@@ -36,23 +36,16 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
+    time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    cycle_time: Input<CycleTime, "Control", "cycle_time">,
     human_poses: Input<Vec<HumanPose>, "human_poses">,
     image: Input<YCbCr422Image, "image">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
-    ground_to_field_of_home_after_coin_toss_before_second_half: Input<
-        Option<Isometry2<Ground, Field>>,
-        "Control",
-        "ground_to_field_of_home_after_coin_toss_before_second_half?",
-    >,
-
     expected_referee_position: Input<Point2<Ground>, "Control", "expected_referee_position">,
-    shoulder_angle_left: AdditionalOutput<f32, "shoulder_angle_left">,
-    shoulder_angle_right: AdditionalOutput<f32, "shoulder_angle_right">,
-    distance_to_referee: AdditionalOutput<f32, "distance_to_referee">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    fall_state: Input<FallState, "fall_state">,
+
+    player_number: Parameter<PlayerNumber, "player_number">,
     keypoint_confidence_threshold:
         Parameter<f32, "detection.$cycler_instance.keypoint_confidence_threshold">,
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
@@ -75,7 +68,7 @@ impl PoseInterpretation {
         Ok(PoseInterpretation {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
         let interpreted_pose_types: Vec<(PoseType, Point2<Field>)> = Self::get_all_pose_types(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
@@ -100,10 +93,19 @@ impl PoseInterpretation {
         );
 
         if let PoseType::OverheadArms = pose_type {
-            let detected_referee_over_arms_pose_time = Some(context.cycle_time.start_time);
-        } else {
-            let detected_referee_over_arms_pose_time = None;
-        }
+            if let Some(ground_to_field) = context.ground_to_field {
+                context
+                    .hardware_interface
+                    .write_to_network(OutgoingMessage::Spl(HulkMessage {
+                        player_number: *context.player_number,
+                        fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                        pose: ground_to_field.as_pose(),
+                        over_arms_pose_detected: true,
+                        ball_position: None,
+                        time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
+                    }))?;
+            }
+        };
 
         Ok(MainOutputs {
             detected_referee_over_arms_pose_time: pose_type.into(),
