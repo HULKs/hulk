@@ -85,6 +85,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
                     "control::referee_position_provider",
+                    "control::referee_pose_detection_filter",
                     "control::sole_pressure_filter",
                     "control::sonar_filter",
                     "control::support_foot_estimation",

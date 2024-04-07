@@ -1,6 +1,4 @@
-use std::default;
-
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;

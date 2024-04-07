@@ -6,7 +6,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, GameState, HulkMessage, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -29,15 +29,9 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
+    ready_to_initial_trigger: Input<bool, "ready_to_initial_trigger">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
-    detected_referee_over_arms_pose_time: Input<
-        Option<SystemTime>,
-        "Detection",
-        "detection_top.detected_referee_over_arms_pose_time?",
-    >,
-    player_number: Parameter<PlayerNumber, "player_number">,
-
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -81,9 +75,7 @@ impl GameControllerStateFilter {
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
-            &mut self.over_head_arms_detection_times,
-            context.player_number,
-            context.detected_referee_over_arms_pose_time,
+            *context.ready_to_initial_trigger,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -123,9 +115,7 @@ fn filter_game_states(
     cycle_time: &CycleTime,
     state: &mut State,
     opponent_state: &mut State,
-    over_head_arms_detection_times: &mut [Option<SystemTime>],
-    player_number: &PlayerNumber,
-    detected_referee_over_arms_pose_time: Option<&SystemTime>,
+    ready_to_initial_trigger: bool,
 ) -> FilteredGameStates {
     let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
         ground_to_field,
@@ -141,9 +131,7 @@ fn filter_game_states(
         config,
         ball_detected_far_from_any_goal,
         &spl_messages,
-        over_head_arms_detection_times,
-        player_number,
-        detected_referee_over_arms_pose_time,
+        ready_to_initial_trigger,
     );
     *opponent_state = next_filtered_state(
         *opponent_state,
@@ -153,9 +141,7 @@ fn filter_game_states(
         config,
         ball_detected_far_from_any_goal,
         &spl_messages,
-        over_head_arms_detection_times,
-        player_number,
-        detected_referee_over_arms_pose_time,
+        ready_to_initial_trigger,
     );
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
@@ -194,9 +180,7 @@ fn next_filtered_state(
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
     spl_messages: &Vec<&HulkMessage>,
-    over_head_arms_detection_times: &mut [Option<SystemTime>],
-    player_number: &PlayerNumber,
-    detected_referee_over_arms_pose_time: Option<&SystemTime>,
+    ready_to_initial_trigger: bool,
 ) -> State {
     // dbg!(&spl_messages);
     if spl_messages
@@ -236,38 +220,12 @@ fn next_filtered_state(
             time_when_finished_clicked: cycle_start_time,
         },
         (State::Initial, GameState::Initial) => {
-            if let Some(detection_time) = detected_referee_over_arms_pose_time {
-                over_head_arms_detection_times[*player_number as usize] = Some(*detection_time);
-            }
-
-            for message in spl_messages {
-                if message.over_arms_pose_detected {
-                    over_head_arms_detection_times[message.player_number as usize] =
-                        Some(cycle_start_time);
-                }
-            }
-
-            let detected_over_head_arms_poses = 1;
-            over_head_arms_detection_times
-                .iter()
-                .filter(|detection_time| match detection_time {
-                    Some(detection_time) => in_grace_period(
-                        cycle_start_time,
-                        *detection_time,
-                        config.initial_message_grace_period,
-                    ),
-                    None => false,
-                })
-                .count();
-
-            dbg!(detected_over_head_arms_poses);
-            if detected_over_head_arms_poses >= config.minimum_over_head_arms_detections {
+            if ready_to_initial_trigger {
                 State::OverArmInReady
             } else {
                 State::Initial
             }
         }
-        // TODO: Ready -> Unstiff -> sollte wieder GameController vertrauen
         (State::Ready, GameState::Initial) => State::Ready,
 
         (State::Initial | State::Ready, _)

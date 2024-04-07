@@ -43,7 +43,7 @@ pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position: Input<Point2<Ground>, "Control", "expected_referee_position">,
-    fall_state: Input<FallState, "fall_state">,
+    fall_state: Input<FallState, "Control", "fall_state">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
     keypoint_confidence_threshold:
@@ -92,6 +92,7 @@ impl PoseInterpretation {
         );
 
         if let PoseType::OverheadArms = pose_type {
+            dbg!("Detected OverHeadArms. Sending message!");
             if let Some(ground_to_field) = context.ground_to_field {
                 context
                     .hardware_interface
