@@ -6,6 +6,7 @@ use types::{
     motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::SearchParameters,
     path_obstacles::PathObstacle,
+    roles::Role,
     support_foot::Side,
     world_state::WorldState,
 };
@@ -70,11 +71,12 @@ pub fn execute(
     field_dimensions: &FieldDimensions,
     parameters: &SearchParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    previous_role: Role,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let search_role = assign_search_role(world_state);
-    let search_position = match (world_state.suggested_search_position, search_role) {
-        (Some(_), Some(SearchRole::Aggressive) | Some(SearchRole::Support { side: _ })) => {
+    let search_position = match (world_state.suggested_search_position, previous_role) {
+        (Some(_), Role::Striker | Role::StrikerSupporter) => {
             ground_to_field.inverse() * world_state.suggested_search_position.unwrap()
         }
         _ => search_role
