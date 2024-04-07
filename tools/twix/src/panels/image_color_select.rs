@@ -1,22 +1,27 @@
 use std::{str::FromStr, sync::Arc};
 
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{eyre::eyre, owo_colors::OwoColorize, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
-    egui::{Image, Response, TextureOptions, Ui, Widget},
+    egui::{load::SizedTexture, Color32, ColorImage, Image, ImageFit, Response, Sense, TextureOptions, Ui, Widget},
     epaint::Vec2,
 };
 
 use log::error;
 
-use nalgebra::Similarity2;
 use linear_algebra::vector;
+use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
-use types::image_segments::ImageSegments;
+use types::{color::{Rgb, YCbCr422, YCbCr444}, image_segments::ImageSegments, ycbcr422_image::{self, YCbCr422Image}};
 
-use crate::{image_buffer::ImageBuffer, nao::Nao, panel::Panel, twix_painter::{TwixPainter, CoordinateSystem}};
+use crate::{
+    image_buffer::ImageBuffer,
+    nao::Nao,
+    panel::Panel,
+    twix_painter::{CoordinateSystem, TwixPainter}, value_buffer::ValueBuffer,
+};
 
 use super::image::cycler_selector::VisionCyclerSelector;
 
@@ -36,9 +41,8 @@ impl ImageKind {
 
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
-    image_buffer: ImageBuffer,
+    image_buffer: ValueBuffer,
     cycler_selector: VisionCyclerSelector,
-    image_kind: ImageKind,
 }
 
 impl Panel for ImageColorSelectPanel {
@@ -61,33 +65,24 @@ impl Panel for ImageColorSelectPanel {
                 }
             })
             .unwrap_or(Cycler::VisionTop);
-        let image_kind = value
-            .and_then(|value| value.get("image_kind"))
-            .and_then(|value| from_value(value.clone()).ok())
-            .unwrap_or(ImageKind::YCbCr422);
         let output = CyclerOutput {
             cycler,
-            output: image_kind.as_output(),
+            output: Output::Main{path:"image".to_string()},
         };
-        let image_buffer = nao.subscribe_image(output);
+        let image_buffer = nao.subscribe_output(output);
         let cycler_selector = VisionCyclerSelector::new(cycler);
 
         Self {
             nao,
             image_buffer,
             cycler_selector,
-
-            image_kind,
         }
     }
 
     fn save(&self) -> Value {
         let cycler = self.cycler_selector.selected_cycler();
-        let image_kind = format!("{:?}", self.image_kind);
-
         json!({
             "cycler": cycler.to_string(),
-            "image_kind": image_kind,
         })
     }
 }
@@ -98,63 +93,59 @@ impl Widget for &mut ImageColorSelectPanel {
             if self.cycler_selector.ui(ui).changed() {
                 let output = CyclerOutput {
                     cycler: self.cycler_selector.selected_cycler(),
-                    output: self.image_kind.as_output(),
+                    output: Output::Main{path:"image".to_string()},
                 };
-                self.image_buffer = self.nao.subscribe_image(output);
-
+                self.image_buffer = self.nao.subscribe_output(output);
             }
-            let (mut response, painter) = TwixPainter::<Pixel>::allocate_new(ui);
-        let painter = painter.with_camera(
-            vector![640.0, 480.0],
-            Similarity2::identity(),
-            CoordinateSystem::LeftHand,
-        );
-        if let Some(hover_pos) = response.hover_pos() {
-            let image_coords = painter.transform_pixel_to_world(hover_pos);
-            let x = image_coords.x().round() as u16;
-            let y = image_coords.y().round() as u16;
-            
-            if let Some(hover_pos) = response.hover_pos() {
-                let image_coords = painter.transform_pixel_to_world(hover_pos);
-                let x = image_coords.x().round() as u16;
-                let y = image_coords.y().round() as u16;
-            
-                // Get the pixel color at the hover position
-                if let Some(pixel) = self.image_buffer.get_pixel(x, y) {
-                    let rgb = pixel.to_rgb();
-            
-                    // Display the RGB color in the label
-                    ui.label(format!("x: {}, y: {}, RGB: ({}, {}, {})", x, y, rgb.r, rgb.g, rgb.b));
-                }
-            };
-        };
-        
-        //-----------------------------------------
-
         });
-
-        match self.show_image(ui) {
-            Ok(response) => response,
-            Err(error) => ui.label(format!("{error:#?}")),
+        let image = match self.get_image() {
+            Ok(image) => Some(image),
+            Err(error) => {
+                ui.label(format!("{error:#?}"));
+                None
+            }
+        };
+        let response = if let Some(image) = image { 
+            let handle = ui.ctx().load_texture("image", image, TextureOptions::default()).id();
+            let texture = SizedTexture{
+                id: handle,
+                size: Vec2::new(640.0, 480.0),
+            };
+            let response = ui.image(texture);
+            if let Some(hoverpos) = response.hover_pos(){
+                let min = response.rect.min;
+                let max = response.rect.max;
+                let pixel_pos = (hoverpos-min)/(max-min)*Vec2::new(640.0, 480.0).round();
+                //image.pixels
+                //ui.label(format!("x: {}, y: {}"))
+            }
+            
+            response  
         }
-    }
+        else{
+            ui.label("Error: Could not display image")
+        };
+        response
+        }
+
 }
 
 impl ImageColorSelectPanel {
-    fn show_image(&self, ui: &mut Ui) -> Result<Response> {
-        let image_data = self
+    fn get_image(&self) -> Result<ColorImage>{
+        let image_data:YCbCr422Image = self
             .image_buffer
-            .get_latest()
+            .parse_latest()
             .map_err(|error| eyre!("{error}"))?;
-        let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
-        let image_identifier = format!("bytes://image-{:?}", self.cycler_selector);
-        ui.ctx().forget_image(&image_identifier);
-        let image = Image::from_bytes(image_identifier, image_raw)
-            .texture_options(TextureOptions::NEAREST)
-            .fit_to_fraction(Vec2::splat(1.0));
-
-        let image_response = ui.add(image);
-
-        Ok(image_response)
+        let buffer = image_data.buffer().iter().flat_map(|&ycbcr422|{
+            let ycbcr444:[YCbCr444;2] = ycbcr422.into();
+            ycbcr444
+        }).flat_map(|ycbcr444|{
+            let rgb = Rgb::from(ycbcr444);
+            [rgb.r, rgb.g, rgb.b, 255]
+        }).collect::<Vec<_>>();
+        let image = ColorImage::from_rgba_unmultiplied([640,480], &buffer);
+        Ok(image)
     }
 }
+
+

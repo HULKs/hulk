@@ -3,8 +3,9 @@ use std::{
     marker::PhantomData,
 };
 
+use color_eyre::owo_colors::{Color, OwoColorize};
 use eframe::{
-    egui::{Painter, Response, Sense, Ui},
+    egui::{Painter, Response, Sense, TextureHandle, Ui},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
@@ -174,6 +175,10 @@ impl<Frame> TwixPainter<Frame> {
             self.n_gon(5, position, radius / 3.0, Color32::BLACK);
         });
         self.n_gon(5, position, radius / 3.0, Color32::BLACK);
+    }
+
+    pub fn image(&mut self, image:TextureHandle, rect:Rect){
+        self.painter.image(image.id(), rect, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
     }
 
     pub fn n_gon(&self, corners: usize, position: Point2<Frame>, radius: f32, fill_color: Color32) {
