@@ -30,7 +30,7 @@ function on_cycle()
   end
 
   if state.cycle_count == 1000 then
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Playing = {
         ball_is_free = true,
         kick_off = false
@@ -39,14 +39,19 @@ function on_cycle()
   end
 
   if state.cycle_count == 3000 then
-    state.game_controller_state.sub_state = "PushingFreeKick"
-    state.game_controller_state.kicking_team = "Opponent"
-    state.filtered_game_state.Playing.ball_is_free = false
+    state.filtered_game_controller_state.sub_state = "PushingFreeKick"
+    state.filtered_game_controller_state.kicking_team = "Opponent"
+    state.filtered_game_controller_state.game_state = {
+      Playing = {
+        ball_is_free = false,
+        kick_off = false
+      }
+    }
   end
 
   if state.cycle_count == 5000 then
-    state.filtered_game_state.Playing.ball_is_free = true
-    set_robot_pose(1, {3.0, 2.5}, 0.0)
+    state.filtered_game_controller_state.game_state.Playing.ball_is_free = true
+    set_robot_pose(1, { 3.0, 2.5 }, 0.0)
   end
 
   if state.cycle_count == 7000 then

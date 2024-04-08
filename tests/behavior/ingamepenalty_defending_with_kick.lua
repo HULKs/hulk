@@ -33,28 +33,25 @@ function on_cycle()
   end
 
   if state.cycle_count == 100 then
-    state.game_controller_state.game_state = "Ready"
-    state.game_controller_state.kicking_team = "Opponent"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Ready = {
-        kicking_team = "Opponent"
+        kicking_team = "Opponent",
       }
     }
   end
 
   if state.cycle_count == 1600 then
-    state.game_controller_state.game_state = "Set"
-    state.filtered_game_state = "Set"
+    state.filtered_game_controller_state.game_state = "Set"
   end
 
   if state.cycle_count == 1700 then
-    state.ball.velocity = { -1.0, 3.0 }
-    state.game_controller_state.game_state = "Playing"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Playing = {
-        ball_is_free = true
+        ball_is_free = true,
+        kick_off = false
       }
     }
+    state.ball.velocity = { -1.0, 3.0 }
   end
 
   if state.cycle_count == 1900 then
@@ -69,11 +66,11 @@ function on_cycle()
     state.ball.velocity = { -2.0, -0.5 }
   end
 
+
   if state.cycle_count == 2650 then
-    state.game_controller_state.sub_state = "PenaltyKick"
-    state.game_controller_state.kicking_team = "Opponent"
-    state.game_controller_state.game_state = "Ready"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.sub_state = "PenaltyKick"
+    state.filtered_game_controller_state.kicking_team = "Opponent"
+    state.filtered_game_controller_state.game_state = {
       Ready = {
         kicking_team = "Opponent"
       }
@@ -85,36 +82,37 @@ function on_cycle()
     --Missing behavior starts here
   end
 
-  if state.cycle_count == 3700 then
-    state.game_controller_state.game_state = "Set"
-    state.filtered_game_state = "Set"
-  end
 
   if state.cycle_count == 4000 then
-    state.game_controller_state.game_state = "Playing"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = "Set"
+  end
+
+  if state.cycle_count == 4300 then
+    state.filtered_game_controller_state.game_state = {
       Playing = {
-        ball_is_free = false
+        ball_is_free = false,
+        kick_off = false
       }
     }
   end
 
-  if state.cycle_count == 4200 then
-    state.game_controller_state.sub_state = null
-    state.filtered_game_state = {
+  if state.cycle_count == 4500 then
+    state.filtered_game_controller_state.game_state = {
       Playing = {
-        ball_is_free = false
+        ball_is_free = false,
+        kick_off = false
       }
     }
     state.ball.velocity = { -2.5, -0.55 }
     --"Missing behavior ends here"
   end
 
-  if state.cycle_count == 4400 then
-    state.game_controller_state.sub_state = null
-    state.filtered_game_state = {
+  if state.cycle_count == 4700 then
+    state.filtered_game_controller_state.sub_state = null
+    state.filtered_game_controller_state.game_state = {
       Playing = {
-        ball_is_free = true
+        ball_is_free = true,
+        kick_off = false
       }
     }
   end

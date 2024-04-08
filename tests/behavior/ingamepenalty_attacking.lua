@@ -21,13 +21,11 @@ function on_goal()
   print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
   state.ball = nil
   game_end_time = state.cycle_count + 200
-  state.game_controller_state.game_state = "Ready"
-    state.game_controller_state.kicking_team = "Opponent"
-    state.filtered_game_state = {
-      Ready = {
-        kicking_team = "Opponent"
-      }
+  state.filtered_game_controller_state.game_state = {
+    Ready = {
+      kicking_team = "Opponent"
     }
+  }
 end
 
 function on_cycle()
@@ -40,34 +38,30 @@ function on_cycle()
   end
 
   if state.cycle_count == 100 then
-    state.game_controller_state.game_state = "Ready"
-    state.game_controller_state.kicking_team = "Hulks"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Ready = {
-        kicking_team = "Hulks"
+        kicking_team = "Hulks",
       }
     }
   end
 
   if state.cycle_count == 1600 then
-    state.game_controller_state.game_state = "Set"
-    state.filtered_game_state = "Set"
+    state.filtered_game_controller_state.game_state = "Set"
   end
 
   if state.cycle_count == 1700 then
-    state.game_controller_state.game_state = "Playing"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Playing = {
-        ball_is_free = true
+        ball_is_free = true,
+        kick_off = true
       }
     }
   end
-  
+
   if state.cycle_count == 2650 then
-    state.game_controller_state.sub_state = "PenaltyKick"
-    state.game_controller_state.kicking_team = "Hulks"
-    state.game_controller_state.game_state = "Ready"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.sub_state = "PenaltyKick"
+    state.filtered_game_controller_state.kicking_team = "Hulks"
+    state.filtered_game_controller_state.game_state = {
       Ready = {
         kicking_team = "Hulks"
       }
@@ -80,21 +74,20 @@ function on_cycle()
   end
 
   if state.cycle_count == 3700 then
-    state.game_controller_state.game_state= "Set"
-    state.filtered_game_state = "Set"
+    state.filtered_game_controller_state.game_state = "Set"
   end
 
   if state.cycle_count == 4000 then
-    state.game_controller_state.game_state = "Playing"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Playing = {
-        ball_is_free = true
+        ball_is_free = true,
+        kick_off = false
       }
     }
   end
-  
+
   if state.cycle_count == 4400 then
-    state.game_controller_state.sub_state = null
+    state.filtered_game_controller_state.sub_state = null
     --"Missing behavior ends here"
   end
 

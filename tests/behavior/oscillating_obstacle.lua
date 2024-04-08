@@ -4,9 +4,10 @@ end
 
 spawn_robot(7)
 
-state.filtered_game_state = {
+state.filtered_game_controller_state.game_state = {
   Playing = {
     ball_is_free = true,
+    kick_off = false
   },
 }
 
