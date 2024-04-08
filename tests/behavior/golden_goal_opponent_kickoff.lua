@@ -33,34 +33,31 @@ function on_cycle()
     end
 
     if state.cycle_count == 100 then
-        state.game_controller_state.game_state = "Ready"
-        state.filtered_game_state = {
+        state.filtered_game_controller_state.game_state = {
             Ready = {
-                kicking_team = "Opponent"
+                kicking_team = "Opponent",
             }
         }
     end
 
     if state.cycle_count == 1600 then
-        state.filtered_game_state.game_state = "Set"
-        state.filtered_game_state = "Set"
+        state.filtered_game_controller_state.game_state = "Set"
     end
 
     if state.cycle_count == 1700 then
-        state.game_controller_state.game_state = "Playing"
-        state.game_controller_state.kicking_team = "Opponent"
-        state.filtered_game_state = {
+        state.filtered_game_controller_state.game_state = {
             Playing = {
-                ball_is_free = false
+                ball_is_free = false,
+                kick_off = true
             }
         }
     end
 
     if state.cycle_count == 2300 then
-        state.game_controller_state.game_state = "Playing"
-        state.filtered_game_state = {
+        state.filtered_game_controller_state.game_state = {
             Playing = {
-                ball_is_free = true
+                ball_is_free = true,
+                kick_off = false
             }
         }
     end

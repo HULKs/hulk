@@ -6,8 +6,7 @@ spawn_robot(7)
 
 function on_cycle()
   if state.cycle_count == 100 then
-    state.game_controller_state.game_state = "Ready"
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Ready = {
         kicking_team = "Hulks",
       },
@@ -15,8 +14,7 @@ function on_cycle()
   end
 
   if state.cycle_count == 1600 then
-    state.filtered_game_state.game_state = "Set"
-    state.filtered_game_state = "Set"
+    state.filtered_game_controller_state.game_state = "Set"
     state.ball = {
       position = { 2.0, 0.0 },
       velocity = { 0.0, 0.0 },
@@ -24,9 +22,10 @@ function on_cycle()
   end
 
   if state.cycle_count == 1700 then
-    state.filtered_game_state = {
+    state.filtered_game_controller_state.game_state = {
       Playing = {
         ball_is_free = true,
+        kick_off = true
       },
     }
   end

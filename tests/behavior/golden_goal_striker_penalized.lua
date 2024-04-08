@@ -34,7 +34,7 @@ function on_cycle()
 
     if state.cycle_count == 100 then
         penalize(7);
-        state.game_controller_state.penalties.seven = {
+        state.filtered_game_controller_state.penalties.seven = {
             Manual = {
                 remaining = {
                     nanos = 0,
@@ -44,24 +44,24 @@ function on_cycle()
         };
         set_robot_pose(7, { -3.2, 3 }, -1.5707963267948966);
 
-	
-        state.game_controller_state.game_state = "Ready"
-        state.filtered_game_state = {
+
+        state.filtered_game_controller_state.game_state = {
             Ready = {
-                kicking_team = "Hulks"
+                kicking_team = "Hulks",
             }
         }
     end
-   
+
     if state.cycle_count == 1600 then
-        state.filtered_game_state.game_state = "Set"
-        state.filtered_game_state = "Set"
+        state.filtered_game_controller_state.game_state = "Set"
     end
 
+
     if state.cycle_count == 1700 then
-        state.filtered_game_state = {
+        state.filtered_game_controller_state.game_state = {
             Playing = {
-                ball_is_free = true
+                ball_is_free = true,
+                kick_off = true
             }
         }
     end
