@@ -12,16 +12,13 @@ use coordinate_systems::{Field, Head};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use serialize_hierarchy::SerializeHierarchy;
-use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, HulkMessage, PlayerNumber, Team};
 use types::{
     ball_position::BallPosition,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
-    motion_command::KickVariant,
-    motion_command::MotionCommand,
-    motion_command::{HeadMotion, OrientationMode},
+    motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     planned_path::PathSegment,
     players::Players,
     primary_state::PrimaryState,
@@ -52,8 +49,7 @@ pub struct State {
     pub ball: Option<Ball>,
     pub messages: Vec<(PlayerNumber, HulkMessage)>,
     pub finished: bool,
-    pub game_controller_state: GameControllerState,
-    pub filtered_game_state: FilteredGameState,
+    pub filtered_game_controller_state: FilteredGameControllerState,
 }
 
 impl State {
@@ -229,28 +225,26 @@ impl State {
                 } else {
                     None
                 };
-            robot.database.main_outputs.primary_state =
-                match (robot.is_penalized, self.filtered_game_state) {
-                    (true, _) => PrimaryState::Penalized,
-                    (false, FilteredGameState::Initial) => PrimaryState::Initial,
-                    (false, FilteredGameState::Ready { .. }) => PrimaryState::Ready,
-                    (false, FilteredGameState::Set) => PrimaryState::Set,
-                    (false, FilteredGameState::Playing { .. }) => PrimaryState::Playing,
-                    (false, FilteredGameState::Finished) => PrimaryState::Finished,
-                };
+            robot.database.main_outputs.primary_state = match (
+                robot.is_penalized,
+                self.filtered_game_controller_state.game_state,
+            ) {
+                (true, _) => PrimaryState::Penalized,
+                (false, FilteredGameState::Initial) => PrimaryState::Initial,
+                (false, FilteredGameState::Ready { .. }) => PrimaryState::Ready,
+                (false, FilteredGameState::Set) => PrimaryState::Set,
+                (false, FilteredGameState::Playing { .. }) => PrimaryState::Playing,
+                (false, FilteredGameState::Finished) => PrimaryState::Finished,
+            };
             robot.database.main_outputs.filtered_game_controller_state =
-                Some(FilteredGameControllerState {
-                    game_state: self.filtered_game_state,
-                    ..Default::default()
-                });
-            robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
-
+                Some(self.filtered_game_controller_state);
             robot.cycle(messages_with_time)?;
 
             for message in robot.interface.take_outgoing_messages() {
                 if let OutgoingMessage::Spl(message) = message {
                     self.messages.push((*player_number, message));
-                    self.game_controller_state.remaining_amount_of_messages -= 1
+                    self.filtered_game_controller_state
+                        .remaining_number_of_messages -= 1
                 }
             }
         }
@@ -283,8 +277,7 @@ impl State {
 
             finished: self.finished,
 
-            game_controller_state: self.game_controller_state,
-            filtered_game_state: self.filtered_game_state,
+            filtered_game_controller_state: self.filtered_game_controller_state,
         }
     }
 
@@ -301,8 +294,7 @@ impl State {
 
         self.finished = lua_state.finished;
 
-        self.game_controller_state = lua_state.game_controller_state;
-        self.filtered_game_state = lua_state.filtered_game_state;
+        self.filtered_game_controller_state = lua_state.filtered_game_controller_state;
 
         Ok(())
     }
@@ -311,12 +303,11 @@ impl State {
 impl Default for State {
     fn default() -> Self {
         let robots = HashMap::new();
-
-        let game_controller_state = GameControllerState {
-            game_state: GameState::Initial,
+        let filtered_game_controller_state = FilteredGameControllerState {
+            game_state: FilteredGameState::Initial,
+            opponent_game_state: FilteredGameState::Initial,
             game_phase: GamePhase::Normal,
             kicking_team: Team::Hulks,
-            last_game_state_change: UNIX_EPOCH,
             penalties: Players {
                 one: None,
                 two: None,
@@ -326,9 +317,9 @@ impl Default for State {
                 six: None,
                 seven: None,
             },
-            remaining_amount_of_messages: 1200,
+            remaining_number_of_messages: 1200,
             sub_state: None,
-            hulks_team_is_home_after_coin_toss: false,
+            own_team_is_home_after_coin_toss: false,
         };
 
         Self {
@@ -338,8 +329,7 @@ impl Default for State {
             ball: None,
             messages: Vec::new(),
             finished: false,
-            game_controller_state,
-            filtered_game_state: FilteredGameState::Initial,
+            filtered_game_controller_state,
         }
     }
 }
@@ -352,8 +342,7 @@ pub struct LuaState {
     pub ball: Option<Ball>,
     pub messages: Vec<(PlayerNumber, HulkMessage)>,
     pub finished: bool,
-    pub game_controller_state: GameControllerState,
-    pub filtered_game_state: FilteredGameState,
+    pub filtered_game_controller_state: FilteredGameControllerState,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
