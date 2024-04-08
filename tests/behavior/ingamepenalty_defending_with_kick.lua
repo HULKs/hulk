@@ -97,13 +97,7 @@ function on_cycle()
   end
 
   if state.cycle_count == 4500 then
-    state.filtered_game_controller_state.game_state = {
-      Playing = {
-        ball_is_free = false,
-        kick_off = false
-      }
-    }
-    state.ball.velocity = { -2.5, -0.55 }
+    state.ball.velocity = { -2.0, -0.55 }
     --"Missing behavior ends here"
   end
 
