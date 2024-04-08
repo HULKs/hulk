@@ -104,7 +104,7 @@ impl BehaviorCycler {
     ) -> Result<()> {
         if own_database
             .main_outputs
-            .game_controller_state
+            .filtered_game_controller_state
             .as_ref()
             .is_some()
         {
