@@ -182,12 +182,6 @@ fn next_filtered_state(
     spl_messages: &Vec<&HulkMessage>,
     ready_to_initial_trigger: bool,
 ) -> State {
-    if spl_messages
-        .iter()
-        .any(|message| message.over_arms_pose_detected)
-    {
-        // println!("Over arm in spl message!");
-    }
     match (current_state, game_controller_state.game_state) {
         (State::Finished, GameState::Initial) => State::Initial,
         (State::Finished, _) => match game_controller_state.game_phase {
