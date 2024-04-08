@@ -3,7 +3,7 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::GamePhase;
+use spl_network_messages::{GamePhase, SubState};
 use types::{
     ball_position::BallPosition, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -47,12 +47,18 @@ impl PenaltyShotDirectionEstimation {
         match (
             context.primary_state,
             context.filtered_game_controller_state.game_phase,
+            context.filtered_game_controller_state.sub_state,
         ) {
-            (PrimaryState::Set, GamePhase::PenaltyShootout { .. }) => {
+            (PrimaryState::Set, GamePhase::PenaltyShootout { .. }, _)
+            | (PrimaryState::Set, _, Some(SubState::PenaltyKick)) => {
                 self.last_shot_direction = PenaltyShotDirection::NotMoving;
                 Ok(MainOutputs::default())
             }
-            (PrimaryState::Playing, GamePhase::PenaltyShootout { .. }) => {
+            (
+                PrimaryState::Playing,
+                GamePhase::PenaltyShootout { .. },
+                Some(SubState::PenaltyKick),
+            ) => {
                 if let PenaltyShotDirection::NotMoving = self.last_shot_direction {
                     if (context.ball_position.position.x()
                         - context.field_dimensions.penalty_marker_distance)
