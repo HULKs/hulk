@@ -40,3 +40,20 @@ impl WriteToFile for TokenStream {
         Ok(())
     }
 }
+
+impl WriteToFile for String {
+    fn write_to_file(&self, file_name: impl AsRef<Path>) -> Result<(), Error> {
+        let out_dir = var("OUT_DIR")?;
+        let file_path = PathBuf::from(out_dir).join(file_name);
+        {
+            let mut file = File::create(&file_path)?;
+            write!(file, "{self}")?;
+        }
+
+        let status = Command::new("rustfmt").arg(file_path).status()?;
+        if !status.success() {
+            return Err(Error::RustFmt);
+        }
+        Ok(())
+    }
+}
