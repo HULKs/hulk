@@ -120,7 +120,7 @@ impl BehaviorCycler {
                         &parameters.rule_obstacles.center_circle_obstacle_increase,
                         &parameters.field_dimensions,
                         &parameters.rule_obstacles.free_kick_obstacle_radius,
-                        &parameters.rule_obstacles.penaltykick_box_increase,
+                        &parameters.rule_obstacles.penaltykick_box_extension,
                     ))
                     .wrap_err("failed to execute cycle of node `RuleObstacleComposer`")?
             };

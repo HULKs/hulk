@@ -27,7 +27,7 @@ pub struct CycleContext {
         Parameter<f32, "rule_obstacles.center_circle_obstacle_increase">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     free_kick_obstacle_radius: Parameter<f32, "rule_obstacles.free_kick_obstacle_radius">,
-    penaltykick_box_increase: Parameter<f32, "rule_obstacles.penaltykick_box_increase">,
+    penaltykick_box_extension: Parameter<f32, "rule_obstacles.penaltykick_box_extension">,
 }
 
 #[context]
@@ -103,7 +103,7 @@ impl RuleObstacleComposer {
                 let penalty_box_obstacle = create_penalty_box(
                     context.field_dimensions,
                     context.filtered_game_controller_state.kicking_team,
-                    *context.penaltykick_box_increase,
+                    *context.penaltykick_box_extension,
                 );
                 rule_obstacles.push(penalty_box_obstacle);
             }
@@ -119,7 +119,7 @@ impl RuleObstacleComposer {
 pub fn create_penalty_box(
     field_dimensions: &FieldDimensions,
     kicking_team: Team,
-    penaltykick_box_increase: f32,
+    penaltykick_box_extension: f32,
 ) -> RuleObstacle {
     let side_factor: f32 = match kicking_team {
         Team::Hulks => 1.0,
@@ -130,11 +130,11 @@ pub fn create_penalty_box(
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
     let center_x = side_factor
-        * (half_field_length - half_penalty_area_length + penaltykick_box_increase / 2.0);
+        * (half_field_length - half_penalty_area_length + penaltykick_box_extension / 2.0);
     RuleObstacle::Rectangle(Rectangle::new_with_center_and_size(
         point![center_x, 0.0],
         vector![
-            field_dimensions.penalty_area_length + penaltykick_box_increase,
+            field_dimensions.penalty_area_length + penaltykick_box_extension,
             field_dimensions.penalty_area_width
         ],
     ))
