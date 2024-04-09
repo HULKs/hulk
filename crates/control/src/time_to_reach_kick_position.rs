@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, time::Duration};
+use std::{f32::consts::FRAC_1_PI, time::Duration};
 
 use color_eyre::Result;
 use framework::AdditionalOutput;
@@ -82,10 +82,9 @@ impl TimeToReachKickPosition {
                 turning_angle_towards_path
             }
         };
-        let time_to_turn = Duration::from_secs_f32(match turning_angle {
-            Some(angle) => angle / PI * context.configuration.path_planning.half_turning_time,
-            None => 0.0f32,
-        });
+        let time_to_turn = Duration::from_secs_f32(turning_angle.map_or(0.0, |angle| {
+            angle * FRAC_1_PI * context.configuration.path_planning.half_turning_time
+        }));
         let time_to_reach_kick_position = walk_time.map(|walk_time| {
             [
                 walk_time,
