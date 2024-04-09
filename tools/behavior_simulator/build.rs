@@ -60,14 +60,12 @@ fn main() -> Result<()> {
                 .file_name()
                 .to_string_lossy()
                 .into_owned();
-            let mut file_name = test_file.clone();
-            file_name.truncate(file_name.len() - 4);
-            let function_name = format!("test_{}", file_name);
-            let file_path = format!("../../tests/behavior/{}", test_file);
+            let mut function_name = test_file.clone();
+            function_name.truncate(function_name.len() - 4);
             let _ = write!(
                 output,
-                "#[test]\nfn {}() -> Result<()> {{\ntest_scenario(\"{}\")}}\n",
-                function_name, file_path
+                "#[test]\nfn test_{}() -> Result<()> {{\ntest_scenario(\"../../tests/behavior/{}\")}}\n",
+                function_name, test_file
             );
             output
         });
