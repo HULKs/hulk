@@ -6,6 +6,7 @@ use source_analyzer::{
     pretty::to_string_pretty,
     structs::Structs,
 };
+use std::{fmt::Write, fs};
 
 fn main() -> Result<()> {
     let manifest = FrameworkManifest {
@@ -51,7 +52,31 @@ fn main() -> Result<()> {
     println!("{}", to_string_pretty(&cyclers)?);
 
     let structs = Structs::try_from_cyclers(&cyclers)?;
-    generate(&cyclers, &structs, Execution::None)
-        .write_to_file("generated_code.rs")
-        .wrap_err("failed to write generated code to file")
+    let paths = fs::read_dir("../../tests/behavior")
+        .expect("Failed to read directory")
+        .fold(String::new(), |mut output, entry| {
+            let test_file = entry
+                .expect("Failed to read file name")
+                .file_name()
+                .to_string_lossy()
+                .into_owned();
+            let mut file_name = test_file.clone();
+            file_name.truncate(file_name.len() - 4);
+            let function_name = format!("test_{}", file_name);
+            let file_path = format!("../../tests/behavior/{}", test_file);
+            let _ = write!(
+                output,
+                "#[test]\nfn {}() -> Result<()> {{\ntest_scenario(\"{}\")}}\n",
+                function_name, file_path
+            );
+            output
+        });
+    paths
+        .write_to_file("behavior_files.rs")
+        .wrap_err("failed to write generated tests to file")
+        .and_then(|_| {
+            generate(&cyclers, &structs, Execution::None)
+                .write_to_file("generated_code.rs")
+                .wrap_err("failed to write generated code to file")
+        })
 }
