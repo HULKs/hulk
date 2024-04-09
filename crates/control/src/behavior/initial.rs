@@ -20,11 +20,13 @@ pub fn execute(
     };
     let head = match filtered_game_controller_state.own_team_is_home_after_coin_toss {
         true => match world_state.robot.player_number {
-            PlayerNumber::Seven | PlayerNumber::Four | PlayerNumber::Five => HeadMotion::LookAt {
-                target: expected_referee_position,
-                pixel_target: referee_pixel_offset,
-                camera: Some(CameraPosition::Top),
-            },
+            PlayerNumber::Seven | PlayerNumber::Four | PlayerNumber::Five | PlayerNumber::Three => {
+                HeadMotion::LookAt {
+                    target: expected_referee_position,
+                    pixel_target: referee_pixel_offset,
+                    camera: Some(CameraPosition::Top),
+                }
+            }
             _ => HeadMotion::ZeroAngles,
         },
         false => match world_state.robot.player_number {
