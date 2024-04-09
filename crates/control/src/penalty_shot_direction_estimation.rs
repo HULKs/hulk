@@ -57,8 +57,8 @@ impl PenaltyShotDirectionEstimation {
             (
                 PrimaryState::Playing,
                 GamePhase::PenaltyShootout { .. },
-                Some(SubState::PenaltyKick),
-            ) => {
+                _,
+            )|(PrimaryState::Playing, _, Some(SubState::PenaltyKick)) => {
                 if let PenaltyShotDirection::NotMoving = self.last_shot_direction {
                     if (context.ball_position.position.x()
                         - context.field_dimensions.penalty_marker_distance)
