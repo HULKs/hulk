@@ -384,7 +384,7 @@ fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
         CyclerKind::Perception => quote! {
             unsafe {
                 let priority = libc::sched_param {
-                    sched_priority: 10,
+                    sched_priority: 5,
                 };
                 let process_id = libc::getpid();
                 assert!(process_id > 0, "failed to get process id");
