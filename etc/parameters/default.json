@@ -1160,6 +1160,9 @@
     }
   },
   "angular_velocity_smoothing_factor": 0.1,
-  "center_circle_obstacle_increase": 1.2,
-  "free_kick_obstacle_radius": 0.75
+  "rule_obstacles": {
+    "center_circle_obstacle_increase": 1.2,
+    "free_kick_obstacle_radius": 0.75,
+    "penaltykick_box_increase": 0.2
+  }
 }
