@@ -1,12 +1,12 @@
 use coordinate_systems::{Field, Ground};
 use geometry::line::Line;
 use geometry::line_segment::LineSegment;
-use linear_algebra::{point, Isometry2, Orientation2, Point};
+use linear_algebra::{Isometry2, Orientation2, Point};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::{HeadMotion, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, MotionCommand, OrientationMode, PixelTarget},
     parameters::InterceptBallParameters,
     planned_path::PathSegment,
     step_plan::Step,
@@ -80,7 +80,7 @@ pub fn execute(
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
-                    pixel_target: point![320.0, 240.0],
+                    pixel_target: PixelTarget::Center,
                     camera: None,
                 },
                 path,

@@ -1,17 +1,17 @@
-use coordinate_systems::{Ground, Pixel};
+use coordinate_systems::Ground;
 use linear_algebra::Point2;
 use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
     filtered_game_state::FilteredGameState,
-    motion_command::{HeadMotion, MotionCommand},
+    motion_command::{HeadMotion, MotionCommand, PixelTarget},
     world_state::WorldState,
 };
 
 pub fn execute(
     world_state: &WorldState,
     expected_referee_position: Point2<Ground>,
-    referee_pixel_offset: Point2<Pixel>,
+    pixel_target: PixelTarget,
 ) -> Option<MotionCommand> {
     let filtered_game_controller_state = world_state.filtered_game_controller_state?;
 
@@ -23,7 +23,7 @@ pub fn execute(
             PlayerNumber::Seven | PlayerNumber::Four | PlayerNumber::Five | PlayerNumber::Three => {
                 HeadMotion::LookAt {
                     target: expected_referee_position,
-                    pixel_target: referee_pixel_offset,
+                    pixel_target,
                     camera: Some(CameraPosition::Top),
                 }
             }
@@ -32,7 +32,7 @@ pub fn execute(
         false => match world_state.robot.player_number {
             PlayerNumber::One | PlayerNumber::Two | PlayerNumber::Six => HeadMotion::LookAt {
                 target: expected_referee_position,
-                pixel_target: referee_pixel_offset,
+                pixel_target,
                 camera: Some(CameraPosition::Top),
             },
             _ => HeadMotion::ZeroAngles,

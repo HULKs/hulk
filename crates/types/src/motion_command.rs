@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Ground, Pixel};
+use coordinate_systems::Ground;
 use linear_algebra::{Orientation2, Point2};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -77,13 +77,20 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt {
         target: Point2<Ground>,
-        pixel_target: Point2<Pixel>,
+        pixel_target: PixelTarget,
         camera: Option<CameraPosition>,
     },
     LookLeftAndRightOf {
         target: Point2<Ground>,
     },
     Unstiff,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+pub enum PixelTarget {
+    Bottom,
+    #[default]
+    Center,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]

@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground, Pixel};
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
 use spl_network_messages::{GamePhase, SubState, Team};
@@ -14,7 +14,7 @@ use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::MotionCommand,
+    motion_command::{MotionCommand, PixelTarget},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
     },
@@ -67,7 +67,6 @@ pub struct CycleContext {
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     striker_set_position: Parameter<Point2<Field>, "behavior.role_positions.striker_set_position">,
-    referee_pixel_offset: Parameter<Point2<Pixel>, "detection.detection_top.referee_pixel_offset">,
 }
 
 #[context]
@@ -236,7 +235,7 @@ impl Behavior {
                     Action::Initial => initial::execute(
                         world_state,
                         *context.expected_referee_position,
-                        *context.referee_pixel_offset,
+                        PixelTarget::Bottom,
                     ),
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)
