@@ -82,9 +82,13 @@ impl TimeToReachKickPosition {
                 turning_angle_towards_path
             }
         };
-        let time_to_turn = Duration::from_secs_f32(turning_angle.map_or(0.0, |angle| {
-            angle * FRAC_1_PI * context.configuration.path_planning.half_turning_time
-        }));
+        let time_to_turn = turning_angle.map_or(Duration::ZERO, |angle| {
+            context
+                .configuration
+                .path_planning
+                .half_rotation
+                .mul_f32(angle * FRAC_1_PI)
+        });
         let time_to_reach_kick_position = walk_time.map(|walk_time| {
             [
                 walk_time,
