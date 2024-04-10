@@ -381,7 +381,8 @@ fn generate_consumer_identifiers(cyclers: &Cyclers) -> Vec<Ident> {
 
 fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
     let scheduler_tokens = match cycler_kind {
-        CyclerKind::Perception => quote! {
+        CyclerKind::Perception => TokenStream::new(),
+        CyclerKind::RealTime => quote! {
             unsafe {
                 let priority = libc::sched_param {
                     sched_priority: 5,
@@ -397,7 +398,6 @@ fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
                 assert!(set_scheduler_return_value == 0, "failed to set scheduler");
             }
         },
-        CyclerKind::RealTime => TokenStream::new(),
     };
 
     quote! {
