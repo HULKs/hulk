@@ -13,7 +13,6 @@ use super::overlays::{
     BallDetection, FeetDetection, FieldBorder, Horizon, LimbProjector, LineDetection, PenaltyBoxes,
     PerspectiveGrid, PoseDetection,
 };
-
 pub trait Overlay {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self;

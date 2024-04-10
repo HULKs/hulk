@@ -17,7 +17,7 @@ pub struct RefereePosition {
     // injected_robot_to_field_of_home_after_coin_toss_before_second_half: ValueBuffer,
 }
 
-impl Layer for RefereePosition {
+impl Layer<Field> for RefereePosition {
     const NAME: &'static str = "Referee Position";
 
     fn new(nao: Arc<Nao>) -> Self {

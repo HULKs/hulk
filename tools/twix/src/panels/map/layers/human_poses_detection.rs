@@ -18,7 +18,7 @@ pub struct HumanPoseDetection {
     detected_human_pose_types: ValueBuffer,
 }
 
-impl Layer for HumanPoseDetection {
+impl Layer<Field> for HumanPoseDetection {
     const NAME: &'static str = "Detected Human Poses";
 
     fn new(nao: Arc<Nao>) -> Self {
