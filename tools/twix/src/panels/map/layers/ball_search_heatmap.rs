@@ -15,7 +15,7 @@ pub struct BallSearchHeatmap {
     ball_search_heatmap: ValueBuffer,
 }
 
-impl Layer for BallSearchHeatmap {
+impl Layer<Field> for BallSearchHeatmap {
     const NAME: &'static str = "Ball Search Heatmap";
 
     fn new(nao: Arc<Nao>) -> Self {
