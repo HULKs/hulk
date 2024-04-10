@@ -7,7 +7,7 @@ use std::{
 
 use communication::client::CyclerOutput;
 use eframe::{
-    egui::{show_tooltip_at_pointer, ComboBox, Response, RichText, Ui, Widget},
+    egui::{show_tooltip_at_pointer, ComboBox, Id, Response, Ui, Widget},
     epaint::{Color32, Stroke},
 };
 use egui_plot::{Plot, PlotBounds, PlotPoint, PlotUi, Polygon, Text};
@@ -49,9 +49,9 @@ impl Segment {
             Value::String(string) => string.clone(),
             Value::Array(_) => "<Array>".into(),
             Value::Object(map) => {
-                // There is only one key in the map.
-                // This is probably an enum variant.
                 if let [(key, _value)] = &map.iter().collect::<Vec<_>>().as_slice() {
+                    // There is only one key in the map.
+                    // This is probably an enum variant.
                     (*key).clone()
                 } else {
                     "<Object>".into()
@@ -270,13 +270,9 @@ impl EnumPlotPanel {
                 .cloned();
 
             if let Some(tooltip) = hovered_segment.and_then(|segment| segment.tooltip()) {
-                show_tooltip_at_pointer(
-                    ui.ctx(),
-                    eframe::egui::Id::new("enum_plot_segment_tooltip"),
-                    |ui| {
-                        ui.label(tooltip);
-                    },
-                );
+                show_tooltip_at_pointer(ui.ctx(), Id::new("enum_plot_segment_tooltip"), |ui| {
+                    ui.label(tooltip);
+                });
             }
         }
 
@@ -305,7 +301,7 @@ impl Widget for &mut EnumPlotPanel {
             self.plot(ui);
 
             if let Some(error) = error {
-                ui.label(RichText::new(error).color(Color32::RED));
+                ui.colored_label(Color32::RED, error);
             }
 
             ui.horizontal_top(|ui| {
