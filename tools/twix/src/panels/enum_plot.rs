@@ -35,8 +35,8 @@ fn color_hash(value: impl Hash) -> Color32 {
 
 #[derive(Clone)]
 struct Segment {
-    start: usize,
-    end: usize,
+    start: f64,
+    end: f64,
     value: Value,
 }
 
@@ -125,8 +125,8 @@ impl EnumPlotPanel {
         let name = segment.name();
         let color = color_hash(&name);
 
-        let start = segment.start as f64;
-        let end = segment.end as f64;
+        let start = segment.start;
+        let end = segment.end;
 
         plot_ui.polygon(
             Polygon::new(vec![
@@ -173,16 +173,16 @@ impl EnumPlotPanel {
 
         for (start, end) in self.changes.iter().tuple_windows() {
             segments.push(Segment {
-                start: start.message_number,
-                end: end.message_number,
+                start: start.message_number as f64,
+                end: end.message_number as f64,
                 value: start.value.clone(),
             });
         }
 
         if let Some(last_change) = self.changes.last() {
             segments.push(Segment {
-                start: last_change.message_number,
-                end: self.messages_count,
+                start: last_change.message_number as f64,
+                end: self.messages_count as f64,
                 value: last_change.value.clone(),
             });
         }
@@ -266,9 +266,7 @@ impl EnumPlotPanel {
             let hovered_segment = self
                 .segments()
                 .iter()
-                .find(|segment| {
-                    (segment.start as f64) < plot_hover_pos && plot_hover_pos < (segment.end as f64)
-                })
+                .find(|segment| segment.start < plot_hover_pos && plot_hover_pos < segment.end)
                 .cloned();
 
             if let Some(tooltip) = hovered_segment.and_then(|segment| segment.tooltip()) {
