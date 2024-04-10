@@ -40,10 +40,6 @@ impl Overlay for PoseDetection {
     const NAME: &'static str = "Pose Detection";
 
     fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self {
-        if selected_cycler != Cycler::VisionTop {
-            panic!("PoseDetection only works with the vision top cycler instance!");
-        }
-
         Self {
             human_poses: nao.subscribe_output(
                 CyclerOutput::from_str("DetectionTop.main_outputs.human_poses")
