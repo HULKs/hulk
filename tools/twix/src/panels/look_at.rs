@@ -12,7 +12,7 @@ use linear_algebra::{point, Point2};
 use types::{
     camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
-    motion_command::{HeadMotion, MotionCommand},
+    motion_command::{HeadMotion, MotionCommand, PixelTarget},
 };
 
 use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
@@ -233,7 +233,7 @@ fn send_standing_look_at(
     let motion_command = Some(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: look_at_target,
-            pixel_target: Point2::origin(),
+            pixel_target: PixelTarget::Center,
             camera: camera_option,
         },
     });
