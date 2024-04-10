@@ -3,16 +3,15 @@ use std::time::{Duration, SystemTime};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::{MainOutput, PerceptionInput};
+use framework::MainOutput;
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, HulkMessage, Team};
+use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
-    game_controller_state::GameControllerState, messages::IncomingMessage,
-    parameters::GameStateFilterParameters,
+    game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
 };
 #[derive(Deserialize, Serialize)]
 pub struct GameControllerStateFilter {
@@ -31,7 +30,6 @@ pub struct CycleContext {
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     ready_to_initial_trigger: Input<bool, "ready_to_initial_trigger">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
-    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -53,17 +51,6 @@ impl GameControllerStateFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let spl_messages = context
-            .network_message
-            .persistent
-            .values()
-            .flatten()
-            .filter_map(|message| match message {
-                IncomingMessage::GameController(_) => None,
-                IncomingMessage::Spl(message) => Some(message),
-            })
-            .collect();
-
         let game_states = filter_game_states(
             *context.ground_to_field,
             context.ball_position,
@@ -71,7 +58,6 @@ impl GameControllerStateFilter {
             context.config,
             context.game_controller_state,
             context.filtered_whistle,
-            spl_messages,
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
@@ -111,7 +97,6 @@ fn filter_game_states(
     config: &GameStateFilterParameters,
     game_controller_state: &GameControllerState,
     filtered_whistle: &FilteredWhistle,
-    spl_messages: Vec<&HulkMessage>,
     cycle_time: &CycleTime,
     state: &mut State,
     opponent_state: &mut State,
@@ -130,7 +115,6 @@ fn filter_game_states(
         cycle_time.start_time,
         config,
         ball_detected_far_from_any_goal,
-        &spl_messages,
         ready_to_initial_trigger,
     );
     *opponent_state = next_filtered_state(
@@ -140,7 +124,6 @@ fn filter_game_states(
         cycle_time.start_time,
         config,
         ball_detected_far_from_any_goal,
-        &spl_messages,
         ready_to_initial_trigger,
     );
     let ball_detected_far_from_kick_off_point = ball_position
@@ -179,7 +162,6 @@ fn next_filtered_state(
     cycle_start_time: SystemTime,
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
-    spl_messages: &Vec<&HulkMessage>,
     ready_to_initial_trigger: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
