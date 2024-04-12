@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Retrieve latest SDK version
         run: |
-          echo SDK_VERSION=$(curl -s -L -I -o /dev/null -w '%{url_effective}' https://github.com/HULKs/meta-hulks/releases/latest | awk -F/ '{print $NF}') >> $GITHUB_OUTPUT
+          echo SDK_VERSION=$(curl -s -L -I -o /dev/null -w '%{url_effective}' https://github.com/HULKs/meta-nao/releases/latest | awk -F/ '{print $NF}') >> $GITHUB_OUTPUT
         id: retrieve_latest_version
       - uses: actions/checkout@v3
       - run: docker build --build-arg SDK_VERSION=${{ steps.retrieve_latest_version.outputs.SDK_VERSION }} --tag 134.28.57.223:5000/hulk tools/ci/github-runners/v3
