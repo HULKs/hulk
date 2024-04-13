@@ -10,7 +10,7 @@ use super::{
     walking::Walking,
     Mode, WalkTransition,
 };
-use coordinate_systems::{Ground, Robot};
+use coordinate_systems::{Ground, Robot, Walk};
 use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
 use linear_algebra::{point, Isometry3, Point3, Pose3};
 use serde::{Deserialize, Serialize};
@@ -41,34 +41,8 @@ impl Catching {
         let step_duration = parameters.base.step_duration;
         let start_feet = Feet::from_joints(joints, support_side, parameters);
 
-        let target = robot_to_ground * *context.center_of_mass;
-        let target_on_ground = point![target.x(), target.y(), 0.0];
-        let ground_to_robot = robot_to_ground.inverse();
-        let target_in_walk = robot_to_walk(parameters) * ground_to_robot * target_on_ground;
-
-        let max_adjustment = &parameters.catching_steps.max_adjustment;
-        let swing_side = support_side.opposite();
-        let swing_base_offset = match swing_side {
-            Side::Left => parameters.base.foot_offset_left,
-            Side::Right => parameters.base.foot_offset_right,
-        };
-        let (min_y, max_y) = match swing_side {
-            Side::Left => (swing_base_offset.y(), max_adjustment.y()),
-            Side::Right => (-max_adjustment.y(), swing_base_offset.y()),
-        };
-
-        let swing_target = point![
-            target_in_walk
-                .x()
-                .clamp(-max_adjustment.x(), max_adjustment.x()),
-            target_in_walk.y().clamp(min_y, max_y),
-            target_in_walk.z().clamp(0.0, max_adjustment.z()),
-        ];
-
-        let end_feet = Feet {
-            support_sole: Pose3::from(point![-swing_target.x(), -swing_target.y(), 0.0]),
-            swing_sole: Pose3::from(swing_target),
-        };
+        let target = project_onto_walk_ground(parameters, robot_to_ground, *context.center_of_mass);
+        let end_feet = place_swing_foot_to_target(parameters, support_side, target);
         let max_swing_foot_lift = parameters.base.foot_lift_apex;
         let midpoint = parameters.catching_steps.midpoint;
 
@@ -115,6 +89,45 @@ impl Catching {
         }
         Mode::Catching(self)
     }
+}
+
+fn place_swing_foot_to_target(
+    parameters: &WalkingEngineParameters,
+    support_side: Side,
+    target: Point3<Walk>,
+) -> Feet {
+    let max_adjustment = &parameters.catching_steps.max_adjustment;
+    let swing_side = support_side.opposite();
+    let swing_base_offset = match swing_side {
+        Side::Left => parameters.base.foot_offset_left,
+        Side::Right => parameters.base.foot_offset_right,
+    };
+    let (min_y, max_y) = match swing_side {
+        Side::Left => (swing_base_offset.y(), max_adjustment.y()),
+        Side::Right => (-max_adjustment.y(), swing_base_offset.y()),
+    };
+
+    let swing_target = point![
+        target.x().clamp(-max_adjustment.x(), max_adjustment.x()),
+        target.y().clamp(min_y, max_y),
+        target.z().clamp(0.0, max_adjustment.z()),
+    ];
+
+    Feet {
+        support_sole: Pose3::from(point![-swing_target.x(), -swing_target.y(), 0.0]),
+        swing_sole: Pose3::from(swing_target),
+    }
+}
+
+fn project_onto_walk_ground(
+    parameters: &WalkingEngineParameters,
+    robot_to_ground: Isometry3<Robot, Ground>,
+    target: Point3<Robot>,
+) -> Point3<Walk> {
+    let target = robot_to_ground * target;
+    let target_on_ground = point![target.x(), target.y(), 0.0];
+    let ground_to_robot = robot_to_ground.inverse();
+    robot_to_walk(parameters) * ground_to_robot * target_on_ground
 }
 
 impl WalkTransition for Catching {
@@ -164,7 +177,24 @@ impl Catching {
         )
     }
 
-    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
+    pub fn tick(&mut self, context: &mut CycleContext, gyro: nalgebra::Vector3<f32>) {
+        if let Some(&robot_to_ground) = context.robot_to_ground {
+            let parameters = context.parameters;
+            let target =
+                project_onto_walk_ground(parameters, robot_to_ground, *context.center_of_mass);
+            let target_end_feet =
+                place_swing_foot_to_target(parameters, self.step.plan.support_side, target);
+            // let current_end_feet = self.step.plan.end_feet;
+            //
+            // let swing_position_delta =
+            //     (target_end_feet.swing_sole.position() - current_end_feet.swing_sole.position()).xy();
+            // let max_tick_delta = parameters.catching_steps.max_tick_delta;
+            // let swing_position = current_end_feet.swing_sole.position().xy() + vector![
+            //     swing_position_delta.x().clamp(-max_tick_delta.x(), max_tick_delta.x()),
+            //     swing_position_delta.y().min(parameters.catching_steps.max_step),
+            // ];;
+            self.step.plan.end_feet = target_end_feet;
+        }
         self.step.tick(context, gyro);
     }
 }

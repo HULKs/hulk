@@ -1,14 +1,25 @@
 use std::time::Duration;
 
-use coordinate_systems::Walk;
-use linear_algebra::Vector3;
+use coordinate_systems::{Ground, Robot, Walk};
+use linear_algebra::{Isometry3, Point3, Pose3, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    joints::{arm::ArmJoints, leg::LegJoints},
+    joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
     step_plan::Step,
+    support_foot::Side,
 };
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+pub struct DebugOutput {
+    pub center_of_mass_in_ground: Option<Point3<Ground>>,
+    pub last_actuated_joints: BodyJoints,
+    pub end_support_sole: Option<Pose3<Walk>>,
+    pub end_swing_sole: Option<Pose3<Walk>>,
+    pub support_side: Side,
+    pub robot_to_walk: Isometry3<Robot, Walk>,
+}
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct WalkingEngineParameters {
@@ -69,6 +80,7 @@ pub struct CatchingStepsParameters {
     pub heel_offset: f32,
     pub max_adjustment: Vector3<Walk>,
     pub midpoint: f32,
+    // pub max_tick_delta: Vector2<Walk>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

@@ -101,7 +101,7 @@ impl Mode {
         }
     }
 
-    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
+    pub fn tick(&mut self, context: &mut CycleContext, gyro: nalgebra::Vector3<f32>) {
         match self {
             Mode::Standing(standing) => standing.tick(context, gyro),
             Mode::Starting(starting) => starting.tick(context, gyro),

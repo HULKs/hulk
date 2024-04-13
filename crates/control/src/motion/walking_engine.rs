@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use filtering::low_pass_filter::LowPassFilter;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use kinematics::forward;
 use linear_algebra::{Isometry3, Point3};
 use serde::{Deserialize, Serialize};
@@ -17,11 +17,12 @@ use types::{
     step_plan::Step,
     support_foot::Side,
     walk_command::WalkCommand,
-    walking_engine::WalkingEngineParameters,
+    walking_engine::{DebugOutput, WalkingEngineParameters},
 };
 
 use self::{
     arms::{Arm, ArmOverrides as _},
+    feet::robot_to_walk,
     mode::{
         catching::Catching, kicking::Kicking, standing::Standing, starting::Starting,
         stopping::Stopping, walking::Walking, Mode, WalkTransition,
@@ -73,6 +74,8 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     walk_command: Input<WalkCommand, "walk_command">,
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
+
+    debug_output: AdditionalOutput<DebugOutput, "walking.debug_output">,
 }
 
 #[context]
@@ -95,7 +98,7 @@ impl WalkingEngine {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.filtered_gyro.update(
             context
                 .sensor_data
@@ -121,7 +124,7 @@ impl WalkingEngine {
             ),
         };
 
-        self.mode.tick(&context, self.filtered_gyro.state());
+        self.mode.tick(&mut context, self.filtered_gyro.state());
 
         // enter the functional world...
         let left_arm = self.left_arm.take().unwrap();
@@ -151,6 +154,8 @@ impl WalkingEngine {
         *context.walk_return_offset = self.calculate_return_offset(context.parameters);
 
         context.motion_safe_exits[MotionType::Walk] = matches!(self.mode, Mode::Standing(..));
+
+        fill_debug_output(&mut context, &self.mode, &self.last_actuated_joints);
 
         Ok(MainOutputs {
             walk_motor_commands: motor_commands.into(),
@@ -184,4 +189,40 @@ impl WalkingEngine {
             turn: swing_sole.orientation().inner.euler_angles().2,
         }
     }
+}
+
+fn fill_debug_output(context: &mut CycleContext, mode: &Mode, last_actuated_joints: &BodyJoints) {
+    context.debug_output.fill_if_subscribed(|| {
+        let center_of_mass_in_ground = context
+            .robot_to_ground
+            .map(|robot_to_ground| robot_to_ground * *context.center_of_mass);
+        let (end_support_sole, end_swing_sole) = match mode {
+            Mode::Standing(_) => (None, None),
+            Mode::Starting(Starting { step, .. })
+            | Mode::Walking(Walking { step, .. })
+            | Mode::Kicking(Kicking { step, .. })
+            | Mode::Stopping(Stopping { step })
+            | Mode::Catching(Catching { step, .. }) => (
+                Some(step.plan.end_feet.support_sole),
+                Some(step.plan.end_feet.swing_sole),
+            ),
+        };
+        let support_side = match mode {
+            Mode::Standing(_) => Side::Left,
+            Mode::Starting(Starting { step, .. })
+            | Mode::Walking(Walking { step, .. })
+            | Mode::Kicking(Kicking { step, .. })
+            | Mode::Stopping(Stopping { step })
+            | Mode::Catching(Catching { step, .. }) => step.plan.support_side,
+        };
+        let robot_to_walk = robot_to_walk(context.parameters);
+        DebugOutput {
+            center_of_mass_in_ground,
+            last_actuated_joints: *last_actuated_joints,
+            end_support_sole,
+            end_swing_sole,
+            support_side,
+            robot_to_walk,
+        }
+    });
 }
