@@ -43,6 +43,8 @@ pub enum MotionCommand {
     },
     InWalkKick {
         head: HeadMotion,
+        left_arm: ArmMotion,
+        right_arm: ArmMotion,
         kick: KickVariant,
         kicking_side: Side,
         strength: f32,
@@ -62,6 +64,28 @@ impl MotionCommand {
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
             | MotionCommand::StandUp { .. } => None,
+        }
+    }
+
+    pub fn arm_motion(&self, side: Side) -> Option<ArmMotion> {
+        match self {
+            MotionCommand::Walk {
+                left_arm,
+                right_arm,
+                ..
+            } => match side {
+                Side::Left => Some(*left_arm),
+                Side::Right => Some(*right_arm),
+            },
+            MotionCommand::InWalkKick {
+                left_arm,
+                right_arm,
+                ..
+            } => match side {
+                Side::Left => Some(*left_arm),
+                Side::Right => Some(*right_arm),
+            },
+            _ => None,
         }
     }
 }

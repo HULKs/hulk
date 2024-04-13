@@ -128,6 +128,7 @@ impl State {
                     kick,
                     kicking_side,
                     strength,
+                    ..
                 } => {
                     if let Some(ball) = self.ball.as_mut() {
                         let side = match kicking_side {

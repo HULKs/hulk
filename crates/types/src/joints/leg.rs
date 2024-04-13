@@ -1,5 +1,5 @@
 use std::{
-    ops::{Add, Div, Index, IndexMut, Mul, Sub},
+    ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
     time::Duration,
 };
 
@@ -22,7 +22,7 @@ pub enum LegJoint {
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct LegJoints<T> {
+pub struct LegJoints<T = f32> {
     pub ankle_pitch: T,
     pub ankle_roll: T,
     pub hip_pitch: T,
@@ -112,6 +112,24 @@ where
             knee_pitch: self.knee_pitch - right.knee_pitch,
             ankle_pitch: self.ankle_pitch - right.ankle_pitch,
             ankle_roll: self.ankle_roll - right.ankle_roll,
+        }
+    }
+}
+
+impl<T> Neg for LegJoints<T>
+where
+    T: Neg,
+{
+    type Output = LegJoints<<T as Neg>::Output>;
+
+    fn neg(self) -> Self::Output {
+        Self::Output {
+            hip_yaw_pitch: -self.hip_yaw_pitch,
+            hip_roll: -self.hip_roll,
+            hip_pitch: -self.hip_pitch,
+            knee_pitch: -self.knee_pitch,
+            ankle_pitch: -self.ankle_pitch,
+            ankle_roll: -self.ankle_roll,
         }
     }
 }

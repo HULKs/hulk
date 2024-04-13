@@ -2,24 +2,24 @@ use std::f32::consts::PI;
 
 use nalgebra::{geometry::Isometry3, Rotation3, Translation3, Vector3};
 
-use coordinate_systems::{LeftFoot, RightFoot, Robot};
+use coordinate_systems::Robot;
 use types::{
     joints::{body::LowerBodyJoints, leg::LegJoints},
     robot_dimensions::RobotDimensions,
 };
 
 pub fn leg_angles(
-    left_foot_to_robot: linear_algebra::Isometry3<LeftFoot, Robot>,
-    right_foot_to_robot: linear_algebra::Isometry3<RightFoot, Robot>,
-) -> (bool, LowerBodyJoints<f32>) {
+    left_foot: linear_algebra::Pose3<Robot>,
+    right_foot: linear_algebra::Pose3<Robot>,
+) -> LowerBodyJoints<f32> {
     let ratio = 0.5;
     let robot_to_left_pelvis = Isometry3::rotation(Vector3::x() * -1.0 * PI / 4.0)
         * Translation3::from(-RobotDimensions::ROBOT_TO_LEFT_PELVIS.inner);
     let robot_to_right_pelvis = Isometry3::rotation(Vector3::x() * PI / 4.0)
         * Translation3::from(-RobotDimensions::ROBOT_TO_RIGHT_PELVIS.inner);
 
-    let left_foot_to_left_pelvis = robot_to_left_pelvis * left_foot_to_robot.inner;
-    let right_foot_to_right_pelvis = robot_to_right_pelvis * right_foot_to_robot.inner;
+    let left_foot_to_left_pelvis = robot_to_left_pelvis * left_foot.inner;
+    let right_foot_to_right_pelvis = robot_to_right_pelvis * right_foot.inner;
     let vector_left_foot_to_left_pelvis = left_foot_to_left_pelvis.inverse().translation;
     let vector_right_foot_to_right_pelvis = right_foot_to_right_pelvis.inverse().translation;
 
@@ -122,15 +122,9 @@ pub fn leg_angles(
         ankle_pitch: right_foot_rotation_c2.x.atan2(right_foot_rotation_c2.z) + right_beta,
         ankle_roll: (-1.0 * right_foot_rotation_c2.y).asin(),
     };
-    let maximum_leg_extension = upper_leg + lower_leg;
-    let is_reachable =
-        left_height <= maximum_leg_extension && right_height <= maximum_leg_extension;
 
-    (
-        is_reachable,
-        LowerBodyJoints {
-            left_leg,
-            right_leg,
-        },
-    )
+    LowerBodyJoints {
+        left_leg,
+        right_leg,
+    }
 }

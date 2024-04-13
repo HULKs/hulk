@@ -20,7 +20,7 @@ pub enum BodyJointsName {
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct BodyJoints<T> {
+pub struct BodyJoints<T = f32> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,
     pub left_leg: LegJoints<T>,
@@ -141,7 +141,7 @@ impl Div<f32> for BodyJoints<f32> {
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct LowerBodyJoints<T> {
+pub struct LowerBodyJoints<T = f32> {
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
 }

@@ -1,13 +1,12 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use color_eyre::Result;
-use coordinate_systems::Walk;
-use linear_algebra::Point3;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::Interpolate;
 use types::{
-    joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
+    joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, mirror::Mirror},
+    motor_commands::MotorCommands,
     walking_engine::SwingingArmsParameters as Parameters,
 };
 
@@ -157,18 +156,10 @@ impl Arm {
         }
     }
 
-    pub fn compute_joints(
-        &self,
-        context: &CycleContext,
-        same_leg: LegJoints<f32>,
-        opposite_foot: Point3<Walk>,
-    ) -> ArmJoints<f32> {
-        let parameters = &context.parameters.swinging_arms;
-        let swinging_arm = swinging_arm(parameters, same_leg, opposite_foot);
-
-        match &self {
-            Self::Swing => swinging_arm,
-            Self::PullingBack {
+    fn compute_joints(&self, swinging_arm: ArmJoints, parameters: &Parameters) -> ArmJoints {
+        match self {
+            Arm::Swing => swinging_arm,
+            Arm::PullingBack {
                 elapsed,
                 end_positions,
             } => {
@@ -176,10 +167,10 @@ impl Arm {
                     elapsed.as_secs_f32() / parameters.pulling_back_duration.as_secs_f32();
                 ArmJoints::lerp(interpolation, swinging_arm, *end_positions)
             }
-            Self::PullingTight { interpolator } => interpolator.value(),
-            Self::Back => parameters.pull_tight_joints,
-            Self::ReleasingTight { interpolator } => interpolator.value(),
-            Self::ReleasingBack {
+            Arm::PullingTight { interpolator } => interpolator.value(),
+            Arm::Back => parameters.pull_tight_joints,
+            Arm::ReleasingTight { interpolator } => interpolator.value(),
+            Arm::ReleasingBack {
                 elapsed,
                 start_positions,
             } => {
@@ -189,32 +180,9 @@ impl Arm {
             }
         }
     }
-}
 
-fn swinging_arm(
-    parameters: &Parameters,
-    same_leg: LegJoints<f32>,
-    opposite_foot: Point3<Walk>,
-) -> ArmJoints<f32> {
-    let shoulder_roll = parameters.default_roll + parameters.roll_factor * same_leg.hip_roll;
-    let shoulder_pitch = FRAC_PI_2 - opposite_foot.x() * parameters.pitch_factor;
-    ArmJoints {
-        shoulder_pitch,
-        shoulder_roll,
-        elbow_yaw: 0.0,
-        elbow_roll: 0.0,
-        wrist_yaw: -FRAC_PI_2,
-        hand: 0.0,
-    }
-}
-
-pub trait CompensateArmPullBack {
-    fn compensate_arm_pull_back(self, arm: &Arm, parameters: &Parameters) -> BodyJoints<f32>;
-}
-
-impl CompensateArmPullBack for BodyJoints<f32> {
-    fn compensate_arm_pull_back(self, arm: &Arm, parameters: &Parameters) -> BodyJoints<f32> {
-        let shoulder_pitch = match &arm {
+    fn shoulder_pitch(&self, parameters: &Parameters) -> f32 {
+        match self {
             Arm::Swing => FRAC_PI_2,
             Arm::PullingBack {
                 elapsed,
@@ -236,18 +204,42 @@ impl CompensateArmPullBack for BodyJoints<f32> {
                 interpolator.value().shoulder_pitch
             }
             Arm::Back => parameters.pull_tight_joints.shoulder_pitch,
-        };
-        let compensation = (shoulder_pitch - FRAC_PI_2) * parameters.torso_tilt_compensation_factor;
-        BodyJoints {
+        }
+    }
+}
+
+pub trait ArmOverrides {
+    fn override_with_arms(self, parameters: &Parameters, left_arm: &Arm, right_arm: &Arm) -> Self;
+}
+
+impl ArmOverrides for MotorCommands<BodyJoints> {
+    fn override_with_arms(self, parameters: &Parameters, left_arm: &Arm, right_arm: &Arm) -> Self {
+        let left_swinging_arm = self.positions.left_arm;
+        let right_swinging_arm = self.positions.right_arm;
+        let left_positions = left_arm.compute_joints(left_swinging_arm, parameters);
+        let right_positions = right_arm
+            .compute_joints(right_swinging_arm.mirrored(), parameters)
+            .mirrored();
+
+        let left_compensation = (left_arm.shoulder_pitch(parameters) - FRAC_PI_2)
+            * parameters.torso_tilt_compensation_factor;
+        let right_compensation = (right_arm.shoulder_pitch(parameters) - FRAC_PI_2)
+            * parameters.torso_tilt_compensation_factor;
+        let hip_pitch_compensation = left_compensation + right_compensation;
+
+        let positions = BodyJoints {
+            left_arm: left_positions,
+            right_arm: right_positions,
             left_leg: LegJoints {
-                hip_pitch: self.left_leg.hip_pitch + compensation,
-                ..self.left_leg
+                hip_pitch: self.positions.left_leg.hip_pitch + hip_pitch_compensation,
+                ..self.positions.left_leg
             },
             right_leg: LegJoints {
-                hip_pitch: self.right_leg.hip_pitch + compensation,
-                ..self.right_leg
+                hip_pitch: self.positions.right_leg.hip_pitch + hip_pitch_compensation,
+                ..self.positions.right_leg
             },
-            ..self
-        }
+        };
+
+        Self { positions, ..self }
     }
 }
