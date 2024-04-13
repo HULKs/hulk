@@ -8,7 +8,10 @@ use log::error;
 use serde_json::Value;
 use tokio::{
     select, spawn,
-    sync::{mpsc, oneshot},
+    sync::{
+        mpsc::{self, Receiver},
+        oneshot,
+    },
 };
 
 #[derive(Debug)]
@@ -35,8 +38,8 @@ pub struct ChangeBuffer {
 }
 
 async fn change_buffer(
-    mut subscriber_receiver: mpsc::Receiver<SubscriberMessage>,
-    mut command_receiver: mpsc::Receiver<Message>,
+    mut subscriber_receiver: Receiver<SubscriberMessage>,
+    mut command_receiver: Receiver<Message>,
 ) {
     let mut last_value: Option<Value> = None;
     let mut changes = Ok(VecDeque::<Change>::new());
