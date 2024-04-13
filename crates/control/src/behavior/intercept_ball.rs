@@ -6,7 +6,7 @@ use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::{HeadMotion, MotionCommand, OrientationMode, PixelTarget},
+    motion_command::{HeadMotion, ImageRegionTarget, MotionCommand, OrientationMode},
     parameters::InterceptBallParameters,
     planned_path::PathSegment,
     step_plan::Step,
@@ -80,7 +80,7 @@ pub fn execute(
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
-                    pixel_target: PixelTarget::Center,
+                    pixel_target: ImageRegionTarget::Center,
                     camera: None,
                 },
                 path,

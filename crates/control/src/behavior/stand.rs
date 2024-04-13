@@ -3,7 +3,7 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{HeadMotion, MotionCommand, PixelTarget},
+    motion_command::{HeadMotion, ImageRegionTarget, MotionCommand},
     primary_state::PrimaryState,
     roles::Role,
     world_state::WorldState,
@@ -43,7 +43,7 @@ pub fn execute(
             Some(MotionCommand::Stand {
                 head: HeadMotion::LookAt {
                     target,
-                    pixel_target: PixelTarget::Center,
+                    pixel_target: ImageRegionTarget::Center,
                     camera: None,
                 },
             })

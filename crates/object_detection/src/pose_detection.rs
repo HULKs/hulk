@@ -77,7 +77,8 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "Control", "filtered_game_controller_state?">,
 
-    iou_threshold: Parameter<f32, "detection.$cycler_instance.iou_threshold">,
+    intersection_over_union_threshold:
+        Parameter<f32, "detection.$cycler_instance.intersection_over_union_threshold">,
     keypoint_confidence_threshold:
         Parameter<f32, "detection.$cycler_instance.keypoint_confidence_threshold">,
     enable: Parameter<bool, "detection.$cycler_instance.enable">,
@@ -221,7 +222,7 @@ impl PoseDetection {
             })
             .collect_vec();
 
-        let poses = non_maximum_suppression(poses, *context.iou_threshold);
+        let poses = non_maximum_suppression(poses, *context.intersection_over_union_threshold);
 
         context.postprocess_time.fill_if_subscribed(|| {
             context
@@ -256,7 +257,7 @@ impl PoseDetection {
 
 fn non_maximum_suppression(
     mut candiate_pose: Vec<HumanPose>,
-    iou_threshold: f32,
+    intersection_over_union_threshold: f32,
 ) -> Vec<HumanPose> {
     let mut poses = Vec::new();
     candiate_pose.sort_unstable_by(|pose1, pose2| {
@@ -272,8 +273,8 @@ fn non_maximum_suppression(
             .filter(|detection_candidate| {
                 detection
                     .bounding_box
-                    .iou(&detection_candidate.bounding_box)
-                    < iou_threshold
+                    .intersection_over_union(&detection_candidate.bounding_box)
+                    < intersection_over_union_threshold
             })
             .collect_vec();
 

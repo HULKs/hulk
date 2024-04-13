@@ -12,7 +12,7 @@ use types::{
     camera_position::CameraPosition,
     cycle_time::CycleTime,
     joints::{head::HeadJoints, Joints},
-    motion_command::{GlanceDirection, HeadMotion, MotionCommand, PixelTarget},
+    motion_command::{GlanceDirection, HeadMotion, ImageRegionTarget, MotionCommand},
     parameters::PixelTargetParameters,
     sensor_data::SensorData,
 };
@@ -101,7 +101,7 @@ impl LookAt {
                         GlanceDirection::LeftOfTarget => *target + left_right_shift,
                         GlanceDirection::RightOfTarget => *target - left_right_shift,
                     },
-                    PixelTarget::default(),
+                    ImageRegionTarget::default(),
                     None,
                 )
             }
@@ -124,7 +124,7 @@ impl LookAt {
             None => look_at(
                 context.sensor_data.positions,
                 camera_matrices,
-                PixelTarget::default(),
+                ImageRegionTarget::default(),
                 target,
                 *context.minimum_bottom_focus_pitch,
                 *context.pixel_target_parameters,
@@ -140,7 +140,7 @@ impl LookAt {
 fn look_at(
     joint_angles: Joints<f32>,
     camera_matrices: &CameraMatrices,
-    pixel_target: PixelTarget,
+    pixel_target: ImageRegionTarget,
     target: Point2<Ground>,
     minimum_bottom_focus_pitch: f32,
     pixel_target_parameters: PixelTargetParameters,
@@ -173,12 +173,12 @@ fn look_at(
 fn look_at_with_camera(
     target: Point2<Ground>,
     camera_matrix: &CameraMatrix,
-    pixel_target: PixelTarget,
+    pixel_target: ImageRegionTarget,
     pixel_target_parameters: PixelTargetParameters,
 ) -> HeadJoints<f32> {
     let pixel_target = match pixel_target {
-        PixelTarget::Center => pixel_target_parameters.center,
-        PixelTarget::Bottom => pixel_target_parameters.bottom,
+        ImageRegionTarget::Center => pixel_target_parameters.center,
+        ImageRegionTarget::Bottom => pixel_target_parameters.bottom,
     };
 
     let pixel_target = point![

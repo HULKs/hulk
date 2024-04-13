@@ -17,7 +17,7 @@ impl BoundingBox {
         }
     }
 
-    pub fn iou(&self, other: &Self) -> f32 {
+    pub fn intersection_over_union(&self, other: &Self) -> f32 {
         let intersection = self.bounding_box.rectangle_intersection(other.bounding_box);
         let union = self.bounding_box.area() + other.bounding_box.area();
 

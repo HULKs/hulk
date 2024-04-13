@@ -77,7 +77,7 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt {
         target: Point2<Ground>,
-        pixel_target: PixelTarget,
+        pixel_target: ImageRegionTarget,
         camera: Option<CameraPosition>,
     },
     LookLeftAndRightOf {
@@ -87,7 +87,7 @@ pub enum HeadMotion {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub enum PixelTarget {
+pub enum ImageRegionTarget {
     Bottom,
     #[default]
     Center,

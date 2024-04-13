@@ -4,14 +4,14 @@ use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
     filtered_game_state::FilteredGameState,
-    motion_command::{HeadMotion, MotionCommand, PixelTarget},
+    motion_command::{HeadMotion, ImageRegionTarget, MotionCommand},
     world_state::WorldState,
 };
 
 pub fn execute(
     world_state: &WorldState,
     expected_referee_position: Point2<Ground>,
-    pixel_target: PixelTarget,
+    pixel_target: ImageRegionTarget,
 ) -> Option<MotionCommand> {
     let filtered_game_controller_state = world_state.filtered_game_controller_state?;
 

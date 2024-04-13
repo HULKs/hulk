@@ -14,7 +14,7 @@ use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::{MotionCommand, PixelTarget},
+    motion_command::{ImageRegionTarget, MotionCommand},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
     },
@@ -235,7 +235,7 @@ impl Behavior {
                     Action::Initial => initial::execute(
                         world_state,
                         *context.expected_referee_position,
-                        PixelTarget::Bottom,
+                        ImageRegionTarget::Bottom,
                     ),
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)

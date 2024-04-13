@@ -1,5 +1,5 @@
 use types::{
-    motion_command::{HeadMotion, PixelTarget},
+    motion_command::{HeadMotion, ImageRegionTarget},
     world_state::WorldState,
 };
 
@@ -16,7 +16,7 @@ impl<'cycle> LookAction<'cycle> {
     pub fn execute(&self) -> HeadMotion {
         HeadMotion::LookAt {
             target: self.world_state.position_of_interest,
-            pixel_target: PixelTarget::Center,
+            pixel_target: ImageRegionTarget::Center,
             camera: None,
         }
     }

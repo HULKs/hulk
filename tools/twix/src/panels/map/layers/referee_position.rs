@@ -13,7 +13,7 @@ use crate::{
 pub struct RefereePosition {
     expected_referee_position: ValueBuffer,
     ground_to_field: ValueBuffer,
-    distance_to_referee_position_threshhold: ValueBuffer,
+    distance_to_referee_position_threshold: ValueBuffer,
     // injected_robot_to_field_of_home_after_coin_toss_before_second_half: ValueBuffer,
 }
 
@@ -26,12 +26,12 @@ impl Layer<Field> for RefereePosition {
         );
         let ground_to_field =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
-        let distance_to_referee_position_threshhold = nao
-            .subscribe_parameter("detection.detection_top.distance_to_referee_position_threshhold");
+        let distance_to_referee_position_threshold = nao
+            .subscribe_parameter("detection.detection_top.distance_to_referee_position_threshold");
         Self {
             expected_referee_position,
             ground_to_field,
-            distance_to_referee_position_threshhold,
+            distance_to_referee_position_threshold,
             // injected_robot_to_field_of_home_after_coin_toss_before_second_half: nao
             //     .subscribe_parameter(
             //         "injected_robot_to_field_of_home_after_coin_toss_before_second_half",
@@ -61,12 +61,12 @@ impl Layer<Field> for RefereePosition {
             position_stroke,
         );
 
-        let distance_to_referee_position_threshhold: f32 = self
-            .distance_to_referee_position_threshhold
+        let distance_to_referee_position_threshold: f32 = self
+            .distance_to_referee_position_threshold
             .require_latest()?;
         painter.circle(
             ground_to_field * expected_referee_position_ground,
-            distance_to_referee_position_threshhold,
+            distance_to_referee_position_threshold,
             Color32::TRANSPARENT,
             position_stroke,
         );

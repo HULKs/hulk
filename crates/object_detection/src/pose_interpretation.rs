@@ -47,11 +47,10 @@ pub struct CycleContext {
     player_number: Parameter<PlayerNumber, "player_number">,
     keypoint_confidence_threshold:
         Parameter<f32, "detection.$cycler_instance.keypoint_confidence_threshold">,
-    distance_to_referee_position_threshhold:
-        Parameter<f32, "detection.$cycler_instance.distance_to_referee_position_threshhold">,
+    distance_to_referee_position_threshold:
+        Parameter<f32, "detection.$cycler_instance.distance_to_referee_position_threshold">,
     foot_z_offset: Parameter<f32, "detection.$cycler_instance.foot_z_offset">,
-    shoulder_angle_threshhold:
-        Parameter<f32, "detection.$cycler_instance.shoulder_angle_threshhold">,
+    shoulder_angle_threshold: Parameter<f32, "detection.$cycler_instance.shoulder_angle_threshold">,
 }
 
 #[context]
@@ -73,13 +72,13 @@ impl PoseInterpretation {
             context.ground_to_field,
             *context.foot_z_offset,
             *context.keypoint_confidence_threshold,
-            *context.shoulder_angle_threshhold,
+            *context.shoulder_angle_threshold,
         );
 
         let referee_pose = Self::get_referee_pose(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
-            *context.distance_to_referee_position_threshhold,
+            *context.distance_to_referee_position_threshold,
             *context.expected_referee_position,
             *context.foot_z_offset,
         );
@@ -87,7 +86,7 @@ impl PoseInterpretation {
         let pose_type = Self::interpret_pose(
             referee_pose,
             *context.keypoint_confidence_threshold,
-            *context.shoulder_angle_threshhold,
+            *context.shoulder_angle_threshold,
         );
 
         if let PoseType::OverheadArms = pose_type {
@@ -117,7 +116,7 @@ impl PoseInterpretation {
         ground_to_field: Option<&Isometry2<Ground, Field>>,
         foot_z_offset: f32,
         keypoint_confidence_threshold: f32,
-        shoulder_angle_threshhold: f32,
+        shoulder_angle_threshold: f32,
     ) -> Vec<(PoseType, Point2<Field>)> {
         let pose_type_tuple = poses
             .iter()
@@ -135,7 +134,7 @@ impl PoseInterpretation {
                         let interpreted_pose = Self::interpret_pose(
                             Some(pose.clone()),
                             keypoint_confidence_threshold,
-                            shoulder_angle_threshhold,
+                            shoulder_angle_threshold,
                         );
                         Some((
                             interpreted_pose,
@@ -158,7 +157,7 @@ impl PoseInterpretation {
     pub fn get_referee_pose(
         poses: Vec<HumanPose>,
         camera_matrix_top: CameraMatrix,
-        distance_to_referee_position_threshhold: f32,
+        distance_to_referee_position_threshold: f32,
         expected_referee_position: Point2<Ground>,
         foot_z_offset: f32,
     ) -> Option<HumanPose> {
@@ -188,7 +187,7 @@ impl PoseInterpretation {
 
         match pose_type_tuple {
             Some((pose, distance_to_referee_position))
-                if distance_to_referee_position < distance_to_referee_position_threshhold =>
+                if distance_to_referee_position < distance_to_referee_position_threshold =>
             {
                 Some(pose.clone())
             }
@@ -199,14 +198,14 @@ impl PoseInterpretation {
     pub fn interpret_pose(
         human_pose: Option<HumanPose>,
         keypoint_confidence_threshold: f32,
-        shoulder_angle_threshhold: f32,
+        shoulder_angle_threshold: f32,
     ) -> PoseType {
         match human_pose {
             Some(pose)
                 if Self::is_overarms(
                     pose.keypoints.clone(),
                     keypoint_confidence_threshold,
-                    shoulder_angle_threshhold,
+                    shoulder_angle_threshold,
                 ) =>
             {
                 PoseType::OverheadArms
@@ -218,7 +217,7 @@ impl PoseInterpretation {
     pub fn is_overarms(
         keypoints: Keypoints,
         keypoint_confidence_threshold: f32,
-        shoulder_angle_threshhold: f32,
+        shoulder_angle_threshold: f32,
     ) -> bool {
         struct RotatedPixel;
 
@@ -242,10 +241,10 @@ impl PoseInterpretation {
         let right_shoulder_to_elbow = right_elbow.coords() - right_shoulder.coords();
         let is_left_shoulder_angled_up =
             f32::atan2(right_shoulder_to_elbow.y(), right_shoulder_to_elbow.x())
-                > shoulder_angle_threshhold;
+                > shoulder_angle_threshold;
         let is_right_shoulder_angled_up =
             f32::atan2(left_shoulder_to_elbow.y(), -left_shoulder_to_elbow.x())
-                > shoulder_angle_threshhold;
+                > shoulder_angle_threshold;
 
         if are_hands_visible {
             are_hands_over_shoulder
