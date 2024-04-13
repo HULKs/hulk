@@ -66,15 +66,6 @@ impl PoseInterpretation {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
-        let interpreted_pose_types: Vec<(PoseType, Point2<Field>)> = Self::get_all_pose_types(
-            context.human_poses.clone(),
-            context.camera_matrices.top.clone(),
-            context.ground_to_field,
-            *context.foot_z_offset,
-            *context.keypoint_confidence_threshold,
-            *context.shoulder_angle_threshold,
-        );
-
         let referee_pose = Self::get_referee_pose(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
@@ -106,7 +97,15 @@ impl PoseInterpretation {
 
         Ok(MainOutputs {
             detected_referee_pose_type: pose_type.into(),
-            detected_pose_types: interpreted_pose_types.into(),
+            detected_pose_types: Self::get_all_pose_types(
+                context.human_poses.clone(),
+                context.camera_matrices.top.clone(),
+                context.ground_to_field,
+                *context.foot_z_offset,
+                *context.keypoint_confidence_threshold,
+                *context.shoulder_angle_threshold,
+            )
+            .into(),
         })
     }
 
@@ -118,7 +117,7 @@ impl PoseInterpretation {
         keypoint_confidence_threshold: f32,
         shoulder_angle_threshold: f32,
     ) -> Vec<(PoseType, Point2<Field>)> {
-        let pose_type_tuple = poses
+        poses
             .iter()
             .filter_map(|pose| {
                 if let Some(ground_to_field) = ground_to_field {
@@ -150,8 +149,7 @@ impl PoseInterpretation {
                     None
                 }
             })
-            .collect();
-        pose_type_tuple
+            .collect()
     }
 
     pub fn get_referee_pose(
@@ -202,7 +200,7 @@ impl PoseInterpretation {
     ) -> PoseType {
         match human_pose {
             Some(pose)
-                if Self::is_overarms(
+                if Self::is_over_head_arms(
                     pose.keypoints.clone(),
                     keypoint_confidence_threshold,
                     shoulder_angle_threshold,
@@ -214,7 +212,7 @@ impl PoseInterpretation {
         }
     }
 
-    pub fn is_overarms(
+    pub fn is_over_head_arms(
         keypoints: Keypoints,
         keypoint_confidence_threshold: f32,
         shoulder_angle_threshold: f32,
@@ -233,12 +231,14 @@ impl PoseInterpretation {
             f32::atan2(left_to_right_shoulder.y(), left_to_right_shoulder.x());
         let shoulder_rotation =
             Transform::<Pixel, RotatedPixel, nalgebra::Isometry2<_>>::rotation(shoulder_line_angle);
+
         let left_shoulder = shoulder_rotation * keypoints.left_shoulder.point;
         let right_shoulder = shoulder_rotation * keypoints.right_shoulder.point;
         let left_elbow = shoulder_rotation * keypoints.left_elbow.point;
         let right_elbow = shoulder_rotation * keypoints.right_elbow.point;
         let left_shoulder_to_elbow = left_elbow.coords() - left_shoulder.coords();
         let right_shoulder_to_elbow = right_elbow.coords() - right_shoulder.coords();
+
         let is_left_shoulder_angled_up =
             f32::atan2(right_shoulder_to_elbow.y(), right_shoulder_to_elbow.x())
                 > shoulder_angle_threshold;
