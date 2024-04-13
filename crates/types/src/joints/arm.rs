@@ -24,7 +24,7 @@ pub enum ArmJoint {
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct ArmJoints<T> {
+pub struct ArmJoints<T = f32> {
     pub shoulder_pitch: T,
     pub shoulder_roll: T,
     pub elbow_yaw: T,

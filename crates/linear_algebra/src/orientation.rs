@@ -1,6 +1,6 @@
 use nalgebra::{RealField, SimdRealField};
 
-use crate::{Framed, Rotation2, Vector2, Vector3};
+use crate::{Framed, Rotation2, Rotation3, Vector2, Vector3};
 
 pub type Orientation2<Frame, T = f32> = Framed<Frame, nalgebra::UnitComplex<T>>;
 pub type Orientation3<Frame, T = f32> = Framed<Frame, nalgebra::UnitQuaternion<T>>;
@@ -55,7 +55,7 @@ where
 
 impl<Frame, T> Orientation3<Frame, T>
 where
-    T: SimdRealField,
+    T: SimdRealField + RealField,
     T::Element: SimdRealField,
 {
     pub fn new(axis_angle: Vector3<Frame, T>) -> Self {
@@ -70,5 +70,21 @@ where
 
     pub fn mirror(&self) -> Self {
         Self::wrap(self.inner.inverse())
+    }
+
+    pub fn angle_to(&self, other: Self) -> T {
+        self.inner.angle_to(&other.inner)
+    }
+
+    pub fn rotation_to(&self, other: Self) -> Rotation3<Frame, Frame, T> {
+        Rotation3::wrap(self.inner.rotation_to(&other.inner))
+    }
+
+    pub fn rotation<From>(self) -> Rotation3<From, Frame, T> {
+        Rotation3::wrap(self.inner)
+    }
+
+    pub fn slerp(&self, other: Self, t: T) -> Self {
+        Self::wrap(self.inner.slerp(&other.inner, t))
     }
 }

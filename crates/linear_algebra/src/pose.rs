@@ -1,9 +1,11 @@
 use nalgebra::SimdRealField;
 
-use crate::{Framed, Isometry2, Isometry3, Orientation2, Point2, Point3, Vector2};
+use crate::{Framed, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Point3, Vector2};
 
 pub type Pose2<Frame, T = f32> = Framed<Frame, nalgebra::Isometry2<T>>;
 pub type Pose3<Frame, T = f32> = Framed<Frame, nalgebra::Isometry3<T>>;
+
+// 2 Dimension
 
 impl<Frame, T> Pose2<Frame, T>
 where
@@ -55,17 +57,32 @@ where
     }
 }
 
+// 3 Dimension
+
 impl<Frame, T> Pose3<Frame, T>
 where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
+    pub fn from_parts(position: Point3<Frame, T>, orientation: Orientation3<Frame, T>) -> Self {
+        Self::wrap(nalgebra::Isometry3::from_parts(
+            position.inner.into(),
+            orientation.inner,
+        ))
+    }
     pub fn as_transform<From>(&self) -> Isometry3<From, Frame, T> {
         Isometry3::wrap(self.inner)
     }
 
     pub fn position(&self) -> Point3<Frame, T> {
         Point3::wrap(self.inner.translation.vector.into())
+    }
+
+    pub fn orientation(&self) -> Orientation3<Frame, T>
+    where
+        T: Copy,
+    {
+        Orientation3::wrap(self.inner.rotation)
     }
 }
 
