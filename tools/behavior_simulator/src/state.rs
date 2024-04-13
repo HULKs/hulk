@@ -18,7 +18,7 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     messages::{IncomingMessage, OutgoingMessage},
-    motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode, PixelTarget},
     planned_path::PathSegment,
     players::Players,
     primary_state::PrimaryState,
@@ -160,7 +160,9 @@ impl State {
                 HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
                     robot.database.main_outputs.look_around.yaw
                 }
-                HeadMotion::LookAt { target, .. } => target.coords().angle(Vector2::x_axis()),
+                HeadMotion::LookAt { target: target, .. } => {
+                    target.coords().angle(Vector2::x_axis())
+                }
                 HeadMotion::LookLeftAndRightOf { target } => {
                     let glance_factor = self.time_elapsed.as_secs_f32().sin();
                     target.coords().angle(Vector2::x_axis())

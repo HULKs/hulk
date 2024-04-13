@@ -1,13 +1,14 @@
 use std::{time::Duration, time::SystemTime};
 
 use color_eyre::Result;
+use kinematics::forward::{head_to_neck, neck_to_robot};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Ground;
+use coordinate_systems::{Camera, Ground, Head, Robot};
 use framework::MainOutput;
-use linear_algebra::{distance, point, vector, Point2};
+use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     camera_position::CameraPosition,
     cycle_time::CycleTime,
@@ -30,6 +31,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "ground_to_robot?">,
     motion_command: Input<MotionCommand, "motion_command">,
     sensor_data: Input<SensorData, "sensor_data">,
 
@@ -63,6 +65,11 @@ impl LookAt {
 
         let camera_matrices = match context.camera_matrices {
             Some(camera_matrices) => camera_matrices,
+            None => return default_output,
+        };
+
+        let ground_to_robot = match context.ground_to_robot {
+            Some(ground_to_robot) => *ground_to_robot,
             None => return default_output,
         };
 
@@ -108,6 +115,11 @@ impl LookAt {
             _ => return default_output,
         };
 
+        let zero_head_to_robot =
+            neck_to_robot(&HeadJoints::default()) * head_to_neck(&HeadJoints::default());
+        let robot_to_zero_head = zero_head_to_robot.inverse();
+        let ground_to_zero_head = robot_to_zero_head * ground_to_robot;
+
         let request = match camera {
             Some(camera) => {
                 let camera_matrix = match camera {
@@ -116,6 +128,7 @@ impl LookAt {
                 };
                 look_at_with_camera(
                     target,
+                    camera_matrix.head_to_camera * ground_to_zero_head,
                     camera_matrix,
                     pixel_target,
                     *context.pixel_target_parameters,
@@ -123,6 +136,7 @@ impl LookAt {
             }
             None => look_at(
                 context.sensor_data.positions,
+                ground_to_zero_head,
                 camera_matrices,
                 ImageRegionTarget::default(),
                 target,
@@ -139,20 +153,26 @@ impl LookAt {
 
 fn look_at(
     joint_angles: Joints<f32>,
+    ground_to_zero_head: Isometry3<Ground, Head>,
     camera_matrices: &CameraMatrices,
     pixel_target: ImageRegionTarget,
     target: Point2<Ground>,
     minimum_bottom_focus_pitch: f32,
     pixel_target_parameters: PixelTargetParameters,
 ) -> HeadJoints<f32> {
+    let head_to_top_camera = camera_matrices.top.head_to_camera;
+    let head_to_bottom_camera = camera_matrices.bottom.head_to_camera;
+
     let top_focus_angles = look_at_with_camera(
         target,
+        head_to_top_camera * ground_to_zero_head,
         &camera_matrices.top,
         pixel_target,
         pixel_target_parameters,
     );
     let bottom_focus_angles = look_at_with_camera(
         target,
+        head_to_bottom_camera * ground_to_zero_head,
         &camera_matrices.bottom,
         pixel_target,
         pixel_target_parameters,
@@ -172,6 +192,7 @@ fn look_at(
 
 fn look_at_with_camera(
     target: Point2<Ground>,
+    ground_to_zero_camera: Isometry3<Ground, Camera>,
     camera_matrix: &CameraMatrix,
     pixel_target: ImageRegionTarget,
     pixel_target_parameters: PixelTargetParameters,
@@ -186,7 +207,7 @@ fn look_at_with_camera(
         pixel_target.y() * camera_matrix.image_size.y()
     ];
 
-    let target_in_camera = camera_matrix.ground_to_camera * point![target.x(), target.y(), 0.0];
+    let target_in_camera = ground_to_zero_camera * point![target.x(), target.y(), 0.0];
 
     let offset_to_center = pixel_target - camera_matrix.optical_center.coords();
     let yaw_offset = f32::atan2(offset_to_center.x(), camera_matrix.focal_length.x);
