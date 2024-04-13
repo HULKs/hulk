@@ -209,14 +209,15 @@ impl PoseDetection {
                 // bbox re-scale
                 let center_x = bounding_box_slice[0] * X_SCALE;
                 let center_y = bounding_box_slice[1] * Y_SCALE;
+                let center = point![center_x, center_y];
+
                 let width = bounding_box_slice[2] * X_SCALE;
                 let height = bounding_box_slice[3] * Y_SCALE;
+                let size = vector![width, height];
+
                 let bounding_box = BoundingBox::new(
                     prob,
-                    Rectangle::<Pixel>::new_with_center_and_size(
-                        point![center_x, center_y],
-                        vector![width, height],
-                    ),
+                    Rectangle::<Pixel>::new_with_center_and_size(center, size),
                 );
 
                 let keypoints_slice = row.slice(s![5..]);
