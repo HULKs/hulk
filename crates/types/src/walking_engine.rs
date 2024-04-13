@@ -7,7 +7,6 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
     joints::{arm::ArmJoints, leg::LegJoints},
-    kick_step::KickStep,
     step_plan::Step,
 };
 
@@ -26,6 +25,8 @@ pub struct WalkingEngineParameters {
     pub step_midpoint: Step,
     pub stiffnesses: StiffnessesParameters,
     pub swinging_arms: SwingingArmsParameters,
+    pub max_level_delta: f32,
+    pub max_rotation_speed: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -59,14 +60,15 @@ pub struct StiffnessesParameters {
 pub struct GyroBalancingParameters {
     pub balance_factors: LegJoints<f32>,
     pub low_pass_factor: f32,
+    pub max_delta: LegJoints<f32>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CatchingStepsParameters {
-    pub foot_support_forward: f32,
-    pub foot_support_backward: f32,
-    pub max_adjustment_delta: f32,
+    pub toe_offset: f32,
+    pub heel_offset: f32,
     pub max_adjustment: Vector3<Walk>,
+    pub midpoint: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -79,11 +81,4 @@ pub struct SwingingArmsParameters {
     pub pulling_back_duration: Duration,
     pub pulling_tight_duration: Duration,
     pub torso_tilt_compensation_factor: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct KickStepsParameters {
-    pub forward: Vec<KickStep>,
-    pub turn: Vec<KickStep>,
-    pub side: Vec<KickStep>,
 }

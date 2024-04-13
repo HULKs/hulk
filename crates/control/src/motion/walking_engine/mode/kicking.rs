@@ -1,9 +1,21 @@
-use crate::motion::walking_engine::{feet::Feet, kicking::KickState, step_state::StepState};
+use std::time::Duration;
+
+use crate::motion::walking_engine::{
+    feet::Feet,
+    kicking::{KickOverride, KickState},
+    step_plan::StepPlan,
+    step_state::StepState,
+    stiffness::Stiffness as _,
+};
 
 use super::{super::CycleContext, stopping::Stopping, walking::Walking, Mode, WalkTransition};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{motion_command::KickVariant, step_plan::Step, support_foot::Side};
+use types::{
+    joints::body::BodyJoints, kick_step::KickSteps, motion_command::KickVariant,
+    motor_commands::MotorCommands, step_plan::Step, support_foot::Side,
+    walking_engine::WalkingEngineParameters,
+};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Kicking {
@@ -16,130 +28,155 @@ impl Kicking {
         context: &CycleContext,
         kick: KickState,
         support_side: Side,
-        start_feet: Feet,
+        joints: &BodyJoints,
     ) -> Self {
-        let started_at = context.cycle_time.start_time - context.cycle_time.last_cycle_duration;
-        let base_step = kick.kick_step(context).base_step;
-        let step = match kick.side {
+        let start_feet = Feet::from_joints(joints, support_side, context.parameters);
+
+        let kick_step = kick.get_step(context.kick_steps);
+        let base_step = kick_step.base_step;
+        let request = match kick.side {
             Side::Left => base_step,
             Side::Right => base_step.mirrored(),
         };
-        let end_feet = Feet::end_from_request(context, step, support_side);
-        let step_duration = context.parameters.base.step_duration;
-        let kick_step = kick.kick_step(context);
-        let max_swing_foot_lift = kick_step.foot_lift_apex;
+        let end_feet = Feet::end_from_request(context.parameters, request, support_side);
+
         let step = StepState {
-            started_at,
-            step_duration,
-            start_feet,
-            end_feet,
-            support_side,
-            max_swing_foot_lift,
-            step_adjustment: Default::default(),
-            midpoint: kick_step.midpoint,
+            plan: StepPlan {
+                step_duration: kick_step.step_duration,
+                start_feet,
+                end_feet,
+                support_side,
+                foot_lift_apex: kick_step.foot_lift_apex,
+                midpoint: kick_step.midpoint,
+            },
+            time_since_start: Duration::ZERO,
+            gyro_balancing: Default::default(),
+            foot_leveling: Default::default(),
         };
         Self { kick, step }
     }
 }
 
 impl WalkTransition for Kicking {
-    fn stand(self, context: &CycleContext) -> Mode {
+    fn stand(self, context: &CycleContext, joints: &BodyJoints) -> Mode {
         let current_step = self.step;
-        if current_step.is_support_switched(context) {
-            let now = context.cycle_time.start_time;
-            let next_support_side = current_step.support_side.opposite();
-            let kick = self.kick.advance_to_next_step();
-            if kick.is_finished(context) {
-                return Mode::Stopping(Stopping::new(
-                    context,
-                    next_support_side,
-                    current_step.feet_at(now, context.parameters).swap_sides(),
-                ));
-            }
-            if next_support_side == kick.side {
-                Mode::Walking(Walking::new(
-                    context,
-                    Step::ZERO,
-                    next_support_side,
-                    current_step.feet_at(now, context.parameters).swap_sides(),
-                    Step::ZERO,
-                ))
-            } else {
-                Mode::Kicking(Kicking::new(
-                    context,
-                    kick,
-                    next_support_side,
-                    current_step.feet_at(now, context.parameters).swap_sides(),
-                ))
-            }
-        } else {
-            Mode::Kicking(Self {
-                kick: self.kick,
-                step: current_step.advance(context),
-            })
+        if current_step.is_support_switched(context)
+            || current_step.is_timeouted(context.parameters)
+        {
+            return Mode::Stopping(Stopping::new(
+                context,
+                current_step.plan.support_side.opposite(),
+                joints,
+            ));
         }
+
+        Mode::Kicking(self)
     }
 
-    fn walk(self, context: &CycleContext, step: Step) -> Mode {
+    fn walk(self, context: &CycleContext, joints: &BodyJoints, step: Step) -> Mode {
         let current_step = self.step;
+        if current_step.is_timeouted(context.parameters) {
+            return Mode::Walking(Walking::new(
+                context,
+                Step::ZERO,
+                current_step.plan.support_side.opposite(),
+                joints,
+                Step::ZERO,
+            ));
+        }
+
         if current_step.is_support_switched(context) {
             let kick = self.kick.advance_to_next_step();
-            let now = context.cycle_time.start_time;
-            if kick.is_finished(context) {
+            if kick.is_finished(context.kick_steps) {
                 return Mode::Walking(Walking::new(
                     context,
                     step,
-                    current_step.support_side.opposite(),
-                    current_step.feet_at(now, context.parameters).swap_sides(),
+                    current_step.plan.support_side.opposite(),
+                    joints,
                     Step::ZERO,
                 ));
             }
-            Mode::Kicking(Kicking::new(
+
+            return Mode::Kicking(Kicking::new(
                 context,
                 kick,
-                current_step.support_side.opposite(),
-                current_step.feet_at(now, context.parameters).swap_sides(),
-            ))
-        } else {
-            Mode::Kicking(Self {
-                kick: self.kick,
-                step: current_step.advance(context),
-            })
+                current_step.plan.support_side.opposite(),
+                joints,
+            ));
         }
+
+        Mode::Kicking(self)
     }
 
-    fn kick(self, context: &CycleContext, variant: KickVariant, side: Side, strength: f32) -> Mode {
+    fn kick(
+        self,
+        context: &CycleContext,
+        joints: &BodyJoints,
+        variant: KickVariant,
+        kicking_side: Side,
+        strength: f32,
+    ) -> Mode {
         let current_step = self.step;
-        if current_step.is_support_switched(context) {
-            let support_side = current_step.support_side.opposite();
-            let kick = self.kick.advance_to_next_step();
-            let kick = if kick.is_finished(context) {
-                KickState::new(variant, side, strength)
-            } else {
-                kick
-            };
-            let now = context.cycle_time.start_time;
-            if support_side == kick.side {
-                Mode::Walking(Walking::new(
-                    context,
-                    Step::ZERO,
-                    current_step.support_side.opposite(),
-                    current_step.feet_at(now, context.parameters).swap_sides(),
-                    Step::ZERO,
-                ))
-            } else {
-                Mode::Kicking(Kicking::new(
-                    context,
-                    kick,
-                    current_step.support_side.opposite(),
-                    current_step.feet_at(now, context.parameters).swap_sides(),
-                ))
-            }
-        } else {
-            Mode::Kicking(Self {
-                kick: self.kick,
-                step: current_step.advance(context),
-            })
+        if current_step.is_timeouted(context.parameters) {
+            return Mode::Walking(Walking::new(
+                context,
+                Step::ZERO,
+                current_step.plan.support_side.opposite(),
+                joints,
+                Step::ZERO,
+            ));
         }
+
+        if current_step.is_support_switched(context) {
+            let next_support_side = current_step.plan.support_side.opposite();
+            let current_kick = self.kick.advance_to_next_step();
+            if !current_kick.is_finished(context.kick_steps) {
+                return Mode::Kicking(Kicking::new(
+                    context,
+                    current_kick,
+                    next_support_side,
+                    joints,
+                ));
+            }
+
+            // TODO: all kicks require a pre-step
+            if next_support_side != kicking_side {
+                return Mode::Walking(Walking::new(
+                    context,
+                    Step::ZERO,
+                    next_support_side,
+                    joints,
+                    Step::ZERO,
+                ));
+            }
+            return Mode::Kicking(Kicking::new(
+                context,
+                KickState::new(variant, kicking_side, strength),
+                next_support_side,
+                joints,
+            ));
+        }
+
+        Mode::Kicking(self)
+    }
+}
+
+impl Kicking {
+    pub fn compute_commands(
+        &self,
+        parameters: &WalkingEngineParameters,
+        kick_steps: &KickSteps,
+    ) -> MotorCommands<BodyJoints> {
+        self.step
+            .compute_joints(parameters)
+            .override_with_kick(kick_steps, &self.kick, &self.step)
+            .apply_stiffness(
+                parameters.stiffnesses.leg_stiffness_walk,
+                parameters.stiffnesses.arm_stiffness,
+            )
+    }
+
+    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
+        self.step.tick(context, gyro);
     }
 }

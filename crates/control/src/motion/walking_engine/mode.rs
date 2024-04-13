@@ -1,25 +1,19 @@
-use nalgebra::Vector3;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
-    step_plan::Step, support_foot::Side,
+    joints::body::BodyJoints, kick_step::KickSteps, motion_command::KickVariant,
+    motor_commands::MotorCommands, step_plan::Step, support_foot::Side,
+    walking_engine::WalkingEngineParameters,
 };
 
 use self::{
-    kicking::Kicking, standing::Standing, starting::Starting, stopping::Stopping, walking::Walking,
+    catching::Catching, kicking::Kicking, standing::Standing, starting::Starting,
+    stopping::Stopping, walking::Walking,
 };
 
-use super::{
-    arms::Arm,
-    balancing::{GyroBalancing, LevelFeet},
-    feet::Feet,
-    kicking::KickOverride,
-    step_state::StepState,
-    stiffness::Stiffness,
-    CycleContext,
-};
+use super::CycleContext;
 
+pub mod catching;
 pub mod kicking;
 pub mod standing;
 pub mod starting;
@@ -27,9 +21,16 @@ pub mod stopping;
 pub mod walking;
 
 pub trait WalkTransition {
-    fn stand(self, context: &CycleContext) -> Mode;
-    fn walk(self, context: &CycleContext, step: Step) -> Mode;
-    fn kick(self, context: &CycleContext, variant: KickVariant, side: Side, strength: f32) -> Mode;
+    fn stand(self, context: &CycleContext, joints: &BodyJoints) -> Mode;
+    fn walk(self, context: &CycleContext, joints: &BodyJoints, request: Step) -> Mode;
+    fn kick(
+        self,
+        context: &CycleContext,
+        joints: &BodyJoints,
+        variant: KickVariant,
+        side: Side,
+        strength: f32,
+    ) -> Mode;
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
@@ -39,36 +40,47 @@ pub enum Mode {
     Walking(Walking),
     Kicking(Kicking),
     Stopping(Stopping),
+    Catching(Catching),
 }
 
 impl WalkTransition for Mode {
-    fn stand(self, context: &CycleContext) -> Mode {
+    fn stand(self, context: &CycleContext, joints: &BodyJoints) -> Mode {
         match self {
-            Self::Standing(standing) => standing.stand(context),
-            Self::Starting(starting) => starting.stand(context),
-            Self::Walking(walking) => walking.stand(context),
-            Self::Kicking(kicking) => kicking.stand(context),
-            Self::Stopping(stopping) => stopping.stand(context),
+            Self::Standing(standing) => standing.stand(context, joints),
+            Self::Starting(starting) => starting.stand(context, joints),
+            Self::Walking(walking) => walking.stand(context, joints),
+            Self::Kicking(kicking) => kicking.stand(context, joints),
+            Self::Stopping(stopping) => stopping.stand(context, joints),
+            Self::Catching(catching) => catching.stand(context, joints),
         }
     }
 
-    fn walk(self, context: &CycleContext, step: Step) -> Mode {
+    fn walk(self, context: &CycleContext, joints: &BodyJoints, step: Step) -> Mode {
         match self {
-            Self::Standing(standing) => standing.walk(context, step),
-            Self::Starting(starting) => starting.walk(context, step),
-            Self::Walking(walking) => walking.walk(context, step),
-            Self::Kicking(kicking) => kicking.walk(context, step),
-            Self::Stopping(stopping) => stopping.walk(context, step),
+            Self::Standing(standing) => standing.walk(context, joints, step),
+            Self::Starting(starting) => starting.walk(context, joints, step),
+            Self::Walking(walking) => walking.walk(context, joints, step),
+            Self::Kicking(kicking) => kicking.walk(context, joints, step),
+            Self::Stopping(stopping) => stopping.walk(context, joints, step),
+            Self::Catching(catching) => catching.walk(context, joints, step),
         }
     }
 
-    fn kick(self, context: &CycleContext, variant: KickVariant, side: Side, strength: f32) -> Mode {
+    fn kick(
+        self,
+        context: &CycleContext,
+        joints: &BodyJoints,
+        variant: KickVariant,
+        side: Side,
+        strength: f32,
+    ) -> Mode {
         match self {
-            Self::Standing(standing) => standing.kick(context, variant, side, strength),
-            Self::Starting(starting) => starting.kick(context, variant, side, strength),
-            Self::Walking(walking) => walking.kick(context, variant, side, strength),
-            Self::Kicking(kicking) => kicking.kick(context, variant, side, strength),
-            Self::Stopping(stopping) => stopping.kick(context, variant, side, strength),
+            Self::Standing(standing) => standing.kick(context, joints, variant, side, strength),
+            Self::Starting(starting) => starting.kick(context, joints, variant, side, strength),
+            Self::Walking(walking) => walking.kick(context, joints, variant, side, strength),
+            Self::Kicking(kicking) => kicking.kick(context, joints, variant, side, strength),
+            Self::Stopping(stopping) => stopping.kick(context, joints, variant, side, strength),
+            Self::Catching(catching) => catching.kick(context, joints, variant, side, strength),
         }
     }
 }
@@ -76,50 +88,27 @@ impl WalkTransition for Mode {
 impl Mode {
     pub fn compute_commands(
         &self,
-        context: &CycleContext,
-        left_arm: &Arm,
-        right_arm: &Arm,
-        gyro: Vector3<f32>,
-    ) -> MotorCommands<BodyJoints<f32>> {
-        let stiffnesses = &context.parameters.stiffnesses;
+        parameters: &WalkingEngineParameters,
+        kick_steps: &KickSteps,
+    ) -> MotorCommands<BodyJoints> {
         match self {
-            Mode::Standing(..) => standing_commands(context, left_arm, right_arm)
-                .apply_stiffness(stiffnesses.leg_stiffness_stand, stiffnesses.arm_stiffness),
-            Mode::Starting(Starting { step })
-            | Mode::Walking(Walking { step, .. })
-            | Mode::Stopping(Stopping { step }) => {
-                walking_commands(context, step, left_arm, right_arm, gyro)
-                    .apply_stiffness(stiffnesses.leg_stiffness_walk, stiffnesses.arm_stiffness)
-            }
-            Mode::Kicking(Kicking { kick, step }) => {
-                walking_commands(context, step, left_arm, right_arm, gyro)
-                    .override_with_kick(context, kick, step)
-                    .apply_stiffness(stiffnesses.leg_stiffness_walk, stiffnesses.arm_stiffness)
-            }
+            Self::Standing(standing) => standing.compute_commands(parameters),
+            Self::Starting(starting) => starting.compute_commands(parameters),
+            Self::Walking(walking) => walking.compute_commands(parameters),
+            Self::Kicking(kicking) => kicking.compute_commands(parameters, kick_steps),
+            Self::Stopping(stopping) => stopping.compute_commands(parameters),
+            Self::Catching(catching) => catching.compute_commands(parameters),
         }
     }
-}
 
-fn standing_commands(context: &CycleContext, left_arm: &Arm, right_arm: &Arm) -> BodyJoints<f32> {
-    let support_side = Side::Left;
-    let feet = Feet::end_from_request(context, Step::ZERO, support_side);
-    feet.compute_joints(context, support_side, left_arm, right_arm)
-}
-
-fn walking_commands(
-    context: &CycleContext,
-    step: &StepState,
-    left_arm: &Arm,
-    right_arm: &Arm,
-    gyro: Vector3<f32>,
-) -> BodyJoints<f32> {
-    let now = context.cycle_time.start_time;
-    let feet = step.feet_at(now, context.parameters);
-    feet.compute_joints(context, step.support_side, left_arm, right_arm)
-        .balance_using_gyro(
-            step,
-            gyro,
-            &context.parameters.gyro_balancing.balance_factors,
-        )
-        .level_feet(context, step)
+    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
+        match self {
+            Mode::Standing(standing) => standing.tick(context, gyro),
+            Mode::Starting(starting) => starting.tick(context, gyro),
+            Mode::Walking(walking) => walking.tick(context, gyro),
+            Mode::Kicking(kicking) => kicking.tick(context, gyro),
+            Mode::Stopping(stopping) => stopping.tick(context, gyro),
+            Mode::Catching(catching) => catching.tick(context, gyro),
+        }
+    }
 }

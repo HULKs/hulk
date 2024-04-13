@@ -416,7 +416,7 @@
     "minimum_detections": 2
   },
   "walking_engine": {
-    "base":{
+    "base": {
       "foot_lift_apex": 0.01,
       "foot_lift_apex_increase": {
         "forward": 0.04,
@@ -434,13 +434,13 @@
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
       "torso_tilt": 0.02,
-      "walk_height": 0.185
+      "walk_height": 0.23
     },
     "catching_steps": {
-      "foot_support_forward": 0.09,
-      "foot_support_backward": -0.012,
-      "max_adjustment_delta": 0.05,
-      "max_adjustment": [0.04, 0.0, 0.05]
+      "toe_offset": 0.09,
+      "heel_offset": -0.035,
+      "max_adjustment": [0.04, 0.08, 0.02],
+      "midpoint": 0.4
     },
     "gyro_balancing": {
       "balance_factors": {
@@ -449,16 +449,26 @@
         "hip_pitch": 0.0,
         "knee_pitch": 0.0,
         "ankle_pitch": 0.05,
-        "ankle_roll": 0.0
+        "ankle_roll": 0.05
       },
-      "low_pass_factor": 0.4
+      "low_pass_factor": 0.4,
+      "max_delta": {
+        "hip_yaw_pitch": 0.05,
+        "hip_roll": 0.05,
+        "hip_pitch": 0.05,
+        "knee_pitch": 0.05,
+        "ankle_pitch": 0.05,
+        "ankle_roll": 0.05
+      }
     },
+    "max_level_delta": 0.1,
+    "max_rotation_speed": 5.0,
     "max_forward_acceleration": 0.01,
     "max_inside_turn": 0.0,
     "max_step_duration": { "nanos": 0, "secs": 2 },
-    "max_support_foot_lift_speed": 0.2,
+    "max_support_foot_lift_speed": 0.01,
     "min_step_duration": { "nanos": 180000000, "secs": 0 },
-    "sole_pressure_threshold": 0.2,
+    "sole_pressure_threshold": 0.4,
     "starting_step": {
       "foot_lift_apex": 0.009,
       "step_duration": { "nanos": 200000000, "secs": 0 }
@@ -502,13 +512,15 @@
     "forward": [
       {
         "base_step": { "forward": 0.04, "left": 0.0, "turn": 0.0 },
-        "foot_lift_apex": 0.02,
+        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "foot_lift_apex": 0.015,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
         "base_step": { "forward": 0.08, "left": 0.0, "turn": 0.0 },
+        "step_duration": { "nanos": 280000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
         "hip_pitch_overrides": [
@@ -525,7 +537,8 @@
         ]
       },
       {
-        "base_step": { "forward": 0.04, "left": 0.0, "turn": 0.0 },
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.015,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
@@ -534,14 +547,16 @@
     ],
     "turn": [
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.8 },
-        "foot_lift_apex": 0.02,
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": -0.8 },
+        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "foot_lift_apex": 0.01,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.06, "left": 0.0, "turn": 0.2 },
+        "base_step": { "forward": 0.06, "left": 0.0, "turn": -0.2 },
+        "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
         "hip_pitch_overrides": [
@@ -561,13 +576,15 @@
     "side": [
       {
         "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
-        "foot_lift_apex": 0.02,
+        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "foot_lift_apex": 0.01,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.0, "left": -0.12, "turn": 0.0 },
+        "base_step": { "forward": 0.0, "left": 0.12, "turn": 0.0 },
+        "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.4,
         "hip_pitch_overrides": null,
@@ -801,15 +818,15 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.23, 0.05],
+      "position": [-0.23, -0.05],
       "orientation": 0.0,
       "reached_thresholds": [0.06, 0.03, 0.1],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
-      "position": [-0.176, 0.09],
-      "orientation": -1.0,
+      "position": [-0.176, -0.09],
+      "orientation": 1.0,
       "reached_thresholds": [0.04, 0.04, 0.1],
       "shot_distance": 3.5,
       "enabled": true
