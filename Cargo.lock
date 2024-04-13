@@ -5425,6 +5425,7 @@ dependencies = [
  "gilrs",
  "image",
  "itertools",
+ "kinematics",
  "linear_algebra",
  "log",
  "mlua",
