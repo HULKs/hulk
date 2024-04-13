@@ -157,6 +157,7 @@ fn next_filtered_state(
     ball_detected_far_from_any_goal: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
+        (State::Finished, GameState::Initial) => State::Initial,
         (State::Finished, _) => match game_controller_state.game_phase {
             GamePhase::PenaltyShootout { .. } => State::Set,
             _ => State::Finished,
