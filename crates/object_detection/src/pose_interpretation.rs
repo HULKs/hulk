@@ -2,28 +2,22 @@ use std::time::Duration;
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Field;
-use coordinate_systems::Ground;
-use coordinate_systems::Pixel;
+use coordinate_systems::{Field, Ground, Pixel};
 use framework::MainOutput;
-use hardware::NetworkInterface;
-use hardware::PathsInterface;
-use linear_algebra::center;
-use linear_algebra::distance;
-use linear_algebra::Isometry2;
-use linear_algebra::Point2;
-use linear_algebra::Transform;
+use hardware::{NetworkInterface, PathsInterface};
+use linear_algebra::{center, distance, Isometry2, Point2, Transform};
 use ordered_float::NotNan;
-use projection::camera_matrices::CameraMatrices;
-use projection::camera_matrix::CameraMatrix;
-use projection::Projection;
+use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::HulkMessage;
-use spl_network_messages::PlayerNumber;
-use types::fall_state::FallState;
-use types::messages::OutgoingMessage;
-use types::pose_detection::Keypoints;
-use types::{pose_detection::HumanPose, pose_types::PoseType};
+use spl_network_messages::{HulkMessage, PlayerNumber};
+use types::{
+    fall_state::FallState,
+    messages::OutgoingMessage,
+    {
+        pose_detection::{HumanPose, Keypoints},
+        pose_types::PoseType,
+    },
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseInterpretation {}
