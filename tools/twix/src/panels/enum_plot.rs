@@ -49,10 +49,8 @@ impl Segment {
             Value::String(string) => string.clone(),
             Value::Array(_) => "<Array>".into(),
             Value::Object(map) => {
-                if let [(key, _value)] = &map.iter().collect::<Vec<_>>().as_slice() {
-                    // There is only one key in the map.
-                    // This is probably an enum variant.
-                    (*key).clone()
+                if map.keys().len() == 1 {
+                    map.keys().next().unwrap().clone()
                 } else {
                     "<Object>".into()
                 }
@@ -65,7 +63,8 @@ impl Segment {
             Value::Number(number) => Some(number.to_string()),
             Value::String(string) => Some(string.clone()),
             Value::Object(map) => {
-                if let [(key, value)] = &map.iter().collect::<Vec<_>>().as_slice() {
+                if map.keys().len() == 1 {
+                    let (key, value) = map.iter().next().unwrap();
                     Some(format!("{key} {value:#}"))
                 } else {
                     Some(format!("{map:#?}"))
