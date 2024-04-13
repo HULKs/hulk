@@ -91,7 +91,7 @@ pub struct EnumPlotPanel {
     nao: Arc<Nao>,
     changes: Vec<Change>,
     messages_count: usize,
-    scroll_pos: f64,
+    scroll_position: f64,
     viewport_width: f64,
     change_buffer: Option<ChangeBuffer>,
     output_key: String,
@@ -107,7 +107,7 @@ impl Panel for EnumPlotPanel {
             changes: Vec::new(),
             messages_count: 0,
             change_buffer: None,
-            scroll_pos: 0.0,
+            scroll_position: 0.0,
             viewport_width: 1.0,
             output_key: String::new(),
             viewport_mode: ViewportMode::Full,
@@ -197,7 +197,7 @@ impl EnumPlotPanel {
         let scroll_delta = plot_ui.ctx().input(|input| input.scroll_delta);
 
         let normalized_cursor_position = cursor_position
-            .map_or(0.0, |plot_point| plot_point.x - self.scroll_pos)
+            .map_or(0.0, |plot_point| plot_point.x - self.scroll_position)
             / self.viewport_width;
 
         let previous_viewport_width = self.viewport_width;
@@ -208,7 +208,7 @@ impl EnumPlotPanel {
         let zoom_difference = self.viewport_width - previous_viewport_width;
         let zoom_scroll_compensation = zoom_difference * normalized_cursor_position;
 
-        self.scroll_pos -= drag_delta
+        self.scroll_position -= drag_delta
             + self.viewport_width * f64::from(scroll_delta.x) / 400.0
             + zoom_scroll_compensation;
     }
@@ -223,18 +223,18 @@ impl EnumPlotPanel {
         match self.viewport_mode {
             ViewportMode::Full => {
                 self.viewport_width = self.messages_count.max(1) as f64 * (1.0 + OVERSCAN_FACTOR);
-                self.scroll_pos = 0.0;
+                self.scroll_position = 0.0;
             }
             ViewportMode::Follow => {
-                self.scroll_pos = self.messages_count.max(1) as f64
+                self.scroll_position = self.messages_count.max(1) as f64
                     - self.viewport_width * (1.0 - OVERSCAN_FACTOR);
             }
             ViewportMode::Free => {}
         }
 
         plot_ui.set_plot_bounds(PlotBounds::from_min_max(
-            [self.scroll_pos, 0.0],
-            [self.scroll_pos + self.viewport_width, 1.0],
+            [self.scroll_position, 0.0],
+            [self.scroll_position + self.viewport_width, 1.0],
         ));
 
         for segment in self.segments() {
@@ -257,16 +257,18 @@ impl EnumPlotPanel {
 
         if plot.response.double_clicked() {
             self.viewport_width = (self.messages_count as f64).max(1.0);
-            self.scroll_pos = 0.0;
+            self.scroll_position = 0.0;
         }
 
-        if let Some(hover_pos) = plot.response.hover_pos() {
-            let plot_hover_pos = plot.transform.value_from_position(hover_pos).x;
+        if let Some(hover_position) = plot.response.hover_pos() {
+            let plot_hover_position = plot.transform.value_from_position(hover_position).x;
 
             let hovered_segment = self
                 .segments()
                 .iter()
-                .find(|segment| segment.start < plot_hover_pos && plot_hover_pos < segment.end)
+                .find(|segment| {
+                    segment.start < plot_hover_position && plot_hover_position < segment.end
+                })
                 .cloned();
 
             if let Some(tooltip) = hovered_segment.and_then(|segment| segment.tooltip()) {
