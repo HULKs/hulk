@@ -14,7 +14,6 @@ pub struct RefereePosition {
     expected_referee_position: ValueBuffer,
     ground_to_field: ValueBuffer,
     distance_to_referee_position_threshold: ValueBuffer,
-    // injected_robot_to_field_of_home_after_coin_toss_before_second_half: ValueBuffer,
 }
 
 impl Layer<Field> for RefereePosition {
@@ -32,10 +31,6 @@ impl Layer<Field> for RefereePosition {
             expected_referee_position,
             ground_to_field,
             distance_to_referee_position_threshold,
-            // injected_robot_to_field_of_home_after_coin_toss_before_second_half: nao
-            //     .subscribe_parameter(
-            //         "injected_robot_to_field_of_home_after_coin_toss_before_second_half",
-            //     ),
         }
     }
 
@@ -70,17 +65,6 @@ impl Layer<Field> for RefereePosition {
             Color32::TRANSPARENT,
             position_stroke,
         );
-
-        // Not the correct point for the expected referee position, are there any other
-        // exisiting resources that give that position adapted to the current playing side?
-
-        // let injected_robot_to_field_of_home_after_coin_toss_before_second_half: Isometry2<f32> =
-        //     self.injected_robot_to_field_of_home_after_coin_toss_before_second_half
-        //         .require_latest()?;
-        // let other_referee_position =
-        //     injected_robot_to_field_of_home_after_coin_toss_before_second_half * Point2::origin();
-        // painter.circle(other_referee_position, 0.15, Color32::RED, position_stroke);
-
         Ok(())
     }
 }

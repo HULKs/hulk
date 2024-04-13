@@ -30,10 +30,6 @@ pub struct HulkMessage {
     pub time_to_reach_kick_position: Option<Duration>,
 }
 
-pub struct ReadyVisualRefereeMessage {
-    pub over_arms_pose: bool,
-}
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
