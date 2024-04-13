@@ -114,20 +114,15 @@ impl PoseInterpretation {
         poses
             .iter()
             .filter_map(|pose| {
-                let Some(ground_to_field) = ground_to_field else {
-                    return None;
-                };
+                let ground_to_field = ground_to_field?;
                 let left_foot_ground_position = camera_matrix_top
                     .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
                     .ok();
                 let right_foot_ground_position = camera_matrix_top
                     .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
                     .ok();
-                let Some((left_foot_ground_position, right_foot_ground_position)) =
-                    left_foot_ground_position.zip(right_foot_ground_position)
-                else {
-                    return None;
-                };
+                let (left_foot_ground_position, right_foot_ground_position) =
+                    left_foot_ground_position.zip(right_foot_ground_position)?;
                 let interpreted_pose = Self::interpret_pose(
                     Some(pose.clone()),
                     keypoint_confidence_threshold,
