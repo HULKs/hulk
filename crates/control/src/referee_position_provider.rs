@@ -34,32 +34,31 @@ impl RefereePositionProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if let Some(ground_to_field) = context.ground_to_field {
-            let mut normed_expected_referee_position = *context.normed_expected_referee_position;
-            if let Some(filtered_game_controller_state) =
-                context.world_state.filtered_game_controller_state
-            {
-                if !filtered_game_controller_state.own_team_is_home_after_coin_toss {
-                    normed_expected_referee_position = point![
-                        normed_expected_referee_position.x(),
-                        normed_expected_referee_position.y() * -1.0
-                    ];
-                }
-            }
-
-            let expected_referee_position: Point2<Field> = point![
-                normed_expected_referee_position.x() * context.field_dimensions.length,
-                normed_expected_referee_position.y() * context.field_dimensions.width,
-            ];
-
-            Ok(MainOutputs {
-                expected_referee_position: (ground_to_field.inverse() * expected_referee_position)
-                    .into(),
-            })
-        } else {
-            Ok(MainOutputs {
+        let Some(ground_to_field) = context.ground_to_field else {
+            return Ok(MainOutputs {
                 expected_referee_position: point![0.0, 0.0].into(),
-            })
+            });
+        };
+        let mut normed_expected_referee_position = *context.normed_expected_referee_position;
+        if let Some(filtered_game_controller_state) =
+            context.world_state.filtered_game_controller_state
+        {
+            if !filtered_game_controller_state.own_team_is_home_after_coin_toss {
+                normed_expected_referee_position = point![
+                    normed_expected_referee_position.x(),
+                    normed_expected_referee_position.y() * -1.0
+                ];
+            }
         }
+
+        let expected_referee_position = point![
+            normed_expected_referee_position.x() * context.field_dimensions.length / 2.0,
+            normed_expected_referee_position.y() * context.field_dimensions.width / 2.0,
+        ];
+
+        Ok(MainOutputs {
+            expected_referee_position: (ground_to_field.inverse() * expected_referee_position)
+                .into(),
+        })
     }
 }

@@ -92,21 +92,21 @@ impl LookAt {
             self.last_glance_direction_toggle = Some(cycle_start_time);
         }
 
-        let (target, pixel_target, camera) = match head_motion {
+        let (target, pixel_target, camera) = match *head_motion {
             HeadMotion::LookAt {
                 target,
                 pixel_target,
                 camera,
-            } => (*target, *pixel_target, *camera),
+            } => (target, pixel_target, camera),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
-                    f32::tan(*context.glance_angle) * distance(*target, Point2::origin())
+                    f32::tan(*context.glance_angle) * distance(target, Point2::origin())
                 ];
                 (
                     match self.current_glance_direction {
-                        GlanceDirection::LeftOfTarget => *target + left_right_shift,
-                        GlanceDirection::RightOfTarget => *target - left_right_shift,
+                        GlanceDirection::LeftOfTarget => target + left_right_shift,
+                        GlanceDirection::RightOfTarget => target - left_right_shift,
                     },
                     ImageRegionTarget::default(),
                     None,

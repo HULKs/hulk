@@ -17,7 +17,6 @@ use types::{
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
-    over_head_arms_detection_times: Vec<Option<SystemTime>>,
 }
 
 #[context]
@@ -46,7 +45,6 @@ impl GameControllerStateFilter {
         Ok(Self {
             state: State::Initial,
             opponent_state: State::Initial,
-            over_head_arms_detection_times: vec![None; 7],
         })
     }
 
@@ -295,11 +293,11 @@ fn ball_detected_far_from_any_goal(
 
 fn in_grace_period(
     cycle_start_time: SystemTime,
-    earlier_time: SystemTime,
+    start_time: SystemTime,
     grace_period: Duration,
 ) -> bool {
     cycle_start_time
-        .duration_since(earlier_time)
+        .duration_since(start_time)
         .expect("Time ran backwards")
         < grace_period
 }

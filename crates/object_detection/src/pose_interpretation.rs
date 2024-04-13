@@ -114,34 +114,32 @@ impl PoseInterpretation {
         poses
             .iter()
             .filter_map(|pose| {
-                if let Some(ground_to_field) = ground_to_field {
-                    let left_foot_ground_position = camera_matrix_top
-                        .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
-                        .ok();
-                    let right_foot_ground_position = camera_matrix_top
-                        .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
-                        .ok();
-                    if let Some((left_foot_ground_position, right_foot_ground_position)) =
-                        left_foot_ground_position.zip(right_foot_ground_position)
-                    {
-                        let interpreted_pose = Self::interpret_pose(
-                            Some(pose.clone()),
-                            keypoint_confidence_threshold,
-                            shoulder_angle_threshold,
-                        );
-                        Some((
-                            interpreted_pose,
-                            center(
-                                ground_to_field * left_foot_ground_position,
-                                ground_to_field * right_foot_ground_position,
-                            ),
-                        ))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
+                let Some(ground_to_field) = ground_to_field else {
+                    return None;
+                };
+                let left_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
+                    .ok();
+                let right_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
+                    .ok();
+                let Some((left_foot_ground_position, right_foot_ground_position)) =
+                    left_foot_ground_position.zip(right_foot_ground_position)
+                else {
+                    return None;
+                };
+                let interpreted_pose = Self::interpret_pose(
+                    Some(pose.clone()),
+                    keypoint_confidence_threshold,
+                    shoulder_angle_threshold,
+                );
+                Some((
+                    interpreted_pose,
+                    center(
+                        ground_to_field * left_foot_ground_position,
+                        ground_to_field * right_foot_ground_position,
+                    ),
+                ))
             })
             .collect()
     }
@@ -154,7 +152,7 @@ impl PoseInterpretation {
         foot_z_offset: f32,
     ) -> Option<HumanPose> {
         let pose_type_tuple = poses
-            // Get all poses that are near the referee position within a threshhold
+            // Get all poses that are near the referee position within a threshold
             .iter()
             .filter_map(|pose| {
                 let left_foot_ground_position = camera_matrix_top

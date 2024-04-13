@@ -15,28 +15,30 @@ pub fn execute(
 ) -> Option<MotionCommand> {
     let filtered_game_controller_state = world_state.filtered_game_controller_state?;
 
-    if filtered_game_controller_state.game_state != FilteredGameState::Initial {
-        return None;
-    };
-    let head = match filtered_game_controller_state.own_team_is_home_after_coin_toss {
-        true => match world_state.robot.player_number {
-            PlayerNumber::Seven | PlayerNumber::Four | PlayerNumber::Five | PlayerNumber::Three => {
-                HeadMotion::LookAt {
+    if filtered_game_controller_state.game_state == FilteredGameState::Initial {
+        let head = match filtered_game_controller_state.own_team_is_home_after_coin_toss {
+            true => match world_state.robot.player_number {
+                PlayerNumber::Seven
+                | PlayerNumber::Four
+                | PlayerNumber::Five
+                | PlayerNumber::Three => HeadMotion::LookAt {
                     target: expected_referee_position,
                     pixel_target,
                     camera: Some(CameraPosition::Top),
-                }
-            }
-            _ => HeadMotion::ZeroAngles,
-        },
-        false => match world_state.robot.player_number {
-            PlayerNumber::One | PlayerNumber::Two | PlayerNumber::Six => HeadMotion::LookAt {
-                target: expected_referee_position,
-                pixel_target,
-                camera: Some(CameraPosition::Top),
+                },
+                _ => HeadMotion::ZeroAngles,
             },
-            _ => HeadMotion::ZeroAngles,
-        },
-    };
-    Some(MotionCommand::Initial { head })
+            false => match world_state.robot.player_number {
+                PlayerNumber::One | PlayerNumber::Two | PlayerNumber::Six => HeadMotion::LookAt {
+                    target: expected_referee_position,
+                    pixel_target,
+                    camera: Some(CameraPosition::Top),
+                },
+                _ => HeadMotion::ZeroAngles,
+            },
+        };
+        Some(MotionCommand::Initial { head })
+    } else {
+        None
+    }
 }

@@ -1,4 +1,7 @@
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::PathBuf,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::{
     eyre::{Context, ContextCompat},
@@ -32,6 +35,11 @@ const MAX_DETECTION: usize = 1680;
 
 const DETECTION_SCRATCHPAD_SIZE: usize =
     DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
+
+const X_SCALE: f32 = 640.0 / DETECTION_IMAGE_WIDTH as f32;
+const Y_SCALE: f32 = 480.0 / DETECTION_IMAGE_HEIGHT as f32;
+
+const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
 
 lazy_static! {
     pub static ref X_INDICES: Vec<u32> = compute_indices(DETECTION_IMAGE_WIDTH, 640);
@@ -145,7 +153,7 @@ impl PoseDetection {
         let image = context.image;
         let earlier = context.hardware_interface.get_now();
 
-        PoseDetection::load_into_scratchpad(&mut self.scratchpad, image);
+        load_into_scratchpad(&mut self.scratchpad, image);
 
         context.preprocess_time.fill_if_subscribed(|| {
             context
@@ -172,7 +180,7 @@ impl PoseDetection {
             PoseDetection::as_bytes(&self.scratchpad[..]),
         )?;
 
-        let earlier = context.hardware_interface.get_now();
+        let earlier = SystemTime::now();
 
         infer_request.set_blob(&self.input_name, &blob)?;
         infer_request.infer()?;
@@ -185,10 +193,9 @@ impl PoseDetection {
         });
         let mut prediction = infer_request.get_blob("output0")?;
         let prediction = unsafe { prediction.buffer_mut_as_type::<f32>().unwrap() };
-
         let prediction = ArrayView::from_shape((56, MAX_DETECTION), prediction)?;
 
-        let earlier = context.hardware_interface.get_now();
+        let earlier = SystemTime::now();
         let poses = prediction
             .columns()
             .into_iter()
@@ -199,17 +206,17 @@ impl PoseDetection {
                 }
                 let bounding_box_slice = row.slice(s![0..4]);
 
-                const X_SCALE: f32 = 640.0 / DETECTION_IMAGE_WIDTH as f32;
-                const Y_SCALE: f32 = 480.0 / DETECTION_IMAGE_HEIGHT as f32;
-
                 // bbox re-scale
-                let cx = bounding_box_slice[0] * X_SCALE;
-                let cy = bounding_box_slice[1] * Y_SCALE;
-                let w = bounding_box_slice[2] * X_SCALE;
-                let h = bounding_box_slice[3] * Y_SCALE;
+                let center_x = bounding_box_slice[0] * X_SCALE;
+                let center_y = bounding_box_slice[1] * Y_SCALE;
+                let width = bounding_box_slice[2] * X_SCALE;
+                let height = bounding_box_slice[3] * Y_SCALE;
                 let bounding_box = BoundingBox::new(
                     prob,
-                    Rectangle::<Pixel>::new_with_center_and_size(point![cx, cy], vector![w, h]),
+                    Rectangle::<Pixel>::new_with_center_and_size(
+                        point![center_x, center_y],
+                        vector![width, height],
+                    ),
                 );
 
                 let keypoints_slice = row.slice(s![5..]);
@@ -225,9 +232,7 @@ impl PoseDetection {
         let poses = non_maximum_suppression(poses, *context.intersection_over_union_threshold);
 
         context.postprocess_time.fill_if_subscribed(|| {
-            context
-                .hardware_interface
-                .get_now()
+            SystemTime::now()
                 .duration_since(earlier)
                 .expect("time ran backwards")
         });
@@ -236,21 +241,19 @@ impl PoseDetection {
             human_poses: Some(poses).into(),
         })
     }
+}
 
-    pub fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image) {
-        const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
+fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image) {
+    let mut scratchpad_index = 0;
+    for &y in Y_INDICES.iter() {
+        for &x in X_INDICES.iter() {
+            let pixel: Rgb = image.at(x, y).into();
 
-        let mut scratchpad_index = 0;
-        for &y in Y_INDICES.iter() {
-            for &x in X_INDICES.iter() {
-                let pixel: Rgb = image.at(x, y).into();
+            scratchpad[scratchpad_index] = pixel.r as f32 / 255.;
+            scratchpad[scratchpad_index + STRIDE] = pixel.g as f32 / 255.;
+            scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
 
-                scratchpad[scratchpad_index] = pixel.r as f32 / 255.;
-                scratchpad[scratchpad_index + STRIDE] = pixel.g as f32 / 255.;
-                scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
-
-                scratchpad_index += 1;
-            }
+            scratchpad_index += 1;
         }
     }
 }
