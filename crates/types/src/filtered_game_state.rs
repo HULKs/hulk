@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::Team;
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy, PartialEq)]
 pub enum FilteredGameState {
     #[default]
     Initial,

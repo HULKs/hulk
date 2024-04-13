@@ -83,8 +83,12 @@ impl PrimaryStateFilter {
                 )
             }
             (_, _, _, _, Some(filtered_game_controller_state))
-                if self.last_primary_state != PrimaryState::Unstiff
-                    && self.last_primary_state != PrimaryState::Finished =>
+                if {
+                    let finished_to_initial = self.last_primary_state == PrimaryState::Finished
+                        && filtered_game_controller_state.game_state == FilteredGameState::Initial;
+
+                    self.last_primary_state != PrimaryState::Unstiff || finished_to_initial
+                } =>
             {
                 Self::game_state_to_primary_state(
                     filtered_game_controller_state.game_state,
