@@ -79,11 +79,8 @@ impl Segment {
 
 #[derive(Debug, PartialEq)]
 enum ViewportMode {
-    // Always keep every segment in view
     Full,
-    // Variable-sized window, fixed on the right side to the most recent data
     Follow,
-    // The viewport does not follow new data and has to be positioned manually
     Free,
 }
 
@@ -117,8 +114,6 @@ impl Panel for EnumPlotPanel {
 
 impl EnumPlotPanel {
     fn plot_segment(plot_ui: &mut PlotUi, segment: &Segment) {
-        // Leave small gaps on the top and bottom,
-        // to avoid clipping half the segment border
         const VERTICAL_MARGIN: f64 = 0.05;
         const BORDER_WIDTH: f32 = 2.0;
 
