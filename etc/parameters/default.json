@@ -7,7 +7,7 @@
       "keypoint_confidence_threshold": 0.2,
       "shoulder_angle_threshold": 0.2,
       "foot_z_offset": 0.1,
-      "normed_expected_referee_position": [0.0, 1]
+      "normed_expected_referee_position": [0.0, 1.0]
     }
   },
   "whistle_detection": {
