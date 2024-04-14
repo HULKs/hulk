@@ -2,13 +2,19 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
+use coordinate_systems::Pixel;
 use eframe::{
-    egui::{self, load::SizedTexture, Color32, ColorImage, Response, TextureOptions, Ui, Widget},
+    egui::{
+        self, load::SizedTexture, Color32, ColorImage, Pos2, Response, RichText, Stroke,
+        TextureOptions, Ui, Widget,
+    },
     epaint::Vec2,
 };
 
+use linear_algebra::{vector, Point2};
 use log::error;
 
+use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use types::{
@@ -16,7 +22,12 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao,
+    panel::Panel,
+    twix_painter::{CoordinateSystem, TwixPainter},
+    value_buffer::ValueBuffer,
+};
 
 use super::image::cycler_selector::VisionCyclerSelector;
 
@@ -30,7 +41,12 @@ pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
     image_buffer: ValueBuffer,
     cycler_selector: VisionCyclerSelector,
-    brush_size: usize,
+    brush_size: f32,
+}
+struct PixelColor {
+    r: f32,
+    g: f32,
+    b: f32,
 }
 
 impl Panel for ImageColorSelectPanel {
@@ -62,7 +78,7 @@ impl Panel for ImageColorSelectPanel {
         let image_buffer = nao.subscribe_output(output);
         let cycler_selector = VisionCyclerSelector::new(cycler);
 
-        let brush_size = 4;
+        let brush_size = 50.0;
         Self {
             nao,
             image_buffer,
@@ -91,49 +107,133 @@ impl Widget for &mut ImageColorSelectPanel {
                 };
                 self.image_buffer = self.nao.subscribe_output(output);
             }
-            ui.add(egui::Slider::new(&mut self.brush_size, 0..=10).text("Brush"));
+            ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
+            let scroll_delta = ui.input(|input| input.scroll_delta);
+            self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
         });
 
+        ui.separator();
+
         let image = match self.get_image() {
-            Ok(image) => Some(image),
+            Ok(image) => image,
             Err(error) => {
-                ui.label(format!("{error:#?}"));
-                None
+                return ui.label(format!("{error:#?}"));
             }
         };
 
-        let response = if let Some(image) = image {
-            let handle = ui
-                .ctx()
-                .load_texture("image", image.clone(), TextureOptions::default())
-                .id();
-            let texture = SizedTexture {
-                id: handle,
-                size: Vec2::new(640.0, 480.0),
-            };
-            let response = ui.image(texture);
-            if let Some(hoverpos) = response.hover_pos() {
-                let min = response.rect.min;
-                let max = response.rect.max;
-                let pixel_pos = (hoverpos - min) * Vec2::new(640.0, 480.0) / (max - min);
+        let handle = ui
+            .ctx()
+            .load_texture("image", image.clone(), TextureOptions::default())
+            .id();
+        let texture = SizedTexture {
+            id: handle,
+            size: Vec2::new(640.0, 480.0),
+        };
+        let response = ui.image(texture);
 
-                if pixel_pos[0] <= 640.0 && pixel_pos[1] <= 480.0 {
-                    let color = get_pixel_color(image, pixel_pos);
+        ui.separator();
 
-                    let r = (color.r() as f32) / ((color.r() as f32 + color.g() as f32 + color.b() as f32));
-                    let g = (color.g() as f32) / ((color.r() as f32 + color.g() as f32 + color.b() as f32));
-                    let b = (color.b() as f32) / ((color.r() as f32 + color.g() as f32 + color.b() as f32));
+        let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
+            vector![640.0, 480.0],
+            Similarity2::identity(),
+            CoordinateSystem::LeftHand,
+        );
 
-                    ui.label(format!(
-                        "x: {}, y: {} \nr: {:.3}, g: {:.3}, b: {:.3}",
-                        pixel_pos[0] as usize, pixel_pos[1] as usize, r, g, b
-                    ));
+        if let Some(hoverpos) = response.hover_pos() {
+            let pixel_pos = painter.transform_pixel_to_world(hoverpos);
+            if pixel_pos.x() < 640.0 && pixel_pos.y() < 480.0 {
+                let mut max = PixelColor {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                };
+                let mut min = PixelColor {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                };
+                let mut average = PixelColor {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                };
+                let mut cnt: usize = 0;
+
+                for i in (pixel_pos.x() as isize - self.brush_size as isize)
+                    ..(pixel_pos.x() as isize + self.brush_size as isize + 1)
+                {
+                    for j in (pixel_pos.y() as isize - self.brush_size as isize)
+                        ..(pixel_pos.y() as isize + self.brush_size as isize + 1)
+                    {
+                        if f32::sqrt(
+                            f32::powi(i as f32 - pixel_pos.x(), 2)
+                                + f32::powi(j as f32 - pixel_pos.y(), 2),
+                        ) <= self.brush_size
+                        {
+                            if i < 640 && i > 0 && j < 480 && j > 0 {
+                                let circle_pixel = painter.transform_pixel_to_world(Pos2 {
+                                    x: i as f32,
+                                    y: j as f32,
+                                });
+                                let color = get_pixel_color(&image, circle_pixel);
+                                max.r = max.r.max(color.r);
+                                max.g = max.g.max(color.g);
+                                max.b = max.b.max(color.b);
+                                min.r = min.r.min(color.r);
+                                min.g = min.g.min(color.g);
+                                min.b = min.b.min(color.b);
+                                average.r += color.r;
+                                average.g += color.g;
+                                average.b += color.b;
+                                cnt += 1;
+                            }
+                        }
+                    }
                 }
+                average.r = average.r / cnt as f32;
+                average.g = average.g / cnt as f32;
+                average.b = average.b / cnt as f32;
+
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(format!(
+                        "   x: {}\t\ty: {}\t  pixels: {}\n",
+                        pixel_pos.x() as usize,
+                        pixel_pos.y() as usize,
+                        cnt,
+                    ));
+                    ui.label(RichText::new("max:\t\t").strong());
+                    ui.colored_label(Color32::RED, format!("r: {:.3}", max.r));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", max.g));
+                    ui.colored_label(
+                        Color32::from_rgb(50, 150, 255),
+                        format!("b: {:.3}\n", max.b),
+                    );
+
+                    ui.label(RichText::new("min:\t\t").strong());
+                    ui.colored_label(Color32::RED, format!(" r: {:.3}", min.r));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", min.g));
+                    ui.colored_label(
+                        Color32::from_rgb(50, 150, 255),
+                        format!("b: {:.3}\n", min.b),
+                    );
+
+                    ui.label(RichText::new("average:").strong());
+                    ui.colored_label(Color32::RED, format!(" r: {:.3}", average.r));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", average.g));
+                    ui.colored_label(
+                        Color32::from_rgb(50, 150, 255),
+                        format!("b: {:.3}", average.b),
+                    );
+
+                    painter.circle(
+                        pixel_pos,
+                        self.brush_size as f32,
+                        Color32::TRANSPARENT,
+                        Stroke::new(1.0, Color32::BLACK),
+                    );
+                });
             }
-            response
-        } else {
-            ui.label("Error: Could not display image")
-        };
+        }
         response
     }
 }
@@ -161,6 +261,12 @@ impl ImageColorSelectPanel {
     }
 }
 
-fn get_pixel_color(image: ColorImage, pixel_pos: Vec2) -> Color32 {
-    image.pixels[(pixel_pos[1] as usize) * 640 + (pixel_pos[0] as usize)]
+fn get_pixel_color(image: &ColorImage, pixel_pos: Point2<Pixel>) -> PixelColor {
+    let color32 = image.pixels[(pixel_pos.y() as usize) * 640 + (pixel_pos.x() as usize)];
+    let sum = color32.r() as f32 + color32.g() as f32 + color32.b() as f32;
+    PixelColor {
+        r: (color32.r() as f32) / sum,
+        g: (color32.g() as f32) / sum,
+        b: (color32.b() as f32) / sum,
+    }
 }
