@@ -3,7 +3,7 @@ use std::time::Duration;
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground, Pixel};
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use hardware::{NetworkInterface, PathsInterface};
 use linear_algebra::{center, distance, Isometry2, Point2, Transform};
 use ordered_float::NotNan;
@@ -35,7 +35,8 @@ pub struct CycleContext {
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
     human_poses: RequiredInput<Option<Vec<HumanPose>>, "human_poses?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
-    expected_referee_position: Input<Point2<Ground>, "Control", "expected_referee_position">,
+    expected_referee_position:
+        Input<Option<Point2<Ground>>, "Control", "expected_referee_position?">,
     fall_state: Input<FallState, "Control", "fall_state">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
@@ -45,13 +46,14 @@ pub struct CycleContext {
         Parameter<f32, "detection.$cycler_instance.distance_to_referee_position_threshold">,
     foot_z_offset: Parameter<f32, "detection.$cycler_instance.foot_z_offset">,
     shoulder_angle_threshold: Parameter<f32, "detection.$cycler_instance.shoulder_angle_threshold">,
+
+    detected_pose_types: AdditionalOutput<Vec<(PoseType, Point2<Field>)>, "detected_pose_types">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub detected_referee_pose_type: MainOutput<PoseType>,
-    pub detected_pose_types: MainOutput<Vec<(PoseType, Point2<Field>)>>,
 }
 
 impl PoseInterpretation {
@@ -59,12 +61,20 @@ impl PoseInterpretation {
         Ok(PoseInterpretation {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        mut context: CycleContext<impl NetworkInterface>,
+    ) -> Result<MainOutputs> {
+        let expected_referee_position = match context.expected_referee_position {
+            Some(expected_referee_position) => expected_referee_position,
+            None => return Ok(MainOutputs::default()),
+        };
+
         let referee_pose = Self::get_referee_pose(
             context.human_poses.clone(),
             context.camera_matrices.top.clone(),
             *context.distance_to_referee_position_threshold,
-            *context.expected_referee_position,
+            *expected_referee_position,
             *context.foot_z_offset,
         );
 
@@ -89,9 +99,8 @@ impl PoseInterpretation {
             }
         };
 
-        Ok(MainOutputs {
-            detected_referee_pose_type: pose_type.into(),
-            detected_pose_types: Self::get_all_pose_types(
+        context.detected_pose_types.fill_if_subscribed(|| {
+            Self::get_all_pose_types(
                 context.human_poses.clone(),
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
@@ -99,7 +108,10 @@ impl PoseInterpretation {
                 *context.keypoint_confidence_threshold,
                 *context.shoulder_angle_threshold,
             )
-            .into(),
+        });
+
+        Ok(MainOutputs {
+            detected_referee_pose_type: pose_type.into(),
         })
     }
 

@@ -43,11 +43,14 @@ impl Layer<Field> for RefereePosition {
             width: 0.05,
             color: Color32::BLACK,
         };
+        let expected_referee_position_ground: Option<Point2<Ground>> =
+            self.expected_referee_position.require_latest()?;
+
+        let Some(expected_referee_position_ground) = expected_referee_position_ground else {
+            return Ok(());
+        };
 
         let ground_to_field: Isometry2<Ground, Field> = self.ground_to_field.require_latest()?;
-
-        let expected_referee_position_ground: Point2<Ground> =
-            self.expected_referee_position.require_latest()?;
 
         painter.circle(
             ground_to_field * expected_referee_position_ground,

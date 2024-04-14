@@ -25,7 +25,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub expected_referee_position: MainOutput<Point2<Ground>>,
+    pub expected_referee_position: MainOutput<Option<Point2<Ground>>>,
 }
 
 impl RefereePositionProvider {
@@ -36,7 +36,7 @@ impl RefereePositionProvider {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let Some(ground_to_field) = context.ground_to_field else {
             return Ok(MainOutputs {
-                expected_referee_position: point![0.0, 0.0].into(),
+                expected_referee_position: None.into(),
             });
         };
         let mut normed_expected_referee_position = *context.normed_expected_referee_position;
@@ -57,7 +57,7 @@ impl RefereePositionProvider {
         ];
 
         Ok(MainOutputs {
-            expected_referee_position: (ground_to_field.inverse() * expected_referee_position)
+            expected_referee_position: Some(ground_to_field.inverse() * expected_referee_position)
                 .into(),
         })
     }

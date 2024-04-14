@@ -206,8 +206,8 @@ impl PoseDetection {
             .columns()
             .into_iter()
             .filter_map(|row| {
-                let prob = row[4];
-                if prob < *context.keypoint_confidence_threshold {
+                let probability = row[4];
+                if probability < *context.keypoint_confidence_threshold {
                     return None;
                 }
                 let bounding_box_slice = row.slice(s![0..4]);
@@ -222,7 +222,7 @@ impl PoseDetection {
                 let size = vector![width, height];
 
                 let bounding_box = BoundingBox::new(
-                    prob,
+                    probability,
                     Rectangle::<Pixel>::new_with_center_and_size(center, size),
                 );
 

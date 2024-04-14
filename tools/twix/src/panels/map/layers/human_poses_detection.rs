@@ -1,7 +1,7 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
+use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Field;
 use eframe::{
     emath::Align2,
@@ -22,11 +22,13 @@ impl Layer<Field> for HumanPoseDetection {
     const NAME: &'static str = "Detected Human Poses";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let detected_human_pose_types = nao.subscribe_output(
-            CyclerOutput::from_str("DetectionTop.main_outputs.detected_pose_types").unwrap(),
-        );
         Self {
-            detected_human_pose_types,
+            detected_human_pose_types: nao.subscribe_output(CyclerOutput {
+                cycler: Cycler::DetectionTop,
+                output: Output::Additional {
+                    path: "detected_pose_types".to_string(),
+                },
+            }),
         }
     }
 

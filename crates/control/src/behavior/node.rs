@@ -55,7 +55,7 @@ pub struct CycleContext {
     dribble_path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
     active_action_output: AdditionalOutput<Action, "active_action">,
 
-    expected_referee_position: Input<Point2<Ground>, "expected_referee_position">,
+    expected_referee_position: Input<Option<Point2<Ground>>, "expected_referee_position?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -234,7 +234,7 @@ impl Behavior {
                     Action::Penalize => penalize::execute(world_state),
                     Action::Initial => initial::execute(
                         world_state,
-                        *context.expected_referee_position,
+                        context.expected_referee_position,
                         ImageRegionTarget::Bottom,
                     ),
                     Action::FallSafely => {
