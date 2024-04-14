@@ -8,7 +8,6 @@ use eframe::{
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
-use itertools::Itertools as _;
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground};
