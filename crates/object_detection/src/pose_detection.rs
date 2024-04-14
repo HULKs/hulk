@@ -151,7 +151,7 @@ impl PoseDetection {
             return Ok(MainOutputs::default());
         };
         if filtered_game_controller_state.game_state != FilteredGameState::Initial
-            && context.world_state.robot.primary_state == PrimaryState::Initial
+            || context.world_state.robot.primary_state != PrimaryState::Initial
         {
             return Ok(MainOutputs::default());
         };
