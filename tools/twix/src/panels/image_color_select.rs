@@ -313,6 +313,4 @@ impl<'a> ImageColorSelectPanel {
     }
 }
 
-fn get_pixel_color(image: ColorImage, pixel_pos: Vec2) -> Color32 {
-    image.pixels[(pixel_pos[1] as usize) * 640 + (pixel_pos[0] as usize)]
-}
+
