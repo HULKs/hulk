@@ -1,4 +1,5 @@
-use nalgebra::{DVector, Dyn, Owned, Vector};
+use linear_algebra::IntoTransform;
+use nalgebra::{DVector, Dyn, Owned, UnitQuaternion, Vector};
 use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
 
 use crate::{corrections::Corrections, lines::LinesError, measurement::Measurement};
@@ -38,10 +39,17 @@ impl Residuals {
         field_dimensions: &FieldDimensions,
     ) -> Result<Self, ResidualsError> {
         let corrected = measurement.matrix.to_corrected(
-            parameters.correction_in_robot,
+            UnitQuaternion::from_rotation_matrix(&parameters.correction_in_robot)
+                .framed_transform(),
             match measurement.position {
-                CameraPosition::Top => parameters.correction_in_camera_top,
-                CameraPosition::Bottom => parameters.correction_in_camera_bottom,
+                CameraPosition::Top => {
+                    UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_top)
+                        .framed_transform()
+                }
+                CameraPosition::Bottom => {
+                    UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_bottom)
+                        .framed_transform()
+                }
             },
         );
 
