@@ -31,12 +31,9 @@ impl Overlay for PerspectiveGrid {
         let perspective_grid: Vec<Row> = self.perspective_grid.parse_latest()?;
 
         for row in perspective_grid {
-            let center = row.center_y;
-            let radius = row.circle_radius;
-
             painter.circle_stroke(
-                point![320.0, center],
-                radius,
+                point![320.0, row.center_y],
+                row.circle_radius,
                 Stroke::new(2.0, Color32::WHITE),
             );
         }
