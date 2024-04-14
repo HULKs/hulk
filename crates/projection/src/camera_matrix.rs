@@ -114,7 +114,7 @@ mod tests {
 
         let focals_scaled = image_size_abs
             .inner
-            .zip_map(&focals, |dim, focal| dim as f32 * focal);
+            .zip_map(&focals, |dim, focal| dim * focal);
 
         assert_relative_eq!(
             old_fov(focals),
