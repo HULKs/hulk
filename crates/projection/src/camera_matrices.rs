@@ -1,5 +1,7 @@
 use std::ops::Index;
 
+use coordinate_systems::{Camera, Robot};
+use linear_algebra::Rotation3;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::camera_position::CameraPosition;
@@ -19,6 +21,20 @@ impl Index<CameraPosition> for CameraMatrices {
         match index {
             CameraPosition::Top => &self.top,
             CameraPosition::Bottom => &self.bottom,
+        }
+    }
+}
+
+impl CameraMatrices {
+    pub fn to_corrected(
+        self,
+        correction_in_robot: Rotation3<Robot, Robot>,
+        correction_in_camera_top: Rotation3<Camera, Camera>,
+        correction_in_camera_bottom: Rotation3<Camera, Camera>,
+    ) -> Self {
+        Self {
+            top: self.top.to_corrected(correction_in_robot, correction_in_camera_top),
+            bottom: self.bottom.to_corrected(correction_in_robot, correction_in_camera_bottom),
         }
     }
 }
