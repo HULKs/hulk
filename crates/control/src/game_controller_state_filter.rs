@@ -27,7 +27,7 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    ready_to_initial_trigger: Input<bool, "ready_to_initial_trigger">,
+    initial_to_ready_trigger: Input<bool, "initial_to_ready_trigger">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -59,7 +59,7 @@ impl GameControllerStateFilter {
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
-            *context.ready_to_initial_trigger,
+            *context.initial_to_ready_trigger,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,

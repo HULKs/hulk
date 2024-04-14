@@ -6,9 +6,8 @@ use framework::{MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{Penalty, PlayerNumber};
 use types::{
-    cycle_time::CycleTime, filtered_game_controller_state, messages::IncomingMessage,
+    cycle_time::CycleTime, game_controller_state::GameControllerState, messages::IncomingMessage,
     parameters::RefereePoseDetectionFilterParameters, players::Players, pose_types::PoseType,
-    world_state::WorldState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -21,7 +20,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    world_state: Input<WorldState, "world_state">,
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     detected_referee_pose_type:
         PerceptionInput<PoseType, "DetectionTop", "detected_referee_pose_type">,
@@ -34,7 +33,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub ready_to_initial_trigger: MainOutput<bool>,
+    pub initial_to_ready_trigger: MainOutput<bool>,
 }
 
 impl RefereePoseDetectionFilter {
@@ -53,22 +52,14 @@ impl RefereePoseDetectionFilter {
             context.network_message,
         );
 
-        let Some(filtered_game_controller_state) =
-            context.world_state.filtered_game_controller_state
-        else {
-            return Ok(MainOutputs {
-                ready_to_initial_trigger: false.into(),
-            });
-        };
-
-        let ready_to_initial_trigger = self.decide(
+        let initial_to_ready_trigger = self.decide(
             pose_detection_times,
             cycle_start_time,
             context.parameters,
-            filtered_game_controller_state.penalties,
+            context.game_controller_state.penalties,
         );
         Ok(MainOutputs {
-            ready_to_initial_trigger: ready_to_initial_trigger.into(),
+            initial_to_ready_trigger: initial_to_ready_trigger.into(),
         })
     }
 
