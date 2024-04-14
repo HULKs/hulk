@@ -115,7 +115,9 @@ impl CameraMatrix {
                 &self.intrinsics,
             ),
             image_size: self.image_size,
-            ground_to_camera: corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
+            ground_to_camera: corrected_head_to_camera
+                * corrected_robot_to_head
+                * corrected_ground_to_robot,
             ground_to_pixel: CameraProjection::new(
                 corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
                 self.intrinsics.clone(),
@@ -123,7 +125,8 @@ impl CameraMatrix {
             pixel_to_ground: CameraProjection::new(
                 corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
                 self.intrinsics.clone(),
-            ).inverse(0.0)
+            )
+            .inverse(0.0),
         }
     }
 }
