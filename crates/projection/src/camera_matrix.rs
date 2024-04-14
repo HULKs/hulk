@@ -94,7 +94,7 @@ impl CameraMatrix {
     }
 
     pub fn to_corrected(
-        self,
+        &self,
         correction_in_robot: Rotation3<Robot, Robot>,
         correction_in_camera: Rotation3<Camera, Camera>,
     ) -> Self {
