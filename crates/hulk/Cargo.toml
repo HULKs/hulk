@@ -17,7 +17,7 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = {  workspace = true }
-libc = { workspace = true }
+libc = { workspace = true, optional = true}
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
@@ -36,3 +36,7 @@ code_generation = { workspace = true }
 color-eyre = { workspace = true }
 hulk_manifest = { workspace = true }
 source_analyzer = { workspace = true }
+
+[features]
+realtime = ["libc"]
+systemd = ["dep:systemd"]
