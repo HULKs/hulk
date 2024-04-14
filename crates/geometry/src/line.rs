@@ -4,7 +4,9 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
-use linear_algebra::{center, distance, distance_squared, point, vector, Point, Point2, Rotation2, Transform, Vector2};
+use linear_algebra::{
+    center, distance, distance_squared, point, vector, Point, Point2, Rotation2, Transform, Vector2,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Deserialize, Serialize)]
