@@ -24,6 +24,8 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     pose_detection::{HumanPose, Keypoints},
+    primary_state::PrimaryState,
+    world_state::WorldState,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -82,6 +84,7 @@ pub struct CycleContext {
     postprocess_time: AdditionalOutput<Duration, "postprocess_time">,
 
     image: Input<YCbCr422Image, "image">,
+    world_state: Input<WorldState, "Control", "world_state">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "Control", "filtered_game_controller_state?">,
 
@@ -144,11 +147,14 @@ impl PoseDetection {
             return Ok(MainOutputs::default());
         }
 
-        if let Some(filtered_game_controller_state) = context.filtered_game_controller_state {
-            if filtered_game_controller_state.game_state != FilteredGameState::Initial {
-                return Ok(MainOutputs::default());
-            }
-        }
+        let Some(filtered_game_controller_state) = context.filtered_game_controller_state else {
+            return Ok(MainOutputs::default());
+        };
+        if filtered_game_controller_state.game_state != FilteredGameState::Initial
+            && context.world_state.robot.primary_state == PrimaryState::Initial
+        {
+            return Ok(MainOutputs::default());
+        };
 
         let image = context.image;
         let earlier = context.hardware_interface.get_now();

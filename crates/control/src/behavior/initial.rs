@@ -5,24 +5,28 @@ use types::{
     camera_position::CameraPosition,
     filtered_game_state::FilteredGameState,
     motion_command::{HeadMotion, ImageRegionTarget, MotionCommand},
+    primary_state::PrimaryState,
     world_state::WorldState,
 };
 
 pub fn execute(
     world_state: &WorldState,
-    expected_referee_position: Point2<Ground>,
+    expected_referee_position: Option<&Point2<Ground>>,
     pixel_target: ImageRegionTarget,
 ) -> Option<MotionCommand> {
     let filtered_game_controller_state = world_state.filtered_game_controller_state?;
+    let expected_referee_position = expected_referee_position?;
 
-    if filtered_game_controller_state.game_state == FilteredGameState::Initial {
+    if filtered_game_controller_state.game_state == FilteredGameState::Initial
+        && world_state.robot.primary_state == PrimaryState::Initial
+    {
         let head = match filtered_game_controller_state.own_team_is_home_after_coin_toss {
             true => match world_state.robot.player_number {
                 PlayerNumber::Seven
                 | PlayerNumber::Four
                 | PlayerNumber::Five
                 | PlayerNumber::Three => HeadMotion::LookAt {
-                    target: expected_referee_position,
+                    target: *expected_referee_position,
                     pixel_target,
                     camera: Some(CameraPosition::Top),
                 },
@@ -30,7 +34,7 @@ pub fn execute(
             },
             false => match world_state.robot.player_number {
                 PlayerNumber::One | PlayerNumber::Two | PlayerNumber::Six => HeadMotion::LookAt {
-                    target: expected_referee_position,
+                    target: *expected_referee_position,
                     pixel_target,
                     camera: Some(CameraPosition::Top),
                 },
