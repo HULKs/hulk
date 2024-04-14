@@ -33,8 +33,12 @@ impl CameraMatrices {
         correction_in_camera_bottom: Rotation3<Camera, Camera>,
     ) -> Self {
         Self {
-            top: self.top.to_corrected(correction_in_robot, correction_in_camera_top),
-            bottom: self.bottom.to_corrected(correction_in_robot, correction_in_camera_bottom),
+            top: self
+                .top
+                .to_corrected(correction_in_robot, correction_in_camera_top),
+            bottom: self
+                .bottom
+                .to_corrected(correction_in_robot, correction_in_camera_bottom),
         }
     }
 }
