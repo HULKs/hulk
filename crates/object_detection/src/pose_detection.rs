@@ -266,19 +266,19 @@ fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image) {
 }
 
 fn non_maximum_suppression(
-    mut candiate_pose: Vec<HumanPose>,
+    mut candidate_pose: Vec<HumanPose>,
     intersection_over_union_threshold: f32,
 ) -> Vec<HumanPose> {
     let mut poses = Vec::new();
-    candiate_pose.sort_unstable_by(|pose1, pose2| {
+    candidate_pose.sort_unstable_by(|pose1, pose2| {
         pose1
             .bounding_box
             .score
             .total_cmp(&pose2.bounding_box.score)
     });
 
-    while let Some(detection) = candiate_pose.pop() {
-        candiate_pose = candiate_pose
+    while let Some(detection) = candidate_pose.pop() {
+        candidate_pose = candidate_pose
             .into_iter()
             .filter(|detection_candidate| {
                 detection
