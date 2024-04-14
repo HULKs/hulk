@@ -1,17 +1,24 @@
 use coordinate_systems::{Camera, Ground, Pixel};
-use linear_algebra::{vector, Isometry3, Point2, Vector2, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point2, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::intrinsic::Intrinsic;
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
 pub struct Horizon {
     pub vanishing_point: Point2<Pixel>,
     pub normal: Vector2<Pixel>,
 }
 
 impl Horizon {
+    pub fn above_image() -> Self {
+        Self {
+            vanishing_point: point![0.0, 0.0],
+            normal: vector![0.0, -1.0],
+        }
+    }
+
     pub fn horizon_y_minimum(&self) -> f32 {
         self.y_at_x(0.0).min(self.y_at_x(640.0))
     }
