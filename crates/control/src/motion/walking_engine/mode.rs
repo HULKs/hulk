@@ -101,14 +101,19 @@ impl Mode {
         }
     }
 
-    pub fn tick(&mut self, context: &mut CycleContext, gyro: nalgebra::Vector3<f32>) {
+    pub fn tick(
+        &mut self,
+        context: &mut CycleContext,
+        gyro: nalgebra::Vector3<f32>,
+        joints: &BodyJoints,
+    ) {
         match self {
             Mode::Standing(standing) => standing.tick(context, gyro),
             Mode::Starting(starting) => starting.tick(context, gyro),
             Mode::Walking(walking) => walking.tick(context, gyro),
             Mode::Kicking(kicking) => kicking.tick(context, gyro),
             Mode::Stopping(stopping) => stopping.tick(context, gyro),
-            Mode::Catching(catching) => catching.tick(context, gyro),
+            Mode::Catching(catching) => catching.tick(context, gyro, joints),
         }
     }
 }
