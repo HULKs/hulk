@@ -1,5 +1,5 @@
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
-use linear_algebra::{IntoFramed, Isometry3, Point2, Vector2};
+use linear_algebra::{IntoFramed, Isometry3, Point2, Rotation3, Vector2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -91,6 +91,40 @@ impl CameraMatrix {
             .zip_map(&focal_lengths, |image_dim, focal_length| -> f32 {
                 2.0 * (image_dim * 0.5 / focal_length).atan()
             })
+    }
+
+    pub fn to_corrected(
+        self,
+        correction_in_robot: Rotation3<Robot, Robot>,
+        correction_in_camera: Rotation3<Camera, Camera>,
+    ) -> Self {
+        let corrected_ground_to_robot = correction_in_robot * self.ground_to_robot;
+        let corrected_robot_to_head = self.robot_to_head * correction_in_robot;
+        let corrected_head_to_camera = correction_in_camera * self.head_to_camera;
+
+        Self {
+            ground_to_robot: corrected_ground_to_robot,
+            robot_to_head: corrected_robot_to_head,
+            head_to_camera: corrected_head_to_camera,
+            intrinsics: self.intrinsics.clone(),
+            focal_length: self.focal_length,
+            optical_center: self.optical_center,
+            field_of_view: self.field_of_view,
+            horizon: Horizon::from_parameters(
+                corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
+                &self.intrinsics,
+            ),
+            image_size: self.image_size,
+            ground_to_camera: corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
+            ground_to_pixel: CameraProjection::new(
+                corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
+                self.intrinsics.clone(),
+            ),
+            pixel_to_ground: CameraProjection::new(
+                corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
+                self.intrinsics.clone(),
+            ).inverse(0.0)
+        }
     }
 }
 
