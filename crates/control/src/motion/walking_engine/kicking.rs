@@ -14,7 +14,6 @@ use super::step_state::StepState;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, SerializeHierarchy)]
 pub struct KickState {
-    // TODO: should we move the entire plan to this state here?
     pub variant: KickVariant,
     /// the foot that is kicking the ball
     pub side: Side,

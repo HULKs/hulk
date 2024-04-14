@@ -124,11 +124,7 @@ impl WalkingEngine {
             ),
         };
 
-        self.mode.tick(
-            &mut context,
-            self.filtered_gyro.state(),
-            &self.last_actuated_joints,
-        );
+        self.mode.tick(&mut context, self.filtered_gyro.state());
 
         // enter the functional world...
         let left_arm = self.left_arm.take().unwrap();
