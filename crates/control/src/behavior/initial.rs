@@ -14,8 +14,19 @@ pub fn execute(
     expected_referee_position: Option<&Point2<Ground>>,
     pixel_target: ImageRegionTarget,
 ) -> Option<MotionCommand> {
-    let filtered_game_controller_state = world_state.filtered_game_controller_state?;
-    let expected_referee_position = expected_referee_position?;
+    let (Some(filtered_game_controller_state), Some(expected_referee_position)) = (
+        world_state.filtered_game_controller_state,
+        expected_referee_position,
+    ) else {
+        match world_state.robot.primary_state {
+            PrimaryState::Initial => {
+                return Some(MotionCommand::Initial {
+                    head: HeadMotion::Center,
+                })
+            }
+            _ => return None,
+        };
+    };
 
     if filtered_game_controller_state.game_state == FilteredGameState::Initial
         && world_state.robot.primary_state == PrimaryState::Initial
