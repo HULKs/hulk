@@ -7,6 +7,7 @@ use eframe::{
     egui::{Align2, FontId},
     epaint::{Color32, Stroke},
 };
+use log::warn;
 use types::pose_detection::{HumanPose, Keypoint};
 
 use crate::{nao::Nao, panels::image::overlay::Overlay, value_buffer::ValueBuffer};
@@ -33,23 +34,32 @@ const POSE_SKELETON: [(usize, usize); 16] = [
 pub const KCONF: f32 = 0.1;
 
 pub struct PoseDetection {
-    human_poses: ValueBuffer,
+    human_poses: Option<ValueBuffer>,
 }
 
 impl Overlay for PoseDetection {
     const NAME: &'static str = "Pose Detection";
 
-    fn new(nao: Arc<Nao>, _selected_cycler: Cycler) -> Self {
+    fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self {
+        if selected_cycler != Cycler::VisionTop {
+            warn!("PoseDetection only works with the vision top cycler instance!");
+            return Self { human_poses: None };
+        };
         Self {
-            human_poses: nao.subscribe_output(
-                CyclerOutput::from_str("DetectionTop.main_outputs.human_poses")
-                    .expect("Failed to subscribe to cycler"),
+            human_poses: Some(
+                nao.subscribe_output(
+                    CyclerOutput::from_str("DetectionTop.main_outputs.human_poses")
+                        .expect("Failed to subscribe to cycler"),
+                ),
             ),
         }
     }
 
     fn paint(&self, painter: &crate::twix_painter::TwixPainter<Pixel>) -> Result<()> {
-        let poses: Vec<HumanPose> = self.human_poses.require_latest()?;
+        let Some(buffer) = self.human_poses.as_ref() else {
+            return Ok(());
+        };
+        let poses: Vec<HumanPose> = buffer.require_latest()?;
 
         for pose in poses {
             let keypoints: [Keypoint; 17] = pose.keypoints.into();
