@@ -4,10 +4,11 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::PlayerNumber;
+use spl_network_messages::{Penalty, PlayerNumber};
 use types::{
-    cycle_time::CycleTime, messages::IncomingMessage,
-    parameters::RefereePoseDetectionFilterParameters, pose_types::PoseType,
+    cycle_time::CycleTime, filtered_game_controller_state, messages::IncomingMessage,
+    parameters::RefereePoseDetectionFilterParameters, players::Players, pose_types::PoseType,
+    world_state::WorldState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -20,6 +21,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    world_state: Input<WorldState, "world_state">,
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     detected_referee_pose_type:
         PerceptionInput<PoseType, "DetectionTop", "detected_referee_pose_type">,
@@ -51,8 +53,20 @@ impl RefereePoseDetectionFilter {
             context.network_message,
         );
 
-        let ready_to_initial_trigger =
-            self.decide(pose_detection_times, cycle_start_time, context.parameters);
+        let Some(filtered_game_controller_state) =
+            context.world_state.filtered_game_controller_state
+        else {
+            return Ok(MainOutputs {
+                ready_to_initial_trigger: false.into(),
+            });
+        };
+
+        let ready_to_initial_trigger = self.decide(
+            pose_detection_times,
+            cycle_start_time,
+            context.parameters,
+            filtered_game_controller_state.penalties,
+        );
         Ok(MainOutputs {
             ready_to_initial_trigger: ready_to_initial_trigger.into(),
         })
@@ -130,12 +144,31 @@ impl RefereePoseDetectionFilter {
         temporary_pose_detection_times
     }
 
+    fn determine_minimum_overhead_arms_detections(
+        &self,
+        parameters: &RefereePoseDetectionFilterParameters,
+        penalties: Players<Option<Penalty>>,
+    ) -> usize {
+        let number_of_non_penalized_robots = penalties
+            .iter()
+            .filter(|(_, penalty)| penalty.is_none())
+            .count();
+        f32::ceil(
+            number_of_non_penalized_robots as f32
+                * parameters.required_fraction_of_available_robots_for_decision,
+        ) as usize
+    }
+
     fn decide(
         &mut self,
         pose_detection_times: Vec<Option<SystemTime>>,
         cycle_start_time: SystemTime,
         parameters: &RefereePoseDetectionFilterParameters,
+        penalties: Players<Option<Penalty>>,
     ) -> bool {
+        let minimum_over_head_arms_detections =
+            self.determine_minimum_overhead_arms_detections(parameters, penalties);
+
         let detected_over_head_arms_poses = pose_detection_times
             .iter()
             .filter(|detection_time| match detection_time {
@@ -147,7 +180,7 @@ impl RefereePoseDetectionFilter {
                 None => false,
             })
             .count();
-        detected_over_head_arms_poses >= parameters.minimum_over_head_arms_detections
+        detected_over_head_arms_poses >= minimum_over_head_arms_detections
     }
 
     fn in_grace_period(

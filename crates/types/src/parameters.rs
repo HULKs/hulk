@@ -174,7 +174,7 @@ pub struct GameStateFilterParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct RefereePoseDetectionFilterParameters {
     pub initial_message_grace_period: Duration,
-    pub minimum_over_head_arms_detections: usize,
+    pub required_fraction_of_available_robots_for_decision: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
