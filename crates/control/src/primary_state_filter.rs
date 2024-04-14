@@ -72,6 +72,8 @@ impl PrimaryStateFilter {
                 PrimaryState::Unstiff
             }
 
+            (PrimaryState::Calibration, ..) => PrimaryState::Calibration,
+
             (PrimaryState::Initial, _, _, true, _) => PrimaryState::Calibration,
 
             // GameController transitions (entering listening mode and staying within)
