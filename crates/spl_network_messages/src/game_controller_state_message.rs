@@ -13,10 +13,10 @@ use serialize_hierarchy::SerializeHierarchy;
 use crate::{
     bindings::{
         RoboCupGameControlData, RobotInfo, COMPETITION_PHASE_PLAYOFF, COMPETITION_PHASE_ROUNDROBIN,
-        COMPETITION_TYPE_DYNAMIC_BALL_HANDLING, COMPETITION_TYPE_NORMAL,
-        GAMECONTROLLER_STRUCT_HEADER, GAMECONTROLLER_STRUCT_VERSION, GAME_PHASE_NORMAL,
-        GAME_PHASE_OVERTIME, GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT, MAX_NUM_PLAYERS,
-        PENALTY_MANUAL, PENALTY_NONE, PENALTY_SPL_ILLEGAL_BALL_CONTACT,
+        COMPETITION_TYPE_NORMAL, COMPETITION_TYPE_SHARED_AUTONOMY, GAMECONTROLLER_STRUCT_HEADER,
+        GAMECONTROLLER_STRUCT_VERSION, GAME_PHASE_NORMAL, GAME_PHASE_OVERTIME,
+        GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT, MAX_NUM_PLAYERS, PENALTY_MANUAL, PENALTY_NONE,
+        PENALTY_SPL_ILLEGAL_BALL_CONTACT, PENALTY_SPL_ILLEGAL_MOTION_IN_INITIAL,
         PENALTY_SPL_ILLEGAL_MOTION_IN_SET, PENALTY_SPL_ILLEGAL_POSITION,
         PENALTY_SPL_ILLEGAL_POSITION_IN_SET, PENALTY_SPL_INACTIVE_PLAYER,
         PENALTY_SPL_LEAVING_THE_FIELD, PENALTY_SPL_LOCAL_GAME_STUCK, PENALTY_SPL_PLAYER_PUSHING,
@@ -216,14 +216,14 @@ impl CompetitionPhase {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum CompetitionType {
     Normal,
-    DynamicBallHandling,
+    SharedAutonomy,
 }
 
 impl CompetitionType {
     fn try_from(competition_type: u8) -> Result<Self> {
         match competition_type {
             COMPETITION_TYPE_NORMAL => Ok(CompetitionType::Normal),
-            COMPETITION_TYPE_DYNAMIC_BALL_HANDLING => Ok(CompetitionType::DynamicBallHandling),
+            COMPETITION_TYPE_SHARED_AUTONOMY => Ok(CompetitionType::SharedAutonomy),
             _ => bail!("unexpected competition type"),
         }
     }
@@ -415,6 +415,7 @@ impl TryFrom<RobotInfo> for Player {
 pub enum Penalty {
     IllegalBallContact { remaining: Duration },
     PlayerPushing { remaining: Duration },
+    IllegalMotionInInitial { remaining: Duration },
     IllegalMotionInSet { remaining: Duration },
     InactivePlayer { remaining: Duration },
     IllegalPosition { remaining: Duration },
@@ -433,6 +434,9 @@ impl Penalty {
             PENALTY_NONE => Ok(None),
             PENALTY_SPL_ILLEGAL_BALL_CONTACT => Ok(Some(Penalty::IllegalBallContact { remaining })),
             PENALTY_SPL_PLAYER_PUSHING => Ok(Some(Penalty::PlayerPushing { remaining })),
+            PENALTY_SPL_ILLEGAL_MOTION_IN_INITIAL => {
+                Ok(Some(Penalty::IllegalMotionInInitial { remaining }))
+            }
             PENALTY_SPL_ILLEGAL_MOTION_IN_SET => {
                 Ok(Some(Penalty::IllegalMotionInSet { remaining }))
             }

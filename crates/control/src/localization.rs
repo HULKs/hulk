@@ -35,8 +35,8 @@ pub struct Localization {
     last_primary_state: PrimaryState,
     hypotheses: Vec<ScoredPose>,
     hypotheses_when_entered_playing: Vec<ScoredPose>,
-    is_penalized_with_motion_in_set: bool,
-    was_picked_up_while_penalized_with_motion_in_set: bool,
+    is_penalized_with_motion_in_set_or_initial: bool,
+    was_picked_up_while_penalized_with_motion_in_set_or_initial: bool,
 }
 
 #[context]
@@ -119,8 +119,8 @@ impl Localization {
             last_primary_state: PrimaryState::Unstiff,
             hypotheses: vec![],
             hypotheses_when_entered_playing: vec![],
-            is_penalized_with_motion_in_set: false,
-            was_picked_up_while_penalized_with_motion_in_set: false,
+            is_penalized_with_motion_in_set_or_initial: false,
+            was_picked_up_while_penalized_with_motion_in_set_or_initial: false,
         })
     }
 
@@ -184,16 +184,17 @@ impl Localization {
             }
             (PrimaryState::Playing, PrimaryState::Penalized, _) => {
                 match penalty {
-                    Some(Penalty::IllegalMotionInSet { remaining: _ }) => {
-                        self.is_penalized_with_motion_in_set = true;
+                    Some(Penalty::IllegalMotionInSet { remaining: _ })
+                    | Some(Penalty::IllegalMotionInInitial { remaining: _ }) => {
+                        self.is_penalized_with_motion_in_set_or_initial = true;
                     }
                     Some(_) => {}
                     None => {}
                 };
             }
             (PrimaryState::Penalized, _, _) if primary_state != PrimaryState::Penalized => {
-                if self.is_penalized_with_motion_in_set {
-                    if self.was_picked_up_while_penalized_with_motion_in_set {
+                if self.is_penalized_with_motion_in_set_or_initial {
+                    if self.was_picked_up_while_penalized_with_motion_in_set_or_initial {
                         self.hypotheses = take(&mut self.hypotheses_when_entered_playing);
 
                         let penalized_poses = generate_penalized_poses(
@@ -211,8 +212,8 @@ impl Localization {
                             })
                             .collect();
                     }
-                    self.is_penalized_with_motion_in_set = false;
-                    self.was_picked_up_while_penalized_with_motion_in_set = false;
+                    self.is_penalized_with_motion_in_set_or_initial = false;
+                    self.was_picked_up_while_penalized_with_motion_in_set_or_initial = false;
                 } else {
                     let penalized_poses = generate_penalized_poses(
                         context.field_dimensions,
@@ -499,8 +500,8 @@ impl Localization {
         self.reset_state(primary_state, game_phase, &context, &penalty);
         self.last_primary_state = primary_state;
 
-        if self.is_penalized_with_motion_in_set && !context.has_ground_contact {
-            self.was_picked_up_while_penalized_with_motion_in_set = true;
+        if self.is_penalized_with_motion_in_set_or_initial && !context.has_ground_contact {
+            self.was_picked_up_while_penalized_with_motion_in_set_or_initial = true;
         }
 
         let ground_to_field = match primary_state {
