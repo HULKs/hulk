@@ -21,12 +21,10 @@ impl Layer<Ground> for Lines {
     const NAME: &'static str = "Lines";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let lines_in_ground_bottom = nao.subscribe_output(
-            CyclerOutput::from_str("VisionBottom.main.line_data.lines_in_ground").unwrap(),
-        );
-        let lines_in_ground_top = nao.subscribe_output(
-            CyclerOutput::from_str("VisionTop.main.line_data.lines_in_ground").unwrap(),
-        );
+        let lines_in_ground_bottom = nao
+            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.line_data.lines").unwrap());
+        let lines_in_ground_top =
+            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.line_data.lines").unwrap());
         Self {
             lines_in_ground_bottom,
             lines_in_ground_top,

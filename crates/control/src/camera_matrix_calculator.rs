@@ -72,7 +72,7 @@ impl CameraMatrixCalculator {
                 .bottom_camera_matrix_parameters
                 .camera_pitch
                 .to_radians(),
-            RobotDimensions::HEAD_TO_TOP_CAMERA,
+            RobotDimensions::HEAD_TO_BOTTOM_CAMERA,
         );
         let bottom_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             context.bottom_camera_matrix_parameters.focal_lengths,
