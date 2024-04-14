@@ -38,7 +38,6 @@ impl WalkTransition for Standing {
         kicking_side: Side,
         _strength: f32,
     ) -> Mode {
-        // TODO: is this the correct side?
         let support_side = if kicking_side == Side::Left {
             Side::Left
         } else {
