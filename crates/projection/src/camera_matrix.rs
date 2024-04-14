@@ -102,6 +102,11 @@ impl CameraMatrix {
         let corrected_robot_to_head = self.robot_to_head * correction_in_robot;
         let corrected_head_to_camera = correction_in_camera * self.head_to_camera;
 
+        let ground_to_pixel = CameraProjection::new(
+            corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
+            self.intrinsics.clone(),
+        );
+
         Self {
             ground_to_robot: corrected_ground_to_robot,
             robot_to_head: corrected_robot_to_head,
@@ -118,15 +123,8 @@ impl CameraMatrix {
             ground_to_camera: corrected_head_to_camera
                 * corrected_robot_to_head
                 * corrected_ground_to_robot,
-            ground_to_pixel: CameraProjection::new(
-                corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
-                self.intrinsics.clone(),
-            ),
-            pixel_to_ground: CameraProjection::new(
-                corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot,
-                self.intrinsics.clone(),
-            )
-            .inverse(0.0),
+            ground_to_pixel: ground_to_pixel.clone(),
+            pixel_to_ground: ground_to_pixel.inverse(0.0),
         }
     }
 }
