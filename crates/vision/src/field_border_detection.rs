@@ -71,7 +71,7 @@ impl FieldBorderDetection {
                     &context
                         .camera_matrix
                         .horizon
-                        .unwrap_or_else(Horizon::above_image),
+                        .unwrap_or(Horizon::ABOVE_IMAGE),
                     *context.horizon_margin,
                 )
                 .map(|segment| point![scan_line.position as f32, segment.start as f32])
