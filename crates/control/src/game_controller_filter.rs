@@ -38,6 +38,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub game_controller_state: MainOutput<Option<GameControllerState>>,
+    pub game_controller_address: MainOutput<Option<SocketAddr>>,
 }
 
 impl GameControllerFilter {
@@ -120,8 +121,15 @@ impl GameControllerFilter {
             .last_contact
             .fill_if_subscribed(|| self.last_contact.clone());
 
+        let last_address = self
+            .last_contact
+            .iter()
+            .max_by_key(|(_address, time)| *time)
+            .map(|(address, _time)| *address);
+
         Ok(MainOutputs {
             game_controller_state: self.game_controller_state.into(),
+            game_controller_address: last_address.into(),
         })
     }
 }
