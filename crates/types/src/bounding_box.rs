@@ -3,7 +3,7 @@ use geometry::rectangle::Rectangle;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
 pub struct BoundingBox {
     pub bounding_box: Rectangle<Pixel>,
     pub score: f32,

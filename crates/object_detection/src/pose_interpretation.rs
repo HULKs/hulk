@@ -33,7 +33,7 @@ pub struct CycleContext {
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    human_poses: RequiredInput<Option<Vec<HumanPose>>, "human_poses?">,
+    human_poses: Input<Option<Vec<HumanPose>>, "human_poses?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position:
         Input<Option<Point2<Ground>>, "Control", "expected_referee_position?">,
@@ -65,13 +65,15 @@ impl PoseInterpretation {
         &mut self,
         mut context: CycleContext<impl NetworkInterface>,
     ) -> Result<MainOutputs> {
-        let expected_referee_position = match context.expected_referee_position {
-            Some(expected_referee_position) => expected_referee_position,
-            None => return Ok(MainOutputs::default()),
+        let (Some(expected_referee_position), Some(human_poses)) =
+            (context.expected_referee_position, context.human_poses)
+        else {
+            context.detected_pose_types.fill_if_subscribed(Vec::new);
+            return Ok(MainOutputs::default());
         };
 
         let referee_pose = Self::get_referee_pose(
-            context.human_poses.clone(),
+            human_poses,
             context.camera_matrices.top.clone(),
             *context.distance_to_referee_position_threshold,
             *expected_referee_position,
@@ -79,7 +81,7 @@ impl PoseInterpretation {
         );
 
         let pose_type = Self::interpret_pose(
-            referee_pose,
+            &referee_pose,
             *context.keypoint_confidence_threshold,
             *context.shoulder_angle_threshold,
         );
@@ -101,7 +103,7 @@ impl PoseInterpretation {
 
         context.detected_pose_types.fill_if_subscribed(|| {
             Self::get_all_pose_types(
-                context.human_poses.clone(),
+                human_poses,
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
@@ -116,7 +118,7 @@ impl PoseInterpretation {
     }
 
     pub fn get_all_pose_types(
-        poses: Vec<HumanPose>,
+        poses: &[HumanPose],
         camera_matrix_top: CameraMatrix,
         ground_to_field: Option<&Isometry2<Ground, Field>>,
         foot_z_offset: f32,
@@ -136,7 +138,7 @@ impl PoseInterpretation {
                 let (left_foot_ground_position, right_foot_ground_position) =
                     left_foot_ground_position.zip(right_foot_ground_position)?;
                 let interpreted_pose = Self::interpret_pose(
-                    Some(pose.clone()),
+                    &Some(*pose),
                     keypoint_confidence_threshold,
                     shoulder_angle_threshold,
                 );
@@ -152,7 +154,7 @@ impl PoseInterpretation {
     }
 
     pub fn get_referee_pose(
-        poses: Vec<HumanPose>,
+        poses: &[HumanPose],
         camera_matrix_top: CameraMatrix,
         distance_to_referee_position_threshold: f32,
         expected_referee_position: Point2<Ground>,
@@ -186,21 +188,21 @@ impl PoseInterpretation {
             Some((pose, distance_to_referee_position))
                 if distance_to_referee_position < distance_to_referee_position_threshold =>
             {
-                Some(pose.clone())
+                Some(*pose)
             }
             _ => None,
         }
     }
 
     pub fn interpret_pose(
-        human_pose: Option<HumanPose>,
+        human_pose: &Option<HumanPose>,
         keypoint_confidence_threshold: f32,
         shoulder_angle_threshold: f32,
     ) -> PoseType {
         match human_pose {
             Some(pose)
                 if Self::is_over_head_arms(
-                    pose.keypoints.clone(),
+                    pose.keypoints,
                     keypoint_confidence_threshold,
                     shoulder_angle_threshold,
                 ) =>

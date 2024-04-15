@@ -7,13 +7,13 @@ use linear_algebra::{point, Point2};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Keypoint {
     pub point: Point2<Pixel>,
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Keypoints {
     pub left_eye: Keypoint,
     pub right_eye: Keypoint,
@@ -112,7 +112,7 @@ impl From<Keypoints> for [Keypoint; 17] {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
 pub struct HumanPose {
     pub bounding_box: BoundingBox,
     pub keypoints: Keypoints,
