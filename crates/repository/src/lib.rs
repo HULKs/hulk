@@ -278,18 +278,15 @@ impl Repository {
         .wrap_err("failed to serialize parameters directory")
     }
 
-    pub async fn set_cycler_instances_to_be_recorded(
-        &self,
-        cycler_instances: HashSet<String>,
-    ) -> Result<()> {
+    pub async fn set_recording_settings(&self, recording_settings: HashSet<String>) -> Result<()> {
         let file_contents = read_to_string(self.root.join("etc/parameters/framework.json"))
             .await
             .wrap_err("failed to read framework.json")?;
         let mut hardware_json: Value =
             from_str(&file_contents).wrap_err("failed to deserialize framework.json")?;
 
-        hardware_json["cycler_instances_to_be_recorded"] =
-            to_value(cycler_instances).wrap_err("failed to convert cycler instances to JSON")?;
+        hardware_json["recording_settings"] = to_value(recording_settings)
+            .wrap_err("failed to convert recording settings to JSON")?;
         {
             let file_contents = to_string_pretty(&hardware_json)
                 .wrap_err("failed to serialize framework.json")?

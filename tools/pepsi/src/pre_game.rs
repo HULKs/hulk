@@ -39,7 +39,7 @@ pub struct Arguments {
     pub skip_os_check: bool,
     /// Cycler instances to record e.g. Control or VisionBottom (don't specify to disable recording)
     #[arg(long, default_value = "Control")]
-    pub cycler_instances_to_be_recorded: Vec<String>,
+    pub recording_settings: Vec<String>,
     /// The location to use for parameters
     pub location: String,
     /// The network to connect the wireless device to (None disconnects from anything)
@@ -65,7 +65,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
 
     recording(
         RecordingArguments {
-            cycler_instances_to_be_recorded: arguments.cycler_instances_to_be_recorded,
+            recording_settings: arguments.recording_settings,
         },
         repository,
     )

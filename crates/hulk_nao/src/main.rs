@@ -91,6 +91,6 @@ fn main() -> Result<()> {
         ids.body_id,
         ids.head_id,
         keep_running,
-        framework_parameters.cycler_instances_to_be_recorded,
+        framework_parameters.recording_settings,
     )
 }
