@@ -2,7 +2,7 @@ use std::{
     fs::File,
     io::{self, Read, Seek, SeekFrom},
     path::Path,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use bincode::{deserialize_from, Error};
@@ -41,6 +41,12 @@ impl RecordingIndex {
                 eprintln!("unexpected end of file of recording file while deserializing timestamp");
                 break;
             };
+            let Some(duration) = end_of_file_error_as_option(deserialize_from(&mut recording_file))
+                .wrap_err("failed to deserialize duration")?
+            else {
+                eprintln!("unexpected end of file of recording file while deserializing duration");
+                break;
+            };
             let Some(length) = end_of_file_error_as_option(deserialize_from(&mut recording_file))
                 .wrap_err("failed to deserialize data length")?
             else {
@@ -60,6 +66,7 @@ impl RecordingIndex {
             }
             frames.push(RecordingFrameMetadata {
                 timestamp,
+                duration,
                 offset: offset.try_into().unwrap(),
                 header_offset: header_length.try_into().unwrap(),
                 length,
@@ -102,6 +109,7 @@ impl RecordingIndex {
             .wrap_err("failed to read from recording file")?;
         Ok(Some(RecordingFrame {
             timestamp: frame.timestamp,
+            duration: frame.duration,
             data,
         }))
     }
@@ -118,6 +126,7 @@ impl RecordingIndex {
 #[derive(Debug)]
 struct RecordingFrameMetadata {
     timestamp: SystemTime,
+    duration: Duration,
     offset: usize,
     header_offset: usize,
     length: usize,
@@ -126,6 +135,7 @@ struct RecordingFrameMetadata {
 #[derive(Debug)]
 pub struct RecordingFrame {
     pub timestamp: SystemTime,
+    pub duration: Duration,
     pub data: Vec<u8>,
 }
 
