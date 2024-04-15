@@ -21,9 +21,9 @@ impl Default for IncomingMessage {
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum OutgoingMessage {
-    GameController(GameControllerReturnMessage),
+    GameController(SocketAddr, GameControllerReturnMessage),
     Spl(HulkMessage),
-    VisualReferee(VisualRefereeMessage),
+    VisualReferee(SocketAddr, VisualRefereeMessage),
 }
 
 impl Default for OutgoingMessage {

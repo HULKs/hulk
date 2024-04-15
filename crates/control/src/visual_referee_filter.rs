@@ -1,6 +1,9 @@
 use num_traits::cast::FromPrimitive;
 use rand::prelude::*;
-use std::time::{Duration, SystemTime};
+use std::{
+    net::SocketAddr,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
@@ -26,6 +29,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     player_number: Parameter<PlayerNumber, "player_number">,
@@ -92,17 +96,22 @@ impl VisualRefereeFilter {
             let mut rng = thread_rng();
             let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
 
-            let message = OutgoingMessage::VisualReferee(VisualRefereeMessage {
-                player_number: *context.player_number,
-                gesture,
-                whistle_age: duration_since_last_whistle,
-            });
-            context
-                .hardware
-                .write_to_network(message)
-                .wrap_err("failed to write VisualRefereeMessage to hardware")?;
+            if let Some(address) = context.game_controller_address {
+                let message = OutgoingMessage::VisualReferee(
+                    *address,
+                    VisualRefereeMessage {
+                        player_number: *context.player_number,
+                        gesture,
+                        whistle_age: duration_since_last_whistle,
+                    },
+                );
+                context
+                    .hardware
+                    .write_to_network(message)
+                    .wrap_err("failed to write VisualRefereeMessage to hardware")?;
 
-            self.time_of_last_visual_referee_related_state_change = None;
+                self.time_of_last_visual_referee_related_state_change = None;
+            }
         }
         Ok(MainOutputs::default())
     }

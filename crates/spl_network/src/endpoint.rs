@@ -6,14 +6,13 @@ use std::{
 use log::warn;
 use serde::Deserialize;
 use thiserror::Error;
-use tokio::{net::UdpSocket, select, sync::Mutex};
+use tokio::{net::UdpSocket, select};
 use types::messages::{IncomingMessage, OutgoingMessage};
 
 pub struct Endpoint {
     ports: Ports,
     game_controller_state_socket: UdpSocket,
     spl_socket: UdpSocket,
-    last_game_controller_address: Mutex<Option<SocketAddr>>,
 }
 
 #[derive(Error, Debug)]
@@ -44,7 +43,6 @@ impl Endpoint {
             ports: parameters,
             game_controller_state_socket,
             spl_socket,
-            last_game_controller_address: Mutex::new(None),
         })
     }
 
@@ -57,7 +55,6 @@ impl Endpoint {
                     let (received_bytes, address) = result.map_err(Error::ReadError)?;
                     match game_controller_state_buffer[0..received_bytes].try_into() {
                         Ok(parsed_message) => {
-                            *self.last_game_controller_address.lock().await = Some(address);
                             break Ok(IncomingMessage::GameController(address, parsed_message));
                         }
                         Err(error) => {
@@ -84,9 +81,9 @@ impl Endpoint {
 
     pub async fn write(&self, message: OutgoingMessage) {
         match message {
-            OutgoingMessage::GameController(message) => {
+            OutgoingMessage::GameController(destination, message) => {
                 let message: Vec<u8> = message.into();
-                self.send_game_controller_visual_referee_message(message)
+                self.send_game_controller_visual_referee_message(destination, message)
                     .await;
             }
             OutgoingMessage::Spl(message) => match bincode::serialize(&message) {
@@ -106,30 +103,28 @@ impl Endpoint {
                     warn!("Failed to serialize Hulk Message: {error:?}")
                 }
             },
-            OutgoingMessage::VisualReferee(message) => {
+            OutgoingMessage::VisualReferee(destination, message) => {
                 let message: Vec<u8> = message.into();
-                self.send_game_controller_visual_referee_message(message)
+                self.send_game_controller_visual_referee_message(destination, message)
                     .await;
             }
         };
     }
 
-    async fn send_game_controller_visual_referee_message(&self, message: Vec<u8>) {
-        let last_game_controller_address = *self.last_game_controller_address.lock().await;
-        if let Some(last_game_controller_address) = last_game_controller_address {
-            if let Err(error) = self
-                .game_controller_state_socket
-                .send_to(
-                    message.as_slice(),
-                    SocketAddr::new(
-                        last_game_controller_address.ip(),
-                        self.ports.game_controller_return,
-                    ),
-                )
-                .await
-            {
-                warn!("Failed to send UDP datagram to GameController: {error:?}")
-            }
+    async fn send_game_controller_visual_referee_message(
+        &self,
+        destination: SocketAddr,
+        message: Vec<u8>,
+    ) {
+        if let Err(error) = self
+            .game_controller_state_socket
+            .send_to(
+                message.as_slice(),
+                SocketAddr::new(destination.ip(), self.ports.game_controller_return),
+            )
+            .await
+        {
+            warn!("Failed to send UDP datagram to GameController: {error:?}")
         }
     }
 }
