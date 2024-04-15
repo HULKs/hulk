@@ -80,6 +80,8 @@ pub struct CatchingStepsParameters {
     pub heel_offset: f32,
     pub max_adjustment: Vector3<Walk>,
     pub midpoint: f32,
+    pub target_overestimation_factor: f32,
+    pub additional_foot_lift: f32,
     // pub max_tick_delta: Vector2<Walk>,
 }
 
