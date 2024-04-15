@@ -58,7 +58,7 @@ impl Endpoint {
                     match game_controller_state_buffer[0..received_bytes].try_into() {
                         Ok(parsed_message) => {
                             *self.last_game_controller_address.lock().await = Some(address);
-                            break Ok(IncomingMessage::GameController(parsed_message));
+                            break Ok(IncomingMessage::GameController(address, parsed_message));
                         }
                         Err(error) => {
                             warn!("Failed to parse GameController state message (will be discarded): {error:?}");

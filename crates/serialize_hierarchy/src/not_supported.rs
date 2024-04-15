@@ -1,5 +1,6 @@
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
+    net::SocketAddr,
     path::PathBuf,
     time::{Duration, SystemTime},
 };
@@ -47,8 +48,8 @@ macro_rules! implement_as_not_supported {
             fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };
-    ($type:ty, $generic:tt) => {
-        impl<$generic> SerializeHierarchy for $type {
+    ($type:ty, $($generic:tt),*) => {
+        impl<$($generic),*> SerializeHierarchy for $type {
             fn serialize_path<S>(
                 &self,
                 path: &str,
@@ -98,17 +99,19 @@ implement_as_not_supported!(u64);
 implement_as_not_supported!(usize);
 // nalgebra
 implement_as_not_supported!(DMatrix<f32>);
-implement_as_not_supported!(SMatrix<f32, 3, 3>);
-implement_as_not_supported!(SMatrix<f32, 3, 4>);
 implement_as_not_supported!(Isometry2<f32>);
 implement_as_not_supported!(Isometry3<f32>);
 implement_as_not_supported!(Rotation3<f32>);
+implement_as_not_supported!(SMatrix<f32, 3, 3>);
+implement_as_not_supported!(SMatrix<f32, 3, 4>);
 implement_as_not_supported!(UnitComplex<f32>);
 implement_as_not_supported!(UnitQuaternion<f32>);
 // stdlib
-implement_as_not_supported!(SystemTime);
 implement_as_not_supported!(Duration);
-implement_as_not_supported!(String);
-implement_as_not_supported!(PathBuf);
-implement_as_not_supported!(Vec<T>, T);
+implement_as_not_supported!(HashMap<K, V>, K, V);
 implement_as_not_supported!(HashSet<T>, T);
+implement_as_not_supported!(PathBuf);
+implement_as_not_supported!(SocketAddr);
+implement_as_not_supported!(String);
+implement_as_not_supported!(SystemTime);
+implement_as_not_supported!(Vec<T>, T);
