@@ -30,7 +30,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             body_id: String,
             head_id: String,
             keep_running: tokio_util::sync::CancellationToken,
-            recording_settings: std::collections::HashSet<String>,
+            recording_settings: std::collections::HashMap<String, usize>,
         ) -> color_eyre::Result<()>
         {
             use color_eyre::eyre::WrapErr;
@@ -305,9 +305,9 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let own_reader_identifier = format_ident!("{instance_name_snake_case}_reader");
         let own_subscribed_outputs_writer_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_writer");
         let own_subscribed_outputs_reader_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_reader");
-        let enable_recording = if mode == Execution::Run {
+        let cycles_per_recording = if mode == Execution::Run {
             quote! {
-                let enable_recording = recording_settings.contains(#cycler_instance_name);
+                let cycles_per_recording = *recording_settings.get(#cycler_instance_name).unwrap_or(&0);
             }
         } else {
             Default::default()
@@ -345,7 +345,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let recording_parameters = if mode == Execution::Run {
             quote! {
                 recording_sender.clone(),
-                enable_recording,
+                cycles_per_recording,
             }
         } else {
             Default::default()
@@ -358,7 +358,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
                 Default::default(),
                 Default::default(),
             ]);
-            #enable_recording
+            #cycles_per_recording
             #recording_index
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
