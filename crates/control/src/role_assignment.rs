@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    net::SocketAddr,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::{eyre::WrapErr, Result};
 use serde::{Deserialize, Serialize};
@@ -51,6 +54,7 @@ pub struct CycleContext {
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -171,20 +175,23 @@ impl RoleAssignment {
         if send_game_controller_return_message {
             self.last_system_time_transmitted_game_controller_return_message =
                 Some(cycle_start_time);
-            context
-                .hardware
-                .write_to_network(OutgoingMessage::GameController(
-                    GameControllerReturnMessage {
-                        player_number: *context.player_number,
-                        fallen: matches!(context.fall_state, FallState::Fallen { .. }),
-                        pose: ground_to_field.as_pose(),
-                        ball: seen_ball_to_game_controller_ball_position(
-                            context.ball_position,
-                            cycle_start_time,
-                        ),
-                    },
-                ))
-                .wrap_err("failed to write GameControllerReturnMessage to hardware")?;
+            if let Some(address) = context.game_controller_address {
+                context
+                    .hardware
+                    .write_to_network(OutgoingMessage::GameController(
+                        *address,
+                        GameControllerReturnMessage {
+                            player_number: *context.player_number,
+                            fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                            pose: ground_to_field.as_pose(),
+                            ball: seen_ball_to_game_controller_ball_position(
+                                context.ball_position,
+                                cycle_start_time,
+                            ),
+                        },
+                    ))
+                    .wrap_err("failed to write GameControllerReturnMessage to hardware")?;
+            }
         }
 
         let mut team_ball = self.team_ball;

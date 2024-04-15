@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::Result;
 use linear_algebra::Isometry2;
@@ -48,6 +48,7 @@ pub struct MainOutputs {
     pub fall_state: MainOutput<FallState>,
     pub filtered_whistle: MainOutput<FilteredWhistle>,
     pub game_controller_state: MainOutput<Option<GameControllerState>>,
+    pub game_controller_address: MainOutput<Option<SocketAddr>>,
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
