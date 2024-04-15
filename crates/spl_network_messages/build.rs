@@ -1,12 +1,12 @@
 use std::{env, path::PathBuf};
 
-use bindgen::{Builder, CargoCallbacks};
+use bindgen::Builder;
 
 fn main() {
     let bindings = Builder::default()
         .header("headers/RoboCupGameControlData.hpp")
         .header("headers/VisualRefereeChallenge.hpp")
-        .parse_callbacks(Box::new(CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .layout_tests(false)
         .fit_macro_constants(true)
         .generate()
