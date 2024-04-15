@@ -14,16 +14,16 @@ use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
 };
 
-pub struct HumanPoseDetection {
-    detected_human_pose_types: ValueBuffer,
+pub struct PoseDetection {
+    detected_pose_types: ValueBuffer,
 }
 
-impl Layer<Field> for HumanPoseDetection {
-    const NAME: &'static str = "Detected Human Poses";
+impl Layer<Field> for PoseDetection {
+    const NAME: &'static str = "Pose Positions";
 
     fn new(nao: Arc<Nao>) -> Self {
         Self {
-            detected_human_pose_types: nao.subscribe_output(CyclerOutput {
+            detected_pose_types: nao.subscribe_output(CyclerOutput {
                 cycler: Cycler::DetectionTop,
                 output: Output::Additional {
                     path: "detected_pose_types".to_string(),
@@ -41,10 +41,10 @@ impl Layer<Field> for HumanPoseDetection {
             width: 0.10,
             color: Color32::BLACK,
         };
-        let detected_human_pose_types: Vec<(PoseType, Point2<Field>)> =
-            self.detected_human_pose_types.require_latest()?;
+        let detected_pose_types: Vec<(PoseType, Point2<Field>)> =
+            self.detected_pose_types.require_latest()?;
 
-        for (pose_type, position) in detected_human_pose_types {
+        for (pose_type, position) in detected_pose_types {
             painter.circle(position, 0.15, Color32::RED, position_stroke);
             painter.text(
                 position,
