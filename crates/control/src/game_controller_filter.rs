@@ -1,4 +1,8 @@
-use std::{collections::HashMap, net::SocketAddr, time::SystemTime};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -30,6 +34,12 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+
+    time_since_last_game_controller_state_message_to_consider_source_ip_address_active: Parameter<
+        Duration,
+        "time_since_last_game_controller_state_message_to_consider_source_ip_address_active",
+    >,
+    collision_alert_cooldown: Parameter<Duration, "collision_alert_cooldown">,
 
     last_contact:
         AdditionalOutput<HashMap<SocketAddr, SystemTime>, "game_controller_address_contacts_times">,
@@ -120,21 +130,20 @@ impl GameControllerFilter {
     ) {
         self.last_contact.insert(source_address, time);
 
+        let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
+            time.duration_since(**last_contact)
+                .expect("time ran backwards")
+                < *context.time_since_last_game_controller_state_message_to_consider_source_ip_address_active
+        });
+        let collision_detected = recent_contacts.count() > 1;
+
         let alert_is_on_cooldown =
             self.last_collision_warning
                 .is_some_and(|last_collision_warning| {
                     time.duration_since(last_collision_warning)
                         .expect("time ran backwards")
-                        .as_secs_f32()
-                        < 10.0
+                        < *context.collision_alert_cooldown
                 });
-        let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
-            time.duration_since(**last_contact)
-                .expect("time ran backwards")
-                .as_secs_f32()
-                < 5.0
-        });
-        let collision_detected = recent_contacts.count() > 1;
 
         if collision_detected && !alert_is_on_cooldown {
             context
