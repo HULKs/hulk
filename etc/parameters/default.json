@@ -958,6 +958,16 @@
       "secs": 5
     }
   },
+  "game_controller_filter": {
+    "time_since_last_game_controller_state_message_to_consider_source_ip_address_active": {
+      "nanos": 0,
+      "secs": 5
+    },
+    "collision_alert_cooldown": {
+      "nanos": 0,
+      "secs": 10
+    }
+  },
   "game_state_filter": {
     "game_controller_controller_delay": {
       "nanos": 0,
