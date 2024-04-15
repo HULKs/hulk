@@ -35,6 +35,10 @@ impl Catching {
         robot_to_ground: Isometry3<Robot, Ground>,
     ) -> Self {
         let parameters = &context.parameters;
+        let target_overestimation_factor = context
+            .parameters
+            .catching_steps
+            .target_overestimation_factor;
 
         let step_duration = parameters.base.step_duration;
         let start_feet = Feet::from_joints(joints, support_side, parameters);
@@ -43,13 +47,14 @@ impl Catching {
         let end_feet = Feet::end_from_request(
             parameters,
             Step {
-                forward: target.x(),
+                forward: target.x() * target_overestimation_factor,
                 left: 0.0,
                 turn: 0.0,
             },
             support_side,
         );
-        let max_swing_foot_lift = parameters.base.foot_lift_apex;
+        let max_swing_foot_lift =
+            parameters.base.foot_lift_apex + parameters.catching_steps.additional_foot_lift;
         let midpoint = parameters.catching_steps.midpoint;
 
         let step = StepState {
