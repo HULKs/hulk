@@ -1,8 +1,8 @@
 {
   "communication_addresses": "[::]:1337",
-  "recording_settings": [
-    "Control"
-  ],
   "hardware_parameters": "etc/parameters/hardware.json",
-  "parameters_directory": "etc/parameters"
+  "parameters_directory": "etc/parameters",
+  "recording_settings": {
+    "Control": 1
+  }
 }
