@@ -29,9 +29,9 @@ impl MessageFilter {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let message = match context.message {
-            IncomingMessage::GameController(message) => {
-                Some(IncomingMessage::GameController(message.clone()))
-            }
+            IncomingMessage::GameController(source_address, message) => Some(
+                IncomingMessage::GameController(*source_address, message.clone()),
+            ),
             IncomingMessage::Spl(message) if message.player_number != *context.player_number => {
                 Some(IncomingMessage::Spl(*message))
             }
