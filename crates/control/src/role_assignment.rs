@@ -217,7 +217,7 @@ impl RoleAssignment {
             .into_values()
             .flatten()
             .filter_map(|message| match message {
-                Some(IncomingMessage::GameController(_)) | None => None,
+                Some(IncomingMessage::GameController(..)) | None => None,
                 Some(IncomingMessage::Spl(message)) => Some(message),
             })
             .peekable();

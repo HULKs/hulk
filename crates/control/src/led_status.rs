@@ -176,7 +176,7 @@ impl LedStatus {
                 messages
                     .iter()
                     .flatten()
-                    .any(|&message| matches!(message, IncomingMessage::GameController(_)))
+                    .any(|&message| matches!(message, IncomingMessage::GameController(..)))
                     .then_some(timestamp)
             })
         {

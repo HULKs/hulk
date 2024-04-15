@@ -1,4 +1,7 @@
+use std::net::SocketAddr;
+
 use serde::{Deserialize, Serialize};
+
 use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{
     GameControllerReturnMessage, GameControllerStateMessage, HulkMessage, VisualRefereeMessage,
@@ -6,7 +9,7 @@ use spl_network_messages::{
 
 #[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
 pub enum IncomingMessage {
-    GameController(GameControllerStateMessage),
+    GameController(SocketAddr, GameControllerStateMessage),
     Spl(HulkMessage),
 }
 

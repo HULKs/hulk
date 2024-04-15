@@ -1,17 +1,24 @@
-use std::time::SystemTime;
+use std::{collections::HashMap, net::SocketAddr, time::SystemTime};
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use hardware::{SpeakerInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
 use types::{
-    cycle_time::CycleTime, game_controller_state::GameControllerState, messages::IncomingMessage,
+    audio::{Sound, SpeakerRequest},
+    cycle_time::CycleTime,
+    game_controller_state::GameControllerState,
+    messages::IncomingMessage,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,
     last_game_state_change: Option<SystemTime>,
+
+    last_contact: HashMap<SocketAddr, SystemTime>,
+    last_collision_warning: Option<SystemTime>,
 }
 
 #[context]
@@ -19,8 +26,12 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    hardware_interface: HardwareInterface,
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+
+    last_contact:
+        AdditionalOutput<HashMap<SocketAddr, SystemTime>, "game_controller_address_contacts_times">,
 }
 
 #[context]
@@ -34,19 +45,25 @@ impl GameControllerFilter {
         Ok(Self {
             game_controller_state: None,
             last_game_state_change: None,
+            last_contact: HashMap::new(),
+            last_collision_warning: None,
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        for game_controller_state_message in context
+    pub fn cycle(
+        &mut self,
+        mut context: CycleContext<impl TimeInterface + SpeakerInterface>,
+    ) -> Result<MainOutputs> {
+        for (time, source_address, game_controller_state_message) in context
             .network_message
             .persistent
-            .values()
-            .flatten()
-            .flatten()
-            .filter_map(|message| match message {
-                IncomingMessage::GameController(message) => Some(message),
-                IncomingMessage::Spl(_) => None,
+            .iter()
+            .flat_map(|(time, messages)| messages.iter().flatten().map(|message| (*time, *message)))
+            .filter_map(|(time, message)| match message {
+                IncomingMessage::GameController(source_address, message) => {
+                    Some((time, source_address, message))
+                }
+                _ => None,
             })
         {
             let game_state_changed = match &self.game_controller_state {
@@ -71,7 +88,38 @@ impl GameControllerFilter {
                 hulks_team_is_home_after_coin_toss: game_controller_state_message
                     .hulks_team_is_home_after_coin_toss,
             });
+
+            self.last_contact.insert(*source_address, time);
+            let on_cooldown = self
+                .last_collision_warning
+                .is_some_and(|last_collision_warning| {
+                    time.duration_since(last_collision_warning)
+                        .expect("time ran backwards")
+                        .as_secs_f32()
+                        < 10.0
+                });
+            let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
+                time.duration_since(**last_contact)
+                    .expect("time ran backwards")
+                    .as_secs_f32()
+                    < 5.0
+            });
+            let collisions = recent_contacts.count() > 1;
+
+            if collisions && !on_cooldown {
+                context
+                    .hardware_interface
+                    .write_to_speakers(SpeakerRequest::PlaySound {
+                        sound: Sound::GameControllerCollision,
+                    });
+                self.last_collision_warning = Some(time);
+            }
         }
+
+        context
+            .last_contact
+            .fill_if_subscribed(|| self.last_contact.clone());
+
         Ok(MainOutputs {
             game_controller_state: self.game_controller_state.into(),
         })
