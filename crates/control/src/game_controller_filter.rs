@@ -91,23 +91,24 @@ impl GameControllerFilter {
             });
 
             self.last_contact.insert(*source_address, time);
-            let on_cooldown = self
-                .last_collision_warning
-                .is_some_and(|last_collision_warning| {
-                    time.duration_since(last_collision_warning)
-                        .expect("time ran backwards")
-                        .as_secs_f32()
-                        < 10.0
-                });
+
+            let alert_is_on_cooldown =
+                self.last_collision_warning
+                    .is_some_and(|last_collision_warning| {
+                        time.duration_since(last_collision_warning)
+                            .expect("time ran backwards")
+                            .as_secs_f32()
+                            < 10.0
+                    });
             let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
                 time.duration_since(**last_contact)
                     .expect("time ran backwards")
                     .as_secs_f32()
                     < 5.0
             });
-            let collisions = recent_contacts.count() > 1;
+            let collision_detected = recent_contacts.count() > 1;
 
-            if collisions && !on_cooldown {
+            if collision_detected && !alert_is_on_cooldown {
                 context
                     .hardware_interface
                     .write_to_speakers(SpeakerRequest::PlaySound {
