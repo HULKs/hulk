@@ -47,9 +47,9 @@ impl RefereePoseDetectionFilter {
         let cycle_start_time = context.cycle_time.start_time;
 
         let pose_detection_times = self.update(
-            context.detected_referee_pose_type,
+            &context.detected_referee_pose_type,
             *context.player_number,
-            context.network_message,
+            &context.network_message,
         );
 
         let initial_to_ready_trigger = self.decide(
@@ -57,6 +57,9 @@ impl RefereePoseDetectionFilter {
             cycle_start_time,
             context.parameters,
             context.game_controller_state.penalties,
+            context
+                .game_controller_state
+                .hulks_team_is_home_after_coin_toss,
         );
         Ok(MainOutputs {
             initial_to_ready_trigger: initial_to_ready_trigger.into(),
@@ -65,9 +68,9 @@ impl RefereePoseDetectionFilter {
 
     fn update(
         &mut self,
-        detected_referee_pose_type: PerceptionInput<Vec<&PoseType>>,
+        detected_referee_pose_type: &PerceptionInput<Vec<&PoseType>>,
         player_number: PlayerNumber,
-        spl_messages: PerceptionInput<Vec<&IncomingMessage>>,
+        spl_messages: &PerceptionInput<Vec<&IncomingMessage>>,
     ) -> Vec<Option<SystemTime>> {
         let persistent_messages: Vec<_> = spl_messages
             .persistent
@@ -139,10 +142,28 @@ impl RefereePoseDetectionFilter {
         &self,
         parameters: &RefereePoseDetectionFilterParameters,
         penalties: Players<Option<Penalty>>,
+        hulks_team_is_home_after_coin_toss: bool,
     ) -> usize {
         let number_of_non_penalized_robots = penalties
             .iter()
-            .filter(|(_, penalty)| penalty.is_none())
+            .filter(|(player_number, penalty)| {
+                if hulks_team_is_home_after_coin_toss {
+                    match (player_number, penalty) {
+                        (PlayerNumber::Three, None) => true,
+                        (PlayerNumber::Four, None) => true,
+                        (PlayerNumber::Five, None) => true,
+                        (PlayerNumber::Seven, None) => true,
+                        (_, _) => false,
+                    }
+                } else {
+                    match (player_number, penalty) {
+                        (PlayerNumber::One, None) => true,
+                        (PlayerNumber::Two, None) => true,
+                        (PlayerNumber::Six, None) => true,
+                        (_, _) => false,
+                    }
+                }
+            })
             .count();
         f32::ceil(
             number_of_non_penalized_robots as f32
@@ -156,9 +177,13 @@ impl RefereePoseDetectionFilter {
         cycle_start_time: SystemTime,
         parameters: &RefereePoseDetectionFilterParameters,
         penalties: Players<Option<Penalty>>,
+        hulks_team_is_home_after_coin_toss: bool,
     ) -> bool {
-        let minimum_over_head_arms_detections =
-            self.determine_minimum_overhead_arms_detections(parameters, penalties);
+        let minimum_over_head_arms_detections = self.determine_minimum_overhead_arms_detections(
+            parameters,
+            penalties,
+            hulks_team_is_home_after_coin_toss,
+        );
 
         let detected_over_head_arms_poses = pose_detection_times
             .iter()
