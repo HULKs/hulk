@@ -26,6 +26,7 @@ pub fn generate_cyclers(cyclers: &Cyclers, mode: Execution) -> TokenStream {
             quote! {
                 #instance_name {
                     timestamp: std::time::SystemTime,
+                    duration: std::time::Duration,
                     data: std::vec::Vec<u8>,
                 },
             }
@@ -464,6 +465,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
         Execution::None => Default::default(),
         Execution::Run => quote! {
             let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
+            let recording_timestamp = std::time::SystemTime::now();
         },
         Execution::Replay => Default::default(),
     };
@@ -516,7 +518,8 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                 let instance_name = format_ident!("{}", instance);
                 quote! {
                     CyclerInstance::#instance_name => crate::cyclers::RecordingFrame::#instance_name {
-                        timestamp: now,
+                        timestamp: recording_timestamp,
+                        duration: recording_duration,
                         data: recording_frame,
                     },
                 }
@@ -524,6 +527,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
 
             quote! {
                 #after_remaining_nodes
+                let recording_duration = recording_timestamp.elapsed().expect("time ran backwards");
 
                 if enable_recording {
                     self.recording_sender.try_send(match instance {
