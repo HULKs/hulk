@@ -173,16 +173,12 @@ impl FallStateEstimation {
 
         let fall_state = match (self.last_fall_state, falling_direction, fallen_direction) {
             (FallState::Upright, None, None) => FallState::Upright,
-            (FallState::Upright, None, Some(facing)) => FallState::Fallen {
-                kind: facing,
-            },
+            (FallState::Upright, None, Some(facing)) => FallState::Fallen { kind: facing },
             (FallState::Upright, Some(direction), None) => FallState::Falling {
                 direction,
                 start_time: context.cycle_time.start_time,
             },
-            (FallState::Upright, Some(_), Some(facing)) => FallState::Fallen {
-                kind: facing,
-            },
+            (FallState::Upright, Some(_), Some(facing)) => FallState::Fallen { kind: facing },
             (current @ FallState::Falling { start_time, .. }, None, None) => {
                 if context
                     .cycle_time
@@ -206,9 +202,7 @@ impl FallStateEstimation {
                     .unwrap()
                     > *context.falling_timeout
                 {
-                    FallState::Fallen {
-                        kind: facing,
-                    }
+                    FallState::Fallen { kind: facing }
                 } else {
                     current
                 }
@@ -249,9 +243,7 @@ impl FallStateEstimation {
                     .unwrap()
                     > *context.falling_timeout
                 {
-                    FallState::Fallen {
-                        kind: (facing),
-                    }
+                    FallState::Fallen { kind: (facing) }
                 } else {
                     current
                 }
