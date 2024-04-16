@@ -372,7 +372,7 @@ pub struct FallProtectionParameters {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct SearchSuggestorParameters {
-    pub cells_per_meter: usize,
+    pub cells_per_meter: f32,
     pub heatmap_decay_factor: f32,
     pub minimum_validity: f32,
 }
