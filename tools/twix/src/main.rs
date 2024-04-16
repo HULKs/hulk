@@ -7,6 +7,8 @@ use std::{
 };
 
 use aliveness::query_aliveness;
+use clap::Parser;
+use cli_parsers::NaoAddress;
 use color_eyre::{
     eyre::{bail, eyre},
     Result,
@@ -54,6 +56,16 @@ mod twix_painter;
 mod value_buffer;
 mod visuals;
 
+#[derive(Debug, Parser)]
+struct Arguments {
+    /// Nao address to connect to (overrides the address saved in the configuration file)
+    pub nao_address: Option<NaoAddress>,
+
+    /// Delete the current panel setup
+    #[arg(long)]
+    pub clear: bool,
+}
+
 fn setup_logger() -> Result<(), InitError> {
     Dispatch::new()
         .format(|out, message, record| {
@@ -72,6 +84,7 @@ fn setup_logger() -> Result<(), InitError> {
 
 fn main() -> Result<(), eframe::Error> {
     setup_logger().unwrap();
+    let arguments = Arguments::parse();
 
     let runtime = Runtime::new().unwrap();
     if let Ok(repository_root) = runtime.block_on(get_repository_root()) {
@@ -86,7 +99,7 @@ fn main() -> Result<(), eframe::Error> {
         options,
         Box::new(|creation_context| {
             egui_extras::install_image_loaders(&creation_context.egui_ctx);
-            Box::new(TwixApp::create(creation_context))
+            Box::new(TwixApp::create(creation_context, arguments))
         }),
     )
 }
@@ -159,11 +172,13 @@ struct TwixApp {
 }
 
 impl TwixApp {
-    fn create(creation_context: &CreationContext) -> Self {
-        let ip_address = creation_context
-            .storage
-            .map(|storage| storage.get_string("ip_address"))
-            .unwrap_or(None);
+    fn create(creation_context: &CreationContext, arguments: Arguments) -> Self {
+        let ip_address = arguments.nao_address.map_or(
+            creation_context
+                .storage
+                .and_then(|storage| storage.get_string("ip_address")),
+            |nao_address| Some(nao_address.ip.to_string()),
+        );
 
         let connection_intent = creation_context
             .storage
@@ -176,10 +191,14 @@ impl TwixApp {
 
         let nao = Arc::new(Nao::new(ip_address.clone(), connection_intent));
 
-        let dock_state: Option<DockState<Value>> = creation_context
-            .storage
-            .and_then(|storage| storage.get_string("dock_state"))
-            .and_then(|string| from_str(&string).ok());
+        let dock_state: Option<DockState<Value>> = if arguments.clear {
+            None
+        } else {
+            creation_context
+                .storage
+                .and_then(|storage| storage.get_string("dock_state"))
+                .and_then(|string| from_str(&string).ok())
+        };
 
         let dock_state = match dock_state {
             Some(dock_state) => dock_state.map_tabs(|value| {
