@@ -4,11 +4,11 @@ use clap::{
 };
 use color_eyre::{eyre::WrapErr, Result};
 
+use cli_parsers::{parse_network, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES};
 use nao::Network;
 use repository::Repository;
 
 use crate::{
-    parsers::{parse_network, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES},
     player_number::{player_number, Arguments as PlayerNumberArguments},
     recording::{parse_key_value, recording, Arguments as RecordingArguments},
     upload::{upload, Arguments as UploadArguments},

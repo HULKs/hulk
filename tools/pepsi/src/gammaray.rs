@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
+use cli_parsers::NaoAddress;
 use constants::OS_VERSION;
 use nao::Nao;
 use opn::verify_image;
 use repository::get_image_path;
 
-use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
+use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Args)]
 pub struct Arguments {

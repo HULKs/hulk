@@ -4,12 +4,10 @@ use clap::{
 };
 use color_eyre::{eyre::WrapErr, Result};
 
+use cli_parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES};
 use nao::{Nao, Network};
 
-use crate::{
-    parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES},
-    progress_indicator::ProgressIndicator,
-};
+use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Subcommand)]
 pub enum Arguments {
