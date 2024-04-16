@@ -1,6 +1,7 @@
 mod behavior_simulator;
 mod enum_plot;
 mod image;
+mod image_color_select;
 mod image_segments;
 mod look_at;
 mod manual_camera_calibration;
@@ -10,11 +11,11 @@ mod plot;
 mod remote;
 mod text;
 mod vision_tuner;
-mod image_color_select;
 
 pub use self::behavior_simulator::BehaviorSimulatorPanel;
 pub use self::image::ImagePanel;
 pub use enum_plot::EnumPlotPanel;
+pub use image_color_select::ImageColorSelectPanel;
 pub use image_segments::ImageSegmentsPanel;
 pub use look_at::LookAtPanel;
 pub use manual_camera_calibration::ManualCalibrationPanel;
@@ -24,4 +25,3 @@ pub use plot::PlotPanel;
 pub use remote::RemotePanel;
 pub use text::TextPanel;
 pub use vision_tuner::VisionTunerPanel;
-pub use image_color_select::ImageColorSelectPanel;
