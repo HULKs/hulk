@@ -10,7 +10,7 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
     cycle_time::CycleTime,
-    fall_state::{FallDirection, FallState, Orientation, Side},
+    fall_state::{Direction, FallState, Kind, Side},
     joints::Joints,
     sensor_data::SensorData,
 };
@@ -121,15 +121,15 @@ impl FallStateEstimation {
         let fallen_direction = if fallen_down_gravitational_difference
             < *context.gravitational_acceleration_threshold
         {
-            Some(Orientation::FacingDown)
+            Some(Kind::FacingDown)
         } else if fallen_up_gravitational_difference < *context.gravitational_acceleration_threshold
         {
-            Some(Orientation::FacingUp)
+            Some(Kind::FacingUp)
         } else if fallen_standing_gravitational_difference
             < *context.gravitational_acceleration_threshold
             && difference_to_sitting < *context.difference_to_sitting_threshold
         {
-            Some(Orientation::Sitting)
+            Some(Kind::Sitting)
         } else {
             None
         };
@@ -162,9 +162,9 @@ impl FallStateEstimation {
                     }
                 };
                 if estimated_pitch > 0.0 {
-                    Some(FallDirection::Forward { side })
+                    Some(Direction::Forward { side })
                 } else {
-                    Some(FallDirection::Backward { side })
+                    Some(Direction::Backward { side })
                 }
             } else {
                 None
@@ -174,14 +174,14 @@ impl FallStateEstimation {
         let fall_state = match (self.last_fall_state, falling_direction, fallen_direction) {
             (FallState::Upright, None, None) => FallState::Upright,
             (FallState::Upright, None, Some(facing)) => FallState::Fallen {
-                orientation: facing,
+                kind: facing,
             },
             (FallState::Upright, Some(direction), None) => FallState::Falling {
                 direction,
                 start_time: context.cycle_time.start_time,
             },
             (FallState::Upright, Some(_), Some(facing)) => FallState::Fallen {
-                orientation: facing,
+                kind: facing,
             },
             (current @ FallState::Falling { start_time, .. }, None, None) => {
                 if context
@@ -207,7 +207,7 @@ impl FallStateEstimation {
                     > *context.falling_timeout
                 {
                     FallState::Fallen {
-                        orientation: facing,
+                        kind: facing,
                     }
                 } else {
                     current
@@ -223,11 +223,11 @@ impl FallStateEstimation {
                 {
                     if fallen_up_gravitational_difference < fallen_down_gravitational_difference {
                         FallState::Fallen {
-                            orientation: Orientation::FacingUp,
+                            kind: Kind::FacingUp,
                         }
                     } else {
                         FallState::Fallen {
-                            orientation: Orientation::FacingDown,
+                            kind: Kind::FacingDown,
                         }
                     }
                 } else {
@@ -250,7 +250,7 @@ impl FallStateEstimation {
                     > *context.falling_timeout
                 {
                     FallState::Fallen {
-                        orientation: (facing),
+                        kind: (facing),
                     }
                 } else {
                     current
