@@ -82,7 +82,6 @@ pub struct CatchingStepsParameters {
     pub midpoint: f32,
     pub target_overestimation_factor: f32,
     pub additional_foot_lift: f32,
-    // pub max_tick_delta: Vector2<Walk>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
