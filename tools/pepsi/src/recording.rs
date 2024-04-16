@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashMap, error::Error};
 
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
@@ -7,13 +7,29 @@ use repository::Repository;
 
 #[derive(Args)]
 pub struct Arguments {
-    /// Cycler instances to record e.g. Control or VisionBottom (call without cycler instances to disable recording)
-    pub recording_settings: Vec<String>,
+    /// Number of cycles per one recording for each cycler, e.g. Control=1,VisionTop=30 to
+    /// record every cycle in Control and one out of every 30 in VisionTop. Set to 0 or don't
+    /// specify to disable recording for a cycler.
+    #[arg(value_delimiter=',', value_parser = parse_key_value::<String, usize>)]
+    pub recording_settings: Vec<(String, usize)>,
 }
 
 pub async fn recording(arguments: Arguments, repository: &Repository) -> Result<()> {
     repository
-        .set_recording_settings(HashSet::from_iter(arguments.recording_settings))
+        .set_recording_settings(HashMap::from_iter(arguments.recording_settings))
         .await
         .wrap_err("failed to set recording enablement")
+}
+
+pub fn parse_key_value<T, U>(s: &str) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
+where
+    T: std::str::FromStr,
+    T::Err: Error + Send + Sync + 'static,
+    U: std::str::FromStr,
+    U::Err: Error + Send + Sync + 'static,
+{
+    let pos = s
+        .find('=')
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
 }
