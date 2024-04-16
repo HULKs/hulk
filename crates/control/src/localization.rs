@@ -184,8 +184,8 @@ impl Localization {
             }
             (PrimaryState::Playing, PrimaryState::Penalized, _) => {
                 match penalty {
-                    Some(Penalty::IllegalMotionInSet { remaining: _ })
-                    | Some(Penalty::IllegalMotionInInitial { remaining: _ }) => {
+                    Some(Penalty::IllegalMotionInSet { .. })
+                    | Some(Penalty::IllegalMotionInInitial { .. }) => {
                         self.is_penalized_with_motion_in_set_or_initial = true;
                     }
                     Some(_) => {}
