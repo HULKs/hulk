@@ -234,14 +234,13 @@ impl FallStateEstimation {
                     current
                 }
             }
-            (FallState::Fallen { .. }, None, None) => FallState::Upright,
-            (FallState::Fallen { .. }, None, Some(_)) => FallState::StandingUp {
+            (FallState::Fallen { .. }, _, None) => FallState::Upright,
+            (FallState::Fallen { .. }, _, Some(_)) => FallState::StandingUp {
                 start_time: context.cycle_time.start_time,
             },
+            // (current @ FallState::Fallen { .. }, Some(_), Some(_)) => current,
             (FallState::StandingUp { .. }, None, None) => FallState::Upright,
             (current @ FallState::StandingUp { .. }, Some(_), None) => current,
-            (FallState::Fallen { .. }, Some(_), None) => FallState::Upright,
-            (current @ FallState::Fallen { .. }, Some(_), Some(_)) => current,
             (current @ FallState::StandingUp { start_time }, _, Some(facing)) => {
                 if context
                     .cycle_time
