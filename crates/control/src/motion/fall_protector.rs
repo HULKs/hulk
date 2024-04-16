@@ -104,9 +104,7 @@ impl FallProtector {
             (Direction::Backward { side: Side::Left }, FallPhase::Late) => {
                 context.back_late.mirrored()
             }
-            (Direction::Backward { side: Side::Right }, FallPhase::Early) => {
-                *context.back_early
-            }
+            (Direction::Backward { side: Side::Right }, FallPhase::Early) => *context.back_early,
             (Direction::Backward { side: Side::Right }, FallPhase::Late) => *context.back_late,
         };
 
