@@ -280,9 +280,6 @@ impl RoleAssignment {
                             role = Role::ReplacementKeeper;
                         }
                     }
-                    PlayerNumber::One => {
-                        println!("Keeper is Replacmentkeeper")
-                    }
                     _ => {
                         if let Some(last_time_player_penalized) = self
                             .last_time_player_was_penalized[context.player_number.to_number() - 2]
