@@ -86,18 +86,16 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 3500 then
-        unpenalize(2);
-        state.filtered_game_controller_state.penalties.two = nil;
-    end
-
-
-
     if state.cycle_count == 2550 then
         state.ball = {
             position = { 0.0, 0.0 },
             velocity = { 0.0, 0.0 },
         }
+    end
+
+    if state.cycle_count == 3500 then
+        unpenalize(2);
+        state.filtered_game_controller_state.penalties.two = nil;
     end
 
     if state.cycle_count == 6000 then
