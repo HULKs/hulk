@@ -176,7 +176,6 @@ impl<Frame> TwixPainter<Frame> {
         self.n_gon(5, position, radius / 3.0, Color32::BLACK);
     }
 
-
     pub fn n_gon(&self, corners: usize, position: Point2<Frame>, radius: f32, fill_color: Color32) {
         let points: Vec<_> = (0..corners)
             .map(|index| {
