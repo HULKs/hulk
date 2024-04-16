@@ -666,7 +666,7 @@
       "nanos": 0,
       "secs": 1
     },
-    "difference_to_sitting_threshold": 4.0,
+    "difference_to_sitting_threshold": 1.0,
     "sitting_pose": {
       "head": {
         "pitch": 0.4693620204925537,
