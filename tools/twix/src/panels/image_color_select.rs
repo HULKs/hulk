@@ -44,9 +44,9 @@ pub struct ImageColorSelectPanel {
     brush_size: f32,
 }
 struct PixelColor {
-    r: f32,
-    g: f32,
-    b: f32,
+    red: f32,
+    green: f32,
+    blue: f32,
 }
 
 impl Panel for ImageColorSelectPanel {
@@ -127,37 +127,37 @@ impl Widget for &mut ImageColorSelectPanel {
             .id();
         let texture = SizedTexture {
             id: handle,
-            size: Vec2::new(640.0, 480.0),
+            size: Vec2::new(image.width() as f32, image.height() as f32),
         };
         let response = ui.image(texture);
 
         ui.separator();
 
         let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
-            vector![640.0, 480.0],
+            vector![image.width() as f32, image.height() as f32],
             Similarity2::identity(),
             CoordinateSystem::LeftHand,
         );
 
         if let Some(hoverpos) = response.hover_pos() {
             let pixel_pos = painter.transform_pixel_to_world(hoverpos);
-            if pixel_pos.x() < 640.0 && pixel_pos.y() < 480.0 {
+            if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
                 let mut max = PixelColor {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
+                    red: 0.0,
+                    green: 0.0,
+                    blue: 0.0,
                 };
                 let mut min = PixelColor {
-                    r: 1.0,
-                    g: 1.0,
-                    b: 1.0,
+                    red: 1.0,
+                    green: 1.0,
+                    blue: 1.0,
                 };
                 let mut average = PixelColor {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
+                    red: 0.0,
+                    green: 0.0,
+                    blue: 0.0,
                 };
-                let mut cnt: usize = 0;
+                let mut pixel_count: usize = 0;
 
                 for i in (pixel_pos.x() as isize - self.brush_size as isize)
                     ..(pixel_pos.x() as isize + self.brush_size as isize + 1)
@@ -169,69 +169,74 @@ impl Widget for &mut ImageColorSelectPanel {
                             f32::powi(i as f32 - pixel_pos.x(), 2)
                                 + f32::powi(j as f32 - pixel_pos.y(), 2),
                         ) <= self.brush_size
-                            && (0..640).contains(&i)
-                            && (0..480).contains(&j)
+                            && (0..image.width() as isize).contains(&i)
+                            && (0..image.height() as isize).contains(&j)
                         {
                             let circle_pixel = painter.transform_pixel_to_world(Pos2 {
                                 x: i as f32,
                                 y: j as f32,
                             });
-                            let color = get_pixel_color(&image, circle_pixel);
-                            max.r = max.r.max(color.r);
-                            max.g = max.g.max(color.g);
-                            max.b = max.b.max(color.b);
-                            min.r = min.r.min(color.r);
-                            min.g = min.g.min(color.g);
-                            min.b = min.b.min(color.b);
-                            average.r += color.r;
-                            average.g += color.g;
-                            average.b += color.b;
-                            cnt += 1;
+                            let color = get_pixel_chromaticity(&image, circle_pixel);
+                            max.red = max.red.max(color.red);
+                            max.green = max.green.max(color.green);
+                            max.blue = max.blue.max(color.blue);
+                            min.red = min.red.min(color.red);
+                            min.green = min.green.min(color.green);
+                            min.blue = min.blue.min(color.blue);
+                            average.red += color.red;
+                            average.green += color.green;
+                            average.blue += color.blue;
+                            pixel_count += 1;
                         }
                     }
                 }
-                average.r /= cnt as f32;
-                average.g /= cnt as f32;
-                average.b /= cnt as f32;
+                average.red /= pixel_count as f32;
+                average.green /= pixel_count as f32;
+                average.blue /= pixel_count as f32;
 
-                ui.horizontal_wrapped(|ui| {
-                    ui.label(format!(
-                        "   x: {}\t\ty: {}\t  pixels: {}\n",
-                        pixel_pos.x() as usize,
-                        pixel_pos.y() as usize,
-                        cnt,
-                    ));
-                    ui.label(RichText::new("max:\t\t").strong());
-                    ui.colored_label(Color32::RED, format!("r: {:.3}", max.r));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", max.g));
+                ui.label(format!(
+                    "x: {}\t\ty: {}\t\tpixels: {}\n",
+                    pixel_pos.x() as usize,
+                    pixel_pos.y() as usize,
+                    pixel_count,
+                ));
+
+                let grid = egui::Grid::new("colors").num_columns(4).striped(true);
+                grid.show(ui, |ui| {
+                    ui.label(RichText::new("max:").strong());
+                    ui.colored_label(Color32::RED, format!("r: {:.3}", max.red));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", max.green));
                     ui.colored_label(
                         Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}\n", max.b),
+                        format!("b: {:.3}", max.blue),
                     );
+                    ui.end_row();
 
-                    ui.label(RichText::new("min:\t\t").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", min.r));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", min.g));
+                    ui.label(RichText::new("min:").strong());
+                    ui.colored_label(Color32::RED, format!(" r: {:.3}", min.red));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", min.green));
                     ui.colored_label(
                         Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}\n", min.b),
+                        format!("b: {:.3}", min.blue),
                     );
+                    ui.end_row();
 
                     ui.label(RichText::new("average:").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", average.r));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", average.g));
+                    ui.colored_label(Color32::RED, format!(" r: {:.3}", average.red));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", average.green));
                     ui.colored_label(
                         Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", average.b),
+                        format!("b: {:.3}", average.blue),
                     );
-
-                    painter.circle(
-                        pixel_pos,
-                        self.brush_size,
-                        Color32::TRANSPARENT,
-                        Stroke::new(1.0, Color32::BLACK),
-                    );
+                    ui.end_row();
                 });
+
+                painter.circle(
+                    pixel_pos,
+                    self.brush_size,
+                    Color32::TRANSPARENT,
+                    Stroke::new(1.0, Color32::BLACK),
+                );
             }
         }
         response
@@ -261,12 +266,18 @@ impl ImageColorSelectPanel {
     }
 }
 
-fn get_pixel_color(image: &ColorImage, pixel_pos: Point2<Pixel>) -> PixelColor {
-    let color32 = image.pixels[(pixel_pos.y() as usize) * 640 + (pixel_pos.x() as usize)];
+fn get_pixel_chromaticity(image: &ColorImage, pixel_pos: Point2<Pixel>) -> PixelColor {
+    let color32 = image.pixels[(pixel_pos.y() as usize) * image.width() + (pixel_pos.x() as usize)];
     let sum = color32.r() as f32 + color32.g() as f32 + color32.b() as f32;
-    PixelColor {
-        r: (color32.r() as f32) / sum,
-        g: (color32.g() as f32) / sum,
-        b: (color32.b() as f32) / sum,
+    let mut pixel = PixelColor {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+    };
+    if sum != 0.0 {
+        pixel.red = (color32.r() as f32) / sum;
+        pixel.green = (color32.g() as f32) / sum;
+        pixel.blue = (color32.b() as f32) / sum;
     }
+    pixel
 }
