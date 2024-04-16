@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
-    fall_state::Facing,
+    fall_state::Orientation,
     motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
@@ -81,9 +81,9 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::SitDown { .. } => MotionType::SitDown,
         MotionCommand::Stand { .. } => MotionType::Stand,
         MotionCommand::StandUp { facing } => match facing {
-            Facing::Down => MotionType::StandUpFront,
-            Facing::Up => MotionType::StandUpBack,
-            Facing::Sitting => MotionType::StandUpSitting,
+            Orientation::FacingDown => MotionType::StandUpFront,
+            Orientation::FacingUp => MotionType::StandUpBack,
+            Orientation::Sitting => MotionType::StandUpSitting,
         },
         MotionCommand::Unstiff => MotionType::Unstiff,
         MotionCommand::Walk { .. } => MotionType::Walk,
@@ -103,8 +103,14 @@ fn transition_motion(
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,
         (MotionType::StandUpFront, _, MotionType::FallProtection, _) => MotionType::StandUpFront,
         (MotionType::StandUpBack, _, MotionType::FallProtection, _) => MotionType::StandUpBack,
+        (MotionType::StandUpSitting, _, MotionType::FallProtection, _) => {
+            MotionType::StandUpSitting
+        }
         (MotionType::StandUpFront, true, MotionType::StandUpFront, _) => MotionType::Dispatching,
         (MotionType::StandUpBack, true, MotionType::StandUpBack, _) => MotionType::Dispatching,
+        (MotionType::StandUpSitting, true, MotionType::StandUpSitting, _) => {
+            MotionType::Dispatching
+        }
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
