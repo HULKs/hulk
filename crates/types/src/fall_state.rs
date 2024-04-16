@@ -10,13 +10,13 @@ pub enum Side {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub enum FallDirection {
+pub enum Direction {
     Forward { side: Side },
     Backward { side: Side },
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-pub enum Orientation {
+pub enum Kind {
     FacingDown,
     FacingUp,
     Sitting,
@@ -28,10 +28,10 @@ pub enum FallState {
     Upright,
     Falling {
         start_time: SystemTime,
-        direction: FallDirection,
+        direction: Direction,
     },
     Fallen {
-        orientation: Orientation,
+        kind: Kind,
     },
     StandingUp {
         start_time: SystemTime,
