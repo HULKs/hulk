@@ -3,7 +3,7 @@ use color_eyre::{eyre::WrapErr, Result};
 
 use nao::Nao;
 
-use crate::parsers::NaoAddress;
+use cli_parsers::NaoAddress;
 
 #[derive(Args)]
 pub struct Arguments {

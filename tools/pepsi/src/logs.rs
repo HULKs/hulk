@@ -3,9 +3,10 @@ use std::path::PathBuf;
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
 
+use cli_parsers::NaoAddress;
 use nao::Nao;
 
-use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
+use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Subcommand)]
 pub enum Arguments {

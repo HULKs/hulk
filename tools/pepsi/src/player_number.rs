@@ -6,9 +6,10 @@ use color_eyre::{
     Result,
 };
 
+use cli_parsers::NaoNumberPlayerAssignment;
 use repository::Repository;
 
-use crate::{parsers::NaoNumberPlayerAssignment, progress_indicator::ProgressIndicator};
+use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Args)]
 pub struct Arguments {

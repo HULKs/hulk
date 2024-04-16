@@ -1,7 +1,9 @@
 use clap::Args;
+
+use cli_parsers::NaoAddress;
 use nao::Nao;
 
-use crate::{parsers::NaoAddress, progress_indicator::ProgressIndicator};
+use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Args)]
 pub struct Arguments {

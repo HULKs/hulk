@@ -1,13 +1,12 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
+
+use cli_parsers::{number_to_ip, Connection, NaoAddress};
 use constants::HARDWARE_IDS;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
 
-use crate::{
-    parsers::{number_to_ip, Connection, NaoAddress},
-    progress_indicator::ProgressIndicator,
-};
+use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Args)]
 pub struct Arguments {
