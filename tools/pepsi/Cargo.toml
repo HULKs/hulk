@@ -10,6 +10,7 @@ aliveness = { workspace = true }
 bat = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
+cli_parsers = { workspace = true }
 color-eyre = { workspace = true }
 constants = { workspace = true }
 futures-util = { workspace = true }

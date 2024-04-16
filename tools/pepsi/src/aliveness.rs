@@ -3,12 +3,12 @@ use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration
 use clap::{arg, Args};
 use color_eyre::owo_colors::{OwoColorize, Style};
 
-use crate::parsers::NaoAddress;
 use aliveness::{
     query_aliveness,
     service_manager::{ServiceState, SystemServices},
     AlivenessError, AlivenessState, Battery, JointsArray,
 };
+use cli_parsers::NaoAddress;
 use constants::OS_VERSION;
 
 #[derive(Args)]

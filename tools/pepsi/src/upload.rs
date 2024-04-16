@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use clap::Args;
+use cli_parsers::NaoAddress;
 use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
@@ -14,7 +15,6 @@ use crate::{
     cargo::{cargo, Arguments as CargoArguments, Command},
     communication::communication,
     communication::Arguments as CommunicationArguments,
-    parsers::NaoAddress,
     progress_indicator::{ProgressIndicator, Task},
 };
 

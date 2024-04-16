@@ -6,12 +6,12 @@ use clap::{
 };
 use color_eyre::{eyre::WrapErr, Result};
 
+use cli_parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES};
 use nao::{Network, SystemctlAction};
 
 use crate::{
     hulk::{hulk, Arguments as HulkArguments},
     logs::{logs, Arguments as LogsArguments},
-    parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES},
     wireless::{wireless, Arguments as WirelessArguments},
 };
 

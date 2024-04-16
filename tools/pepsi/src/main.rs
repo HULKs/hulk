@@ -34,7 +34,6 @@ mod gammaray;
 mod hulk;
 mod location;
 mod logs;
-mod parsers;
 mod ping;
 mod player_number;
 mod post_game;
