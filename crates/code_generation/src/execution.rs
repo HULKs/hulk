@@ -5,6 +5,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use source_analyzer::cyclers::{CyclerKind, Cyclers};
 
+use crate::accessor::ReferenceKind;
+
 use super::Execution;
 
 pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
@@ -107,9 +109,11 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
     let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Replay);
     let cycler_parameters = generate_cycler_parameters(cyclers);
-    let cycler_seeks = generate_cycler_seeks(cyclers);
-    let cycler_first_timestamps = generate_cycler_timestamps(cyclers, "first");
-    let cycler_last_timestamps = generate_cycler_timestamps(cyclers, "last");
+    let recording_index_entries =
+        generate_recording_index_entries(cyclers, ReferenceKind::Immutable);
+    let recording_index_entries_mut =
+        generate_recording_index_entries(cyclers, ReferenceKind::Mutable);
+    let cycler_replays = generate_cycler_replays(cyclers);
     let cycler_recording_paths = generate_cycler_recording_paths(cyclers);
 
     quote! {
@@ -147,24 +151,25 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
                 })
             }
 
-            pub fn seek_to_latest_frame_up_to(&mut self, timestamp: std::time::SystemTime) -> color_eyre::Result<()> {
-                use color_eyre::eyre::WrapErr;
-
-                #cycler_seeks
-
-                Ok(())
+            pub fn get_recording_indices(&self) -> std::collections::BTreeMap<String, &framework::RecordingIndex> {
+                std::collections::BTreeMap::from([
+                    #recording_index_entries
+                ])
             }
 
-            pub fn first_timestamp(&self) -> Option<std::time::SystemTime> {
-                [
-                    #cycler_first_timestamps
-                ].into_iter().flatten().min()
+            pub fn get_recording_indices_mut(&mut self) -> std::collections::BTreeMap<String, &mut framework::RecordingIndex> {
+                std::collections::BTreeMap::from([
+                    #recording_index_entries_mut
+                ])
             }
 
-            pub fn last_timestamp(&self) -> Option<std::time::SystemTime> {
-                [
-                    #cycler_last_timestamps
-                ].into_iter().flatten().max()
+            pub fn replay(&mut self, cycler_instance_name: &str, timestamp: std::time::SystemTime, data: &[u8]) -> color_eyre::Result<()> {
+                use color_eyre::eyre::{bail, WrapErr};
+
+                match cycler_instance_name {
+                    #cycler_replays
+                    _ => bail!("unexpected cycler instance name {cycler_instance_name}"),
+                }
             }
         }
 
@@ -438,30 +443,34 @@ fn generate_cycler_parameters(cyclers: &Cyclers) -> TokenStream {
         .collect()
 }
 
-fn generate_cycler_seeks(cyclers: &Cyclers) -> TokenStream {
+fn generate_recording_index_entries(
+    cyclers: &Cyclers,
+    reference_kind: ReferenceKind,
+) -> TokenStream {
+    let reference = match reference_kind {
+        ReferenceKind::Immutable => quote! {& },
+        ReferenceKind::Mutable => quote! {&mut },
+    };
     cyclers
         .instances()
         .map(|(_cycler, instance)| {
-            let cycler_variable_identifier =
-                format_ident!("{}_cycler", instance.to_case(Case::Snake));
             let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
             quote! {
-                if let Some(frame) = self.#cycler_index_identifier.find_latest_frame_up_to(timestamp).wrap_err("failed to seek")? {
-                    self.#cycler_variable_identifier.cycle(frame.timestamp, &frame.data).wrap_err("failed to replay cycle")?;
-                }
+                (#instance.to_string(), #reference self.#cycler_index_identifier),
             }
         })
         .collect()
 }
 
-fn generate_cycler_timestamps(cyclers: &Cyclers, variant: &str) -> TokenStream {
+fn generate_cycler_replays(cyclers: &Cyclers) -> TokenStream {
     cyclers
         .instances()
         .map(|(_cycler, instance)| {
-            let cycler_index_identifier = format_ident!("{}_index", instance.to_case(Case::Snake));
-            let method = format_ident!("{variant}_timestamp");
+            let cycler_variable_identifier =
+                format_ident!("{}_cycler", instance.to_case(Case::Snake));
+            let error_message = format!("failed to replay {} cycle", instance);
             quote! {
-                self.#cycler_index_identifier.#method(),
+                #instance => self.#cycler_variable_identifier.cycle(timestamp, data).wrap_err(#error_message),
             }
         })
         .collect()

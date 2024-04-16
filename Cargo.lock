@@ -2735,6 +2735,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "bincode",
+ "chrono",
  "code_generation",
  "color-eyre",
  "communication",

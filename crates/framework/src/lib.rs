@@ -20,4 +20,4 @@ pub use panic::deserialize_not_implemented;
 pub use parameters::Parameters;
 pub use perception_databases::PerceptionDatabases;
 pub use perception_input::PerceptionInput;
-pub use recording_index::{RecordingFrame, RecordingIndex};
+pub use recording_index::{RecordingFrame, RecordingIndex, Timing};
