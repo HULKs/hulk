@@ -248,51 +248,51 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current": 0.1,
-    "minimum_reached_hysteresis": 0.05,
-    "optimization_speed": 0.0000012,
+    "allowed_current": 0.13,
+    "minimum_reached_hysteresis": 0.05000000074505806,
     "position_difference_threshold": 0.0,
-    "reset_base_offset": 0.0002,
-    "reset_speed": 0.0006,
-    "reset_threshold": 0.0007,
     "optimization_sign": {
       "head": {
-        "yaw": 1,
-        "pitch": 1
+        "pitch": 1.0,
+        "yaw": 1.0
       },
       "left_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": 1,
-        "elbow_yaw": 1,
-        "elbow_roll": 1,
-        "wrist_yaw": 1,
-        "hand": 1
-      },
-      "right_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": -1,
-        "elbow_yaw": 1,
-        "elbow_roll": 1,
-        "wrist_yaw": 1,
-        "hand": 1
+        "elbow_roll": 1.0,
+        "elbow_yaw": 1.0,
+        "hand": 1.0,
+        "shoulder_pitch": 1.0,
+        "shoulder_roll": 1.0,
+        "wrist_yaw": 1.0
       },
       "left_leg": {
-        "hip_yaw_pitch": -1,
-        "hip_roll": -1,
-        "hip_pitch": 1,
-        "knee_pitch": 1,
-        "ankle_pitch": -1,
-        "ankle_roll": -1
+        "ankle_pitch": -1.0,
+        "ankle_roll": -1.0,
+        "hip_pitch": -1.0,
+        "hip_roll": -1.0,
+        "hip_yaw_pitch": -1.0,
+        "knee_pitch": 1.0
+      },
+      "right_arm": {
+        "elbow_roll": 1.0,
+        "elbow_yaw": 1.0,
+        "hand": 1.0,
+        "shoulder_pitch": 1.0,
+        "shoulder_roll": -1.0,
+        "wrist_yaw": 1.0
       },
       "right_leg": {
-        "hip_yaw_pitch": -1,
-        "hip_roll": 1,
-        "hip_pitch": 1,
-        "knee_pitch": 1,
-        "ankle_pitch": -1,
-        "ankle_roll": 1
+        "ankle_pitch": -1.0,
+        "ankle_roll": 1.0,
+        "hip_pitch": -1.0,
+        "hip_roll": 1.0,
+        "hip_yaw_pitch": -1.0,
+        "knee_pitch": 1.0
       }
-    }
+    },
+    "optimization_speed": 1.2000000424450263e-6,
+    "reset_base_offset": 0.00019999999494757503,
+    "reset_speed": 0.0006000000284984708,
+    "reset_threshold": 0.000699999975040555
   },
   "fall_protection": {
     "ground_impact_angular_threshold": 0.9,
@@ -667,78 +667,78 @@
   },
   "initial_pose": {
     "head": {
-      "pitch": 0.0,
-      "yaw": 0.0
+      "pitch": 0.0858621597290039,
+      "yaw": 0.013764142990112305
     },
     "left_arm": {
-      "elbow_roll": 0.0,
-      "elbow_yaw": -1.57,
-      "hand": 0.0,
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": 0.1,
-      "wrist_yaw": 0.0
+      "elbow_roll": 0.000041961669921875,
+      "elbow_yaw": -1.5539841651916504,
+      "hand": 0.9351999759674072,
+      "shoulder_pitch": 1.618328094482422,
+      "shoulder_roll": 0.04444408416748047,
+      "wrist_yaw": -0.03225588798522949
     },
     "left_leg": {
-      "ankle_pitch": 0.01,
-      "ankle_roll": -0.002,
-      "hip_pitch": 0.09,
-      "hip_roll": 0.0,
-      "hip_yaw_pitch": 0.0,
-      "knee_pitch": -0.06
+      "ankle_pitch": 0.0367741584777832,
+      "ankle_roll": 0.0061779022216796875,
+      "hip_pitch": 0.15190792083740234,
+      "hip_roll": -0.01683211326599121,
+      "hip_yaw_pitch": 0.018450021743774418,
+      "knee_pitch": -0.13503408432006836
     },
     "right_arm": {
-      "elbow_roll": 0.0,
-      "elbow_yaw": 1.57,
-      "hand": 0.0,
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": -0.1,
-      "wrist_yaw": 0.0
+      "elbow_roll": 0.0031099319458007812,
+      "elbow_yaw": 1.5462300777435305,
+      "hand": 0.997599959373474,
+      "shoulder_pitch": 1.5831298828125,
+      "shoulder_roll": -0.06600403785705566,
+      "wrist_yaw": 0.0367741584777832
     },
     "right_leg": {
-      "ankle_pitch": 0.01,
-      "ankle_roll": 0.002,
-      "hip_pitch": 0.09,
-      "hip_roll": 0.0,
-      "hip_yaw_pitch": 0.0,
-      "knee_pitch": -0.06
+      "ankle_pitch": 0.05679988861083984,
+      "ankle_roll": 0.009245872497558594,
+      "hip_pitch": 0.1257460117340088,
+      "hip_roll": 0.0123138427734375,
+      "hip_yaw_pitch": 0.018450021743774418,
+      "knee_pitch": -0.13955211639404297
     }
   },
   "penalized_pose": {
     "head": {
-      "pitch": 0.0,
-      "yaw": 0.0
+      "pitch": 0.0858621597290039,
+      "yaw": 0.013764142990112305
     },
     "left_arm": {
-      "elbow_roll": 0.0,
-      "elbow_yaw": -1.57,
-      "hand": 0.0,
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": 0.1,
-      "wrist_yaw": 0.0
+      "elbow_roll": 0.000041961669921875,
+      "elbow_yaw": -1.5539841651916504,
+      "hand": 0.9351999759674072,
+      "shoulder_pitch": 1.618328094482422,
+      "shoulder_roll": 0.04444408416748047,
+      "wrist_yaw": -0.03225588798522949
     },
     "left_leg": {
-      "ankle_pitch": 0.01,
-      "ankle_roll": -0.002,
-      "hip_pitch": 0.09,
-      "hip_roll": 0.0,
-      "hip_yaw_pitch": 0.0,
-      "knee_pitch": -0.06
+      "ankle_pitch": 0.0367741584777832,
+      "ankle_roll": 0.0061779022216796875,
+      "hip_pitch": 0.15190792083740234,
+      "hip_roll": -0.01683211326599121,
+      "hip_yaw_pitch": 0.018450021743774418,
+      "knee_pitch": -0.13503408432006836
     },
     "right_arm": {
-      "elbow_roll": 0.0,
-      "elbow_yaw": 1.57,
-      "hand": 0.0,
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": -0.1,
-      "wrist_yaw": 0.0
+      "elbow_roll": 0.0031099319458007812,
+      "elbow_yaw": 1.5462300777435305,
+      "hand": 0.997599959373474,
+      "shoulder_pitch": 1.5831298828125,
+      "shoulder_roll": -0.06600403785705566,
+      "wrist_yaw": 0.0367741584777832
     },
     "right_leg": {
-      "ankle_pitch": 0.01,
-      "ankle_roll": 0.002,
-      "hip_pitch": 0.09,
-      "hip_roll": 0.0,
-      "hip_yaw_pitch": 0.0,
-      "knee_pitch": -0.06
+      "ankle_pitch": 0.05679988861083984,
+      "ankle_roll": 0.009245872497558594,
+      "hip_pitch": 0.1257460117340088,
+      "hip_roll": 0.0123138427734375,
+      "hip_yaw_pitch": 0.018450021743774418,
+      "knee_pitch": -0.13955211639404297
     }
   },
   "penalty_shot_direction_estimation": {
