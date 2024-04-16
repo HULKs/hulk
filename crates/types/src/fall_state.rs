@@ -33,5 +33,7 @@ pub enum FallState {
     Fallen {
         orientation: Orientation,
     },
-    StandingUp,
+    StandingUp {
+        start_time: SystemTime,
+    },
 }

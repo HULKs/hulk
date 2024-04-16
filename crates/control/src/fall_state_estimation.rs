@@ -116,10 +116,8 @@ impl FallStateEstimation {
             (self.linear_acceleration_filter.state() - graviational_force_upright).norm();
 
         let positions = context.sensor_data.positions;
-        let difference_to_sitting: f32 = (*context.sitting_pose - positions)
-            .into_iter()
-            .map(|position| position.powf(2.0))
-            .sum();
+        let difference_to_sitting =
+            (context.sitting_pose.left_leg.hip_pitch - positions.left_leg.hip_pitch).powf(2.0);
         let fallen_direction = if fallen_down_gravitational_difference
             < *context.gravitational_acceleration_threshold
         {
@@ -182,7 +180,6 @@ impl FallStateEstimation {
                 direction,
                 start_time: context.cycle_time.start_time,
             },
-            //(FallState::Upright, Some(_), None) => FallState::Upright,
             (FallState::Upright, Some(_), Some(facing)) => FallState::Fallen {
                 orientation: facing,
             },
@@ -224,23 +221,42 @@ impl FallStateEstimation {
                     .unwrap()
                     > *context.falling_timeout
                 {
-                    FallState::Upright
+                    if fallen_up_gravitational_difference < fallen_down_gravitational_difference {
+                        FallState::Fallen {
+                            orientation: Orientation::FacingUp,
+                        }
+                    } else {
+                        FallState::Fallen {
+                            orientation: Orientation::FacingDown,
+                        }
+                    }
                 } else {
                     current
                 }
             }
             (FallState::Fallen { .. }, None, None) => FallState::Upright,
-            (FallState::Fallen { .. }, None, Some(_)) => FallState::StandingUp,
+            (FallState::Fallen { .. }, None, Some(_)) => FallState::StandingUp {
+                start_time: context.cycle_time.start_time,
+            },
             (FallState::StandingUp { .. }, None, None) => FallState::Upright,
             (current @ FallState::StandingUp { .. }, Some(_), None) => current,
-            (FallState::StandingUp { .. }, None, Some(facing)) => FallState::Fallen {
-                orientation: (facing),
-            },
             (FallState::Fallen { .. }, Some(_), None) => FallState::Upright,
             (current @ FallState::Fallen { .. }, Some(_), Some(_)) => current,
-            (FallState::StandingUp, Some(_), Some(facing)) => FallState::Fallen {
-                orientation: (facing),
-            },
+            (current @ FallState::StandingUp { start_time }, _, Some(facing)) => {
+                if context
+                    .cycle_time
+                    .start_time
+                    .duration_since(start_time)
+                    .unwrap()
+                    > *context.falling_timeout
+                {
+                    FallState::Fallen {
+                        orientation: (facing),
+                    }
+                } else {
+                    current
+                }
+            }
         };
 
         self.last_fall_state = fall_state;
