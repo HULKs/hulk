@@ -15,7 +15,6 @@ use types::{
     ball::Ball,
     ball_filter::Hypothesis,
     ball_position::{BallPosition, HypotheticalBallPosition},
-    camera_matrix::{CameraMatrices, CameraMatrix},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
