@@ -169,30 +169,30 @@ impl Widget for &mut ImageColorSelectPanel {
                             f32::powi(i as f32 - pixel_pos.x(), 2)
                                 + f32::powi(j as f32 - pixel_pos.y(), 2),
                         ) <= self.brush_size
+                            && (0..640).contains(&i)
+                            && (0..480).contains(&j)
                         {
-                            if i < 640 && i > 0 && j < 480 && j > 0 {
-                                let circle_pixel = painter.transform_pixel_to_world(Pos2 {
-                                    x: i as f32,
-                                    y: j as f32,
-                                });
-                                let color = get_pixel_color(&image, circle_pixel);
-                                max.r = max.r.max(color.r);
-                                max.g = max.g.max(color.g);
-                                max.b = max.b.max(color.b);
-                                min.r = min.r.min(color.r);
-                                min.g = min.g.min(color.g);
-                                min.b = min.b.min(color.b);
-                                average.r += color.r;
-                                average.g += color.g;
-                                average.b += color.b;
-                                cnt += 1;
-                            }
+                            let circle_pixel = painter.transform_pixel_to_world(Pos2 {
+                                x: i as f32,
+                                y: j as f32,
+                            });
+                            let color = get_pixel_color(&image, circle_pixel);
+                            max.r = max.r.max(color.r);
+                            max.g = max.g.max(color.g);
+                            max.b = max.b.max(color.b);
+                            min.r = min.r.min(color.r);
+                            min.g = min.g.min(color.g);
+                            min.b = min.b.min(color.b);
+                            average.r += color.r;
+                            average.g += color.g;
+                            average.b += color.b;
+                            cnt += 1;
                         }
                     }
                 }
-                average.r = average.r / cnt as f32;
-                average.g = average.g / cnt as f32;
-                average.b = average.b / cnt as f32;
+                average.r /= cnt as f32;
+                average.g /= cnt as f32;
+                average.b /= cnt as f32;
 
                 ui.horizontal_wrapped(|ui| {
                     ui.label(format!(
@@ -227,7 +227,7 @@ impl Widget for &mut ImageColorSelectPanel {
 
                     painter.circle(
                         pixel_pos,
-                        self.brush_size as f32,
+                        self.brush_size,
                         Color32::TRANSPARENT,
                         Stroke::new(1.0, Color32::BLACK),
                     );
