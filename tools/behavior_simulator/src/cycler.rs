@@ -123,6 +123,7 @@ impl BehaviorCycler {
                         true,
                         &mut own_database.additional_outputs.ball_search_heatmap,
                     ),
+                    &parameters.field_dimensions,
                 ))
                 .wrap_err("failed to execute cycle of `SearchSuggestor`")?
         };
