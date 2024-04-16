@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     env::current_dir,
     ffi::OsStr,
     fmt::Display,
@@ -278,7 +278,10 @@ impl Repository {
         .wrap_err("failed to serialize parameters directory")
     }
 
-    pub async fn set_recording_settings(&self, recording_settings: HashSet<String>) -> Result<()> {
+    pub async fn set_recording_settings(
+        &self,
+        recording_settings: HashMap<String, usize>,
+    ) -> Result<()> {
         let file_contents = read_to_string(self.root.join("etc/parameters/framework.json"))
             .await
             .wrap_err("failed to read framework.json")?;

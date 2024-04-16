@@ -10,7 +10,7 @@ use repository::Repository;
 use crate::{
     parsers::{parse_network, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES},
     player_number::{player_number, Arguments as PlayerNumberArguments},
-    recording::{recording, Arguments as RecordingArguments},
+    recording::{parse_key_value, recording, Arguments as RecordingArguments},
     upload::{upload, Arguments as UploadArguments},
     wireless::{wireless, Arguments as WirelessArguments},
 };
@@ -37,9 +37,11 @@ pub struct Arguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
-    /// Cycler instances to record e.g. Control or VisionBottom (don't specify to disable recording)
-    #[arg(long, default_value = "Control")]
-    pub recording_settings: Vec<String>,
+    /// Number of cycles per one recording for each cycler, e.g. Control=1,VisionTop=30 to
+    /// record every cycle in Control and one out of every 30 in VisionTop. Set to 0 or don't
+    /// specify to disable recording for a cycler.
+    #[arg(long, value_delimiter=',', value_parser = parse_key_value::<String, usize>, default_value = "Control=1")]
+    pub recording_settings: Vec<(String, usize)>,
     /// The location to use for parameters
     pub location: String,
     /// The network to connect the wireless device to (None disconnects from anything)
