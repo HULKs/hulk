@@ -33,30 +33,29 @@ function on_cycle()
     end
 
     if state.cycle_count == 100 then
-        state.game_controller_state.game_state = "Ready"
-        state.filtered_game_state = {
+        state.filtered_game_controller_state.game_state = {
             Ready = {
-                kicking_team = "Hulks"
+                kicking_team = "Hulks",
             }
         }
     end
 
     if state.cycle_count == 1600 then
-        state.filtered_game_state.game_state = "Set"
-        state.filtered_game_state = "Set"
+        state.filtered_game_controller_state.game_state = "Set"
     end
 
     if state.cycle_count == 1700 then
-        state.filtered_game_state = {
+        state.filtered_game_controller_state.game_state = {
             Playing = {
-                ball_is_free = true
+                ball_is_free = true,
+                kick_off = true
             }
         }
     end
 
     if state.cycle_count == 1750 then
         penalize(1);
-        state.game_controller_state.penalties.one = {
+        state.filtered_game_controller_state.penalties.one = {
             Manual = {
                 remaining = {
                     nanos = 0,
@@ -69,7 +68,7 @@ function on_cycle()
 
     if state.cycle_count == 2000 then
         penalize(2);
-        state.game_controller_state.penalties.two = {
+        state.filtered_game_controller_state.penalties.two = {
             Manual = {
                 remaining = {
                     nanos = 0,
@@ -89,7 +88,7 @@ function on_cycle()
 
     if state.cycle_count == 3500 then
         unpenalize(2);
-        state.game_controller_state.penalties.two = nil;
+        state.filtered_game_controller_state.penalties.two = nil;
     end
 
 
