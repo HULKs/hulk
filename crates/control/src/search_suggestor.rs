@@ -1,9 +1,11 @@
+use std::ops::{Index, IndexMut};
+
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Isometry2, Point2};
-use nalgebra::{clamp, DMatrix, Similarity2, Vector2};
+use nalgebra::{clamp, DMatrix};
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -13,8 +15,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct SearchSuggestor {
-    heatmap: DMatrix<f32>,
-    field_to_heatmap: Similarity2<f32>,
+    heatmap: Heatmap,
 }
 
 #[context]
@@ -30,6 +31,7 @@ pub struct CycleContext {
     invalid_ball_positions: Input<Vec<HypotheticalBallPosition<Ground>>, "invalid_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
@@ -42,24 +44,18 @@ impl SearchSuggestor {
     pub fn new(context: CreationContext) -> Result<Self> {
         let (heatmap_length, heatmap_width) = (
             (context.field_dimensions.length
-                * context.search_suggestor_configuration.cells_per_meter as f32)
+                * context.search_suggestor_configuration.cells_per_meter)
                 .round() as usize,
             (context.field_dimensions.width
-                * context.search_suggestor_configuration.cells_per_meter as f32)
+                * context.search_suggestor_configuration.cells_per_meter)
                 .round() as usize,
         );
-        let field_to_heatmap_transformation = Similarity2::new(
-            Vector2::new(
-                context.field_dimensions.length / 2.0,
-                context.field_dimensions.width / 2.0,
-            ),
-            0.0,
-            context.search_suggestor_configuration.cells_per_meter as f32,
-        );
-        Ok(Self {
-            heatmap: DMatrix::from_element(heatmap_length, heatmap_width, 0.0),
-            field_to_heatmap: field_to_heatmap_transformation,
-        })
+        let heatmap = Heatmap {
+            map: DMatrix::from_element(heatmap_length, heatmap_width, 0.0),
+            field_dimensions: context.field_dimensions.clone(),
+            cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
+        };
+        Ok(Self { heatmap })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -69,20 +65,25 @@ impl SearchSuggestor {
             context.ground_to_field.copied(),
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
-        let maximum_heat_heatmap_position = self.heatmap.iamax_full();
+        let maximum_heat_heatmap_position = self.heatmap.map.iamax_full();
         let mut suggested_search_position: Option<Point2<Field>> = None;
 
-        if self.heatmap[maximum_heat_heatmap_position]
+        if self.heatmap.map[maximum_heat_heatmap_position]
             > context.search_suggestor_configuration.minimum_validity
         {
-            let search_position = Vector2::new(
-                maximum_heat_heatmap_position.0 as f32,
-                maximum_heat_heatmap_position.1 as f32,
-            );
-            let search_suggestion = self.field_to_heatmap.inverse() * search_position;
-            suggested_search_position = Some(point![search_suggestion.x, search_suggestion.y]);
+            let search_suggestion = point![
+                ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0)
+                    / context.search_suggestor_configuration.cells_per_meter
+                    - context.field_dimensions.length / 2.0),
+                ((maximum_heat_heatmap_position.1 as f32 + 1.0 / 2.0)
+                    / context.search_suggestor_configuration.cells_per_meter
+                    - context.field_dimensions.width / 2.0)
+            ];
+            suggested_search_position = Some(search_suggestion);
         }
-        context.heatmap.fill_if_subscribed(|| self.heatmap.clone());
+        context
+            .heatmap
+            .fill_if_subscribed(|| self.heatmap.map.clone());
 
         Ok(MainOutputs {
             suggested_search_position: suggested_search_position.into(),
@@ -98,48 +99,51 @@ impl SearchSuggestor {
     ) {
         if let Some(ball_position) = ball_position {
             if let Some(ground_to_field) = ground_to_field {
-                let ball_field_position = ground_to_field * ball_position.position;
-                let ball_heatmap_position = self.field_to_heatmap
-                    * Vector2::new(ball_field_position.x(), ball_field_position.y());
-                let clamped_ball_heatmap_position = (
-                    clamp(
-                        ball_heatmap_position.x.round() as usize,
-                        0,
-                        self.heatmap.shape().0 - 1,
-                    ),
-                    clamp(
-                        ball_heatmap_position.y.round() as usize,
-                        0,
-                        self.heatmap.shape().1 - 1,
-                    ),
-                );
-                self.heatmap[clamped_ball_heatmap_position] = 1.0;
+                self.heatmap[ground_to_field * ball_position.position] = 1.0;
             }
         }
         for ball_hypothesis in invalid_ball_positions {
             if let Some(ground_to_field) = ground_to_field {
-                let ball_hypothesis_field_position = ground_to_field * ball_hypothesis.position;
-                let ball_hypothesis_heatmap_position = self.field_to_heatmap
-                    * Vector2::new(
-                        ball_hypothesis_field_position.x(),
-                        ball_hypothesis_field_position.y(),
-                    );
-                let clamped_ball_heatmap_position = (
-                    clamp(
-                        ball_hypothesis_heatmap_position.x.round() as usize,
-                        0,
-                        self.heatmap.shape().0 - 1,
-                    ),
-                    clamp(
-                        ball_hypothesis_heatmap_position.y.round() as usize,
-                        0,
-                        self.heatmap.shape().1 - 1,
-                    ),
-                );
-                self.heatmap[clamped_ball_heatmap_position] =
-                    (self.heatmap[clamped_ball_heatmap_position] + ball_hypothesis.validity) / 2.0;
+                let ball_hypothesis_position = ground_to_field * ball_hypothesis.position;
+                self.heatmap[ball_hypothesis_position] =
+                    (self.heatmap[ball_hypothesis_position] + ball_hypothesis.validity) / 2.0;
             }
         }
-        self.heatmap.scale_mut(1.0 - heatmap_decay_factor);
+        self.heatmap.map.scale_mut(1.0 - heatmap_decay_factor);
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct Heatmap {
+    map: DMatrix<f32>,
+    field_dimensions: FieldDimensions,
+    cells_per_meter: f32,
+}
+
+impl Heatmap {
+    fn field_to_heatmap(&self, index: Point2<Field>) -> (usize, usize) {
+        let heatmap_point = (
+            ((index.x() + self.field_dimensions.length / 2.0) * self.cells_per_meter) as usize,
+            ((index.y() + self.field_dimensions.width / 2.0) * self.cells_per_meter) as usize,
+        );
+        (
+            clamp(heatmap_point.0, 0, self.map.shape().0 - 1),
+            clamp(heatmap_point.1, 0, self.map.shape().1 - 1),
+        )
+    }
+}
+
+impl Index<Point2<Field>> for Heatmap {
+    type Output = f32;
+    fn index(&self, index: Point2<Field>) -> &Self::Output {
+        let heatmap_point = self.field_to_heatmap(index);
+        &self.map[heatmap_point]
+    }
+}
+
+impl IndexMut<Point2<Field>> for Heatmap {
+    fn index_mut(&mut self, index: Point2<Field>) -> &mut Self::Output {
+        let heatmap_point = self.field_to_heatmap(index);
+        &mut self.map[heatmap_point]
     }
 }
