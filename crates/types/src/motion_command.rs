@@ -6,7 +6,7 @@ use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
     camera_position::CameraPosition,
-    fall_state::{Facing, FallDirection},
+    fall_state::{FallDirection, Orientation},
     planned_path::PathSegment,
     support_foot::Side,
 };
@@ -35,7 +35,7 @@ pub enum MotionCommand {
         head: HeadMotion,
     },
     StandUp {
-        facing: Facing,
+        facing: Orientation,
     },
     #[default]
     Unstiff,
