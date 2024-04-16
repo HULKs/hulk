@@ -19,7 +19,7 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
         Execution::Run | Execution::Replay => {
             let cyclers = generate_cyclers(cyclers, mode);
             quote! {
-                mod cyclers {
+                pub mod cyclers {
                     #cyclers
                 }
             }
@@ -50,10 +50,10 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
     quote! {
         #generated_cyclers
         #generated_execution
-        mod perception_databases {
+        pub mod perception_databases {
             #generated_perception_databases
         }
-        mod structs {
+        pub mod structs {
             #generated_structs
         }
     }

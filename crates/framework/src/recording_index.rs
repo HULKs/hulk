@@ -65,8 +65,10 @@ impl RecordingIndex {
                 break;
             }
             frames.push(RecordingFrameMetadata {
-                timestamp,
-                duration,
+                timing: Timing {
+                    timestamp,
+                    duration,
+                },
                 offset: offset.try_into().unwrap(),
                 header_offset: header_length.try_into().unwrap(),
                 length,
@@ -84,6 +86,10 @@ impl RecordingIndex {
         })
     }
 
+    pub fn number_of_frames(&self) -> usize {
+        self.frames.len()
+    }
+
     pub fn find_latest_frame_up_to(
         &mut self,
         timestamp: SystemTime,
@@ -92,7 +98,7 @@ impl RecordingIndex {
             .frames
             .iter()
             .rev()
-            .find(|frame| frame.timestamp <= timestamp)
+            .find(|frame| frame.timing.timestamp <= timestamp)
         {
             Some(frame) => frame,
             None => return Ok(None),
@@ -108,25 +114,27 @@ impl RecordingIndex {
             .read_exact(&mut data)
             .wrap_err("failed to read from recording file")?;
         Ok(Some(RecordingFrame {
-            timestamp: frame.timestamp,
-            duration: frame.duration,
+            timing: frame.timing,
             data,
         }))
     }
 
-    pub fn first_timestamp(&self) -> Option<SystemTime> {
-        self.frames.first().map(|frame| frame.timestamp)
+    pub fn first_timing(&self) -> Option<Timing> {
+        self.frames.first().map(|frame| frame.timing)
     }
 
-    pub fn last_timestamp(&self) -> Option<SystemTime> {
-        self.frames.last().map(|frame| frame.timestamp)
+    pub fn last_timing(&self) -> Option<Timing> {
+        self.frames.last().map(|frame| frame.timing)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Timing> + '_ {
+        self.frames.iter().map(|frame| frame.timing)
     }
 }
 
 #[derive(Debug)]
 struct RecordingFrameMetadata {
-    timestamp: SystemTime,
-    duration: Duration,
+    timing: Timing,
     offset: usize,
     header_offset: usize,
     length: usize,
@@ -134,9 +142,14 @@ struct RecordingFrameMetadata {
 
 #[derive(Debug)]
 pub struct RecordingFrame {
+    pub timing: Timing,
+    pub data: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Timing {
     pub timestamp: SystemTime,
     pub duration: Duration,
-    pub data: Vec<u8>,
 }
 
 fn end_of_file_error_as_option<T>(result: Result<T, Error>) -> Result<Option<T>, Error> {
