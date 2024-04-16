@@ -160,7 +160,7 @@ impl_selectable_panel!(
     RemotePanel,
     TextPanel,
     VisionTunerPanel,
-    ImageColorSelectPanel
+    ImageColorSelectPanel,
 );
 struct TwixApp {
     nao: Arc<Nao>,
