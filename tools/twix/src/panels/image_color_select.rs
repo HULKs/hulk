@@ -313,4 +313,3 @@ impl<'a> ImageColorSelectPanel {
     }
 }
 
-
