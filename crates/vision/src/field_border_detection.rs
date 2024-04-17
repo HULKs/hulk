@@ -29,7 +29,6 @@ pub struct CycleContext {
     angle_threshold: Parameter<f32, "field_border_detection.$cycler_instance.angle_threshold">,
     first_line_association_distance:
         Parameter<f32, "field_border_detection.$cycler_instance.first_line_association_distance">,
-    horizon_margin: Parameter<f32, "field_border_detection.$cycler_instance.horizon_margin">,
     min_points_per_line:
         Parameter<usize, "field_border_detection.$cycler_instance.min_points_per_line">,
     second_line_association_distance:
@@ -73,7 +72,6 @@ impl FieldBorderDetection {
                         .camera_matrix
                         .horizon
                         .unwrap_or(Horizon::ABOVE_IMAGE),
-                    *context.horizon_margin,
                 )
                 .map(|segment| point![scan_line.position as f32, segment.start as f32])
             })
@@ -100,7 +98,6 @@ fn get_first_field_segment<'segment>(
     segments: &'segment [Segment],
     x: f32,
     horizon: &Horizon,
-    _horizon_margin: f32,
 ) -> Option<&'segment Segment> {
     segments.iter().find(|segment| {
         segment.field_color == Intensity::High && horizon.is_below(point![x, segment.start as f32])
