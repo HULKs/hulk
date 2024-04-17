@@ -16,10 +16,10 @@ pub struct Interpolated {
 }
 
 impl Interpolated {
-    const ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![-3.0, 0.0];
-    const ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL: Point2<f32> = point![-3.0, PI];
-    const ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![3.0, 0.0];
-    const ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL: Point2<f32> = point![3.0, PI];
+    const ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![-3.0, PI];
+    const ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL: Point2<f32> = point![-3.0, 0.0];
+    const ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL: Point2<f32> = point![3.0, PI];
+    const ARGUMENT_FIRST_HALF_OPPONENT_HALF_AWAY_OWN_GOAL: Point2<f32> = point![3.0, 0.0];
 
     pub fn evaluate_at(&self, ground_to_field: Isometry2<Ground, Field>) -> f32 {
         let argument = point![
@@ -32,8 +32,8 @@ impl Interpolated {
                 Self::ARGUMENT_FIRST_HALF_OPPONENT_HALF_TOWARDS_OWN_GOAL.x
             ),
             argument.y.clamp(
-                Self::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y,
-                Self::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y
+                Self::ARGUMENT_FIRST_HALF_OWN_HALF_AWAY_OWN_GOAL.y,
+                Self::ARGUMENT_FIRST_HALF_OWN_HALF_TOWARDS_OWN_GOAL.y
             )
         ];
 
