@@ -5,7 +5,7 @@ use types::{
     support_foot::Side,
 };
 
-use super::CycleContext;
+use crate::Context;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, SerializeHierarchy)]
 pub struct GyroBalancing {
@@ -13,7 +13,8 @@ pub struct GyroBalancing {
 }
 
 impl GyroBalancing {
-    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
+    pub fn tick(&mut self, context: &Context) {
+        let gyro = context.gyro;
         let parameters = &context.parameters.gyro_balancing;
         let factors = &parameters.balance_factors;
 

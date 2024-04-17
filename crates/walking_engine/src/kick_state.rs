@@ -5,10 +5,11 @@ use splines::Interpolate;
 use std::time::Duration;
 use types::{
     joints::{body::BodyJoints, leg::LegJoints},
-    kick_step::{JointOverride, KickStep, KickSteps},
     motion_command::KickVariant,
     support_foot::Side,
 };
+
+use crate::kick_steps::{JointOverride, KickStep, KickSteps};
 
 use super::step_state::StepState;
 

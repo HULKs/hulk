@@ -4,10 +4,9 @@ use coordinate_systems::Walk;
 use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{
-    joints::body::BodyJoints, step_plan::Step, support_foot::Side,
-    walking_engine::WalkingEngineParameters,
-};
+use types::{joints::body::BodyJoints, step_plan::Step, support_foot::Side};
+
+use crate::parameters::Parameters;
 
 use super::{anatomic_constraints::AnatomicConstraints, feet::Feet};
 
@@ -23,7 +22,7 @@ pub struct StepPlan {
 
 impl StepPlan {
     pub fn new_from_request(
-        parameters: &WalkingEngineParameters,
+        parameters: &Parameters,
         requested_step: Step,
         support_side: Side,
         joints: &BodyJoints,

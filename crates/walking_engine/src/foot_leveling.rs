@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{joints::body::LowerBodyJoints, support_foot::Side};
 
-use super::CycleContext;
+use crate::Context;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, SerializeHierarchy)]
 pub struct FootLeveling {
@@ -11,7 +11,7 @@ pub struct FootLeveling {
 }
 
 impl FootLeveling {
-    pub fn tick(&mut self, context: &CycleContext, normalized_time_since_start: f32) {
+    pub fn tick(&mut self, context: &Context, normalized_time_since_start: f32) {
         let target_roll = -context.sensor_data.inertial_measurement_unit.roll_pitch.x
             * (1.0 - normalized_time_since_start);
         let target_pitch = -context.sensor_data.inertial_measurement_unit.roll_pitch.y

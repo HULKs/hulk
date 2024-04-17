@@ -1,5 +1,4 @@
 use super::{
-    super::{kicking::KickState, step_state::StepState, CycleContext},
     catching::{is_in_support_polygon, Catching},
     kicking::Kicking,
     stopping::Stopping,
@@ -9,10 +8,13 @@ use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
     joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
-    step_plan::Step, support_foot::Side, walking_engine::WalkingEngineParameters,
+    step_plan::Step, support_foot::Side,
 };
 
-use crate::motion::walking_engine::{step_plan::StepPlan, stiffness::Stiffness};
+use crate::{
+    kick_state::KickState, parameters::Parameters, step_plan::StepPlan, step_state::StepState,
+    stiffness::Stiffness as _, Context,
+};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Walking {
@@ -22,10 +24,9 @@ pub struct Walking {
 
 impl Walking {
     pub fn new(
-        context: &CycleContext,
+        context: &Context,
         requested_step: Step,
         support_side: Side,
-        joints: &BodyJoints,
         last_requested_step: Step,
     ) -> Self {
         let requested_step = Step {
@@ -35,8 +36,12 @@ impl Walking {
             left: requested_step.left,
             turn: requested_step.turn,
         };
-        let plan =
-            StepPlan::new_from_request(context.parameters, requested_step, support_side, joints);
+        let plan = StepPlan::new_from_request(
+            context.parameters,
+            requested_step,
+            support_side,
+            &context.current_joints,
+        );
         let step = StepState::new(plan);
         Self {
             step,
@@ -46,7 +51,7 @@ impl Walking {
 }
 
 impl WalkTransition for Walking {
-    fn stand(self, context: &CycleContext, joints: &BodyJoints) -> Mode {
+    fn stand(self, context: &Context) -> Mode {
         let current_step = self.step;
         if current_step.is_support_switched(context)
             || current_step.is_timeouted(context.parameters)
@@ -54,34 +59,28 @@ impl WalkTransition for Walking {
             return Mode::Stopping(Stopping::new(
                 context,
                 current_step.plan.support_side.opposite(),
-                joints,
             ));
         }
 
         Mode::Walking(self)
     }
 
-    fn walk(self, context: &CycleContext, joints: &BodyJoints, requested_step: Step) -> Mode {
+    fn walk(self, context: &Context, requested_step: Step) -> Mode {
         let current_step = self.step;
 
         let Some(&robot_to_ground) = context.robot_to_ground else {
-            return Mode::Stopping(Stopping::new(
-                context,
-                current_step.plan.support_side,
-                joints,
-            ));
+            return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
         };
 
         if !is_in_support_polygon(
             &context.parameters.catching_steps,
-            joints,
+            &context.current_joints,
             robot_to_ground,
             *context.center_of_mass,
         ) {
             return Mode::Catching(Catching::new(
                 context,
                 current_step.plan.support_side,
-                joints,
                 robot_to_ground,
             ));
         };
@@ -91,7 +90,6 @@ impl WalkTransition for Walking {
                 context,
                 Step::ZERO,
                 current_step.plan.support_side.opposite(),
-                joints,
                 self.requested_step,
             ));
         }
@@ -101,7 +99,6 @@ impl WalkTransition for Walking {
                 context,
                 requested_step,
                 current_step.plan.support_side.opposite(),
-                joints,
                 self.requested_step,
             ));
         }
@@ -111,8 +108,7 @@ impl WalkTransition for Walking {
 
     fn kick(
         self,
-        context: &CycleContext,
-        joints: &BodyJoints,
+        context: &Context,
         variant: KickVariant,
         kicking_side: Side,
         strength: f32,
@@ -124,7 +120,6 @@ impl WalkTransition for Walking {
                 context,
                 Step::ZERO,
                 current_step.plan.support_side.opposite(),
-                joints,
                 self.requested_step,
             ));
         }
@@ -137,7 +132,6 @@ impl WalkTransition for Walking {
                     context,
                     Step::ZERO,
                     next_support_side,
-                    joints,
                     self.requested_step,
                 ));
             }
@@ -146,7 +140,6 @@ impl WalkTransition for Walking {
                 context,
                 KickState::new(variant, kicking_side, strength),
                 next_support_side,
-                joints,
             ));
         }
 
@@ -155,17 +148,14 @@ impl WalkTransition for Walking {
 }
 
 impl Walking {
-    pub fn compute_commands(
-        &self,
-        parameters: &WalkingEngineParameters,
-    ) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&self, parameters: &Parameters) -> MotorCommands<BodyJoints> {
         self.step.compute_joints(parameters).apply_stiffness(
             parameters.stiffnesses.leg_stiffness_walk,
             parameters.stiffnesses.arm_stiffness,
         )
     }
 
-    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
-        self.step.tick(context, gyro);
+    pub fn tick(&mut self, context: &Context) {
+        self.step.tick(context);
     }
 }

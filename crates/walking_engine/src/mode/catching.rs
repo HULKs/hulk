@@ -1,9 +1,14 @@
 use std::time::Duration;
 
-use crate::motion::walking_engine::{step_plan::StepPlan, stiffness::Stiffness};
+use crate::{
+    parameters::{CatchingStepsParameters, Parameters},
+    step_plan::StepPlan,
+    stiffness::Stiffness as _,
+    Context,
+};
 
 use super::{
-    super::{feet::Feet, step_state::StepState, CycleContext},
+    super::{feet::Feet, step_state::StepState},
     stopping::Stopping,
     walking::Walking,
     Mode, WalkTransition,
@@ -14,12 +19,8 @@ use linear_algebra::{point, Isometry3, Point3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    joints::body::BodyJoints,
-    motion_command::KickVariant,
-    motor_commands::MotorCommands,
-    step_plan::Step,
-    support_foot::Side,
-    walking_engine::{CatchingStepsParameters, WalkingEngineParameters},
+    joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
+    step_plan::Step, support_foot::Side,
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
@@ -29,9 +30,8 @@ pub struct Catching {
 
 impl Catching {
     pub fn new(
-        context: &CycleContext,
+        context: &Context,
         support_side: Side,
-        joints: &BodyJoints,
         robot_to_ground: Isometry3<Robot, Ground>,
     ) -> Self {
         let parameters = &context.parameters;
@@ -41,7 +41,7 @@ impl Catching {
             .target_overestimation_factor;
 
         let step_duration = parameters.base.step_duration;
-        let start_feet = Feet::from_joints(joints, support_side, parameters);
+        let start_feet = Feet::from_joints(&context.current_joints, support_side, parameters);
 
         let end_feet = catching_end_feet(
             parameters,
@@ -70,20 +70,16 @@ impl Catching {
         Self { step }
     }
 
-    fn next_step(self, context: &CycleContext, joints: &BodyJoints) -> Mode {
+    fn next_step(self, context: &Context) -> Mode {
         let current_step = self.step;
 
         let Some(&robot_to_ground) = context.robot_to_ground else {
-            return Mode::Stopping(Stopping::new(
-                context,
-                current_step.plan.support_side,
-                joints,
-            ));
+            return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
         };
 
         if is_in_support_polygon(
             &context.parameters.catching_steps,
-            joints,
+            &context.current_joints,
             robot_to_ground,
             *context.center_of_mass,
         ) {
@@ -91,7 +87,6 @@ impl Catching {
                 context,
                 Step::ZERO,
                 current_step.plan.support_side.opposite(),
-                joints,
                 Step::ZERO,
             ));
         }
@@ -100,7 +95,7 @@ impl Catching {
 }
 
 fn catching_end_feet(
-    parameters: &WalkingEngineParameters,
+    parameters: &Parameters,
     center_of_mass: Point3<Robot>,
     robot_to_ground: Isometry3<Robot, Ground>,
     target_overestimation_factor: f32,
@@ -127,35 +122,28 @@ fn project_onto_ground(
 }
 
 impl WalkTransition for Catching {
-    fn stand(self, context: &CycleContext, joints: &BodyJoints) -> Mode {
+    fn stand(self, context: &Context) -> Mode {
         let current_step = self.step;
         if current_step.is_support_switched(context) {
-            return self.next_step(context, joints);
+            return self.next_step(context);
         }
 
         Mode::Catching(self)
     }
 
-    fn walk(self, context: &CycleContext, joints: &BodyJoints, _requested_step: Step) -> Mode {
+    fn walk(self, context: &Context, _requested_step: Step) -> Mode {
         let current_step = self.step;
         if current_step.is_support_switched(context) {
-            return self.next_step(context, joints);
+            return self.next_step(context);
         }
 
         Mode::Catching(self)
     }
 
-    fn kick(
-        self,
-        context: &CycleContext,
-        joints: &BodyJoints,
-        _variant: KickVariant,
-        _side: Side,
-        _strength: f32,
-    ) -> Mode {
+    fn kick(self, context: &Context, _variant: KickVariant, _side: Side, _strength: f32) -> Mode {
         let current_step = self.step;
         if current_step.is_support_switched(context) {
-            return self.next_step(context, joints);
+            return self.next_step(context);
         }
 
         Mode::Catching(self)
@@ -163,17 +151,14 @@ impl WalkTransition for Catching {
 }
 
 impl Catching {
-    pub fn compute_commands(
-        &self,
-        parameters: &WalkingEngineParameters,
-    ) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&self, parameters: &Parameters) -> MotorCommands<BodyJoints> {
         self.step.compute_joints(parameters).apply_stiffness(
             parameters.stiffnesses.leg_stiffness_walk,
             parameters.stiffnesses.arm_stiffness,
         )
     }
 
-    pub fn tick(&mut self, context: &mut CycleContext, gyro: nalgebra::Vector3<f32>) {
+    pub fn tick(&mut self, context: &Context) {
         if let Some(&robot_to_ground) = context.robot_to_ground {
             self.step.plan.end_feet = catching_end_feet(
                 context.parameters,
@@ -186,7 +171,7 @@ impl Catching {
                 self.step.plan.support_side,
             );
         }
-        self.step.tick(context, gyro);
+        self.step.tick(context);
     }
 }
 
