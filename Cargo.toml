@@ -18,6 +18,7 @@ members = [
   "crates/geometry",
   "crates/hardware",
   "crates/hulk",
+  "crates/hulk_imagine",
   "crates/hulk_manifest",
   "crates/hulk_nao",
   "crates/hulk_replayer",
