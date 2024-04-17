@@ -104,7 +104,6 @@ impl Panel for EnumPlotPanel {
             .map(String::from)
             .unwrap_or_default();
 
-
         let mut panel = Self {
             nao,
             changes: Vec::new(),
@@ -144,9 +143,9 @@ impl EnumPlotPanel {
                 [end, 1.0 - VERTICAL_MARGIN],
                 [end, 0.0 + VERTICAL_MARGIN],
             ])
-                .fill_color(color.gamma_multiply(0.5))
-                .name(&name)
-                .stroke(Stroke::new(BORDER_WIDTH, color)),
+            .fill_color(color.gamma_multiply(0.5))
+            .name(&name)
+            .stroke(Stroke::new(BORDER_WIDTH, color)),
         );
         plot_ui.text(
             Text::new(
@@ -156,8 +155,8 @@ impl EnumPlotPanel {
                 },
                 name,
             )
-                .color(Color32::WHITE)
-                .anchor(eframe::emath::Align2::LEFT_TOP),
+            .color(Color32::WHITE)
+            .anchor(eframe::emath::Align2::LEFT_TOP),
         );
     }
 
@@ -354,6 +353,6 @@ impl Widget for &mut EnumPlotPanel {
                     });
             });
         })
-            .response
+        .response
     }
 }
