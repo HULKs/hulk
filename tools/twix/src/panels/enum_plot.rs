@@ -13,7 +13,7 @@ use eframe::{
 use egui_plot::{Plot, PlotBounds, PlotPoint, PlotUi, Polygon, Text};
 use itertools::Itertools;
 use log::{error, info};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::{
     change_buffer::{Change, ChangeBuffer},
@@ -97,17 +97,31 @@ pub struct EnumPlotPanel {
 impl Panel for EnumPlotPanel {
     const NAME: &'static str = "Enum Plot";
 
-    fn new(nao: Arc<Nao>, _value: Option<&serde_json::Value>) -> Self {
-        Self {
+    fn new(nao: Arc<Nao>, value: Option<&serde_json::Value>) -> Self {
+
+        let output = match value.and_then(|value| value.get("subscribe_key")) {
+            Some(Value::String(string)) => string.to_string(),
+            _ => String::new(),
+        };
+
+        let mut panel = Self {
             nao,
             changes: Vec::new(),
             messages_count: 0,
             change_buffer: None,
             scroll_position: 0.0,
             viewport_width: 1.0,
-            output_key: String::new(),
+            output_key: output,
             viewport_mode: ViewportMode::Full,
-        }
+        };
+       panel.subscribe();
+        panel
+    }
+
+    fn save(&self) -> Value {
+        json!({
+            "subscribe_key": self.output_key.clone()
+        })
     }
 }
 
