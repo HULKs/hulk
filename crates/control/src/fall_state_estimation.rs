@@ -53,6 +53,8 @@ pub struct CycleContext {
         Parameter<f32, "fall_state_estimation.difference_to_sitting_threshold">,
     falling_timeout: Parameter<Duration, "fall_state_estimation.falling_timeout">,
     sitting_pose: Parameter<Joints<f32>, "fall_state_estimation.sitting_pose">,
+    gravitational_force_sitting:
+        Parameter<Vector3<Robot>, "fall_state_estimation.gravitational_force_sitting">,
 
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -84,44 +86,36 @@ impl FallStateEstimation {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let cycle_start = context.cycle_time.start_time;
         let inertial_measurement_unit = context.sensor_data.inertial_measurement_unit;
-
         self.roll_pitch_filter
             .update(inertial_measurement_unit.roll_pitch);
         self.angular_velocity_filter
             .update(inertial_measurement_unit.angular_velocity);
         self.linear_acceleration_filter
             .update(inertial_measurement_unit.linear_acceleration);
-
-        context
-            .filtered_roll_pitch
-            .fill_if_subscribed(|| self.roll_pitch_filter.state());
-        context
-            .filtered_linear_acceleration
-            .fill_if_subscribed(|| self.linear_acceleration_filter.state());
-        context
-            .filtered_angular_velocity
-            .fill_if_subscribed(|| self.angular_velocity_filter.state());
+        let estimated_roll = self.roll_pitch_filter.state().x();
+        let estimated_pitch = self.roll_pitch_filter.state().y();
 
         const GRAVITATIONAL_CONSTANT: f32 = 9.81;
-
         let gravitational_force_down = vector![-GRAVITATIONAL_CONSTANT, 0.0, 0.0];
         let gravitational_force_up = vector![GRAVITATIONAL_CONSTANT, 0.0, 0.0];
         let gravitational_force_upright = vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
-        let graviational_force_sitting = vector![3.6, 0.0, 8.8];
 
         let fallen_down_gravitational_difference =
-            (self.linear_acceleration_filter.state() - gravitational_force_down).norm();
+            self.compute_gravitational_difference(gravitational_force_down);
         let fallen_up_gravitational_difference =
-            (self.linear_acceleration_filter.state() - gravitational_force_up).norm();
+            self.compute_gravitational_difference(gravitational_force_up);
         let fallen_sitting_gravitational_difference =
-            (self.linear_acceleration_filter.state() - graviational_force_sitting).norm();
+            self.compute_gravitational_difference(*context.gravitational_force_sitting);
         let upright_gravitational_difference =
-            (self.linear_acceleration_filter.state() - gravitational_force_upright).norm();
+            self.compute_gravitational_difference(gravitational_force_upright);
 
         let positions = context.sensor_data.positions;
+
         let difference_to_sitting =
             (context.sitting_pose.left_leg.hip_pitch - positions.left_leg.hip_pitch).powf(2.0);
+
         let fallen_direction = if fallen_down_gravitational_difference
             < *context.gravitational_acceleration_threshold
         {
@@ -137,24 +131,6 @@ impl FallStateEstimation {
         } else {
             None
         };
-        context
-            .fallen_down_gravitational_difference
-            .fill_if_subscribed(|| fallen_down_gravitational_difference);
-        context
-            .fallen_up_gravitational_difference
-            .fill_if_subscribed(|| fallen_up_gravitational_difference);
-        context
-            .fallen_sitting_gravitational_difference
-            .fill_if_subscribed(|| fallen_sitting_gravitational_difference);
-        context
-            .upright_gravitational_difference
-            .fill_if_subscribed(|| upright_gravitational_difference);
-        context
-            .difference_to_sitting
-            .fill_if_subscribed(|| difference_to_sitting);
-
-        let estimated_roll = self.roll_pitch_filter.state().x();
-        let estimated_pitch = self.roll_pitch_filter.state().y();
 
         let falling_direction = {
             if !(context.falling_angle_threshold_forward.x()
@@ -187,12 +163,7 @@ impl FallStateEstimation {
             },
             (FallState::Upright, Some(_), Some(facing)) => FallState::Fallen { kind: facing },
             (current @ FallState::Falling { start_time, .. }, None, None) => {
-                if context
-                    .cycle_time
-                    .start_time
-                    .duration_since(start_time)
-                    .unwrap()
-                    > *context.falling_timeout
+                if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout
                     && upright_gravitational_difference
                         < *context.gravitational_acceleration_threshold
                 {
@@ -202,26 +173,14 @@ impl FallStateEstimation {
                 }
             }
             (current @ FallState::Falling { start_time, .. }, _, Some(facing)) => {
-                if context
-                    .cycle_time
-                    .start_time
-                    .duration_since(start_time)
-                    .unwrap()
-                    > *context.falling_timeout
-                {
+                if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout {
                     FallState::Fallen { kind: facing }
                 } else {
                     current
                 }
             }
             (current @ FallState::Falling { start_time, .. }, Some(_), None) => {
-                if context
-                    .cycle_time
-                    .start_time
-                    .duration_since(start_time)
-                    .unwrap()
-                    > *context.falling_timeout
-                {
+                if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout {
                     if fallen_up_gravitational_difference < fallen_down_gravitational_difference {
                         FallState::Fallen {
                             kind: Kind::FacingUp,
@@ -240,33 +199,10 @@ impl FallStateEstimation {
                 start_time: context.cycle_time.start_time,
                 kind,
             },
-            // (current @ FallState::Fallen { .. }, Some(_), Some(_)) => current,
             (FallState::StandingUp { .. }, None, None) => FallState::Upright,
             (current @ FallState::StandingUp { .. }, Some(..), None) => current,
-            // (current @ FallState::StandingUp { start_time, .. }, Some(direction), None) => {
-            //     if context
-            //         .cycle_time
-            //         .start_time
-            //         .duration_since(start_time)
-            //         .unwrap()
-            //         > *context.falling_timeout
-            //     {
-            //         FallState::Falling {
-            //             start_time,
-            //             direction,
-            //         }
-            //     } else {
-            //         current
-            //     }
-            // }
             (current @ FallState::StandingUp { start_time, .. }, _, Some(facing)) => {
-                if context
-                    .cycle_time
-                    .start_time
-                    .duration_since(start_time)
-                    .unwrap()
-                    > *context.falling_timeout
-                {
+                if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout {
                     FallState::Fallen { kind: (facing) }
                 } else {
                     current
@@ -276,8 +212,37 @@ impl FallStateEstimation {
 
         self.last_fall_state = fall_state;
 
+        context
+            .fallen_down_gravitational_difference
+            .fill_if_subscribed(|| fallen_down_gravitational_difference);
+        context
+            .fallen_up_gravitational_difference
+            .fill_if_subscribed(|| fallen_up_gravitational_difference);
+        context
+            .fallen_sitting_gravitational_difference
+            .fill_if_subscribed(|| fallen_sitting_gravitational_difference);
+        context
+            .upright_gravitational_difference
+            .fill_if_subscribed(|| upright_gravitational_difference);
+        context
+            .difference_to_sitting
+            .fill_if_subscribed(|| difference_to_sitting);
+        context
+            .filtered_roll_pitch
+            .fill_if_subscribed(|| self.roll_pitch_filter.state());
+        context
+            .filtered_linear_acceleration
+            .fill_if_subscribed(|| self.linear_acceleration_filter.state());
+        context
+            .filtered_angular_velocity
+            .fill_if_subscribed(|| self.angular_velocity_filter.state());
+
         Ok(MainOutputs {
             fall_state: fall_state.into(),
         })
+    }
+
+    fn compute_gravitational_difference(&self, gravitational_force: Vector3<Robot>) -> f32 {
+        (self.linear_acceleration_filter.state() - gravitational_force).norm()
     }
 }
