@@ -134,7 +134,7 @@ impl WalkingEngine {
         self.last_actuated_joints = motor_commands.positions;
 
         *cycle_context.walk_return_offset = self
-            .calculate_return_offset(cycle_context.parameters)
+            .calculate_return_offset(cycle_context.parameters, robot_to_walk)
             .unwrap_or_default();
         cycle_context.motion_safe_exits[MotionType::Walk] = self.engine.is_standing();
 
@@ -153,10 +153,15 @@ impl WalkingEngine {
         })
     }
 
-    fn calculate_return_offset(&self, parameters: &Parameters) -> Option<Step> {
-        let left_sole = forward::left_sole_to_robot(&self.last_actuated_joints.left_leg).as_pose();
-        let right_sole =
-            forward::right_sole_to_robot(&self.last_actuated_joints.right_leg).as_pose();
+    fn calculate_return_offset(
+        &self,
+        parameters: &Parameters,
+        robot_to_walk: Isometry3<Robot, Walk>,
+    ) -> Option<Step> {
+        let left_sole = robot_to_walk
+            * forward::left_sole_to_robot(&self.last_actuated_joints.left_leg).as_pose();
+        let right_sole = robot_to_walk
+            * forward::right_sole_to_robot(&self.last_actuated_joints.right_leg).as_pose();
         let support_side = self.engine.support_side()?;
         let swing_sole = match support_side {
             Side::Left => right_sole,

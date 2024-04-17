@@ -2,6 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
+use splines::Interpolate;
 
 use crate::joints::{arm::ArmJoints, mirror::Mirror};
 
@@ -40,7 +41,10 @@ impl ArmCommand {
     pub fn shoulder_pitch(&self) -> f32 {
         match self {
             ArmCommand::Swing => FRAC_PI_2,
-            ArmCommand::Activating { positions, .. } => positions.shoulder_pitch,
+            ArmCommand::Activating {
+                influence,
+                positions,
+            } => f32::lerp(*influence, FRAC_PI_2, positions.shoulder_pitch),
             ArmCommand::Active { positions } => positions.shoulder_pitch,
         }
     }
