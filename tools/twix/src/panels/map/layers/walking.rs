@@ -134,8 +134,8 @@ fn paint_measured_feet(
     support_stroke: Stroke,
     swing_stroke: Stroke,
 ) {
-    let left_sole_to_ground = robot_to_ground * robot_kinematics.left_sole_to_robot;
-    let right_sole_to_ground = robot_to_ground * robot_kinematics.right_sole_to_robot;
+    let left_sole_to_ground = robot_to_ground * robot_kinematics.left_leg.sole_to_robot;
+    let right_sole_to_ground = robot_to_ground * robot_kinematics.right_leg.sole_to_robot;
     let (left_stroke, right_stroke) = match support_side {
         Some(Side::Left) => (support_stroke, swing_stroke),
         Some(Side::Right) => (swing_stroke, support_stroke),

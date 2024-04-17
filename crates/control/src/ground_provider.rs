@@ -43,7 +43,8 @@ impl GroundProvider {
         let left_sole_horizontal_to_robot = Isometry3::from_parts(
             context
                 .robot_kinematics
-                .left_sole_to_robot
+                .left_leg
+                .sole_to_robot
                 .translation()
                 .coords(),
             imu_orientation,
@@ -51,14 +52,23 @@ impl GroundProvider {
         let right_sole_horizontal_to_robot = Isometry3::from_parts(
             context
                 .robot_kinematics
-                .right_sole_to_robot
+                .right_leg
+                .sole_to_robot
                 .translation()
                 .coords(),
             imu_orientation,
         );
 
-        let left_sole_in_robot = context.robot_kinematics.left_sole_to_robot.translation();
-        let right_sole_in_robot = context.robot_kinematics.right_sole_to_robot.translation();
+        let left_sole_in_robot = context
+            .robot_kinematics
+            .left_leg
+            .sole_to_robot
+            .translation();
+        let right_sole_in_robot = context
+            .robot_kinematics
+            .right_leg
+            .sole_to_robot
+            .translation();
 
         let left_sole_to_right_sole = right_sole_in_robot - left_sole_in_robot;
         let ground_to_left_sole = Isometry3::<Ground, LeftSoleHorizontal>::from(
