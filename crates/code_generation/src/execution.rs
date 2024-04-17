@@ -114,7 +114,6 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
     let recording_index_entries_mut =
         generate_recording_index_entries(cyclers, ReferenceKind::Mutable);
     let cycler_replays = generate_cycler_replays(cyclers);
-    let cycler_recording_paths = generate_cycler_recording_paths(cyclers);
 
     quote! {
         pub struct Replayer<Hardware> {
@@ -131,7 +130,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
                 body_id: String,
                 head_id: String,
                 keep_running: tokio_util::sync::CancellationToken,
-                recording_file_paths: RecordingFilePaths,
+                recordings_file_path: impl std::convert::AsRef<std::path::Path>,
             ) -> color_eyre::Result<Self>
             {
                 use color_eyre::eyre::WrapErr;
@@ -171,10 +170,6 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
                     _ => bail!("unexpected cycler instance name {cycler_instance_name}"),
                 }
             }
-        }
-
-        pub struct RecordingFilePaths {
-            #cycler_recording_paths
         }
     }
 }
@@ -294,7 +289,6 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
 fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStream {
     cyclers.instances().map(|(cycler, instance)| {
         let instance_name_snake_case = instance.to_case(Case::Snake);
-        let instance_name_snake_case_identifier = format_ident!("{instance_name_snake_case}");
         let cycler_database_changed_identifier = format_ident!("{instance_name_snake_case}_changed");
         let cycler_variable_identifier = format_ident!("{instance_name_snake_case}_cycler");
         let cycler_index_identifier = format_ident!("{instance_name_snake_case}_index");
@@ -315,9 +309,10 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
             Default::default()
         };
         let recording_index = if mode == Execution::Replay {
+            let recording_file_name = format!("{instance}.bincode");
             quote! {
                 let #cycler_index_identifier = framework::RecordingIndex::read_from(
-                    recording_file_paths.#instance_name_snake_case_identifier
+                    recordings_file_path.as_ref().join(#recording_file_name)
                 ).wrap_err("failed to read recording index")?;
             }
         } else {
@@ -473,18 +468,6 @@ fn generate_cycler_replays(cyclers: &Cyclers) -> TokenStream {
             let error_message = format!("failed to replay {} cycle", instance);
             quote! {
                 #instance => self.#cycler_variable_identifier.cycle(timestamp, data).wrap_err(#error_message),
-            }
-        })
-        .collect()
-}
-
-fn generate_cycler_recording_paths(cyclers: &Cyclers) -> TokenStream {
-    cyclers
-        .instances()
-        .map(|(_cycler, instance)| {
-            let cycler_identifier = format_ident!("{}", instance.to_case(Case::Snake));
-            quote! {
-                pub #cycler_identifier: std::path::PathBuf,
             }
         })
         .collect()
