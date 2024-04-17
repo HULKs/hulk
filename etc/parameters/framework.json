@@ -3,8 +3,6 @@
   "hardware_parameters": "etc/parameters/hardware.json",
   "parameters_directory": "etc/parameters",
   "recording_intervals": {
-    "Control": 1,
-    "VisionBottom": 30,
-    "VisionTop": 30
+    "Control": 1
   }
 }
