@@ -44,6 +44,8 @@ pub struct CycleContext {
     fallen_up_gravitational_difference: AdditionalOutput<f32, "fallen_up_gravitational_difference">,
     upright_gravitational_difference: AdditionalOutput<f32, "upright_gravitational_difference">,
     difference_to_sitting: AdditionalOutput<f32, "difference_to_sitting">,
+    falling_direction: AdditionalOutput<Option<Direction>, "falling_direction">,
+    fallen_direction: AdditionalOutput<Option<Kind>, "fallen_direction">,
 
     gravitational_acceleration_threshold:
         Parameter<f32, "fall_state_estimation.gravitational_acceleration_threshold">,
@@ -232,6 +234,12 @@ impl FallStateEstimation {
         context
             .filtered_angular_velocity
             .fill_if_subscribed(|| self.angular_velocity_filter.state());
+        context
+            .falling_direction
+            .fill_if_subscribed(|| falling_direction);
+        context
+            .fallen_direction
+            .fill_if_subscribed(|| fallen_direction);
 
         Ok(MainOutputs {
             fall_state: fall_state.into(),
