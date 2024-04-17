@@ -289,7 +289,7 @@ impl RoleAssignment {
                         }
                     }
                     _ => {
-                        let previous_player = match context.player_number{
+                        let previous_player = match context.player_number {
                             PlayerNumber::Three => PlayerNumber::Two,
                             PlayerNumber::Four => PlayerNumber::Three,
                             PlayerNumber::Five => PlayerNumber::Four,
