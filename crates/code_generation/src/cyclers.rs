@@ -112,7 +112,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
     let recording_fields = if mode == Execution::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            cycles_per_recording: usize,
+            recording_interval: usize,
             cycles_to_next_recording: usize,
         }
     } else {
@@ -230,7 +230,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
     let recording_parameter_fields = if mode == Execution::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            cycles_per_recording: usize,
+            recording_interval: usize,
         }
     } else {
         Default::default()
@@ -238,7 +238,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
     let recording_initializer_fields = if mode == Execution::Run {
         quote! {
             recording_sender,
-            cycles_per_recording,
+            recording_interval,
             cycles_to_next_recording: 0,
         }
     } else {
@@ -458,10 +458,10 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
     let pre_setup = match mode {
         Execution::None => Default::default(),
         Execution::Run => quote! {
-            let enable_recording = self.cycles_per_recording != 0 && self.cycles_to_next_recording == 0;
-            if self.cycles_per_recording != 0 {
+            let enable_recording = self.recording_interval != 0 && self.cycles_to_next_recording == 0;
+            if self.recording_interval != 0 {
                 if self.cycles_to_next_recording == 0 {
-                    self.cycles_to_next_recording = self.cycles_per_recording - 1;
+                    self.cycles_to_next_recording = self.recording_interval - 1;
                 }
                 else {
                     self.cycles_to_next_recording -= 1;

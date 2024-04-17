@@ -305,9 +305,9 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let own_reader_identifier = format_ident!("{instance_name_snake_case}_reader");
         let own_subscribed_outputs_writer_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_writer");
         let own_subscribed_outputs_reader_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_reader");
-        let cycles_per_recording = if mode == Execution::Run {
+        let recording_interval = if mode == Execution::Run {
             quote! {
-                let cycles_per_recording = *recording_intervals.get(#cycler_instance_name).unwrap_or(&0);
+                let recording_interval = *recording_intervals.get(#cycler_instance_name).unwrap_or(&0);
             }
         } else {
             Default::default()
@@ -345,7 +345,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let recording_parameters = if mode == Execution::Run {
             quote! {
                 recording_sender.clone(),
-                cycles_per_recording,
+                recording_interval,
             }
         } else {
             Default::default()
@@ -358,7 +358,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
                 Default::default(),
                 Default::default(),
             ]);
-            #cycles_per_recording
+            #recording_interval
             #recording_index
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
