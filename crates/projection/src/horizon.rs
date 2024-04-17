@@ -1,5 +1,5 @@
 use coordinate_systems::{Camera, Ground, Pixel};
-use linear_algebra::{point, vector, Isometry3, Point2, Vector2, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point, Point2, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -16,6 +16,11 @@ impl Horizon {
         vanishing_point: point![0.0, 0.0],
         normal: vector![0.0, -1.0],
     };
+
+    pub fn is_below(&self, point: Point2<Pixel>) -> bool {
+        let horizon_y = self.y_at_x(point.x());
+        horizon_y < point.y()
+    }
 
     pub fn horizon_y_minimum(&self) -> f32 {
         self.y_at_x(0.0).min(self.y_at_x(640.0))
