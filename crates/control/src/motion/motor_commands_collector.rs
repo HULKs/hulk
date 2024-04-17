@@ -5,7 +5,7 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::{body::BodyJoints, head::HeadJoints, Joints},
+    joints::{arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints, Joints},
     motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommands,
     sensor_data::SensorData,
@@ -115,9 +115,42 @@ impl MotorCommandCollector {
                 ),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),
-            MotionType::StandUpBack => (*stand_up_back_positions, Joints::fill(1.0)),
-            MotionType::StandUpFront => (*stand_up_front_positions, Joints::fill(1.0)),
-            MotionType::StandUpSitting => (*stand_up_sitting_positions, Joints::fill(1.0)),
+            MotionType::StandUpBack => (
+                *stand_up_back_positions,
+                Joints::from_head_and_body(
+                    HeadJoints::fill(0.3),
+                    BodyJoints {
+                        left_arm: ArmJoints::fill(0.3),
+                        right_arm: ArmJoints::fill(0.3),
+                        left_leg: LegJoints::fill(1.0),
+                        right_leg: LegJoints::fill(1.0),
+                    },
+                ),
+            ),
+            MotionType::StandUpFront => (
+                *stand_up_front_positions,
+                Joints::from_head_and_body(
+                    HeadJoints::fill(0.3),
+                    BodyJoints {
+                        left_arm: ArmJoints::fill(0.3),
+                        right_arm: ArmJoints::fill(0.3),
+                        left_leg: LegJoints::fill(1.0),
+                        right_leg: LegJoints::fill(1.0),
+                    },
+                ),
+            ),
+            MotionType::StandUpSitting => (
+                *stand_up_sitting_positions,
+                Joints::from_head_and_body(
+                    HeadJoints::fill(0.3),
+                    BodyJoints {
+                        left_arm: ArmJoints::fill(0.3),
+                        right_arm: ArmJoints::fill(0.3),
+                        left_leg: LegJoints::fill(1.0),
+                        right_leg: LegJoints::fill(1.0),
+                    },
+                ),
+            ),
             MotionType::Unstiff => (measured_positions, Joints::fill(0.0)),
             MotionType::Walk => (
                 Joints::from_head_and_body(head_joints_command.positions, walk.positions),
