@@ -381,6 +381,18 @@ impl<Frame> TwixPainter<Frame> {
             stroke,
         );
     }
+
+    pub fn text(
+        &self,
+        position: Point2<Frame>,
+        align: eframe::emath::Align2,
+        text: String,
+        font_id: eframe::epaint::FontId,
+        color: Color32,
+    ) {
+        let position = self.transform_world_to_pixel(position);
+        self.painter.text(position, align, text, font_id, color);
+    }
 }
 impl TwixPainter<Ground> {
     pub fn with_ground_transforms(self) -> Self {

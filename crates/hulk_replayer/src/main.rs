@@ -168,6 +168,7 @@ fn main() -> Result<()> {
         RecordingFilePaths {
             vision_top: replay_path.join("VisionTop.bincode"),
             vision_bottom: replay_path.join("VisionBottom.bincode"),
+            detection_top: replay_path.join("DetectionTop.bincode"),
             control: replay_path.join("Control.bincode"),
             spl_network: replay_path.join("SplNetwork.bincode"),
             audio: replay_path.join("Audio.bincode"),

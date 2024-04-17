@@ -26,6 +26,16 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 ],
             },
             CyclerManifest {
+                name: "Detection",
+                kind: CyclerKind::Perception,
+                instances: vec!["Top"],
+                setup_nodes: vec!["object_detection::image_receiver"],
+                nodes: vec![
+                    "object_detection::pose_detection",
+                    "object_detection::pose_interpretation",
+                ],
+            },
+            CyclerManifest {
                 name: "Control",
                 kind: CyclerKind::RealTime,
                 instances: vec![""],
@@ -74,6 +84,8 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::primary_state_filter",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
+                    "control::referee_position_provider",
+                    "control::referee_pose_detection_filter",
                     "control::sole_pressure_filter",
                     "control::sonar_filter",
                     "control::support_foot_estimation",
