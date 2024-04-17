@@ -872,8 +872,8 @@
       "striker_set_position": [-0.3, 0.0]
     },
     "dribbling": {
-      "hybrid_align_distance": 2.0,
-      "distance_to_be_aligned": 0.2,
+      "hybrid_align_distance": 0.5,
+      "distance_to_be_aligned": 0.1,
       "angle_to_approach_ball_from_threshold": 0.78,
       "ignore_robot_when_near_ball_radius": 0.6
     },
