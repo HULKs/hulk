@@ -80,7 +80,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,
         MotionCommand::Stand { .. } => MotionType::Stand,
-        MotionCommand::StandUp { facing } => match facing {
+        MotionCommand::StandUp { kind } => match kind {
             Kind::FacingDown => MotionType::StandUpFront,
             Kind::FacingUp => MotionType::StandUpBack,
             Kind::Sitting => MotionType::StandUpSitting,

@@ -2,7 +2,8 @@ use types::{fall_state::FallState, motion_command::MotionCommand, world_state::W
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.fall_state {
-        FallState::Fallen { kind: facing } => Some(MotionCommand::StandUp { facing }),
+        FallState::Fallen { kind } => Some(MotionCommand::StandUp { kind }),
+        FallState::StandingUp { kind, .. } => Some(MotionCommand::StandUp { kind }),
         _ => None,
     }
 }
