@@ -47,8 +47,16 @@ impl Odometry {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let left_sole_to_right_sole = (context.robot_kinematics.right_sole_to_robot.translation()
-            - context.robot_kinematics.left_sole_to_robot.translation())
+        let left_sole_to_right_sole = (context
+            .robot_kinematics
+            .right_leg
+            .sole_to_robot
+            .translation()
+            - context
+                .robot_kinematics
+                .left_leg
+                .sole_to_robot
+                .translation())
         .xy();
         let offset_to_last_position = calculate_offset_to_last_position(
             context.support_foot,

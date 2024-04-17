@@ -13,6 +13,10 @@ use kinematics::forward::{
 };
 use linear_algebra::Isometry3;
 use serde::{Deserialize, Serialize};
+use types::robot_kinematics::{
+    RobotHeadKinematics, RobotLeftArmKinematics, RobotLeftLegKinematics, RobotRightArmKinematics,
+    RobotRightLegKinematics, RobotTorsoKinematics,
+};
 use types::{
     robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics, sensor_data::SensorData,
 };
@@ -89,35 +93,57 @@ impl KinematicsProvider {
         let right_sole_to_robot =
             right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE);
 
+        let head = RobotHeadKinematics {
+            neck_to_robot,
+            head_to_robot,
+        };
+
+        let torso = RobotTorsoKinematics { torso_to_robot };
+
+        let left_arm = RobotLeftArmKinematics {
+            shoulder_to_robot: left_shoulder_to_robot,
+            upper_arm_to_robot: left_upper_arm_to_robot,
+            elbow_to_robot: left_elbow_to_robot,
+            forearm_to_robot: left_forearm_to_robot,
+            wrist_to_robot: left_wrist_to_robot,
+        };
+
+        let right_arm = RobotRightArmKinematics {
+            shoulder_to_robot: right_shoulder_to_robot,
+            upper_arm_to_robot: right_upper_arm_to_robot,
+            elbow_to_robot: right_elbow_to_robot,
+            forearm_to_robot: right_forearm_to_robot,
+            wrist_to_robot: right_wrist_to_robot,
+        };
+
+        let left_leg = RobotLeftLegKinematics {
+            pelvis_to_robot: left_pelvis_to_robot,
+            hip_to_robot: left_hip_to_robot,
+            thigh_to_robot: left_thigh_to_robot,
+            tibia_to_robot: left_tibia_to_robot,
+            ankle_to_robot: left_ankle_to_robot,
+            foot_to_robot: left_foot_to_robot,
+            sole_to_robot: left_sole_to_robot,
+        };
+
+        let right_leg = RobotRightLegKinematics {
+            pelvis_to_robot: right_pelvis_to_robot,
+            hip_to_robot: right_hip_to_robot,
+            thigh_to_robot: right_thigh_to_robot,
+            tibia_to_robot: right_tibia_to_robot,
+            ankle_to_robot: right_ankle_to_robot,
+            foot_to_robot: right_foot_to_robot,
+            sole_to_robot: right_sole_to_robot,
+        };
+
         Ok(MainOutputs {
             robot_kinematics: MainOutput::from(RobotKinematics {
-                neck_to_robot,
-                head_to_robot,
-                torso_to_robot,
-                left_shoulder_to_robot,
-                left_upper_arm_to_robot,
-                left_elbow_to_robot,
-                left_forearm_to_robot,
-                left_wrist_to_robot,
-                right_shoulder_to_robot,
-                right_upper_arm_to_robot,
-                right_elbow_to_robot,
-                right_forearm_to_robot,
-                right_wrist_to_robot,
-                left_pelvis_to_robot,
-                left_hip_to_robot,
-                left_thigh_to_robot,
-                left_tibia_to_robot,
-                left_ankle_to_robot,
-                left_foot_to_robot,
-                left_sole_to_robot,
-                right_pelvis_to_robot,
-                right_hip_to_robot,
-                right_thigh_to_robot,
-                right_tibia_to_robot,
-                right_ankle_to_robot,
-                right_foot_to_robot,
-                right_sole_to_robot,
+                head,
+                torso,
+                left_arm,
+                right_arm,
+                left_leg,
+                right_leg,
             }),
         })
     }
