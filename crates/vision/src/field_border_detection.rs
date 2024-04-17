@@ -227,11 +227,11 @@ mod test {
         scanline.segments[7].field_color = Intensity::High;
         let green_segment = get_first_field_segment(
             &scanline.segments,
+            scanline.position as f32,
             &Horizon {
                 vanishing_point: point![0.0, 0.0],
                 normal: vector![0.0, 1.0],
             },
-            5.0,
         );
         assert_eq!(green_segment, Some(&scanline.segments[7]));
     }
