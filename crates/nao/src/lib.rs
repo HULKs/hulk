@@ -88,7 +88,6 @@ impl Nao {
         let ssh_flags = self.get_ssh_flags().join(" ");
         command
             .stdout(Stdio::piped())
-            .arg("--compress")
             .arg("--recursive")
             .arg("--times")
             .arg("--no-inc-recursive")
