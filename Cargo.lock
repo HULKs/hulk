@@ -2971,6 +2971,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "hulk_imagine"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "bincode",
+ "chrono",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "control",
+ "coordinate_systems",
+ "ctrlc",
+ "eframe",
+ "energy_optimization",
+ "framework",
+ "geometry",
+ "hardware",
+ "hulk_manifest",
+ "ittapi",
+ "linear_algebra",
+ "nalgebra",
+ "projection",
+ "serde",
+ "serde_json",
+ "serialize_hierarchy",
+ "source_analyzer",
+ "spl_network",
+ "spl_network_messages",
+ "tokio",
+ "tokio-util",
+ "types",
+ "vision",
+]
+
+[[package]]
 name = "hulk_manifest"
 version = "0.1.0"
 dependencies = [
