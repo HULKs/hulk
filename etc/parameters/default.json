@@ -1396,5 +1396,6 @@
     "cells_per_meter": 2.0,
     "heatmap_decay_factor": 0.002,
     "minimum_validity": 0.01
-  }
+  },
+  "stand_up_stiffness_upper_body": 0.3
 }
