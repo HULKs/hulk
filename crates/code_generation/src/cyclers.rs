@@ -112,7 +112,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
     let recording_fields = if mode == Execution::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            recording_trigger: crate::structs::RecordingTrigger,
+            recording_trigger: framework::RecordingTrigger,
         }
     } else {
         Default::default()
@@ -229,7 +229,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
     let recording_parameter_fields = if mode == Execution::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            recording_trigger: crate::structs::RecordingTrigger,
+            recording_trigger: framework::RecordingTrigger,
         }
     } else {
         Default::default()
