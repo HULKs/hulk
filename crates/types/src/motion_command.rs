@@ -133,12 +133,6 @@ pub enum KickVariant {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
-pub enum SitDirection {
-    Down,
-    Up,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
 pub enum JumpDirection {
     Left,
     Right,
