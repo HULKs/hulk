@@ -20,16 +20,16 @@
         "first_half_own_half_towards_own_goal": 0.34579
       },
       "lower_green_chromaticity_threshold": {
-        "first_half_opponent_half_away_own_goal": 0.54383,
-        "first_half_opponent_half_towards_own_goal": 0.54383,
-        "first_half_own_half_away_own_goal": 0.54383,
-        "first_half_own_half_towards_own_goal": 0.54383
+        "first_half_opponent_half_away_own_goal": 0.6,
+        "first_half_opponent_half_towards_own_goal": 0.6,
+        "first_half_own_half_away_own_goal": 0.6,
+        "first_half_own_half_towards_own_goal": 0.6
       },
       "upper_green_chromaticity_threshold": {
-        "first_half_opponent_half_away_own_goal": 0.57333,
-        "first_half_opponent_half_towards_own_goal": 0.57333,
-        "first_half_own_half_away_own_goal": 0.57333,
-        "first_half_own_half_towards_own_goal": 0.57333
+        "first_half_opponent_half_away_own_goal": 0.65,
+        "first_half_opponent_half_towards_own_goal": 0.65,
+        "first_half_own_half_away_own_goal": 0.65,
+        "first_half_own_half_towards_own_goal": 0.65
       }
     },
     "vision_top": {
@@ -52,16 +52,16 @@
         "first_half_own_half_towards_own_goal": 0.34579
       },
       "lower_green_chromaticity_threshold": {
-        "first_half_opponent_half_away_own_goal": 0.45799,
-        "first_half_opponent_half_towards_own_goal": 0.45799,
-        "first_half_own_half_away_own_goal": 0.45799,
-        "first_half_own_half_towards_own_goal": 0.45799
+        "first_half_opponent_half_away_own_goal": 0.47,
+        "first_half_opponent_half_towards_own_goal": 0.47,
+        "first_half_own_half_away_own_goal": 0.47,
+        "first_half_own_half_towards_own_goal": 0.47
       },
       "upper_green_chromaticity_threshold": {
-        "first_half_opponent_half_away_own_goal": 0.47007,
-        "first_half_opponent_half_towards_own_goal": 0.47007,
-        "first_half_own_half_away_own_goal": 0.47007,
-        "first_half_own_half_towards_own_goal": 0.47007
+        "first_half_opponent_half_away_own_goal": 0.5,
+        "first_half_opponent_half_towards_own_goal": 0.5,
+        "first_half_own_half_away_own_goal": 0.5,
+        "first_half_own_half_towards_own_goal": 0.5
       }
     }
   },
@@ -81,6 +81,11 @@
         "first_half_own_half_away_own_goal": 16.0,
         "first_half_own_half_towards_own_goal": 16.0
       }
+    }
+  },
+  "line_detection": {
+    "vision_top": {
+      "maximum_projected_segment_length": 0.20000001788139343
     }
   }
 }
