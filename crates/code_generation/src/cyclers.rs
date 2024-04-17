@@ -206,7 +206,7 @@ fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) 
     let new_method = generate_new_method(cycler, cyclers, mode);
     let start_method = match mode {
         Execution::None | Execution::Run => generate_start_method(cycler.kind),
-        Execution::Replay => Default::default(),
+        Execution::Replay | Execution::Imagine => Default::default(),
     };
     let cycle_method = generate_cycle_method(cycler, cyclers, mode);
 
@@ -438,7 +438,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
         Execution::None | Execution::Run => quote! {
             pub(crate) fn cycle(&mut self) -> color_eyre::Result<()>
         },
-        Execution::Replay => quote! {
+        Execution::Replay | Execution::Imagine => quote! {
             pub fn cycle(&mut self, now: std::time::SystemTime, mut recording_frame: &[u8]) -> color_eyre::Result<()>
         },
     };
@@ -454,7 +454,9 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
     let cross_inputs = match mode {
         Execution::None => Default::default(),
         Execution::Run => generate_cross_inputs_recording(cycler, cross_input_fields),
-        Execution::Replay => generate_cross_inputs_extraction(cross_input_fields),
+        Execution::Replay | Execution::Imagine => {
+            generate_cross_inputs_extraction(cross_input_fields)
+        }
     };
 
     let pre_setup = match mode {
@@ -464,7 +466,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
             self.recording_trigger.update();
             let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
         },
-        Execution::Replay => Default::default(),
+        Execution::Replay | Execution::Imagine => Default::default(),
     };
     let post_setup = match mode {
         Execution::None => Default::default(),
@@ -472,7 +474,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
             let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
             let recording_timestamp = std::time::SystemTime::now();
         },
-        Execution::Replay => Default::default(),
+        Execution::Replay | Execution::Imagine => Default::default(),
     };
     let post_setup = match cycler.kind {
         CyclerKind::Perception => quote! {
@@ -541,7 +543,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                 }
             }
         }
-        Execution::Replay => after_remaining_nodes,
+        Execution::Replay | Execution::Imagine => after_remaining_nodes,
     };
 
     quote! {
@@ -872,14 +874,14 @@ fn generate_node_execution(
                 #execute_node_and_write_main_outputs
             }
         }
-        (NodeType::Setup, Execution::Replay) => {
+        (NodeType::Setup, Execution::Replay | Execution::Imagine) => {
             let deserialize_frame_and_write_main_outputs =
                 generate_deserialize_frame_and_write_main_outputs(node);
             quote! {
                 #deserialize_frame_and_write_main_outputs
             }
         }
-        (NodeType::Cycle, Execution::Replay) => {
+        (NodeType::Cycle, Execution::Replay | Execution::Imagine) => {
             let restore_node_state = generate_restore_node_state(node);
             let execute_node_and_write_main_outputs =
                 generate_execute_node_and_write_main_outputs(node, cycler, mode);
@@ -1101,7 +1103,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                 #accessor
                             }
                         },
-                        Execution::Replay => {
+                        Execution::Replay | Execution::Imagine => {
                             let name = path_to_extraction_variable_name("own", path, "cycler_state");
                             quote! {
                                 &mut #name
@@ -1145,7 +1147,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                     .into()
                             }
                         },
-                        Execution::Replay => {
+                        Execution::Replay | Execution::Imagine => {
                             let name = path_to_extraction_variable_name("own", path, "historic_input");
                             let is_option = match data_type {
                                 Type::Path(TypePath {
@@ -1190,7 +1192,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                         #accessor
                                     }
                                 },
-                                Execution::Replay => {
+                                Execution::Replay | Execution::Imagine => {
                                     let name = path_to_extraction_variable_name(cycler_instance, path, "input");
                                     let is_option = match data_type {
                                         Type::Path(TypePath {
@@ -1287,7 +1289,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                 }
                             }
                         },
-                        Execution::Replay => {
+                        Execution::Replay | Execution::Imagine => {
                             let name = path_to_extraction_variable_name(cycler_instance, path, "perception_input");
                             let is_option = match data_type {
                                 Type::Path(TypePath {
@@ -1343,7 +1345,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                         #accessor .unwrap()
                                     }
                                 },
-                                Execution::Replay => {
+                                Execution::Replay | Execution::Imagine => {
                                     let name = path_to_extraction_variable_name(cycler_instance, path, "required_input");
                                     quote! {
                                         &#name .unwrap()
