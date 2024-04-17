@@ -12,8 +12,8 @@ use types::{
 };
 
 use crate::{
-    kick_state::KickState, parameters::Parameters, step_plan::StepPlan, step_state::StepState,
-    stiffness::Stiffness as _, Context,
+    kick_state::KickState, step_plan::StepPlan, step_state::StepState, stiffness::Stiffness as _,
+    Context,
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
@@ -36,12 +36,7 @@ impl Walking {
             left: requested_step.left,
             turn: requested_step.turn,
         };
-        let plan = StepPlan::new_from_request(
-            context.parameters,
-            requested_step,
-            support_side,
-            &context.current_joints,
-        );
+        let plan = StepPlan::new_from_request(context, requested_step, support_side);
         let step = StepState::new(plan);
         Self {
             step,
@@ -148,10 +143,10 @@ impl WalkTransition for Walking {
 }
 
 impl Walking {
-    pub fn compute_commands(&self, parameters: &Parameters) -> MotorCommands<BodyJoints> {
-        self.step.compute_joints(parameters).apply_stiffness(
-            parameters.stiffnesses.leg_stiffness_walk,
-            parameters.stiffnesses.arm_stiffness,
+    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+        self.step.compute_joints(context).apply_stiffness(
+            context.parameters.stiffnesses.leg_stiffness_walk,
+            context.parameters.stiffnesses.arm_stiffness,
         )
     }
 

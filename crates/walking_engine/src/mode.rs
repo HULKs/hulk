@@ -5,7 +5,7 @@ use types::{
     step_plan::Step, support_foot::Side,
 };
 
-use crate::{kick_steps::KickSteps, parameters::Parameters, Context, WalkTransition};
+use crate::{Context, WalkTransition};
 
 use self::{
     catching::Catching, kicking::Kicking, standing::Standing, starting::Starting,
@@ -65,18 +65,14 @@ impl WalkTransition for Mode {
 }
 
 impl Mode {
-    pub fn compute_commands(
-        &self,
-        parameters: &Parameters,
-        kick_steps: &KickSteps,
-    ) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
         match self {
-            Self::Standing(standing) => standing.compute_commands(parameters),
-            Self::Starting(starting) => starting.compute_commands(parameters),
-            Self::Walking(walking) => walking.compute_commands(parameters),
-            Self::Kicking(kicking) => kicking.compute_commands(parameters, kick_steps),
-            Self::Stopping(stopping) => stopping.compute_commands(parameters),
-            Self::Catching(catching) => catching.compute_commands(parameters),
+            Self::Standing(standing) => standing.compute_commands(context),
+            Self::Starting(starting) => starting.compute_commands(context),
+            Self::Walking(walking) => walking.compute_commands(context),
+            Self::Kicking(kicking) => kicking.compute_commands(context),
+            Self::Stopping(stopping) => stopping.compute_commands(context),
+            Self::Catching(catching) => catching.compute_commands(context),
         }
     }
 

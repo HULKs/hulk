@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    feet::{robot_to_walk, Feet},
+    feet::Feet,
     foot_leveling::{FootLeveling, FootLevelingExt},
     gyro_balancing::{GyroBalancing, GyroBalancingExt},
     step_plan::StepPlan,
@@ -68,14 +68,14 @@ impl StepState {
         self.time_since_start > parameters.max_step_duration
     }
 
-    pub fn compute_joints(&self, parameters: &Parameters) -> BodyJoints {
-        let feet = self.compute_feet(parameters);
+    pub fn compute_joints(&self, context: &Context) -> BodyJoints {
+        let feet = self.compute_feet(context.parameters);
 
         let (left_sole, right_sole) = match self.plan.support_side {
             Side::Left => (feet.support_sole, feet.swing_sole),
             Side::Right => (feet.swing_sole, feet.support_sole),
         };
-        let walk_to_robot = robot_to_walk(parameters).inverse();
+        let walk_to_robot = context.robot_to_walk.inverse();
 
         let left_foot: Pose3<LeftSole> = Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE)
             .inverse()
@@ -95,12 +95,12 @@ impl StepState {
         .level_swing_foot(&self.foot_leveling, self.plan.support_side);
 
         let left_arm = swinging_arm(
-            &parameters.swinging_arms,
+            &context.parameters.swinging_arms,
             leg_joints.left_leg,
             right_sole.position().x(),
         );
         let right_arm = swinging_arm(
-            &parameters.swinging_arms,
+            &context.parameters.swinging_arms,
             leg_joints.right_leg.mirrored(),
             left_sole.position().x(),
         )

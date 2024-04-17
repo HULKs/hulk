@@ -41,7 +41,8 @@ impl Catching {
             .target_overestimation_factor;
 
         let step_duration = parameters.base.step_duration;
-        let start_feet = Feet::from_joints(&context.current_joints, support_side, parameters);
+        let start_feet =
+            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
 
         let end_feet = catching_end_feet(
             parameters,
@@ -151,10 +152,10 @@ impl WalkTransition for Catching {
 }
 
 impl Catching {
-    pub fn compute_commands(&self, parameters: &Parameters) -> MotorCommands<BodyJoints> {
-        self.step.compute_joints(parameters).apply_stiffness(
-            parameters.stiffnesses.leg_stiffness_walk,
-            parameters.stiffnesses.arm_stiffness,
+    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+        self.step.compute_joints(context).apply_stiffness(
+            context.parameters.stiffnesses.leg_stiffness_walk,
+            context.parameters.stiffnesses.arm_stiffness,
         )
     }
 

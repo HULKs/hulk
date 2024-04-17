@@ -3,8 +3,6 @@ use std::time::Duration;
 use crate::{
     feet::Feet,
     kick_state::{KickOverride as _, KickState},
-    kick_steps::KickSteps,
-    parameters::Parameters,
     step_plan::StepPlan,
     step_state::StepState,
     stiffness::Stiffness as _,
@@ -28,7 +26,7 @@ pub struct Kicking {
 impl Kicking {
     pub fn new(context: &Context, kick: KickState, support_side: Side) -> Self {
         let start_feet =
-            Feet::from_joints(&context.current_joints, support_side, context.parameters);
+            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
 
         let kick_step = kick.get_step(context.kick_steps);
         let base_step = kick_step.base_step;
@@ -147,17 +145,13 @@ impl WalkTransition for Kicking {
 }
 
 impl Kicking {
-    pub fn compute_commands(
-        &self,
-        parameters: &Parameters,
-        kick_steps: &KickSteps,
-    ) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
         self.step
-            .compute_joints(parameters)
-            .override_with_kick(kick_steps, &self.kick, &self.step)
+            .compute_joints(context)
+            .override_with_kick(context.kick_steps, &self.kick, &self.step)
             .apply_stiffness(
-                parameters.stiffnesses.leg_stiffness_walk,
-                parameters.stiffnesses.arm_stiffness,
+                context.parameters.stiffnesses.leg_stiffness_walk,
+                context.parameters.stiffnesses.arm_stiffness,
             )
     }
 

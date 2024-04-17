@@ -1,6 +1,6 @@
 use crate::{
-    kick_state::KickState, parameters::Parameters, step_plan::StepPlan, step_state::StepState,
-    stiffness::Stiffness as _, Context,
+    kick_state::KickState, step_plan::StepPlan, step_state::StepState, stiffness::Stiffness as _,
+    Context,
 };
 
 use super::{kicking::Kicking, standing::Standing, walking::Walking, Mode, WalkTransition};
@@ -18,12 +18,7 @@ pub struct Stopping {
 
 impl Stopping {
     pub fn new(context: &Context, support_side: Side) -> Self {
-        let plan = StepPlan::new_from_request(
-            context.parameters,
-            Step::ZERO,
-            support_side,
-            &context.current_joints,
-        );
+        let plan = StepPlan::new_from_request(context, Step::ZERO, support_side);
         let step = StepState::new(plan);
         Self { step }
     }
@@ -94,10 +89,10 @@ impl WalkTransition for Stopping {
 }
 
 impl Stopping {
-    pub fn compute_commands(&self, parameters: &Parameters) -> MotorCommands<BodyJoints> {
-        self.step.compute_joints(parameters).apply_stiffness(
-            parameters.stiffnesses.leg_stiffness_walk,
-            parameters.stiffnesses.arm_stiffness,
+    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+        self.step.compute_joints(context).apply_stiffness(
+            context.parameters.stiffnesses.leg_stiffness_walk,
+            context.parameters.stiffnesses.arm_stiffness,
         )
     }
 
