@@ -1,5 +1,5 @@
 use coordinate_systems::{Camera, Ground, Pixel};
-use linear_algebra::{point, vector, Isometry3, Point, Point2, Vector2, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point2, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
