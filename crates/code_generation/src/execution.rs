@@ -308,7 +308,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let recording_trigger = if mode == Execution::Run {
             quote! {
                 let recording_trigger = crate::structs::RecordingTrigger::new(
-                    *recording_intervals.get(#cycler_instance_name).unwrap_or(&0)
+                    recording_intervals.get(#cycler_instance_name).copied().unwrap_or(0)
                 );
             }
         } else {
