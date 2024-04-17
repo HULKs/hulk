@@ -61,6 +61,7 @@ impl Robot {
             )
             .as_transform(),
         );
+        database.main_outputs.has_ground_contact = true;
 
         let cycler_state = Default::default();
 
