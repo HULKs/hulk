@@ -8,7 +8,7 @@ use coordinate_systems::{Ground, Robot, Walk};
 use linear_algebra::{point, vector, Isometry3, Pose2, Pose3};
 use types::{
     field_dimensions::FieldDimensions, joints::body::BodyJoints, robot_kinematics::RobotKinematics,
-    step_plan::Step, support_foot::Side, walking_engine::DebugOutput,
+    step_plan::Step, support_foot::Side,
 };
 
 use crate::{

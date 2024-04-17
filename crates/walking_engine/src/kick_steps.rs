@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-
-use crate::{motion_command::KickVariant, step_plan::Step};
+use types::{motion_command::KickVariant, step_plan::Step};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct JointOverride {

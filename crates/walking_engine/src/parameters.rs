@@ -1,29 +1,17 @@
 use std::time::Duration;
 
-use coordinate_systems::{Ground, Robot, Walk};
-use linear_algebra::{Isometry3, Point3, Pose3, Vector3};
+use coordinate_systems::Walk;
+use linear_algebra::Vector3;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-
-use crate::{
-    joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints},
+use types::{
+    joints::{arm::ArmJoints, leg::LegJoints},
     step_plan::Step,
-    support_foot::Side,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct DebugOutput {
-    pub center_of_mass_in_ground: Option<Point3<Ground>>,
-    pub last_actuated_joints: BodyJoints,
-    pub end_support_sole: Option<Pose3<Walk>>,
-    pub end_swing_sole: Option<Pose3<Walk>>,
-    pub support_side: Side,
-    pub robot_to_walk: Isometry3<Robot, Walk>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct WalkingEngineParameters {
-    pub base: BaseParameters,
+pub struct Parameters {
+    pub base: Base,
     pub catching_steps: CatchingStepsParameters,
     pub gyro_balancing: GyroBalancingParameters,
     pub max_forward_acceleration: f32,
@@ -34,14 +22,14 @@ pub struct WalkingEngineParameters {
     pub sole_pressure_threshold: f32,
     pub starting_step: StartingStepParameters,
     pub step_midpoint: Step,
-    pub stiffnesses: StiffnessesParameters,
+    pub stiffnesses: Stiffnesses,
     pub swinging_arms: SwingingArmsParameters,
     pub max_level_delta: f32,
     pub max_rotation_speed: f32,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct BaseParameters {
+pub struct Base {
     pub foot_lift_apex: f32,
     pub foot_lift_apex_increase: Step,
     pub foot_offset_left: Vector3<Walk>,
@@ -61,7 +49,7 @@ pub struct StartingStepParameters {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct StiffnessesParameters {
+pub struct Stiffnesses {
     pub arm_stiffness: f32,
     pub leg_stiffness_walk: f32,
     pub leg_stiffness_stand: f32,

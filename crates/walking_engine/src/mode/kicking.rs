@@ -1,20 +1,22 @@
 use std::time::Duration;
 
-use crate::motion::walking_engine::{
+use crate::{
     feet::Feet,
-    kicking::{KickOverride, KickState},
+    kick_state::{KickOverride as _, KickState},
+    kick_steps::KickSteps,
+    parameters::Parameters,
     step_plan::StepPlan,
     step_state::StepState,
     stiffness::Stiffness as _,
+    Context,
 };
 
-use super::{super::CycleContext, stopping::Stopping, walking::Walking, Mode, WalkTransition};
+use super::{stopping::Stopping, walking::Walking, Mode, WalkTransition};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
-    joints::body::BodyJoints, kick_step::KickSteps, motion_command::KickVariant,
-    motor_commands::MotorCommands, step_plan::Step, support_foot::Side,
-    walking_engine::WalkingEngineParameters,
+    joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
+    step_plan::Step, support_foot::Side,
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
@@ -24,13 +26,9 @@ pub struct Kicking {
 }
 
 impl Kicking {
-    pub fn new(
-        context: &CycleContext,
-        kick: KickState,
-        support_side: Side,
-        joints: &BodyJoints,
-    ) -> Self {
-        let start_feet = Feet::from_joints(joints, support_side, context.parameters);
+    pub fn new(context: &Context, kick: KickState, support_side: Side) -> Self {
+        let start_feet =
+            Feet::from_joints(&context.current_joints, support_side, context.parameters);
 
         let kick_step = kick.get_step(context.kick_steps);
         let base_step = kick_step.base_step;
@@ -58,7 +56,7 @@ impl Kicking {
 }
 
 impl WalkTransition for Kicking {
-    fn stand(self, context: &CycleContext, joints: &BodyJoints) -> Mode {
+    fn stand(self, context: &Context) -> Mode {
         let current_step = self.step;
         if current_step.is_support_switched(context)
             || current_step.is_timeouted(context.parameters)
@@ -66,21 +64,19 @@ impl WalkTransition for Kicking {
             return Mode::Stopping(Stopping::new(
                 context,
                 current_step.plan.support_side.opposite(),
-                joints,
             ));
         }
 
         Mode::Kicking(self)
     }
 
-    fn walk(self, context: &CycleContext, joints: &BodyJoints, step: Step) -> Mode {
+    fn walk(self, context: &Context, step: Step) -> Mode {
         let current_step = self.step;
         if current_step.is_timeouted(context.parameters) {
             return Mode::Walking(Walking::new(
                 context,
                 Step::ZERO,
                 current_step.plan.support_side.opposite(),
-                joints,
                 Step::ZERO,
             ));
         }
@@ -92,7 +88,6 @@ impl WalkTransition for Kicking {
                     context,
                     step,
                     current_step.plan.support_side.opposite(),
-                    joints,
                     Step::ZERO,
                 ));
             }
@@ -101,7 +96,6 @@ impl WalkTransition for Kicking {
                 context,
                 kick,
                 current_step.plan.support_side.opposite(),
-                joints,
             ));
         }
 
@@ -110,8 +104,7 @@ impl WalkTransition for Kicking {
 
     fn kick(
         self,
-        context: &CycleContext,
-        joints: &BodyJoints,
+        context: &Context,
         variant: KickVariant,
         kicking_side: Side,
         strength: f32,
@@ -122,7 +115,6 @@ impl WalkTransition for Kicking {
                 context,
                 Step::ZERO,
                 current_step.plan.support_side.opposite(),
-                joints,
                 Step::ZERO,
             ));
         }
@@ -131,12 +123,7 @@ impl WalkTransition for Kicking {
             let next_support_side = current_step.plan.support_side.opposite();
             let current_kick = self.kick.advance_to_next_step();
             if !current_kick.is_finished(context.kick_steps) {
-                return Mode::Kicking(Kicking::new(
-                    context,
-                    current_kick,
-                    next_support_side,
-                    joints,
-                ));
+                return Mode::Kicking(Kicking::new(context, current_kick, next_support_side));
             }
 
             // TODO: all kicks require a pre-step
@@ -145,7 +132,6 @@ impl WalkTransition for Kicking {
                     context,
                     Step::ZERO,
                     next_support_side,
-                    joints,
                     Step::ZERO,
                 ));
             }
@@ -153,7 +139,6 @@ impl WalkTransition for Kicking {
                 context,
                 KickState::new(variant, kicking_side, strength),
                 next_support_side,
-                joints,
             ));
         }
 
@@ -164,7 +149,7 @@ impl WalkTransition for Kicking {
 impl Kicking {
     pub fn compute_commands(
         &self,
-        parameters: &WalkingEngineParameters,
+        parameters: &Parameters,
         kick_steps: &KickSteps,
     ) -> MotorCommands<BodyJoints> {
         self.step
@@ -176,7 +161,7 @@ impl Kicking {
             )
     }
 
-    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
-        self.step.tick(context, gyro);
+    pub fn tick(&mut self, context: &Context) {
+        self.step.tick(context);
     }
 }

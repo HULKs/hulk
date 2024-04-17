@@ -3,12 +3,11 @@ use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
 use linear_algebra::{point, vector, Isometry3, Orientation3, Pose3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{
-    joints::body::BodyJoints, step_plan::Step, support_foot::Side,
-    walking_engine::WalkingEngineParameters,
-};
+use types::{joints::body::BodyJoints, step_plan::Step, support_foot::Side};
 
-pub fn robot_to_walk(parameters: &WalkingEngineParameters) -> Isometry3<Robot, Walk> {
+use crate::parameters::Parameters;
+
+pub fn robot_to_walk(parameters: &Parameters) -> Isometry3<Robot, Walk> {
     Isometry3::from_parts(
         vector![
             parameters.base.torso_offset,
@@ -26,11 +25,7 @@ pub struct Feet {
 }
 
 impl Feet {
-    pub fn from_joints(
-        joints: &BodyJoints,
-        support_side: Side,
-        parameters: &WalkingEngineParameters,
-    ) -> Self {
+    pub fn from_joints(joints: &BodyJoints, support_side: Side, parameters: &Parameters) -> Self {
         let robot_to_walk = robot_to_walk(parameters);
 
         let left_sole = robot_to_walk * left_sole_to_robot(&joints.left_leg).as_pose();
@@ -48,11 +43,7 @@ impl Feet {
         }
     }
 
-    pub fn end_from_request(
-        parameters: &WalkingEngineParameters,
-        request: Step,
-        support_side: Side,
-    ) -> Self {
+    pub fn end_from_request(parameters: &Parameters, request: Step, support_side: Side) -> Self {
         let (support_base_offset, swing_base_offset) = match support_side {
             Side::Left => (
                 parameters.base.foot_offset_left,

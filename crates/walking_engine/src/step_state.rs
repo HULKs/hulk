@@ -10,7 +10,11 @@ use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, mirror::Mirror},
     robot_dimensions::RobotDimensions,
     support_foot::Side,
-    walking_engine::{SwingingArmsParameters, WalkingEngineParameters},
+};
+
+use crate::{
+    parameters::{Parameters, SwingingArmsParameters},
+    Context,
 };
 
 use super::{
@@ -18,7 +22,6 @@ use super::{
     foot_leveling::{FootLeveling, FootLevelingExt},
     gyro_balancing::{GyroBalancing, GyroBalancingExt},
     step_plan::StepPlan,
-    CycleContext,
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
@@ -39,14 +42,14 @@ impl StepState {
         }
     }
 
-    pub fn tick(&mut self, context: &CycleContext, gyro: nalgebra::Vector3<f32>) {
+    pub fn tick(&mut self, context: &Context) {
         self.time_since_start += context.cycle_time.last_cycle_duration;
-        self.gyro_balancing.tick(context, gyro);
+        self.gyro_balancing.tick(context);
         self.foot_leveling
             .tick(context, self.normalized_time_since_start());
     }
 
-    pub fn is_support_switched(&self, context: &CycleContext) -> bool {
+    pub fn is_support_switched(&self, context: &Context) -> bool {
         let pressure_left = context.sensor_data.force_sensitive_resistors.left.sum()
             > context.parameters.sole_pressure_threshold;
         let pressure_right = context.sensor_data.force_sensitive_resistors.right.sum()
@@ -61,11 +64,11 @@ impl StepState {
         minimal_time && is_support_switched
     }
 
-    pub fn is_timeouted(&self, parameters: &WalkingEngineParameters) -> bool {
+    pub fn is_timeouted(&self, parameters: &Parameters) -> bool {
         self.time_since_start > parameters.max_step_duration
     }
 
-    pub fn compute_joints(&self, parameters: &WalkingEngineParameters) -> BodyJoints {
+    pub fn compute_joints(&self, parameters: &Parameters) -> BodyJoints {
         let feet = self.compute_feet(parameters);
 
         let (left_sole, right_sole) = match self.plan.support_side {
@@ -116,7 +119,7 @@ impl StepState {
             .clamp(0.0, 1.0)
     }
 
-    fn compute_feet(&self, parameters: &WalkingEngineParameters) -> Feet {
+    fn compute_feet(&self, parameters: &Parameters) -> Feet {
         let support_sole = self.support_sole_position(parameters);
         let support_turn = self.support_orientation(parameters);
         let swing_sole = self.swing_sole_position();
@@ -131,7 +134,7 @@ impl StepState {
         }
     }
 
-    fn support_sole_position(&self, parameters: &WalkingEngineParameters) -> Point3<Walk> {
+    fn support_sole_position(&self, parameters: &Parameters) -> Point3<Walk> {
         let normalized_time = self.normalized_time_since_start();
 
         let start_offsets = self.plan.start_feet.support_sole.position().xy();
@@ -143,7 +146,7 @@ impl StepState {
         point![offsets.x(), offsets.y(), lift]
     }
 
-    fn support_sole_lift_at(&self, parameters: &WalkingEngineParameters) -> f32 {
+    fn support_sole_lift_at(&self, parameters: &Parameters) -> f32 {
         let start_lift = self.plan.start_feet.support_sole.position().z();
         let end_lift = self.plan.end_feet.support_sole.position().z();
 
@@ -153,7 +156,7 @@ impl StepState {
         start_lift + (end_lift - start_lift).clamp(-max_lift_delta, max_lift_delta)
     }
 
-    fn support_orientation(&self, parameters: &WalkingEngineParameters) -> Orientation3<Walk> {
+    fn support_orientation(&self, parameters: &Parameters) -> Orientation3<Walk> {
         let normalized_time = self.normalized_time_since_start();
         let start = self.plan.start_feet.support_sole.orientation();
         let target = self.plan.end_feet.support_sole.orientation();
@@ -197,7 +200,7 @@ impl StepState {
         parabolic_lift + linear_lift
     }
 
-    fn swing_orientation(&self, parameters: &WalkingEngineParameters) -> Orientation3<Walk> {
+    fn swing_orientation(&self, parameters: &Parameters) -> Orientation3<Walk> {
         let normalized_time = self.normalized_time_since_start();
         let start = self.plan.start_feet.swing_sole.orientation();
         let target = self.plan.end_feet.swing_sole.orientation();
