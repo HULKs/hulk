@@ -31,7 +31,6 @@ pub struct CycleContext {
     invalid_ball_positions: Input<Vec<HypotheticalBallPosition<Ground>>, "invalid_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
@@ -65,7 +64,9 @@ impl SearchSuggestor {
             context.ground_to_field.copied(),
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
-        let suggested_search_position = self.heatmap.get_maximum_position();
+        let suggested_search_position = self
+            .heatmap
+            .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
 
         context
             .heatmap
@@ -119,19 +120,15 @@ impl Heatmap {
         )
     }
 
-    fn get_maximum_position(&self) -> Option<Point2<Field>> {
-        let maximum_heat_heatmap_position = self.heatmap.map.iamax_full();
+    fn get_maximum_position(&self, minimum_validity: f32) -> Option<Point2<Field>> {
+        let maximum_heat_heatmap_position = self.map.iamax_full();
 
-        if self.heatmap.map[maximum_heat_heatmap_position]
-            > context.search_suggestor_configuration.minimum_validity
-        {
+        if self.map[maximum_heat_heatmap_position] > minimum_validity {
             let search_suggestion = point![
-                ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0)
-                    / context.search_suggestor_configuration.cells_per_meter
-                    - context.field_dimensions.length / 2.0),
-                ((maximum_heat_heatmap_position.1 as f32 + 1.0 / 2.0)
-                    / context.search_suggestor_configuration.cells_per_meter
-                    - context.field_dimensions.width / 2.0)
+                ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0) / self.cells_per_meter
+                    - self.field_dimensions.length / 2.0),
+                ((maximum_heat_heatmap_position.1 as f32 + 1.0 / 2.0) / self.cells_per_meter
+                    - self.field_dimensions.width / 2.0)
             ];
             return Some(search_suggestion);
         }
