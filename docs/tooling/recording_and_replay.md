@@ -12,8 +12,8 @@ A started communication server during replay can be used to investigate the reco
         - This will set the cycler instances and recording rate in `etc/parameters/framework.json`
     - Use `./pepsi upload ...` to upload as usual (this includes the framework configuration with the cycler instances)
 - Pregame
-    - Use `./pepsi pregame --recording-settings ... ...` to enable recording at different recording rates and upload to the robot in one step, e.g., `./pepsi pregame --recording-settings Control=1,VisionTop=30 ...`
-        - This will set and overwrite the cycler instances in `etc/parameters/framework.json`
+    - Use `./pepsi pregame --recording-intervals ... ...` to enable recording at different recording rates and upload to the robot in one step, e.g., `./pepsi pregame --recording-intervals Control=1,VisionTop=30 ...`
+        - This will set and overwrite the recording intervals in `etc/parameters/framework.json`
 
 Be careful enabling vision cyclers because this will result in a lot of data being recorded. Top and bottom vision cyclers may fill the entire disk within approximately 10 minutes.
 
