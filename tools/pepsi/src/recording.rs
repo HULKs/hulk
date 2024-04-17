@@ -20,15 +20,15 @@ pub async fn recording(arguments: Arguments, repository: &Repository) -> Result<
         .wrap_err("failed to set recording enablement")
 }
 
-pub fn parse_key_value<T, U>(s: &str) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
+pub fn parse_key_value<T, U>(string: &str) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
 where
     T: std::str::FromStr,
     T::Err: Error + Send + Sync + 'static,
     U: std::str::FromStr,
     U::Err: Error + Send + Sync + 'static,
 {
-    let pos = s
+    let position = string
         .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
-    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", string))?;
+    Ok((string[..position].parse()?, string[position + 1..].parse()?))
 }
