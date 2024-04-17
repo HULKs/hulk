@@ -7,7 +7,7 @@ use std::{
 
 use communication::client::CyclerOutput;
 use eframe::{
-    egui::{show_tooltip_at_pointer, ComboBox, Id, Response, Ui, Widget},
+    egui::{show_tooltip_at_pointer, viewport, ComboBox, Id, Response, Ui, Widget},
     epaint::{Color32, Stroke},
 };
 use egui_plot::{Plot, PlotBounds, PlotPoint, PlotUi, Polygon, Text};
@@ -112,9 +112,11 @@ impl Panel for EnumPlotPanel {
 }
 
 impl EnumPlotPanel {
-    fn plot_segment(plot_ui: &mut PlotUi, segment: &Segment) {
+    fn plot_segment(plot_ui: &mut PlotUi, segment: &Segment, plot_bounds: &PlotBounds) {
         const VERTICAL_MARGIN: f64 = 0.05;
         const BORDER_WIDTH: f32 = 2.0;
+
+        let viewport_left_edge = plot_bounds.min()[0];
 
         let name = segment.name();
         let color = color_hash(&name);
@@ -133,13 +135,19 @@ impl EnumPlotPanel {
             .name(&name)
             .stroke(Stroke::new(BORDER_WIDTH, color)),
         );
+
+        let mut text_x = start + 0.05;
+        if viewport_left_edge > text_x && end > viewport_left_edge{
+            text_x = viewport_left_edge + 0.05;
+        }
+
         plot_ui.text(
             Text::new(
                 PlotPoint {
-                    x: start + 0.05,
+                    x: text_x,
                     y: 0.9,
                 },
-                name,
+                name, //
             )
             .color(Color32::WHITE)
             .anchor(eframe::emath::Align2::LEFT_TOP),
@@ -226,13 +234,14 @@ impl EnumPlotPanel {
             ViewportMode::Free => {}
         }
 
-        plot_ui.set_plot_bounds(PlotBounds::from_min_max(
+        let plot_bounds = PlotBounds::from_min_max(
             [self.scroll_position, 0.0],
             [self.scroll_position + self.viewport_width, 1.0],
-        ));
+        );
+        plot_ui.set_plot_bounds(plot_bounds);
 
         for segment in self.segments() {
-            Self::plot_segment(plot_ui, &segment);
+            Self::plot_segment(plot_ui, &segment, &plot_bounds);
         }
     }
 
