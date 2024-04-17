@@ -112,8 +112,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
     let recording_fields = if mode == Execution::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            recording_interval: usize,
-            cycles_to_next_recording: usize,
+            recording_trigger: crate::structs::RecordingTrigger,
         }
     } else {
         Default::default()
@@ -230,7 +229,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
     let recording_parameter_fields = if mode == Execution::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
-            recording_interval: usize,
+            recording_trigger: crate::structs::RecordingTrigger,
         }
     } else {
         Default::default()
@@ -238,8 +237,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
     let recording_initializer_fields = if mode == Execution::Run {
         quote! {
             recording_sender,
-            recording_interval,
-            cycles_to_next_recording: 0,
+            recording_trigger,
         }
     } else {
         Default::default()
@@ -458,16 +456,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
     let pre_setup = match mode {
         Execution::None => Default::default(),
         Execution::Run => quote! {
-            let enable_recording = self.recording_interval != 0 && self.cycles_to_next_recording == 0;
-            if self.recording_interval != 0 {
-                if self.cycles_to_next_recording == 0 {
-                    self.cycles_to_next_recording = self.recording_interval - 1;
-                }
-                else {
-                    self.cycles_to_next_recording -= 1;
-                }
-            }
-            let enable_recording = enable_recording && self.hardware_interface.should_record();
+            let enable_recording = self.recording_trigger.should_record() && self.hardware_interface.should_record();
             let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
         },
         Execution::Replay => Default::default(),
@@ -545,6 +534,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                         #(#recording_variants)*
                     }).wrap_err("failed to send recording frame")?;
                 }
+                self.recording_trigger.cycle_finished();
             }
         }
         Execution::Replay => after_remaining_nodes,
