@@ -3,9 +3,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use source_analyzer::{struct_hierarchy::StructHierarchy, structs::Structs};
 
-use crate::Execution;
-
-pub fn generate_structs(structs: &Structs, mode: Execution) -> TokenStream {
+pub fn generate_structs(structs: &Structs) -> TokenStream {
     let derives = quote! {
         #[derive(
             Clone,
@@ -48,16 +46,9 @@ pub fn generate_structs(structs: &Structs, mode: Execution) -> TokenStream {
             }
         });
 
-    let recording_trigger = if mode == Execution::Run {
-        recording_trigger()
-    } else {
-        Default::default()
-    };
-
     quote! {
         #parameters
         #(#cyclers)*
-        #recording_trigger
     }
 }
 
@@ -121,28 +112,5 @@ fn hierarchy_to_token_stream(
             #(#struct_fields,)*
         }
         #(#child_structs)*
-    }
-}
-
-fn recording_trigger() -> TokenStream {
-    quote! {
-        pub struct RecordingTrigger {
-            recording_interval: usize,
-            counter: usize
-        }
-
-        impl RecordingTrigger {
-            pub fn new(recording_interval: usize) -> Self {
-                Self { recording_interval, counter: 0 }
-            }
-
-            pub fn cycle_finished(&mut self) {
-                self.counter = (self.counter + 1) % self.recording_interval;
-            }
-
-            pub fn should_record(&self) -> bool {
-                self.recording_interval != 0 && self.counter == 0
-            }
-        }
     }
 }

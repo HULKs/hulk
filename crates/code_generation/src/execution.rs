@@ -307,7 +307,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let own_subscribed_outputs_reader_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_reader");
         let recording_trigger = if mode == Execution::Run {
             quote! {
-                let recording_trigger = crate::structs::RecordingTrigger::new(
+                let recording_trigger = framework::RecordingTrigger::new(
                     recording_intervals.get(#cycler_instance_name).copied().unwrap_or(0)
                 );
             }
