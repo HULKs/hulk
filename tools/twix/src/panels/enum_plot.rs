@@ -99,10 +99,7 @@ impl Panel for EnumPlotPanel {
 
     fn new(nao: Arc<Nao>, value: Option<&serde_json::Value>) -> Self {
 
-        let output = match value.and_then(|value| value.get("subscribe_key")) {
-            Some(Value::String(string)) => string.to_string(),
-            _ => String::new(),
-        };
+        let output = value.and_then(|value| String::from(value.get("subscribe_key").as_str())).unwrap_or_default();
 
         let mut panel = Self {
             nao,
