@@ -1,1 +1,86 @@
-{}
+{
+  "field_color_detection": {
+    "vision_bottom": {
+      "blue_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.36457,
+        "first_half_opponent_half_towards_own_goal": 0.36457,
+        "first_half_own_half_away_own_goal": 0.36457,
+        "first_half_own_half_towards_own_goal": 0.36457
+      },
+      "green_luminance_threshold": {
+        "first_half_opponent_half_away_own_goal": 13.0,
+        "first_half_opponent_half_towards_own_goal": 13.0,
+        "first_half_own_half_away_own_goal": 13.0,
+        "first_half_own_half_towards_own_goal": 13.0
+      },
+      "red_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.34579,
+        "first_half_opponent_half_towards_own_goal": 0.34579,
+        "first_half_own_half_away_own_goal": 0.34579,
+        "first_half_own_half_towards_own_goal": 0.34579
+      },
+      "lower_green_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.54383,
+        "first_half_opponent_half_towards_own_goal": 0.54383,
+        "first_half_own_half_away_own_goal": 0.54383,
+        "first_half_own_half_towards_own_goal": 0.54383
+      },
+      "upper_green_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.57333,
+        "first_half_opponent_half_towards_own_goal": 0.57333,
+        "first_half_own_half_away_own_goal": 0.57333,
+        "first_half_own_half_towards_own_goal": 0.57333
+      }
+    },
+    "vision_top": {
+      "blue_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.36457,
+        "first_half_opponent_half_towards_own_goal": 0.36457,
+        "first_half_own_half_away_own_goal": 0.36457,
+        "first_half_own_half_towards_own_goal": 0.36457
+      },
+      "green_luminance_threshold": {
+        "first_half_opponent_half_away_own_goal": 25.0,
+        "first_half_opponent_half_towards_own_goal": 25.0,
+        "first_half_own_half_away_own_goal": 25.0,
+        "first_half_own_half_towards_own_goal": 25.0
+      },
+      "red_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.34579,
+        "first_half_opponent_half_towards_own_goal": 0.34579,
+        "first_half_own_half_away_own_goal": 0.34579,
+        "first_half_own_half_towards_own_goal": 0.34579
+      },
+      "lower_green_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.45799,
+        "first_half_opponent_half_towards_own_goal": 0.45799,
+        "first_half_own_half_away_own_goal": 0.45799,
+        "first_half_own_half_towards_own_goal": 0.45799
+      },
+      "upper_green_chromaticity_threshold": {
+        "first_half_opponent_half_away_own_goal": 0.47007,
+        "first_half_opponent_half_towards_own_goal": 0.47007,
+        "first_half_own_half_away_own_goal": 0.47007,
+        "first_half_own_half_towards_own_goal": 0.47007
+      }
+    }
+  },
+  "image_segmenter": {
+    "vision_bottom": {
+      "vertical_edge_threshold": {
+        "first_half_opponent_half_away_own_goal": 10.0,
+        "first_half_opponent_half_towards_own_goal": 10.0,
+        "first_half_own_half_away_own_goal": 10.0,
+        "first_half_own_half_towards_own_goal": 10.0
+      }
+    },
+    "vision_top": {
+      "vertical_edge_threshold": {
+        "first_half_opponent_half_away_own_goal": 16.0,
+        "first_half_opponent_half_towards_own_goal": 16.0,
+        "first_half_own_half_away_own_goal": 16.0,
+        "first_half_own_half_towards_own_goal": 16.0
+      }
+    }
+  }
+}
