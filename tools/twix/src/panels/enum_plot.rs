@@ -117,6 +117,8 @@ impl EnumPlotPanel {
         const BORDER_WIDTH: f32 = 2.0;
 
         let viewport_left_edge = plot_bounds.min()[0];
+        let viewport_right_edge = plot_bounds.max()[0];
+        let min_boxsize_text = viewport_right_edge - viewport_left_edge;
 
         let name = segment.name();
         let color = color_hash(&name);
@@ -137,16 +139,13 @@ impl EnumPlotPanel {
         );
 
         let mut text_x = start + 0.05;
-        if viewport_left_edge > text_x && end > viewport_left_edge{
+        if viewport_left_edge > text_x && end > (viewport_left_edge + (min_boxsize_text / 18.0)) {
             text_x = viewport_left_edge + 0.05;
         }
 
         plot_ui.text(
             Text::new(
-                PlotPoint {
-                    x: text_x,
-                    y: 0.9,
-                },
+                PlotPoint { x: text_x, y: 0.9 },
                 name, //
             )
             .color(Color32::WHITE)
