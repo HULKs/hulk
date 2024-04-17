@@ -98,7 +98,12 @@ impl Panel for EnumPlotPanel {
     const NAME: &'static str = "Enum Plot";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let output_key = value.and_then(|value| String::from(value.get("subscribe_key").as_str())).unwrap_or_default();
+        let output_key = value
+            .and_then(|value| value.get("subscribe_key"))
+            .and_then(|value| value.as_str())
+            .map(String::from)
+            .unwrap_or_default();
+
 
         let mut panel = Self {
             nao,
