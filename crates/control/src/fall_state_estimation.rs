@@ -181,7 +181,8 @@ impl FallStateEstimation {
             }
             (current @ FallState::Falling { start_time, .. }, Some(_), None) => {
                 if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout {
-                    decide_falling_direction(
+                    decide_standing_up_direction(
+                        &context,
                         fallen_up_gravitational_difference,
                         fallen_down_gravitational_difference,
                     )
@@ -242,16 +243,19 @@ impl FallStateEstimation {
     }
 }
 
-fn decide_falling_direction(
+fn decide_standing_up_direction(
+    context: &CycleContext,
     fallen_up_gravitational_difference: f32,
     fallen_down_gravitational_difference: f32,
 ) -> FallState {
     if fallen_up_gravitational_difference < fallen_down_gravitational_difference {
-        FallState::Fallen {
+        FallState::StandingUp {
+            start_time: context.cycle_time.start_time,
             kind: Kind::FacingUp,
         }
     } else {
-        FallState::Fallen {
+        FallState::StandingUp {
+            start_time: context.cycle_time.start_time,
             kind: Kind::FacingDown,
         }
     }
