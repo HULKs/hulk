@@ -428,7 +428,7 @@
       "step_duration": { "nanos": 260000000, "secs": 0 },
       "step_duration_increase": {
         "forward": 0.1,
-        "left": 0.2,
+        "left": 0.3,
         "turn": 0.0
       },
       "step_midpoint": 0.5,
@@ -507,7 +507,7 @@
       "pulling_back_duration": { "nanos": 0, "secs": 1 },
       "pulling_tight_duration": { "nanos": 0, "secs": 1 },
       "roll_factor": 0.4,
-      "torso_tilt_compensation_factor": -0.03
+      "torso_tilt_compensation_factor": 0.05
     }
   },
   "kick_steps": {
@@ -545,6 +545,14 @@
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
+      },
+      {
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "foot_lift_apex": 0.01,
+        "midpoint": 0.5,
+        "hip_pitch_overrides": null,
+        "ankle_pitch_overrides": null
       }
     ],
     "turn": [
@@ -573,6 +581,14 @@
           { "value": 0.2, "timepoint": { "nanos": 150000000, "secs": 0 } },
           { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
         ]
+      },
+      {
+        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
+        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "foot_lift_apex": 0.01,
+        "midpoint": 0.5,
+        "hip_pitch_overrides": null,
+        "ankle_pitch_overrides": null
       }
     ],
     "side": [
