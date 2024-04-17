@@ -68,6 +68,7 @@ impl FieldBorderDetection {
             .filter_map(|scan_line| {
                 get_first_field_segment(
                     &scan_line.segments,
+                    scan_line.position as f32,
                     &context
                         .camera_matrix
                         .horizon
@@ -97,12 +98,12 @@ impl FieldBorderDetection {
 
 fn get_first_field_segment<'segment>(
     segments: &'segment [Segment],
+    x: f32,
     horizon: &Horizon,
-    horizon_margin: f32,
+    _horizon_margin: f32,
 ) -> Option<&'segment Segment> {
     segments.iter().find(|segment| {
-        segment.field_color == Intensity::High
-            && segment.start > (horizon.horizon_y_minimum() + horizon_margin) as u16
+        segment.field_color == Intensity::High && horizon.is_below(point![x, segment.start as f32])
     })
 }
 
