@@ -98,8 +98,7 @@ impl Panel for EnumPlotPanel {
     const NAME: &'static str = "Enum Plot";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-
-        let output = value.and_then(|value| String::from(value.get("subscribe_key").as_str())).unwrap_or_default();
+        let output_key = value.and_then(|value| String::from(value.get("subscribe_key").as_str())).unwrap_or_default();
 
         let mut panel = Self {
             nao,
@@ -108,10 +107,10 @@ impl Panel for EnumPlotPanel {
             change_buffer: None,
             scroll_position: 0.0,
             viewport_width: 1.0,
-            output_key: output,
+            output_key,
             viewport_mode: ViewportMode::Full,
         };
-       panel.subscribe();
+        panel.subscribe();
         panel
     }
 
@@ -140,9 +139,9 @@ impl EnumPlotPanel {
                 [end, 1.0 - VERTICAL_MARGIN],
                 [end, 0.0 + VERTICAL_MARGIN],
             ])
-            .fill_color(color.gamma_multiply(0.5))
-            .name(&name)
-            .stroke(Stroke::new(BORDER_WIDTH, color)),
+                .fill_color(color.gamma_multiply(0.5))
+                .name(&name)
+                .stroke(Stroke::new(BORDER_WIDTH, color)),
         );
         plot_ui.text(
             Text::new(
@@ -152,8 +151,8 @@ impl EnumPlotPanel {
                 },
                 name,
             )
-            .color(Color32::WHITE)
-            .anchor(eframe::emath::Align2::LEFT_TOP),
+                .color(Color32::WHITE)
+                .anchor(eframe::emath::Align2::LEFT_TOP),
         );
     }
 
@@ -350,6 +349,6 @@ impl Widget for &mut EnumPlotPanel {
                     });
             });
         })
-        .response
+            .response
     }
 }
