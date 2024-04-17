@@ -97,7 +97,7 @@ pub struct EnumPlotPanel {
 impl Panel for EnumPlotPanel {
     const NAME: &'static str = "Enum Plot";
 
-    fn new(nao: Arc<Nao>, value: Option<&serde_json::Value>) -> Self {
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
 
         let output = value.and_then(|value| String::from(value.get("subscribe_key").as_str())).unwrap_or_default();
 
