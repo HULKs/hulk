@@ -35,5 +35,6 @@ pub enum FallState {
     },
     StandingUp {
         start_time: SystemTime,
+        kind: Kind,
     },
 }

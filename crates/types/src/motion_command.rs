@@ -35,7 +35,7 @@ pub enum MotionCommand {
         head: HeadMotion,
     },
     StandUp {
-        facing: Kind,
+        kind: Kind,
     },
     #[default]
     Unstiff,
