@@ -457,6 +457,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
         Execution::None => Default::default(),
         Execution::Run => quote! {
             let enable_recording = self.recording_trigger.should_record() && self.hardware_interface.should_record();
+            self.recording_trigger.update();
             let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
         },
         Execution::Replay => Default::default(),
@@ -534,7 +535,6 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                         #(#recording_variants)*
                     }).wrap_err("failed to send recording frame")?;
                 }
-                self.recording_trigger.cycle_finished();
             }
         }
         Execution::Replay => after_remaining_nodes,
