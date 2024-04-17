@@ -30,7 +30,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             body_id: String,
             head_id: String,
             keep_running: tokio_util::sync::CancellationToken,
-            recording_settings: std::collections::HashMap<String, usize>,
+            recording_intervals: std::collections::HashMap<String, usize>,
         ) -> color_eyre::Result<()>
         {
             use color_eyre::eyre::WrapErr;
@@ -307,7 +307,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let own_subscribed_outputs_reader_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_reader");
         let cycles_per_recording = if mode == Execution::Run {
             quote! {
-                let cycles_per_recording = *recording_settings.get(#cycler_instance_name).unwrap_or(&0);
+                let cycles_per_recording = *recording_intervals.get(#cycler_instance_name).unwrap_or(&0);
             }
         } else {
             Default::default()

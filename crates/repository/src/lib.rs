@@ -278,9 +278,9 @@ impl Repository {
         .wrap_err("failed to serialize parameters directory")
     }
 
-    pub async fn set_recording_settings(
+    pub async fn set_recording_intervals(
         &self,
-        recording_settings: HashMap<String, usize>,
+        recording_intervals: HashMap<String, usize>,
     ) -> Result<()> {
         let file_contents = read_to_string(self.root.join("etc/parameters/framework.json"))
             .await
@@ -288,8 +288,8 @@ impl Repository {
         let mut hardware_json: Value =
             from_str(&file_contents).wrap_err("failed to deserialize framework.json")?;
 
-        hardware_json["recording_settings"] = to_value(recording_settings)
-            .wrap_err("failed to convert recording settings to JSON")?;
+        hardware_json["recording_intervals"] = to_value(recording_intervals)
+            .wrap_err("failed to convert recording intervals to JSON")?;
         {
             let file_contents = to_string_pretty(&hardware_json)
                 .wrap_err("failed to serialize framework.json")?

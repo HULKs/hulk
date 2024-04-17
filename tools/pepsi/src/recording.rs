@@ -7,16 +7,15 @@ use repository::Repository;
 
 #[derive(Args)]
 pub struct Arguments {
-    /// Number of cycles per one recording for each cycler, e.g. Control=1,VisionTop=30 to
-    /// record every cycle in Control and one out of every 30 in VisionTop. Set to 0 or don't
-    /// specify to disable recording for a cycler.
+    /// Intervals between cycle recordings, e.g. Control=1,VisionTop=30 to record every cycle in Control
+    /// and one out of every 30 in VisionTop. Set to 0 or don't specify to disable recording for a cycler.
     #[arg(value_delimiter=',', value_parser = parse_key_value::<String, usize>)]
-    pub recording_settings: Vec<(String, usize)>,
+    pub recording_intervals: Vec<(String, usize)>,
 }
 
 pub async fn recording(arguments: Arguments, repository: &Repository) -> Result<()> {
     repository
-        .set_recording_settings(HashMap::from_iter(arguments.recording_settings))
+        .set_recording_intervals(HashMap::from_iter(arguments.recording_intervals))
         .await
         .wrap_err("failed to set recording enablement")
 }
