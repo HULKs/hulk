@@ -1,10 +1,10 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::{collections::BTreeMap, ops::RangeInclusive, time::Duration};
 
 use chrono::{DateTime, Utc};
 use eframe::{
     egui::{
         pos2, Align2, CentralPanel, Color32, Context, FontId, Painter, Pos2, Rect, Rounding, Sense,
-        Stroke, TextStyle, Vec2,
+        Slider, Stroke, TextStyle, TopBottomPanel, Vec2,
     },
     Frame,
 };
@@ -185,6 +185,34 @@ impl ReplayerApplication {
             Stroke::new(2.0, color),
         );
     }
+
+    fn replay_at_position(&mut self) {
+        let position_duration = Duration::from_secs_f32(self.position.abs());
+        let timestamp = if self.position > 0.0 {
+            self.timing.timestamp + position_duration
+        } else {
+            self.timing.timestamp - position_duration
+        };
+        let recording_indices = self.replayer.get_recording_indices_mut();
+        let frames = recording_indices
+            .into_iter()
+            .map(|(name, index)| {
+                (
+                    name,
+                    index
+                        .find_latest_frame_up_to(timestamp)
+                        .expect("failed to find latest frame"),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        for (name, frame) in frames {
+            if let Some(frame) = frame {
+                self.replayer
+                    .replay(&name, frame.timing.timestamp, &frame.data)
+                    .expect("failed to replay frame");
+            }
+        }
+    }
 }
 
 fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> Timing {
@@ -211,6 +239,21 @@ fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> Timing {
 
 impl eframe::App for ReplayerApplication {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
+        TopBottomPanel::top("Bärbel").show(context, |ui| {
+            ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
+            let changed = ui
+                .add(
+                    Slider::new(
+                        &mut self.position,
+                        RangeInclusive::new(0.0, self.timing.duration.as_secs_f32()),
+                    )
+                    .step_by(0.01),
+                )
+                .changed();
+            if changed {
+                self.replay_at_position();
+            }
+        });
         CentralPanel::default().show(context, |ui| {
             let font = ui
                 .style()
@@ -258,32 +301,7 @@ impl eframe::App for ReplayerApplication {
                         (cursor_position.x - clip_rect.left()) / clip_rect.width();
                     self.position =
                         cursor_position_relative * self.viewport.length + self.viewport.offset;
-
-                    let position_duration = Duration::from_secs_f32(self.position.abs());
-                    let timestamp = if self.position > 0.0 {
-                        self.timing.timestamp + position_duration
-                    } else {
-                        self.timing.timestamp - position_duration
-                    };
-                    let recording_indices = self.replayer.get_recording_indices_mut();
-                    let frames = recording_indices
-                        .into_iter()
-                        .map(|(name, index)| {
-                            (
-                                name,
-                                index
-                                    .find_latest_frame_up_to(timestamp)
-                                    .expect("failed to find latest frame"),
-                            )
-                        })
-                        .collect::<BTreeMap<_, _>>();
-                    for (name, frame) in frames {
-                        if let Some(frame) = frame {
-                            self.replayer
-                                .replay(&name, frame.timing.timestamp, &frame.data)
-                                .expect("failed to replay frame");
-                        }
-                    }
+                    self.replay_at_position();
                 }
             }
             self.update_viewport(clip_rect, drag_delta, cursor_position, scroll_delta);
