@@ -12,7 +12,9 @@ impl RecordingTrigger {
     }
 
     pub fn update(&mut self) {
-        self.counter = (self.counter + 1) % self.recording_interval;
+        if self.recording_interval != 0 {
+            self.counter = (self.counter + 1) % self.recording_interval;
+        }
     }
 
     pub fn should_record(&self) -> bool {
