@@ -3,7 +3,9 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use source_analyzer::{struct_hierarchy::StructHierarchy, structs::Structs};
 
-pub fn generate_structs(structs: &Structs) -> TokenStream {
+use crate::Execution;
+
+pub fn generate_structs(structs: &Structs, mode: Execution) -> TokenStream {
     let derives = quote! {
         #[derive(
             Clone,
@@ -46,7 +48,11 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
             }
         });
 
-    let recording_trigger = recording_trigger();
+    let recording_trigger = if mode == Execution::Run {
+        recording_trigger()
+    } else {
+        Default::default()
+    };
 
     quote! {
         #parameters
