@@ -298,7 +298,6 @@
       }
     },
     {
-      "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
           "duration": 0.4,
