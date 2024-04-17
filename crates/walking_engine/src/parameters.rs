@@ -66,7 +66,7 @@ pub struct GyroBalancingParameters {
 pub struct CatchingStepsParameters {
     pub toe_offset: f32,
     pub heel_offset: f32,
-    pub max_adjustment: Vector3<Walk>,
+    pub max_adjustment: f32,
     pub midpoint: f32,
     pub target_overestimation_factor: f32,
     pub additional_foot_lift: f32,

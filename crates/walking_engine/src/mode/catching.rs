@@ -102,11 +102,13 @@ fn catching_end_feet(
     target_overestimation_factor: f32,
     support_side: Side,
 ) -> Feet {
+    let max_adjustment = parameters.catching_steps.max_adjustment;
     let target = project_onto_ground(robot_to_ground, center_of_mass);
     Feet::end_from_request(
         parameters,
         Step {
-            forward: target.x() * target_overestimation_factor,
+            forward: (target.x() * target_overestimation_factor)
+                .clamp(-max_adjustment, max_adjustment),
             left: 0.0,
             turn: 0.0,
         },
