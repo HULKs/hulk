@@ -34,8 +34,9 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    initial, intercept_ball, jump, look_around, lost_ball, penalize, prepare_jump, search,
-    sit_down, stand, stand_up, support, unstiff, walk_to_kick_off, walk_to_penalty_kick,
+    initial, intercept_ball, jump, look_around, lost_ball, no_ground_contact, penalize,
+    prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
+    walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
@@ -118,6 +119,7 @@ impl Behavior {
             Action::Initial,
             Action::FallSafely,
             Action::StandUp,
+            Action::NoGroundContact,
             Action::Stand,
             Action::InterceptBall,
             Action::Calibrate,
@@ -236,6 +238,7 @@ impl Behavior {
                         fall_safely::execute(world_state, *context.has_ground_contact)
                     }
                     Action::StandUp => stand_up::execute(world_state),
+                    Action::NoGroundContact => no_ground_contact::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,

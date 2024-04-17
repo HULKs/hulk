@@ -1,5 +1,6 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Sub};
 
+use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
@@ -11,15 +12,13 @@ pub struct Step {
 }
 
 impl Step {
-    pub fn zero() -> Self {
-        Self {
-            forward: 0.0,
-            left: 0.0,
-            turn: 0.0,
-        }
-    }
+    pub const ZERO: Self = Self {
+        forward: 0.0,
+        left: 0.0,
+        turn: 0.0,
+    };
 
-    pub fn mirrored(&self) -> Self {
+    pub fn mirrored(self) -> Self {
         Self {
             forward: self.forward,
             left: -self.left,
@@ -27,16 +26,8 @@ impl Step {
         }
     }
 
-    pub fn sum(&self) -> f32 {
-        self.forward + self.left + self.turn
-    }
-
-    pub fn abs(self) -> Self {
-        Self {
-            forward: self.forward.abs(),
-            left: self.left.abs(),
-            turn: self.turn.abs(),
-        }
+    pub fn offsets(self) -> Vector2<f32> {
+        Vector2::new(self.forward, self.left)
     }
 }
 
@@ -60,30 +51,6 @@ impl Sub<Step> for Step {
             forward: self.forward - right.forward,
             left: self.left - right.left,
             turn: self.turn - right.turn,
-        }
-    }
-}
-
-impl Mul<Step> for Step {
-    type Output = Step;
-
-    fn mul(self, rhs: Step) -> Self::Output {
-        Step {
-            forward: self.forward * rhs.forward,
-            left: self.left * rhs.left,
-            turn: self.turn * rhs.turn,
-        }
-    }
-}
-
-impl Div<f32> for Step {
-    type Output = Step;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Step {
-            forward: self.forward / rhs,
-            left: self.left / rhs,
-            turn: self.turn / rhs,
         }
     }
 }

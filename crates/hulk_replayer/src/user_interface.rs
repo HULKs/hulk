@@ -50,7 +50,7 @@ where
                     .unwrap()
                     .as_secs_f64();
                 let changed = ui
-                    .add(Slider::new(&mut current, RangeInclusive::new(0.0, length)))
+                    .add(Slider::new(&mut current, RangeInclusive::new(0.0, length)).step_by(0.01))
                     .changed();
                 self.current = self.start + Duration::from_secs_f64(current);
                 if changed {

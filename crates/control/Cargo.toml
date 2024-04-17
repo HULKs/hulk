@@ -30,4 +30,5 @@ serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }
+splines = { workspace = true }
 types = { workspace = true }

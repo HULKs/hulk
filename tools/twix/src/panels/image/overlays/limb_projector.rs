@@ -29,7 +29,7 @@ impl Overlay for LimbProjector {
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let projected_limbs: ProjectedLimbs = self.projected_limbs.require_latest()?;
         for limb in projected_limbs.limbs {
-            painter.polygon(&limb.pixel_polygon, Stroke::new(3.0, Color32::BLUE));
+            painter.polygon(limb.pixel_polygon, Stroke::new(3.0, Color32::BLUE));
         }
         Ok(())
     }

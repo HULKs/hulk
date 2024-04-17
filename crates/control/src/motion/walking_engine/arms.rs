@@ -3,29 +3,24 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
+use splines::Interpolate;
 use types::{
-    joints::{arm::ArmJoints, mirror::Mirror},
-    motion_command::{ArmMotion, MotionCommand},
-    parameters::SwingingArmsParameters,
-    support_foot::Side,
+    joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, mirror::Mirror},
+    motor_commands::MotorCommands,
+    walking_engine::SwingingArmsParameters as Parameters,
 };
 
 use motionfile::{SplineInterpolator, TimedSpline};
 
-use super::foot_offsets::FootOffsets;
+use super::CycleContext;
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
-pub struct SwingingArm {
-    side: Side,
-    state: State,
-}
-
-#[derive(Clone, Default, Debug, Serialize, Deserialize, SerializeHierarchy)]
-enum State {
+#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy, Default)]
+pub enum Arm {
     #[default]
     Swing,
     PullingBack {
-        interpolator: SplineInterpolator<ArmJoints<f32>>,
+        elapsed: Duration,
+        end_positions: ArmJoints<f32>,
     },
     PullingTight {
         interpolator: SplineInterpolator<ArmJoints<f32>>,
@@ -35,236 +30,216 @@ enum State {
         interpolator: SplineInterpolator<ArmJoints<f32>>,
     },
     ReleasingBack {
-        interpolator: SplineInterpolator<ArmJoints<f32>>,
+        elapsed: Duration,
+        start_positions: ArmJoints<f32>,
     },
 }
 
-impl SwingingArm {
-    pub fn new(side: Side) -> Self {
-        Self {
-            side,
-            state: State::Swing,
-        }
-    }
+impl Arm {
+    pub fn swing(self, context: &CycleContext) -> Self {
+        let parameters = &context.parameters.swinging_arms;
+        let last_cycle_duration = context.cycle_time.last_cycle_duration;
 
-    pub fn next(
-        &mut self,
-        foot: FootOffsets,
-        motion_command: &MotionCommand,
-        cycle_duration: Duration,
-        config: &SwingingArmsParameters,
-    ) -> Result<ArmJoints<f32>> {
-        let requested_arm_motion =
-            self.arm_motion_from_motion_command(motion_command, config.debug_pull_back);
-        let pull_back_joints = match self.side {
-            Side::Left => config.pull_back_joints,
-            Side::Right => config.pull_back_joints.mirrored(),
-        };
-        let pull_tight_joints = match self.side {
-            Side::Left => config.pull_tight_joints,
-            Side::Right => config.pull_tight_joints.mirrored(),
-        };
-        let swinging_arm_joints = self.swinging_arm_joints(foot, config);
-        let center_arm_joints = self.swinging_arm_joints(FootOffsets::zero(), config);
-
-        self.state = match (&mut self.state, requested_arm_motion) {
-            (State::Swing, ArmMotion::Swing) => State::Swing,
-            (State::Swing, ArmMotion::PullTight) => State::PullingBack {
-                interpolator: TimedSpline::try_new_transition_timed(
-                    swinging_arm_joints,
-                    pull_back_joints,
-                    config.pulling_back_duration,
-                )?
-                .into(),
+        match self {
+            Self::Swing => self,
+            Self::PullingBack {
+                elapsed,
+                end_positions,
+            } => Self::ReleasingBack {
+                elapsed: parameters.pulling_back_duration - elapsed,
+                start_positions: end_positions,
             },
-            (
-                State::PullingBack {
-                    ref mut interpolator,
-                },
-                ArmMotion::PullTight,
-            ) => {
-                interpolator.advance_by(cycle_duration);
-                if interpolator.is_finished() {
-                    State::PullingTight {
-                        interpolator: TimedSpline::try_new_transition_timed(
-                            pull_back_joints,
-                            pull_tight_joints,
-                            config.pulling_tight_duration,
-                        )?
-                        .into(),
-                    }
-                } else {
-                    State::PullingBack {
-                        interpolator: interpolator.clone(),
-                    }
-                }
-            }
-            (State::PullingBack { interpolator }, ArmMotion::Swing) => {
-                let current_joints = interpolator.value();
+            Self::PullingTight { interpolator } => {
                 let interpolator = TimedSpline::try_new_transition_timed(
-                    current_joints,
-                    center_arm_joints,
+                    interpolator.value(),
+                    parameters.pull_back_joints,
                     interpolator.current_duration(),
-                )?;
-                State::ReleasingBack {
-                    interpolator: interpolator.into(),
-                }
-            }
-            (
-                State::PullingTight {
-                    ref mut interpolator,
-                },
-                ArmMotion::PullTight,
-            ) => {
-                interpolator.advance_by(cycle_duration);
-                if interpolator.is_finished() {
-                    State::Back
-                } else {
-                    State::PullingTight {
-                        interpolator: interpolator.clone(),
-                    }
-                }
-            }
-            (State::PullingTight { interpolator }, ArmMotion::Swing) => {
-                let current_joints = interpolator.value();
-                let interpolator = TimedSpline::try_new_transition_timed(
-                    current_joints,
-                    pull_back_joints,
-                    interpolator.current_duration(),
-                )?
+                )
+                .unwrap()
                 .into();
-                State::ReleasingTight { interpolator }
+                Self::ReleasingTight { interpolator }
             }
-            (State::Back, ArmMotion::Swing) => State::ReleasingTight {
-                interpolator: TimedSpline::try_new_transition_timed(
-                    pull_tight_joints,
-                    pull_back_joints,
-                    config.pulling_back_duration + config.pulling_tight_duration,
-                )?
-                .into(),
+            Self::Back => {
+                let interpolator = TimedSpline::try_new_transition_timed(
+                    parameters.pull_tight_joints,
+                    parameters.pull_back_joints,
+                    parameters.pulling_tight_duration,
+                )
+                .unwrap()
+                .into();
+                Self::PullingTight { interpolator }
+            }
+            Self::ReleasingTight { mut interpolator } => {
+                interpolator.advance_by(last_cycle_duration);
+                if interpolator.is_finished() {
+                    Self::ReleasingBack {
+                        elapsed: Duration::ZERO,
+                        start_positions: interpolator.value(),
+                    }
+                } else {
+                    Self::ReleasingTight { interpolator }
+                }
+            }
+            Self::ReleasingBack {
+                elapsed,
+                start_positions,
+            } => {
+                let elapsed = elapsed + last_cycle_duration;
+                if elapsed >= parameters.pulling_back_duration {
+                    Self::Swing
+                } else {
+                    Self::ReleasingBack {
+                        elapsed,
+                        start_positions,
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn pull_tight(self, context: &CycleContext) -> Self {
+        let parameters = &context.parameters.swinging_arms;
+        let last_cycle_duration = context.cycle_time.last_cycle_duration;
+
+        match self {
+            Self::Swing => Self::PullingBack {
+                elapsed: Duration::ZERO,
+                end_positions: parameters.pull_back_joints,
             },
-            (State::Back, ArmMotion::PullTight) => State::Back,
-            (
-                State::ReleasingBack {
-                    ref mut interpolator,
-                },
-                ArmMotion::Swing,
-            ) => {
-                interpolator.advance_by(cycle_duration);
-                if interpolator.is_finished() {
-                    State::Swing
+            Self::PullingBack {
+                elapsed,
+                end_positions,
+            } => {
+                let elapsed = elapsed + last_cycle_duration;
+                if elapsed >= parameters.pulling_back_duration {
+                    let interpolator = TimedSpline::try_new_transition_timed(
+                        parameters.pull_back_joints,
+                        parameters.pull_tight_joints,
+                        parameters.pulling_tight_duration,
+                    )
+                    .unwrap()
+                    .into();
+                    Self::PullingTight { interpolator }
                 } else {
-                    State::ReleasingBack {
-                        interpolator: interpolator.clone(),
+                    Self::PullingBack {
+                        elapsed,
+                        end_positions,
                     }
                 }
             }
-            (State::ReleasingBack { interpolator }, ArmMotion::PullTight) => {
-                let current_joints = interpolator.value();
-                let interpolator = TimedSpline::try_new_transition_timed(
-                    current_joints,
-                    pull_back_joints,
-                    config.pulling_back_duration,
-                )?;
-                State::PullingBack {
-                    interpolator: interpolator.into(),
-                }
-            }
-            (
-                State::ReleasingTight {
-                    ref mut interpolator,
-                },
-                ArmMotion::Swing,
-            ) => {
-                interpolator.advance_by(cycle_duration);
+            Self::PullingTight { mut interpolator } => {
+                interpolator.advance_by(last_cycle_duration);
                 if interpolator.is_finished() {
-                    State::ReleasingBack {
-                        interpolator: TimedSpline::try_new_transition_timed(
-                            pull_back_joints,
-                            center_arm_joints,
-                            config.pulling_back_duration,
-                        )?
-                        .into(),
-                    }
+                    Self::Back
                 } else {
-                    State::ReleasingTight {
-                        interpolator: interpolator.clone(),
-                    }
+                    Self::PullingTight { interpolator }
                 }
             }
-            (State::ReleasingTight { interpolator }, ArmMotion::PullTight) => {
-                let current_joints = interpolator.value();
+            Self::Back => self,
+            Self::ReleasingTight { interpolator } => {
                 let interpolator = TimedSpline::try_new_transition_timed(
-                    current_joints,
-                    pull_tight_joints,
+                    interpolator.value(),
+                    parameters.pull_tight_joints,
                     interpolator.current_duration(),
-                )?;
-                State::PullingTight {
-                    interpolator: interpolator.into(),
-                }
+                )
+                .unwrap()
+                .into();
+                Self::PullingTight { interpolator }
             }
-        };
-        Ok(match &self.state {
-            State::Swing => swinging_arm_joints,
-            State::PullingBack { interpolator }
-            | State::ReleasingBack { interpolator }
-            | State::ReleasingTight { interpolator }
-            | State::PullingTight { interpolator } => interpolator.value(),
-            State::Back => pull_tight_joints,
-        })
-    }
-
-    pub fn torso_tilt_compensation(&self, config: &SwingingArmsParameters) -> Result<f32> {
-        let shoulder_pitch = match &self.state {
-            State::Swing => FRAC_PI_2,
-            State::PullingBack { interpolator }
-            | State::ReleasingBack { interpolator }
-            | State::ReleasingTight { interpolator }
-            | State::PullingTight { interpolator } => interpolator.value().shoulder_pitch,
-            State::Back => config.pull_tight_joints.shoulder_pitch,
-        };
-        Ok((shoulder_pitch - FRAC_PI_2) * config.torso_tilt_compensation_factor)
-    }
-
-    fn arm_motion_from_motion_command(
-        &self,
-        motion_command: &MotionCommand,
-        debug_pull_back: bool,
-    ) -> ArmMotion {
-        if debug_pull_back {
-            return ArmMotion::PullTight;
-        }
-        match motion_command {
-            MotionCommand::Walk {
-                left_arm,
-                right_arm,
-                ..
-            } => match self.side {
-                Side::Left => *left_arm,
-                Side::Right => *right_arm,
+            Self::ReleasingBack {
+                elapsed,
+                start_positions,
+            } => Self::PullingBack {
+                elapsed: parameters.pulling_back_duration - elapsed,
+                end_positions: start_positions,
             },
-            _ => ArmMotion::Swing,
         }
     }
 
-    fn swinging_arm_joints(
-        &self,
-        foot: FootOffsets,
-        config: &SwingingArmsParameters,
-    ) -> ArmJoints<f32> {
-        let shoulder_roll = config.default_roll + config.roll_factor * foot.left.abs();
-        let shoulder_pitch = FRAC_PI_2 + foot.forward * config.pitch_factor;
-        let joints = ArmJoints {
-            shoulder_pitch,
-            shoulder_roll,
-            elbow_yaw: 0.0,
-            elbow_roll: 0.0,
-            wrist_yaw: -FRAC_PI_2,
-            hand: 0.0,
-        };
-        match self.side {
-            Side::Left => joints,
-            Side::Right => joints.mirrored(),
+    fn compute_joints(&self, swinging_arm: ArmJoints, parameters: &Parameters) -> ArmJoints {
+        match self {
+            Arm::Swing => swinging_arm,
+            Arm::PullingBack {
+                elapsed,
+                end_positions,
+            } => {
+                let interpolation =
+                    elapsed.as_secs_f32() / parameters.pulling_back_duration.as_secs_f32();
+                ArmJoints::lerp(interpolation, swinging_arm, *end_positions)
+            }
+            Arm::PullingTight { interpolator } => interpolator.value(),
+            Arm::Back => parameters.pull_tight_joints,
+            Arm::ReleasingTight { interpolator } => interpolator.value(),
+            Arm::ReleasingBack {
+                elapsed,
+                start_positions,
+            } => {
+                let interpolation =
+                    elapsed.as_secs_f32() / parameters.pulling_back_duration.as_secs_f32();
+                ArmJoints::lerp(interpolation, *start_positions, swinging_arm)
+            }
         }
+    }
+
+    fn shoulder_pitch(&self, parameters: &Parameters) -> f32 {
+        match self {
+            Arm::Swing => FRAC_PI_2,
+            Arm::PullingBack {
+                elapsed,
+                end_positions,
+            } => {
+                let interpolation =
+                    elapsed.as_secs_f32() / parameters.pulling_back_duration.as_secs_f32();
+                f32::lerp(interpolation, FRAC_PI_2, end_positions.shoulder_pitch)
+            }
+            Arm::ReleasingBack {
+                elapsed,
+                start_positions,
+            } => {
+                let interpolation =
+                    elapsed.as_secs_f32() / parameters.pulling_back_duration.as_secs_f32();
+                f32::lerp(interpolation, start_positions.shoulder_pitch, FRAC_PI_2)
+            }
+            Arm::ReleasingTight { interpolator } | Arm::PullingTight { interpolator } => {
+                interpolator.value().shoulder_pitch
+            }
+            Arm::Back => parameters.pull_tight_joints.shoulder_pitch,
+        }
+    }
+}
+
+pub trait ArmOverrides {
+    fn override_with_arms(self, parameters: &Parameters, left_arm: &Arm, right_arm: &Arm) -> Self;
+}
+
+impl ArmOverrides for MotorCommands<BodyJoints> {
+    fn override_with_arms(self, parameters: &Parameters, left_arm: &Arm, right_arm: &Arm) -> Self {
+        let left_swinging_arm = self.positions.left_arm;
+        let right_swinging_arm = self.positions.right_arm;
+        let left_positions = left_arm.compute_joints(left_swinging_arm, parameters);
+        let right_positions = right_arm
+            .compute_joints(right_swinging_arm.mirrored(), parameters)
+            .mirrored();
+
+        let left_compensation = (left_arm.shoulder_pitch(parameters) - FRAC_PI_2)
+            * parameters.torso_tilt_compensation_factor;
+        let right_compensation = (right_arm.shoulder_pitch(parameters) - FRAC_PI_2)
+            * parameters.torso_tilt_compensation_factor;
+        let hip_pitch_compensation = left_compensation + right_compensation;
+
+        let positions = BodyJoints {
+            left_arm: left_positions,
+            right_arm: right_positions,
+            left_leg: LegJoints {
+                hip_pitch: self.positions.left_leg.hip_pitch + hip_pitch_compensation,
+                ..self.positions.left_leg
+            },
+            right_leg: LegJoints {
+                hip_pitch: self.positions.right_leg.hip_pitch + hip_pitch_compensation,
+                ..self.positions.right_leg
+            },
+        };
+
+        Self { positions, ..self }
     }
 }

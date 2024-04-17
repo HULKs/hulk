@@ -3,13 +3,11 @@ use std::{path::PathBuf, time::Duration};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Point2, Vector2};
-use nalgebra::{Vector3, Vector4};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
-    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
-    kick_step::KickStep,
+    joints::{arm::ArmJoints, head::HeadJoints},
     motion_command::{KickVariant, MotionCommand},
     roles::Role,
     step_plan::Step,
@@ -112,7 +110,7 @@ impl Index<KickVariant> for InWalkKicksParameters {
 pub struct InWalkKickInfoParameters {
     pub position: nalgebra::Point2<f32>,
     pub orientation: f32,
-    pub reached_thresholds: Vector3<f32>,
+    pub reached_thresholds: nalgebra::Vector3<f32>,
     pub shot_distance: f32,
     pub enabled: bool,
 }
@@ -169,73 +167,6 @@ pub struct GameStateFilterParameters {
     pub tentative_finish_duration: Duration,
     pub distance_to_consider_ball_moved_in_kick_off: f32,
     pub whistle_acceptance_goal_distance: Vector2<Field>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct WalkingEngineParameters {
-    pub additional_kick_foot_lift: f32,
-    pub arm_stiffness: f32,
-    pub backward_foot_support_offset: f32,
-    pub base_foot_lift: f32,
-    pub base_step_duration: Duration,
-    pub emergency_foot_lift: f32,
-    pub emergency_step: Step,
-    pub emergency_step_duration: Duration,
-    pub foot_pressure_threshold: f32,
-    pub forward_foot_support_offset: f32,
-    pub gyro_balance_factors: LegJoints<f32>,
-    pub gyro_low_pass_factor: f32,
-    pub imu_pitch_low_pass_factor: f32,
-    pub inside_turn_ratio: f32,
-    pub leg_stiffness_stand: f32,
-    pub leg_stiffness_walk: f32,
-    pub max_forward_acceleration: f32,
-    pub max_leg_adjustment_velocity: LegJoints<f32>,
-    pub max_number_of_timeouted_steps: usize,
-    pub max_number_of_unstable_steps: usize,
-    pub max_step_adjustment: f32,
-    pub maximal_step_duration: Duration,
-    pub forward_step_midpoint: f32,
-    pub left_step_midpoint: f32,
-    pub minimal_step_duration: Duration,
-    pub number_of_stabilizing_steps: usize,
-    pub stabilization_foot_lift_multiplier: f32,
-    pub stabilization_foot_lift_offset: f32,
-    pub stabilization_hysteresis: f32,
-    pub stable_step_deviation: Duration,
-    pub starting_step_duration: Duration,
-    pub starting_step_foot_lift: f32,
-    pub step_duration_increase: Step,
-    pub step_foot_lift_increase: Step,
-    pub swing_foot_imu_leveling_factor: f32,
-    pub swing_foot_pitch_error_leveling_factor: f32,
-    pub swinging_arms: SwingingArmsParameters,
-    pub tilt_shift_low_pass_factor: f32,
-    pub torso_shift_offset: f32,
-    pub torso_tilt_base_offset: f32,
-    pub torso_tilt_forward_offset: f32,
-    pub torso_tilt_left_offset: f32,
-    pub walk_hip_height: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct SwingingArmsParameters {
-    pub debug_pull_back: bool,
-    pub default_roll: f32,
-    pub roll_factor: f32,
-    pub pitch_factor: f32,
-    pub pull_back_joints: ArmJoints<f32>,
-    pub pull_tight_joints: ArmJoints<f32>,
-    pub pulling_back_duration: Duration,
-    pub pulling_tight_duration: Duration,
-    pub torso_tilt_compensation_factor: f32,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct KickStepsParameters {
-    pub forward: Vec<KickStep>,
-    pub turn: Vec<KickStep>,
-    pub side: Vec<KickStep>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -302,10 +233,10 @@ pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
     pub measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,
-    pub process_noise: Vector4<f32>,
+    pub process_noise: nalgebra::Vector4<f32>,
     pub measurement_noise_moving: nalgebra::Vector2<f32>,
     pub measurement_noise_resting: nalgebra::Vector2<f32>,
-    pub initial_covariance: Vector4<f32>,
+    pub initial_covariance: nalgebra::Vector4<f32>,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
     pub validity_discard_threshold: f32,
@@ -351,7 +282,7 @@ pub struct FallStateEstimationParameters {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct CameraMatrixParameters {
     pub camera_pitch: f32,
-    pub extrinsic_rotations: Vector3<f32>,
+    pub extrinsic_rotations: nalgebra::Vector3<f32>,
     pub focal_lengths: nalgebra::Vector2<f32>,
     pub cc_optical_center: nalgebra::Point2<f32>,
 }

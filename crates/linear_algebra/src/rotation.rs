@@ -1,6 +1,6 @@
 use nalgebra::{RealField, SimdRealField};
 
-use crate::{Orientation2, Transform, Vector2};
+use crate::{Orientation2, Orientation3, Transform, Vector2, Vector3};
 
 pub type Rotation2<From, To, T = f32> = Transform<From, To, nalgebra::UnitComplex<T>>;
 pub type Rotation3<Frame, To, T = f32> = Transform<Frame, To, nalgebra::UnitQuaternion<T>>;
@@ -57,11 +57,30 @@ where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
+    pub fn new(axis_angle: Vector3<To, T>) -> Self {
+        Self::wrap(nalgebra::UnitQuaternion::new(axis_angle.inner))
+    }
+
     pub fn from_euler_angles(x: T, y: T, z: T) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::from_euler_angles(x, y, z))
     }
 
     pub fn inverse(&self) -> Rotation3<To, From, T> {
         Transform::<To, From, _>::wrap(self.inner.inverse())
+    }
+
+    pub fn as_orientation(&self) -> Orientation3<To, T> {
+        Orientation3::wrap(self.inner)
+    }
+}
+
+impl<Frame, T> Rotation3<Frame, Frame, T>
+where
+    T: RealField,
+{
+    pub fn rotation_between(a: Vector3<Frame, T>, b: Vector3<Frame, T>) -> Option<Self> {
+        Some(Self::wrap(nalgebra::UnitQuaternion::rotation_between(
+            &a.inner, &b.inner,
+        )?))
     }
 }

@@ -1335,6 +1335,7 @@ dependencies = [
  "serialize_hierarchy",
  "smallvec",
  "spl_network_messages",
+ "splines",
  "types",
 ]
 
@@ -5423,6 +5424,7 @@ dependencies = [
  "gilrs",
  "image",
  "itertools",
+ "kinematics",
  "linear_algebra",
  "log",
  "mlua",

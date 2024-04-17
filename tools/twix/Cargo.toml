@@ -22,6 +22,7 @@ geometry = { workspace = true }
 gilrs = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
