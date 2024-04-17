@@ -181,15 +181,10 @@ impl FallStateEstimation {
             }
             (current @ FallState::Falling { start_time, .. }, Some(_), None) => {
                 if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout {
-                    if fallen_up_gravitational_difference < fallen_down_gravitational_difference {
-                        FallState::Fallen {
-                            kind: Kind::FacingUp,
-                        }
-                    } else {
-                        FallState::Fallen {
-                            kind: Kind::FacingDown,
-                        }
-                    }
+                    decide_falling_direction(
+                        fallen_up_gravitational_difference,
+                        fallen_down_gravitational_difference,
+                    )
                 } else {
                     current
                 }
@@ -244,5 +239,20 @@ impl FallStateEstimation {
 
     fn compute_gravitational_difference(&self, gravitational_force: Vector3<Robot>) -> f32 {
         (self.linear_acceleration_filter.state() - gravitational_force).norm()
+    }
+}
+
+fn decide_falling_direction(
+    fallen_up_gravitational_difference: f32,
+    fallen_down_gravitational_difference: f32,
+) -> FallState {
+    if fallen_up_gravitational_difference < fallen_down_gravitational_difference {
+        FallState::Fallen {
+            kind: Kind::FacingUp,
+        }
+    } else {
+        FallState::Fallen {
+            kind: Kind::FacingDown,
+        }
     }
 }
