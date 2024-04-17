@@ -39,9 +39,10 @@ pub struct CycleContext {
     filtered_roll_pitch: AdditionalOutput<Vector2<Robot>, "filtered_roll_pitch">,
     fallen_down_gravitational_difference:
         AdditionalOutput<f32, "fallen_down_gravitational_difference">,
-    fallen_standing_gravitational_difference:
+    fallen_sitting_gravitational_difference:
         AdditionalOutput<f32, "fallen_standing_gravitational_difference">,
     fallen_up_gravitational_difference: AdditionalOutput<f32, "fallen_up_gravitational_difference">,
+    upright_gravitational_difference: AdditionalOutput<f32, "upright_gravitational_difference">,
     difference_to_sitting: AdditionalOutput<f32, "difference_to_sitting">,
 
     gravitational_acceleration_threshold:
@@ -106,14 +107,17 @@ impl FallStateEstimation {
 
         let gravitational_force_down = vector![-GRAVITATIONAL_CONSTANT, 0.0, 0.0];
         let gravitational_force_up = vector![GRAVITATIONAL_CONSTANT, 0.0, 0.0];
-        let graviational_force_upright = vector![3.6, 0.0, 8.8];
+        let gravitational_force_upright = vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
+        let graviational_force_sitting = vector![3.6, 0.0, 8.8];
 
         let fallen_down_gravitational_difference =
             (self.linear_acceleration_filter.state() - gravitational_force_down).norm();
         let fallen_up_gravitational_difference =
             (self.linear_acceleration_filter.state() - gravitational_force_up).norm();
-        let fallen_standing_gravitational_difference =
-            (self.linear_acceleration_filter.state() - graviational_force_upright).norm();
+        let fallen_sitting_gravitational_difference =
+            (self.linear_acceleration_filter.state() - graviational_force_sitting).norm();
+        let upright_gravitational_difference =
+            (self.linear_acceleration_filter.state() - gravitational_force_upright).norm();
 
         let positions = context.sensor_data.positions;
         let difference_to_sitting =
@@ -125,7 +129,7 @@ impl FallStateEstimation {
         } else if fallen_up_gravitational_difference < *context.gravitational_acceleration_threshold
         {
             Some(Kind::FacingUp)
-        } else if fallen_standing_gravitational_difference
+        } else if fallen_sitting_gravitational_difference
             < *context.gravitational_acceleration_threshold
             && difference_to_sitting < *context.difference_to_sitting_threshold
         {
@@ -140,8 +144,11 @@ impl FallStateEstimation {
             .fallen_up_gravitational_difference
             .fill_if_subscribed(|| fallen_up_gravitational_difference);
         context
-            .fallen_standing_gravitational_difference
-            .fill_if_subscribed(|| fallen_standing_gravitational_difference);
+            .fallen_sitting_gravitational_difference
+            .fill_if_subscribed(|| fallen_sitting_gravitational_difference);
+        context
+            .upright_gravitational_difference
+            .fill_if_subscribed(|| upright_gravitational_difference);
         context
             .difference_to_sitting
             .fill_if_subscribed(|| difference_to_sitting);
@@ -186,7 +193,7 @@ impl FallStateEstimation {
                     .duration_since(start_time)
                     .unwrap()
                     > *context.falling_timeout
-                    && fallen_standing_gravitational_difference
+                    && upright_gravitational_difference
                         < *context.gravitational_acceleration_threshold
                 {
                     FallState::Upright
@@ -229,13 +236,30 @@ impl FallStateEstimation {
                 }
             }
             (FallState::Fallen { .. }, _, None) => FallState::Upright,
-            (FallState::Fallen { .. }, _, Some(_)) => FallState::StandingUp {
+            (FallState::Fallen { kind }, _, Some(_)) => FallState::StandingUp {
                 start_time: context.cycle_time.start_time,
+                kind,
             },
             // (current @ FallState::Fallen { .. }, Some(_), Some(_)) => current,
             (FallState::StandingUp { .. }, None, None) => FallState::Upright,
-            (current @ FallState::StandingUp { .. }, Some(_), None) => current,
-            (current @ FallState::StandingUp { start_time }, _, Some(facing)) => {
+            (current @ FallState::StandingUp { .. }, Some(..), None) => current,
+            // (current @ FallState::StandingUp { start_time, .. }, Some(direction), None) => {
+            //     if context
+            //         .cycle_time
+            //         .start_time
+            //         .duration_since(start_time)
+            //         .unwrap()
+            //         > *context.falling_timeout
+            //     {
+            //         FallState::Falling {
+            //             start_time,
+            //             direction,
+            //         }
+            //     } else {
+            //         current
+            //     }
+            // }
+            (current @ FallState::StandingUp { start_time, .. }, _, Some(facing)) => {
                 if context
                     .cycle_time
                     .start_time
