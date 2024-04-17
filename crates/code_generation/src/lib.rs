@@ -16,7 +16,7 @@ pub mod write_to_file;
 pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenStream {
     let generated_cyclers = match mode {
         Execution::None => Default::default(),
-        Execution::Run | Execution::Replay => {
+        Execution::Run | Execution::Replay | Execution::Imagine => {
             let cyclers = generate_cyclers(cyclers, mode);
             quote! {
                 pub mod cyclers {
@@ -35,7 +35,7 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
                 }
             }
         }
-        Execution::Replay => {
+        Execution::Replay | Execution::Imagine => {
             let replayer = generate_replayer_struct(cyclers);
             quote! {
                 pub mod execution {
@@ -64,4 +64,5 @@ pub enum Execution {
     None,
     Run,
     Replay,
+    Imagine,
 }
