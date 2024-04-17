@@ -46,9 +46,12 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
             }
         });
 
+    let recording_trigger = recording_trigger();
+
     quote! {
         #parameters
         #(#cyclers)*
+        #recording_trigger
     }
 }
 
@@ -112,5 +115,28 @@ fn hierarchy_to_token_stream(
             #(#struct_fields,)*
         }
         #(#child_structs)*
+    }
+}
+
+fn recording_trigger() -> TokenStream {
+    quote! {
+        pub struct RecordingTrigger {
+            recording_interval: usize,
+            counter: usize
+        }
+
+        impl RecordingTrigger {
+            pub fn new(recording_interval: usize) -> Self {
+                Self { recording_interval, counter: 0 }
+            }
+
+            pub fn cycle_finished(&mut self) {
+                self.counter = (self.counter + 1) % self.recording_interval;
+            }
+
+            pub fn should_record(&self) -> bool {
+                self.recording_interval != 0 && self.counter == 0
+            }
+        }
     }
 }
