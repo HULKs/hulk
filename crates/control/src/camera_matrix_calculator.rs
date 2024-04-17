@@ -62,7 +62,7 @@ impl CameraMatrixCalculator {
             context.top_camera_matrix_parameters.cc_optical_center,
             image_size,
             context.robot_to_ground.inverse(),
-            context.robot_kinematics.head_to_robot.inverse(),
+            context.robot_kinematics.head.head_to_robot.inverse(),
             head_to_top_camera,
         );
 
@@ -79,7 +79,7 @@ impl CameraMatrixCalculator {
             context.bottom_camera_matrix_parameters.cc_optical_center,
             image_size,
             context.robot_to_ground.inverse(),
-            context.robot_kinematics.head_to_robot.inverse(),
+            context.robot_kinematics.head.head_to_robot.inverse(),
             head_to_bottom_camera,
         );
 

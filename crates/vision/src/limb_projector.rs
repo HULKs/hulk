@@ -60,49 +60,49 @@ impl LimbProjector {
             false,
         );
         let left_lower_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.left_wrist_to_robot,
+            context.robot_kinematics.left_arm.wrist_to_robot,
             context.camera_matrix,
             context.wrist_bounding_polygon,
             true,
         );
         let right_lower_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.right_wrist_to_robot,
+            context.robot_kinematics.right_arm.wrist_to_robot,
             context.camera_matrix,
             &mirror_polygon(context.wrist_bounding_polygon),
             true,
         );
         let left_upper_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.left_elbow_to_robot,
+            context.robot_kinematics.left_arm.elbow_to_robot,
             context.camera_matrix,
             context.upper_arm_bounding_polygon,
             true,
         );
         let right_upper_arm_limb = project_bounding_polygon(
-            context.robot_kinematics.right_elbow_to_robot,
+            context.robot_kinematics.right_arm.elbow_to_robot,
             context.camera_matrix,
             &mirror_polygon(context.upper_arm_bounding_polygon),
             true,
         );
         let left_knee_limb = project_bounding_polygon(
-            context.robot_kinematics.left_thigh_to_robot,
+            context.robot_kinematics.left_leg.thigh_to_robot,
             context.camera_matrix,
             context.thigh_bounding_polygon,
             true,
         );
         let right_knee_limb = project_bounding_polygon(
-            context.robot_kinematics.right_thigh_to_robot,
+            context.robot_kinematics.right_leg.thigh_to_robot,
             context.camera_matrix,
             &mirror_polygon(context.thigh_bounding_polygon),
             true,
         );
         let left_foot_limb = project_bounding_polygon(
-            context.robot_kinematics.left_sole_to_robot,
+            context.robot_kinematics.left_leg.sole_to_robot,
             context.camera_matrix,
             context.sole_bounding_polygon,
             true,
         );
         let right_foot_limb = project_bounding_polygon(
-            context.robot_kinematics.right_sole_to_robot,
+            context.robot_kinematics.right_leg.sole_to_robot,
             context.camera_matrix,
             &mirror_polygon(context.sole_bounding_polygon),
             true,
