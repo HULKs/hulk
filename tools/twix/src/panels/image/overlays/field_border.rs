@@ -5,6 +5,7 @@ use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use geometry::line::Line2;
+use linear_algebra::Point2;
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -12,6 +13,7 @@ use crate::{
 
 pub struct FieldBorder {
     border_lines: ValueBuffer,
+    candidates: ValueBuffer,
 }
 
 impl Overlay for FieldBorder {
@@ -25,6 +27,12 @@ impl Overlay for FieldBorder {
                     path: "field_border.border_lines".into(),
                 },
             }),
+            candidates: nao.subscribe_output(CyclerOutput {
+                cycler: selected_cycler,
+                output: Output::Additional {
+                    path: "field_border_points".to_string(),
+                },
+            }),
         }
     }
 
@@ -36,6 +44,11 @@ impl Overlay for FieldBorder {
                 line.1,
                 Stroke::new(3.0, Color32::from_rgb(255, 0, 240)),
             );
+        }
+
+        let candidates: Vec<Point2<Pixel>> = self.candidates.require_latest()?;
+        for point in candidates {
+            painter.circle_filled(point, 2.0, Color32::BLUE);
         }
 
         Ok(())
