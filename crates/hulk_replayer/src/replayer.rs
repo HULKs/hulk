@@ -12,11 +12,7 @@ use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
 use types::hardware::Ids;
 
-use crate::{
-    execution::{RecordingFilePaths, Replayer},
-    user_interface::ReplayerApplication,
-    ReplayerHardwareInterface,
-};
+use crate::{execution::Replayer, user_interface::ReplayerApplication, ReplayerHardwareInterface};
 
 pub fn replayer() -> Result<()> {
     let replay_path = PathBuf::from(
@@ -56,24 +52,9 @@ pub fn replayer() -> Result<()> {
         ids.body_id,
         ids.head_id,
         keep_running,
-        RecordingFilePaths {
-            vision_top: replay_path.join("VisionTop.bincode"),
-            vision_bottom: replay_path.join("VisionBottom.bincode"),
-            control: replay_path.join("Control.bincode"),
-            spl_network: replay_path.join("SplNetwork.bincode"),
-            audio: replay_path.join("Audio.bincode"),
-        },
+        replay_path,
     )
     .wrap_err("failed to create replayer")?;
-
-    // dbg!(recording_indices);
-
-    // let start = replayer
-    //     .first_timestamp()
-    //     .expect("first timestamp is required");
-    // let end = replayer
-    //     .last_timestamp()
-    //     .expect("last timestamp is required");
 
     run_native(
         "Replayer",

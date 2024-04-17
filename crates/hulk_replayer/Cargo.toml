@@ -38,3 +38,6 @@ code_generation = { workspace = true }
 color-eyre = { workspace = true }
 hulk_manifest = { workspace = true }
 source_analyzer = { workspace = true }
+
+[features]
+with_detection = []

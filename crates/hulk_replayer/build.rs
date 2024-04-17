@@ -4,7 +4,10 @@ use hulk_manifest::collect_hulk_cyclers;
 use source_analyzer::{pretty::to_string_pretty, structs::Structs};
 
 fn main() -> Result<()> {
-    let cyclers = collect_hulk_cyclers()?;
+    #[allow(unused_mut)] // must not be mut if "with_detection" feature is disabled
+    let mut cyclers = collect_hulk_cyclers()?;
+    #[cfg(not(feature = "with_detection"))]
+    cyclers.cyclers.retain(|cycler| cycler.name != "Detection");
     for path in cyclers.watch_paths() {
         println!("cargo:rerun-if-changed={}", path.display());
     }
