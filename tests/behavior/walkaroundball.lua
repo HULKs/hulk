@@ -7,7 +7,7 @@ end
 
 spawn_robot(7)
 
-local game_end_time = -1.0
+local game_end_time = 15000.0
 
 function on_goal()
     print("Goal scored, resetting ball!")
