@@ -1,4 +1,7 @@
-use types::{motion_command::HeadMotion, world_state::WorldState};
+use types::{
+    motion_command::{HeadMotion, ImageRegionTarget},
+    world_state::WorldState,
+};
 
 #[derive(Debug)]
 pub struct LookAction<'cycle> {
@@ -13,6 +16,7 @@ impl<'cycle> LookAction<'cycle> {
     pub fn execute(&self) -> HeadMotion {
         HeadMotion::LookAt {
             target: self.world_state.position_of_interest,
+            image_region_target: ImageRegionTarget::Center,
             camera: None,
         }
     }

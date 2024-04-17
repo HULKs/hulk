@@ -25,6 +25,8 @@ pub mod orientation_filter;
 pub mod path_planner;
 pub mod penalty_shot_direction_estimation;
 pub mod primary_state_filter;
+pub mod referee_pose_detection_filter;
+pub mod referee_position_provider;
 pub mod role_assignment;
 pub mod rule_obstacle_composer;
 pub mod sensor_data_receiver;

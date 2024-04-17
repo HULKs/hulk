@@ -73,6 +73,8 @@ pub struct MapPanel {
     path: EnabledLayer<layers::Path, Ground>,
     behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
+    referee_position: EnabledLayer<layers::RefereePosition, Field>,
+    pose_detection: EnabledLayer<layers::PoseDetection, Field>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     kick_decisions: EnabledLayer<layers::KickDecisions, Ground>,
     feet_detection: EnabledLayer<layers::FeetDetection, Ground>,
@@ -93,7 +95,9 @@ impl Panel for MapPanel {
         let obstacles = EnabledLayer::new(nao.clone(), value, false);
         let path = EnabledLayer::new(nao.clone(), value, false);
         let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
+        let referee_position = EnabledLayer::new(nao.clone(), value, true);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
+        let pose_detection = EnabledLayer::new(nao.clone(), value, true);
         let ball_position = EnabledLayer::new(nao.clone(), value, true);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
         let feet_detection = EnabledLayer::new(nao.clone(), value, false);
@@ -110,7 +114,6 @@ impl Panel for MapPanel {
             field_dimensions,
             ground_to_field,
             transformation,
-
             field,
             image_segments,
             line_correspondences,
@@ -120,6 +123,8 @@ impl Panel for MapPanel {
             path,
             behavior_simulator,
             robot_pose,
+            pose_detection,
+            referee_position,
             ball_position,
             kick_decisions,
             feet_detection,
@@ -140,7 +145,9 @@ impl Panel for MapPanel {
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
             "behavior_simulator": self.behavior_simulator.save(),
+            "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
+            "referee_position": self.referee_position.save(),
             "ball_position": self.ball_position.save(),
             "kick_decisions": self.kick_decisions.save(),
             "feet_detection": self.feet_detection.save(),
@@ -163,7 +170,9 @@ impl Widget for &mut MapPanel {
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
                 self.behavior_simulator.checkbox(ui);
+                self.pose_detection.checkbox(ui);
                 self.robot_pose.checkbox(ui);
+                self.referee_position.checkbox(ui);
                 self.ball_position.checkbox(ui);
                 self.kick_decisions.checkbox(ui);
                 self.feet_detection.checkbox(ui);
@@ -229,6 +238,12 @@ impl Widget for &mut MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         let _ = self
             .robot_pose
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .referee_position
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .pose_detection
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         let _ = self
             .ball_position

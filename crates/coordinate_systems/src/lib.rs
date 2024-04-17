@@ -64,6 +64,9 @@ generate_coordinate_system!(
     /// X axis points right
     /// Y axis points down
     Pixel,
+    /// 2D Coordinate system of the camera image.
+    /// Same as [Pixel] but the dimensions are normalized to (0.0, 1.0).
+    NormalizedPixel,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#head)
     Head,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#neck)

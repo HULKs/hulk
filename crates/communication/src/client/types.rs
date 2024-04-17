@@ -46,6 +46,7 @@ pub enum Cycler {
     Control,
     VisionTop,
     VisionBottom,
+    DetectionTop,
     BehaviorSimulator,
 }
 
@@ -55,6 +56,7 @@ impl Display for Cycler {
             Cycler::Control => f.write_str("Control"),
             Cycler::VisionTop => f.write_str("VisionTop"),
             Cycler::VisionBottom => f.write_str("VisionBottom"),
+            Cycler::DetectionTop => f.write_str("DetectionTop"),
             Cycler::BehaviorSimulator => f.write_str("BehaviorSimulator"),
         }
     }
@@ -68,6 +70,7 @@ impl FromStr for Cycler {
             "Control" => Cycler::Control,
             "VisionTop" => Cycler::VisionTop,
             "VisionBottom" => Cycler::VisionBottom,
+            "DetectionTop" => Cycler::DetectionTop,
             "BehaviorSimulator" => Cycler::BehaviorSimulator,
             _ => bail!("unknown cycler '{string}'"),
         })
