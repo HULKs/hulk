@@ -439,7 +439,7 @@
     "catching_steps": {
       "toe_offset": 0.09,
       "heel_offset": -0.035,
-      "max_adjustment": [0.04, 0.08, 0.02],
+      "max_adjustment": 0.05,
       "midpoint": 0.4,
       "target_overestimation_factor": 1.05,
       "additional_foot_lift": 0.005
