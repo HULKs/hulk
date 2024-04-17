@@ -45,7 +45,7 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
         }
     };
     let generated_perception_databases = generate_perception_databases(cyclers);
-    let generated_structs = generate_structs(structs);
+    let generated_structs = generate_structs(structs, mode);
 
     quote! {
         #generated_cyclers
