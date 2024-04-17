@@ -1,18 +1,16 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
-use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use splines::Interpolate;
 use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, mirror::Mirror},
     motor_commands::MotorCommands,
-    walking_engine::SwingingArmsParameters as Parameters,
 };
 
 use motionfile::{SplineInterpolator, TimedSpline};
 
-use super::CycleContext;
+use crate::{parameters::SwingingArmsParameters, Context};
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy, Default)]
 pub enum Arm {
@@ -25,7 +23,7 @@ pub enum Arm {
     PullingTight {
         interpolator: SplineInterpolator<ArmJoints<f32>>,
     },
-    Back,
+    Tight,
     ReleasingTight {
         interpolator: SplineInterpolator<ArmJoints<f32>>,
     },
@@ -36,7 +34,7 @@ pub enum Arm {
 }
 
 impl Arm {
-    pub fn swing(self, context: &CycleContext) -> Self {
+    pub fn swing(self, context: &Context) -> Self {
         let parameters = &context.parameters.swinging_arms;
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
 
@@ -59,7 +57,7 @@ impl Arm {
                 .into();
                 Self::ReleasingTight { interpolator }
             }
-            Self::Back => {
+            Self::Tight => {
                 let interpolator = TimedSpline::try_new_transition_timed(
                     parameters.pull_tight_joints,
                     parameters.pull_back_joints,
@@ -97,7 +95,7 @@ impl Arm {
         }
     }
 
-    pub fn pull_tight(self, context: &CycleContext) -> Self {
+    pub fn pull_tight(self, context: &Context) -> Self {
         let parameters = &context.parameters.swinging_arms;
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
 
@@ -130,12 +128,12 @@ impl Arm {
             Self::PullingTight { mut interpolator } => {
                 interpolator.advance_by(last_cycle_duration);
                 if interpolator.is_finished() {
-                    Self::Back
+                    Self::Tight
                 } else {
                     Self::PullingTight { interpolator }
                 }
             }
-            Self::Back => self,
+            Self::Tight => self,
             Self::ReleasingTight { interpolator } => {
                 let interpolator = TimedSpline::try_new_transition_timed(
                     interpolator.value(),
@@ -156,7 +154,11 @@ impl Arm {
         }
     }
 
-    fn compute_joints(&self, swinging_arm: ArmJoints, parameters: &Parameters) -> ArmJoints {
+    fn compute_joints(
+        &self,
+        swinging_arm: ArmJoints,
+        parameters: &SwingingArmsParameters,
+    ) -> ArmJoints {
         match self {
             Arm::Swing => swinging_arm,
             Arm::PullingBack {
@@ -168,7 +170,7 @@ impl Arm {
                 ArmJoints::lerp(interpolation, swinging_arm, *end_positions)
             }
             Arm::PullingTight { interpolator } => interpolator.value(),
-            Arm::Back => parameters.pull_tight_joints,
+            Arm::Tight => parameters.pull_tight_joints,
             Arm::ReleasingTight { interpolator } => interpolator.value(),
             Arm::ReleasingBack {
                 elapsed,
@@ -181,7 +183,7 @@ impl Arm {
         }
     }
 
-    fn shoulder_pitch(&self, parameters: &Parameters) -> f32 {
+    fn shoulder_pitch(&self, parameters: &SwingingArmsParameters) -> f32 {
         match self {
             Arm::Swing => FRAC_PI_2,
             Arm::PullingBack {
@@ -203,17 +205,27 @@ impl Arm {
             Arm::ReleasingTight { interpolator } | Arm::PullingTight { interpolator } => {
                 interpolator.value().shoulder_pitch
             }
-            Arm::Back => parameters.pull_tight_joints.shoulder_pitch,
+            Arm::Tight => parameters.pull_tight_joints.shoulder_pitch,
         }
     }
 }
 
 pub trait ArmOverrides {
-    fn override_with_arms(self, parameters: &Parameters, left_arm: &Arm, right_arm: &Arm) -> Self;
+    fn override_with_arms(
+        self,
+        parameters: &SwingingArmsParameters,
+        left_arm: &Arm,
+        right_arm: &Arm,
+    ) -> Self;
 }
 
 impl ArmOverrides for MotorCommands<BodyJoints> {
-    fn override_with_arms(self, parameters: &Parameters, left_arm: &Arm, right_arm: &Arm) -> Self {
+    fn override_with_arms(
+        self,
+        parameters: &SwingingArmsParameters,
+        left_arm: &Arm,
+        right_arm: &Arm,
+    ) -> Self {
         let left_swinging_arm = self.positions.left_arm;
         let right_swinging_arm = self.positions.right_arm;
         let left_positions = left_arm.compute_joints(left_swinging_arm, parameters);

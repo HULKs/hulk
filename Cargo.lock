@@ -1337,6 +1337,7 @@ dependencies = [
  "spl_network_messages",
  "splines",
  "types",
+ "walking_engine",
 ]
 
 [[package]]
@@ -2692,6 +2693,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "walking_engine",
 ]
 
 [[package]]
@@ -5621,6 +5623,22 @@ checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
+]
+
+[[package]]
+name = "walking_engine"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "itertools",
+ "kinematics",
+ "linear_algebra",
+ "motionfile",
+ "nalgebra",
+ "serde",
+ "serialize_hierarchy",
+ "splines",
+ "types",
 ]
 
 [[package]]

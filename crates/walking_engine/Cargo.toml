@@ -1,0 +1,18 @@
+[package]
+name = "walking_engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+types = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+coordinate_systems = { workspace = true }
+serialize_hierarchy = { workspace = true }
+splines = { workspace = true }
+kinematics = { workspace = true }
+itertools = { workspace = true }
+motionfile = { workspace = true }
