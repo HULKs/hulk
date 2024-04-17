@@ -75,6 +75,6 @@ fn main() -> Result<()> {
         ids.body_id,
         ids.head_id,
         keep_running,
-        framework_parameters.recording_settings,
+        framework_parameters.recording_intervals,
     )
 }
