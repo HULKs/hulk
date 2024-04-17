@@ -36,7 +36,7 @@ pub enum JointsName {
     Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
 )]
 #[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
-pub struct Joints<T> {
+pub struct Joints<T = f32> {
     pub head: HeadJoints<T>,
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,

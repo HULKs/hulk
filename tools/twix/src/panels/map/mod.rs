@@ -78,6 +78,7 @@ pub struct MapPanel {
     feet_detection: EnabledLayer<layers::FeetDetection, Ground>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
+    walking: EnabledLayer<layers::Walking, Ground>,
 }
 
 impl Panel for MapPanel {
@@ -98,6 +99,7 @@ impl Panel for MapPanel {
         let feet_detection = EnabledLayer::new(nao.clone(), value, false);
         let ball_filter = EnabledLayer::new(nao.clone(), value, false);
         let obstacle_filter = EnabledLayer::new(nao.clone(), value, false);
+        let walking = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let ground_to_field =
@@ -123,6 +125,7 @@ impl Panel for MapPanel {
             feet_detection,
             ball_filter,
             obstacle_filter,
+            walking,
         }
     }
 
@@ -143,6 +146,7 @@ impl Panel for MapPanel {
             "feet_detection": self.feet_detection.save(),
             "ball_filter": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
+            "walking": self.walking.save(),
         })
     }
 }
@@ -165,6 +169,7 @@ impl Widget for &mut MapPanel {
                 self.feet_detection.checkbox(ui);
                 self.ball_filter.checkbox(ui);
                 self.obstacle_filter.checkbox(ui);
+                self.walking.checkbox(ui);
             });
             ComboBox::from_id_source("plot_type_selector")
                 .selected_text(format!("{:?}", self.current_plot_type))
@@ -239,6 +244,9 @@ impl Widget for &mut MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         let _ = self
             .obstacle_filter
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .walking
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
         self.apply_zoom_and_pan(ui, &mut painter, &response);

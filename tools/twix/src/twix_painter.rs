@@ -192,17 +192,16 @@ impl<Frame> TwixPainter<Frame> {
         )));
     }
 
-    pub fn polygon(&self, points: &[Point2<Frame>], stroke: Stroke) {
+    pub fn polygon(&self, points: impl IntoIterator<Item = Point2<Frame>>, stroke: Stroke) {
         let points: Vec<_> = points
-            .iter()
-            .map(|point| self.transform_world_to_pixel(*point))
+            .into_iter()
+            .map(|point| self.transform_world_to_pixel(point))
             .collect();
-        self.painter.add(Shape::Path(PathShape::convex_polygon(
-            points,
-            Color32::TRANSPARENT,
-            stroke,
-        )));
+        let stroke = self.transform_stroke(stroke);
+        self.painter
+            .add(Shape::Path(PathShape::line(points, stroke)));
     }
+
     pub fn pose(
         &self,
         pose: Pose2<Frame>,

@@ -31,12 +31,19 @@ generate_coordinate_system!(
     ///
     /// Origin: hip of the robot
     /// X axis pointing forward
+    /// Y axis pointing left
     Robot,
     /// 2D coordinate system centered on the robot.
     ///
     /// Origin: center between [LeftSole] and [RightSole], projected onto the ground.
     /// X axis pointing forward
     Ground,
+    /// coordinate system used to express feet positions in the walking engine.
+    ///
+    /// Origin: below the robot's hip
+    /// X axis pointing forward
+    /// Y axis pointing left
+    Walk,
     /// 2D coordinate system centered on the field,
     ///
     /// Origin: center of the field

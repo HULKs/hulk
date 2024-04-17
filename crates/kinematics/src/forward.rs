@@ -1,10 +1,10 @@
 use std::f32::consts::PI;
 
 use coordinate_systems::{
-    Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder,
+    Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder, LeftSole,
     LeftThigh, LeftTibia, LeftUpperArm, LeftWrist, Neck, RightAnkle, RightElbow, RightFoot,
-    RightForearm, RightHip, RightPelvis, RightShoulder, RightThigh, RightTibia, RightUpperArm,
-    RightWrist, Robot,
+    RightForearm, RightHip, RightPelvis, RightShoulder, RightSole, RightThigh, RightTibia,
+    RightUpperArm, RightWrist, Robot,
 };
 use linear_algebra::{IntoFramed, Isometry3, Orientation3, Vector3};
 use types::{
@@ -127,6 +127,16 @@ pub fn left_foot_to_left_ankle(angles: &LegJoints<f32>) -> Isometry3<LeftFoot, L
     Isometry3::from_rotation(Vector3::x_axis() * angles.ankle_roll)
 }
 
+pub fn left_sole_to_robot(angles: &LegJoints<f32>) -> Isometry3<LeftSole, Robot> {
+    left_pelvis_to_robot(angles)
+        * left_hip_to_left_pelvis(angles)
+        * left_thigh_to_left_hip(angles)
+        * left_tibia_to_left_thigh(angles)
+        * left_ankle_to_left_tibia(angles)
+        * left_foot_to_left_ankle(angles)
+        * Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE)
+}
+
 // right leg
 pub fn right_pelvis_to_robot(angles: &LegJoints<f32>) -> Isometry3<RightPelvis, Robot> {
     let rotation = nalgebra::UnitQuaternion::new(nalgebra::Vector3::x() * -PI / 4.0)
@@ -159,4 +169,14 @@ pub fn right_ankle_to_right_tibia(angles: &LegJoints<f32>) -> Isometry3<RightAnk
 
 pub fn right_foot_to_right_ankle(angles: &LegJoints<f32>) -> Isometry3<RightFoot, RightAnkle> {
     Isometry3::from_rotation(Vector3::x_axis() * angles.ankle_roll)
+}
+
+pub fn right_sole_to_robot(angles: &LegJoints<f32>) -> Isometry3<RightSole, Robot> {
+    right_pelvis_to_robot(angles)
+        * right_hip_to_right_pelvis(angles)
+        * right_thigh_to_right_hip(angles)
+        * right_tibia_to_right_thigh(angles)
+        * right_ankle_to_right_tibia(angles)
+        * right_foot_to_right_ankle(angles)
+        * Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE)
 }

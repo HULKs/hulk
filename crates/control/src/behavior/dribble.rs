@@ -2,7 +2,7 @@ use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
 use linear_algebra::{Point, Pose2};
 use types::{
-    motion_command::{HeadMotion, MotionCommand, OrientationMode},
+    motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
     world_state::WorldState,
@@ -37,6 +37,8 @@ pub fn execute(
             kick: kick.variant,
             kicking_side: kick.kicking_side,
             strength: kick.strength,
+            left_arm: ArmMotion::Swing,
+            right_arm: ArmMotion::Swing,
         };
         return Some(command);
     }
