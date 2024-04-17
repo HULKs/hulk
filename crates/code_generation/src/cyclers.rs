@@ -10,9 +10,7 @@ use source_analyzer::{
     node::Node,
     path::Path,
 };
-use syn::{
-    AngleBracketedGenericArguments, GenericArgument, Path as SynPath, PathArguments, Type, TypePath,
-};
+use syn::{Path as SynPath, Type, TypePath};
 
 use crate::{
     accessor::{path_to_accessor_token_stream, ReferenceKind},
@@ -735,7 +733,7 @@ fn generate_cross_inputs_recording(
                     cycler,
                 );
                 quote! {
-                    &#accessor .unwrap()
+                    &#accessor
                 }
             }
             _ => panic!("unexpected field {field:?}"),
@@ -803,22 +801,10 @@ fn generate_cross_inputs_extraction(cross_inputs: impl IntoIterator<Item = Field
             Field::RequiredInput {
                 cycler_instance: Some(cycler_instance),
                 path,
-                data_type: Type::Path(TypePath {
-                    path: SynPath { segments, .. },
-                    ..
-                }),
+                data_type,
                 ..
-            } if segments.last().is_some_and(|segment| segment.ident == "Option") => {
+            } => {
                 let name = path_to_extraction_variable_name(&cycler_instance, &path, "required_input");
-                let data_type = match &segments.last().unwrap().arguments {
-                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                        args, ..
-                    }) if args.len() == 1 => match args.first().unwrap() {
-                        GenericArgument::Type(nested_data_type) => nested_data_type,
-                        _ => panic!("unexpected generic argument, expected type argument in data type"),
-                    },
-                    _ => panic!("expected exactly one generic type argument in data type"),
-                };
                 quote! {
                     #[allow(non_snake_case)]
                     let #name: #data_type = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
@@ -905,7 +891,7 @@ fn generate_execute_node_and_write_main_outputs(
     cycler: &Cycler,
     mode: Execution,
 ) -> TokenStream {
-    let are_required_inputs_some = generate_required_input_condition(node, cycler);
+    let are_required_inputs_some = generate_required_input_condition(node, cycler, mode);
     let node_name = &node.name;
     let node_member = format_ident!("{}", node.name.to_case(Case::Snake));
     let node_module = &node.module;
@@ -1005,7 +991,7 @@ enum NodeType {
     Cycle,
 }
 
-fn generate_required_input_condition(node: &Node, cycler: &Cycler) -> TokenStream {
+fn generate_required_input_condition(node: &Node, cycler: &Cycler, mode: Execution) -> TokenStream {
     let conditions = node
         .contexts
         .cycle_context
@@ -1015,27 +1001,53 @@ fn generate_required_input_condition(node: &Node, cycler: &Cycler) -> TokenStrea
                 cycler_instance,
                 path,
                 ..
-            } => {
-                let database_prefix = match cycler_instance {
+            } => match mode {
+                Execution::None => Default::default(),
+                Execution::Run => {
+                    let database_prefix = match cycler_instance {
+                        Some(cycler_instance) => {
+                            let identifier =
+                                format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
+                            quote! { #identifier.main_outputs }
+                        }
+                        None => {
+                            quote! { own_database_reference.main_outputs }
+                        }
+                    };
+                    let accessor = path_to_accessor_token_stream(
+                        database_prefix,
+                        path,
+                        ReferenceKind::Immutable,
+                        cycler,
+                    );
+                    Some(quote! {
+                        #accessor .is_some()
+                    })
+                }
+                Execution::Replay => match cycler_instance {
                     Some(cycler_instance) => {
-                        let identifier =
-                            format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
-                        quote! { #identifier.main_outputs }
+                        let name = path_to_extraction_variable_name(
+                            cycler_instance,
+                            path,
+                            "required_input",
+                        );
+                        Some(quote! {
+                            #name .is_some()
+                        })
                     }
                     None => {
-                        quote! { own_database_reference.main_outputs }
+                        let accessor = path_to_accessor_token_stream(
+                            quote! { own_database_reference.main_outputs },
+                            path,
+                            ReferenceKind::Immutable,
+                            cycler,
+                        );
+                        Some(quote! {
+                            #accessor .is_some()
+                        })
                     }
-                };
-                let accessor = path_to_accessor_token_stream(
-                    database_prefix,
-                    path,
-                    ReferenceKind::Immutable,
-                    cycler,
-                );
-                Some(quote! {
-                    #accessor .is_some()
-                })
-            }
+                },
+            },
             _ => None,
         })
         .chain(once(quote! {true}));
@@ -1328,7 +1340,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                 Execution::Replay => {
                                     let name = path_to_extraction_variable_name(cycler_instance, path, "required_input");
                                     quote! {
-                                        &#name
+                                        &#name .unwrap()
                                     }
                                 },
                             }
