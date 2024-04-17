@@ -147,12 +147,9 @@ impl EnumPlotPanel {
         }
 
         plot_ui.text(
-            Text::new(
-                PlotPoint { x: text_x, y: 0.9 },
-                name,
-            )
-            .color(Color32::WHITE)
-            .anchor(eframe::emath::Align2::LEFT_TOP),
+            Text::new(PlotPoint { x: text_x, y: 0.9 }, name)
+                .color(Color32::WHITE)
+                .anchor(eframe::emath::Align2::LEFT_TOP),
         );
     }
 
