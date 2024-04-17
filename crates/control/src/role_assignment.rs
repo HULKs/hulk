@@ -38,7 +38,7 @@ pub struct RoleAssignment {
     role: Role,
     role_initialized: bool,
     team_ball: Option<BallPosition<Field>>,
-    last_time_player_was_penalized: Vec<Option<SystemTime>>,
+    last_time_player_was_penalized: Players<Option<SystemTime>>,
 }
 
 #[context]
@@ -86,7 +86,15 @@ impl RoleAssignment {
             role: Role::Striker,
             role_initialized: false,
             team_ball: None,
-            last_time_player_was_penalized: vec![None; 7],
+            last_time_player_was_penalized: Players {
+                one: None,
+                two: None,
+                three: None,
+                four: None,
+                five: None,
+                six: None,
+                seven: None,
+            },
         })
     }
 
@@ -269,7 +277,7 @@ impl RoleAssignment {
             }
         }
         if self.role == Role::ReplacementKeeper {
-            if let Some(last_time_keeper_penalized) = self.last_time_player_was_penalized[0] {
+            if let Some(last_time_keeper_penalized) = self.last_time_player_was_penalized.one {
                 match context.player_number {
                     PlayerNumber::Two => {
                         let deny_replacement_keeper_switch = cycle_start_time
@@ -281,8 +289,16 @@ impl RoleAssignment {
                         }
                     }
                     _ => {
-                        if let Some(last_time_player_penalized) = self
-                            .last_time_player_was_penalized[context.player_number.to_number() - 2]
+                        let previous_player = match context.player_number{
+                            PlayerNumber::Three => PlayerNumber::Two,
+                            PlayerNumber::Four => PlayerNumber::Three,
+                            PlayerNumber::Five => PlayerNumber::Four,
+                            PlayerNumber::Six => PlayerNumber::Five,
+                            PlayerNumber::Seven => PlayerNumber::Six,
+                            _ => PlayerNumber::One,
+                        };
+                        if let Some(last_time_player_penalized) =
+                            self.last_time_player_was_penalized[previous_player]
                         {
                             let deny_replacement_keeper_switch = cycle_start_time
                                 .duration_since(last_time_player_penalized)
@@ -339,10 +355,13 @@ impl RoleAssignment {
         self.team_ball = team_ball;
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
-            for player in 0..7 {
-                if game_controller_state.penalties[PlayerNumber::to_player_number(player + 1)]
-                    .is_some()
-                {
+            for player in self
+                .last_time_player_was_penalized
+                .clone()
+                .iter()
+                .map(|(playernumber, _systemtime)| playernumber)
+            {
+                if game_controller_state.penalties[player].is_some() {
                     self.last_time_player_was_penalized[player] = Some(cycle_start_time);
                 }
             }

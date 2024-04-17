@@ -72,7 +72,7 @@ function on_cycle()
             Manual = {
                 remaining = {
                     nanos = 0,
-                    secs = 5
+                    secs = 50
                 },
             }
         };
@@ -98,7 +98,13 @@ function on_cycle()
         state.filtered_game_controller_state.penalties.two = nil;
     end
 
-    if state.cycle_count == 6000 then
+    if state.cycle_count == 4500 then
+        unpenalize(1);
+        state.filtered_game_controller_state.penalties.one = nil;
+    end
+
+
+    if state.cycle_count == 8000 then
         state.finished = true
     end
 end
