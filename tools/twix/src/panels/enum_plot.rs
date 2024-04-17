@@ -120,7 +120,7 @@ impl Panel for EnumPlotPanel {
 
     fn save(&self) -> Value {
         json!({
-            "subscribe_key": self.output_key.clone()
+            "subscribe_key": self.output_key
         })
     }
 }
