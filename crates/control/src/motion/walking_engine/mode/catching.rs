@@ -43,14 +43,11 @@ impl Catching {
         let step_duration = parameters.base.step_duration;
         let start_feet = Feet::from_joints(joints, support_side, parameters);
 
-        let target = project_onto_ground(robot_to_ground, *context.center_of_mass);
-        let end_feet = Feet::end_from_request(
+        let end_feet = catching_end_feet(
             parameters,
-            Step {
-                forward: target.x() * target_overestimation_factor,
-                left: 0.0,
-                turn: 0.0,
-            },
+            *context.center_of_mass,
+            robot_to_ground,
+            target_overestimation_factor,
             support_side,
         );
         let max_swing_foot_lift =
@@ -100,6 +97,25 @@ impl Catching {
         }
         Mode::Catching(self)
     }
+}
+
+fn catching_end_feet(
+    parameters: &WalkingEngineParameters,
+    center_of_mass: Point3<Robot>,
+    robot_to_ground: Isometry3<Robot, Ground>,
+    target_overestimation_factor: f32,
+    support_side: Side,
+) -> Feet {
+    let target = project_onto_ground(robot_to_ground, center_of_mass);
+    Feet::end_from_request(
+        parameters,
+        Step {
+            forward: target.x() * target_overestimation_factor,
+            left: 0.0,
+            turn: 0.0,
+        },
+        support_side,
+    )
 }
 
 fn project_onto_ground(
@@ -158,6 +174,18 @@ impl Catching {
     }
 
     pub fn tick(&mut self, context: &mut CycleContext, gyro: nalgebra::Vector3<f32>) {
+        if let Some(&robot_to_ground) = context.robot_to_ground {
+            self.step.plan.end_feet = catching_end_feet(
+                context.parameters,
+                *context.center_of_mass,
+                robot_to_ground,
+                context
+                    .parameters
+                    .catching_steps
+                    .target_overestimation_factor,
+                self.step.plan.support_side,
+            );
+        }
         self.step.tick(context, gyro);
     }
 }
