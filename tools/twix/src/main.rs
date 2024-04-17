@@ -229,7 +229,7 @@ impl App for TwixApp {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     let address_input = CompletionEdit::addresses(
                         &mut self.ip_address,
-                        21..=37,
+                        21..=41,
                         &self.reachable_naos.ips,
                     )
                     .ui(ui);
