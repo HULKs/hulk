@@ -21,12 +21,12 @@ use types::{
 
 mod anatomic_constraints;
 mod arm;
-mod feet;
+pub mod feet;
 mod foot_leveling;
 mod gyro_balancing;
 mod kick_state;
 pub mod kick_steps;
-mod mode;
+pub mod mode;
 pub mod parameters;
 mod step_plan;
 mod step_state;
@@ -61,15 +61,17 @@ pub struct Engine {
     pub right_arm: Option<Arm>,
 }
 
-impl Engine {
-    pub fn new() -> Self {
+impl Default for Engine {
+    fn default() -> Self {
         Self {
             mode: Mode::Standing(Standing {}),
             left_arm: Some(Arm::default()),
             right_arm: Some(Arm::default()),
         }
     }
+}
 
+impl Engine {
     pub fn stand(&mut self, context: &Context) {
         self.mode = self.mode.stand(context);
     }

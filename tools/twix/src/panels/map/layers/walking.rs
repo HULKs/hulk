@@ -5,10 +5,16 @@ use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Ground, Robot, Walk};
-use linear_algebra::{point, vector, Isometry3, Pose2, Pose3};
+use linear_algebra::{point, vector, Isometry3, Point3, Pose2, Pose3};
 use types::{
     field_dimensions::FieldDimensions, joints::body::BodyJoints, robot_kinematics::RobotKinematics,
     step_plan::Step, support_foot::Side,
+};
+use walking_engine::{
+    mode::{
+        catching::Catching, kicking::Kicking, starting::Starting, stopping::Stopping, walking, Mode,
+    },
+    Engine,
 };
 
 use crate::{
@@ -18,8 +24,11 @@ use crate::{
 pub struct Walking {
     robot_to_ground: ValueBuffer,
     robot_kinematics: ValueBuffer,
-    debug_output: ValueBuffer,
+    walking_engine: ValueBuffer,
+    last_actuated_joints: ValueBuffer,
     step_plan: ValueBuffer,
+    center_of_mass: ValueBuffer,
+    robot_to_walk: ValueBuffer,
 }
 
 impl Layer<Ground> for Walking {
@@ -30,16 +39,26 @@ impl Layer<Ground> for Walking {
             nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_ground").unwrap());
         let robot_kinematics =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_kinematics").unwrap());
-        let debug_output = nao.subscribe_output(
-            CyclerOutput::from_str("Control.additional.walking.debug_output").unwrap(),
+        let walking_engine = nao
+            .subscribe_output(CyclerOutput::from_str("Control.additional.walking.engine").unwrap());
+        let last_actuated_joints = nao.subscribe_output(
+            CyclerOutput::from_str("Control.additional.walking.last_actuated_joints").unwrap(),
         );
         let step_plan =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.step_plan").unwrap());
+        let center_of_mass =
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.center_of_mass").unwrap());
+        let robot_to_walk = nao.subscribe_output(
+            CyclerOutput::from_str("Control.additional.walking.robot_to_walk").unwrap(),
+        );
         Self {
             robot_to_ground,
             robot_kinematics,
-            debug_output,
+            walking_engine,
+            last_actuated_joints,
             step_plan,
+            center_of_mass,
+            robot_to_walk,
         }
     }
 
@@ -50,21 +69,18 @@ impl Layer<Ground> for Walking {
     ) -> Result<()> {
         let robot_to_ground: Isometry3<Robot, Ground> = self.robot_to_ground.require_latest()?;
         let robot_kinematics: RobotKinematics = self.robot_kinematics.require_latest()?;
-        let DebugOutput {
-            center_of_mass_in_ground,
-            last_actuated_joints,
-            end_support_sole,
-            end_swing_sole,
-            support_side,
-            robot_to_walk,
-        } = self.debug_output.require_latest()?;
+        let engine: Engine = self.walking_engine.require_latest()?;
+        let last_actuated_joints: BodyJoints = self.last_actuated_joints.require_latest()?;
         let step_plan: Step = self.step_plan.require_latest()?;
+        let center_of_mass: Point3<Robot> = self.center_of_mass.require_latest()?;
+        let center_of_mass_in_ground = robot_to_ground * center_of_mass;
+        let robot_to_walk: Isometry3<Robot, Walk> = self.robot_to_walk.require_latest()?;
 
         paint_actuated_feet(
             painter,
             robot_to_ground,
             last_actuated_joints,
-            support_side,
+            engine.support_side(),
             Stroke::new(0.01, Color32::BLUE),
             Stroke::new(0.003, Color32::BLUE),
         );
@@ -72,31 +88,38 @@ impl Layer<Ground> for Walking {
             painter,
             robot_to_ground,
             robot_kinematics,
-            support_side,
+            engine.support_side(),
             Stroke::new(0.01, Color32::GREEN),
             Stroke::new(0.003, Color32::GREEN),
         );
-        if let (Some(end_support_sole), Some(end_swing_sole)) = (end_support_sole, end_swing_sole) {
+        if let Engine {
+            mode:
+                Mode::Starting(Starting { step })
+                | Mode::Walking(walking::Walking { step, .. })
+                | Mode::Kicking(Kicking { step, .. })
+                | Mode::Stopping(Stopping { step, .. })
+                | Mode::Catching(Catching { step, .. }),
+            ..
+        } = engine
+        {
             paint_target_feet(
                 painter,
                 robot_to_ground,
                 last_actuated_joints,
                 robot_to_walk,
-                end_support_sole,
-                end_swing_sole,
-                support_side,
+                step.plan.end_feet.support_sole,
+                step.plan.end_feet.swing_sole,
+                step.plan.support_side,
                 Stroke::new(0.004, Color32::RED),
             );
         }
 
-        if let Some(center_of_mass_in_ground) = center_of_mass_in_ground {
-            painter.circle(
-                center_of_mass_in_ground.xy(),
-                0.01,
-                Color32::RED,
-                Stroke::new(0.001, Color32::BLACK),
-            );
-        }
+        painter.circle(
+            center_of_mass_in_ground.xy(),
+            0.01,
+            Color32::RED,
+            Stroke::new(0.001, Color32::BLACK),
+        );
 
         paint_step_plan(painter, step_plan);
         Ok(())
@@ -107,15 +130,16 @@ fn paint_measured_feet(
     painter: &TwixPainter<Ground>,
     robot_to_ground: Isometry3<Robot, Ground>,
     robot_kinematics: RobotKinematics,
-    support_side: Side,
+    support_side: Option<Side>,
     support_stroke: Stroke,
     swing_stroke: Stroke,
 ) {
     let left_sole_to_ground = robot_to_ground * robot_kinematics.left_sole_to_robot;
     let right_sole_to_ground = robot_to_ground * robot_kinematics.right_sole_to_robot;
     let (left_stroke, right_stroke) = match support_side {
-        Side::Left => (support_stroke, swing_stroke),
-        Side::Right => (swing_stroke, support_stroke),
+        Some(Side::Left) => (support_stroke, swing_stroke),
+        Some(Side::Right) => (swing_stroke, support_stroke),
+        None => (swing_stroke, swing_stroke),
     };
     paint_sole_polygon(
         painter,
@@ -135,7 +159,7 @@ fn paint_actuated_feet(
     painter: &TwixPainter<Ground>,
     robot_to_ground: Isometry3<Robot, Ground>,
     last_actuated_joints: BodyJoints,
-    support_side: Side,
+    support_side: Option<Side>,
     support_stroke: Stroke,
     swing_stroke: Stroke,
 ) {
@@ -144,8 +168,9 @@ fn paint_actuated_feet(
     let right_sole_to_ground =
         robot_to_ground * kinematics::forward::right_sole_to_robot(&last_actuated_joints.right_leg);
     let (left_stroke, right_stroke) = match support_side {
-        Side::Left => (support_stroke, swing_stroke),
-        Side::Right => (swing_stroke, support_stroke),
+        Some(Side::Left) => (support_stroke, swing_stroke),
+        Some(Side::Right) => (swing_stroke, support_stroke),
+        None => (swing_stroke, swing_stroke),
     };
     paint_sole_polygon(
         painter,

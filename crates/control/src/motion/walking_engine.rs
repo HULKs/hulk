@@ -1,8 +1,8 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Ground, Robot};
+use coordinate_systems::{Ground, Robot, Walk};
 use filtering::low_pass_filter::LowPassFilter;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use kinematics::forward;
 use linear_algebra::{Isometry3, Point3};
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,9 @@ use types::{
     support_foot::Side,
     walk_command::WalkCommand,
 };
-use walking_engine::{kick_steps::KickSteps, parameters::Parameters, Context, Engine};
+use walking_engine::{
+    feet::robot_to_walk, kick_steps::KickSteps, parameters::Parameters, Context, Engine,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalkingEngine {
@@ -46,7 +48,10 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     walk_command: Input<WalkCommand, "walk_command">,
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
-    // debug_output: AdditionalOutput<DebugOutput, "walking.debug_output">,
+
+    debug_output: AdditionalOutput<Engine, "walking.engine">,
+    last_actuated_joints: AdditionalOutput<BodyJoints, "walking.last_actuated_joints">,
+    robot_to_walk: AdditionalOutput<Isometry3<Robot, Walk>, "walking.robot_to_walk">,
 }
 
 #[context]
@@ -58,7 +63,7 @@ pub struct MainOutputs {
 impl WalkingEngine {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            engine: Engine::new(),
+            engine: Engine::default(),
             last_actuated_joints: Default::default(),
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 nalgebra::Vector3::zeros(),
@@ -126,7 +131,15 @@ impl WalkingEngine {
             .unwrap_or_default();
         cycle_context.motion_safe_exits[MotionType::Walk] = self.engine.is_standing();
 
-        // fill_debug_output(&mut context, &self.mode, &self.last_actuated_joints);
+        cycle_context
+            .debug_output
+            .fill_if_subscribed(|| self.engine.clone());
+        cycle_context
+            .last_actuated_joints
+            .fill_if_subscribed(|| self.last_actuated_joints);
+        cycle_context
+            .robot_to_walk
+            .fill_if_subscribed(|| robot_to_walk(context.parameters));
 
         Ok(MainOutputs {
             walk_motor_commands: motor_commands.into(),
