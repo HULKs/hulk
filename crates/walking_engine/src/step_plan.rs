@@ -4,9 +4,9 @@ use coordinate_systems::Walk;
 use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
-use types::{joints::body::BodyJoints, step_plan::Step, support_foot::Side};
+use types::{step_plan::Step, support_foot::Side};
 
-use crate::parameters::Parameters;
+use crate::Context;
 
 use super::{anatomic_constraints::AnatomicConstraints, feet::Feet};
 
@@ -21,13 +21,10 @@ pub struct StepPlan {
 }
 
 impl StepPlan {
-    pub fn new_from_request(
-        parameters: &Parameters,
-        requested_step: Step,
-        support_side: Side,
-        joints: &BodyJoints,
-    ) -> Self {
-        let start_feet = Feet::from_joints(joints, support_side, parameters);
+    pub fn new_from_request(context: &Context, requested_step: Step, support_side: Side) -> Self {
+        let parameters = &context.parameters;
+        let start_feet =
+            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
 
         let step =
             requested_step.clamp_to_anatomic_constraints(support_side, parameters.max_inside_turn);

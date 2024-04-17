@@ -1,25 +1,25 @@
+use std::f32::consts::FRAC_PI_2;
+
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot, Walk};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use kinematics::forward;
-use linear_algebra::{Isometry3, Point3};
+use linear_algebra::{vector, Isometry3, Orientation3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     joints::body::BodyJoints,
-    motion_command::{ArmMotion, MotionCommand},
     motion_selection::{MotionSafeExits, MotionType},
     motor_commands::MotorCommands,
+    obstacle_avoiding_arms::{ArmCommand, ArmCommands},
     sensor_data::SensorData,
     step_plan::Step,
     support_foot::Side,
     walk_command::WalkCommand,
 };
-use walking_engine::{
-    feet::robot_to_walk, kick_steps::KickSteps, parameters::Parameters, Context, Engine,
-};
+use walking_engine::{kick_steps::KickSteps, parameters::Parameters, Context, Engine};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalkingEngine {
@@ -44,10 +44,10 @@ pub struct CycleContext {
 
     cycle_time: Input<CycleTime, "cycle_time">,
     center_of_mass: Input<Point3<Robot>, "center_of_mass">,
-    motion_command: Input<MotionCommand, "motion_command">,
     sensor_data: Input<SensorData, "sensor_data">,
     walk_command: Input<WalkCommand, "walk_command">,
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
+    obstacle_avoiding_arms: Input<ArmCommands, "obstacle_avoiding_arms">,
 
     debug_output: AdditionalOutput<Engine, "walking.engine">,
     last_actuated_joints: AdditionalOutput<BodyJoints, "walking.last_actuated_joints">,
@@ -80,6 +80,30 @@ impl WalkingEngine {
                 .angular_velocity,
         );
 
+        let torso_tilt_compensation_factor = cycle_context
+            .parameters
+            .swinging_arms
+            .torso_tilt_compensation_factor;
+
+        let arm_compensation = compensate_arm_motion_with_torso_tilt(
+            &cycle_context.obstacle_avoiding_arms.left_arm,
+            torso_tilt_compensation_factor,
+        ) + compensate_arm_motion_with_torso_tilt(
+            &cycle_context.obstacle_avoiding_arms.right_arm,
+            torso_tilt_compensation_factor,
+        );
+
+        let robot_to_walk = Isometry3::from_parts(
+            vector![
+                cycle_context.parameters.base.torso_offset,
+                0.0,
+                cycle_context.parameters.base.walk_height,
+            ],
+            Orientation3::new(
+                Vector3::y_axis() * (cycle_context.parameters.base.torso_tilt + arm_compensation),
+            ),
+        );
+
         let context = Context {
             parameters: cycle_context.parameters,
             kick_steps: cycle_context.kick_steps,
@@ -89,6 +113,8 @@ impl WalkingEngine {
             robot_to_ground: cycle_context.robot_to_ground,
             gyro: self.filtered_gyro.state(),
             current_joints: self.last_actuated_joints,
+            robot_to_walk,
+            obstacle_avoiding_arms: cycle_context.obstacle_avoiding_arms,
         };
 
         match *cycle_context.walk_command {
@@ -103,26 +129,7 @@ impl WalkingEngine {
 
         self.engine.tick(&context);
 
-        self.engine.transition_arm(
-            &context,
-            Side::Left,
-            cycle_context
-                .motion_command
-                .arm_motion(Side::Left)
-                .unwrap_or(ArmMotion::Swing),
-        );
-        self.engine.transition_arm(
-            &context,
-            Side::Right,
-            cycle_context
-                .motion_command
-                .arm_motion(Side::Right)
-                .unwrap_or(ArmMotion::Swing),
-        );
-
-        let motor_commands = self
-            .engine
-            .compute_commands(context.parameters, context.kick_steps);
+        let motor_commands = self.engine.compute_commands(&context);
 
         self.last_actuated_joints = motor_commands.positions;
 
@@ -139,7 +146,7 @@ impl WalkingEngine {
             .fill_if_subscribed(|| self.last_actuated_joints);
         cycle_context
             .robot_to_walk
-            .fill_if_subscribed(|| robot_to_walk(context.parameters));
+            .fill_if_subscribed(|| robot_to_walk);
 
         Ok(MainOutputs {
             walk_motor_commands: motor_commands.into(),
@@ -168,38 +175,9 @@ impl WalkingEngine {
     }
 }
 
-// fn fill_debug_output(context: &mut CycleContext, mode: &Mode, last_actuated_joints: &BodyJoints) {
-//     context.debug_output.fill_if_subscribed(|| {
-//         let center_of_mass_in_ground = context
-//             .robot_to_ground
-//             .map(|robot_to_ground| robot_to_ground * *context.center_of_mass);
-//         let (end_support_sole, end_swing_sole) = match mode {
-//             Mode::Standing(_) => (None, None),
-//             Mode::Starting(Starting { step, .. })
-//             | Mode::Walking(Walking { step, .. })
-//             | Mode::Kicking(Kicking { step, .. })
-//             | Mode::Stopping(Stopping { step })
-//             | Mode::Catching(Catching { step, .. }) => (
-//                 Some(step.plan.end_feet.support_sole),
-//                 Some(step.plan.end_feet.swing_sole),
-//             ),
-//         };
-//         let support_side = match mode {
-//             Mode::Standing(_) => Side::Left,
-//             Mode::Starting(Starting { step, .. })
-//             | Mode::Walking(Walking { step, .. })
-//             | Mode::Kicking(Kicking { step, .. })
-//             | Mode::Stopping(Stopping { step })
-//             | Mode::Catching(Catching { step, .. }) => step.plan.support_side,
-//         };
-//         let robot_to_walk = robot_to_walk(context.parameters);
-//         DebugOutput {
-//             center_of_mass_in_ground,
-//             last_actuated_joints: *last_actuated_joints,
-//             end_support_sole,
-//             end_swing_sole,
-//             support_side,
-//             robot_to_walk,
-//         }
-//     });
-// }
+fn compensate_arm_motion_with_torso_tilt(
+    arm_command: &ArmCommand,
+    torso_tilt_compensation_factor: f32,
+) -> f32 {
+    (arm_command.shoulder_pitch() - FRAC_PI_2) * torso_tilt_compensation_factor
+}

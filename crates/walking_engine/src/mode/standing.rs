@@ -8,8 +8,8 @@ use types::{
 };
 
 use crate::{
-    feet::Feet, parameters::Parameters, step_plan::StepPlan, step_state::StepState,
-    stiffness::Stiffness as _, Context, WalkTransition,
+    feet::Feet, step_plan::StepPlan, step_state::StepState, stiffness::Stiffness as _, Context,
+    WalkTransition,
 };
 
 use super::{starting::Starting, Mode};
@@ -49,8 +49,8 @@ impl WalkTransition for Standing {
 }
 
 impl Standing {
-    pub fn compute_commands(&self, parameters: &Parameters) -> MotorCommands<BodyJoints> {
-        let feet = Feet::end_from_request(parameters, Step::ZERO, Side::Left);
+    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+        let feet = Feet::end_from_request(context.parameters, Step::ZERO, Side::Left);
 
         let zero_step_state = StepState {
             plan: StepPlan {
@@ -65,9 +65,9 @@ impl Standing {
             gyro_balancing: Default::default(),
             foot_leveling: Default::default(),
         };
-        zero_step_state.compute_joints(parameters).apply_stiffness(
-            parameters.stiffnesses.leg_stiffness_stand,
-            parameters.stiffnesses.arm_stiffness,
+        zero_step_state.compute_joints(context).apply_stiffness(
+            context.parameters.stiffnesses.leg_stiffness_stand,
+            context.parameters.stiffnesses.arm_stiffness,
         )
     }
 
