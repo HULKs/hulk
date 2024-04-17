@@ -11,7 +11,7 @@ impl RecordingTrigger {
         }
     }
 
-    pub fn cycle_finished(&mut self) {
+    pub fn update(&mut self) {
         self.counter = (self.counter + 1) % self.recording_interval;
     }
 
