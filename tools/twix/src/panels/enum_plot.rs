@@ -7,7 +7,7 @@ use std::{
 
 use communication::client::CyclerOutput;
 use eframe::{
-    egui::{show_tooltip_at_pointer, viewport, ComboBox, Id, Response, Ui, Widget},
+    egui::{show_tooltip_at_pointer, ComboBox, Id, Response, Ui, Widget},
     epaint::{Color32, Stroke},
 };
 use egui_plot::{Plot, PlotBounds, PlotPoint, PlotUi, Polygon, Text};
@@ -129,6 +129,7 @@ impl EnumPlotPanel {
     fn plot_segment(plot_ui: &mut PlotUi, segment: &Segment, plot_bounds: &PlotBounds) {
         const VERTICAL_MARGIN: f64 = 0.05;
         const BORDER_WIDTH: f32 = 2.0;
+        const MIN_SEGMENT_RELATION_FOR_TEXT: f64 = 1.0 / 18.0;
 
         let viewport_left_edge = plot_bounds.min()[0];
         let viewport_right_edge = plot_bounds.max()[0];
@@ -153,14 +154,16 @@ impl EnumPlotPanel {
         );
 
         let mut text_x = start + 0.05;
-        if viewport_left_edge > text_x && end > (viewport_left_edge + (min_boxsize_text / 18.0)) {
+        if viewport_left_edge > text_x
+            && end > (viewport_left_edge + (min_boxsize_text * MIN_SEGMENT_RELATION_FOR_TEXT))
+        {
             text_x = viewport_left_edge + 0.05;
         }
 
         plot_ui.text(
             Text::new(
                 PlotPoint { x: text_x, y: 0.9 },
-                name, //
+                name,
             )
             .color(Color32::WHITE)
             .anchor(eframe::emath::Align2::LEFT_TOP),
