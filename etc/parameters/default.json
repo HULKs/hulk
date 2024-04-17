@@ -901,7 +901,7 @@
     },
     "search": {
       "position_reached_distance": 0.4,
-      "rotation_per_step": 1.3
+      "rotation_per_step": 0.5
     },
     "look_action": {
       "angle_threshold": 0.95,
