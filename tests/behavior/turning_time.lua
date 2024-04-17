@@ -6,7 +6,7 @@ end
 
 spawn_robot(2)
 
-local game_end_time = 10000
+local game_end_time = 15000
 local goal_scored = false
 
 function on_goal()
