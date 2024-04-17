@@ -1,22 +1,11 @@
 use coordinate_systems::{Robot, Walk};
 use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
-use linear_algebra::{point, vector, Isometry3, Orientation3, Pose3, Vector2, Vector3};
+use linear_algebra::{point, Isometry3, Orientation3, Pose3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{joints::body::BodyJoints, step_plan::Step, support_foot::Side};
 
 use crate::parameters::Parameters;
-
-pub fn robot_to_walk(parameters: &Parameters) -> Isometry3<Robot, Walk> {
-    Isometry3::from_parts(
-        vector![
-            parameters.base.torso_offset,
-            0.0,
-            parameters.base.walk_height,
-        ],
-        Orientation3::new(Vector3::y_axis() * parameters.base.torso_tilt),
-    )
-}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
 pub struct Feet {
@@ -25,9 +14,11 @@ pub struct Feet {
 }
 
 impl Feet {
-    pub fn from_joints(joints: &BodyJoints, support_side: Side, parameters: &Parameters) -> Self {
-        let robot_to_walk = robot_to_walk(parameters);
-
+    pub fn from_joints(
+        robot_to_walk: Isometry3<Robot, Walk>,
+        joints: &BodyJoints,
+        support_side: Side,
+    ) -> Self {
         let left_sole = robot_to_walk * left_sole_to_robot(&joints.left_leg).as_pose();
         let right_sole = robot_to_walk * right_sole_to_robot(&joints.right_leg).as_pose();
 

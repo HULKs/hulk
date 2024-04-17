@@ -61,6 +61,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::motion::look_around",
                     "control::motion::look_at",
                     "control::motion::motion_selector",
+                    "control::motion::obstacle_avoiding_arms",
                     "control::motion::sit_down",
                     "control::motion::stand_up_back",
                     "control::motion::stand_up_front",
