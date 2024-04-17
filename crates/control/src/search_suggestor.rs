@@ -65,22 +65,8 @@ impl SearchSuggestor {
             context.ground_to_field.copied(),
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
-        let maximum_heat_heatmap_position = self.heatmap.map.iamax_full();
-        let mut suggested_search_position: Option<Point2<Field>> = None;
+        let suggested_search_position = self.heatmap.get_maximum_position();
 
-        if self.heatmap.map[maximum_heat_heatmap_position]
-            > context.search_suggestor_configuration.minimum_validity
-        {
-            let search_suggestion = point![
-                ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0)
-                    / context.search_suggestor_configuration.cells_per_meter
-                    - context.field_dimensions.length / 2.0),
-                ((maximum_heat_heatmap_position.1 as f32 + 1.0 / 2.0)
-                    / context.search_suggestor_configuration.cells_per_meter
-                    - context.field_dimensions.width / 2.0)
-            ];
-            suggested_search_position = Some(search_suggestion);
-        }
         context
             .heatmap
             .fill_if_subscribed(|| self.heatmap.map.clone());
@@ -121,29 +107,49 @@ struct Heatmap {
 }
 
 impl Heatmap {
-    fn field_to_heatmap(&self, index: Point2<Field>) -> (usize, usize) {
+    fn field_to_heatmap(&self, field_point: Point2<Field>) -> (usize, usize) {
         let heatmap_point = (
-            ((index.x() + self.field_dimensions.length / 2.0) * self.cells_per_meter) as usize,
-            ((index.y() + self.field_dimensions.width / 2.0) * self.cells_per_meter) as usize,
+            ((field_point.x() + self.field_dimensions.length / 2.0) * self.cells_per_meter)
+                as usize,
+            ((field_point.y() + self.field_dimensions.width / 2.0) * self.cells_per_meter) as usize,
         );
         (
             clamp(heatmap_point.0, 0, self.map.shape().0 - 1),
             clamp(heatmap_point.1, 0, self.map.shape().1 - 1),
         )
     }
+
+    fn get_maximum_position(&self) -> Option<Point2<Field>> {
+        let maximum_heat_heatmap_position = self.heatmap.map.iamax_full();
+
+        if self.heatmap.map[maximum_heat_heatmap_position]
+            > context.search_suggestor_configuration.minimum_validity
+        {
+            let search_suggestion = point![
+                ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0)
+                    / context.search_suggestor_configuration.cells_per_meter
+                    - context.field_dimensions.length / 2.0),
+                ((maximum_heat_heatmap_position.1 as f32 + 1.0 / 2.0)
+                    / context.search_suggestor_configuration.cells_per_meter
+                    - context.field_dimensions.width / 2.0)
+            ];
+            return Some(search_suggestion);
+        }
+        None
+    }
 }
 
 impl Index<Point2<Field>> for Heatmap {
     type Output = f32;
-    fn index(&self, index: Point2<Field>) -> &Self::Output {
-        let heatmap_point = self.field_to_heatmap(index);
+    fn index(&self, field_point: Point2<Field>) -> &Self::Output {
+        let heatmap_point = self.field_to_heatmap(field_point);
         &self.map[heatmap_point]
     }
 }
 
 impl IndexMut<Point2<Field>> for Heatmap {
-    fn index_mut(&mut self, index: Point2<Field>) -> &mut Self::Output {
-        let heatmap_point = self.field_to_heatmap(index);
+    fn index_mut(&mut self, field_point: Point2<Field>) -> &mut Self::Output {
+        let heatmap_point = self.field_to_heatmap(field_point);
         &mut self.map[heatmap_point]
     }
 }
