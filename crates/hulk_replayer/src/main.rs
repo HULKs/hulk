@@ -1,7 +1,7 @@
 #![recursion_limit = "256"]
 mod replayer;
-mod user_interface;
 mod statistics;
+mod user_interface;
 
 use std::time::SystemTime;
 
