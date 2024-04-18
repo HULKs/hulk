@@ -10,7 +10,7 @@ use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
 use types::{
     color::Intensity,
     field_border::FieldBorder,
-    image_segments::{ImageSegments, Segment},
+    image_segments::{ImageSegments, ScanLine, Segment},
 };
 
 use crate::ransac::Ransac;
@@ -29,6 +29,8 @@ pub struct CycleContext {
     angle_threshold: Parameter<f32, "field_border_detection.$cycler_instance.angle_threshold">,
     first_line_association_distance:
         Parameter<f32, "field_border_detection.$cycler_instance.first_line_association_distance">,
+    field_border_margin:
+        Parameter<f32, "field_border_detection.$cycler_instance.margin_to_horizon">,
     min_points_per_line:
         Parameter<usize, "field_border_detection.$cycler_instance.min_points_per_line">,
     second_line_association_distance:
@@ -66,8 +68,8 @@ impl FieldBorderDetection {
             .iter()
             .filter_map(|scan_line| {
                 get_first_field_segment(
-                    &scan_line.segments,
-                    scan_line.position as f32,
+                    scan_line,
+                    *context.field_border_margin,
                     &context
                         .camera_matrix
                         .horizon
@@ -94,13 +96,17 @@ impl FieldBorderDetection {
     }
 }
 
-fn get_first_field_segment<'segment>(
-    segments: &'segment [Segment],
-    x: f32,
+fn get_first_field_segment<'scanline>(
+    scan_line: &'scanline ScanLine,
+    margin: f32,
     horizon: &Horizon,
-) -> Option<&'segment Segment> {
-    segments.iter().find(|segment| {
-        segment.field_color == Intensity::High && horizon.is_below(point![x, segment.start as f32])
+) -> Option<&'scanline Segment> {
+    scan_line.segments.iter().find(|segment| {
+        segment.field_color == Intensity::High
+            && horizon.is_above_with_margin(
+                point![scan_line.position as f32, segment.start as f32],
+                margin,
+            )
     })
 }
 
@@ -226,8 +232,8 @@ mod test {
         );
         scanline.segments[7].field_color = Intensity::High;
         let green_segment = get_first_field_segment(
-            &scanline.segments,
-            scanline.position as f32,
+            &scanline,
+            0.0,
             &Horizon {
                 vanishing_point: point![0.0, 0.0],
                 normal: vector![0.0, 1.0],

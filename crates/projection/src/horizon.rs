@@ -17,9 +17,9 @@ impl Horizon {
         normal: vector![0.0, -1.0],
     };
 
-    pub fn is_below(&self, point: Point2<Pixel>) -> bool {
+    pub fn is_above_with_margin(&self, point: Point2<Pixel>, margin: f32) -> bool {
         let horizon_y = self.y_at_x(point.x());
-        horizon_y < point.y()
+        horizon_y + margin < point.y()
     }
 
     pub fn horizon_y_minimum(&self) -> f32 {
