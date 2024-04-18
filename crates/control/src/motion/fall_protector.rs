@@ -2,7 +2,7 @@ use std::{ops::Range, time::Duration};
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{MainOutput, Parameters};
+use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
