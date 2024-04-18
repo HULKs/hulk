@@ -83,7 +83,19 @@ pub fn execute(
             .map(|role| role.to_position(ground_to_field, field_dimensions))
             .unwrap_or(point![0.0, 0.0]),
     };
-    let head = HeadMotion::SearchForLostBall;
+
+    let best_hypothetical_ball_position = world_state
+        .hypothetical_ball_positions
+        .iter()
+        .max_by(|a, b| a.validity.total_cmp(&b.validity));
+
+    let head = match best_hypothetical_ball_position {
+        Some(hypothesis) => HeadMotion::LookAt {
+            target: hypothesis.position,
+            camera: None,
+        },
+        None => HeadMotion::SearchForLostBall,
+    };
     if let Some(SearchRole::Goal) = search_role {
         let goal_pose = Pose2::from(search_position);
         walk_and_stand.execute(goal_pose, head, path_obstacles_output)

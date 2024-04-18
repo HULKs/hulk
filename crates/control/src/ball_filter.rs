@@ -61,7 +61,7 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
     pub removed_ball_positions: MainOutput<Vec<Point2<Ground>>>,
-    pub invalid_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
+    pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
 }
 
 impl BallFilter {
@@ -193,7 +193,7 @@ impl BallFilter {
                     .position
             })
             .collect::<Vec<_>>();
-        let invalid_ball_positions = self
+        let hypothetical_ball_positions = self
             .hypotheses
             .iter()
             .filter_map(|hypothesis| {
@@ -214,7 +214,7 @@ impl BallFilter {
         Ok(MainOutputs {
             ball_position: ball_position.into(),
             removed_ball_positions: removed_ball_positions.into(),
-            invalid_ball_positions: invalid_ball_positions.into(),
+            hypothetical_ball_positions: hypothetical_ball_positions.into(),
         })
     }
 
