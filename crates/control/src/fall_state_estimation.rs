@@ -60,6 +60,7 @@ pub struct CycleContext {
 
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
 }
 
 #[context]
@@ -115,8 +116,13 @@ impl FallStateEstimation {
 
         let positions = context.sensor_data.positions;
 
-        let difference_to_sitting =
-            (context.sitting_pose.left_leg.hip_pitch - positions.left_leg.hip_pitch).powf(2.0);
+        let difference_to_sitting = (context.sitting_pose.left_leg.hip_pitch
+            - positions.left_leg.hip_pitch)
+            .powf(2.0)
+            + (context.sitting_pose.left_leg.knee_pitch - positions.left_leg.knee_pitch).powf(2.0)
+            + (context.sitting_pose.right_leg.hip_pitch - positions.right_leg.hip_pitch).powf(2.0)
+            + (context.sitting_pose.right_leg.knee_pitch - positions.right_leg.knee_pitch)
+                .powf(2.0);
 
         let fallen_direction = if fallen_down_gravitational_difference
             < *context.gravitational_acceleration_threshold
@@ -128,6 +134,7 @@ impl FallStateEstimation {
         } else if fallen_sitting_gravitational_difference
             < *context.gravitational_acceleration_threshold
             && difference_to_sitting < *context.difference_to_sitting_threshold
+            && !context.has_ground_contact
         {
             Some(Kind::Sitting)
         } else {
