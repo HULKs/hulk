@@ -1,6 +1,7 @@
 use std::{
     f32::consts::{FRAC_PI_2, PI},
     mem::take,
+    time::{Duration, SystemTime},
 };
 
 use approx::assert_relative_eq;
@@ -17,6 +18,7 @@ use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
 use types::{
+    cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -37,6 +39,7 @@ pub struct Localization {
     hypotheses_when_entered_playing: Vec<ScoredPose>,
     is_penalized_with_motion_in_set_or_initial: bool,
     was_picked_up_while_penalized_with_motion_in_set_or_initial: bool,
+    time_when_penalized_clicked: Option<SystemTime>,
 }
 
 #[context]
@@ -87,6 +90,7 @@ pub struct CycleContext {
     penalized_hypothesis_covariance:
         Parameter<Matrix3<f32>, "localization.penalized_hypothesis_covariance">,
     score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
+    tentative_penalized_duration: Parameter<Duration, "localization.tentative_penalized_duration">,
     use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
     injected_ground_to_field_of_home_after_coin_toss_before_second_half: Parameter<
         Option<Isometry2<Ground, Field>>,
@@ -97,6 +101,7 @@ pub struct CycleContext {
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 }
 
 #[context]
@@ -121,6 +126,7 @@ impl Localization {
             hypotheses_when_entered_playing: vec![],
             is_penalized_with_motion_in_set_or_initial: false,
             was_picked_up_while_penalized_with_motion_in_set_or_initial: false,
+            time_when_penalized_clicked: None,
         })
     }
 
@@ -183,6 +189,7 @@ impl Localization {
                 self.hypotheses_when_entered_playing = self.hypotheses.clone();
             }
             (PrimaryState::Playing, PrimaryState::Penalized, _) => {
+                self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
                 match penalty {
                     Some(Penalty::IllegalMotionInSet { .. })
                     | Some(Penalty::IllegalMotionInInitial { .. }) => {
@@ -192,7 +199,17 @@ impl Localization {
                     None => {}
                 };
             }
-            (PrimaryState::Penalized, _, _) if primary_state != PrimaryState::Penalized => {
+            (PrimaryState::Penalized, _, _)
+                if primary_state != PrimaryState::Penalized
+                    && self.time_when_penalized_clicked.map_or(true, |time| {
+                        context
+                            .cycle_time
+                            .start_time
+                            .duration_since(time)
+                            .expect("time ran backwards")
+                            > *context.tentative_penalized_duration
+                    }) =>
+            {
                 if self.is_penalized_with_motion_in_set_or_initial {
                     if self.was_picked_up_while_penalized_with_motion_in_set_or_initial {
                         self.hypotheses = take(&mut self.hypotheses_when_entered_playing);
