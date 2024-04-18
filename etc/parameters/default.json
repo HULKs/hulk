@@ -233,18 +233,18 @@
   },
   "feet_detection": {
     "vision_top": {
-      "enable": false,
-      "maximum_cluster_distance": 0.3,
+      "enable": true,
+      "maximum_cluster_distance": 0.2,
       "minimum_consecutive_segments": 7,
       "minimum_luminance_standard_deviation": 7,
-      "minimum_samples_per_cluster": 3
+      "minimum_samples_per_cluster": 8
     },
     "vision_bottom": {
       "enable": true,
-      "maximum_cluster_distance": 0.3,
-      "minimum_consecutive_segments": 5,
+      "maximum_cluster_distance": 0.2,
+      "minimum_consecutive_segments": 7,
       "minimum_luminance_standard_deviation": 7,
-      "minimum_samples_per_cluster": 3
+      "minimum_samples_per_cluster": 8
     }
   },
   "current_minimizer_parameters": {
