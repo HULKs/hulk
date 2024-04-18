@@ -28,7 +28,7 @@ members = [
   "crates/nao",
   "crates/nao_camera",
   "crates/opn",
-  "crates/parameter_tester"
+  "crates/parameter_tester",
   "crates/parameters",
   "crates/projection",
   "crates/repository",
