@@ -58,17 +58,17 @@ impl RobotInfo {
     }
 
     pub async fn body_id(&mut self) -> Option<String> {
-        if self.head_id.is_none() {
-            self.head_id = self.proxy.head_id().await.ok().and_then(Option::from)
-        }
-        self.head_id.clone()
-    }
-
-    pub async fn head_id(&mut self) -> Option<String> {
         if self.body_id.is_none() {
             self.body_id = self.proxy.body_id().await.ok().and_then(Option::from)
         }
         self.body_id.clone()
+    }
+
+    pub async fn head_id(&mut self) -> Option<String> {
+        if self.head_id.is_none() {
+            self.head_id = self.proxy.head_id().await.ok().and_then(Option::from)
+        }
+        self.head_id.clone()
     }
 }
 
