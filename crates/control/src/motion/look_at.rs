@@ -74,7 +74,7 @@ impl LookAt {
         };
 
         let head_motion = match context.motion_command {
-            MotionCommand::Initial { head } => head,
+            MotionCommand::Initial { head, .. } => head,
             MotionCommand::SitDown { head } => head,
             MotionCommand::Stand { head, .. } => head,
             MotionCommand::Walk { head, .. } => head,
