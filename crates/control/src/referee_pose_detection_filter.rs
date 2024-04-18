@@ -144,7 +144,7 @@ fn unpack_message_tree(
         .iter()
         .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
         .filter_map(|(time, message)| match message {
-            IncomingMessage::GameController(_) => None,
+            IncomingMessage::GameController(_, _) => None,
             IncomingMessage::Spl(message) => Some((time, *message)),
         })
         .collect()
