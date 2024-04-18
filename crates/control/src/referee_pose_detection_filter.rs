@@ -7,7 +7,7 @@ use std::{
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::{MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
@@ -44,8 +44,10 @@ pub struct CycleContext {
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
     minimum_above_head_arms_detections:
         Parameter<usize, "referee_pose_detection_filter.minimum_above_head_arms_detections">,
-
     player_number: Parameter<PlayerNumber, "player_number">,
+
+    player_referee_detection_times:
+        AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
 }
 
 #[context]
@@ -61,7 +63,10 @@ impl RefereePoseDetectionFilter {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        mut context: CycleContext<impl NetworkInterface>,
+    ) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
 
         self.update(&context)?;
@@ -72,6 +77,11 @@ impl RefereePoseDetectionFilter {
             *context.initial_message_grace_period,
             *context.minimum_above_head_arms_detections,
         );
+
+        context
+            .player_referee_detection_times
+            .fill_if_subscribed(|| self.detection_times);
+
         Ok(MainOutputs {
             is_referee_initial_pose_detected: is_referee_initial_pose_detected.into(),
         })

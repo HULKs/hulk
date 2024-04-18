@@ -21,11 +21,8 @@ use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
     color::Rgb,
-    filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::FilteredGameState,
+    motion_command::MotionCommand,
     pose_detection::{HumanPose, Keypoints},
-    primary_state::PrimaryState,
-    world_state::WorldState,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -84,12 +81,7 @@ pub struct CycleContext {
     postprocess_duration: AdditionalOutput<Duration, "postprocess_duration">,
 
     image: Input<YCbCr422Image, "image">,
-    world_state: Input<WorldState, "Control", "world_state">,
-    filtered_game_controller_state: RequiredInput<
-        Option<FilteredGameControllerState>,
-        "Control",
-        "filtered_game_controller_state?",
-    >,
+    motion_command: Input<MotionCommand, "Control", "motion_command">,
 
     intersection_over_union_threshold:
         Parameter<f32, "object_detection.$cycler_instance.intersection_over_union_threshold">,
@@ -146,9 +138,14 @@ impl PoseDetection {
             return Ok(MainOutputs::default());
         }
 
-        if context.filtered_game_controller_state.game_state != FilteredGameState::Initial
-            || context.world_state.robot.primary_state != PrimaryState::Initial
-        {
+        let should_look_for_referee = matches!(
+            context.motion_command,
+            MotionCommand::Initial {
+                should_look_for_referee: true,
+                ..
+            }
+        );
+        if !should_look_for_referee {
             return Ok(MainOutputs::default());
         };
 
