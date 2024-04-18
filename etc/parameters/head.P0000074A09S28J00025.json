@@ -14,5 +14,10 @@
         -1.1234146356582642
       ]
     }
-  }
+  },
+  "fall_state_estimation": {
+    "difference_to_sitting_threshold": 1.5,
+    "gravitational_acceleration_threshold": 7.0
+  },
+  "player_number": "Five"
 }

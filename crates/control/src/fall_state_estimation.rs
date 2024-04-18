@@ -128,15 +128,15 @@ impl FallStateEstimation {
             < *context.gravitational_acceleration_threshold
         {
             Some(Kind::FacingDown)
-        } else if fallen_up_gravitational_difference < *context.gravitational_acceleration_threshold
-        {
-            Some(Kind::FacingUp)
         } else if fallen_sitting_gravitational_difference
             < *context.gravitational_acceleration_threshold
             && difference_to_sitting < *context.difference_to_sitting_threshold
             && !context.has_ground_contact
         {
             Some(Kind::Sitting)
+        } else if fallen_up_gravitational_difference < *context.gravitational_acceleration_threshold
+        {
+            Some(Kind::FacingUp)
         } else {
             None
         };
