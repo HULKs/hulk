@@ -768,6 +768,7 @@
         "yaw": 0.0,
         "pitch": -0.5759586531581288
       },
+      "hip_yaw_pitch_stiffness": 0.8,
       "left_arm": {
         "shoulder_pitch": 1.0471975511965976,
         "shoulder_roll": 0.0,

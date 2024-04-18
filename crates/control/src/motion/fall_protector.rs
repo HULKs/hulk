@@ -2,7 +2,7 @@ use std::{ops::Range, time::Duration};
 
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{MainOutput, Parameters};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
@@ -43,6 +43,7 @@ pub struct CycleContext {
     head_stiffness: Parameter<Range<f32>, "fall_protection.head_stiffness">,
     arm_stiffness: Parameter<Range<f32>, "fall_protection.arm_stiffness">,
     leg_stiffness: Parameter<Range<f32>, "fall_protection.leg_stiffness">,
+    hip_yaw_pitch_stiffness: Parameter<f32, "fall_protection.hip_yaw_pitch_stiffness">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -120,7 +121,7 @@ impl FallProtector {
             HeadJoints::fill(context.head_stiffness.start)
         };
 
-        let body_stiffnesses = match phase {
+        let mut body_stiffnesses = match phase {
             FallPhase::Early => BodyJoints {
                 left_arm: ArmJoints::fill(context.arm_stiffness.start),
                 right_arm: ArmJoints::fill(context.arm_stiffness.start),
@@ -134,6 +135,8 @@ impl FallProtector {
                 right_leg: LegJoints::fill(context.leg_stiffness.end),
             },
         };
+        body_stiffnesses.left_leg.hip_yaw_pitch = *context.hip_yaw_pitch_stiffness;
+        body_stiffnesses.right_leg.hip_yaw_pitch = *context.hip_yaw_pitch_stiffness;
 
         let motor_commands = MotorCommands {
             positions: protection_angles,
