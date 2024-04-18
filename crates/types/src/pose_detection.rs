@@ -83,7 +83,7 @@ impl Index<usize> for Keypoints {
             14 => &self.right_knee,
             15 => &self.left_foot,
             16 => &self.right_foot,
-            _ => unreachable!(),
+            _ => panic!("out of bounds"),
         }
     }
     type Output = Keypoint;
