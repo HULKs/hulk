@@ -37,9 +37,9 @@ pub struct CycleContext {
 
     time_since_last_game_controller_state_message_to_consider_source_ip_address_active: Parameter<
         Duration,
-        "time_since_last_game_controller_state_message_to_consider_source_ip_address_active",
+        "game_controller_filter.time_since_last_game_controller_state_message_to_consider_source_ip_address_active",
     >,
-    collision_alert_cooldown: Parameter<Duration, "collision_alert_cooldown">,
+    collision_alert_cooldown: Parameter<Duration, "game_controller_filter.collision_alert_cooldown">,
 
     last_contact:
         AdditionalOutput<HashMap<SocketAddr, SystemTime>, "game_controller_address_contacts_times">,
