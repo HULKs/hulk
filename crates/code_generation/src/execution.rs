@@ -39,10 +39,13 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                 let keep_running = keep_running.clone();
                 std::panic::set_hook(Box::new(move |panic_info| {
                     keep_running.cancel();
+                    eprint!("panic occurred");
                     if let Some(payload) = panic_info.payload().downcast_ref::<&str>() {
-                        eprintln!("panic occurred: {payload:?} {:?}", panic_info.location());
-                    } else {
-                        eprintln!("panic occurred");
+                        eprint!(": {payload:?}");
+                    }
+                    eprintln!();
+                    if let Some(location) = panic_info.location() {
+                        eprintln!("\n{location}");
                     }
                 }));
             }
