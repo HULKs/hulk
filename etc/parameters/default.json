@@ -420,7 +420,7 @@
       "foot_lift_apex": 0.01,
       "foot_lift_apex_increase": {
         "forward": 0.1,
-        "left": 0.0,
+        "left": 0.1,
         "turn": 0.0
       },
       "foot_offset_left": [0.0, 0.05, 0.0],
@@ -460,7 +460,7 @@
         "hip_pitch": 0.05,
         "knee_pitch": 0.05,
         "ankle_pitch": 0.05,
-        "ankle_roll": 0.0
+        "ankle_roll": 0.05
       }
     },
     "max_level_delta": 0.1,
