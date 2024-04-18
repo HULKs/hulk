@@ -13,7 +13,6 @@ use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::rectangle::Rectangle;
 use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
 use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
@@ -37,8 +36,6 @@ const DETECTION_SCRATCHPAD_SIZE: usize =
     DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
 
 const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
-
-type Scratchpad = [f32; DETECTION_SCRATCHPAD_SIZE];
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseDetection {
@@ -227,7 +224,7 @@ impl PoseDetection {
     }
 }
 
-fn load_into_scratchpad(scratchpad: &mut Vec<f32>, image: &YCbCr422Image) {
+fn load_into_scratchpad(scratchpad: &mut [f32], image: &YCbCr422Image) {
     let mut scratchpad_index = 0;
     for y in 0..DETECTION_IMAGE_HEIGHT as u32 {
         for x in
