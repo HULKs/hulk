@@ -210,14 +210,14 @@ impl Localization {
             }
             (PrimaryState::Penalized, _, _)
                 if primary_state != PrimaryState::Penalized
-                    && self.time_when_penalized_clicked.map_or(true, |time| {
+                    && (self.time_when_penalized_clicked.map_or(true, |time| {
                         context
                             .cycle_time
                             .start_time
                             .duration_since(time)
                             .expect("time ran backwards")
                             > *context.tentative_penalized_duration
-                    }) =>
+                    }) || !context.has_ground_contact) =>
             {
                 if self.is_penalized_with_motion_in_set_or_initial {
                     if self.was_picked_up_while_penalized_with_motion_in_set_or_initial {
