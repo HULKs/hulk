@@ -117,7 +117,7 @@ impl BehaviorCycler {
                 .cycle(control::search_suggestor::CycleContext::new(
                     &parameters.search_suggestor,
                     own_database.main_outputs.ball_position.as_ref(),
-                    &own_database.main_outputs.invalid_ball_positions,
+                    &own_database.main_outputs.hypothetical_ball_positions,
                     own_database.main_outputs.ground_to_field.as_ref(),
                     framework::AdditionalOutput::new(
                         true,
@@ -273,6 +273,7 @@ impl BehaviorCycler {
                 .world_state_composer
                 .cycle(world_state_composer::CycleContext::new(
                     own_database.main_outputs.ball_state.as_ref(),
+                    &own_database.main_outputs.hypothetical_ball_positions,
                     own_database.main_outputs.rule_ball_state.as_ref(),
                     own_database
                         .main_outputs
