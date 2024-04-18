@@ -48,7 +48,7 @@ pub fn plan(
     } else {
         let mut obstacles = world_state.obstacles.clone();
         for obstacle in &mut obstacles {
-            if obstacle.kind == ObstacleKind::GoalPost {
+            if matches!(obstacle.kind, ObstacleKind::GoalPost) {
                 obstacle.radius_at_hip_height = (obstacle.radius_at_hip_height
                     - dribbling_parameters.goalpost_radius_decrease)
                     .max(0.0);
