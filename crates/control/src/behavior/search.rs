@@ -75,14 +75,9 @@ pub fn execute(
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let search_role = assign_search_role(world_state);
-    let search_position = match (world_state.suggested_search_position, previous_role) {
-        (Some(_), Role::Striker | Role::StrikerSupporter) => {
-            ground_to_field.inverse() * world_state.suggested_search_position.unwrap()
-        }
-        _ => search_role
-            .map(|role| role.to_position(ground_to_field, field_dimensions))
-            .unwrap_or(point![0.0, 0.0]),
-    };
+    let search_position = search_role
+        .map(|role| role.to_position(ground_to_field, field_dimensions))
+        .unwrap_or(point![0.0, 0.0]);
     let head = HeadMotion::SearchForLostBall;
     if let Some(SearchRole::Goal) = search_role {
         let goal_pose = Pose2::from(search_position);
