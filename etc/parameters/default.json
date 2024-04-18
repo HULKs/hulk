@@ -660,14 +660,14 @@
     "linear_acceleration_low_pass_factor": 0.05,
     "angular_velocity_low_pass_factor": 0.2,
     "roll_pitch_low_pass_factor": 0.9,
-    "gravitational_acceleration_threshold": 5.0,
+    "gravitational_acceleration_threshold": 7.0,
     "gravitational_force_sitting": [3.6, 0.0, 8.8],
     "falling_angle_threshold_forward": [-0.3, 0.5],
     "falling_timeout": {
       "nanos": 0,
       "secs": 1
     },
-    "difference_to_sitting_threshold": 1.0,
+    "difference_to_sitting_threshold": 1.5,
     "sitting_pose": {
       "head": {
         "pitch": 0.4693620204925537,
