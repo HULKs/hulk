@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use communication::client::CyclerOutput;
-use coordinate_systems::Ground;
+use coordinate_systems::Field;
 use geometry::line::Line2;
 use types::field_dimensions::FieldDimensions;
 
@@ -13,34 +13,26 @@ use crate::{
 };
 
 pub struct Lines {
-    lines_in_ground_bottom: ValueBuffer,
-    lines_in_ground_top: ValueBuffer,
+    lines_in_field: ValueBuffer,
 }
 
-impl Layer<Ground> for Lines {
+impl Layer<Field> for Lines {
     const NAME: &'static str = "Lines";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let lines_in_ground_bottom = nao
-            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.line_data.lines").unwrap());
-        let lines_in_ground_top =
-            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.line_data.lines").unwrap());
-        Self {
-            lines_in_ground_bottom,
-            lines_in_ground_top,
-        }
+        let lines_in_field = nao.subscribe_output(
+            CyclerOutput::from_str("Control.additional.localization.measured_lines_in_field")
+                .unwrap(),
+        );
+        Self { lines_in_field }
     }
 
     fn paint(
         &self,
-        painter: &TwixPainter<Ground>,
+        painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let lines: Vec<Line2<Ground>> = [&self.lines_in_ground_bottom, &self.lines_in_ground_top]
-            .iter()
-            .filter_map(|buffer| buffer.parse_latest::<Vec<_>>().ok())
-            .flatten()
-            .collect();
+        let lines = self.lines_in_field.parse_latest::<Vec<Line2<Field>>>()?;
         for line in lines {
             painter.line_segment(line.0, line.1, Stroke::new(0.04, Color32::RED));
         }
