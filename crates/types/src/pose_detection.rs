@@ -35,9 +35,9 @@ pub struct Keypoints {
 }
 
 impl Keypoints {
-    pub fn try_new(keypoints_slice: &[f32], x_scale: f32, y_scale: f32) -> Option<Self> {
+    pub fn try_new(keypoints_slice: &[f32], x_offset: f32, y_offset: f32) -> Option<Self> {
         let mut keypoints_iter = keypoints_slice.chunks(3).map(|keypoint_chunk| Keypoint {
-            point: point![keypoint_chunk[0] * x_scale, keypoint_chunk[1] * y_scale],
+            point: point![keypoint_chunk[0] + x_offset, keypoint_chunk[1] + y_offset],
             confidence: keypoint_chunk[2],
         });
 
