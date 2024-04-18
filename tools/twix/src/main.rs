@@ -7,8 +7,8 @@ use std::{
 };
 
 use aliveness::query_aliveness;
+use argument_parsers::NaoAddress;
 use clap::Parser;
-use cli_parsers::NaoAddress;
 use color_eyre::{
     eyre::{bail, eyre},
     Result,

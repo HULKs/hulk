@@ -8,7 +8,7 @@ use aliveness::{
     service_manager::{ServiceState, SystemServices},
     AlivenessError, AlivenessState, Battery, JointsArray,
 };
-use cli_parsers::NaoAddress;
+use argument_parsers::NaoAddress;
 use constants::OS_VERSION;
 
 #[derive(Args)]

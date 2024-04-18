@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
-use cli_parsers::NaoAddress;
+use argument_parsers::NaoAddress;
 use constants::OS_VERSION;
 use nao::Nao;
 use opn::verify_image;
