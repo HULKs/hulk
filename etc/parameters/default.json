@@ -403,8 +403,8 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.06,
-      "left": 0.12,
+      "forward": 0.065,
+      "left": 0.13,
       "turn": 1.3
     },
     "max_step_size_backwards": 0.04,
@@ -419,8 +419,8 @@
     "base": {
       "foot_lift_apex": 0.01,
       "foot_lift_apex_increase": {
-        "forward": 0.04,
-        "left": 0.1,
+        "forward": 0.1,
+        "left": 0.0,
         "turn": 0.0
       },
       "foot_offset_left": [0.0, 0.05, 0.0],
@@ -434,13 +434,13 @@
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
       "torso_tilt": 0.05,
-      "walk_height": 0.23
+      "walk_height": 0.22
     },
     "catching_steps": {
       "toe_offset": 0.09,
       "heel_offset": -0.035,
       "max_adjustment": 0.05,
-      "midpoint": 0.4,
+      "midpoint": 0.65,
       "target_overestimation_factor": 1.05,
       "additional_foot_lift": 0.005
     },
@@ -451,7 +451,7 @@
         "hip_pitch": 0.0,
         "knee_pitch": 0.0,
         "ankle_pitch": 0.05,
-        "ankle_roll": 0.05
+        "ankle_roll": 0.0
       },
       "low_pass_factor": 0.4,
       "max_delta": {
@@ -460,7 +460,7 @@
         "hip_pitch": 0.05,
         "knee_pitch": 0.05,
         "ankle_pitch": 0.05,
-        "ankle_roll": 0.05
+        "ankle_roll": 0.0
       }
     },
     "max_level_delta": 0.1,
@@ -476,12 +476,12 @@
       "step_duration": { "nanos": 200000000, "secs": 0 }
     },
     "step_midpoint": {
-      "forward": 0.5,
-      "left": 0.4,
+      "forward": 0.4,
+      "left": 0.35,
       "turn": 0.5
     },
     "stiffnesses": {
-      "arm_stiffness": 0.8,
+      "arm_stiffness": 0.5,
       "leg_stiffness_stand": 0.6,
       "leg_stiffness_walk": 1.0
     },
@@ -1199,7 +1199,7 @@
     "free_kick_obstacle_radius": 0.75,
     "penaltykick_box_extension": 0.2
   },
-  "search_suggestor":{
+  "search_suggestor": {
     "cells_per_meter": 2.0,
     "heatmap_decay_factor": 0.002,
     "minimum_validity": 0.01
