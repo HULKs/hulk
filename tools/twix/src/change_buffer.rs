@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use communication::{
     client::{Communication, CyclerOutput, SubscriberMessage},
     messages::Format,
@@ -14,7 +12,7 @@ use tokio::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Change {
     pub message_number: usize,
     pub value: Value,
@@ -27,9 +25,10 @@ pub struct ChangeBufferUpdate {
 }
 
 pub enum Message {
-    GetAndReset {
+    GetBuffered {
         response_sender: oneshot::Sender<Result<ChangeBufferUpdate, String>>,
     },
+    Clear,
     Reset,
 }
 
@@ -42,7 +41,7 @@ async fn change_buffer(
     mut command_receiver: Receiver<Message>,
 ) {
     let mut last_value: Option<Value> = None;
-    let mut changes = Ok(VecDeque::<Change>::new());
+    let mut changes = Ok(Vec::<Change>::new());
     let mut message_count: usize = 0;
 
     loop {
@@ -75,10 +74,10 @@ async fn change_buffer(
             maybe_command = command_receiver.recv() => {
                 match maybe_command {
                     Some(command) => match command {
-                        Message::GetAndReset { response_sender } => {
+                        Message::GetBuffered { response_sender } => {
                             match changes.as_mut() {
                                 Ok(changes) => {
-                                    let updates = changes.drain(..).collect();
+                                    let updates = changes.to_vec();
                                     response_sender.send(Ok(ChangeBufferUpdate{updates, message_count})).unwrap();
                                 }
                                 Err(error) => {
@@ -86,10 +85,25 @@ async fn change_buffer(
                                 }
                             }
                         },
+                        Message::Clear => {
+                            if let Ok(changes) = changes.as_mut() {
+                                let last_change = changes.pop();
+
+                                changes.clear();
+                                message_count = 0;
+
+                                if let Some(last_change) = last_change {
+                                    changes.push(Change {
+                                        message_number: 0,
+                                        value: last_change.value,
+                                    });
+                                }
+                            }
+                        }
                         Message::Reset  => {
                             match changes.as_mut() {
                                 Ok(changes) => changes.clear(),
-                                Err(_) => {changes = Ok(VecDeque::new())}
+                                Err(_) => {changes = Ok(Vec::new())}
                             }
                             message_count = 0;
                         }
@@ -101,18 +115,13 @@ async fn change_buffer(
     }
 }
 
-fn add_change(changes: &mut Result<VecDeque<Change>, String>, change: Change) {
+fn add_change(changes: &mut Result<Vec<Change>, String>, change: Change) {
     match changes {
         Ok(changes) => {
-            changes.push_back(change);
+            changes.push(change);
         }
         Err(_) => {
-            *changes = Ok({
-                let mut changes = VecDeque::new();
-                changes.push_back(change);
-
-                changes
-            });
+            *changes = Ok(vec![change]);
         }
     }
 }
@@ -131,14 +140,18 @@ impl ChangeBuffer {
         Self { command_sender }
     }
 
-    pub fn get_and_reset(&self) -> Result<ChangeBufferUpdate, String> {
+    pub fn get_buffered(&self) -> Result<ChangeBufferUpdate, String> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender
-            .blocking_send(Message::GetAndReset {
+            .blocking_send(Message::GetBuffered {
                 response_sender: sender,
             })
             .unwrap();
         receiver.blocking_recv().unwrap()
+    }
+
+    pub fn clear(&self) {
+        self.command_sender.blocking_send(Message::Clear).unwrap();
     }
 
     pub fn reset(&self) {
