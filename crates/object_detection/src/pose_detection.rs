@@ -26,40 +26,24 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-const DETECTION_IMAGE_HEIGHT: usize = 256;
-const DETECTION_IMAGE_WIDTH: usize = 320;
+const DETECTION_IMAGE_HEIGHT: usize = 480;
+const DETECTION_IMAGE_WIDTH: usize = 192;
+const DETECTION_IMAGE_START_X: usize = (640 - DETECTION_IMAGE_WIDTH) / 2;
 const DETECTION_NUMBER_CHANNELS: usize = 3;
 
-const MAX_DETECTION: usize = 1680;
+const MAX_DETECTION: usize = 1890;
 
 const DETECTION_SCRATCHPAD_SIZE: usize =
     DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
 
-const X_SCALE: f32 = 640.0 / DETECTION_IMAGE_WIDTH as f32;
-const Y_SCALE: f32 = 480.0 / DETECTION_IMAGE_HEIGHT as f32;
-
 const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
-
-lazy_static! {
-    pub static ref X_INDICES: Vec<u32> = compute_indices(DETECTION_IMAGE_WIDTH, 640);
-    pub static ref Y_INDICES: Vec<u32> = compute_indices(DETECTION_IMAGE_HEIGHT, 480);
-}
-
-fn compute_indices(detection_size: usize, image_size: usize) -> Vec<u32> {
-    let mut indices = Vec::with_capacity(detection_size);
-    let stride = image_size as f32 / detection_size as f32;
-    for i in 0..detection_size {
-        indices.push((i as f32 * stride).round() as u32);
-    }
-    indices
-}
 
 type Scratchpad = [f32; DETECTION_SCRATCHPAD_SIZE];
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
-    scratchpad: Scratchpad,
+    scratchpad: Vec<f32>,
     #[serde(skip, default = "deserialize_not_implemented")]
     network: ExecutableNetwork,
 
@@ -126,7 +110,7 @@ impl PoseDetection {
             .wrap_err("failed to set input data format")?;
 
         Ok(Self {
-            scratchpad: [0.; DETECTION_SCRATCHPAD_SIZE],
+            scratchpad: vec![0.0; DETECTION_SCRATCHPAD_SIZE],
             network: core.load_network(&network, "CPU")?,
             input_name,
             output_name,
@@ -206,12 +190,12 @@ impl PoseDetection {
                 let bounding_box_slice = row.slice(s![0..4]);
 
                 // bbox re-scale
-                let center_x = bounding_box_slice[0] * X_SCALE;
-                let center_y = bounding_box_slice[1] * Y_SCALE;
+                let center_x = bounding_box_slice[0] + DETECTION_IMAGE_START_X as f32;
+                let center_y = bounding_box_slice[1];
                 let center = point![center_x, center_y];
 
-                let width = bounding_box_slice[2] * X_SCALE;
-                let height = bounding_box_slice[3] * Y_SCALE;
+                let width = bounding_box_slice[2];
+                let height = bounding_box_slice[3];
                 let size = vector![width, height];
 
                 let bounding_box = BoundingBox {
@@ -222,8 +206,8 @@ impl PoseDetection {
                 let keypoints_slice = row.slice(s![5..]);
                 let keypoints = Keypoints::try_new(
                     keypoints_slice.as_standard_layout().as_slice()?,
-                    X_SCALE,
-                    Y_SCALE,
+                    DETECTION_IMAGE_START_X as f32,
+                    0.0,
                 )?;
                 Some(HumanPose::new(bounding_box, keypoints))
             })
@@ -243,10 +227,12 @@ impl PoseDetection {
     }
 }
 
-fn load_into_scratchpad(scratchpad: &mut Scratchpad, image: &YCbCr422Image) {
+fn load_into_scratchpad(scratchpad: &mut Vec<f32>, image: &YCbCr422Image) {
     let mut scratchpad_index = 0;
-    for &y in Y_INDICES.iter() {
-        for &x in X_INDICES.iter() {
+    for y in 0..DETECTION_IMAGE_HEIGHT as u32 {
+        for x in
+            DETECTION_IMAGE_START_X as u32..(DETECTION_IMAGE_START_X + DETECTION_IMAGE_WIDTH) as u32
+        {
             let pixel: Rgb = image.at(x, y).into();
 
             scratchpad[scratchpad_index] = pixel.r as f32 / 255.;
