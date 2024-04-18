@@ -302,6 +302,7 @@ impl RoleAssignment {
                             player_number: *context.player_number,
                             fallen: matches!(context.fall_state, FallState::Fallen { .. }),
                             pose: ground_to_field.as_pose(),
+                            over_arms_pose_detected: false,
                             ball_position,
                             time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
                         }))?;

@@ -25,6 +25,7 @@ pub struct HulkMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,
     pub pose: Pose2<Field>,
+    pub over_arms_pose_detected: bool,
     pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
 }
@@ -81,6 +82,7 @@ mod tests {
             player_number: PlayerNumber::Seven,
             fallen: false,
             pose: Pose2::default(),
+            over_arms_pose_detected: false,
             ball_position: Some(BallPosition {
                 position: Point::origin(),
                 age: Duration::MAX,

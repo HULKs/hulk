@@ -1,0 +1,256 @@
+use std::time::Duration;
+
+use color_eyre::Result;
+use context_attribute::context;
+use coordinate_systems::{Field, Ground, Pixel};
+use framework::{AdditionalOutput, MainOutput};
+use hardware::{NetworkInterface, PathsInterface};
+use linear_algebra::{center, distance, Isometry2, Point2, Transform};
+use ordered_float::NotNan;
+use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
+use serde::{Deserialize, Serialize};
+use spl_network_messages::{HulkMessage, PlayerNumber};
+use types::{
+    fall_state::FallState,
+    messages::OutgoingMessage,
+    {
+        pose_detection::{HumanPose, Keypoints},
+        pose_types::PoseType,
+    },
+};
+
+#[derive(Deserialize, Serialize)]
+pub struct PoseInterpretation {}
+
+#[context]
+pub struct CreationContext {
+    hardware_interface: HardwareInterface,
+}
+
+#[context]
+pub struct CycleContext {
+    hardware_interface: HardwareInterface,
+    time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
+
+    camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
+    human_poses: Input<Option<Vec<HumanPose>>, "human_poses?">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
+    expected_referee_position:
+        Input<Option<Point2<Ground>>, "Control", "expected_referee_position?">,
+    fall_state: Input<FallState, "Control", "fall_state">,
+
+    player_number: Parameter<PlayerNumber, "player_number">,
+    keypoint_confidence_threshold:
+        Parameter<f32, "detection.$cycler_instance.keypoint_confidence_threshold">,
+    distance_to_referee_position_threshold:
+        Parameter<f32, "detection.$cycler_instance.distance_to_referee_position_threshold">,
+    foot_z_offset: Parameter<f32, "detection.$cycler_instance.foot_z_offset">,
+    shoulder_angle_threshold: Parameter<f32, "detection.$cycler_instance.shoulder_angle_threshold">,
+
+    detected_pose_types: AdditionalOutput<Vec<(PoseType, Point2<Field>)>, "detected_pose_types">,
+}
+
+#[context]
+#[derive(Default)]
+pub struct MainOutputs {
+    pub detected_referee_pose_type: MainOutput<PoseType>,
+}
+
+impl PoseInterpretation {
+    pub fn new(_context: CreationContext<impl PathsInterface>) -> Result<Self> {
+        Ok(PoseInterpretation {})
+    }
+
+    pub fn cycle(
+        &mut self,
+        mut context: CycleContext<impl NetworkInterface>,
+    ) -> Result<MainOutputs> {
+        let (Some(expected_referee_position), Some(human_poses)) =
+            (context.expected_referee_position, context.human_poses)
+        else {
+            context.detected_pose_types.fill_if_subscribed(Vec::new);
+            return Ok(MainOutputs::default());
+        };
+
+        let referee_pose = Self::get_referee_pose(
+            human_poses,
+            context.camera_matrices.top.clone(),
+            *context.distance_to_referee_position_threshold,
+            *expected_referee_position,
+            *context.foot_z_offset,
+        );
+
+        let pose_type = Self::interpret_pose(
+            &referee_pose,
+            *context.keypoint_confidence_threshold,
+            *context.shoulder_angle_threshold,
+        );
+
+        if let PoseType::OverheadArms = pose_type {
+            if let Some(ground_to_field) = context.ground_to_field {
+                context
+                    .hardware_interface
+                    .write_to_network(OutgoingMessage::Spl(HulkMessage {
+                        player_number: *context.player_number,
+                        fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                        pose: ground_to_field.as_pose(),
+                        over_arms_pose_detected: true,
+                        ball_position: None,
+                        time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
+                    }))?;
+            }
+        };
+
+        context.detected_pose_types.fill_if_subscribed(|| {
+            Self::get_all_pose_types(
+                human_poses,
+                context.camera_matrices.top.clone(),
+                context.ground_to_field,
+                *context.foot_z_offset,
+                *context.keypoint_confidence_threshold,
+                *context.shoulder_angle_threshold,
+            )
+        });
+
+        Ok(MainOutputs {
+            detected_referee_pose_type: pose_type.into(),
+        })
+    }
+
+    pub fn get_all_pose_types(
+        poses: &[HumanPose],
+        camera_matrix_top: CameraMatrix,
+        ground_to_field: Option<&Isometry2<Ground, Field>>,
+        foot_z_offset: f32,
+        keypoint_confidence_threshold: f32,
+        shoulder_angle_threshold: f32,
+    ) -> Vec<(PoseType, Point2<Field>)> {
+        poses
+            .iter()
+            .filter_map(|pose| {
+                let ground_to_field = ground_to_field?;
+                let left_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
+                    .ok();
+                let right_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
+                    .ok();
+                let (left_foot_ground_position, right_foot_ground_position) =
+                    left_foot_ground_position.zip(right_foot_ground_position)?;
+                let interpreted_pose = Self::interpret_pose(
+                    &Some(*pose),
+                    keypoint_confidence_threshold,
+                    shoulder_angle_threshold,
+                );
+                Some((
+                    interpreted_pose,
+                    center(
+                        ground_to_field * left_foot_ground_position,
+                        ground_to_field * right_foot_ground_position,
+                    ),
+                ))
+            })
+            .collect()
+    }
+
+    pub fn get_referee_pose(
+        poses: &[HumanPose],
+        camera_matrix_top: CameraMatrix,
+        distance_to_referee_position_threshold: f32,
+        expected_referee_position: Point2<Ground>,
+        foot_z_offset: f32,
+    ) -> Option<HumanPose> {
+        let pose_type_tuple = poses
+            // Get all poses that are near the referee position within a threshold
+            .iter()
+            .filter_map(|pose| {
+                let left_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
+                    .ok();
+                let right_foot_ground_position = camera_matrix_top
+                    .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
+                    .ok();
+                if let Some((left_foot_ground_position, right_foot_ground_position)) =
+                    left_foot_ground_position.zip(right_foot_ground_position)
+                {
+                    let distance_to_referee_position = distance(
+                        center(left_foot_ground_position, right_foot_ground_position),
+                        expected_referee_position,
+                    );
+                    Some((pose, distance_to_referee_position))
+                } else {
+                    None
+                }
+            })
+            .min_by_key(|(_, distance)| NotNan::new(*distance).unwrap());
+
+        match pose_type_tuple {
+            Some((pose, distance_to_referee_position))
+                if distance_to_referee_position < distance_to_referee_position_threshold =>
+            {
+                Some(*pose)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn interpret_pose(
+        human_pose: &Option<HumanPose>,
+        keypoint_confidence_threshold: f32,
+        shoulder_angle_threshold: f32,
+    ) -> PoseType {
+        match human_pose {
+            Some(pose)
+                if Self::is_over_head_arms(
+                    pose.keypoints,
+                    keypoint_confidence_threshold,
+                    shoulder_angle_threshold,
+                ) =>
+            {
+                PoseType::OverheadArms
+            }
+            _ => PoseType::default(),
+        }
+    }
+
+    pub fn is_over_head_arms(
+        keypoints: Keypoints,
+        keypoint_confidence_threshold: f32,
+        shoulder_angle_threshold: f32,
+    ) -> bool {
+        struct RotatedPixel;
+
+        let are_hands_visible = keypoints.left_hand.confidence > keypoint_confidence_threshold
+            && keypoints.right_hand.confidence > keypoint_confidence_threshold;
+        let are_hands_over_shoulder = keypoints.left_shoulder.point.y()
+            > keypoints.left_hand.point.y()
+            && keypoints.right_shoulder.point.y() > keypoints.right_hand.point.y();
+
+        let left_to_right_shoulder =
+            keypoints.right_shoulder.point.coords() - keypoints.left_shoulder.point.coords();
+        let shoulder_line_angle =
+            f32::atan2(left_to_right_shoulder.y(), left_to_right_shoulder.x());
+        let shoulder_rotation =
+            Transform::<Pixel, RotatedPixel, nalgebra::Isometry2<_>>::rotation(shoulder_line_angle);
+
+        let left_shoulder = shoulder_rotation * keypoints.left_shoulder.point;
+        let right_shoulder = shoulder_rotation * keypoints.right_shoulder.point;
+        let left_elbow = shoulder_rotation * keypoints.left_elbow.point;
+        let right_elbow = shoulder_rotation * keypoints.right_elbow.point;
+        let left_shoulder_to_elbow = left_elbow.coords() - left_shoulder.coords();
+        let right_shoulder_to_elbow = right_elbow.coords() - right_shoulder.coords();
+
+        let is_left_shoulder_angled_up =
+            f32::atan2(right_shoulder_to_elbow.y(), right_shoulder_to_elbow.x())
+                > shoulder_angle_threshold;
+        let is_right_shoulder_angled_up =
+            f32::atan2(left_shoulder_to_elbow.y(), -left_shoulder_to_elbow.x())
+                > shoulder_angle_threshold;
+
+        if are_hands_visible {
+            are_hands_over_shoulder
+        } else {
+            is_right_shoulder_angled_up && is_left_shoulder_angled_up
+        }
+    }
+}

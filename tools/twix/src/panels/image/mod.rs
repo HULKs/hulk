@@ -166,6 +166,7 @@ impl ImagePanel {
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
         let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
+
         let image_identifier = format!("bytes://image-{:?}", self.cycler_selector);
         ui.ctx().forget_image(&image_identifier);
         let image = Image::from_bytes(image_identifier, image_raw)

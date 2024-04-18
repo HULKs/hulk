@@ -1,4 +1,15 @@
 {
+  "detection": {
+    "detection_top": {
+      "enable": true,
+      "intersection_over_union_threshold": 0.45,
+      "distance_to_referee_position_threshold": 1.0,
+      "keypoint_confidence_threshold": 0.2,
+      "shoulder_angle_threshold": 0.2,
+      "foot_z_offset": 0.1,
+      "normed_expected_referee_position": [0.0, 1.0]
+    }
+  },
   "whistle_detection": {
     "detection_band": {
       "start": 2000,
@@ -63,6 +74,10 @@
   },
   "image_receiver": {
     "vision_top": {
+      "resolution": 42,
+      "camera_position": "Top"
+    },
+    "detection_top": {
       "resolution": 42,
       "camera_position": "Top"
     },
@@ -802,7 +817,11 @@
       "secs": 1
     },
     "minimum_bottom_focus_pitch": 0.2,
-    "glance_center_offset_in_image": [0.0, -100.0]
+    "glance_center_offset_in_image": [0.0, -100.0],
+    "image_region": {
+      "bottom": [0.5, 0.7],
+      "center": [0.5, 0.5]
+    }
   },
   "look_around": {
     "look_around_timeout": {
@@ -977,6 +996,13 @@
     },
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
     "whistle_acceptance_goal_distance": [0.5, 0.5]
+  },
+  "referee_pose_detection_filter": {
+    "initial_message_grace_period": {
+      "nanos": 0,
+      "secs": 5
+    },
+    "minimum_over_head_arms_detections": 2
   },
   "ground_contact_detector": {
     "pressure_threshold": 0.6,
