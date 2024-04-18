@@ -672,7 +672,7 @@
     "score_per_good_match": 1.0,
     "tentative_penalized_duration": {
       "nanos": 0,
-      "secs": 4
+      "secs": 12
     },
     "hypothesis_score_base_increase": 0.1
   },
