@@ -52,26 +52,26 @@
         "first_half_own_half_towards_own_goal": 0.34579
       },
       "lower_green_chromaticity_threshold": {
-        "first_half_opponent_half_away_own_goal": 0.47,
-        "first_half_opponent_half_towards_own_goal": 0.47,
-        "first_half_own_half_away_own_goal": 0.47,
-        "first_half_own_half_towards_own_goal": 0.47
+        "first_half_opponent_half_away_own_goal": 0.49,
+        "first_half_opponent_half_towards_own_goal": 0.49,
+        "first_half_own_half_away_own_goal": 0.49,
+        "first_half_own_half_towards_own_goal": 0.49
       },
       "upper_green_chromaticity_threshold": {
-        "first_half_opponent_half_away_own_goal": 0.5,
-        "first_half_opponent_half_towards_own_goal": 0.5,
-        "first_half_own_half_away_own_goal": 0.5,
-        "first_half_own_half_towards_own_goal": 0.5
+        "first_half_opponent_half_away_own_goal": 0.52,
+        "first_half_opponent_half_towards_own_goal": 0.52,
+        "first_half_own_half_away_own_goal": 0.52,
+        "first_half_own_half_towards_own_goal": 0.52
       }
     }
   },
   "image_segmenter": {
     "vision_bottom": {
       "vertical_edge_threshold": {
-        "first_half_opponent_half_away_own_goal": 10.0,
-        "first_half_opponent_half_towards_own_goal": 10.0,
-        "first_half_own_half_away_own_goal": 10.0,
-        "first_half_own_half_towards_own_goal": 10.0
+        "first_half_opponent_half_away_own_goal": 16.0,
+        "first_half_opponent_half_towards_own_goal": 16.0,
+        "first_half_own_half_away_own_goal": 16.0,
+        "first_half_own_half_towards_own_goal": 16.0
       }
     },
     "vision_top": {
@@ -84,8 +84,19 @@
     }
   },
   "line_detection": {
+    "vision_bottom": {
+      "maximum_projected_segment_length": 0.20000001788139343,
+      "allowed_line_length_in_field": {
+        "start": 0.3
+      },
+      "maximum_gap_on_line": 0.05
+    },
     "vision_top": {
-      "maximum_projected_segment_length": 0.20000001788139343
+      "maximum_projected_segment_length": 0.20000001788139343,
+      "allowed_line_length_in_field": {
+        "start": 0.3
+      },
+      "maximum_gap_on_line": 0.05
     }
   }
 }
