@@ -55,8 +55,16 @@ impl From<TeamState> for Players<Option<Penalty>> {
             three: team_state.players[2].penalty,
             four: team_state.players[3].penalty,
             five: team_state.players[4].penalty,
-            six: team_state.players[5].penalty,
-            seven: team_state.players[6].penalty,
+            six: team_state
+                .players
+                .get(5)
+                .map(|player| player.penalty)
+                .unwrap_or_default(),
+            seven: team_state
+                .players
+                .get(6)
+                .map(|player| player.penalty)
+                .unwrap_or_default(),
         }
     }
 }
