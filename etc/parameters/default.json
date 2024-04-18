@@ -670,6 +670,10 @@
     ],
     "good_matching_threshold": 0.5,
     "score_per_good_match": 1.0,
+    "tentative_penalized_duration": {
+      "nanos": 0,
+      "secs": 4
+    },
     "hypothesis_score_base_increase": 0.1
   },
   "odometry": {
