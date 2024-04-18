@@ -111,11 +111,11 @@
       "margin_for_point_inclusion": 0.025,
       "maximum_distance_to_robot": 6.0,
       "maximum_fit_distance_in_ground": 0.05,
-      "maximum_gap_on_line": 0.5,
+      "maximum_gap_on_line": 0.2,
       "maximum_merge_gap_in_pixels": 5,
       "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.6,
-      "minimum_number_of_points_on_line": 5,
+      "minimum_number_of_points_on_line": 10,
       "ransac_iterations": 20
     },
     "vision_bottom": {
@@ -131,11 +131,11 @@
       "margin_for_point_inclusion": 0.025,
       "maximum_distance_to_robot": 6.0,
       "maximum_fit_distance_in_ground": 0.05,
-      "maximum_gap_on_line": 0.5,
+      "maximum_gap_on_line": 0.2,
       "maximum_merge_gap_in_pixels": 30,
       "maximum_number_of_lines": 10,
       "maximum_projected_segment_length": 0.3,
-      "minimum_number_of_points_on_line": 4,
+      "minimum_number_of_points_on_line": 10,
       "ransac_iterations": 20
     }
   },
