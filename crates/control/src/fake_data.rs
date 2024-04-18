@@ -16,7 +16,7 @@ use types::{
     game_controller_state::GameControllerState,
     joints::head::HeadJoints,
     obstacles::Obstacle,
-    parameters::{BallFilterParameters, CameraMatrixParameters, LookAtParameters},
+    parameters::{BallFilterParameters, CameraMatrixParameters},
     penalty_shot_direction::PenaltyShotDirection,
     primary_state::PrimaryState,
     sensor_data::SensorData,
@@ -37,7 +37,7 @@ pub struct CreationContext {
 #[context]
 #[allow(dead_code)]
 pub struct CycleContext {
-    look_at: Parameter<LookAtParameters, "look_at">,
+    glance_angle: Parameter<f32, "look_at.glance_angle">,
 }
 
 #[context]
