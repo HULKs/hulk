@@ -455,3 +455,11 @@ impl Penalty {
         }
     }
 }
+
+impl Default for Penalty {
+    fn default() -> Self {
+        Self::RequestForPickup {
+            remaining: Duration::ZERO,
+        }
+    }
+}
