@@ -67,18 +67,18 @@ impl WalkTransition for Walking {
             return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
         };
 
-        if !is_in_support_polygon(
-            &context.parameters.catching_steps,
-            &context.current_joints,
-            robot_to_ground,
-            *context.center_of_mass,
-        ) {
-            return Mode::Catching(Catching::new(
-                context,
-                current_step.plan.support_side,
-                robot_to_ground,
-            ));
-        };
+        // if !is_in_support_polygon(
+        //     &context.parameters.catching_steps,
+        //     &context.current_joints,
+        //     robot_to_ground,
+        //     *context.center_of_mass,
+        // ) {
+        //     return Mode::Catching(Catching::new(
+        //         context,
+        //         current_step.plan.support_side,
+        //         robot_to_ground,
+        //     ));
+        // };
 
         if current_step.is_timeouted(context.parameters) {
             return Mode::Walking(Walking::new(
