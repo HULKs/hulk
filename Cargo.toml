@@ -3,9 +3,9 @@ resolver = "2"
 members = [
   "crates/aliveness",
   "crates/approx_derive",
+  "crates/argument_parsers",
   "crates/audio",
   "crates/calibration",
-  "crates/cli_parsers",
   "crates/code_generation",
   "crates/communication",
   "crates/constants",
@@ -62,6 +62,7 @@ aliveness = { path = "crates/aliveness" }
 alsa = "0.7.0"
 approx = "0.5.1"
 approx_derive = { path = "crates/approx_derive" }
+argument_parsers = { path = "crates/argument_parsers" }
 audio = { path = "crates/audio" }
 awaitgroup = "0.6.0"
 base64 = "0.21.0"
@@ -74,7 +75,6 @@ bindgen = "0.69.4"
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.4.3"
 calibration = { path = "crates/calibration" }
-cli_parsers = { path = "crates/cli_parsers" }
 chrono = "0.4.23"
 clap = { version = "4.2.4", features = ["derive"] }
 clap_complete = "4.2.1"

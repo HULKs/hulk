@@ -4,7 +4,7 @@ use clap::{
 };
 use color_eyre::{eyre::WrapErr, Result};
 
-use cli_parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES};
+use argument_parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES};
 use nao::{Nao, Network};
 
 use crate::progress_indicator::ProgressIndicator;
