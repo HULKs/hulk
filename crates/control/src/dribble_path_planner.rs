@@ -1,10 +1,10 @@
 use framework::AdditionalOutput;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
-use types::obstacles::ObstacleKind;
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, parameters::DribblingParameters,
-    path_obstacles::PathObstacle, planned_path::PathSegment, world_state::WorldState,
+    filtered_game_controller_state::FilteredGameControllerState, obstacles::ObstacleKind,
+    parameters::DribblingParameters, path_obstacles::PathObstacle, planned_path::PathSegment,
+    world_state::WorldState,
 };
 
 use crate::behavior::walk_to_pose::WalkPathPlanner;
