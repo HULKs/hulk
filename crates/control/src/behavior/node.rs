@@ -118,9 +118,6 @@ impl Behavior {
             && context.world_state.robot.role != Role::Searcher
             && context.world_state.robot.role != Role::Loser
             && self.previous_role != Role::Keeper
-            && self.previous_role != Role::DefenderLeft
-            && self.previous_role != Role::DefenderRight
-            && self.previous_role != Role::ReplacementKeeper
         {
             self.previous_role = context.world_state.robot.role;
         }
