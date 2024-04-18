@@ -6,6 +6,7 @@ use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
+    ball_position::HypotheticalBallPosition,
     fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
@@ -25,6 +26,8 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     ball: Input<Option<BallState>, "ball_state?">,
+    hypothetical_ball_position:
+        Input<Vec<HypotheticalBallPosition<Ground>>, "hypothetical_ball_positions">,
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
@@ -76,6 +79,7 @@ impl WorldStateComposer {
             kick_decisions: context.kick_decisions.cloned(),
             instant_kick_decisions: context.instant_kick_decisions.cloned(),
             filtered_game_controller_state: context.filtered_game_controller_state.copied(),
+            hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
         };
 
         Ok(MainOutputs {

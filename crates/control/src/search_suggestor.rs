@@ -28,7 +28,8 @@ pub struct CreationContext {
 pub struct CycleContext {
     search_suggestor_configuration: Parameter<SearchSuggestorParameters, "search_suggestor">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
-    invalid_ball_positions: Input<Vec<HypotheticalBallPosition<Ground>>, "invalid_ball_positions">,
+    hypothetical_ball_positions:
+        Input<Vec<HypotheticalBallPosition<Ground>>, "hypothetical_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
 }
@@ -60,7 +61,7 @@ impl SearchSuggestor {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.update_heatmap(
             context.ball_position,
-            context.invalid_ball_positions,
+            context.hypothetical_ball_positions,
             context.ground_to_field.copied(),
             context.search_suggestor_configuration.heatmap_decay_factor,
         );
@@ -80,7 +81,7 @@ impl SearchSuggestor {
     fn update_heatmap(
         &mut self,
         ball_position: Option<&BallPosition<Ground>>,
-        invalid_ball_positions: &Vec<HypotheticalBallPosition<Ground>>,
+        hypothetical_ball_positions: &Vec<HypotheticalBallPosition<Ground>>,
         ground_to_field: Option<Isometry2<Ground, Field>>,
         heatmap_decay_factor: f32,
     ) {
@@ -89,7 +90,7 @@ impl SearchSuggestor {
                 self.heatmap[ground_to_field * ball_position.position] = 1.0;
             }
         }
-        for ball_hypothesis in invalid_ball_positions {
+        for ball_hypothesis in hypothetical_ball_positions {
             if let Some(ground_to_field) = ground_to_field {
                 let ball_hypothesis_position = ground_to_field * ball_hypothesis.position;
                 self.heatmap[ball_hypothesis_position] =
