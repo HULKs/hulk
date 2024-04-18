@@ -17,25 +17,26 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
+  "crates/hulk",
   "crates/hulk_manifest",
   "crates/hulk_nao",
   "crates/hulk_replayer",
   "crates/hulk_webots",
-  "crates/hulk",
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/motionfile",
-  "crates/nao_camera",
   "crates/nao",
+  "crates/nao_camera",
   "crates/opn",
+  "crates/parameter_tester"
   "crates/parameters",
   "crates/projection",
   "crates/repository",
-  "crates/serialize_hierarchy_derive",
   "crates/serialize_hierarchy",
+  "crates/serialize_hierarchy_derive",
   "crates/source_analyzer",
-  "crates/spl_network_messages",
   "crates/spl_network",
+  "crates/spl_network_messages",
   "crates/types",
   "crates/vision",
   "crates/walking_engine",
@@ -46,8 +47,8 @@ members = [
   "tools/fanta",
   "tools/hula/types",
   "tools/pepsi",
-  "tools/twix"
-, "crates/parameter_tester"]
+  "tools/twix",
+]
 # HuLA and Aliveness are built independently by yocto
 exclude = ["tools/aliveness", "tools/breeze", "tools/hula"]
 
