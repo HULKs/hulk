@@ -227,9 +227,9 @@ impl ObstacleFilter {
         let current_ground_to_field = context.ground_to_field.get(&cycle_start_time);
         let goal_posts =
             calculate_goal_post_positions(current_ground_to_field.copied(), field_dimensions);
-        let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
-            Obstacle::goal_post(goal_post, *context.goal_post_obstacle_radius)
-        });
+        let goal_post_obstacles = goal_posts
+            .into_iter()
+            .map(|goal_post| Obstacle::goal_post(goal_post, *context.goal_post_obstacle_radius));
         context
             .obstacle_filter_hypotheses
             .fill_if_subscribed(|| self.hypotheses.clone());
