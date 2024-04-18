@@ -115,11 +115,8 @@ impl EnumPlotPanel {
     fn plot_segment(plot_ui: &mut PlotUi, segment: &Segment, plot_bounds: &PlotBounds) {
         const VERTICAL_MARGIN: f64 = 0.05;
         const BORDER_WIDTH: f32 = 2.0;
-        const MIN_SEGMENT_RELATION_FOR_TEXT: f64 = 1.0 / 18.0;
 
         let viewport_left_edge = plot_bounds.min()[0];
-        let viewport_right_edge = plot_bounds.max()[0];
-        let min_boxsize_text = viewport_right_edge - viewport_left_edge;
 
         let name = segment.name();
         let color = color_hash(&name);
@@ -139,12 +136,11 @@ impl EnumPlotPanel {
             .stroke(Stroke::new(BORDER_WIDTH, color)),
         );
 
-        let mut text_x = start + 0.05;
-        if viewport_left_edge > text_x
-            && end > (viewport_left_edge + (min_boxsize_text * MIN_SEGMENT_RELATION_FOR_TEXT))
-        {
-            text_x = viewport_left_edge + 0.05;
-        }
+        let text_x = if start < viewport_left_edge && viewport_left_edge < end {
+            viewport_left_edge + 0.05
+        } else {
+            start + 0.05
+        };
 
         plot_ui.text(
             Text::new(PlotPoint { x: text_x, y: 0.9 }, name)
