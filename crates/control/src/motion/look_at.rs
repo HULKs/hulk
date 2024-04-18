@@ -1,19 +1,20 @@
 use std::{time::Duration, time::SystemTime};
 
 use color_eyre::Result;
-use projection::camera_matrices::CameraMatrices;
+use kinematics::forward::{head_to_neck, neck_to_robot};
+use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
+use coordinate_systems::{Camera, Ground, Head, Robot};
 use framework::MainOutput;
-use kinematics::forward::{head_to_neck, neck_to_robot};
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     camera_position::CameraPosition,
     cycle_time::CycleTime,
     joints::{head::HeadJoints, Joints},
-    motion_command::{GlanceDirection, HeadMotion, MotionCommand},
+    motion_command::{GlanceDirection, HeadMotion, ImageRegionTarget, MotionCommand},
+    parameters::ImageRegionParameters,
     sensor_data::SensorData,
 };
 
@@ -35,9 +36,9 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
 
     glance_angle: Parameter<f32, "look_at.glance_angle">,
+    image_region_parameters: Parameter<ImageRegionParameters, "look_at.image_region">,
     glance_direction_toggle_interval:
         Parameter<Duration, "look_at.glance_direction_toggle_interval">,
-    offset_in_image: Parameter<Point2<Pixel>, "look_at.glance_center_offset_in_image">,
     minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
 }
 
@@ -72,7 +73,8 @@ impl LookAt {
             None => return default_output,
         };
 
-        let head_motion = match *context.motion_command {
+        let head_motion = match context.motion_command {
+            MotionCommand::Initial { head } => head,
             MotionCommand::SitDown { head } => head,
             MotionCommand::Stand { head, .. } => head,
             MotionCommand::Walk { head, .. } => head,
@@ -90,8 +92,12 @@ impl LookAt {
             self.last_glance_direction_toggle = Some(cycle_start_time);
         }
 
-        let (target, camera) = match head_motion {
-            HeadMotion::LookAt { target, camera } => (target, camera),
+        let (target, image_region_target, camera) = match *head_motion {
+            HeadMotion::LookAt {
+                target,
+                image_region_target,
+                camera,
+            } => (target, image_region_target, camera),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
@@ -102,6 +108,7 @@ impl LookAt {
                         GlanceDirection::LeftOfTarget => target + left_right_shift,
                         GlanceDirection::RightOfTarget => target - left_right_shift,
                     },
+                    ImageRegionTarget::default(),
                     None,
                 )
             }
@@ -115,30 +122,26 @@ impl LookAt {
 
         let request = match camera {
             Some(camera) => {
-                let (head_to_camera, focal_length) = match camera {
-                    CameraPosition::Top => (
-                        camera_matrices.top.head_to_camera,
-                        camera_matrices.top.focal_length,
-                    ),
-                    CameraPosition::Bottom => (
-                        camera_matrices.bottom.head_to_camera,
-                        camera_matrices.bottom.focal_length,
-                    ),
+                let camera_matrix = match camera {
+                    CameraPosition::Top => &camera_matrices.top,
+                    CameraPosition::Bottom => &camera_matrices.bottom,
                 };
                 look_at_with_camera(
                     target,
-                    head_to_camera * ground_to_zero_head,
-                    *context.offset_in_image,
-                    focal_length,
+                    camera_matrix.head_to_camera * ground_to_zero_head,
+                    camera_matrix,
+                    image_region_target,
+                    *context.image_region_parameters,
                 )
             }
             None => look_at(
                 context.sensor_data.positions,
                 ground_to_zero_head,
                 camera_matrices,
-                *context.offset_in_image,
+                ImageRegionTarget::default(),
                 target,
                 *context.minimum_bottom_focus_pitch,
+                *context.image_region_parameters,
             ),
         };
 
@@ -152,26 +155,27 @@ fn look_at(
     joint_angles: Joints<f32>,
     ground_to_zero_head: Isometry3<Ground, Head>,
     camera_matrices: &CameraMatrices,
-    offset_in_image: Point2<Pixel>,
+    image_region_target: ImageRegionTarget,
     target: Point2<Ground>,
     minimum_bottom_focus_pitch: f32,
+    image_region_parameters: ImageRegionParameters,
 ) -> HeadJoints<f32> {
     let head_to_top_camera = camera_matrices.top.head_to_camera;
     let head_to_bottom_camera = camera_matrices.bottom.head_to_camera;
-    let focal_length_top = camera_matrices.top.focal_length;
-    let focal_length_bottom = camera_matrices.bottom.focal_length;
 
     let top_focus_angles = look_at_with_camera(
         target,
         head_to_top_camera * ground_to_zero_head,
-        offset_in_image,
-        focal_length_top,
+        &camera_matrices.top,
+        image_region_target,
+        image_region_parameters,
     );
     let bottom_focus_angles = look_at_with_camera(
         target,
         head_to_bottom_camera * ground_to_zero_head,
-        offset_in_image,
-        focal_length_bottom,
+        &camera_matrices.bottom,
+        image_region_target,
+        image_region_parameters,
     );
 
     let pitch_movement_top = (top_focus_angles.pitch - joint_angles.head.pitch).abs();
@@ -188,14 +192,26 @@ fn look_at(
 
 fn look_at_with_camera(
     target: Point2<Ground>,
-    ground_to_camera: Isometry3<Ground, Camera>,
-    offset_in_image: Point2<Pixel>,
-    focal_length: nalgebra::Vector2<f32>,
+    ground_to_zero_camera: Isometry3<Ground, Camera>,
+    camera_matrix: &CameraMatrix,
+    image_region_target: ImageRegionTarget,
+    image_region_parameters: ImageRegionParameters,
 ) -> HeadJoints<f32> {
-    let target_in_camera = ground_to_camera * point![target.x(), target.y(), 0.0];
+    let pixel_target = match image_region_target {
+        ImageRegionTarget::Center => image_region_parameters.center,
+        ImageRegionTarget::Bottom => image_region_parameters.bottom,
+    };
 
-    let yaw_offset = f32::atan2(offset_in_image.x(), focal_length.x);
-    let pitch_offset = f32::atan2(offset_in_image.y(), focal_length.y);
+    let pixel_target = point![
+        pixel_target.x() * camera_matrix.image_size.x(),
+        pixel_target.y() * camera_matrix.image_size.y()
+    ];
+
+    let target_in_camera = ground_to_zero_camera * point![target.x(), target.y(), 0.0];
+
+    let offset_to_center = pixel_target - camera_matrix.optical_center.coords();
+    let yaw_offset = f32::atan2(offset_to_center.x(), camera_matrix.focal_length.x);
+    let pitch_offset = f32::atan2(offset_to_center.y(), camera_matrix.focal_length.y);
 
     let yaw = f32::atan2(-target_in_camera.x(), target_in_camera.z()) + yaw_offset;
     let pitch = -f32::atan2(-target_in_camera.y(), target_in_camera.z()) - pitch_offset;

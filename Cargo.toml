@@ -26,6 +26,7 @@ members = [
   "crates/motionfile",
   "crates/nao",
   "crates/nao_camera",
+  "crates/object_detection",
   "crates/opn",
   "crates/parameters",
   "crates/projection",
@@ -123,11 +124,16 @@ motionfile = { path = "crates/motionfile" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
+ndarray = { version = "0.15.6", features = ["serde"] }
 nix = { version = "0.28", features = ["ioctl"] }
 num-derive = "0.3"
 num-traits = "0.2"
 once_cell = "1.19.0"
+openvino = { git = "https://github.com/intel/openvino-rs.git", rev = "6f1f823", features = [
+  "runtime-linking",
+] }
 opn = { path = "crates/opn" }
+object_detection = { path = "crates/object_detection" }
 opusfile-ng = "0.1.0"
 ordered-float = "3.1.0"
 parameters = { path = "crates/parameters" }

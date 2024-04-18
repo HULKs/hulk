@@ -3,7 +3,7 @@ use framework::AdditionalOutput;
 use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
 use types::{
     field_dimensions::FieldDimensions,
-    motion_command::{HeadMotion, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, MotionCommand, OrientationMode, ImageRegionTarget},
     parameters::SearchParameters,
     path_obstacles::PathObstacle,
     roles::Role,
@@ -91,6 +91,7 @@ pub fn execute(
 
     let head = match best_hypothetical_ball_position {
         Some(hypothesis) => HeadMotion::LookAt {
+            image_region_target: ImageRegionTarget::Center,
             target: hypothesis.position,
             camera: None,
         },
