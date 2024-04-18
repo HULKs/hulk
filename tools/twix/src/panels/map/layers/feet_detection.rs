@@ -66,7 +66,7 @@ impl Layer<Ground> for FeetDetection {
             .flatten()
             .collect();
         for point in cluster_points {
-            painter.circle_filled(point, 0.05, Color32::YELLOW);
+            painter.circle_filled(point, 0.1, Color32::YELLOW);
         }
 
         let cluster_points: Vec<ClusterPoint> = [&self.segments_bottom, &self.segments_top]
