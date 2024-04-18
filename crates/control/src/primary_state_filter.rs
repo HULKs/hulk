@@ -110,7 +110,7 @@ impl PrimaryStateFilter {
 
         context.hardware_interface.set_whether_to_record(matches!(
             self.last_primary_state,
-            PrimaryState::Initial | PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing,
+            PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing,
         ));
 
         Ok(MainOutputs {
