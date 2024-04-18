@@ -169,14 +169,6 @@ pub struct GameStateFilterParameters {
     pub whistle_acceptance_goal_distance: Vector2<Field>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-pub struct LookAtParameters {
-    pub glance_angle: f32,
-    pub glance_direction_toggle_interval: Duration,
-    pub minimum_bottom_focus_pitch: f32,
-    pub image_region_parameters: ImageRegionParameters,
-}
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
 pub struct ImageRegionParameters {
     pub bottom: Point2<NormalizedPixel>,
