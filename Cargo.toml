@@ -47,7 +47,7 @@ members = [
   "tools/hula/types",
   "tools/pepsi",
   "tools/twix"
-]
+, "crates/parameter_tester"]
 # HuLA and Aliveness are built independently by yocto
 exclude = ["tools/aliveness", "tools/breeze", "tools/hula"]
 
