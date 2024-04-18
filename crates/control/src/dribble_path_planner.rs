@@ -1,6 +1,7 @@
 use framework::AdditionalOutput;
 use spl_network_messages::Team;
 use std::f32::consts::PI;
+use types::obstacles::ObstacleKind;
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, parameters::DribblingParameters,
     path_obstacles::PathObstacle, planned_path::PathSegment, world_state::WorldState,
@@ -43,9 +44,17 @@ pub fn plan(
         Some(ball) if ball.ball_in_ground.coords().norm() < dribbling_parameters.ignore_robot_when_near_ball_radius,
     );
     let obstacles = if is_near_ball {
-        &[]
+        Vec::new()
     } else {
-        world_state.obstacles.as_slice()
+        let mut obstacles = world_state.obstacles.clone();
+        for obstacle in &mut obstacles {
+            if obstacle.kind == ObstacleKind::GoalPost {
+                obstacle.radius_at_hip_height = (obstacle.radius_at_hip_height
+                    - dribbling_parameters.goalpost_radius_decrease)
+                    .max(0.0);
+            }
+        }
+        obstacles
     };
 
     let rule_obstacles = if matches!(
@@ -65,7 +74,7 @@ pub fn plan(
         ground_to_field,
         ball_obstacle,
         ball_obstacle_radius_factor,
-        obstacles,
+        &obstacles,
         rule_obstacles,
         path_obstacles_output,
     ))
