@@ -188,11 +188,20 @@ impl Localization {
             (PrimaryState::Set, PrimaryState::Playing, _) => {
                 self.hypotheses_when_entered_playing = self.hypotheses.clone();
             }
+            (PrimaryState::Ready, PrimaryState::Penalized, _) => {
+                self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
+                match penalty {
+                    Some(Penalty::IllegalMotionInInitial { .. }) => {
+                        self.is_penalized_with_motion_in_set_or_initial = true;
+                    }
+                    Some(_) => {}
+                    None => {}
+                };
+            }
             (PrimaryState::Playing, PrimaryState::Penalized, _) => {
                 self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
                 match penalty {
-                    Some(Penalty::IllegalMotionInSet { .. })
-                    | Some(Penalty::IllegalMotionInInitial { .. }) => {
+                    Some(Penalty::IllegalMotionInSet { .. }) => {
                         self.is_penalized_with_motion_in_set_or_initial = true;
                     }
                     Some(_) => {}
