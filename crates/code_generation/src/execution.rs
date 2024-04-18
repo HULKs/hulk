@@ -43,6 +43,9 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                     if let Some(payload) = panic_info.payload().downcast_ref::<&str>() {
                         eprint!(": {payload:?}");
                     }
+                    if let Some(payload) = panic_info.payload().downcast_ref::<String>() {
+                        eprint!(": {payload:?}");
+                    }
                     eprintln!();
                     if let Some(location) = panic_info.location() {
                         eprintln!("\n{location}");
