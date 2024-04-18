@@ -25,6 +25,7 @@ pub enum MotionCommand {
     },
     Initial {
         head: HeadMotion,
+        should_look_for_referee: bool,
     },
     Jump {
         direction: JumpDirection,
@@ -62,7 +63,7 @@ impl MotionCommand {
     pub fn head_motion(&self) -> Option<HeadMotion> {
         match self {
             MotionCommand::SitDown { head }
-            | MotionCommand::Initial { head }
+            | MotionCommand::Initial { head, .. }
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
