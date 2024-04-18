@@ -5,13 +5,13 @@ use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{
-        self, load::SizedTexture, Color32, ColorImage, Pos2, Response, RichText, Stroke,
-        TextureOptions, Ui, Widget,
+        self, load::SizedTexture, Color32, ColorImage, Response, RichText, Stroke, TextureOptions,
+        Ui, Widget,
     },
     epaint::Vec2,
 };
 
-use linear_algebra::{vector, Point2};
+use linear_algebra::{point, vector, Point2};
 use log::error;
 
 use nalgebra::Similarity2;
@@ -172,10 +172,8 @@ impl Widget for &mut ImageColorSelectPanel {
                             && (0..image.width() as isize).contains(&i)
                             && (0..image.height() as isize).contains(&j)
                         {
-                            let circle_pixel = painter.transform_pixel_to_world(Pos2 {
-                                x: i as f32,
-                                y: j as f32,
-                            });
+                            let circle_pixel = point![i as f32, j as f32];
+
                             let color = get_pixel_chromaticity(&image, circle_pixel);
                             max.red = max.red.max(color.red);
                             max.green = max.green.max(color.green);
