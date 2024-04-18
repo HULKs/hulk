@@ -206,10 +206,6 @@ impl ObstacleFilter {
             })
             .map(|hypothesis| {
                 let (radius_at_hip_height, radius_at_foot_height) = match hypothesis.obstacle_kind {
-                    ObstacleKind::GoalPost => (
-                        *context.goal_post_obstacle_radius,
-                        *context.goal_post_obstacle_radius,
-                    ),
                     ObstacleKind::Robot => (
                         *context.robot_obstacle_radius_at_hip_height,
                         *context.robot_obstacle_radius_at_foot_height,
@@ -232,7 +228,7 @@ impl ObstacleFilter {
         let goal_posts =
             calculate_goal_post_positions(current_ground_to_field.copied(), field_dimensions);
         let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
-            Obstacle::goal_post(goal_post, field_dimensions.goal_post_diameter / 2.0)
+            Obstacle::goal_post(goal_post, *context.goal_post_obstacle_radius)
         });
         context
             .obstacle_filter_hypotheses
