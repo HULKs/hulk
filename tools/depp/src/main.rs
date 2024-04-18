@@ -1,11 +1,15 @@
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
 use std::fs::read_to_string;
 use toml::Value;
 
 fn main() -> Result<()> {
-    let lock_file = read_to_string("Cargo.lock")?;
-    let lock = lock_file.parse::<Value>()?;
-    let packages = lock.get("package").unwrap();
+    let lock_file = read_to_string("Cargo.lock").wrap_err("failed to read Cargo.lock")?;
+    let lock = lock_file
+        .parse::<Value>()
+        .wrap_err("failed to parse Cargo.lock")?;
+    let packages = lock
+        .get("package")
+        .expect("Cargo.lock should alway contain a package section");
 
     let lock_packages = match packages {
         Value::Array(array) => array.iter().map(|package| {
