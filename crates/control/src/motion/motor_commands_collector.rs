@@ -119,10 +119,10 @@ impl MotorCommandCollector {
             MotionType::StandUpBack => (
                 *stand_up_back_positions,
                 Joints::from_head_and_body(
-                    HeadJoints::fill(context.stand_up_stiffness_upper_body),
+                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
                     BodyJoints {
-                        left_arm: ArmJoints::fill(context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(context.stand_up_stiffness_upper_body),
+                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
+                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
                         left_leg: LegJoints::fill(1.0),
                         right_leg: LegJoints::fill(1.0),
                     },
@@ -131,10 +131,10 @@ impl MotorCommandCollector {
             MotionType::StandUpFront => (
                 *stand_up_front_positions,
                 Joints::from_head_and_body(
-                    HeadJoints::fill(context.stand_up_stiffness_upper_body),
+                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
                     BodyJoints {
-                        left_arm: ArmJoints::fill(context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(context.stand_up_stiffness_upper_body),
+                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
+                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
                         left_leg: LegJoints::fill(1.0),
                         right_leg: LegJoints::fill(1.0),
                     },
@@ -143,10 +143,10 @@ impl MotorCommandCollector {
             MotionType::StandUpSitting => (
                 *stand_up_sitting_positions,
                 Joints::from_head_and_body(
-                    HeadJoints::fill(context.stand_up_stiffness_upper_body),
+                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
                     BodyJoints {
-                        left_arm: ArmJoints::fill(context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(context.stand_up_stiffness_upper_body),
+                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
+                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
                         left_leg: LegJoints::fill(1.0),
                         right_leg: LegJoints::fill(1.0),
                     },
