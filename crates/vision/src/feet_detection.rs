@@ -163,10 +163,10 @@ fn find_last_consecutive_cluster(
             let mut consecutive_segments = vec![*first_window.0, *first_window.1];
             consecutive_segments.extend(group.map(|(_first, second)| *second));
             let last_edge_type = consecutive_segments.last().unwrap().end_edge_type;
-            let last_segement_reaches_border =
+            let last_segment_reaches_border =
                 matches!(last_edge_type, EdgeType::ImageBorder | EdgeType::LimbBorder);
             if consecutive_segments.len() > minimum_consecutive_segments
-                && !last_segement_reaches_border
+                && !last_segment_reaches_border
             {
                 Some(consecutive_segments)
             } else {
