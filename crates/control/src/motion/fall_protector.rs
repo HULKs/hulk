@@ -1,51 +1,48 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{ops::Range, time::Duration};
 
-use approx::relative_eq;
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use hardware::PathsInterface;
-use motionfile::{MotionFile, MotionInterpolator};
-use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 use types::{
-    condition_input::ConditionInput,
     cycle_time::CycleTime,
-    fall_state::FallState,
-    joints::{body::BodyJoints, head::HeadJoints, Joints},
-    motion_command::{FallDirection, MotionCommand},
-    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    fall_state::{Direction, FallState, Side},
+    joints::{
+        arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints, mirror::Mirror, Joints,
+    },
+    motion_selection::{MotionSafeExits, MotionType},
     motor_commands::MotorCommands,
-    parameters::{FallProtectionParameters, FallStateEstimationParameters},
     sensor_data::SensorData,
 };
 
-#[derive(Deserialize, Serialize)]
-pub struct FallProtector {
-    start_time: SystemTime,
-    interpolator: MotionInterpolator<Joints<f32>>,
-    roll_pitch_filter: LowPassFilter<Vector2<f32>>,
-    last_fall_state: FallState,
-    fallen_time: Option<SystemTime>,
+#[derive(Clone, Copy, Debug)]
+enum FallPhase {
+    Early,
+    Late,
 }
 
+#[derive(Default, Serialize, Deserialize)]
+pub struct FallProtector {}
+
 #[context]
-pub struct CreationContext {
-    hardware_interface: HardwareInterface,
-    fall_state_estimation: Parameter<FallStateEstimationParameters, "fall_state_estimation">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    condition_input: Input<ConditionInput, "condition_input">,
     cycle_time: Input<CycleTime, "cycle_time">,
     fall_state: Input<FallState, "fall_state">,
-    motion_command: Input<MotionCommand, "motion_command">,
-    motion_selection: Input<MotionSelection, "motion_selection">,
     sensor_data: Input<SensorData, "sensor_data">,
 
-    fall_protection: Parameter<FallProtectionParameters, "fall_protection">,
+    front_early: Parameter<Joints<f32>, "fall_protection.front_early">,
+    front_late: Parameter<Joints<f32>, "fall_protection.front_late">,
+    back_early: Parameter<Joints<f32>, "fall_protection.back_early">,
+    back_late: Parameter<Joints<f32>, "fall_protection.back_late">,
+
+    early_protection_timeout: Parameter<Duration, "fall_protection.early_protection_timeout">,
+    reached_threshold: Parameter<f32, "fall_protection.reached_threshold">,
+    head_stiffness: Parameter<Range<f32>, "fall_protection.head_stiffness">,
+    arm_stiffness: Parameter<Range<f32>, "fall_protection.arm_stiffness">,
+    leg_stiffness: Parameter<Range<f32>, "fall_protection.leg_stiffness">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -57,179 +54,130 @@ pub struct MainOutputs {
 }
 
 impl FallProtector {
-    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
-        let paths = context.hardware_interface.get_paths();
-        Ok(Self {
-            start_time: UNIX_EPOCH,
-            interpolator: MotionFile::from_path(paths.motions.join("fall_back.json"))?
-                .try_into()?,
-            roll_pitch_filter: LowPassFilter::with_smoothing_factor(
-                Vector2::zeros(),
-                context.fall_state_estimation.roll_pitch_low_pass_factor,
-            ),
-            last_fall_state: FallState::Upright,
-            fallen_time: None,
-        })
+    pub fn new(_context: CreationContext) -> Result<Self> {
+        Ok(Self::default())
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let current_positions = context.sensor_data.positions;
-        let mut head_stiffness = 1.0;
+        let measured_positions = context.sensor_data.positions;
 
-        self.roll_pitch_filter
-            .update(context.sensor_data.inertial_measurement_unit.roll_pitch);
-
+        let (start_time, falling_direction) = match *context.fall_state {
+            FallState::Upright { .. } | FallState::Fallen { .. } | FallState::StandingUp { .. } => {
+                context.motion_safe_exits[MotionType::FallProtection] = true;
+                return Ok(MainOutputs::default());
+            }
+            FallState::Falling {
+                start_time,
+                direction,
+            } => (start_time, direction),
+        };
         context.motion_safe_exits[MotionType::FallProtection] = false;
 
-        if context.motion_selection.current_motion != MotionType::FallProtection {
-            self.start_time = context.cycle_time.start_time;
-
-            return Ok(MainOutputs {
-                fall_protection_command: MotorCommands {
-                    positions: current_positions,
-                    stiffnesses: Joints::fill(0.8),
-                }
-                .into(),
-            });
-        }
-
-        if context
+        let phase = if context
             .cycle_time
             .start_time
-            .duration_since(self.start_time)
-            .expect("time ran backwards")
-            >= Duration::from_millis(500)
+            .duration_since(start_time)
+            .unwrap()
+            < *context.early_protection_timeout
         {
-            head_stiffness = 0.5;
-        }
-
-        if context
-            .cycle_time
-            .start_time
-            .duration_since(self.start_time)
-            .expect("time ran backwards")
-            >= context.fall_protection.time_free_motion_exit
-        {
-            context.motion_safe_exits[MotionType::FallProtection] = true;
-        }
-
-        self.fallen_time = match (self.last_fall_state, context.fall_state) {
-            (FallState::Falling { .. }, FallState::Fallen { .. }) => {
-                Some(context.cycle_time.start_time)
-            }
-            (FallState::Fallen { .. }, FallState::Fallen { .. }) => self.fallen_time,
-            _ => None,
-        };
-
-        match context.motion_command {
-            MotionCommand::FallProtection {
-                direction: FallDirection::Forward,
-            } => {
-                if relative_eq!(current_positions.head.pitch, -0.672, epsilon = 0.05)
-                    && relative_eq!(current_positions.head.yaw.abs(), 0.0, epsilon = 0.05)
-                {
-                    head_stiffness = context.fall_protection.ground_impact_head_stiffness;
-                }
-            }
-            MotionCommand::FallProtection { .. } => {
-                if relative_eq!(current_positions.head.pitch, 0.5149, epsilon = 0.05)
-                    && relative_eq!(current_positions.head.yaw.abs(), 0.0, epsilon = 0.05)
-                {
-                    head_stiffness = context.fall_protection.ground_impact_head_stiffness;
-                }
-            }
-            _ => head_stiffness = context.fall_protection.ground_impact_head_stiffness,
-        }
-
-        let body_stiffnesses = if self.roll_pitch_filter.state().y.abs()
-            > context.fall_protection.ground_impact_angular_threshold
-        {
-            BodyJoints::fill(context.fall_protection.ground_impact_body_stiffness)
+            FallPhase::Early
         } else {
-            BodyJoints::fill_mirrored(
-                context.fall_protection.arm_stiffness,
-                context.fall_protection.leg_stiffness,
-            )
+            FallPhase::Late
         };
 
-        let stiffnesses =
-            Joints::from_head_and_body(HeadJoints::fill(head_stiffness), body_stiffnesses);
-
-        let fall_protection_command = match context.motion_command {
-            MotionCommand::FallProtection {
-                direction: FallDirection::Forward,
-            } => {
-                self.interpolator.reset();
-                MotorCommands {
-                    positions: Joints::from_head_and_body(
-                        HeadJoints {
-                            yaw: 0.0,
-                            pitch: -0.672,
-                        },
-                        BodyJoints {
-                            left_arm: context.fall_protection.left_arm_positions,
-                            right_arm: context.fall_protection.right_arm_positions,
-                            left_leg: current_positions.left_leg,
-                            right_leg: current_positions.right_leg,
-                        },
-                    ),
-                    stiffnesses,
-                }
+        let protection_angles = match (falling_direction, phase) {
+            (Direction::Forward { side: Side::Left }, FallPhase::Early) => {
+                prevent_stuck_arms(context.front_early.mirrored(), measured_positions)
             }
-
-            MotionCommand::FallProtection {
-                direction: FallDirection::Backward,
-            } => {
-                self.interpolator.set_initial_positions(current_positions);
-                self.interpolator.advance_by(
-                    context.cycle_time.last_cycle_duration,
-                    context.condition_input,
-                );
-
-                MotorCommands {
-                    positions: self.interpolator.value(),
-                    stiffnesses,
-                }
+            (Direction::Forward { side: Side::Left }, FallPhase::Late) => {
+                prevent_stuck_arms(context.front_late.mirrored(), measured_positions)
             }
-            _ => {
-                self.interpolator.reset();
-                MotorCommands {
-                    positions: Joints::from_head_and_body(
-                        HeadJoints {
-                            yaw: 0.0,
-                            pitch: 0.5149,
-                        },
-                        BodyJoints {
-                            left_arm: context.fall_protection.left_arm_positions,
-                            right_arm: context.fall_protection.right_arm_positions,
-                            left_leg: current_positions.left_leg,
-                            right_leg: current_positions.right_leg,
-                        },
-                    ),
-                    stiffnesses,
-                }
+            (Direction::Forward { side: Side::Right }, FallPhase::Early) => {
+                prevent_stuck_arms(*context.front_early, measured_positions)
             }
+            (Direction::Forward { side: Side::Right }, FallPhase::Late) => {
+                prevent_stuck_arms(*context.front_late, measured_positions)
+            }
+            (Direction::Backward { side: Side::Left }, FallPhase::Early) => {
+                context.back_early.mirrored()
+            }
+            (Direction::Backward { side: Side::Left }, FallPhase::Late) => {
+                context.back_late.mirrored()
+            }
+            (Direction::Backward { side: Side::Right }, FallPhase::Early) => *context.back_early,
+            (Direction::Backward { side: Side::Right }, FallPhase::Late) => *context.back_late,
         };
 
-        self.last_fall_state = *context.fall_state;
+        let is_head_protected = (measured_positions.head.pitch - protection_angles.head.pitch)
+            .abs()
+            < *context.reached_threshold
+            && (measured_positions.head.yaw - protection_angles.head.yaw).abs()
+                < *context.reached_threshold;
 
-        match self.fallen_time {
-            Some(fallen_start)
-                if context
-                    .cycle_time
-                    .start_time
-                    .duration_since(fallen_start)
-                    .expect("time ran backwards")
-                    >= context.fall_protection.time_prolong_ground_impact =>
-            {
-                context.motion_safe_exits[MotionType::FallProtection] = true;
-                self.fallen_time = None;
-            }
-            _ => (),
-        }
+        let head_stiffnesses = if is_head_protected {
+            HeadJoints::fill(context.head_stiffness.end)
+        } else {
+            HeadJoints::fill(context.head_stiffness.start)
+        };
+
+        let body_stiffnesses = match phase {
+            FallPhase::Early => BodyJoints {
+                left_arm: ArmJoints::fill(context.arm_stiffness.start),
+                right_arm: ArmJoints::fill(context.arm_stiffness.start),
+                left_leg: LegJoints::fill(context.leg_stiffness.start),
+                right_leg: LegJoints::fill(context.leg_stiffness.start),
+            },
+            FallPhase::Late => BodyJoints {
+                left_arm: ArmJoints::fill(context.arm_stiffness.end),
+                right_arm: ArmJoints::fill(context.arm_stiffness.end),
+                left_leg: LegJoints::fill(context.leg_stiffness.end),
+                right_leg: LegJoints::fill(context.leg_stiffness.end),
+            },
+        };
+
+        let motor_commands = MotorCommands {
+            positions: protection_angles,
+            stiffnesses: Joints::from_head_and_body(head_stiffnesses, body_stiffnesses),
+        };
 
         Ok(MainOutputs {
-            fall_protection_command: fall_protection_command.into(),
+            fall_protection_command: motor_commands.into(),
         })
+    }
+}
+
+fn prevent_stuck_arms(request: Joints<f32>, measured_positions: Joints<f32>) -> Joints<f32> {
+    let left_arm = if measured_positions.left_arm.shoulder_roll < 0.0
+        && measured_positions.left_arm.shoulder_pitch > 1.6
+    {
+        ArmJoints {
+            shoulder_pitch: 0.0,
+            shoulder_roll: 0.35,
+            elbow_yaw: 0.0,
+            elbow_roll: 0.0,
+            wrist_yaw: 0.0,
+            hand: 0.0,
+        }
+    } else {
+        request.left_arm
+    };
+    let right_arm = if measured_positions.right_arm.shoulder_roll > 0.0
+        && measured_positions.right_arm.shoulder_pitch > 1.6
+    {
+        ArmJoints {
+            shoulder_pitch: 0.0,
+            shoulder_roll: -0.35,
+            elbow_yaw: 0.0,
+            elbow_roll: 0.0,
+            wrist_yaw: 0.0,
+            hand: 0.0,
+        }
+    } else {
+        request.right_arm
+    };
+    Joints {
+        left_arm,
+        right_arm,
+        ..request
     }
 }

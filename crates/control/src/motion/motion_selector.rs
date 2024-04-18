@@ -3,14 +3,14 @@ use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
-    motion_command::{Facing, JumpDirection, MotionCommand},
+    fall_state::Kind,
+    motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     current_motion: MotionType,
-    dispatching_motion: Option<MotionType>,
 }
 
 #[context]
@@ -34,7 +34,6 @@ impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             current_motion: MotionType::Unstiff,
-            dispatching_motion: None,
         })
     }
 
@@ -49,7 +48,7 @@ impl MotionSelector {
             *context.has_ground_contact,
         );
 
-        self.dispatching_motion = if self.current_motion == MotionType::Dispatching {
+        let dispatching_motion = if self.current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
                 Some(MotionType::SitDown)
             } else {
@@ -62,7 +61,7 @@ impl MotionSelector {
         Ok(MainOutputs {
             motion_selection: MotionSelection {
                 current_motion: self.current_motion,
-                dispatching_motion: self.dispatching_motion,
+                dispatching_motion,
             }
             .into(),
         })
@@ -81,9 +80,10 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,
         MotionCommand::Stand { .. } => MotionType::Stand,
-        MotionCommand::StandUp { facing } => match facing {
-            Facing::Down => MotionType::StandUpFront,
-            Facing::Up => MotionType::StandUpBack,
+        MotionCommand::StandUp { kind } => match kind {
+            Kind::FacingDown => MotionType::StandUpFront,
+            Kind::FacingUp => MotionType::StandUpBack,
+            Kind::Sitting => MotionType::StandUpSitting,
         },
         MotionCommand::Unstiff => MotionType::Unstiff,
         MotionCommand::Walk { .. } => MotionType::Walk,
@@ -103,8 +103,14 @@ fn transition_motion(
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,
         (MotionType::StandUpFront, _, MotionType::FallProtection, _) => MotionType::StandUpFront,
         (MotionType::StandUpBack, _, MotionType::FallProtection, _) => MotionType::StandUpBack,
+        (MotionType::StandUpSitting, _, MotionType::FallProtection, _) => {
+            MotionType::StandUpSitting
+        }
         (MotionType::StandUpFront, true, MotionType::StandUpFront, _) => MotionType::Dispatching,
         (MotionType::StandUpBack, true, MotionType::StandUpBack, _) => MotionType::Dispatching,
+        (MotionType::StandUpSitting, true, MotionType::StandUpSitting, _) => {
+            MotionType::Dispatching
+        }
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,

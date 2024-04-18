@@ -77,7 +77,8 @@ impl WalkingEngine {
             cycle_context
                 .sensor_data
                 .inertial_measurement_unit
-                .angular_velocity,
+                .angular_velocity
+                .inner,
         );
 
         let torso_tilt_compensation_factor = cycle_context

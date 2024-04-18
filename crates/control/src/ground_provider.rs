@@ -38,7 +38,7 @@ impl GroundProvider {
 
         let imu_roll_pitch = context.sensor_data.inertial_measurement_unit.roll_pitch;
         let imu_orientation =
-            Orientation3::from_euler_angles(imu_roll_pitch.x, imu_roll_pitch.y, 0.0).mirror();
+            Orientation3::from_euler_angles(imu_roll_pitch.x(), imu_roll_pitch.y(), 0.0).mirror();
 
         let left_sole_horizontal_to_robot = Isometry3::from_parts(
             context

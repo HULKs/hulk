@@ -52,8 +52,8 @@ impl OrientationFilter {
             .angular_velocity;
         let cycle_duration = context.cycle_time.last_cycle_duration;
         self.state.update(
-            measured_acceleration,
-            measured_angular_velocity,
+            measured_acceleration.inner,
+            measured_angular_velocity.inner,
             context.sole_pressure.left,
             context.sole_pressure.right,
             cycle_duration.as_secs_f32(),
