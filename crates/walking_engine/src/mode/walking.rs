@@ -1,9 +1,4 @@
-use super::{
-    catching::{is_in_support_polygon, Catching},
-    kicking::Kicking,
-    stopping::Stopping,
-    Mode, WalkTransition,
-};
+use super::{kicking::Kicking, stopping::Stopping, Mode, WalkTransition};
 use serde::{Deserialize, Serialize};
 use serialize_hierarchy::SerializeHierarchy;
 use types::{
@@ -63,9 +58,9 @@ impl WalkTransition for Walking {
     fn walk(self, context: &Context, requested_step: Step) -> Mode {
         let current_step = self.step;
 
-        let Some(&robot_to_ground) = context.robot_to_ground else {
-            return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
-        };
+        // let Some(&robot_to_ground) = context.robot_to_ground else {
+        //     return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
+        // };
 
         // if !is_in_support_polygon(
         //     &context.parameters.catching_steps,
