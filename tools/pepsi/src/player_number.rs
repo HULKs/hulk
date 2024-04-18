@@ -6,7 +6,7 @@ use color_eyre::{
     Result,
 };
 
-use cli_parsers::NaoNumberPlayerAssignment;
+use argument_parsers::NaoNumberPlayerAssignment;
 use repository::Repository;
 
 use crate::progress_indicator::ProgressIndicator;

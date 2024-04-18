@@ -1,7 +1,7 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
-use cli_parsers::{number_to_ip, Connection, NaoAddress};
+use argument_parsers::{number_to_ip, Connection, NaoAddress};
 use constants::HARDWARE_IDS;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;

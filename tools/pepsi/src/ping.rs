@@ -1,6 +1,6 @@
 use clap::Args;
 
-use cli_parsers::NaoAddress;
+use argument_parsers::NaoAddress;
 use nao::Nao;
 
 use crate::progress_indicator::ProgressIndicator;

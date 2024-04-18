@@ -1,7 +1,7 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
-use cli_parsers::NaoAddress;
+use argument_parsers::NaoAddress;
 use nao::Nao;
 
 use crate::progress_indicator::ProgressIndicator;
