@@ -170,6 +170,76 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
     }
 }
 
+pub fn generate_image_extractor_struct(cyclers: &Cyclers) -> TokenStream {
+    let cycler_fields = generate_cycler_fields(cyclers);
+    let construct_multiple_buffers = generate_multiple_buffers(cyclers);
+    let construct_future_queues = generate_future_queues(cyclers);
+    // 2 communication writer slots + n reader slots for other cyclers
+    let number_of_parameter_slots = 2 + cyclers.number_of_instances();
+    let construct_cyclers = generate_cycler_constructors(cyclers, Execution::ImageExtraction);
+    let cycler_parameters = generate_cycler_parameters(cyclers);
+    let recording_index_entries =
+        generate_recording_index_entries(cyclers, ReferenceKind::Immutable);
+    let cycler_replays = generate_cycler_replays(cyclers);
+
+    quote! {
+        pub struct ImageExtractor<Hardware> {
+            _parameters_writer: framework::Writer<crate::structs::Parameters>,
+            #cycler_fields
+        }
+
+        impl<Hardware: crate::HardwareInterface + Send + Sync + 'static> ImageExtractor<Hardware> {
+            #[allow(clippy::redundant_clone)]
+            pub fn new(
+                hardware_interface: std::sync::Arc<Hardware>,
+                parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
+                body_id: &str,
+                head_id: &str,
+                recordings_file_path: impl std::convert::AsRef<std::path::Path>,
+            ) -> color_eyre::Result<Self>
+            {
+                use color_eyre::eyre::WrapErr;
+
+                let runtime = tokio::runtime::Runtime::new().wrap_err("failed to create runtime")?;
+                let initial_parameters: crate::structs::Parameters = runtime.block_on(
+                    parameters::directory::deserialize(parameters_directory, body_id, head_id)
+                )
+                .wrap_err("failed to parse initial parameters")?;
+
+                let (parameters_writer, parameters_reader) = framework::multiple_buffer_with_slots(
+                    std::iter::repeat_with(|| initial_parameters.clone())
+                        .take(#number_of_parameter_slots + 1),
+                );
+
+                #construct_multiple_buffers
+                #construct_future_queues
+
+                #construct_cyclers
+
+                Ok(Self {
+                    _parameters_writer: parameters_writer,
+                    #cycler_parameters
+                })
+            }
+
+            pub fn get_recording_indices(&self) -> std::collections::BTreeMap<String, &framework::RecordingIndex> {
+                std::collections::BTreeMap::from([
+                    #recording_index_entries
+                ])
+            }
+
+            pub fn replay(&mut self, cycler_instance_name: &str, timestamp: std::time::SystemTime, data: &[u8]) -> color_eyre::Result<()> {
+                use color_eyre::eyre::{bail, WrapErr};
+
+                match cycler_instance_name {
+                    #cycler_replays
+                    _ => bail!("unexpected cycler instance name {cycler_instance_name}"),
+                }
+            }
+        }
+    }
+}
+
 fn generate_cycler_fields(cyclers: &Cyclers) -> TokenStream {
     cyclers
         .instances()
@@ -304,7 +374,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         } else {
             Default::default()
         };
-        let recording_index = if mode == Execution::Replay {
+        let recording_index = if matches!(mode, Execution::Replay | Execution::ImageExtraction) {
             let recording_file_name = format!("{instance}.bincode");
             quote! {
                 let #cycler_index_identifier = framework::RecordingIndex::read_from(
@@ -344,6 +414,27 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
             Default::default()
         };
         let error_message = format!("failed to create cycler `{}`", instance);
+        let parameters_reader = if mode == Execution::ImageExtraction {
+            quote! { parameters_reader.clone() }
+        } else {
+            quote! { communication_server.get_parameters_reader() }
+        };
+        let subscribe_outputs = if mode == Execution::ImageExtraction {
+            quote! {
+                // #own_reader_identifier;
+            }
+
+        } else {
+            quote! {
+                communication_server.register_cycler_instance(
+                    #cycler_instance_name,
+                    #cycler_database_changed_identifier,
+                    #own_reader_identifier.clone(),
+                    #own_subscribed_outputs_writer_identifier,
+                );
+            }
+        };
+
         quote! {
             let #cycler_database_changed_identifier = std::sync::Arc::new(tokio::sync::Notify::new());
             let (#own_subscribed_outputs_writer_identifier, #own_subscribed_outputs_reader_identifier) = framework::multiple_buffer_with_slots([
@@ -359,18 +450,13 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
                 #own_writer_identifier,
                 #cycler_database_changed_identifier.clone(),
                 #own_subscribed_outputs_reader_identifier,
-                communication_server.get_parameters_reader(),
+                #parameters_reader,
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
                 #recording_parameters
             )
             .wrap_err(#error_message)?;
-            communication_server.register_cycler_instance(
-                #cycler_instance_name,
-                #cycler_database_changed_identifier,
-                #own_reader_identifier.clone(),
-                #own_subscribed_outputs_writer_identifier,
-            );
+            #subscribe_outputs
         }
     })
     .collect()

@@ -2992,6 +2992,7 @@ dependencies = [
  "ittapi",
  "linear_algebra",
  "nalgebra",
+ "parameters",
  "projection",
  "serde",
  "serde_json",
