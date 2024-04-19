@@ -121,6 +121,13 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
     } else {
         Default::default()
     };
+    let own_subscribed_outputs_reader = if mode == Execution::ImageExtraction {
+        Default::default()
+    } else {
+        quote! {
+            own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
+        }
+    };
 
     quote! {
         pub(crate) struct Cycler<HardwareInterface>  {
@@ -128,7 +135,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
             hardware_interface: std::sync::Arc<HardwareInterface>,
             own_writer: framework::Writer<Database>,
             own_changed: std::sync::Arc<tokio::sync::Notify>,
-            own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
+            #own_subscribed_outputs_reader
             parameters_reader: framework::Reader<crate::structs::Parameters>,
             cycler_state: crate::structs::#module_name::CyclerState,
             #realtime_inputs
@@ -246,6 +253,20 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
     } else {
         Default::default()
     };
+    let (own_subscribed_outputs_reader_argument, own_subscribed_outputs_reader_field) = if mode
+        == Execution::ImageExtraction
+    {
+        (Default::default(), Default::default())
+    } else {
+        (
+            quote! {
+                own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
+            },
+            quote! {
+                own_subscribed_outputs_reader,
+            },
+        )
+    };
 
     quote! {
         pub(crate) fn new(
@@ -253,7 +274,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
             hardware_interface: std::sync::Arc<HardwareInterface>,
             own_writer: framework::Writer<Database>,
             own_changed: std::sync::Arc<tokio::sync::Notify>,
-            own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
+            #own_subscribed_outputs_reader_argument
             parameters_reader: framework::Reader<crate::structs::Parameters>,
             #input_output_fields
             #recording_parameter_fields
@@ -266,7 +287,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
                 hardware_interface,
                 own_writer,
                 own_changed,
-                own_subscribed_outputs_reader,
+                #own_subscribed_outputs_reader_field
                 parameters_reader,
                 cycler_state,
                 #input_output_identifiers
@@ -545,6 +566,15 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
         }
         Execution::Replay | Execution::ImageExtraction => after_remaining_nodes,
     };
+    let own_subscribed_outputs = if mode == Execution::ImageExtraction {
+        quote! {
+            let own_subscribed_outputs = std::collections::HashSet::<String>::new();
+        }
+    } else {
+        quote! {
+            let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
+        }
+    };
 
     quote! {
         #[allow(clippy::nonminimal_bool)]
@@ -563,7 +593,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                 #pre_setup
 
                 {
-                    let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
+                    #own_subscribed_outputs
                     let parameters = self.parameters_reader.next();
                     #(#setup_node_executions)*
                 }
@@ -571,7 +601,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                 #post_setup
 
                 {
-                    let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
+                    #own_subscribed_outputs
                     let parameters = self.parameters_reader.next();
                     #lock_readers
                     #cross_inputs
