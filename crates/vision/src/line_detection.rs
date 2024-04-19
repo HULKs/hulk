@@ -50,8 +50,8 @@ pub struct CycleContext {
         Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap_in_pixels">,
     maximum_number_of_lines:
         Parameter<usize, "line_detection.$cycler_instance.maximum_number_of_lines">,
-    maximum_projected_segment_length:
-        Parameter<f32, "line_detection.$cycler_instance.maximum_projected_segment_length">,
+    allowed_projected_segment_length:
+        Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_projected_segment_length">,
     minimum_number_of_points_on_line:
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
     ransac_iterations: Parameter<usize, "line_detection.$cycler_instance.ransac_iterations">,
@@ -84,7 +84,7 @@ impl LineDetection {
             context.filtered_segments,
             context.image,
             *context.check_line_segments_projection,
-            *context.maximum_projected_segment_length,
+            context.allowed_projected_segment_length,
             *context.check_edge_gradient,
             *context.gradient_alignment,
             *context.maximum_merge_gap_in_pixels,
@@ -303,7 +303,7 @@ fn filter_segments_for_lines(
     filtered_segments: &FilteredSegments,
     image: &YCbCr422Image,
     check_line_segments_projection: bool,
-    maximum_projected_segment_length: f32,
+    allowed_projected_segment_length: &Range<f32>,
     check_edge_gradient: bool,
     gradient_alignment: f32,
     maximum_merge_gap: u16,
@@ -324,7 +324,7 @@ fn filter_segments_for_lines(
                     image,
                     camera_matrix,
                     check_line_segments_projection,
-                    maximum_projected_segment_length,
+                    allowed_projected_segment_length,
                     check_edge_gradient,
                     gradient_alignment,
                 );
@@ -358,7 +358,7 @@ fn is_line_segment(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
     check_line_segments_projection: bool,
-    maximum_projected_segment_length: f32,
+    allowed_projected_segment_length: &Range<f32>,
     check_edge_gradient: bool,
     gradient_alignment: f32,
 ) -> bool {
@@ -366,11 +366,11 @@ fn is_line_segment(
         return false;
     }
     let is_too_long = check_line_segments_projection
-        && !is_segment_shorter_than(
+        && !is_segment_length_ok(
             camera_matrix,
             point![scan_line_position as f32, segment.start as f32],
             point![scan_line_position as f32, segment.end as f32],
-            maximum_projected_segment_length,
+            allowed_projected_segment_length,
         )
         .unwrap_or(false);
     if is_too_long {
@@ -388,18 +388,15 @@ fn is_line_segment(
     gradient_at_start.dot(gradient_at_end) < gradient_alignment
 }
 
-fn is_segment_shorter_than(
+fn is_segment_length_ok(
     camera_matrix: &CameraMatrix,
     segment_start: Point2<Pixel>,
     segment_end: Point2<Pixel>,
-    maximum_projected_segment_length: f32,
+    allowed_projected_segment_length: &Range<f32>,
 ) -> Option<bool> {
-    let start_robot_coordinates = camera_matrix.pixel_to_ground(segment_start).ok()?;
-    let end_robot_coordinates = camera_matrix.pixel_to_ground(segment_end).ok()?;
-    Some(
-        distance(start_robot_coordinates, end_robot_coordinates)
-            <= maximum_projected_segment_length,
-    )
+    let start = camera_matrix.pixel_to_ground(segment_start).ok()?;
+    let end = camera_matrix.pixel_to_ground(segment_end).ok()?;
+    Some(allowed_projected_segment_length.contains(&distance(start, end)))
 }
 
 #[cfg(test)]
@@ -426,10 +423,10 @@ mod tests {
         );
         let start = point![40.0, 2.0];
         let end = point![40.0, 202.0];
-        assert!(!is_segment_shorter_than(&camera_matrix, start, end, 0.3).unwrap());
+        assert!(!is_segment_length_ok(&camera_matrix, start, end, &(0.1..0.3)).unwrap());
         let start2 = point![40.0, 364.0];
         let end2 = point![40.0, 366.0];
-        assert!(is_segment_shorter_than(&camera_matrix, start2, end2, 0.3).unwrap());
+        assert!(is_segment_length_ok(&camera_matrix, start2, end2, &(0.1..0.3)).unwrap());
     }
 
     #[test]
