@@ -37,7 +37,7 @@ impl<Frame> Line2<Frame> {
     }
 
     pub fn is_orthogonal(&self, other: Self, epsilon: f32) -> bool {
-        self.signed_acute_angle_to_orthogonal(other) < epsilon
+        self.signed_acute_angle_to_orthogonal(other).abs() < epsilon
     }
 
     pub fn slope(&self) -> f32 {
