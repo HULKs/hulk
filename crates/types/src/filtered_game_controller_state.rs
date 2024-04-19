@@ -14,7 +14,9 @@ use crate::{filtered_game_state::FilteredGameState, players::Players};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    PartialEq,
 )]
+
 pub struct FilteredGameControllerState {
     pub game_state: FilteredGameState,
     pub opponent_game_state: FilteredGameState,

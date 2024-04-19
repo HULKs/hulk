@@ -243,6 +243,7 @@ impl CompetitionType {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    PartialEq,
 )]
 pub enum GamePhase {
     #[default]
@@ -361,7 +362,9 @@ impl SubState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    PartialEq,
 )]
+
 pub enum SubState {
     #[default]
     GoalKick,
@@ -470,8 +473,17 @@ impl TryFrom<RobotInfo> for Player {
 }
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
 )]
+
 pub enum Penalty {
     IllegalBallContact { remaining: Duration },
     PlayerPushing { remaining: Duration },
