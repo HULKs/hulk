@@ -101,7 +101,7 @@ impl RoleAssignment {
     pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
         let primary_state = *context.primary_state;
-        let mut role = self.role;
+        let mut new_role = self.role;
 
         let ground_to_field =
             context
@@ -144,7 +144,7 @@ impl RoleAssignment {
                     player_roles[striker] = Role::Striker;
                 }
             }
-            role = player_roles[*context.player_number];
+            new_role = player_roles[*context.player_number];
 
             self.role_initialized = true;
             self.last_received_spl_striker_message = Some(cycle_start_time);
@@ -205,7 +205,7 @@ impl RoleAssignment {
         let mut team_ball = self.team_ball;
 
         if spl_striker_message_timeout {
-            match role {
+            match new_role {
                 Role::Keeper => {
                     team_ball = None;
                 }
@@ -215,12 +215,12 @@ impl RoleAssignment {
                 Role::Striker => {
                     send_spl_striker_message = true;
                     team_ball = None;
-                    role = Role::Loser;
+                    new_role = Role::Loser;
                 }
                 _ => {
                     send_spl_striker_message = false;
                     team_ball = None;
-                    role = Role::Searcher
+                    new_role = Role::Searcher
                 }
             }
         }
@@ -237,8 +237,8 @@ impl RoleAssignment {
             })
             .peekable();
         if spl_messages.peek().is_none() {
-            (role, send_spl_striker_message, team_ball) = process_role_state_machine(
-                role,
+            (new_role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                new_role,
                 ground_to_field,
                 context.ball_position,
                 primary_state,
@@ -259,8 +259,8 @@ impl RoleAssignment {
                 if spl_message.player_number != *context.player_number {
                     network_robot_obstacles.push(sender_position);
                 }
-                (role, send_spl_striker_message, team_ball) = process_role_state_machine(
-                    role,
+                (new_role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                    new_role,
                     ground_to_field,
                     context.ball_position,
                     primary_state,
@@ -285,7 +285,7 @@ impl RoleAssignment {
                             .expect("Keeper/Replacmentkeeper was penalized in the Future")
                             < *context.keeper_replacementkeeper_switch_time;
                         if !send_spl_striker_message && deny_replacement_keeper_switch {
-                            role = Role::ReplacementKeeper;
+                            new_role = Role::ReplacementKeeper;
                         }
                     }
                     _ => {
@@ -305,7 +305,7 @@ impl RoleAssignment {
                                 .expect("Keeper/Replacmentkeeper was penalized in the Future")
                                 < *context.keeper_replacementkeeper_switch_time;
                             if !send_spl_striker_message && deny_replacement_keeper_switch {
-                                role = Role::ReplacementKeeper;
+                                new_role = Role::ReplacementKeeper;
                             }
                         }
                     }
@@ -350,7 +350,7 @@ impl RoleAssignment {
         if let Some(forced_role) = context.forced_role {
             self.role = *forced_role;
         } else {
-            self.role = role;
+            self.role = new_role;
         }
         self.team_ball = team_ball;
 
