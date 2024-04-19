@@ -16,7 +16,6 @@ geometry = { workspace = true }
 hardware = { workspace = true }
 itertools = { workspace = true }
 ndarray = { workspace = true }
-lazy_static = { workspace = true }
 linear_algebra = { workspace = true }
 openvino = { workspace = true }
 serde = { workspace = true }
