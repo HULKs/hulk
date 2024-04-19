@@ -66,7 +66,7 @@ pub struct MapPanel {
 
     field: EnabledLayer<layers::Field, Field>,
     image_segments: EnabledLayer<layers::ImageSegments, Ground>,
-    lines: EnabledLayer<layers::Lines, Field>,
+    lines: EnabledLayer<layers::Lines, Ground>,
     ball_search_heatmap: EnabledLayer<layers::BallSearchHeatmap, Field>,
     line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
     path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
