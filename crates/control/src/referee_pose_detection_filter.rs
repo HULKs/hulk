@@ -10,8 +10,8 @@ use hardware::NetworkInterface;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
-    cycle_time::CycleTime, fall_state::FallState, messages::IncomingMessage, players::Players,
-    pose_kinds::PoseKind,
+    cycle_time::CycleTime, fall_state::FallState, messages::IncomingMessage,
+    motion_command::MotionCommand, players::Players, pose_kinds::PoseKind,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -31,6 +31,7 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
+    last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     detected_referee_pose_kind:
@@ -108,6 +109,28 @@ impl RefereePoseDetectionFilter {
     }
 
     fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> (bool, bool) {
+        let should_look_for_referee = matches!(
+            context.last_motion_command,
+            MotionCommand::Initial {
+                should_look_for_referee: true,
+                ..
+            }
+        );
+
+        if !should_look_for_referee {
+            self.detection_times = Default::default();
+            return (false, false);
+        }
+
+        let time_tagged_persistent_messages =
+            unpack_message_tree(&context.network_message.persistent);
+
+        for (time, message) in time_tagged_persistent_messages {
+            if message.is_referee_ready_signal_detected {
+                self.detection_times[message.player_number] = Some(time);
+            }
+        }
+
         let own_detected_pose_times =
             unpack_own_detection_tree(&context.detected_referee_pose_kind.persistent);
 

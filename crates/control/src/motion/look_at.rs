@@ -29,6 +29,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
+
     camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "ground_to_robot?">,
@@ -57,6 +59,8 @@ impl LookAt {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        *context.last_motion_command = context.motion_command.clone();
+
         let cycle_start_time = context.cycle_time.start_time;
         let measured_head_angles = context.sensor_data.positions.head;
         let default_output = Ok(MainOutputs {
