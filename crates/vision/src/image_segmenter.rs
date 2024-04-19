@@ -122,14 +122,11 @@ fn new_grid(
     vertical_median_mode: MedianModeParameters,
     projected_limbs: &[Limb],
 ) -> ScanGrid {
-    let horizon_y_minimum = horizon
-        .horizon_y_minimum()
-        .clamp(0.0, image.height() as f32);
-
     ScanGrid {
         vertical_scan_lines: (2..image.width() - 2)
             .step_by(horizontal_stride)
             .map(|x| {
+                let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
                 new_vertical_scan_line(
                     image,
                     field_color,
@@ -138,7 +135,7 @@ fn new_grid(
                     vertical_edge_detection_source,
                     vertical_edge_threshold,
                     vertical_median_mode,
-                    horizon_y_minimum,
+                    horizon_y,
                     projected_limbs,
                 )
             })
@@ -208,13 +205,13 @@ fn new_vertical_scan_line(
     edge_detection_source: EdgeDetectionSourceParameters,
     edge_threshold: i16,
     median_mode: MedianModeParameters,
-    horizon_y_minimum: f32,
+    horizon_y: f32,
     projected_limbs: &[Limb],
 ) -> ScanLine {
     let (start_y, end_y) = match median_mode {
-        MedianModeParameters::Disabled => (horizon_y_minimum as u32, image.height()),
-        MedianModeParameters::ThreePixels => ((horizon_y_minimum as u32) + 1, image.height() - 1),
-        MedianModeParameters::FivePixels => ((horizon_y_minimum as u32) + 2, image.height() - 2),
+        MedianModeParameters::Disabled => (horizon_y as u32, image.height()),
+        MedianModeParameters::ThreePixels => ((horizon_y as u32) + 1, image.height() - 1),
+        MedianModeParameters::FivePixels => ((horizon_y as u32) + 2, image.height() - 2),
     };
     if start_y >= end_y {
         return ScanLine {
@@ -227,7 +224,7 @@ fn new_vertical_scan_line(
         edge_detection_value_at(position, start_y, image, edge_detection_source, median_mode);
     let mut state = ScanLineState::new(
         edge_detection_value,
-        horizon_y_minimum as u16,
+        horizon_y as u16,
         EdgeType::ImageBorder,
     );
 
