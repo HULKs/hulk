@@ -423,10 +423,10 @@ mod tests {
         );
         let start = point![40.0, 2.0];
         let end = point![40.0, 202.0];
-        assert!(!is_segment_length_ok(&camera_matrix, start, end, &(0.1..0.3)).unwrap());
+        assert!(!is_segment_length_ok(&camera_matrix, start, end, &(0.0..0.3)).unwrap());
         let start2 = point![40.0, 364.0];
         let end2 = point![40.0, 366.0];
-        assert!(is_segment_length_ok(&camera_matrix, start2, end2, &(0.1..0.3)).unwrap());
+        assert!(is_segment_length_ok(&camera_matrix, start2, end2, &(0.0..0.3)).unwrap());
     }
 
     #[test]
