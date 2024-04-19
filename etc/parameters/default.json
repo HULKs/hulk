@@ -134,7 +134,7 @@
     },
     "vision_bottom": {
       "allowed_line_length_in_field": {
-        "start": 0.2,
+        "start": 0.15,
         "end": 4.0
       },
       "check_edge_gradient": true,
