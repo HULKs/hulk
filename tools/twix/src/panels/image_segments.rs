@@ -205,13 +205,11 @@ impl Widget for &mut ImageSegmentsPanel {
                 let start = point![x, segment.start as f32];
                 let end = point![x, segment.end as f32];
                 let original_color = Color32::from_rgb(rgb_color.r, rgb_color.g, rgb_color.b);
-                let medium_color = Color32::LIGHT_YELLOW;
                 let high_color = Color32::YELLOW;
                 let visualized_color = match self.color_mode {
                     ColorMode::Original => original_color,
                     ColorMode::FieldColor => match segment.field_color {
                         types::color::Intensity::Low => original_color,
-                        types::color::Intensity::Medium => medium_color,
                         types::color::Intensity::High => high_color,
                     },
                     ColorMode::Y => Color32::from_gray(ycbcr_color.y),

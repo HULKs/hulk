@@ -7,8 +7,7 @@ use crate::color::{Intensity, Rgb, RgbChannel, YCbCr444};
 pub struct FieldColor {
     pub red_chromaticity_threshold: f32,
     pub blue_chromaticity_threshold: f32,
-    pub lower_green_chromaticity_threshold: f32,
-    pub upper_green_chromaticity_threshold: f32,
+    pub green_chromaticity_threshold: f32,
     pub green_luminance_threshold: f32,
 }
 
@@ -20,14 +19,12 @@ impl FieldColor {
         let blue_chromaticity = rgb.get_chromaticity(RgbChannel::Blue);
         if red_chromaticity > self.red_chromaticity_threshold
             || blue_chromaticity > self.blue_chromaticity_threshold
-            || green_chromaticity < self.lower_green_chromaticity_threshold
+            || green_chromaticity < self.green_chromaticity_threshold
             || (rgb.g as f32) < self.green_luminance_threshold
         {
             Intensity::Low
-        } else if green_chromaticity > self.upper_green_chromaticity_threshold {
-            Intensity::High
         } else {
-            Intensity::Medium
+            Intensity::High
         }
     }
 }
