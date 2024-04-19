@@ -1,12 +1,11 @@
 #![recursion_limit = "256"]
 use std::time::SystemTime;
-use std::{env::args, fs::File, path::PathBuf, sync::Arc};
+use std::{env::args, path::PathBuf, sync::Arc};
 
 use color_eyre::{
     eyre::{Result, WrapErr},
     install,
 };
-use framework::Parameters as FrameworkParameters;
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
     PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface, TimeInterface,
@@ -24,10 +23,6 @@ use types::{
 };
 
 use crate::execution::ImageExtractor;
-
-use ctrlc::set_handler;
-use serde_json::from_reader;
-use tokio_util::sync::CancellationToken;
 
 pub trait HardwareInterface:
     ActuatorInterface
@@ -135,21 +130,6 @@ pub fn replayer() -> Result<()> {
             .nth(1)
             .expect("expected replay path as first parameter"),
     );
-    let framework_parameters_path = args()
-        .nth(2)
-        .unwrap_or("etc/parameters/framework.json".to_string());
-    let keep_running = CancellationToken::new();
-    set_handler({
-        let keep_running = keep_running.clone();
-        move || {
-            keep_running.cancel();
-        }
-    })?;
-
-    let file =
-        File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
-    let framework_parameters: FrameworkParameters =
-        from_reader(file).wrap_err("failed to parse framework parameters")?;
 
     let hardware_interface = ReplayerHardwareInterface {
         ids: Ids {
