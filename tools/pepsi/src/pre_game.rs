@@ -93,6 +93,13 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     .await
     .wrap_err("failed to set player numbers")?;
 
+    wireless(WirelessArguments::Set {
+        network: arguments.network,
+        naos: naos.clone(),
+    })
+    .await
+    .wrap_err("failed to set wireless network")?;
+
     upload(
         UploadArguments {
             profile: arguments.profile,
@@ -102,20 +109,13 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
             no_clean: arguments.no_clean,
             no_communication: !arguments.with_communication,
             skip_os_check: arguments.skip_os_check,
-            naos: naos.clone(),
+            naos: naos,
             remote: arguments.remote,
         },
         repository,
     )
     .await
     .wrap_err("failed to upload")?;
-
-    wireless(WirelessArguments::Set {
-        network: arguments.network,
-        naos,
-    })
-    .await
-    .wrap_err("failed to set wireless network")?;
 
     Ok(())
 }
