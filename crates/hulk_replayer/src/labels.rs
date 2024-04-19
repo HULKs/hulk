@@ -4,40 +4,37 @@ use eframe::egui::{
 
 use crate::{execution::Replayer, ticks::ticks_height, ReplayerHardwareInterface};
 
-pub struct Labels<'state> {
-    replayer: &'state Replayer<ReplayerHardwareInterface>,
+pub struct Labels {
+    labels: Vec<LabelContent>,
 }
 
-impl<'state> Labels<'state> {
-    pub fn new(replayer: &'state Replayer<ReplayerHardwareInterface>) -> Self {
-        Self { replayer }
-    }
-
-    fn generate_label_contents(&self) -> Vec<LabelContent> {
-        self.replayer
+impl Labels {
+    pub fn new(replayer: &Replayer<ReplayerHardwareInterface>) -> Self {
+        let labels = replayer
             .get_recording_indices()
             .into_iter()
             .map(|(name, index)| LabelContent {
                 name,
                 number_of_frames: index.number_of_frames(),
             })
-            .collect()
+            .collect();
+
+        Self { labels }
     }
 }
 
-impl<'state> Widget for Labels<'state> {
+impl Widget for Labels {
     fn ui(self, ui: &mut Ui) -> Response {
-        let label_contents = self.generate_label_contents();
         let spacing = ui.spacing().item_spacing.y;
-        let total_spacing = spacing * (label_contents.len() - 1) as f32;
-        let row_height = (ui.available_height() - total_spacing - ticks_height(ui))
-            / label_contents.len() as f32;
+        let total_spacing = spacing * (self.labels.len() - 1) as f32;
+        let row_height =
+            (ui.available_height() - total_spacing - ticks_height(ui)) / self.labels.len() as f32;
         let height =
-            row_height * label_contents.len() as f32 + spacing * (label_contents.len() - 1) as f32;
+            row_height * self.labels.len() as f32 + spacing * (self.labels.len() - 1) as f32;
         let left_top = ui.cursor().min + vec2(0.0, ticks_height(ui));
 
         let mut maximum_width = 0.0_f32;
-        for (index, label_content) in label_contents.into_iter().enumerate() {
+        for (index, label_content) in self.labels.into_iter().enumerate() {
             let left_top = left_top + vec2(0.0, (row_height + spacing) * index as f32);
             let child_rect = Rect::from_min_max(
                 left_top,
