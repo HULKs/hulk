@@ -62,7 +62,7 @@ pub fn replayer() -> Result<()> {
     run_native(
         "Replayer",
         Default::default(),
-        Box::new(move |_creation_context| Box::new(Window::new(replayer))),
+        Box::new(move |creation_context| Box::new(Window::new(creation_context, replayer))),
     )
     .map_err(|error| Report::msg(error.to_string()))
     .wrap_err("failed to run user interface")
