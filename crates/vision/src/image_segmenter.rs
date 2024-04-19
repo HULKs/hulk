@@ -16,7 +16,8 @@ use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
-    limb::{is_above_limbs, Limb, ProjectedLimbs},
+    limb::project_onto_limbs,
+    limb::{Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
 };
@@ -386,14 +387,18 @@ fn new_vertical_scan_line(
         if let Some(segment) =
             detect_edge(&mut state, y as u16, edge_detection_value, edge_threshold)
         {
-            if segment_is_below_limbs(position as u16, &segment, projected_limbs) {
-                fix_previous_edge_type(&mut segments);
-                break;
-            }
             segments.push(set_field_color_in_segment(
                 set_color_in_segment(segment, position, Direction::Vertical, image),
                 field_color,
             ));
+            let projected_y_on_limb =
+                project_onto_limbs(point![position as f32, segment.end as f32], projected_limbs);
+            let is_below_limbs = projected_y_on_limb
+                .is_some_and(|projected_y_on_limb| segment.end as f32 > projected_y_on_limb);
+            if is_below_limbs {
+                fix_previous_segment(&mut segments, projected_y_on_limb.unwrap() as u16);
+                break;
+            }
         }
     }
 
@@ -405,11 +410,23 @@ fn new_vertical_scan_line(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
+
+    if segments.last().map_or(true, |segment| {
+        segment.end_edge_type != EdgeType::LimbBorder
+    }) {
         segments.push(set_field_color_in_segment(
             set_color_in_segment(last_segment, position, Direction::Vertical, image),
             field_color,
         ));
+        let projected_y_on_limb = project_onto_limbs(
+            point![position as f32, last_segment.end as f32],
+            projected_limbs,
+        );
+        let is_below_limbs = projected_y_on_limb
+            .is_some_and(|projected_y_on_limb| last_segment.end as f32 > projected_y_on_limb);
+        if is_below_limbs {
+            fix_previous_segment(&mut segments, projected_y_on_limb.unwrap() as u16);
+        }
     }
 
     ScanLine {
@@ -519,20 +536,10 @@ fn average_image_pixels(
     sum.average()
 }
 
-fn segment_is_below_limbs(
-    scan_line_position: u16,
-    segment: &Segment,
-    projected_limbs: &[Limb],
-) -> bool {
-    !is_above_limbs(
-        point![scan_line_position as f32, segment.end as f32],
-        projected_limbs,
-    )
-}
-
-fn fix_previous_edge_type(segments: &mut [Segment]) {
+fn fix_previous_segment(segments: &mut [Segment], y_on_limb: u16) {
     if let Some(previous_segment) = segments.last_mut() {
         previous_segment.end_edge_type = EdgeType::LimbBorder;
+        previous_segment.end = y_on_limb;
     }
 }
 
