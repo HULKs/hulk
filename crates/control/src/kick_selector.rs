@@ -12,8 +12,7 @@ use geometry::{
     circle::Circle, line_segment::LineSegment, look_at::LookAt, two_line_segments::TwoLineSegments,
 };
 use linear_algebra::{
-    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Rotation2,
-    Vector2,
+    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Vector2,
 };
 use types::{
     field_dimensions::FieldDimensions,
@@ -195,12 +194,26 @@ fn generate_decisions_for_instant_kicks(
     iproduct!(sides, kick_variants)
         .filter_map(|(&kicking_side, &variant)| {
             let kick_info = &in_walk_kicks[variant];
-            let shot_angle = match kicking_side {
-                Side::Left => Rotation2::new(kick_info.orientation),
-                Side::Right => Rotation2::new(kick_info.orientation).inverse(),
-            };
-            let shot_distance: Vector2<Ground> = vector![kick_info.shot_distance, 0.0];
-            let target = ball_position + shot_angle * shot_distance;
+
+            struct TargetAlignedBall;
+            struct KickPose;
+            let position: Point2<TargetAlignedBall> = Point2::wrap(kick_info.position);
+            let parameter_kick_pose =
+                Pose2::from_parts(position, Orientation2::new(kick_info.orientation));
+            let target_aligned_ball_to_kick_pose = match kicking_side {
+                Side::Left => parameter_kick_pose,
+                Side::Right => mirror_kick_pose(parameter_kick_pose),
+            }
+            .as_transform::<KickPose>()
+            .inverse();
+            let kick_pose_to_ground: Isometry2<KickPose, Ground> = Isometry2::identity();
+
+            let target_aligned_ball_to_ground =
+                kick_pose_to_ground * target_aligned_ball_to_kick_pose;
+
+            let shot_distance: Vector2<TargetAlignedBall> = vector![kick_info.shot_distance, 0.0];
+            let shot_direction = target_aligned_ball_to_ground * shot_distance;
+            let target = ball_position + shot_direction;
 
             let is_inside_field = field_dimensions.is_inside_field(ground_to_field * target);
             let ball_to_target = LineSegment(ball_position, target);
