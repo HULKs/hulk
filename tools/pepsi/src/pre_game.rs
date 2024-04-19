@@ -109,7 +109,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
             no_clean: arguments.no_clean,
             no_communication: !arguments.with_communication,
             skip_os_check: arguments.skip_os_check,
-            naos: naos,
+            naos,
             remote: arguments.remote,
         },
         repository,
