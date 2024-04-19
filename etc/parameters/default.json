@@ -128,7 +128,10 @@
       "maximum_gap_on_line": 0.2,
       "maximum_merge_gap_in_pixels": 5,
       "maximum_number_of_lines": 10,
-      "maximum_projected_segment_length": 0.2,
+      "allowed_projected_segment_length": {
+        "start": 0.02,
+        "end": 0.2
+      },
       "minimum_number_of_points_on_line": 10,
       "ransac_iterations": 20
     },
@@ -148,7 +151,10 @@
       "maximum_gap_on_line": 0.1,
       "maximum_merge_gap_in_pixels": 30,
       "maximum_number_of_lines": 10,
-      "maximum_projected_segment_length": 0.2,
+      "allowed_projected_segment_length": {
+        "start": 0.02,
+        "end": 0.2
+      },
       "minimum_number_of_points_on_line": 10,
       "ransac_iterations": 20
     }
