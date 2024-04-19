@@ -117,10 +117,10 @@ impl RoleAssignment {
                 one: Role::Keeper,
                 two: context.optional_roles.get(0).copied().unwrap_or_default(),
                 three: context.optional_roles.get(1).copied().unwrap_or_default(),
-                four: context.optional_roles.get(2).copied().unwrap_or_default(),
-                five: context.optional_roles.get(3).copied().unwrap_or_default(),
-                six: context.optional_roles.get(4).copied().unwrap_or_default(),
-                seven: Role::Striker,
+                four: Role::Striker,
+                five: context.optional_roles.get(2).copied().unwrap_or_default(),
+                six: context.optional_roles.get(3).copied().unwrap_or_default(),
+                seven: context.optional_roles.get(4).copied().unwrap_or_default(),
             };
 
             if let Some(game_controller_state) = context.filtered_game_controller_state {
