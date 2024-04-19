@@ -359,6 +359,8 @@ impl App for TwixApp {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
                 let index = self.dock_state[surface_index][node_id].tabs_count();
                 self.dock_state[surface_index][node_id].insert_tab(index.into(), tab.into());
+                self.dock_state
+                    .set_focused_node_and_surface((surface_index, node_id));
             }
         });
     }
