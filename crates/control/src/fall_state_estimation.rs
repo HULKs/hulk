@@ -172,11 +172,18 @@ impl FallStateEstimation {
             },
             (FallState::Upright, Some(_), Some(facing)) => FallState::Fallen { kind: facing },
             (current @ FallState::Falling { start_time, .. }, None, None) => {
-                if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout
-                    && upright_gravitational_difference
+                if cycle_start.duration_since(start_time).unwrap() > *context.falling_timeout {
+                    if upright_gravitational_difference
                         < *context.gravitational_acceleration_threshold
-                {
-                    FallState::Upright
+                    {
+                        FallState::Upright
+                    } else {
+                        decide_standing_up_direction(
+                            &context,
+                            fallen_up_gravitational_difference,
+                            fallen_down_gravitational_difference,
+                        )
+                    }
                 } else {
                     current
                 }
