@@ -16,7 +16,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             }),
             _,
         ) => None,
-        (_,PrimaryState::Playing) => Some(MotionCommand::Stand {
+        (_, PrimaryState::Playing) => Some(MotionCommand::Stand {
             head: types::motion_command::HeadMotion::LookAround,
         }),
         _ => None,
