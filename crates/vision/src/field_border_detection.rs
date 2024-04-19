@@ -6,7 +6,7 @@ use context_attribute::context;
 use coordinate_systems::Pixel;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2, Vector2};
-use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
+use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     color::Intensity,
     field_border::FieldBorder,
@@ -29,8 +29,6 @@ pub struct CycleContext {
     angle_threshold: Parameter<f32, "field_border_detection.$cycler_instance.angle_threshold">,
     first_line_association_distance:
         Parameter<f32, "field_border_detection.$cycler_instance.first_line_association_distance">,
-    field_border_margin:
-        Parameter<f32, "field_border_detection.$cycler_instance.margin_to_horizon">,
     min_points_per_line:
         Parameter<usize, "field_border_detection.$cycler_instance.min_points_per_line">,
     second_line_association_distance:
@@ -67,15 +65,8 @@ impl FieldBorderDetection {
             .vertical_scan_lines
             .iter()
             .filter_map(|scan_line| {
-                get_first_field_segment(
-                    scan_line,
-                    *context.field_border_margin,
-                    &context
-                        .camera_matrix
-                        .horizon
-                        .unwrap_or(Horizon::ABOVE_IMAGE),
-                )
-                .map(|segment| point![scan_line.position as f32, segment.start as f32])
+                get_first_field_segment(scan_line)
+                    .map(|segment| point![scan_line.position as f32, segment.start as f32])
             })
             .collect();
         context
@@ -96,18 +87,11 @@ impl FieldBorderDetection {
     }
 }
 
-fn get_first_field_segment<'scanline>(
-    scan_line: &'scanline ScanLine,
-    margin: f32,
-    horizon: &Horizon,
-) -> Option<&'scanline Segment> {
-    scan_line.segments.iter().find(|segment| {
-        segment.field_color == Intensity::High
-            && horizon.is_above_with_margin(
-                point![scan_line.position as f32, segment.start as f32],
-                margin,
-            )
-    })
+fn get_first_field_segment(scan_line: &ScanLine) -> Option<&Segment> {
+    scan_line
+        .segments
+        .iter()
+        .find(|segment| segment.field_color == Intensity::High)
 }
 
 fn find_border_lines(
@@ -181,7 +165,6 @@ fn is_orthogonal(
 #[cfg(test)]
 mod test {
     use approx::assert_relative_eq;
-    use linear_algebra::vector;
     use rand::{rngs::StdRng, Rng, SeedableRng};
     use types::{
         color::YCbCr444,
@@ -231,14 +214,7 @@ mod test {
             25,
         );
         scanline.segments[7].field_color = Intensity::High;
-        let green_segment = get_first_field_segment(
-            &scanline,
-            0.0,
-            &Horizon {
-                vanishing_point: point![0.0, 0.0],
-                normal: vector![0.0, 1.0],
-            },
-        );
+        let green_segment = get_first_field_segment(&scanline);
         assert_eq!(green_segment, Some(&scanline.segments[7]));
     }
 
