@@ -376,7 +376,7 @@
     "max_step_size": {
       "forward": 0.065,
       "left": 0.13,
-      "turn": 1.3
+      "turn": 1.0
     },
     "max_step_size_backwards": 0.04,
     "translation_exponent": 1.5,
@@ -400,7 +400,7 @@
       "step_duration_increase": {
         "forward": 0.1,
         "left": 0.3,
-        "turn": 0.0
+        "turn": 0.1
       },
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
