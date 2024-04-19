@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
@@ -27,6 +29,7 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
+    recorded_primary_states: Parameter<HashSet<PrimaryState>, "recorded_primary_states">,
 
     hardware_interface: HardwareInterface,
 }
@@ -108,10 +111,11 @@ impl PrimaryStateFilter {
             (_, _, _, _, _) => self.last_primary_state,
         };
 
-        context.hardware_interface.set_whether_to_record(matches!(
-            self.last_primary_state,
-            PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing,
-        ));
+        context.hardware_interface.set_whether_to_record(
+            context
+                .recorded_primary_states
+                .contains(&self.last_primary_state),
+        );
 
         Ok(MainOutputs {
             primary_state: self.last_primary_state.into(),
