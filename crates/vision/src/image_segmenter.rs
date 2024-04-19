@@ -496,8 +496,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
         let vertical_stride = 2;
@@ -531,8 +530,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
         let scan_line = new_vertical_scan_line(
@@ -558,8 +556,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
         let scan_line = new_vertical_scan_line(
@@ -594,8 +591,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -640,8 +636,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -691,8 +686,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -763,8 +757,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -838,8 +831,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -917,8 +909,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -1024,8 +1015,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -1176,8 +1166,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -1332,8 +1321,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
@@ -1406,8 +1394,7 @@ mod tests {
         let field_color = FieldColor {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
-            lower_green_chromaticity_threshold: 0.4,
-            upper_green_chromaticity_threshold: 0.43,
+            green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
         };
 
