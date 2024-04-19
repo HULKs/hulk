@@ -23,7 +23,7 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-use crate::execution::Replayer;
+use crate::execution::ImageExtractor;
 
 use ctrlc::set_handler;
 use serde_json::from_reader;
@@ -160,13 +160,11 @@ pub fn replayer() -> Result<()> {
 
     let ids = hardware_interface.get_ids();
 
-    let replayer = Replayer::new(
+    let image_extractor = ImageExtractor::new(
         Arc::new(hardware_interface),
-        framework_parameters.communication_addresses,
         replay_path.clone(),
-        ids.body_id,
-        ids.head_id,
-        keep_running,
+        &ids.body_id,
+        &ids.head_id,
         replay_path,
     )
     .wrap_err("failed to create replayer")?;

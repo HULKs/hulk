@@ -1,5 +1,5 @@
 use cyclers::generate_cyclers;
-use execution::{generate_replayer_struct, generate_run_function};
+use execution::{generate_image_extractor_struct, generate_replayer_struct, generate_run_function};
 use perception_databases::generate_perception_databases;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -35,11 +35,19 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
                 }
             }
         }
-        Execution::Replay | Execution::ImageExtraction => {
+        Execution::Replay => {
             let replayer = generate_replayer_struct(cyclers);
             quote! {
                 pub mod execution {
                     #replayer
+                }
+            }
+        }
+        Execution::ImageExtraction => {
+            let image_extractor = generate_image_extractor_struct(cyclers);
+            quote! {
+                pub mod execution {
+                    #image_extractor
                 }
             }
         }
