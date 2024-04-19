@@ -105,7 +105,6 @@ pub enum RgbChannel {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Intensity {
     Low,
-    Medium,
     High,
 }
 
