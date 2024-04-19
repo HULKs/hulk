@@ -435,13 +435,29 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
             }
         };
 
+        let subscribed_outputs_buffer = if mode == Execution::ImageExtraction {
+            Default::default()
+        } else {
+            quote! {
+                let (#own_subscribed_outputs_writer_identifier, #own_subscribed_outputs_reader_identifier) = framework::multiple_buffer_with_slots([
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                ]);
+            }
+        };
+
+        let own_subscribed_outputs_reader = if mode == Execution::ImageExtraction {
+            Default::default()
+        } else {
+            quote! {
+                #own_subscribed_outputs_reader_identifier,
+            }
+        };
+
         quote! {
             let #cycler_database_changed_identifier = std::sync::Arc::new(tokio::sync::Notify::new());
-            let (#own_subscribed_outputs_writer_identifier, #own_subscribed_outputs_reader_identifier) = framework::multiple_buffer_with_slots([
-                Default::default(),
-                Default::default(),
-                Default::default(),
-            ]);
+            #subscribed_outputs_buffer
             #recording_trigger
             #recording_index
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
@@ -449,7 +465,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
                 hardware_interface.clone(),
                 #own_writer_identifier,
                 #cycler_database_changed_identifier.clone(),
-                #own_subscribed_outputs_reader_identifier,
+                #own_subscribed_outputs_reader
                 #parameters_reader,
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
