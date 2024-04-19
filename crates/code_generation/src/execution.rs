@@ -182,6 +182,35 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                 }
             }
 
+            pub fn replay_at(&mut self, timestamp: std::time::SystemTime) -> color_eyre::Result<()> {
+                use color_eyre::eyre::WrapErr;
+
+                let recording_indices = self.get_recording_indices_mut();
+                let frames = recording_indices
+                    .into_iter()
+                    .map(|(name, index)| {
+                        (
+                            name,
+                            index
+                                .find_latest_frame_up_to(timestamp)
+                                .expect("failed to find latest frame"),
+                        )
+                    })
+                    .collect::<std::collections::BTreeMap<_, _>>();
+                for (name, frame) in frames {
+                    if let Some(frame) = frame {
+                        self.replay(&name, frame.timing.timestamp, &frame.data)
+                            .wrap_err("failed to replay frame")?;
+                    }
+                }
+
+                Ok(())
+            }
+
+            pub fn get_parameters_changed(&self) -> std::sync::Arc<tokio::sync::Notify> {
+                self.communication_server.get_parameters_changed()
+            }
+
             #accessors
         }
     }
@@ -200,10 +229,10 @@ fn generate_replayer_token_streams(
     if with_communication {
         ReplayerTokenStreams {
             fields: quote! {
-                _communication_server: communication::server::Runtime<crate::structs::Parameters>,
+                communication_server: communication::server::Runtime<crate::structs::Parameters>,
             },
             parameters: quote! {
-                _communication_server: communication_server,
+                communication_server,
             },
             accessors: Default::default(),
         }
