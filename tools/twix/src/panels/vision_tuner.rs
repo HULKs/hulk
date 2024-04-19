@@ -114,39 +114,20 @@ impl Widget for &mut VisionTunerPanel {
 
                 let value = get_value_from_interpolated(
                     position,
-                    &mut parameters.lower_green_chromaticity_threshold,
+                    &mut parameters.green_chromaticity_threshold,
                 );
                 if ui
                     .add(
                         Slider::new(value, 0.0..=1.0)
-                            .text("lower_green_chromaticity_threshold")
+                            .text("green_chromaticity_threshold")
                             .smart_aim(false),
                     )
                     .changed()
                 {
                     self.parameters
-                        .lower_green_chromaticity_threshold
+                        .green_chromaticity_threshold
                         .update_parameter_value(
-                            to_value(parameters.lower_green_chromaticity_threshold).unwrap(),
-                        );
-                }
-
-                let value = get_value_from_interpolated(
-                    position,
-                    &mut parameters.upper_green_chromaticity_threshold,
-                );
-                if ui
-                    .add(
-                        Slider::new(value, 0.0..=1.0)
-                            .text("upper_green_chromaticity_threshold")
-                            .smart_aim(false),
-                    )
-                    .changed()
-                {
-                    self.parameters
-                        .upper_green_chromaticity_threshold
-                        .update_parameter_value(
-                            to_value(parameters.upper_green_chromaticity_threshold).unwrap(),
+                            to_value(parameters.green_chromaticity_threshold).unwrap(),
                         );
                 }
 
@@ -178,8 +159,7 @@ struct Parameters<T> {
     vertical_edge_threshold: T,
     red_chromaticity_threshold: T,
     blue_chromaticity_threshold: T,
-    lower_green_chromaticity_threshold: T,
-    upper_green_chromaticity_threshold: T,
+    green_chromaticity_threshold: T,
     green_luminance_threshold: T,
 }
 
@@ -191,10 +171,8 @@ impl Parameters<ValueBuffer> {
             nao.subscribe_parameter(get_red_chromaticity_threshold_path(cycler));
         let blue_chromaticity_threshold =
             nao.subscribe_parameter(get_blue_chromaticity_threshold_path(cycler));
-        let lower_green_chromaticity_threshold =
-            nao.subscribe_parameter(get_lower_green_chromaticity_threshold_path(cycler));
-        let upper_green_chromaticity_threshold =
-            nao.subscribe_parameter(get_upper_green_chromaticity_threshold_path(cycler));
+        let green_chromaticity_threshold =
+            nao.subscribe_parameter(get_green_chromaticity_threshold_path(cycler));
         let green_luminance_threshold =
             nao.subscribe_parameter(get_green_luminance_threshold_path(cycler));
 
@@ -202,8 +180,7 @@ impl Parameters<ValueBuffer> {
             vertical_edge_threshold,
             red_chromaticity_threshold,
             blue_chromaticity_threshold,
-            lower_green_chromaticity_threshold,
-            upper_green_chromaticity_threshold,
+            green_chromaticity_threshold,
             green_luminance_threshold,
         }
     }
@@ -222,14 +199,10 @@ impl Parameters<ValueBuffer> {
                 .blue_chromaticity_threshold
                 .parse_latest()
                 .wrap_err("failed to parse latest blue_chromaticity_threshold")?,
-            lower_green_chromaticity_threshold: self
-                .lower_green_chromaticity_threshold
+            green_chromaticity_threshold: self
+                .green_chromaticity_threshold
                 .parse_latest()
-                .wrap_err("failed to parse latest lower_green_chromaticity_threshold")?,
-            upper_green_chromaticity_threshold: self
-                .upper_green_chromaticity_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest upper_green_chromaticity_threshold")?,
+                .wrap_err("failed to parse latest green_chromaticity_threshold")?,
             green_luminance_threshold: self
                 .green_luminance_threshold
                 .parse_latest()
@@ -265,15 +238,9 @@ impl Parameters<Interpolated> {
         );
         repository_parameters.write(
             address,
-            get_lower_green_chromaticity_threshold_path(cycler).to_string(),
-            to_value(self.lower_green_chromaticity_threshold)
-                .wrap_err("failed to serialize lower_green_chromaticity_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_upper_green_chromaticity_threshold_path(cycler).to_string(),
-            to_value(self.upper_green_chromaticity_threshold)
-                .wrap_err("failed to serialize upper_green_chromaticity_threshold")?,
+            get_green_chromaticity_threshold_path(cycler).to_string(),
+            to_value(self.green_chromaticity_threshold)
+                .wrap_err("failed to serialize green_chromaticity_threshold")?,
         );
         repository_parameters.write(
             address,
@@ -476,22 +443,10 @@ fn get_blue_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
     }
 }
 
-fn get_lower_green_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
+fn get_green_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.lower_green_chromaticity_threshold",
-        Cycler::VisionBottom => {
-            "field_color_detection.vision_bottom.lower_green_chromaticity_threshold"
-        }
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_upper_green_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.upper_green_chromaticity_threshold",
-        Cycler::VisionBottom => {
-            "field_color_detection.vision_bottom.upper_green_chromaticity_threshold"
-        }
+        Cycler::VisionTop => "field_color_detection.vision_top.green_chromaticity_threshold",
+        Cycler::VisionBottom => "field_color_detection.vision_bottom.green_chromaticity_threshold",
         _ => panic!("not implemented"),
     }
 }
