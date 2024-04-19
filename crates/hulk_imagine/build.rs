@@ -13,7 +13,7 @@ fn main() -> Result<()> {
     println!("{}", to_string_pretty(&cyclers)?);
 
     let structs = Structs::try_from_cyclers(&cyclers)?;
-    generate(&cyclers, &structs, Execution::Imagine)
+    generate(&cyclers, &structs, Execution::ImageExtraction)
         .write_to_file("generated_code.rs")
         .wrap_err("failed to write generated code to file")
 }
