@@ -14,7 +14,7 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct StandUpFront {
+pub struct StandUpSitting {
     interpolator: MotionInterpolator<Joints<f32>>,
 }
 
@@ -35,15 +35,15 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub stand_up_front_positions: MainOutput<Joints<f32>>,
-    pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
+    pub stand_up_sitting_positions: MainOutput<Joints<f32>>,
+    pub stand_up_sitting_estimated_remaining_duration: MainOutput<Option<Duration>>,
 }
 
-impl StandUpFront {
+impl StandUpSitting {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
         let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path(paths.motions.join("stand_up_front.json"))?
+            interpolator: MotionFile::from_path(paths.motions.join("stand_up_sitting.json"))?
                 .try_into()?,
         })
     }
@@ -52,17 +52,17 @@ impl StandUpFront {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        context.motion_safe_exits[MotionType::StandUpFront] = false;
+        context.motion_safe_exits[MotionType::StandUpSitting] = false;
 
         self.interpolator
             .advance_by(last_cycle_duration, condition_input);
 
-        context.motion_safe_exits[MotionType::StandUpFront] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::StandUpSitting] = self.interpolator.is_finished();
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let stand_up_front_estimated_remaining_duration =
-            if let MotionType::StandUpFront = context.motion_selection.current_motion {
+        let estimated_remaining_duration =
+            if let MotionType::StandUpSitting = context.motion_selection.current_motion {
                 self.advance_interpolator(context);
                 Some(self.interpolator.estimated_remaining_duration())
             } else {
@@ -70,9 +70,8 @@ impl StandUpFront {
                 None
             };
         Ok(MainOutputs {
-            stand_up_front_positions: self.interpolator.value().into(),
-            stand_up_front_estimated_remaining_duration:
-                stand_up_front_estimated_remaining_duration.into(),
+            stand_up_sitting_positions: self.interpolator.value().into(),
+            stand_up_sitting_estimated_remaining_duration: estimated_remaining_duration.into(),
         })
     }
 }

@@ -22,6 +22,7 @@ pub enum MotionType {
     Stand,
     StandUpBack,
     StandUpFront,
+    StandUpSitting,
     Unstiff,
     Walk,
 }
@@ -44,6 +45,7 @@ pub struct MotionSafeExits {
     sit_down: bool,
     stand_up_back: bool,
     stand_up_front: bool,
+    stand_up_sitting: bool,
     stand: bool,
     unstiff: bool,
     walk: bool,
@@ -62,6 +64,7 @@ impl Default for MotionSafeExits {
             sit_down: false,
             stand_up_back: false,
             stand_up_front: false,
+            stand_up_sitting: false,
             stand: true,
             unstiff: true,
             walk: false,
@@ -85,6 +88,7 @@ impl Index<MotionType> for MotionSafeExits {
             MotionType::Stand => &self.stand,
             MotionType::StandUpBack => &self.stand_up_back,
             MotionType::StandUpFront => &self.stand_up_front,
+            MotionType::StandUpSitting => &self.stand_up_sitting,
             MotionType::Unstiff => &self.unstiff,
             MotionType::Walk => &self.walk,
         }
@@ -105,6 +109,7 @@ impl IndexMut<MotionType> for MotionSafeExits {
             MotionType::Stand => &mut self.stand,
             MotionType::StandUpBack => &mut self.stand_up_back,
             MotionType::StandUpFront => &mut self.stand_up_front,
+            MotionType::StandUpSitting => &mut self.stand_up_sitting,
             MotionType::Unstiff => &mut self.unstiff,
             MotionType::Walk => &mut self.walk,
         }

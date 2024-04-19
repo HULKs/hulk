@@ -1,6 +1,7 @@
 use std::{io::Write, mem::size_of, os::unix::net::UnixStream, slice::from_raw_parts};
 
 use color_eyre::{eyre::Context, Result};
+use linear_algebra::IntoFramed;
 use nalgebra::{vector, Vector2, Vector3};
 use types::{
     self,
@@ -65,9 +66,9 @@ pub struct InertialMeasurementUnit {
 impl From<InertialMeasurementUnit> for types::sensor_data::InertialMeasurementUnitData {
     fn from(from: InertialMeasurementUnit) -> Self {
         types::sensor_data::InertialMeasurementUnitData {
-            linear_acceleration: -Vector3::from(from.accelerometer),
-            angular_velocity: from.gyroscope.into(),
-            roll_pitch: from.angles.into(),
+            linear_acceleration: -Vector3::from(from.accelerometer).framed(),
+            angular_velocity: Vector3::from(from.gyroscope).framed(),
+            roll_pitch: Vector2::from(from.angles).framed(),
         }
     }
 }
