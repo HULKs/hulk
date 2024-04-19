@@ -347,6 +347,23 @@ impl App for TwixApp {
                 }
             }
 
+            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::W)) {
+                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
+                    let active_node = &mut self.dock_state[surface_index][node_id];
+                    if let egui_dock::Node::Leaf { active, tabs, .. } = active_node {
+                        if !tabs.is_empty() {
+                            tabs.remove(active.0);
+
+                            active.0 = active.0.saturating_sub(1);
+
+                            if tabs.is_empty() && node_id != NodeIndex(0) {
+                                self.dock_state[surface_index].remove_leaf(node_id);
+                            }
+                        }
+                    }
+                }
+            }
+
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.buttons.add_tab_align = TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
