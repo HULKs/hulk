@@ -37,8 +37,13 @@ impl<Frame> Line2<Frame> {
         self.0.y() - (self.0.x() * self.slope())
     }
 
+    pub fn project_onto_segment_in_x_axis(&self, point: Point2<Frame>) -> f32 {
+        let rise = (point.x() - self.0.x()) * self.slope();
+        rise + self.0.y()
+    }
+
     pub fn is_above(&self, point: Point2<Frame>) -> bool {
-        self.signed_distance_to_point(point) >= 0.0
+        point.y() >= self.project_onto_segment_in_x_axis(point)
     }
 
     pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {

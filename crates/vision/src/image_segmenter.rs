@@ -16,7 +16,8 @@ use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
-    limb::{is_above_limbs, Limb, ProjectedLimbs},
+    limb::project_onto_limbs,
+    limb::{Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
 };
@@ -524,10 +525,11 @@ fn segment_is_below_limbs(
     segment: &Segment,
     projected_limbs: &[Limb],
 ) -> bool {
-    !is_above_limbs(
+    let projected_y_on_limb = project_onto_limbs(
         point![scan_line_position as f32, segment.end as f32],
         projected_limbs,
-    )
+    );
+    projected_y_on_limb.is_some_and(|projected_y_on_limb| segment.end as f32 > projected_y_on_limb)
 }
 
 fn fix_previous_edge_type(segments: &mut [Segment]) {
