@@ -182,9 +182,35 @@ pub fn generate_image_extractor_struct(cyclers: &Cyclers) -> TokenStream {
         generate_recording_index_entries(cyclers, ReferenceKind::Immutable);
     let cycler_replays = generate_cycler_replays(cyclers);
 
+    let reader_tokens: Vec<_> = cyclers
+        .instances()
+        .map(|(cycler, instance)| {
+            (
+                format_ident!("{}_reader", instance.to_case(Case::Snake)),
+                format_ident!("{}", cycler.name.to_case(Case::Snake)),
+            )
+        })
+        .collect();
+
+    let reader_identifiers = reader_tokens.iter().map(|(reader, _cycler)| reader);
+    let reader_fields = reader_tokens.iter().map(|(reader, cycler)| {
+        quote! {
+            #reader: framework::Reader<crate::cyclers::#cycler::Database>,
+        }
+    });
+    let reader_accessors = reader_tokens.iter().map(|(reader, cycler)| {
+        quote! {
+            #[allow(unused)]
+            pub(crate) fn #reader(&self) -> framework::Reader<crate::cyclers::#cycler::Database> {
+                self.#reader.clone()
+            }
+        }
+    });
+
     quote! {
         pub struct ImageExtractor<Hardware> {
             _parameters_writer: framework::Writer<crate::structs::Parameters>,
+            #(#reader_fields)*
             #cycler_fields
         }
 
@@ -218,6 +244,7 @@ pub fn generate_image_extractor_struct(cyclers: &Cyclers) -> TokenStream {
 
                 Ok(Self {
                     _parameters_writer: parameters_writer,
+                    #(#reader_identifiers,)*
                     #cycler_parameters
                 })
             }
@@ -236,6 +263,8 @@ pub fn generate_image_extractor_struct(cyclers: &Cyclers) -> TokenStream {
                     _ => bail!("unexpected cycler instance name {cycler_instance_name}"),
                 }
             }
+
+            #(#reader_accessors)*
         }
     }
 }
