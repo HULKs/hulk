@@ -8,8 +8,6 @@ pub enum Mode {
     Center { moving_towards: Side },
     Left,
     Right,
-    HalfwayLeft { moving_towards: Side },
-    HalfwayRight { moving_towards: Side },
 }
 
 impl Default for Mode {

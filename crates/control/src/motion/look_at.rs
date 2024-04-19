@@ -112,6 +112,11 @@ impl LookAt {
                     None,
                 )
             }
+            HeadMotion::ZeroAngles => {
+                return Ok(MainOutputs {
+                    look_at: HeadJoints::fill(0.0).into(),
+                })
+            }
             _ => return default_output,
         };
 

@@ -24,7 +24,7 @@ pub fn execute(
             expected_referee_position,
         )
         .unwrap_or(MotionCommand::Initial {
-            head: HeadMotion::Center,
+            head: HeadMotion::ZeroAngles,
             should_look_for_referee: false,
         }),
     )

@@ -182,8 +182,6 @@ pub struct LookAroundParameters {
     pub middle_positions: HeadJoints<f32>,
     pub left_positions: HeadJoints<f32>,
     pub right_positions: HeadJoints<f32>,
-    pub halfway_left_positions: HeadJoints<f32>,
-    pub halfway_right_positions: HeadJoints<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

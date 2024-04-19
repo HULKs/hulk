@@ -16,6 +16,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct LookAround {
     current_mode: Mode,
+    last_head_motion: Option<HeadMotion>,
     last_mode_switch: SystemTime,
 }
 
@@ -42,10 +43,17 @@ impl LookAround {
         Ok(Self {
             current_mode: Default::default(),
             last_mode_switch: UNIX_EPOCH,
+            last_head_motion: None,
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let switched_head_motion = self.last_head_motion != context.motion_command.head_motion();
+        if switched_head_motion {
+            self.last_mode_switch = context.cycle_time.start_time;
+            self.current_mode = Mode::Left;
+        }
+
         match context.motion_command.head_motion() {
             Some(HeadMotion::LookAround) => {
                 self.look_around(
@@ -69,6 +77,7 @@ impl LookAround {
                 });
             }
         }
+        self.last_head_motion = context.motion_command.head_motion();
 
         context
             .current_mode
@@ -78,8 +87,6 @@ impl LookAround {
             Mode::Center { .. } => context.config.middle_positions,
             Mode::Left => context.config.left_positions,
             Mode::Right => context.config.right_positions,
-            Mode::HalfwayLeft { .. } => context.config.halfway_left_positions,
-            Mode::HalfwayRight { .. } => context.config.halfway_right_positions,
         };
 
         Ok(MainOutputs {
@@ -92,40 +99,7 @@ impl LookAround {
             return;
         }
         self.last_mode_switch = start_time;
-        self.current_mode = match self.current_mode {
-            Mode::Center {
-                moving_towards: Side::Left,
-            } => Mode::HalfwayLeft {
-                moving_towards: Side::Left,
-            },
-            Mode::Center {
-                moving_towards: Side::Right,
-            } => Mode::HalfwayRight {
-                moving_towards: Side::Right,
-            },
-            Mode::Left => Mode::HalfwayLeft {
-                moving_towards: Side::Right,
-            },
-            Mode::Right => Mode::HalfwayRight {
-                moving_towards: Side::Left,
-            },
-            Mode::HalfwayLeft {
-                moving_towards: Side::Left,
-            } => Mode::Left,
-            Mode::HalfwayLeft {
-                moving_towards: Side::Right,
-            } => Mode::Center {
-                moving_towards: Side::Right,
-            },
-            Mode::HalfwayRight {
-                moving_towards: Side::Left,
-            } => Mode::Center {
-                moving_towards: Side::Left,
-            },
-            Mode::HalfwayRight {
-                moving_towards: Side::Right,
-            } => Mode::Right,
-        }
+        self.current_mode = next_mode(self.current_mode);
     }
 
     fn quick_search(&mut self, start_time: SystemTime, time_at_each_position: Duration) {
@@ -133,29 +107,23 @@ impl LookAround {
             return;
         }
         self.last_mode_switch = start_time;
-        self.current_mode = match self.current_mode {
-            Mode::Center {
-                moving_towards: Side::Left,
-            } => Mode::HalfwayLeft {
-                moving_towards: Side::Right,
-            },
-            Mode::Center {
-                moving_towards: Side::Right,
-            } => Mode::HalfwayRight {
-                moving_towards: Side::Left,
-            },
-            Mode::Left => Mode::HalfwayLeft {
-                moving_towards: Side::Right,
-            },
-            Mode::Right => Mode::HalfwayRight {
-                moving_towards: Side::Left,
-            },
-            Mode::HalfwayLeft { .. } => Mode::Center {
-                moving_towards: Side::Right,
-            },
-            Mode::HalfwayRight { .. } => Mode::Center {
-                moving_towards: Side::Left,
-            },
-        }
+        self.current_mode = next_mode(self.current_mode);
+    }
+}
+
+fn next_mode(mode: Mode) -> Mode {
+    match mode {
+        Mode::Center {
+            moving_towards: Side::Left,
+        } => Mode::Left,
+        Mode::Center {
+            moving_towards: Side::Right,
+        } => Mode::Right,
+        Mode::Left => Mode::Center {
+            moving_towards: Side::Right,
+        },
+        Mode::Right => Mode::Center {
+            moving_towards: Side::Left,
+        },
     }
 }
