@@ -144,10 +144,6 @@ impl Rgb {
         value / sum
     }
 
-    pub fn get_relative_luminance(&self) -> u8 {
-        (0.2126 * (self.r as f32) + 0.7152 * (self.g as f32) + 0.0722 * (self.b as f32)) as u8
-    }
-
     pub fn get_luminance(&self) -> u8 {
         (0.299 * (self.r as f32) + 0.587 * (self.g as f32) + 0.114 * (self.b as f32)) as u8
     }
