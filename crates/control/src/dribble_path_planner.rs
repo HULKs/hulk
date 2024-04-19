@@ -50,7 +50,7 @@ pub fn plan(
         for obstacle in &mut obstacles {
             if matches!(obstacle.kind, ObstacleKind::GoalPost) {
                 obstacle.radius_at_hip_height = (obstacle.radius_at_hip_height
-                    - dribbling_parameters.goalpost_radius_decrease)
+                    - dribbling_parameters.goal_post_radius_decrease)
                     .max(0.0);
             }
         }
