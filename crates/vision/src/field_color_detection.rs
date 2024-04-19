@@ -31,6 +31,8 @@ pub struct CycleContext {
         Interpolated,
         "field_color_detection.$cycler_instance.green_chromaticity_threshold",
     >,
+    luminance_threshold:
+        Parameter<Interpolated, "field_color_detection.$cycler_instance.luminance_threshold">,
 
     ground_to_field_of_home_after_coin_toss_before_second_half: Input<
         Option<Isometry2<Ground, Field>>,
@@ -74,6 +76,9 @@ impl FieldColorDetection {
                 green_luminance_threshold: context
                     .green_luminance_threshold
                     .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
+                luminance_threshold: context
+                    .luminance_threshold
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
             }
             .into(),
         })
@@ -98,6 +103,7 @@ mod test {
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
+            luminance_threshold: 255.0,
         };
         let field_color_intensity = field_color.get_intensity(ycbcr);
         assert_eq!(field_color_intensity, Intensity::High);

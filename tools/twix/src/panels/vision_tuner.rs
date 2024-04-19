@@ -149,6 +149,21 @@ impl Widget for &mut VisionTunerPanel {
                             to_value(parameters.green_luminance_threshold).unwrap(),
                         );
                 }
+
+                let value =
+                    get_value_from_interpolated(position, &mut parameters.luminance_threshold);
+                if ui
+                    .add(
+                        Slider::new(value, 0.0..=255.0)
+                            .text("luminance_threshold")
+                            .smart_aim(false),
+                    )
+                    .changed()
+                {
+                    self.parameters
+                        .luminance_threshold
+                        .update_parameter_value(to_value(parameters.luminance_threshold).unwrap());
+                }
             }
         })
         .response
@@ -161,6 +176,7 @@ struct Parameters<T> {
     blue_chromaticity_threshold: T,
     green_chromaticity_threshold: T,
     green_luminance_threshold: T,
+    luminance_threshold: T,
 }
 
 impl Parameters<ValueBuffer> {
@@ -175,6 +191,7 @@ impl Parameters<ValueBuffer> {
             nao.subscribe_parameter(get_green_chromaticity_threshold_path(cycler));
         let green_luminance_threshold =
             nao.subscribe_parameter(get_green_luminance_threshold_path(cycler));
+        let luminance_threshold = nao.subscribe_parameter(get_luminance_threshold_path(cycler));
 
         Self {
             vertical_edge_threshold,
@@ -182,6 +199,7 @@ impl Parameters<ValueBuffer> {
             blue_chromaticity_threshold,
             green_chromaticity_threshold,
             green_luminance_threshold,
+            luminance_threshold,
         }
     }
 
@@ -207,6 +225,10 @@ impl Parameters<ValueBuffer> {
                 .green_luminance_threshold
                 .parse_latest()
                 .wrap_err("failed to parse latest green_luminance_threshold")?,
+            luminance_threshold: self
+                .luminance_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest luminance_threshold")?,
         })
     }
 }
@@ -247,6 +269,12 @@ impl Parameters<Interpolated> {
             get_green_luminance_threshold_path(cycler).to_string(),
             to_value(self.green_luminance_threshold)
                 .wrap_err("failed to serialize green_luminance_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_luminance_threshold_path(cycler).to_string(),
+            to_value(self.luminance_threshold)
+                .wrap_err("failed to serialize luminance_threshold")?,
         );
         Ok(())
     }
@@ -455,6 +483,14 @@ fn get_green_luminance_threshold_path(cycler: Cycler) -> &'static str {
     match cycler {
         Cycler::VisionTop => "field_color_detection.vision_top.green_luminance_threshold",
         Cycler::VisionBottom => "field_color_detection.vision_bottom.green_luminance_threshold",
+        _ => panic!("not implemented"),
+    }
+}
+
+fn get_luminance_threshold_path(cycler: Cycler) -> &'static str {
+    match cycler {
+        Cycler::VisionTop => "field_color_detection.vision_top.luminance_threshold",
+        Cycler::VisionBottom => "field_color_detection.vision_bottom.luminance_threshold",
         _ => panic!("not implemented"),
     }
 }
