@@ -159,16 +159,14 @@
       "min_points_per_line": 10,
       "angle_threshold": 0.35,
       "first_line_association_distance": 2.0,
-      "second_line_association_distance": 2.0,
-      "margin_to_horizon": 30.0
+      "second_line_association_distance": 2.0
     },
     "vision_bottom": {
       "enable": false,
       "min_points_per_line": 10,
       "angle_threshold": 0.35,
       "first_line_association_distance": 2.0,
-      "second_line_association_distance": 2.0,
-      "margin_to_horizon": 0.0
+      "second_line_association_distance": 2.0
     }
   },
   "field_color_detection": {
