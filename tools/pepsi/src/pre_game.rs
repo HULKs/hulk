@@ -39,7 +39,7 @@ pub struct Arguments {
     pub skip_os_check: bool,
     /// Intervals between cycle recordings, e.g. Control=1,VisionTop=30 to record every cycle in Control
     /// and one out of every 30 in VisionTop. Set to 0 or don't specify to disable recording for a cycler.
-    #[arg(long, value_delimiter=',', value_parser = parse_key_value::<String, usize>, default_value = "Control=1,VisionTop=30,VisionBottom=30")]
+    #[arg(long, value_delimiter=',', value_parser = parse_key_value::<String, usize>, default_value = "Control=1,VisionTop=30,VisionBottom=30,SplNetwork=1")]
     pub recording_intervals: Vec<(String, usize)>,
     /// The location to use for parameters
     pub location: String,
