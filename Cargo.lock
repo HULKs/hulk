@@ -3001,6 +3001,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "walking_engine",
 ]
 
 [[package]]
