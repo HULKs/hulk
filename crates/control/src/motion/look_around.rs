@@ -131,7 +131,43 @@ impl LookAround {
             return;
         }
         self.last_mode_switch = start_time;
-        self.current_mode = next_state(self.current_mode);
+        self.current_mode = match self.current_mode {
+            Mode::InitialLeft => Mode::InitialRight,
+            Mode::InitialRight => Mode::InitialLeft,
+
+            Mode::Center {
+                moving_towards: Side::Left,
+            } => Mode::HalfwayLeft {
+                moving_towards: Side::Left,
+            },
+            Mode::Center {
+                moving_towards: Side::Right,
+            } => Mode::HalfwayRight {
+                moving_towards: Side::Right,
+            },
+            Mode::Left => Mode::HalfwayLeft {
+                moving_towards: Side::Right,
+            },
+            Mode::Right => Mode::HalfwayRight {
+                moving_towards: Side::Left,
+            },
+            Mode::HalfwayLeft {
+                moving_towards: Side::Left,
+            } => Mode::Left,
+            Mode::HalfwayLeft {
+                moving_towards: Side::Right,
+            } => Mode::Center {
+                moving_towards: Side::Right,
+            },
+            Mode::HalfwayRight {
+                moving_towards: Side::Left,
+            } => Mode::Center {
+                moving_towards: Side::Left,
+            },
+            Mode::HalfwayRight {
+                moving_towards: Side::Right,
+            } => Mode::Right,
+        }
     }
 
     fn quick_search(&mut self, start_time: SystemTime, time_at_each_position: Duration) {
@@ -139,35 +175,31 @@ impl LookAround {
             return;
         }
         self.last_mode_switch = start_time;
-        self.current_mode = next_state(self.current_mode);
-    }
-}
-
-fn next_state(mode: Mode) -> Mode {
-    match mode {
-        Mode::Center {
-            moving_towards: Side::Left,
-        } => Mode::HalfwayLeft {
-            moving_towards: Side::Right,
-        },
-        Mode::Center {
-            moving_towards: Side::Right,
-        } => Mode::HalfwayRight {
-            moving_towards: Side::Left,
-        },
-        Mode::Left => Mode::HalfwayLeft {
-            moving_towards: Side::Right,
-        },
-        Mode::Right => Mode::HalfwayRight {
-            moving_towards: Side::Left,
-        },
-        Mode::HalfwayLeft { .. } => Mode::Center {
-            moving_towards: Side::Right,
-        },
-        Mode::HalfwayRight { .. } => Mode::Center {
-            moving_towards: Side::Left,
-        },
-        Mode::InitialLeft => Mode::InitialRight,
-        Mode::InitialRight => Mode::InitialLeft,
+        self.current_mode = match self.current_mode {
+            Mode::InitialLeft => Mode::InitialRight,
+            Mode::InitialRight => Mode::InitialLeft,
+            Mode::Center {
+                moving_towards: Side::Left,
+            } => Mode::HalfwayLeft {
+                moving_towards: Side::Right,
+            },
+            Mode::Center {
+                moving_towards: Side::Right,
+            } => Mode::HalfwayRight {
+                moving_towards: Side::Left,
+            },
+            Mode::Left => Mode::HalfwayLeft {
+                moving_towards: Side::Right,
+            },
+            Mode::Right => Mode::HalfwayRight {
+                moving_towards: Side::Left,
+            },
+            Mode::HalfwayLeft { .. } => Mode::Center {
+                moving_towards: Side::Right,
+            },
+            Mode::HalfwayRight { .. } => Mode::Center {
+                moving_towards: Side::Left,
+            },
+        }
     }
 }
