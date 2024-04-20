@@ -1,7 +1,7 @@
 {
   "object_detection": {
     "object_detection_top": {
-      "enable": false,
+      "enable": true,
       "intersection_over_union_threshold": 0.45,
       "distance_to_referee_position_threshold": 2.0,
       "keypoint_confidence_threshold": 0.2,
