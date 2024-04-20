@@ -186,6 +186,7 @@ types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
 vision = { path = "crates/vision" }
+watch = "0.2.3"
 walkdir = "2.3.2"
 walking_engine = { path = "crates/walking_engine" }
 webots = { version = "0.8.0" }
