@@ -61,6 +61,7 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    is_localization_converged: Input<bool, "is_localization_converged">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
@@ -137,7 +138,9 @@ impl Behavior {
         ];
 
         if let Some(active_since) = self.active_since {
-            if now.duration_since(active_since)? < context.parameters.initial_lookaround_duration {
+            if now.duration_since(active_since)? < context.parameters.maximum_initial_lookaround_duration
+                && !context.is_localization_converged
+            {
                 actions.push(Action::LookAround);
             }
         }
