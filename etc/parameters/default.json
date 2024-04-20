@@ -1000,8 +1000,8 @@
   },
   "look_around": {
     "look_around_timeout": {
-      "nanos": 800000000,
-      "secs": 0
+      "nanos": 0,
+      "secs": 2
     },
     "quick_search_timeout": {
       "nanos": 300000000,
@@ -1026,6 +1026,14 @@
     "halfway_right_positions": {
       "yaw": -0.9,
       "pitch": 0.0
+    },
+    "initial_left_positions": {
+      "yaw": 0.6,
+      "pitch": 0.4
+    },
+    "initial_right_positions": {
+      "yaw": -0.6,
+      "pitch": 0.4
     }
   },
   "in_walk_kicks": {
@@ -1143,9 +1151,9 @@
       "minimum_ball_velocity_towards_own_half": 0.05,
       "maximum_intercept_distance": 0.5
     },
-    "initial_lookaround_duration": {
+    "maximum_initial_lookaround_duration": {
       "nanos": 0,
-      "secs": 5
+      "secs": 6
     }
   },
   "game_controller_filter": {

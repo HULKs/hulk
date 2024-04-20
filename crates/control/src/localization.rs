@@ -110,6 +110,7 @@ pub struct MainOutputs {
     pub ground_to_field: MainOutput<Option<Isometry2<Ground, Field>>>,
     pub ground_to_field_of_home_after_coin_toss_before_second_half:
         MainOutput<Option<Isometry2<Ground, Field>>>,
+    pub is_localization_converged: MainOutput<bool>,
 }
 
 impl Localization {
@@ -568,6 +569,7 @@ impl Localization {
             ground_to_field: ground_to_field.into(),
             ground_to_field_of_home_after_coin_toss_before_second_half:
                 ground_to_field_of_home_after_coin_toss_before_second_half.into(),
+            is_localization_converged: (self.hypotheses.len() == 1).into(),
         })
     }
 
