@@ -42,7 +42,7 @@ pub struct BehaviorParameters {
     pub search: SearchParameters,
     pub look_action: LookActionParameters,
     pub intercept_ball: InterceptBallParameters,
-    pub initial_lookaround_duration: Duration,
+    pub maximum_initial_lookaround_duration: Duration,
 }
 
 #[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
@@ -184,6 +184,8 @@ pub struct LookAroundParameters {
     pub right_positions: HeadJoints<f32>,
     pub halfway_left_positions: HeadJoints<f32>,
     pub halfway_right_positions: HeadJoints<f32>,
+    pub initial_left_positions: HeadJoints<f32>,
+    pub initial_right_positions: HeadJoints<f32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]

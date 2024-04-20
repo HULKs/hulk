@@ -10,6 +10,8 @@ pub enum Mode {
     Right,
     HalfwayLeft { moving_towards: Side },
     HalfwayRight { moving_towards: Side },
+    InitialLeft,
+    InitialRight,
 }
 
 impl Default for Mode {
