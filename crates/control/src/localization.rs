@@ -571,11 +571,13 @@ impl Localization {
                         }
                     })
             });
+        let is_localization_converged = self.hypotheses.len() == 1;
+
         Ok(MainOutputs {
             ground_to_field: ground_to_field.into(),
             ground_to_field_of_home_after_coin_toss_before_second_half:
                 ground_to_field_of_home_after_coin_toss_before_second_half.into(),
-            is_localization_converged: (self.hypotheses.len() == 1).into(),
+            is_localization_converged: is_localization_converged.into(),
         })
     }
 
