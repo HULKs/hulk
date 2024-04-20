@@ -34,6 +34,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     role: Input<Role, "role">,
+    is_own_referee_initial_pose_detected: Input<bool, "is_own_referee_initial_pose_detected">,
 
     balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
@@ -165,6 +166,7 @@ impl LedStatus {
             at_least_one_ball_data_bottom,
             last_ball_data_top_too_old,
             last_ball_data_bottom_too_old,
+            *context.is_own_referee_initial_pose_detected,
         );
 
         if let Some(latest_game_controller_message_time) = context
@@ -259,6 +261,7 @@ impl LedStatus {
         at_least_one_ball_data_bottom: bool,
         last_ball_data_top_too_old: bool,
         last_ball_data_bottom_too_old: bool,
+        is_own_referee_initial_pose_detected: bool,
     ) -> (Eye, Eye) {
         match primary_state {
             PrimaryState::Unstiff => {
@@ -293,17 +296,20 @@ impl LedStatus {
                     Role::Striker => Rgb::RED,
                     Role::StrikerSupporter => Rgb::TURQUOISE,
                 };
+                let referee_color = if is_own_referee_initial_pose_detected {
+                    Some(Rgb::PURPLE)
+                } else {
+                    None
+                };
                 (
                     Eye {
-                        color_at_0: ball_color_top
-                            .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
+                        color_at_0: referee_color.unwrap_or(Rgb::BLACK),
                         color_at_45: ball_color_top
                             .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
                         color_at_90: ball_background_color.unwrap_or(Rgb::BLACK),
                         color_at_135: ball_color_bottom
                             .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
-                        color_at_180: ball_color_bottom
-                            .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
+                        color_at_180: referee_color.unwrap_or(Rgb::BLACK),
                         color_at_225: ball_color_bottom
                             .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
                         color_at_270: ball_background_color.unwrap_or(Rgb::BLACK),

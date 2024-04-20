@@ -6,7 +6,9 @@
       "distance_to_referee_position_threshold": 2.0,
       "keypoint_confidence_threshold": 0.2,
       "shoulder_angle_threshold": 0.2,
-      "foot_z_offset": 0.05
+      "foot_z_offset": 0.05,
+      "referee_pose_queue_length": 4,
+      "minimum_number_poses_before_message": 3
     }
   },
   "feet_detection": {
