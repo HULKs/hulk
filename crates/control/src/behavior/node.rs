@@ -138,8 +138,9 @@ impl Behavior {
         ];
 
         if let Some(active_since) = self.active_since {
-            if now.duration_since(active_since)? < context.parameters.maximum_initial_lookaround_duration
-                && !context.is_localization_converged
+            let duration_active = now.duration_since(active_since)?;
+            if !context.is_localization_converged
+                && (duration_active < context.parameters.maximum_initial_lookaround_duration)
             {
                 actions.push(Action::LookAround);
             }
