@@ -324,6 +324,7 @@ fn generate_future_queues(cyclers: &Cyclers) -> TokenStream {
             let producer_identifier = format_ident!("{}_producer", instance.to_case(Case::Snake));
             let consumer_identifier = format_ident!("{}_consumer", instance.to_case(Case::Snake));
             quote! {
+                #[allow(unused)]
                 let (#producer_identifier, #consumer_identifier) = framework::future_queue();
             }
         })
