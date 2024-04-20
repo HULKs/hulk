@@ -6,31 +6,21 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-audio = { workspace = true }
 bincode = { workspace = true }
 color-eyre = { workspace = true }
-control = { workspace = true }
 coordinate_systems = { workspace = true }
-chrono = { workspace = true }
-eframe = { workspace = true }
-energy_optimization = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = {  workspace = true }
 linear_algebra = { workspace = true }
-nalgebra = { workspace = true }
 parameters = { workspace = true }
 projection = { workspace = true }
 serde = { workspace = true }
 serialize_hierarchy = { workspace = true }
-spl_network = { workspace = true }
-spl_network_messages = { workspace = true }
 tokio = { workspace = true }
-tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
-walking_engine = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }
