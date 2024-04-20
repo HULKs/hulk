@@ -1062,7 +1062,7 @@ fn generate_required_input_condition(node: &Node, cycler: &Cycler, mode: Executi
                         #accessor .is_some()
                     })
                 }
-                Execution::Replay => match cycler_instance {
+                Execution::Replay | Execution::ImageExtraction => match cycler_instance {
                     Some(cycler_instance) => {
                         let name = path_to_extraction_variable_name(
                             cycler_instance,
