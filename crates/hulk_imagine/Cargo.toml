@@ -30,6 +30,7 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
+walking_engine = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }
