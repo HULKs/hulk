@@ -1,12 +1,14 @@
 use code_generation::{generate, write_to_file::WriteToFile, Execution};
 use color_eyre::eyre::{Result, WrapErr};
+use proc_macro2::TokenStream;
+use quote::{format_ident, quote};
 use source_analyzer::{
     cyclers::{CyclerKind, Cyclers},
     manifest::{CyclerManifest, FrameworkManifest},
     pretty::to_string_pretty,
     structs::Structs,
 };
-use std::{fmt::Write, fs};
+use std::fs::read_dir;
 
 fn main() -> Result<()> {
     let manifest = FrameworkManifest {
@@ -52,29 +54,28 @@ fn main() -> Result<()> {
     println!("{}", to_string_pretty(&cyclers)?);
 
     let structs = Structs::try_from_cyclers(&cyclers)?;
-    let paths = fs::read_dir("../../tests/behavior")
-        .expect("Failed to read directory")
-        .fold(String::new(), |mut output, entry| {
-            let test_file = entry
-                .expect("Failed to read file name")
-                .file_name()
-                .to_string_lossy()
-                .into_owned();
-            let mut function_name = test_file.clone();
-            function_name.truncate(function_name.len() - 4);
-            let _ = write!(
-                output,
-                "#[test]\nfn test_{}() -> Result<()> {{\ntest_scenario(\"../../tests/behavior/{}\")}}\n",
-                function_name, test_file
-            );
-            output
-        });
+    let paths: TokenStream = read_dir("../../tests/behavior")
+        .expect("")
+        .map(|file| {
+            let path = file.unwrap().path();
+            let name = path.file_stem().unwrap().to_string_lossy().clone();
+            let test_file = path.file_name().unwrap().to_string_lossy().into_owned();
+            let path = format!("../../tests/behavior/{test_file}");
+
+            let function_name = format_ident!("test_{}", name);
+
+            quote! {
+                #[test]
+                fn #function_name() -> color_eyre::Result<()> {
+                    test_scenario(#path)
+                }
+            }
+        })
+        .collect();
     paths
         .write_to_file("behavior_files.rs")
-        .wrap_err("failed to write generated tests to file")
-        .and_then(|_| {
-            generate(&cyclers, &structs, Execution::None)
-                .write_to_file("generated_code.rs")
-                .wrap_err("failed to write generated code to file")
-        })
+        .wrap_err("failed to write generated tests to file")?;
+    generate(&cyclers, &structs, Execution::None)
+        .write_to_file("generated_code.rs")
+        .wrap_err("failed to write generated code to file")
 }
