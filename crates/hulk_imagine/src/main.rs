@@ -150,7 +150,7 @@ fn main() -> Result<()> {
         &ids.head_id,
         replay_path,
     )
-    .wrap_err("failed to create replayer")?;
+    .wrap_err("failed to create image extractor")?;
 
     let vision_top_reader = image_extractor.vision_top_reader();
     let vision_bottom_reader = image_extractor.vision_bottom_reader();
