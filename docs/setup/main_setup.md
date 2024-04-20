@@ -63,6 +63,7 @@ Use your distribution's package manager to install the following dependencies:
 
         # symlink to be accessible from the command line
         ln -s ~/tools/webots/webots ~/.local/bin/webots
+        sudo dnf install mesa-libGLU
         ```
 
     1. Install rust toolchain
