@@ -180,6 +180,8 @@ pub fn generate_image_extractor_struct(cyclers: &Cyclers) -> TokenStream {
     let cycler_parameters = generate_cycler_parameters(cyclers);
     let recording_index_entries =
         generate_recording_index_entries(cyclers, ReferenceKind::Immutable);
+    let recording_index_entries_mut =
+        generate_recording_index_entries(cyclers, ReferenceKind::Mutable);
     let cycler_replays = generate_cycler_replays(cyclers);
 
     let reader_tokens: Vec<_> = cyclers
@@ -252,6 +254,12 @@ pub fn generate_image_extractor_struct(cyclers: &Cyclers) -> TokenStream {
             pub fn get_recording_indices(&self) -> std::collections::BTreeMap<String, &framework::RecordingIndex> {
                 std::collections::BTreeMap::from([
                     #recording_index_entries
+                ])
+            }
+
+            pub fn get_recording_indices_mut(&mut self) -> std::collections::BTreeMap<String, &mut framework::RecordingIndex> {
+                std::collections::BTreeMap::from([
+                    #recording_index_entries_mut
                 ])
             }
 
