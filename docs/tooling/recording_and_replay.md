@@ -44,3 +44,12 @@ Assuming you already recorded some data on a robot, you can now use the "replaye
 - Pressing right arrow key: jump 1 second forward
 - Pressing comma key: jump 10 milliseconds backward
 - Pressing dot key: jump 10 milliseconds forward
+
+## Image extraction
+
+To extract images from recording data, you can use the "imagine" tool.
+
+Example:
+```
+./pepsi run --target imagine -- my_awesome_replay/10.1.24.42/12345678` `path/to/output`
+```
