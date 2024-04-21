@@ -21,7 +21,7 @@ use eframe::{
         CentralPanel, Context, Id, Key, Layout, Modifiers, TopBottomPanel, Ui, Widget, WidgetText,
     },
     emath::Align,
-    epaint::{Color32, Rounding, Stroke},
+    epaint::{Color32, Rounding},
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
 use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
@@ -535,8 +535,11 @@ impl App for TwixApp {
             if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                 let node = &self.dock_state[surface_index][node_id];
                 let rect = node.rect().unwrap();
-                ui.painter()
-                    .rect_stroke(rect, Rounding::same(4.0), Stroke::new(1.0, Color32::RED));
+                ui.painter().rect_stroke(
+                    rect,
+                    Rounding::same(4.0),
+                    ui.style().visuals.widgets.active.bg_stroke,
+                );
             }
         });
     }
