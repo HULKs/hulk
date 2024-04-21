@@ -28,6 +28,19 @@ Assuming you already recorded some data on a robot, you can now use the "replaye
   All cycler instance files need to be present, regardless whether they were enabled during recording (they will be empty then).
 - Start the replayer tool by pointing it to the log directory you want to replay, e.g., `./pepsi run --target replayer -- my_awesome_replay/10.1.24.42/12345678`.
 - Connect your Twix to `localhost` and open some panels
-- Move the slider to make data available to Twix. Pro Tip: Click into the text box and use your arrow keys to "animate".
+- Use mouse and keyboard in replayer, as described below
 - ...
 - Profit
+
+### Mouse and Keyboard Controls
+
+- Mouse dragging: Move the current replay time position (green bar)
+- Horizontal scrolling: Panning in time domain
+- Vertical scrolling: Zooming in time domain
+- Horizontal scrolling with pressed Shift key: Panning in time domain
+- Pressing J or down arrow key: jump 10 seconds backward
+- Pressing L or up arrow key: jump 10 seconds forward
+- Pressing left arrow key: jump 1 second backward
+- Pressing right arrow key: jump 1 second forward
+- Pressing comma key: jump 10 milliseconds backward
+- Pressing dot key: jump 10 milliseconds forward

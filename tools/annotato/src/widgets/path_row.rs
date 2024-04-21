@@ -55,15 +55,15 @@ impl<'a> Widget for Row<'a> {
                 ui.painter().rect_filled(rect, 2.0, visuals.bg_fill);
             }
 
-            text.paint_with_visuals(
-                ui.painter(),
+            ui.painter().galley(
                 rect.left_center() - 0.5 * text_height,
-                visuals,
+                text,
+                visuals.text_color(),
             );
-            check_mark.paint_with_visuals(
-                ui.painter(),
+            ui.painter().galley(
                 rect.left_center() - 0.5 * text_height + check_mark_offset,
-                visuals,
+                check_mark,
+                visuals.text_color(),
             );
         }
 

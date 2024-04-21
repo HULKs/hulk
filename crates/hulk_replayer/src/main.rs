@@ -1,6 +1,11 @@
 #![recursion_limit = "256"]
+mod coordinate_systems;
+mod frames;
+mod labels;
 mod replayer;
-mod user_interface;
+mod ticks;
+mod timeline;
+mod window;
 
 use std::time::SystemTime;
 

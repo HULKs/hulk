@@ -12,7 +12,7 @@ use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
 use types::hardware::Ids;
 
-use crate::{execution::Replayer, user_interface::ReplayerApplication, ReplayerHardwareInterface};
+use crate::{execution::Replayer, window::Window, ReplayerHardwareInterface};
 
 pub fn replayer() -> Result<()> {
     let replay_path = PathBuf::from(
@@ -62,7 +62,7 @@ pub fn replayer() -> Result<()> {
     run_native(
         "Replayer",
         Default::default(),
-        Box::new(move |_creation_context| Box::new(ReplayerApplication::new(replayer))),
+        Box::new(move |_creation_context| Box::new(Window::new(replayer))),
     )
     .map_err(|error| Report::msg(error.to_string()))
     .wrap_err("failed to run user interface")
