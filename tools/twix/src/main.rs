@@ -21,10 +21,10 @@ use eframe::{
         CentralPanel, Context, Id, Key, Layout, Modifiers, TopBottomPanel, Ui, Widget, WidgetText,
     },
     emath::Align,
-    epaint::Color32,
+    epaint::{Color32, Rounding, Stroke},
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
-use egui_dock::{DockArea, DockState, NodeIndex, SurfaceIndex, TabAddAlign, TabIndex};
+use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
 use log::error;
@@ -237,6 +237,114 @@ impl TwixApp {
             visual,
         }
     }
+
+    fn focus_left(&mut self, node_id: NodeIndex, surface_index: SurfaceIndex) -> Option<()> {
+        let parent_id = node_id.parent()?;
+        let parent = &self.dock_state[surface_index][parent_id];
+        if node_id.is_left() || parent.is_vertical() {
+            return self.focus_left(parent_id, surface_index);
+        }
+        let mut left_id = parent_id.left();
+
+        loop {
+            let node = &self.dock_state[surface_index][left_id];
+            match node {
+                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
+                Node::Leaf { .. } => break,
+                Node::Vertical { .. } => {
+                    left_id = left_id.left();
+                }
+                Node::Horizontal { .. } => {
+                    left_id = left_id.right();
+                }
+            };
+        }
+
+        self.dock_state
+            .set_focused_node_and_surface((surface_index, left_id));
+        Some(())
+    }
+
+    fn focus_right(&mut self, node_id: NodeIndex, surface_index: SurfaceIndex) -> Option<()> {
+        let parent_id = node_id.parent()?;
+        let parent = &self.dock_state[surface_index][parent_id];
+        if node_id.is_right() || parent.is_vertical() {
+            return self.focus_right(parent_id, surface_index);
+        }
+        let mut child = parent_id.right();
+
+        loop {
+            let node = &self.dock_state[surface_index][child];
+            match node {
+                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
+                Node::Leaf { .. } => break,
+                Node::Vertical { .. } => {
+                    child = child.left();
+                }
+                Node::Horizontal { .. } => {
+                    child = child.left();
+                }
+            };
+        }
+
+        self.dock_state
+            .set_focused_node_and_surface((surface_index, child));
+        Some(())
+    }
+
+    fn focus_above(&mut self, node_id: NodeIndex, surface_index: SurfaceIndex) -> Option<()> {
+        let parent_id = node_id.parent()?;
+        let parent = &self.dock_state[surface_index][parent_id];
+        if node_id.is_left() || parent.is_horizontal() {
+            return self.focus_above(parent_id, surface_index);
+        }
+        let mut left_id = parent_id.left();
+
+        loop {
+            let node = &self.dock_state[surface_index][left_id];
+            match node {
+                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
+                Node::Leaf { .. } => break,
+                Node::Vertical { .. } => {
+                    left_id = left_id.right();
+                }
+                Node::Horizontal { .. } => {
+                    left_id = left_id.left();
+                }
+            };
+        }
+
+        self.dock_state
+            .set_focused_node_and_surface((surface_index, left_id));
+        Some(())
+    }
+
+    fn focus_below(&mut self, node_id: NodeIndex, surface_index: SurfaceIndex) -> Option<()> {
+        let parent_id = node_id.parent()?;
+        let parent = &self.dock_state[surface_index][parent_id];
+        if node_id.is_right() || parent.is_horizontal() {
+            return self.focus_below(parent_id, surface_index);
+        }
+        let mut child = parent_id.right();
+
+        loop {
+            let node = &self.dock_state[surface_index][child];
+            match node {
+                Node::Empty => unreachable!("cannot hit an empty node while digging down"),
+                Node::Leaf { .. } => break,
+                Node::Vertical { .. } => {
+                    child = child.left();
+                }
+                Node::Horizontal { .. } => {
+                    child = child.left();
+                }
+            };
+        }
+
+        self.dock_state
+            .set_focused_node_and_surface((surface_index, child));
+        Some(())
+    }
 }
 
 impl App for TwixApp {
@@ -279,6 +387,11 @@ impl App for TwixApp {
                         .changed()
                     {
                         self.nao.set_connect(self.connection_intent);
+                    }
+                    if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::R)) {
+                        self.nao.set_connect(false);
+                        self.connection_intent = true;
+                        self.nao.set_connect(true);
                     }
 
                     if self.active_tab_index() != Some(self.last_focused_tab) {
@@ -335,7 +448,46 @@ impl App for TwixApp {
         CentralPanel::default().show(context, |ui| {
             if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::T)) {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
-                self.dock_state.push_to_focused_leaf(tab.into());
+                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
+                    let node = &mut self.dock_state[surface_index][node_id];
+                    if node.tabs_count() == 0 {
+                        node.append_tab(tab.into());
+                    } else {
+                        let rect = node.rect().unwrap();
+                        let direction = if rect.height() > rect.width() {
+                            Split::Below
+                        } else {
+                            Split::Right
+                        };
+                        self.dock_state.split(
+                            (surface_index, node_id),
+                            direction,
+                            0.5,
+                            Node::leaf(tab.into()),
+                        );
+                    }
+                }
+            }
+
+            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::H)) {
+                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
+                    self.focus_left(node_id, surface_index);
+                }
+            }
+            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::J)) {
+                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
+                    self.focus_below(node_id, surface_index);
+                }
+            }
+            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::K)) {
+                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
+                    self.focus_above(node_id, surface_index);
+                }
+            }
+            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::L)) {
+                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
+                    self.focus_right(node_id, surface_index);
+                }
             }
 
             if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::D)) {
@@ -350,7 +502,7 @@ impl App for TwixApp {
             if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::W)) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     let active_node = &mut self.dock_state[surface_index][node_id];
-                    if let egui_dock::Node::Leaf { active, tabs, .. } = active_node {
+                    if let Node::Leaf { active, tabs, .. } = active_node {
                         if !tabs.is_empty() {
                             tabs.remove(active.0);
 
@@ -378,6 +530,13 @@ impl App for TwixApp {
                 self.dock_state[surface_index][node_id].insert_tab(index.into(), tab.into());
                 self.dock_state
                     .set_focused_node_and_surface((surface_index, node_id));
+            }
+
+            if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
+                let node = &self.dock_state[surface_index][node_id];
+                let rect = node.rect().unwrap();
+                ui.painter()
+                    .rect_stroke(rect, Rounding::same(4.0), Stroke::new(1.0, Color32::RED));
             }
         });
     }
@@ -408,7 +567,7 @@ impl TwixApp {
 
     fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
         let (surface, node) = self.dock_state.focused_leaf()?;
-        if let egui_dock::Node::Leaf { active, .. } = &self.dock_state[surface][node] {
+        if let Node::Leaf { active, .. } = &self.dock_state[surface][node] {
             Some((node, *active))
         } else {
             None
