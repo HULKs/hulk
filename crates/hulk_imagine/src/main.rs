@@ -1,5 +1,6 @@
 #![recursion_limit = "256"]
-use std::time::SystemTime;
+use std::fs::create_dir_all;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env::args, path::PathBuf, sync::Arc};
 
 use color_eyre::{
@@ -54,7 +55,7 @@ fn main() -> Result<()> {
             .expect("expected output path as second parameter"),
     );
 
-    let parameters_directory = args().nth(3).unwrap_or("etc/parameters".to_owned());
+    let parameters_directory = args().nth(3).unwrap_or(replay_path.clone());
     let id = "replayer".to_string();
 
     let mut image_extractor = ImageExtractor::new(
@@ -73,9 +74,11 @@ fn main() -> Result<()> {
         ("VisionTop", vision_top_reader),
         ("VisionBottom", vision_bottom_reader),
     ] {
+        let output_folder = &output_folder.join(instance_name);
+        create_dir_all(output_folder).expect("failed to create output folder");
+
         let unknown_indices_error_message =
             format!("could not find recording indices for `{instance_name}`");
-
         let timings: Vec<_> = image_extractor
             .get_recording_indices()
             .get(instance_name)
@@ -83,7 +86,7 @@ fn main() -> Result<()> {
             .iter()
             .collect();
 
-        for (i, timing) in timings.into_iter().enumerate() {
+        for timing in timings {
             let frame = image_extractor
                 .get_recording_indices_mut()
                 .get_mut(instance_name)
@@ -98,15 +101,23 @@ fn main() -> Result<()> {
                 image_extractor
                     .replay(instance_name, frame.timing.timestamp, &frame.data)
                     .expect("failed to replay frame");
-            }
 
-            let database = reader.next();
-            let output_file = output_folder.join(format!("{:05}_{instance_name}.png", i));
-            database
-                .main_outputs
-                .image
-                .save_to_ycbcr_444_file(output_file)
-                .expect("failed to write file");
+                let database = reader.next();
+                let output_file = output_folder.join(format!(
+                    "{}.png",
+                    frame
+                        .timing
+                        .timestamp
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                ));
+                database
+                    .main_outputs
+                    .image
+                    .save_to_ycbcr_444_file(output_file)
+                    .expect("failed to write file");
+            }
         }
     }
 
