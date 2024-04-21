@@ -7,8 +7,9 @@ use std::{
 use communication::messages::Fields;
 use eframe::{
     egui::{
-        text::CCursor, text_edit::CCursorRange, Area, Context, Frame, Id, Key, Modifiers, Order,
-        Response, ScrollArea, TextEdit, Ui, Widget, WidgetText,
+        text::{CCursor, CCursorRange},
+        Area, Context, Frame, Id, Key, Modifiers, Order, Response, ScrollArea, TextEdit, Ui,
+        Widget, WidgetText,
     },
     epaint::Color32,
 };
@@ -118,7 +119,7 @@ impl<'key> CompletionEdit<'key> {
 
     pub fn select_all(text: &str, ui: &mut Ui, id: Id) {
         if let Some(mut state) = TextEdit::load_state(ui.ctx(), id) {
-            state.set_ccursor_range(Some(CCursorRange::two(
+            state.cursor.set_char_range(Some(CCursorRange::two(
                 CCursor::new(0),
                 CCursor::new(text.chars().count()),
             )));

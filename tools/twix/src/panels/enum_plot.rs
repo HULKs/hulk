@@ -205,7 +205,7 @@ impl EnumPlotPanel {
         let drag_delta = f64::from(plot_ui.pointer_coordinate_drag_delta().x);
 
         let cursor_position = plot_ui.pointer_coordinate();
-        let scroll_delta = plot_ui.ctx().input(|input| input.scroll_delta);
+        let scroll_delta = plot_ui.ctx().input(|input| input.smooth_scroll_delta);
 
         let normalized_cursor_position = cursor_position
             .map_or(0.0, |plot_point| plot_point.x - self.scroll_position)

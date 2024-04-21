@@ -294,7 +294,7 @@ impl MapPanel {
         };
 
         let pointer_in_world_before_zoom = painter.transform_pixel_to_world(pointer_position);
-        let zoom_factor = 1.01_f32.powf(ui.input(|input| input.scroll_delta.y));
+        let zoom_factor = 1.01_f32.powf(ui.input(|input| input.smooth_scroll_delta.y));
         let zoom_transform = Similarity2::from_scaling(zoom_factor);
         painter.append_transform(zoom_transform);
         let pointer_in_pixel_after_zoom =
