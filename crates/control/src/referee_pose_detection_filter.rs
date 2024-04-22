@@ -9,6 +9,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
+use itertools::Itertools;
 use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{HulkMessage, PlayerNumber};
@@ -17,6 +18,7 @@ use types::{
     fall_state::FallState,
     messages::{IncomingMessage, OutgoingMessage},
     players::Players,
+    pose_detection::HumanPose,
     pose_kinds::PoseKind,
 };
 
@@ -37,8 +39,10 @@ pub struct CycleContext {
     network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     detected_referee_pose_kind:
         PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "detected_referee_pose_kind?">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
     fall_state: Input<FallState, "fall_state">,
+    human_poses: PerceptionInput<Vec<HumanPose>, "ObjectDetectionTop", "human_poses">,
 
     initial_message_grace_period:
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
@@ -48,6 +52,7 @@ pub struct CycleContext {
 
     player_referee_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
+    human_poses_forwarded: AdditionalOutput<Vec<HumanPose>, "human_poses_forwarded">,
 }
 
 #[context]
@@ -81,6 +86,20 @@ impl RefereePoseDetectionFilter {
         context
             .player_referee_detection_times
             .fill_if_subscribed(|| self.detection_times);
+
+        let human_poses_forwarded = context
+            .human_poses
+            .persistent
+            .values()
+            .flatten()
+            .cloned()
+            .flatten()
+            .cloned()
+            .collect_vec();
+
+        context
+            .human_poses_forwarded
+            .fill_if_subscribed(|| human_poses_forwarded);
 
         Ok(MainOutputs {
             is_referee_initial_pose_detected: is_referee_initial_pose_detected.into(),
