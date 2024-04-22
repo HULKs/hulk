@@ -225,7 +225,7 @@ impl Widget for CompletionEdit<'_> {
                                     label.scroll_to_me(None);
                                 }
                                 if label.is_pointer_button_down_on() {
-                                    *self.key = completion_item.1.text.clone();
+                                    self.key.clone_from(&completion_item.1.text);
                                     response.mark_changed();
                                     ui.memory_mut(|memory| memory.close_popup());
                                 }

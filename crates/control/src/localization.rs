@@ -148,7 +148,8 @@ impl Localization {
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
                 )];
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
+                self.hypotheses_when_entered_playing
+                    .clone_from_slice(&self.hypotheses);
             }
             (
                 PrimaryState::Set,
@@ -167,7 +168,8 @@ impl Localization {
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
                 )];
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
+                self.hypotheses_when_entered_playing
+                    .clone_from_slice(&self.hypotheses);
             }
             (
                 PrimaryState::Set,
@@ -183,10 +185,12 @@ impl Localization {
                     *context.initial_hypothesis_covariance,
                     *context.initial_hypothesis_score,
                 )];
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
+                self.hypotheses_when_entered_playing
+                    .clone_from_slice(&self.hypotheses);
             }
             (PrimaryState::Set, PrimaryState::Playing, _) => {
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
+                self.hypotheses_when_entered_playing
+                    .clone_from_slice(&self.hypotheses);
             }
             (PrimaryState::Ready, PrimaryState::Penalized, _) => {
                 self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
@@ -255,7 +259,8 @@ impl Localization {
                             )
                         })
                         .collect();
-                    self.hypotheses_when_entered_playing = self.hypotheses.clone();
+                    self.hypotheses_when_entered_playing
+                        .clone_from_slice(&self.hypotheses);
                 }
             }
             (PrimaryState::Unstiff, _, _) => {
@@ -271,7 +276,8 @@ impl Localization {
                         )
                     })
                     .collect();
-                self.hypotheses_when_entered_playing = self.hypotheses.clone();
+                self.hypotheses_when_entered_playing
+                    .clone_from_slice(&self.hypotheses);
             }
             _ => {}
         }
