@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 
 use eframe::egui::{self, Context};
 
@@ -25,13 +28,12 @@ impl Visuals {
     }
 }
 
-impl ToString for Visuals {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for Visuals {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
             Visuals::Dark => "🌑 Dark",
             Visuals::Light => "☀ Light",
-        }
-        .to_owned()
+        })
     }
 }
 
