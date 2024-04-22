@@ -68,7 +68,7 @@ async fn timeline_server(
             let mut outputs = outputs_writer.next();
             outputs.main_outputs.frame_count = frames.len();
             let frame = &frames[parameters.selected_frame];
-            outputs.main_outputs.ball = frame.ball.clone();
+            outputs.main_outputs.ball.clone_from(&frame.ball);
             outputs.main_outputs.databases = frame.robots.clone();
         }
         outputs_changed.notify_waiters();
