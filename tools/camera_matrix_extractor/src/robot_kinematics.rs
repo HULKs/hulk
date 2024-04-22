@@ -17,6 +17,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct RobotKinematics {
     // head
     pub neck_to_robot: Isometry3<f32>,
