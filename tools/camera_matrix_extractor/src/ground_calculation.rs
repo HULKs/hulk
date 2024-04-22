@@ -8,7 +8,6 @@ use crate::{
 #[derive(Debug)]
 pub struct Ground {
     pub robot_to_ground: Isometry3<f32>,
-    pub ground_to_robot: Isometry3<f32>,
 }
 
 impl From<(InertialMeasurementUnitData, RobotKinematics, SupportFoot)> for Ground {
@@ -47,9 +46,6 @@ impl From<(InertialMeasurementUnitData, RobotKinematics, SupportFoot)> for Groun
             }
         };
 
-        Self {
-            robot_to_ground,
-            ground_to_robot: robot_to_ground.inverse(),
-        }
+        Self { robot_to_ground }
     }
 }
