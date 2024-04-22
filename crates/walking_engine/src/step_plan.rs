@@ -1,4 +1,4 @@
-use std::{f32::EPSILON, time::Duration};
+use std::time::Duration;
 
 use coordinate_systems::Walk;
 use linear_algebra::Vector2;
@@ -72,7 +72,7 @@ fn interpolate_midpoint(
     target_midpoints: Step,
     base_midpoint: f32,
 ) -> f32 {
-    match swing_foot_travel.try_normalize(EPSILON) {
+    match swing_foot_travel.try_normalize(f32::EPSILON) {
         Some(travel) => travel.x() * target_midpoints.forward + travel.y() * target_midpoints.left,
         None => base_midpoint,
     }
