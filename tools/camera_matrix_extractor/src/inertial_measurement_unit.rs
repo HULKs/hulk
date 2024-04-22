@@ -7,7 +7,9 @@ use serde_json::{from_value, Value};
 
 #[derive(Debug)]
 pub struct InertialMeasurementUnitData {
+    #[allow(dead_code)]
     pub linear_acceleration: Vector3<f32>,
+    #[allow(dead_code)]
     pub angular_velocity: Vector3<f32>,
     pub roll_pitch: Vector2<f32>,
 }
