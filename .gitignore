@@ -33,4 +33,4 @@ rust-toolchain.toml
 
 site/
 
-logs/
+logs
