@@ -103,7 +103,7 @@ mod test {
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
-            luminance_threshold: 255.0,
+            luminance_threshold: 25.0,
         };
         let field_color_intensity = field_color.get_intensity(ycbcr);
         assert_eq!(field_color_intensity, Intensity::High);
