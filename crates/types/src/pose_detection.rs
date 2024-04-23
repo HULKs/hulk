@@ -65,7 +65,12 @@ impl Keypoints {
             right_foot: keypoints_iter.next()?,
         })
     }
+
+    pub fn iter(&self) -> KeypointsIterator {
+        KeypointsIterator::new(self)
+    }
 }
+
 impl Index<usize> for Keypoints {
     fn index(&self, index: usize) -> &Keypoint {
         assert!((0..=16).contains(&index));
@@ -92,6 +97,7 @@ impl Index<usize> for Keypoints {
     }
     type Output = Keypoint;
 }
+
 impl From<Keypoints> for [Keypoint; 17] {
     fn from(keypoints: Keypoints) -> Self {
         [
@@ -113,6 +119,32 @@ impl From<Keypoints> for [Keypoint; 17] {
             keypoints.left_foot,
             keypoints.right_foot,
         ]
+    }
+}
+
+pub struct KeypointsIterator<'a> {
+    data: &'a Keypoints,
+    current_index: usize,
+}
+
+impl<'a> KeypointsIterator<'a> {
+    fn new(data: &'a Keypoints) -> Self {
+        Self {
+            data,
+            current_index: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for KeypointsIterator<'a> {
+    type Item = &'a Keypoint;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index >= 17 {
+            return None;
+        }
+        let keypoint = self.data.index(self.current_index);
+        self.current_index += 1;
+        Some(keypoint)
     }
 }
 

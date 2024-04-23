@@ -73,7 +73,8 @@ impl PoseInterpretation {
         };
 
         let referee_pose = get_referee_pose(
-            context.human_poses,
+            context.human_poses.clone(),
+            *context.keypoint_confidence_threshold,
             context.camera_matrices.top.clone(),
             *context.distance_to_referee_position_threshold,
             ground_to_field.inverse() * expected_referee_position,
@@ -103,45 +104,34 @@ impl PoseInterpretation {
     }
 }
 
-fn interpret_pose(
-    human_pose: Option<HumanPose>,
-    keypoint_confidence_threshold: f32,
-    shoulder_angle_threshold: f32,
-) -> Option<PoseKind> {
-    if is_above_head_arms_pose(
-        human_pose?.keypoints,
-        keypoint_confidence_threshold,
-        shoulder_angle_threshold,
-    ) {
-        Some(PoseKind::AboveHeadArms)
-    } else {
-        None
-    }
-}
-
 fn get_referee_pose(
-    poses: &[HumanPose],
+    poses: Vec<HumanPose>,
+    keypoint_confidence_threshold: f32,
     camera_matrix_top: CameraMatrix,
     distance_to_referee_position_threshold: f32,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
 ) -> Option<HumanPose> {
-    let pose_candidate: RefereePoseCandidate = get_poses_near_referee(
-        poses,
+    let confident_pose_candidates =
+        filter_poses_by_confidence(poses, keypoint_confidence_threshold);
+
+    let located_pose_candidate: RefereePoseCandidate = get_closest_referee_pose(
+        confident_pose_candidates,
         camera_matrix_top,
         expected_referee_position,
         foot_z_offset,
     )?;
 
-    if pose_candidate.distance_to_referee_position < distance_to_referee_position_threshold {
-        Some(pose_candidate.pose)
+    if located_pose_candidate.distance_to_referee_position < distance_to_referee_position_threshold
+    {
+        Some(located_pose_candidate.pose)
     } else {
         None
     }
 }
 
-fn get_poses_near_referee(
-    poses: &[HumanPose],
+fn get_closest_referee_pose(
+    poses: Vec<HumanPose>,
     camera_matrix_top: CameraMatrix,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
@@ -167,6 +157,37 @@ fn get_poses_near_referee(
         .min_by_key(|pose_candidate| {
             NotNan::new(pose_candidate.distance_to_referee_position).unwrap()
         })
+}
+
+fn filter_poses_by_confidence(
+    pose_candidates: Vec<HumanPose>,
+    keypoint_confidence_threshold: f32,
+) -> Vec<HumanPose> {
+    pose_candidates
+        .iter()
+        .filter(|pose| {
+            pose.keypoints
+                .iter()
+                .all(|keypoint| keypoint.confidence > keypoint_confidence_threshold)
+        })
+        .copied()
+        .collect()
+}
+
+fn interpret_pose(
+    human_pose: Option<HumanPose>,
+    keypoint_confidence_threshold: f32,
+    shoulder_angle_threshold: f32,
+) -> Option<PoseKind> {
+    if is_above_head_arms_pose(
+        human_pose?.keypoints,
+        keypoint_confidence_threshold,
+        shoulder_angle_threshold,
+    ) {
+        Some(PoseKind::AboveHeadArms)
+    } else {
+        None
+    }
 }
 
 fn is_above_head_arms_pose(
