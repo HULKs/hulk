@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct BoundingBox {
     pub area: Rectangle<Pixel>,
-    pub score: f32,
+    pub confidence: f32,
 }
 
 impl BoundingBox {

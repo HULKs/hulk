@@ -175,7 +175,7 @@ impl PoseDetection {
 
                 let bounding_box = BoundingBox {
                     area: Rectangle::<Pixel>::new_with_center_and_size(center, size),
-                    score: confidence,
+                    confidence,
                 };
 
                 let keypoints_slice = row.slice(s![5..]);
@@ -227,8 +227,8 @@ fn non_maximum_suppression(
     candidate_pose.sort_unstable_by(|pose1, pose2| {
         pose1
             .bounding_box
-            .score
-            .total_cmp(&pose2.bounding_box.score)
+            .confidence
+            .total_cmp(&pose2.bounding_box.confidence)
     });
 
     while let Some(detection) = candidate_pose.pop() {
