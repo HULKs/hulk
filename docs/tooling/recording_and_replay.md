@@ -51,5 +51,5 @@ To extract images from recording data, you can use the "imagine" tool.
 
 Example:
 ```
-./pepsi run --target imagine -- my_awesome_replay/10.1.24.42/12345678` `path/to/output`
+./pepsi run --target imagine -- my_awesome_replay/10.1.24.42/12345678 path/to/output
 ```
