@@ -104,6 +104,21 @@ impl Overlay for PoseDetection {
                     Stroke::new(2.0, Color32::GREEN),
                 )
             }
+
+            // draw bounding box
+            let bounding_box = pose.bounding_box;
+            painter.rect_stroke(
+                bounding_box.area.min,
+                bounding_box.area.max,
+                Stroke::new(2.0, Color32::BLUE),
+            );
+            painter.floating_text(
+                bounding_box.area.min,
+                Align2::RIGHT_TOP,
+                format!("{:.2}", bounding_box.confidence),
+                FontId::default(),
+                Color32::WHITE,
+            );
         }
         Ok(())
     }
