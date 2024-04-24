@@ -35,8 +35,8 @@ where
         T::get_fields()
     }
 
-    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
-        T::fill_fields(fields, prefix)
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        T::extend_with_fields(fields, prefix)
     }
 }
 
@@ -65,8 +65,8 @@ where
         T::exists(path)
     }
 
-    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
-        T::fill_fields(fields, prefix)
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        T::extend_with_fields(fields, prefix)
     }
 }
 
@@ -100,8 +100,8 @@ where
         T::exists(path)
     }
 
-    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
-        T::fill_fields(fields, prefix)
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        T::extend_with_fields(fields, prefix)
     }
 }
 
@@ -167,7 +167,7 @@ where
         }
     }
 
-    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}start"));
         fields.insert(format!("{prefix}end"));
     }
@@ -221,7 +221,7 @@ impl<T: Serialize + DeserializeOwned, const N: usize> SerializeHierarchy
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::get_fields().contains(path)
     }
 
-    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         for field in &["x", "y", "z", "w", "v", "u"][0..N] {
             fields.insert(format!("{prefix}{field}"));
         }
@@ -253,7 +253,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Scalar, const N: usize> Serialize
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::exists(path)
     }
 
-    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str) {
-        Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::fill_fields(fields, prefix)
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::extend_with_fields(fields, prefix)
     }
 }

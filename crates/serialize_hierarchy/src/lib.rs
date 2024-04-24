@@ -3,14 +3,12 @@ use std::collections::BTreeSet;
 pub use bincode;
 pub use error::Error;
 
-pub use jpeg::{DecodeJpeg, EncodeJpeg};
 use serde::{Deserializer, Serializer};
 pub use serde_json;
 pub use serialize_hierarchy_derive::SerializeHierarchy;
 
 pub mod error;
 mod implementation;
-mod jpeg;
 mod not_supported;
 
 pub trait SerializeHierarchy {
@@ -30,11 +28,11 @@ pub trait SerializeHierarchy {
 
     fn get_fields() -> BTreeSet<String> {
         let mut fields = BTreeSet::default();
-        Self::fill_fields(&mut fields, "");
+        Self::extend_with_fields(&mut fields, "");
         fields
     }
 
-    fn fill_fields(fields: &mut BTreeSet<String>, prefix: &str);
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str);
 }
 
 #[cfg(test)]

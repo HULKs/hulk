@@ -7,20 +7,20 @@ use std::{
 };
 
 use color_eyre::eyre::{self, WrapErr};
-use image::{
-    codecs::jpeg::JpegEncoder, io::Reader, load_from_memory_with_format, ImageError, ImageFormat,
-    RgbImage,
-};
+use image::{io::Reader, RgbImage};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::Point2;
-use serialize_hierarchy::{DecodeJpeg, EncodeJpeg, SerializeHierarchy};
+use serialize_hierarchy::SerializeHierarchy;
 
-use crate::color::{Rgb, YCbCr422, YCbCr444};
+use crate::{
+    color::{Rgb, YCbCr422, YCbCr444},
+    jpeg::JpegImage,
+};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-#[serialize_hierarchy(as_jpeg)]
+#[serialize_hierarchy(add_leaf(jpeg: JpegImage))]
 pub struct YCbCr422Image {
     width_422: u32,
     height: u32,
@@ -101,28 +101,6 @@ impl From<&YCbCr422Image> for RgbImage {
 impl From<YCbCr422Image> for RgbImage {
     fn from(ycbcr422_image: YCbCr422Image) -> Self {
         Self::from(&ycbcr422_image)
-    }
-}
-
-impl EncodeJpeg for YCbCr422Image {
-    const DEFAULT_QUALITY: u8 = 40;
-    type Error = ImageError;
-
-    fn encode_as_jpeg(&self, quality: u8) -> Result<Vec<u8>, Self::Error> {
-        let rgb_image: RgbImage = self.into();
-        let mut jpeg_buffer = vec![];
-        let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
-        encoder.encode_image(&rgb_image)?;
-        Ok(jpeg_buffer)
-    }
-}
-
-impl DecodeJpeg for YCbCr422Image {
-    type Error = ImageError;
-
-    fn decode_from_jpeg(jpeg: Vec<u8>) -> Result<Self, Self::Error> {
-        let rgb_image = load_from_memory_with_format(&jpeg, ImageFormat::Jpeg)?.into_rgb8();
-        Ok(rgb_image.into())
     }
 }
 

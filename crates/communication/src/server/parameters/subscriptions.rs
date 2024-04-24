@@ -391,7 +391,7 @@ mod tests {
             field_path == "a.b.c"
         }
 
-        fn fill_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
+        fn extend_with_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
             fields.insert("a".to_string());
             fields.insert("a.b".to_string());
             fields.insert("a.b.c".to_string());
