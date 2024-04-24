@@ -1,14 +1,14 @@
 use std::{
     sync::{Arc, Mutex},
     thread::spawn,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use eframe::{
     egui::{CentralPanel, Context},
     App, CreationContext, Frame,
 };
-use tokio::{runtime::Builder, select, sync::watch};
+use tokio::{runtime::Builder, select, sync::watch, time::sleep};
 
 use crate::{
     coordinate_systems::{AbsoluteTime, FrameRange, RelativeTime, ViewportRange},
@@ -136,14 +136,14 @@ fn spawn_replay_thread(
             }
             egui_context.request_repaint();
         }
-        let runtime = Builder::new_current_thread().build().unwrap();
+        let runtime = Builder::new_current_thread().enable_all().build().unwrap();
 
         runtime.block_on(async move {
             let parameters_changed = replayer.lock().unwrap().get_parameters_changed();
             loop {
                 select! {
-                    _ = parameters_changed.notified() => {
-                    }
+                    _ = parameters_changed.notified() => {}
+                    _ = sleep(Duration::from_secs(1)) => {}
                     result = time.changed() => {
                         if result.is_err() {
                             // channel closed, quit thread
