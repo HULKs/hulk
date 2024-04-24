@@ -108,8 +108,6 @@ impl Widget for &mut ImageColorSelectPanel {
                 self.image_buffer = self.nao.subscribe_output(output);
             }
             ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
-            let scroll_delta = ui.input(|input| input.scroll_delta);
-            self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
         });
 
         ui.separator();
@@ -142,6 +140,9 @@ impl Widget for &mut ImageColorSelectPanel {
         if let Some(hoverpos) = response.hover_pos() {
             let pixel_pos = painter.transform_pixel_to_world(hoverpos);
             if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
+                let scroll_delta = ui.input(|input| input.scroll_delta);
+                self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
+
                 let mut max = PixelColor {
                     red: 0.0,
                     green: 0.0,
