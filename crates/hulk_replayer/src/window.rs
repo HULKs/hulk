@@ -21,6 +21,9 @@ use crate::{
 pub struct Window {
     replayer: Arc<Mutex<Replayer<ReplayerHardwareInterface>>>,
     time_sender: watch::Sender<SystemTime>,
+    loading_state: watch::Receiver<LoadingState>,
+    frame_range: FrameRange,
+    viewport_range: ViewportRange,
     position: RelativeTime,
 }
 
@@ -31,15 +34,24 @@ impl Window {
     ) -> Self {
         let replayer = Arc::new(Mutex::new(replayer));
         let (time_sender, time_receiver) = watch::channel(SystemTime::UNIX_EPOCH);
+        let (loading_state_sender, loading_state_receiver) =
+            watch::channel(LoadingState::Loading { progress: 0.0 });
         spawn_replay_thread(
             replayer.clone(),
             creation_context.egui_ctx.clone(),
             time_receiver,
+            loading_state_sender,
         );
+
+        let frame_range = join_timing(&replayer.lock().unwrap());
+        let viewport_range = ViewportRange::from_frame_range(&frame_range);
 
         Self {
             replayer,
             time_sender,
+            loading_state: loading_state_receiver,
+            frame_range,
+            viewport_range,
             position: RelativeTime::new(0.0),
         }
     }
@@ -55,17 +67,23 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
-        let frame_range = join_timing(&self.replayer.lock().unwrap());
-        let mut viewport_range = ViewportRange::from_frame_range(&frame_range);
+        if self.loading_state.has_changed().unwrap_or(false) {
+            self.frame_range = join_timing(&self.replayer.lock().unwrap());
+            self.viewport_range = ViewportRange::from_frame_range(&self.frame_range);
+            self.loading_state.mark_unchanged();
+        }
 
         CentralPanel::default().show(context, |ui| {
             ui.horizontal_top(|ui| {
+                if let LoadingState::Loading { progress } = *self.loading_state.borrow() {
+                    ui.label(format!("{:.2} %", progress * 100.0));
+                }
                 ui.add(Labels::new(&self.replayer.lock().unwrap()));
                 if ui
                     .add(Timeline::new(
                         &self.replayer.lock().unwrap(),
-                        &frame_range,
-                        &mut viewport_range,
+                        &self.frame_range,
+                        &mut self.viewport_range,
                         &mut self.position,
                     ))
                     .changed()
@@ -96,10 +114,16 @@ fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> FrameRange {
     FrameRange::new(AbsoluteTime::new(begin), AbsoluteTime::new(end))
 }
 
+enum LoadingState {
+    Loading { progress: f32 },
+    Done,
+}
+
 fn spawn_replay_thread(
     replayer: Arc<Mutex<Replayer<ReplayerHardwareInterface>>>,
     egui_context: Context,
     mut time: watch::Receiver<SystemTime>,
+    loading_state: watch::Sender<LoadingState>,
 ) {
     spawn(move || {
         let mut progress: f32 = 0.0;
@@ -110,7 +134,10 @@ fn spawn_replay_thread(
             for index in indices.values_mut() {
                 match index.collect_next_frame_metadata() {
                     Ok(Some(this_progress)) => {
-                        progress = progress.min(this_progress);
+                        progress = progress.max(this_progress);
+                        loading_state
+                            .send(LoadingState::Loading { progress })
+                            .unwrap();
                         frames_found = true;
                     }
                     Ok(None) => {}
@@ -118,6 +145,7 @@ fn spawn_replay_thread(
                 }
             }
             if !frames_found {
+                loading_state.send(LoadingState::Done).unwrap();
                 break;
             }
             egui_context.request_repaint();
