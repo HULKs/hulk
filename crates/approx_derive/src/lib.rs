@@ -1,20 +1,18 @@
 use proc_macro2::TokenStream;
-use proc_macro_error::{abort, proc_macro_error, OptionExt, ResultExt};
+use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
-use syn::{
-    parse_macro_input,
-    punctuated::{self},
-    Attribute, Data, DeriveInput, Lit, Meta, MetaNameValue, NestedMeta, Type,
-};
+use syn::{parse_macro_input, Attribute, Data, DeriveInput, Result, Type};
 
 #[proc_macro_derive(AbsDiffEq, attributes(abs_diff_eq))]
 #[proc_macro_error]
 pub fn abs_diff_eq(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    generate_abs_diff_eq(input).into()
+    derive_abs_diff_eq(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
-fn generate_abs_diff_eq(input: DeriveInput) -> TokenStream {
+fn derive_abs_diff_eq(input: DeriveInput) -> Result<TokenStream> {
     let fields = match input.data {
         Data::Struct(data) => data.fields,
         Data::Enum(data) => abort!(
@@ -26,7 +24,7 @@ fn generate_abs_diff_eq(input: DeriveInput) -> TokenStream {
             "`AbsDiffEq` can only be derived for `struct`",
         ),
     };
-    let epsilon = extract_epsilon(&input.attrs).expect_or_abort("`epsilon` not specified");
+    let epsilon_type = extract_epsilon_type(&input.attrs)?;
     let name = input.ident;
 
     let conditions = fields.into_iter().map(|field| {
@@ -39,9 +37,9 @@ fn generate_abs_diff_eq(input: DeriveInput) -> TokenStream {
         }
     });
 
-    quote! {
+    Ok(quote! {
         impl approx::AbsDiffEq for #name {
-            type Epsilon = #epsilon;
+            type Epsilon = #epsilon_type;
 
             fn default_epsilon() -> Self::Epsilon {
                 Self::Epsilon::default_epsilon()
@@ -52,40 +50,28 @@ fn generate_abs_diff_eq(input: DeriveInput) -> TokenStream {
                 true
             }
         }
-    }
+    })
 }
 
-fn extract_epsilon(attrs: &[Attribute]) -> Option<Type> {
-    attrs
-        .iter()
-        .filter_map(parse_meta_items)
-        .flatten()
-        .find_map(|meta| match meta {
-            NestedMeta::Meta(Meta::NameValue(MetaNameValue { path, lit, .. }))
-                if path.is_ident("epsilon") =>
-            {
-                let string = match lit {
-                    Lit::Str(string) => string,
-                    _ => abort!(lit, "expected string literal"),
-                };
-                let epsilon = string
-                    .parse()
-                    .expect_or_abort("failed to parse epsilon type");
-                Some(epsilon)
+fn extract_epsilon_type(attributes: &[Attribute]) -> Result<Option<Type>> {
+    let mut epsilon_type = None;
+
+    for attribute in attributes {
+        if !attribute.path().is_ident("abs_diff_eq") {
+            continue;
+        }
+        attribute.parse_nested_meta(|meta| {
+            if meta.path.is_ident("epsilon_type") {
+                let value = meta.value()?;
+                epsilon_type = Some(value.parse()?);
+                Ok(())
+            } else {
+                Err(meta.error("unknown attribute"))
             }
-            _ => None,
-        })
-}
+        })?;
+    }
 
-fn parse_meta_items(attribute: &Attribute) -> Option<punctuated::IntoIter<NestedMeta>> {
-    if !attribute.path.is_ident("abs_diff_eq") {
-        return None;
-    }
-    match attribute.parse_meta() {
-        Ok(Meta::List(meta)) => Some(meta.nested.into_iter()),
-        Ok(other) => abort!(other, "expected `#[abs_diff_eq(...)]`",),
-        Err(error) => abort!(error.span(), error.to_string()),
-    }
+    Ok(epsilon_type)
 }
 
 #[proc_macro_derive(RelativeEq)]

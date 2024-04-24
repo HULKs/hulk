@@ -18,7 +18,7 @@ pub struct CandidateEvaluation {
 #[derive(
     Clone, Debug, Deserialize, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq, PartialEq,
 )]
-#[abs_diff_eq(epsilon = "f32")]
+#[abs_diff_eq(epsilon_type = f32)]
 pub struct Ball {
     pub position: Point2<Ground>,
     pub image_location: Circle<Pixel>,

@@ -16,9 +16,6 @@ impl ToAbsolute for PathArguments {
                     GenericArgument::Type(argument_type) => {
                         *argument_type = argument_type.to_absolute(uses);
                     }
-                    GenericArgument::Binding(binding) => {
-                        binding.ty = binding.ty.to_absolute(uses);
-                    }
                     GenericArgument::Constraint(constraint) => {
                         for bound in constraint.bounds.iter_mut() {
                             if let TypeParamBound::Trait(trait_bound) = bound {
@@ -27,6 +24,11 @@ impl ToAbsolute for PathArguments {
                         }
                     }
                     GenericArgument::Const(_) => {}
+                    GenericArgument::AssocType(assoc_type) => {
+                        assoc_type.ty = assoc_type.ty.to_absolute(uses);
+                    }
+                    GenericArgument::AssocConst(_) => {}
+                    _ => todo!(),
                 }
             }
         }

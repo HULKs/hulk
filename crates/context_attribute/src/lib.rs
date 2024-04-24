@@ -8,7 +8,7 @@ use syn::{
     spanned::Spanned,
     token::Mut,
     AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, GenericParam, ItemStruct,
-    Lifetime, LifetimeDef, Lit, Path, PathArguments, PathSegment, Type, TypeParam, TypePath,
+    Lifetime, LifetimeParam, Lit, Path, PathArguments, PathSegment, Type, TypeParam, TypePath,
     TypeReference,
 };
 
@@ -188,7 +188,7 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
     if requires_lifetime_parameter {
         struct_item.generics.params.insert(
             0,
-            GenericParam::Lifetime(LifetimeDef::new(Lifetime::new(
+            GenericParam::Lifetime(LifetimeParam::new(Lifetime::new(
                 "'context",
                 Span::call_site(),
             ))),

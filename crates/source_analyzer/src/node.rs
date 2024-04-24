@@ -84,9 +84,9 @@ fn has_new_and_cycle_method(implementation: &ItemImpl) -> bool {
     implementation
         .items
         .iter()
-        .any(|item| matches!(item, ImplItem::Method(method) if method.sig.ident == "new"))
+        .any(|item| matches!(item, ImplItem::Fn(method) if method.sig.ident == "new"))
         && implementation
             .items
             .iter()
-            .any(|item| matches!(item, ImplItem::Method(method) if method.sig.ident == "cycle"))
+            .any(|item| matches!(item, ImplItem::Fn(method) if method.sig.ident == "cycle"))
 }

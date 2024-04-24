@@ -321,7 +321,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.60",
 ]
 
 [[package]]
@@ -1233,7 +1233,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "source_analyzer",
- "syn 1.0.109",
+ "syn 2.0.60",
  "thiserror",
 ]
 
@@ -1427,7 +1427,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.60",
 ]
 
 [[package]]
@@ -5128,7 +5128,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.60",
 ]
 
 [[package]]
@@ -5299,7 +5299,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 1.0.109",
+ "syn 2.0.60",
  "thiserror",
  "threadbound",
  "toposort-scc",

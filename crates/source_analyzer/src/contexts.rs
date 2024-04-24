@@ -36,8 +36,7 @@ impl Contexts {
                 if item
                     .attrs
                     .iter()
-                    .filter_map(|attribute| attribute.path.get_ident())
-                    .any(|identifier| identifier == "context") =>
+                    .any(|attribute| attribute.path().is_ident("context")) =>
             {
                 Some(item)
             }
@@ -82,8 +81,7 @@ fn exactly_one_context_struct_with_name_exists(file: &File, name: &str) -> bool 
                 Item::Struct(item) if item
                     .attrs
                     .iter()
-                    .filter_map(|attribute| attribute.path.get_ident())
-                    .any(|identifier| identifier == "context")
+                    .any(|attribute| attribute.path().is_ident("context"))
             )
         })
         .filter(|item| {

@@ -45,7 +45,7 @@ macro_rules! implement_as_not_supported {
                 false
             }
 
-            fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
+            fn extend_with_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };
     ($type:ty, $($generic:tt),*) => {
@@ -82,7 +82,7 @@ macro_rules! implement_as_not_supported {
                 false
             }
 
-            fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
+            fn extend_with_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };
 }

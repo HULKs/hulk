@@ -19,7 +19,7 @@ macro_rules! generate_coordinate_system {
                 AbsDiffEq,
                 SerializeHierarchy
             )]
-            #[abs_diff_eq(epsilon = "f32")]
+            #[abs_diff_eq(epsilon_type = f32)]
             $(#[$doc])*
             pub struct $i;
         )*

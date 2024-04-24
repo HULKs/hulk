@@ -41,5 +41,5 @@ impl<Frame> SerializeHierarchy for TwoLineSegments<Frame> {
         Default::default()
     }
 
-    fn fill_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
+    fn extend_with_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
 }
