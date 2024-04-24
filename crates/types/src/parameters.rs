@@ -48,7 +48,7 @@ pub struct BehaviorParameters {
     pub search: SearchParameters,
     pub look_action: LookActionParameters,
     pub intercept_ball: InterceptBallParameters,
-    pub maximum_initial_lookaround_duration: Duration,
+    pub maximum_lookaround_duration: Duration,
 }
 
 #[derive(

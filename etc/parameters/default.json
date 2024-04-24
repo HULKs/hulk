@@ -1163,7 +1163,7 @@
       "minimum_ball_velocity_towards_own_half": 0.05,
       "maximum_intercept_distance": 0.5
     },
-    "maximum_initial_lookaround_duration": {
+    "maximum_lookaround_duration": {
       "nanos": 0,
       "secs": 6
     }
