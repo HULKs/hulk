@@ -1,9 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use color_eyre::{
-    eyre::eyre,
-    Result,
-};
+use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
