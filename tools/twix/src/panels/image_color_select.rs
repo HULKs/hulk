@@ -11,6 +11,7 @@ use eframe::{
     epaint::Vec2,
 };
 
+use egui_plot::{Bar, BarChart};
 use itertools::iproduct;
 use linear_algebra::{vector, Point2};
 use log::error;
@@ -57,10 +58,25 @@ impl PixelColor {
     };
 }
 
+struct ColorArray {
+    red: Vec<f64>,
+    green: Vec<f64>,
+    blue: Vec<f64>,
+}
+impl Default for ColorArray {
+    fn default() -> Self {
+        Self {
+            red: vec![0.0; 50],
+            green: vec![0.0; 50],
+            blue: vec![0.0; 50],
+        }
+    }
+}
 struct Statistics {
     max: PixelColor,
     min: PixelColor,
     average: PixelColor,
+    color_distribution: ColorArray,
     pixel_count: usize,
 }
 
@@ -70,6 +86,7 @@ impl Default for Statistics {
             max: PixelColor::BLACK,
             min: PixelColor::WHITE,
             average: PixelColor::BLACK,
+            color_distribution: ColorArray::default(),
             pixel_count: 0,
         }
     }
@@ -252,6 +269,18 @@ impl Widget for &mut ImageColorSelectPanel {
                     ui.end_row();
                 });
 
+                ui.separator();
+
+                let red_chart = create_chart(statistics.color_distribution.red, Color32::RED, -0.002);
+                let green_chart = create_chart(statistics.color_distribution.green, Color32::GREEN, 0.0);
+                let blue_chart = create_chart(statistics.color_distribution.blue, Color32::BLUE, 0.002);
+
+                egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
+                    plot_ui.bar_chart(red_chart);
+                    plot_ui.bar_chart(green_chart);
+                    plot_ui.bar_chart(blue_chart);
+                });
+
                 painter.circle(
                     pixel_pos,
                     self.brush_size,
@@ -313,3 +342,14 @@ impl<'a> ImageColorSelectPanel {
     }
 }
 
+fn create_chart(vector: Vec<f64>, color: Color32, offset: f64) -> BarChart {
+    BarChart::new(
+        vector
+            .iter()
+            .enumerate()
+            .map(|(index, &value)| Bar::new(index as f64 * 0.01 + offset, value))
+            .collect(),
+    )
+    .color(color)
+    .width(0.002)
+}
