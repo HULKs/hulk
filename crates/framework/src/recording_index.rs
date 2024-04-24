@@ -12,78 +12,82 @@ use color_eyre::eyre::WrapErr;
 pub struct RecordingIndex {
     file: File,
     frames: Vec<RecordingFrameMetadata>,
+    scan_offset: u64,
 }
 
 impl RecordingIndex {
     pub fn read_from(recording_file: impl AsRef<Path>) -> color_eyre::Result<Self> {
         let file = File::open(&recording_file)
             .wrap_err_with(|| format!("failed to open {}", recording_file.as_ref().display()))?;
-        Self::collect_frames(file).wrap_err("failed to collect frames")
+        Ok(Self {
+            file,
+            frames: Vec::new(),
+            scan_offset: 0,
+        })
     }
 
-    fn collect_frames(mut recording_file: File) -> color_eyre::Result<Self> {
-        let mut frames = Vec::new();
-
-        recording_file
+    pub fn collect_next_frame_metadata(&mut self) -> color_eyre::Result<Option<f32>> {
+        self.file
             .seek(SeekFrom::End(0))
             .wrap_err("failed to seek to end of file")?;
-        let file_length = recording_file
+        let file_length = self
+            .file
             .stream_position()
             .wrap_err("failed to get stream position of end of file")?;
-        recording_file.rewind().wrap_err("failed to rewind file")?;
+        self.file
+            .seek(SeekFrom::Start(self.scan_offset))
+            .wrap_err("failed to rewind file")?;
 
-        let mut offset = 0;
-        while offset < file_length {
-            let Some(timestamp) =
-                end_of_file_error_as_option(deserialize_from(&mut recording_file))
-                    .wrap_err("failed to deserialize timestamp")?
-            else {
-                eprintln!("unexpected end of file of recording file while deserializing timestamp");
-                break;
-            };
-            let Some(duration) = end_of_file_error_as_option(deserialize_from(&mut recording_file))
-                .wrap_err("failed to deserialize duration")?
-            else {
-                eprintln!("unexpected end of file of recording file while deserializing duration");
-                break;
-            };
-            let Some(length) = end_of_file_error_as_option(deserialize_from(&mut recording_file))
-                .wrap_err("failed to deserialize data length")?
-            else {
-                eprintln!("unexpected end of file of recording file while deserializing length");
-                break;
-            };
-            let header_length = recording_file
-                .stream_position()
-                .wrap_err("failed to get stream position")?
-                - offset;
-            recording_file
-                .seek(SeekFrom::Current(length as i64))
-                .wrap_err("failed to seek to end of data")?;
-            if offset + header_length + length as u64 > file_length {
-                eprintln!("unexpected end of file of recording file");
-                break;
-            }
-            frames.push(RecordingFrameMetadata {
-                timing: Timing {
-                    timestamp,
-                    duration,
-                },
-                offset: offset.try_into().unwrap(),
-                header_offset: header_length.try_into().unwrap(),
-                length,
-            });
-            offset = recording_file
-                .stream_position()
-                .wrap_err("failed to get stream position")?;
+        if self.scan_offset >= file_length {
+            return Ok(None);
+        }
+        let Some(timestamp) = end_of_file_error_as_option(deserialize_from(&mut self.file))
+            .wrap_err("failed to deserialize timestamp")?
+        else {
+            eprintln!("unexpected end of file of recording file while deserializing timestamp");
+            return Ok(None);
+        };
+        let Some(duration) = end_of_file_error_as_option(deserialize_from(&mut self.file))
+            .wrap_err("failed to deserialize duration")?
+        else {
+            eprintln!("unexpected end of file of recording file while deserializing duration");
+            return Ok(None);
+        };
+        let Some(length) = end_of_file_error_as_option(deserialize_from(&mut self.file))
+            .wrap_err("failed to deserialize data length")?
+        else {
+            eprintln!("unexpected end of file of recording file while deserializing length");
+            return Ok(None);
+        };
+        let header_length = self
+            .file
+            .stream_position()
+            .wrap_err("failed to get stream position")?
+            - self.scan_offset;
+        self.file
+            .seek(SeekFrom::Current(length as i64))
+            .wrap_err("failed to seek to end of data")?;
+        if self.scan_offset + header_length + length as u64 > file_length {
+            eprintln!("unexpected end of file of recording file");
+            return Ok(None);
         }
 
-        recording_file.rewind().wrap_err("failed to rewind file")?;
+        self.scan_offset = self
+            .file
+            .stream_position()
+            .wrap_err("failed to get stream position")?;
+        self.file.rewind().wrap_err("failed to rewind file")?;
 
-        Ok(Self {
-            file: recording_file,
-            frames,
-        })
+        self.frames.push(RecordingFrameMetadata {
+            timing: Timing {
+                timestamp,
+                duration,
+            },
+            offset: self.scan_offset.try_into().unwrap(),
+            header_offset: header_length.try_into().unwrap(),
+            length,
+        });
+        Ok(Some(self.scan_offset as f32 / file_length as f32))
     }
 
     pub fn number_of_frames(&self) -> usize {
