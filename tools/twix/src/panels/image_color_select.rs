@@ -1,6 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{
+    eyre::eyre,
+    Result,
+};
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
@@ -11,6 +14,7 @@ use eframe::{
     epaint::Vec2,
 };
 
+use egui_plot::{Bar, BarChart};
 use linear_algebra::{point, vector, Point2};
 use log::error;
 
@@ -47,6 +51,12 @@ struct PixelColor {
     red: f32,
     green: f32,
     blue: f32,
+}
+
+struct ColorArray {
+    red: Vec<f64>,
+    green: Vec<f64>,
+    blue: Vec<f64>,
 }
 
 impl Panel for ImageColorSelectPanel {
@@ -159,6 +169,11 @@ impl Widget for &mut ImageColorSelectPanel {
                     blue: 0.0,
                 };
                 let mut pixel_count: usize = 0;
+                let mut color_distribtion = ColorArray {
+                    red: vec![0.0; 100],
+                    green: vec![0.0; 100],
+                    blue: vec![0.0; 100],
+                };
 
                 for i in (pixel_pos.x() as isize - self.brush_size as isize)
                     ..(pixel_pos.x() as isize + self.brush_size as isize + 1)
@@ -186,6 +201,10 @@ impl Widget for &mut ImageColorSelectPanel {
                             average.green += color.green;
                             average.blue += color.blue;
                             pixel_count += 1;
+
+                            color_distribtion.red[(color.red * 90.0) as usize] += 1.0;
+                            color_distribtion.green[(color.green * 90.0) as usize] += 1.0;
+                            color_distribtion.blue[(color.blue * 90.0) as usize] += 1.0;
                         }
                     }
                 }
@@ -206,7 +225,7 @@ impl Widget for &mut ImageColorSelectPanel {
                     ui.colored_label(Color32::RED, format!("r: {:.3}", max.red));
                     ui.colored_label(Color32::GREEN, format!("g: {:.3}", max.green));
                     ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
+                        Color32::from_rgb(50, 100, 255),
                         format!("b: {:.3}", max.blue),
                     );
                     ui.end_row();
@@ -215,7 +234,7 @@ impl Widget for &mut ImageColorSelectPanel {
                     ui.colored_label(Color32::RED, format!(" r: {:.3}", min.red));
                     ui.colored_label(Color32::GREEN, format!("g: {:.3}", min.green));
                     ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
+                        Color32::from_rgb(50, 100, 255),
                         format!("b: {:.3}", min.blue),
                     );
                     ui.end_row();
@@ -224,10 +243,22 @@ impl Widget for &mut ImageColorSelectPanel {
                     ui.colored_label(Color32::RED, format!(" r: {:.3}", average.red));
                     ui.colored_label(Color32::GREEN, format!("g: {:.3}", average.green));
                     ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
+                        Color32::from_rgb(50, 100, 255),
                         format!("b: {:.3}", average.blue),
                     );
                     ui.end_row();
+                });
+
+                ui.separator();
+
+                let red_chart = create_chart(color_distribtion.red, Color32::RED, -0.002);
+                let green_chart = create_chart(color_distribtion.green, Color32::GREEN, 0.0);
+                let blue_chart = create_chart(color_distribtion.blue, Color32::BLUE, 0.002);
+
+                egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
+                    plot_ui.bar_chart(red_chart);
+                    plot_ui.bar_chart(green_chart);
+                    plot_ui.bar_chart(blue_chart);
                 });
 
                 painter.circle(
@@ -279,4 +310,16 @@ fn get_pixel_chromaticity(image: &ColorImage, pixel_pos: Point2<Pixel>) -> Pixel
         pixel.blue = (color32.b() as f32) / sum;
     }
     pixel
+}
+
+fn create_chart(vector: Vec<f64>, color: Color32, offset: f64) -> BarChart {
+    BarChart::new(
+        vector
+            .iter()
+            .enumerate()
+            .map(|(index, &value)| Bar::new(index as f64 * 0.01 + offset, value))
+            .collect(),
+    )
+    .color(color)
+    .width(0.002)
 }
