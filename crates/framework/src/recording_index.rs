@@ -11,34 +11,34 @@ use color_eyre::eyre::WrapErr;
 #[derive(Debug)]
 pub struct RecordingIndex {
     file: File,
-    frames: Vec<RecordingFrameMetadata>,
+    file_length: u64,
     scan_offset: u64,
+    frames: Vec<RecordingFrameMetadata>,
 }
 
 impl RecordingIndex {
     pub fn read_from(recording_file: impl AsRef<Path>) -> color_eyre::Result<Self> {
-        let file = File::open(&recording_file)
+        let mut file = File::open(&recording_file)
             .wrap_err_with(|| format!("failed to open {}", recording_file.as_ref().display()))?;
+        file.seek(SeekFrom::End(0))
+            .wrap_err("failed to seek to end of file")?;
+        let file_length = file
+            .stream_position()
+            .wrap_err("failed to get stream position of end of file")?;
         Ok(Self {
             file,
-            frames: Vec::new(),
+            file_length,
             scan_offset: 0,
+            frames: Vec::new(),
         })
     }
 
-    pub fn collect_next_frame_metadata(&mut self) -> color_eyre::Result<Option<f32>> {
-        self.file
-            .seek(SeekFrom::End(0))
-            .wrap_err("failed to seek to end of file")?;
-        let file_length = self
-            .file
-            .stream_position()
-            .wrap_err("failed to get stream position of end of file")?;
+    pub fn collect_next_frame_metadata(&mut self) -> color_eyre::Result<Option<()>> {
         self.file
             .seek(SeekFrom::Start(self.scan_offset))
             .wrap_err("failed to rewind file")?;
 
-        if self.scan_offset >= file_length {
+        if self.scan_offset >= self.file_length {
             return Ok(None);
         }
         let Some(timestamp) = end_of_file_error_as_option(deserialize_from(&mut self.file))
@@ -67,7 +67,7 @@ impl RecordingIndex {
         self.file
             .seek(SeekFrom::Current(length as i64))
             .wrap_err("failed to seek to end of data")?;
-        if self.scan_offset + header_length + length as u64 > file_length {
+        if self.scan_offset + header_length + length as u64 > self.file_length {
             eprintln!("unexpected end of file of recording file");
             return Ok(None);
         }
@@ -87,11 +87,21 @@ impl RecordingIndex {
             header_offset: header_length.try_into().unwrap(),
             length,
         });
-        Ok(Some(self.scan_offset as f32 / file_length as f32))
+        Ok(Some(()))
     }
 
     pub fn number_of_frames(&self) -> usize {
         self.frames.len()
+    }
+
+    pub fn scan_state(&self) -> ScanState {
+        if self.scan_offset < self.file_length {
+            ScanState::Loading {
+                progress: self.scan_offset as f32 / self.file_length as f32,
+            }
+        } else {
+            ScanState::Done
+        }
     }
 
     pub fn find_latest_frame_up_to(
@@ -154,6 +164,11 @@ pub struct RecordingFrame {
 pub struct Timing {
     pub timestamp: SystemTime,
     pub duration: Duration,
+}
+
+pub enum ScanState {
+    Loading { progress: f32 },
+    Done,
 }
 
 fn end_of_file_error_as_option<T>(result: Result<T, Error>) -> Result<Option<T>, Error> {

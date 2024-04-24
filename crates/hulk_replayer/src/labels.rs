@@ -1,6 +1,7 @@
 use eframe::egui::{
     pos2, vec2, Align, Layout, Rect, Response, RichText, Sense, TextStyle, Ui, Widget,
 };
+use framework::ScanState;
 
 use crate::{execution::Replayer, ticks::ticks_height, ReplayerHardwareInterface};
 
@@ -16,6 +17,7 @@ impl Labels {
             .map(|(name, index)| LabelContent {
                 name,
                 number_of_frames: index.number_of_frames(),
+                scan_state: index.scan_state(),
             })
             .collect();
 
@@ -49,6 +51,14 @@ impl Widget for Labels {
             {
                 child_ui.label(format!("{} frames", label_content.number_of_frames));
             }
+            if row_height
+                >= (3.0 * ui.style().text_styles.get(&TextStyle::Body).unwrap().size)
+                    + ui.spacing().item_spacing.y
+            {
+                if let ScanState::Loading { progress } = label_content.scan_state {
+                    child_ui.label(format!("{:.2} %", progress * 100.0));
+                }
+            }
             maximum_width = maximum_width.max(child_ui.min_size().x);
         }
 
@@ -62,4 +72,5 @@ impl Widget for Labels {
 struct LabelContent {
     name: String,
     number_of_frames: usize,
+    scan_state: ScanState,
 }
