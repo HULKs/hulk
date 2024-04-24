@@ -84,7 +84,6 @@ fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> FrameRange {
         .flat_map(|index| index.first_timing().map(|timing| timing.timestamp))
         .min()
         .unwrap_or(SystemTime::UNIX_EPOCH);
-    // .expect("there isn't any index that contains at least one frame");
     let end = recording_indices
         .values()
         .flat_map(|index| {
@@ -94,7 +93,6 @@ fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> FrameRange {
         })
         .max()
         .unwrap_or(SystemTime::UNIX_EPOCH);
-    // .expect("there isn't any index that contains at least one frame");
     FrameRange::new(AbsoluteTime::new(begin), AbsoluteTime::new(end))
 }
 
@@ -123,7 +121,6 @@ fn spawn_replay_thread(
                 break;
             }
             egui_context.request_repaint();
-            // scan one frame
         }
         let runtime = Builder::new_current_thread().build().unwrap();
 
