@@ -193,8 +193,8 @@ where
         Inner::exists(path)
     }
 
-    fn fill_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str) {
-        Inner::fill_fields(fields, prefix)
+    fn extend_with_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str) {
+        Inner::extend_with_fields(fields, prefix)
     }
 }
 

@@ -32,6 +32,7 @@ pub mod initial_pose;
 pub mod interpolated;
 pub mod joints;
 pub mod joints_velocity;
+pub mod jpeg;
 pub mod kick_decision;
 pub mod kick_target;
 pub mod led;
