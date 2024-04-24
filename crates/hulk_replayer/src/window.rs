@@ -21,8 +21,6 @@ use crate::{
 pub struct Window {
     replayer: Arc<Mutex<Replayer<ReplayerHardwareInterface>>>,
     time_sender: watch::Sender<SystemTime>,
-    frame_range: FrameRange,
-    viewport_range: ViewportRange,
     position: RelativeTime,
 }
 
@@ -31,9 +29,6 @@ impl Window {
         creation_context: &CreationContext,
         replayer: Replayer<ReplayerHardwareInterface>,
     ) -> Self {
-        let frame_range = join_timing(&replayer);
-        let viewport_range = ViewportRange::from_frame_range(&frame_range);
-
         let replayer = Arc::new(Mutex::new(replayer));
         let (time_sender, time_receiver) = watch::channel(SystemTime::UNIX_EPOCH);
         spawn_replay_thread(
@@ -45,8 +40,6 @@ impl Window {
         Self {
             replayer,
             time_sender,
-            frame_range,
-            viewport_range,
             position: RelativeTime::new(0.0),
         }
     }
