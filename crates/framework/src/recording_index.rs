@@ -72,12 +72,6 @@ impl RecordingIndex {
             return Ok(None);
         }
 
-        self.scan_offset = self
-            .file
-            .stream_position()
-            .wrap_err("failed to get stream position")?;
-        self.file.rewind().wrap_err("failed to rewind file")?;
-
         self.frames.push(RecordingFrameMetadata {
             timing: Timing {
                 timestamp,
@@ -87,6 +81,13 @@ impl RecordingIndex {
             header_offset: header_length.try_into().unwrap(),
             length,
         });
+
+        self.scan_offset = self
+            .file
+            .stream_position()
+            .wrap_err("failed to get stream position")?;
+        self.file.rewind().wrap_err("failed to rewind file")?;
+
         Ok(Some(()))
     }
 
