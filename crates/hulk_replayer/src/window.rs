@@ -52,7 +52,8 @@ impl Window {
     }
 
     fn replay_at_position(&mut self) {
-        let timestamp = self.position.map_to_absolute_time(&self.frame_range);
+        let frame_range = join_timing(&self.replayer.lock().unwrap());
+        let timestamp = self.position.map_to_absolute_time(&frame_range);
         self.time_sender
             .send(timestamp.inner())
             .expect("failed to send replay time");
@@ -61,14 +62,17 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
+        let frame_range = join_timing(&self.replayer.lock().unwrap());
+        let mut viewport_range = ViewportRange::from_frame_range(&frame_range);
+
         CentralPanel::default().show(context, |ui| {
             ui.horizontal_top(|ui| {
                 ui.add(Labels::new(&self.replayer.lock().unwrap()));
                 if ui
                     .add(Timeline::new(
                         &self.replayer.lock().unwrap(),
-                        &self.frame_range,
-                        &mut self.viewport_range,
+                        &frame_range,
+                        &mut viewport_range,
                         &mut self.position,
                     ))
                     .changed()
@@ -86,7 +90,8 @@ fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> FrameRange {
         .values()
         .flat_map(|index| index.first_timing().map(|timing| timing.timestamp))
         .min()
-        .expect("there isn't any index that contains at least one frame");
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+    // .expect("there isn't any index that contains at least one frame");
     let end = recording_indices
         .values()
         .flat_map(|index| {
@@ -95,7 +100,8 @@ fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> FrameRange {
                 .map(|timing| timing.timestamp + timing.duration)
         })
         .max()
-        .expect("there isn't any index that contains at least one frame");
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+    // .expect("there isn't any index that contains at least one frame");
     FrameRange::new(AbsoluteTime::new(begin), AbsoluteTime::new(end))
 }
 
@@ -105,6 +111,27 @@ fn spawn_replay_thread(
     mut time: watch::Receiver<SystemTime>,
 ) {
     spawn(move || {
+        let mut progress: f32 = 0.0;
+        loop {
+            let mut frames_found = false;
+            let mut replayer = replayer.lock().unwrap();
+            let mut indices = replayer.get_recording_indices_mut();
+            for index in indices.values_mut() {
+                match index.collect_next_frame_metadata() {
+                    Ok(Some(this_progress)) => {
+                        progress = progress.min(this_progress);
+                        frames_found = true;
+                    }
+                    Ok(None) => {}
+                    Err(error) => eprintln!("{error}"),
+                }
+            }
+            if !frames_found {
+                break;
+            }
+            egui_context.request_repaint();
+            // scan one frame
+        }
         let runtime = Builder::new_current_thread().build().unwrap();
 
         runtime.block_on(async move {
