@@ -134,6 +134,10 @@ fn spawn_replay_thread(
             if !frames_found {
                 break;
             }
+            if time.has_changed().unwrap() {
+                time.mark_unchanged();
+                let _ = replayer.replay_at(*time.borrow());
+            }
             egui_context.request_repaint();
         }
         let runtime = Builder::new_current_thread().enable_all().build().unwrap();
