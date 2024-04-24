@@ -2,7 +2,11 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
-use crate::{filtered_game_state::FilteredGameState, players::Players};
+use crate::{
+    filtered_game_state::FilteredGameState,
+    last_filtered_game_controller_state_change::LastFilteredGameControllerStateChanges,
+    players::Players,
+};
 
 #[derive(
     Default,
@@ -13,7 +17,6 @@ use crate::{filtered_game_state::FilteredGameState, players::Players};
     Deserialize,
     PathSerialize,
     PathDeserialize,
-    PathIntrospect,
     PartialEq,
 )]
 
@@ -26,4 +29,5 @@ pub struct FilteredGameControllerState {
     pub remaining_number_of_messages: u16,
     pub sub_state: Option<SubState>,
     pub own_team_is_home_after_coin_toss: bool,
+    pub last_filtered_game_controller_state_change: LastFilteredGameControllerStateChanges,
 }

@@ -75,3 +75,4 @@ pub mod walk_command;
 pub mod whistle;
 pub mod world_state;
 pub mod ycbcr422_image;
+pub mod last_filtered_game_controller_state_change;
