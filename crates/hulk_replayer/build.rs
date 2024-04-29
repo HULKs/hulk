@@ -1,4 +1,4 @@
-use code_generation::{generate, write_to_file::WriteToFile, Execution};
+use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
 use color_eyre::eyre::{Result, WrapErr};
 use hulk_manifest::collect_hulk_cyclers;
 use source_analyzer::{pretty::to_string_pretty, structs::Structs};
@@ -18,7 +18,13 @@ fn main() -> Result<()> {
     println!("{}", to_string_pretty(&cyclers)?);
 
     let structs = Structs::try_from_cyclers(&cyclers)?;
-    generate(&cyclers, &structs, Execution::Replay)
-        .write_to_file("generated_code.rs")
-        .wrap_err("failed to write generated code to file")
+    generate(
+        &cyclers,
+        &structs,
+        ExecutionMode::Replay {
+            with_communication: true,
+        },
+    )
+    .write_to_file("generated_code.rs")
+    .wrap_err("failed to write generated code to file")
 }
