@@ -10,7 +10,7 @@ use color_eyre::{
 use hardware::{CameraInterface, PathsInterface, TimeInterface};
 use types::{camera_position::CameraPosition, hardware::Paths, ycbcr422_image::YCbCr422Image};
 
-use crate::execution::ImageExtractor;
+use crate::execution::Replayer;
 
 pub trait HardwareInterface: CameraInterface + PathsInterface + TimeInterface {}
 
@@ -58,17 +58,17 @@ fn main() -> Result<()> {
     let parameters_directory = args().nth(3).unwrap_or(replay_path.clone());
     let id = "replayer".to_string();
 
-    let mut image_extractor = ImageExtractor::new(
+    let mut replayer = Replayer::new(
         Arc::new(ImageExtractorHardwareInterface),
         parameters_directory,
-        &id,
-        &id,
+        id.clone(),
+        id,
         replay_path,
     )
     .wrap_err("failed to create image extractor")?;
 
-    let vision_top_reader = image_extractor.vision_top_reader();
-    let vision_bottom_reader = image_extractor.vision_bottom_reader();
+    let vision_top_reader = replayer.vision_top_reader();
+    let vision_bottom_reader = replayer.vision_bottom_reader();
 
     for (instance_name, reader) in [
         ("VisionTop", vision_top_reader),
@@ -79,7 +79,7 @@ fn main() -> Result<()> {
 
         let unknown_indices_error_message =
             format!("could not find recording indices for `{instance_name}`");
-        let timings: Vec<_> = image_extractor
+        let timings: Vec<_> = replayer
             .get_recording_indices()
             .get(instance_name)
             .expect(&unknown_indices_error_message)
@@ -87,7 +87,7 @@ fn main() -> Result<()> {
             .collect();
 
         for timing in timings {
-            let frame = image_extractor
+            let frame = replayer
                 .get_recording_indices_mut()
                 .get_mut(instance_name)
                 .map(|index| {
@@ -98,7 +98,7 @@ fn main() -> Result<()> {
                 .expect(&unknown_indices_error_message);
 
             if let Some(frame) = frame {
-                image_extractor
+                replayer
                     .replay(instance_name, frame.timing.timestamp, &frame.data)
                     .expect("failed to replay frame");
 

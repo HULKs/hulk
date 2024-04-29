@@ -50,12 +50,12 @@ pub fn replayer() -> Result<()> {
 
     let replayer = Replayer::new(
         Arc::new(hardware_interface),
-        framework_parameters.communication_addresses,
         replay_path.clone(),
         ids.body_id,
         ids.head_id,
-        keep_running,
         replay_path,
+        framework_parameters.communication_addresses,
+        keep_running,
     )
     .wrap_err("failed to create replayer")?;
 
