@@ -13,21 +13,23 @@ pub mod perception_databases;
 pub mod structs;
 pub mod write_to_file;
 
-pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenStream {
+pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: ExecutionMode) -> TokenStream {
     let generated_cyclers = match mode {
-        Execution::None => Default::default(),
-        Execution::Run | Execution::Replay | Execution::ImageExtraction => {
-            let cyclers = generate_cyclers(cyclers, mode);
-            quote! {
-                pub mod cyclers {
-                    #cyclers
-                }
+        ExecutionMode::None => None,
+        ExecutionMode::Run => Some(generate_cyclers(cyclers, CyclerMode::Run)),
+        ExecutionMode::Replay { .. } => Some(generate_cyclers(cyclers, CyclerMode::Replay)),
+    }
+    .map(|cyclers| {
+        quote! {
+            pub mod cyclers {
+                #cyclers
             }
         }
-    };
+    })
+    .unwrap_or_default();
     let generated_execution = match mode {
-        Execution::None => Default::default(),
-        Execution::Run => {
+        ExecutionMode::None => Default::default(),
+        ExecutionMode::Run => {
             let run = generate_run_function(cyclers);
             quote! {
                 pub mod execution {
@@ -35,7 +37,9 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
                 }
             }
         }
-        Execution::Replay => {
+        ExecutionMode::Replay {
+            with_communication: true,
+        } => {
             let replayer = generate_replayer_struct(cyclers);
             quote! {
                 pub mod execution {
@@ -43,7 +47,9 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
                 }
             }
         }
-        Execution::ImageExtraction => {
+        ExecutionMode::Replay {
+            with_communication: false,
+        } => {
             let image_extractor = generate_image_extractor_struct(cyclers);
             quote! {
                 pub mod execution {
@@ -68,9 +74,14 @@ pub fn generate(cyclers: &Cyclers, structs: &Structs, mode: Execution) -> TokenS
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Execution {
+pub enum ExecutionMode {
     None,
     Run,
+    Replay { with_communication: bool },
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum CyclerMode {
+    Run,
     Replay,
-    ImageExtraction,
 }

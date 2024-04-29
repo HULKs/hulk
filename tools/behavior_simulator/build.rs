@@ -1,4 +1,4 @@
-use code_generation::{generate, write_to_file::WriteToFile, Execution};
+use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
 use color_eyre::eyre::{Result, WrapErr};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -75,7 +75,7 @@ fn main() -> Result<()> {
     paths
         .write_to_file("behavior_files.rs")
         .wrap_err("failed to write generated tests to file")?;
-    generate(&cyclers, &structs, Execution::None)
+    generate(&cyclers, &structs, ExecutionMode::None)
         .write_to_file("generated_code.rs")
         .wrap_err("failed to write generated code to file")
 }

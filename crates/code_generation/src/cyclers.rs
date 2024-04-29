@@ -14,11 +14,11 @@ use syn::{Path as SynPath, Type, TypePath};
 
 use crate::{
     accessor::{path_to_accessor_token_stream, ReferenceKind},
-    Execution,
+    CyclerMode,
 };
 
-pub fn generate_cyclers(cyclers: &Cyclers, mode: Execution) -> TokenStream {
-    let recording_frame = if mode == Execution::Run {
+pub fn generate_cyclers(cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
+    let recording_frame = if mode == CyclerMode::Run {
         let recording_frame_variants = cyclers.instances().map(|(_cycler, instance)| {
             let instance_name = format_ident!("{}", instance);
             quote! {
@@ -50,7 +50,7 @@ pub fn generate_cyclers(cyclers: &Cyclers, mode: Execution) -> TokenStream {
     }
 }
 
-fn generate_module(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
+fn generate_module(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     let module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let cycler_instance = generate_cycler_instance(cycler);
     let database_struct = generate_database_struct();
@@ -100,7 +100,7 @@ fn generate_database_struct() -> TokenStream {
     }
 }
 
-fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
+fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     let module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let input_output_fields = generate_input_output_fields(cycler, cyclers);
     let realtime_inputs = match cycler.kind {
@@ -113,7 +113,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> Token
         }
     };
     let node_fields = generate_node_fields(cycler);
-    let recording_fields = if mode == Execution::Run {
+    let recording_fields = if mode == CyclerMode::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
             recording_trigger: framework::RecordingTrigger,
@@ -209,11 +209,11 @@ fn generate_node_fields(cycler: &Cycler) -> TokenStream {
     }
 }
 
-fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
+fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     let new_method = generate_new_method(cycler, cyclers, mode);
     let start_method = match mode {
-        Execution::None | Execution::Run => generate_start_method(cycler.kind),
-        Execution::Replay | Execution::ImageExtraction => Default::default(),
+        CyclerMode::Run => generate_start_method(cycler.kind),
+        CyclerMode::Replay => Default::default(),
     };
     let cycle_method = generate_cycle_method(cycler, cyclers, mode);
 
@@ -229,7 +229,7 @@ fn generate_implementation(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) 
     }
 }
 
-fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
+fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     let input_output_fields = generate_input_output_fields(cycler, cyclers);
     let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let node_initializers = generate_node_initializers(cycler);
@@ -237,7 +237,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
         .iter_nodes()
         .map(|node| format_ident!("{}", node.name.to_case(Case::Snake)));
     let input_output_identifiers = generate_input_output_identifiers(cycler, cyclers);
-    let recording_parameter_fields = if mode == Execution::Run {
+    let recording_parameter_fields = if mode == CyclerMode::Run {
         quote! {
             recording_sender: std::sync::mpsc::SyncSender<crate::cyclers::RecordingFrame>,
             recording_trigger: framework::RecordingTrigger,
@@ -245,7 +245,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> T
     } else {
         Default::default()
     };
-    let recording_initializer_fields = if mode == Execution::Run {
+    let recording_initializer_fields = if mode == CyclerMode::Run {
         quote! {
             recording_sender,
             recording_trigger,
@@ -454,12 +454,12 @@ fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
     }
 }
 
-fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) -> TokenStream {
+fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     let cycle_function_signature = match mode {
-        Execution::None | Execution::Run => quote! {
+        CyclerMode::Run => quote! {
             pub(crate) fn cycle(&mut self) -> color_eyre::Result<()>
         },
-        Execution::Replay | Execution::ImageExtraction => quote! {
+        CyclerMode::Replay => quote! {
             pub fn cycle(&mut self, now: std::time::SystemTime, mut recording_frame: &[u8]) -> color_eyre::Result<()>
         },
     };
@@ -473,29 +473,24 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
         .map(|node| generate_node_execution(node, cycler, NodeType::Cycle, mode));
     let cross_input_fields = get_cross_input_fields(cycler);
     let cross_inputs = match mode {
-        Execution::None => Default::default(),
-        Execution::Run => generate_cross_inputs_recording(cycler, cross_input_fields),
-        Execution::Replay | Execution::ImageExtraction => {
-            generate_cross_inputs_extraction(cross_input_fields)
-        }
+        CyclerMode::Run => generate_cross_inputs_recording(cycler, cross_input_fields),
+        CyclerMode::Replay => generate_cross_inputs_extraction(cross_input_fields),
     };
 
     let pre_setup = match mode {
-        Execution::None => Default::default(),
-        Execution::Run => quote! {
+        CyclerMode::Run => quote! {
             let enable_recording = self.recording_trigger.should_record() && self.hardware_interface.should_record();
             self.recording_trigger.update();
             let mut recording_frame = Vec::new(); // TODO: possible optimization: cache capacity
         },
-        Execution::Replay | Execution::ImageExtraction => Default::default(),
+        CyclerMode::Replay => Default::default(),
     };
     let post_setup = match mode {
-        Execution::None => Default::default(),
-        Execution::Run => quote! {
+        CyclerMode::Run => quote! {
             let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
             let recording_timestamp = std::time::SystemTime::now();
         },
-        Execution::Replay | Execution::ImageExtraction => Default::default(),
+        CyclerMode::Replay => Default::default(),
     };
     let post_setup = match cycler.kind {
         CyclerKind::Perception => quote! {
@@ -540,8 +535,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
         },
     };
     let after_remaining_nodes = match mode {
-        Execution::None => after_remaining_nodes,
-        Execution::Run => {
+        CyclerMode::Run => {
             let recording_variants = cycler.instances.iter().map(|instance| {
                 let instance_name = format_ident!("{}", instance);
                 quote! {
@@ -564,16 +558,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: Execution) ->
                 }
             }
         }
-        Execution::Replay | Execution::ImageExtraction => after_remaining_nodes,
-    };
-    let own_subscribed_outputs = if mode == Execution::ImageExtraction {
-        quote! {
-            let own_subscribed_outputs = std::collections::HashSet::<String>::new();
-        }
-    } else {
-        quote! {
-            let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
-        }
+        CyclerMode::Replay => after_remaining_nodes,
     };
 
     quote! {
@@ -883,10 +868,10 @@ fn generate_node_execution(
     node: &Node,
     cycler: &Cycler,
     node_type: NodeType,
-    mode: Execution,
+    mode: CyclerMode,
 ) -> TokenStream {
     match (node_type, mode) {
-        (NodeType::Setup, Execution::Run) => {
+        (NodeType::Setup, CyclerMode::Run) => {
             let execute_node_and_write_main_outputs =
                 generate_execute_node_and_write_main_outputs(node, cycler, mode);
             let record_main_outputs = generate_record_main_outputs(node);
@@ -895,7 +880,7 @@ fn generate_node_execution(
                 #record_main_outputs
             }
         }
-        (NodeType::Cycle, Execution::Run) => {
+        (NodeType::Cycle, CyclerMode::Run) => {
             let record_node_state = generate_record_node_state(node);
             let execute_node_and_write_main_outputs =
                 generate_execute_node_and_write_main_outputs(node, cycler, mode);
@@ -904,14 +889,14 @@ fn generate_node_execution(
                 #execute_node_and_write_main_outputs
             }
         }
-        (NodeType::Setup, Execution::Replay | Execution::ImageExtraction) => {
+        (NodeType::Setup, CyclerMode::Replay) => {
             let deserialize_frame_and_write_main_outputs =
                 generate_deserialize_frame_and_write_main_outputs(node);
             quote! {
                 #deserialize_frame_and_write_main_outputs
             }
         }
-        (NodeType::Cycle, Execution::Replay | Execution::ImageExtraction) => {
+        (NodeType::Cycle, CyclerMode::Replay) => {
             let restore_node_state = generate_restore_node_state(node);
             let execute_node_and_write_main_outputs =
                 generate_execute_node_and_write_main_outputs(node, cycler, mode);
@@ -920,14 +905,13 @@ fn generate_node_execution(
                 #execute_node_and_write_main_outputs
             }
         }
-        (_, Execution::None) => panic!("unexpected Execution::Mode"),
     }
 }
 
 fn generate_execute_node_and_write_main_outputs(
     node: &Node,
     cycler: &Cycler,
-    mode: Execution,
+    mode: CyclerMode,
 ) -> TokenStream {
     let are_required_inputs_some = generate_required_input_condition(node, cycler, mode);
     let node_name = &node.name;
@@ -1029,7 +1013,11 @@ enum NodeType {
     Cycle,
 }
 
-fn generate_required_input_condition(node: &Node, cycler: &Cycler, mode: Execution) -> TokenStream {
+fn generate_required_input_condition(
+    node: &Node,
+    cycler: &Cycler,
+    mode: CyclerMode,
+) -> TokenStream {
     let conditions = node
         .contexts
         .cycle_context
@@ -1040,8 +1028,7 @@ fn generate_required_input_condition(node: &Node, cycler: &Cycler, mode: Executi
                 path,
                 ..
             } => match mode {
-                Execution::None => Default::default(),
-                Execution::Run => {
+                CyclerMode::Run => {
                     let database_prefix = match cycler_instance {
                         Some(cycler_instance) => {
                             let identifier =
@@ -1062,7 +1049,7 @@ fn generate_required_input_condition(node: &Node, cycler: &Cycler, mode: Executi
                         #accessor .is_some()
                     })
                 }
-                Execution::Replay | Execution::ImageExtraction => match cycler_instance {
+                CyclerMode::Replay => match cycler_instance {
                     Some(cycler_instance) => {
                         let name = path_to_extraction_variable_name(
                             cycler_instance,
@@ -1094,7 +1081,7 @@ fn generate_required_input_condition(node: &Node, cycler: &Cycler, mode: Executi
     }
 }
 
-fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) -> TokenStream {
+fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode) -> TokenStream {
     let initializers = node
             .contexts
             .cycle_context
@@ -1121,8 +1108,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                 }
                 Field::CyclerState { path, .. } => {
                     match mode {
-                        Execution::None => Default::default(),
-                        Execution::Run => {
+                        CyclerMode::Run => {
                             let accessor = path_to_accessor_token_stream(
                                 quote! { self.cycler_state },
                                 path,
@@ -1133,7 +1119,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                 #accessor
                             }
                         },
-                        Execution::Replay | Execution::ImageExtraction => {
+                        CyclerMode::Replay => {
                             let name = path_to_extraction_variable_name("own", path, "cycler_state");
                             quote! {
                                 &mut #name
@@ -1146,8 +1132,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                 },
                 Field::HistoricInput { path, data_type, .. } => {
                     match mode {
-                        Execution::None => Default::default(),
-                        Execution::Run => {
+                        CyclerMode::Run => {
                             let now_accessor = path_to_accessor_token_stream(
                                 quote!{ own_database_reference.main_outputs },
                                 path,
@@ -1177,7 +1162,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                     .into()
                             }
                         },
-                        Execution::Replay | Execution::ImageExtraction => {
+                        CyclerMode::Replay => {
                             let name = path_to_extraction_variable_name("own", path, "historic_input");
                             let is_option = match data_type {
                                 Type::Path(TypePath {
@@ -1207,8 +1192,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                     match cycler_instance {
                         Some(cycler_instance) => {
                             match mode {
-                                Execution::None => Default::default(),
-                                Execution::Run => {
+                                CyclerMode::Run => {
                                     let identifier =
                                         format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
                                     let database_prefix = quote! { #identifier.main_outputs };
@@ -1222,7 +1206,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                         #accessor
                                     }
                                 },
-                                Execution::Replay | Execution::ImageExtraction => {
+                                CyclerMode::Replay=> {
                                     let name = path_to_extraction_variable_name(cycler_instance, path, "input");
                                     let is_option = match data_type {
                                         Type::Path(TypePath {
@@ -1278,8 +1262,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                     ..
                 } => {
                     match mode {
-                        Execution::None => Default::default(),
-                        Execution::Run => {
+                        CyclerMode::Run => {
                             let cycler_instance_identifier =
                                 format_ident!("{}", cycler_instance.to_case(Case::Snake));
                             let accessor = path_to_accessor_token_stream(
@@ -1319,7 +1302,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                 }
                             }
                         },
-                        Execution::Replay | Execution::ImageExtraction => {
+                        CyclerMode::Replay => {
                             let name = path_to_extraction_variable_name(cycler_instance, path, "perception_input");
                             let is_option = match data_type {
                                 Type::Path(TypePath {
@@ -1360,8 +1343,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                     match cycler_instance {
                         Some(cycler_instance) => {
                             match mode {
-                                Execution::None => Default::default(),
-                                Execution::Run => {
+                                CyclerMode::Run => {
                                     let identifier =
                                         format_ident!("{}_database", cycler_instance.to_case(Case::Snake));
                                     let database_prefix = quote! { #identifier.main_outputs };
@@ -1375,7 +1357,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: Execution) 
                                         #accessor .unwrap()
                                     }
                                 },
-                                Execution::Replay | Execution::ImageExtraction => {
+                                CyclerMode::Replay => {
                                     let name = path_to_extraction_variable_name(cycler_instance, path, "required_input");
                                     quote! {
                                         &#name .unwrap()
