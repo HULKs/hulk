@@ -5,9 +5,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use source_analyzer::cyclers::{CyclerKind, Cyclers};
 
-use crate::accessor::ReferenceKind;
-
-use super::Execution;
+use crate::{accessor::ReferenceKind, CyclerMode};
 
 pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     let construct_multiple_buffers = generate_multiple_buffers(cyclers);
@@ -15,7 +13,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     // 2 communication writer slots + n reader slots for other cyclers
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
     let recording_thread = generate_recording_thread(cyclers);
-    let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Run);
+    let construct_cyclers = generate_cycler_constructors(cyclers, CyclerMode::Run);
     let start_cyclers = generate_cycler_starts(cyclers);
     let join_cyclers = generate_cycler_joins(cyclers);
 
@@ -103,7 +101,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers) -> TokenStream {
     let construct_future_queues = generate_future_queues(cyclers);
     // 2 communication writer slots + n reader slots for other cyclers
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
-    let construct_cyclers = generate_cycler_constructors(cyclers, Execution::Replay);
+    let construct_cyclers = generate_cycler_constructors(cyclers, CyclerMode::Replay);
     let cycler_parameters = generate_cycler_parameters(cyclers);
     let recording_index_entries =
         generate_recording_index_entries(cyclers, ReferenceKind::Immutable);
@@ -176,7 +174,7 @@ pub fn generate_image_extractor_struct(cyclers: &Cyclers) -> TokenStream {
     let construct_future_queues = generate_future_queues(cyclers);
     // 2 communication writer slots + n reader slots for other cyclers
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
-    let construct_cyclers = generate_cycler_constructors(cyclers, Execution::ImageExtraction);
+    let construct_cyclers = generate_cycler_constructors(cyclers, CyclerMode::Run);
     let cycler_parameters = generate_cycler_parameters(cyclers);
     let recording_index_entries =
         generate_recording_index_entries(cyclers, ReferenceKind::Immutable);
@@ -390,7 +388,7 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
     }
 }
 
-fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStream {
+fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     cyclers.instances().map(|(cycler, instance)| {
         let instance_name_snake_case = instance.to_case(Case::Snake);
         let cycler_database_changed_identifier = format_ident!("{instance_name_snake_case}_changed");
@@ -403,7 +401,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         let own_reader_identifier = format_ident!("{instance_name_snake_case}_reader");
         let own_subscribed_outputs_writer_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_writer");
         let own_subscribed_outputs_reader_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_reader");
-        let recording_trigger = if mode == Execution::Run {
+        let recording_trigger = if mode == CyclerMode::Run {
             quote! {
                 let recording_trigger = framework::RecordingTrigger::new(
                     recording_intervals.get(#cycler_instance_name).copied().unwrap_or(0)
@@ -412,7 +410,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
         } else {
             Default::default()
         };
-        let recording_index = if matches!(mode, Execution::Replay | Execution::ImageExtraction) {
+        let recording_index = if mode == CyclerMode::Replay {
             let recording_file_name = format!("{instance}.bincode");
             quote! {
                 let #cycler_index_identifier = framework::RecordingIndex::read_from(
@@ -443,7 +441,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: Execution) -> TokenStre
                     quote! { #identifier.clone() }
                 },
             });
-        let recording_parameters = if mode == Execution::Run {
+        let recording_parameters = if mode == CyclerMode::Run {
             quote! {
                 recording_sender.clone(),
                 recording_trigger,
