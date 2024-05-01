@@ -148,10 +148,12 @@ impl SegmentData {
         self.change_buffer = match CyclerOutput::from_str(&self.output_key) {
             Ok(output) => {
                 let buffer = nao.subscribe_changes(output);
+                self.last_error = None;
                 Some(buffer)
             }
             Err(error) => {
                 error!("Failed to subscribe: {:#}", error);
+                self.last_error = Some(error.to_string());
                 None
             }
         };
