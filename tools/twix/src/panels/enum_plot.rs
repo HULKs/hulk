@@ -74,13 +74,7 @@ impl Segment {
         }
     }
 
-    fn render(
-        &self,
-        ui: &mut Ui,
-        offset: usize,
-        index: usize,
-        viewport_transform: &RectTransform,
-    ) -> Rect {
+    fn render(&self, ui: &mut Ui, offset: usize, index: usize, viewport_transform: &RectTransform) {
         let stroke_color = color_hash(self.name());
         let fill_color = stroke_color.gamma_multiply(0.5);
         let stroke_width = 2.0;
@@ -90,7 +84,20 @@ impl Segment {
             [(self.end + offset) as f32, (index + 1) as f32].into(),
         );
 
+        if !rect
+            .x_range()
+            .intersects(viewport_transform.from().x_range())
+        {
+            return;
+        }
+
         let screenspace_rect = viewport_transform.transform_rect(rect).shrink(stroke_width);
+
+        if ui.rect_contains_pointer(screenspace_rect) {
+            if let Some(tooltip) = self.tooltip() {
+                show_tooltip_at_pointer(ui.ctx(), "Fridolin".into(), |ui| ui.label(tooltip));
+            }
+        }
 
         ui.painter().rect(
             screenspace_rect,
@@ -118,8 +125,6 @@ impl Segment {
                 text,
                 Color32::WHITE,
             )));
-
-        screenspace_rect
     }
 }
 
@@ -371,14 +376,7 @@ impl EnumPlotPanel {
                 let offset = max_message_count - message_count;
 
                 for segment in segments {
-                    let rect = segment.render(ui, offset, index, &viewport_transform);
-                    if let Some(tooltip) = segment.tooltip() {
-                        if ui.rect_contains_pointer(rect) {
-                            show_tooltip_at_pointer(ui.ctx(), "Karsten".into(), |ui| {
-                                ui.label(tooltip)
-                            });
-                        }
-                    }
+                    segment.render(ui, offset, index, &viewport_transform);
                 }
             }
         });
