@@ -6,7 +6,8 @@ use crate::{container::Container, extend_generics::ExtendGenerics as _};
 
 pub fn derive_path_introspect(mut input: DeriveInput) -> Result<TokenStream> {
     let container = Container::try_from_ast(&input)?;
-    container.extend_generics(&mut input.generics);
+
+    input.generics.extend_from_attributes(&container);
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
