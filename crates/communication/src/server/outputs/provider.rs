@@ -388,26 +388,6 @@ mod tests {
         }
     }
 
-    // impl<T> PathDeserialize for OutputsFake<T>
-    // where
-    //     for<'a> T: Deserialize<'a> + Serialize,
-    // {
-    //     fn deserialize_path<'de, D>(
-    //         &mut self,
-    //         path: &str,
-    //         deserializer: D,
-    //     ) -> Result<(), deserialize::Error<D::Error>>
-    //     where
-    //         D: Deserializer<'de>,
-    //     {
-    //         self.existing_fields.insert(
-    //             path.to_string(),
-    //             T::deserialize(deserializer).map_err(deserialize::Error::DeserializationFailed)?,
-    //         );
-    //         Ok(())
-    //     }
-    // }
-
     impl<T> PathIntrospect for OutputsFake<T> {
         fn extend_with_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
             fields.insert("a".to_string());

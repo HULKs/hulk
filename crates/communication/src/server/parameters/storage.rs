@@ -241,15 +241,6 @@ mod tests {
         }
     }
 
-    // impl<T> PathIntrospect for ParametersFake<T>
-    // {
-    //     fn extend_with_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
-    //         fields.insert("a".to_string());
-    //         fields.insert("a.b".to_string());
-    //         fields.insert("a.b.c".to_string());
-    //     }
-    // }
-
     #[tokio::test]
     async fn update_request_writes_parameters_and_notifies() {
         let path = "a.b.c".to_string();
