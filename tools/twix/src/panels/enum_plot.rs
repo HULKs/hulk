@@ -322,6 +322,10 @@ impl EnumPlotPanel {
             (self.x_range.min, self.x_range.span())
         };
 
+        if response.double_clicked() {
+            self.viewport_mode = ViewportMode::Follow;
+        }
+
         match self.viewport_mode {
             ViewportMode::Full => {
                 self.x_range = Rangef::new(0.0, max_message_count as f32);
