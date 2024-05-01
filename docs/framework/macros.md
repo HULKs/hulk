@@ -38,7 +38,7 @@ TODO: Elaborate
             - Allows to check if a field paths exists
             - Allows to generate a hierarchy object
             - Implemented for all databases and configuration
-        - Macro `#[derive(SerializeHierarchy)]`
+        - Macro `#[derive(PathSerialize, PathDeserialize, PathIntrospect)]`
             - Attached to structs
             - Generates `impl SerializeHierarchy for ... { ... }`
                 - Iterates over all fields and delegates function calls to the fields

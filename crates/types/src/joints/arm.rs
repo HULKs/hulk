@@ -4,13 +4,24 @@ use std::{
     time::Duration,
 };
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
 use super::mirror::Mirror;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum ArmJoint {
     ShoulderPitch,
     ShoulderRoll,
@@ -21,9 +32,23 @@ pub enum ArmJoint {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
+)]
 pub struct ArmJoints<T = f32> {
     pub shoulder_pitch: T,
     pub shoulder_roll: T,

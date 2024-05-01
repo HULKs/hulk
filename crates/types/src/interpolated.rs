@@ -2,12 +2,22 @@ use std::f32::consts::PI;
 
 use linear_algebra::Isometry2;
 use nalgebra::{matrix, point, Point2};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use coordinate_systems::{Field, Ground};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct Interpolated {
     pub first_half_own_half_towards_own_goal: f32,
     pub first_half_own_half_away_own_goal: f32,

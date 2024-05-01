@@ -1,9 +1,19 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::Team;
 
 #[derive(
-    Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy, PartialEq, Eq,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
+    Eq,
 )]
 pub enum FilteredGameState {
     #[default]

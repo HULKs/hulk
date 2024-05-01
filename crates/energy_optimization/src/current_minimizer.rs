@@ -1,18 +1,38 @@
 use filtering::hysteresis::less_than_with_hysteresis;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{cycle_time::CycleTime, joints::Joints};
 
 use crate::parameters::CurrentMinimizerParameters;
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 enum State {
     #[default]
     Optimizing,
     Resetting,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct CurrentMinimizer {
     minimum_reached: bool,
     position_offset: Joints<f32>,

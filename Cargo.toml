@@ -31,10 +31,10 @@ members = [
   "crates/opn",
   "crates/parameter_tester",
   "crates/parameters",
+  "crates/path_serde",
+  "crates/path_serde_derive",
   "crates/projection",
   "crates/repository",
-  "crates/serialize_hierarchy",
-  "crates/serialize_hierarchy_derive",
   "crates/source_analyzer",
   "crates/spl_network",
   "crates/spl_network_messages",
@@ -142,6 +142,8 @@ opusfile-ng = "0.1.0"
 ordered-float = "3.1.0"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.1"
+path_serde = { path = "crates/path_serde" }
+path_serde_derive = { path = "crates/path_serde_derive" }
 petgraph = "0.6.2"
 png = "0.17.6"
 proc-macro-error = "1.0.4"
@@ -161,8 +163,6 @@ serde_bytes = "0.11.8"
 serde_derive = "1.0.195"
 serde_json = "1.0.107"
 serde_test = "1.0.152"
-serialize_hierarchy = { path = "crates/serialize_hierarchy" }
-serialize_hierarchy_derive = { path = "crates/serialize_hierarchy_derive" }
 sha2 = "0.10.8"
 smallvec = "1.9.0"
 source_analyzer = { path = "crates/source_analyzer" }

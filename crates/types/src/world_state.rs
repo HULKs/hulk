@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Vector2};
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::PlayerNumber;
 
 use crate::{
@@ -14,7 +14,9 @@ use crate::{
     roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
 };
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub rule_ball: Option<BallState>,
@@ -29,7 +31,9 @@ pub struct WorldState {
     pub robot: RobotState,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
     pub ball_in_field: Point2<Field>,
@@ -52,7 +56,9 @@ impl BallState {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub role: Role,

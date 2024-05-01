@@ -1,14 +1,18 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::color::{Intensity, YCbCr444};
 
-#[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Default, Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ImageSegments {
     pub scan_grid: ScanGrid,
 }
 
-#[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Default, Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ScanGrid {
     pub vertical_scan_lines: Vec<ScanLine>,
 }

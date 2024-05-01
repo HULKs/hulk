@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Pose2};
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Update {
     pub ground_to_field: Isometry2<Ground, Field>,
     pub line_center_point: Point2<Field>,
@@ -17,7 +19,9 @@ pub struct Update {
     pub line_length_weight: f32,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ScoredPose {
     pub state: MultivariateNormalDistribution<3>,
     pub score: f32,

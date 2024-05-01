@@ -2,13 +2,15 @@ use std::ops::Index;
 
 use coordinate_systems::{Camera, Robot};
 use linear_algebra::Rotation3;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::camera_position::CameraPosition;
 
 use crate::camera_matrix::CameraMatrix;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct CameraMatrices {
     pub top: CameraMatrix,
     pub bottom: CameraMatrix,

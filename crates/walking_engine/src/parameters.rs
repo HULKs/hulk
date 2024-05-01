@@ -2,14 +2,16 @@ use std::time::Duration;
 
 use coordinate_systems::Walk;
 use linear_algebra::Vector3;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     joints::{arm::ArmJoints, leg::LegJoints},
     step_plan::Step,
 };
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Parameters {
     pub base: Base,
     pub catching_steps: CatchingStepsParameters,
@@ -28,7 +30,9 @@ pub struct Parameters {
     pub max_rotation_speed: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Base {
     pub foot_lift_apex: f32,
     pub foot_lift_apex_increase: Step,
@@ -42,27 +46,43 @@ pub struct Base {
     pub walk_height: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct StartingStepParameters {
     pub foot_lift_apex: f32,
     pub step_duration: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Stiffnesses {
     pub arm_stiffness: f32,
     pub leg_stiffness_walk: f32,
     pub leg_stiffness_stand: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct GyroBalancingParameters {
     pub balance_factors: LegJoints<f32>,
     pub low_pass_factor: f32,
     pub max_delta: LegJoints<f32>,
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct CatchingStepsParameters {
     pub toe_offset: f32,
     pub heel_offset: f32,
@@ -72,7 +92,9 @@ pub struct CatchingStepsParameters {
     pub additional_foot_lift: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SwingingArmsParameters {
     pub default_roll: f32,
     pub roll_factor: f32,

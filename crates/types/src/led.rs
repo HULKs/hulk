@@ -1,9 +1,19 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::color::Rgb;
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct Leds {
     pub left_ear: Ear,
     pub right_ear: Ear,
@@ -14,7 +24,17 @@ pub struct Leds {
     pub right_eye: Eye,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct Eye {
     pub color_at_0: Rgb,
     pub color_at_45: Rgb,
@@ -41,7 +61,17 @@ impl From<Rgb> for Eye {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct Ear {
     pub intensity_at_0: f32,
     pub intensity_at_36: f32,

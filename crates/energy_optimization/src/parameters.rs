@@ -1,8 +1,18 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::joints::Joints;
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct CurrentMinimizerParameters {
     pub reset_threshold: f32,
     pub reset_speed: f32,

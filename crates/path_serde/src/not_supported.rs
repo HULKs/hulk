@@ -5,83 +5,82 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
 use nalgebra::{DMatrix, Isometry2, Isometry3, Rotation3, SMatrix, UnitComplex, UnitQuaternion};
 use serde::{Deserializer, Serializer};
 
-use crate::{error::Error, SerializeHierarchy};
-
 macro_rules! implement_as_not_supported {
     ($type:ty) => {
-        impl SerializeHierarchy for $type {
+        impl PathSerialize for $type {
             fn serialize_path<S>(
                 &self,
                 path: &str,
                 _serializer: S,
-            ) -> Result<S::Ok, Error<S::Error>>
+            ) -> Result<S::Ok, serialize::Error<S::Error>>
             where
                 S: Serializer,
             {
-                Err(Error::TypeDoesNotSupportSerialization {
+                Err(serialize::Error::NotSupported {
                     type_name: stringify!($type),
                     path: path.to_string(),
                 })
             }
+        }
 
+        impl PathDeserialize for $type {
             fn deserialize_path<'de, D>(
                 &mut self,
                 path: &str,
                 _data: D,
-            ) -> Result<(), Error<D::Error>>
+            ) -> Result<(), deserialize::Error<D::Error>>
             where
                 D: Deserializer<'de>,
             {
-                Err(Error::TypeDoesNotSupportDeserialization {
+                Err(deserialize::Error::NotSupported {
                     type_name: stringify!($type),
                     path: path.to_string(),
                 })
             }
+        }
 
-            fn exists(_path: &str) -> bool {
-                false
-            }
-
+        impl PathIntrospect for $type {
             fn extend_with_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };
     ($type:ty, $($generic:tt),*) => {
-        impl<$($generic),*> SerializeHierarchy for $type {
+        impl<$($generic),*> PathSerialize for $type {
             fn serialize_path<S>(
                 &self,
                 path: &str,
                 _serializer: S,
-            ) -> Result<S::Ok, Error<S::Error>>
+            ) -> Result<S::Ok, serialize::Error<S::Error>>
             where
                 S: Serializer,
             {
-                Err(Error::TypeDoesNotSupportSerialization {
+                Err(serialize::Error::NotSupported {
                     type_name: stringify!($type),
                     path: path.to_string(),
                 })
             }
+        }
 
+        impl<$($generic),*> PathDeserialize for $type {
             fn deserialize_path<'de, D>(
                 &mut self,
                 path: &str,
                 _data: D,
-            ) -> Result<(), Error<D::Error>>
+            ) -> Result<(), deserialize::Error<D::Error>>
             where
                 D: Deserializer<'de>,
             {
-                Err(Error::TypeDoesNotSupportDeserialization {
+                Err(deserialize::Error::NotSupported {
                     type_name: stringify!($type),
                     path: path.to_string(),
                 })
             }
+        }
 
-            fn exists(_path: &str) -> bool {
-                false
-            }
-
+        impl<$($generic),*> PathIntrospect for $type {
             fn extend_with_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
         }
     };

@@ -4,9 +4,19 @@ use approx_derive::{AbsDiffEq, RelativeEq};
 use coordinate_systems::{Ground, Pixel};
 use geometry::circle::Circle;
 use linear_algebra::Point2;
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct CandidateEvaluation {
     pub candidate_circle: Circle<Pixel>,
     pub preclassifier_confidence: f32,
@@ -16,7 +26,16 @@ pub struct CandidateEvaluation {
 }
 
 #[derive(
-    Clone, Debug, Deserialize, Serialize, SerializeHierarchy, AbsDiffEq, RelativeEq, PartialEq,
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    AbsDiffEq,
+    RelativeEq,
+    PartialEq,
 )]
 #[abs_diff_eq(epsilon_type = f32)]
 pub struct Ball {

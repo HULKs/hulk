@@ -1,7 +1,7 @@
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use linear_algebra::{IntoFramed, Isometry3, Point2, Rotation3, Vector2};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
     camera_projection::{CameraProjection, InverseCameraProjection},
@@ -9,9 +9,21 @@ use crate::{
     intrinsic::Intrinsic,
 };
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
-#[serialize_hierarchy(
-    bound = "Camera: SerializeHierarchy + Serialize, for<'de> Camera: Deserialize<'de>"
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+#[path_serde(
+    bound = 
+        Camera: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> Camera: Deserialize<'de>
 )]
 pub struct CameraMatrix {
     pub ground_to_robot: Isometry3<Ground, Robot>,

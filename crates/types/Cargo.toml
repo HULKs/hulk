@@ -16,12 +16,7 @@ image = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
+path_serde = { workspace = true }
 serde = { workspace = true }
-serialize_hierarchy = { workspace = true }
 spl_network_messages = { workspace = true }
 splines = { workspace = true }
-
-[build-dependencies]
-petgraph = { workspace = true }
-proc-macro2 = { workspace = true }
-quote = { workspace = true }

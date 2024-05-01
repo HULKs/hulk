@@ -1,7 +1,7 @@
 use std::ops::{Add, Div, Mul, Sub};
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use super::{
     arm::{ArmJoint, ArmJoints},
@@ -17,9 +17,23 @@ pub enum BodyJointsName {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
+)]
 pub struct BodyJoints<T = f32> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,
@@ -138,9 +152,23 @@ impl Div<f32> for BodyJoints<f32> {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
+)]
 pub struct LowerBodyJoints<T = f32> {
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
@@ -159,9 +187,23 @@ where
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
+)]
 pub struct UpperBodyJoints<T> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,

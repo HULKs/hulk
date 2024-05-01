@@ -1,9 +1,11 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct CycleTime {
     pub start_time: SystemTime,
     pub last_cycle_duration: Duration,

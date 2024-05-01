@@ -1,5 +1,5 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     joints::{body::LowerBodyJoints, leg::LegJoints},
     support_foot::Side,
@@ -7,7 +7,17 @@ use types::{
 
 use crate::Context;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, SerializeHierarchy)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct GyroBalancing {
     balancing: LegJoints,
 }

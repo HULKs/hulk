@@ -1,8 +1,8 @@
 use std::{ffi::c_char, mem::size_of, slice::from_raw_parts, time::Duration};
 
 use num_derive::FromPrimitive;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
     bindings::{
@@ -35,7 +35,9 @@ use crate::{
     FromPrimitive,
     PartialEq,
     Serialize,
-    SerializeHierarchy,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 #[repr(u8)]
 pub enum VisualRefereeDecision {

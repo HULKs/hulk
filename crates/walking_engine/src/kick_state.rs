@@ -1,6 +1,6 @@
 use itertools::Itertools;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use splines::Interpolate;
 use std::time::Duration;
 use types::{
@@ -13,7 +13,9 @@ use crate::kick_steps::{JointOverride, KickStep, KickSteps};
 
 use super::step_state::StepState;
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Debug, Copy, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct KickState {
     pub variant: KickVariant,
     /// the foot that is kicking the ball

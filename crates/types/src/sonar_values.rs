@@ -1,7 +1,9 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Default, Debug, Clone, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Default, Debug, Clone, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct SonarValues {
     pub left_sonar: bool,
     pub right_sonar: bool,

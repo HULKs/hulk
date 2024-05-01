@@ -10,6 +10,7 @@ use std::{
 
 use coordinate_systems::Field;
 use linear_algebra::{Point2, Pose2};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 pub use game_controller_return_message::GameControllerReturnMessage;
@@ -17,7 +18,6 @@ pub use game_controller_state_message::{
     GameControllerStateMessage, GamePhase, GameState, Half, Penalty, PenaltyShoot, Player,
     SubState, Team, TeamColor, TeamState,
 };
-use serialize_hierarchy::SerializeHierarchy;
 pub use visual_referee_message::{VisualRefereeDecision, VisualRefereeMessage};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -30,7 +30,17 @@ pub struct HulkMessage {
     pub time_to_reach_kick_position: Option<Duration>,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PathDeserialize,
+    PathIntrospect,
+    PathSerialize,
+    Serialize,
+)]
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
     pub age: Duration,
@@ -39,7 +49,18 @@ pub struct BallPosition<Frame> {
 pub const HULKS_TEAM_NUMBER: u8 = 24;
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Eq,
+    Hash,
+    PartialEq,
+    PathDeserialize,
+    PathIntrospect,
+    PathSerialize,
+    Serialize,
 )]
 pub enum PlayerNumber {
     One,

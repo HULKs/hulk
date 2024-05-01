@@ -3,8 +3,8 @@ use std::{path::PathBuf, time::Duration};
 
 use coordinate_systems::{Field, Ground, NormalizedPixel};
 use linear_algebra::{Point2, Vector2};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{
     joints::head::HeadJoints,
@@ -13,7 +13,9 @@ use crate::{
     step_plan::Step,
 };
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct WhistleDetectionParameters {
     pub detection_band: Range<f32>,
     pub background_noise_scaling: f32,
@@ -21,7 +23,9 @@ pub struct WhistleDetectionParameters {
     pub number_of_chunks: usize,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct StepPlannerParameters {
     pub injected_step: Option<Step>,
     pub max_step_size: Step,
@@ -30,7 +34,9 @@ pub struct StepPlannerParameters {
     pub rotation_exponent: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
     pub lost_ball: LostBallParameters,
@@ -45,7 +51,17 @@ pub struct BehaviorParameters {
     pub initial_lookaround_duration: Duration,
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct LookActionParameters {
     pub angle_threshold: f32,
     pub distance_threshold: f32,
@@ -53,7 +69,9 @@ pub struct LookActionParameters {
     pub position_of_interest_switch_interval: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct RolePositionsParameters {
     pub defender_aggressive_ring_radius: f32,
     pub defender_passive_ring_radius: f32,
@@ -72,20 +90,26 @@ pub struct RolePositionsParameters {
     pub striker_set_position: Point2<Field>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SearchParameters {
     pub position_reached_distance: f32,
     pub rotation_per_step: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct InWalkKicksParameters {
     pub forward: InWalkKickInfoParameters,
     pub turn: InWalkKickInfoParameters,
     pub side: InWalkKickInfoParameters,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct FindKickTargetsParameters {
     pub distance_from_corner: f32,
     pub corner_kick_target_distance_to_goal: f32,
@@ -106,7 +130,9 @@ impl Index<KickVariant> for InWalkKicksParameters {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct InWalkKickInfoParameters {
     pub position: nalgebra::Point2<f32>,
     pub orientation: f32,
@@ -115,7 +141,9 @@ pub struct InWalkKickInfoParameters {
     pub enabled: bool,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct DribblingParameters {
     pub hybrid_align_distance: f32,
     pub distance_to_be_aligned: f32,
@@ -123,7 +151,9 @@ pub struct DribblingParameters {
     pub ignore_robot_when_near_ball_radius: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct WalkAndStandParameters {
     pub hysteresis: nalgebra::Vector2<f32>,
     pub target_reached_thresholds: nalgebra::Vector2<f32>,
@@ -131,12 +161,24 @@ pub struct WalkAndStandParameters {
     pub distance_to_be_aligned: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct LostBallParameters {
     pub offset_to_last_ball_location: Vector2<Field>,
 }
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct InterceptBallParameters {
     pub maximum_ball_distance: f32,
     pub minimum_ball_velocity: f32,
@@ -145,7 +187,9 @@ pub struct InterceptBallParameters {
     pub maximum_intercept_distance: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct PathPlanningParameters {
     pub arc_walking_speed: f32,
     pub ball_obstacle_radius: f32,
@@ -158,7 +202,9 @@ pub struct PathPlanningParameters {
     pub half_rotation: Duration,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct GameStateFilterParameters {
     pub game_controller_controller_delay: Duration,
     pub playing_message_delay: Duration,
@@ -169,13 +215,25 @@ pub struct GameStateFilterParameters {
     pub whistle_acceptance_goal_distance: Vector2<Field>,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct ImageRegionParameters {
     pub bottom: Point2<NormalizedPixel>,
     pub center: Point2<NormalizedPixel>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct LookAroundParameters {
     pub look_around_timeout: Duration,
     pub quick_search_timeout: Duration,
@@ -186,7 +244,9 @@ pub struct LookAroundParameters {
     pub halfway_right_positions: HeadJoints<f32>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SplNetworkParameters {
     pub game_controller_return_message_interval: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
@@ -196,7 +256,17 @@ pub struct SplNetworkParameters {
     pub striker_trusts_team_ball: Duration,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum MedianModeParameters {
     #[default]
     Disabled,
@@ -204,14 +274,26 @@ pub enum MedianModeParameters {
     FivePixels,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum EdgeDetectionSourceParameters {
     #[default]
     Luminance,
     GreenChromaticity,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BallDetectionParameters {
     pub minimal_radius: f32,
     pub preclassifier_neural_network: PathBuf,
@@ -227,7 +309,9 @@ pub struct BallDetectionParameters {
     pub ball_radius_enlargement_factor: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
     pub measurement_matching_distance: f32,
@@ -244,7 +328,9 @@ pub struct BallFilterParameters {
     pub resting_ball_velocity_threshold: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ObstacleFilterParameters {
     pub hypothesis_timeout: Duration,
     pub network_robot_measurement_matching_distance: f32,
@@ -268,7 +354,9 @@ pub struct ObstacleFilterParameters {
     pub goal_post_obstacle_radius: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct CameraMatrixParameters {
     pub camera_pitch: f32,
     pub extrinsic_rotations: nalgebra::Vector3<f32>,
@@ -276,7 +364,9 @@ pub struct CameraMatrixParameters {
     pub cc_optical_center: nalgebra::Point2<f32>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SearchSuggestorParameters {
     pub cells_per_meter: f32,
     pub heatmap_decay_factor: f32,

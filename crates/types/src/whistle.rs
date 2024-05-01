@@ -1,12 +1,16 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Whistle {
     pub is_detected: Vec<bool>,
 }
 
-#[derive(Debug, Default, Clone, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct DetectionInfo {
     pub overall_mean: f32,
     pub std_deviation: f32,

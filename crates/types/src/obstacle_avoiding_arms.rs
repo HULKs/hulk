@@ -1,12 +1,14 @@
 use std::f32::consts::FRAC_PI_2;
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use splines::Interpolate;
 
 use crate::joints::{arm::ArmJoints, mirror::Mirror};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum ArmCommand {
     #[default]
     Swing,
@@ -50,7 +52,9 @@ impl ArmCommand {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ArmCommands {
     pub left_arm: ArmCommand,
     pub right_arm: ArmCommand,

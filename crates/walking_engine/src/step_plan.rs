@@ -2,15 +2,17 @@ use std::time::Duration;
 
 use coordinate_systems::Walk;
 use linear_algebra::Vector2;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{step_plan::Step, support_foot::Side};
 
 use crate::Context;
 
 use super::{anatomic_constraints::AnatomicConstraints, feet::Feet};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct StepPlan {
     pub step_duration: Duration,
     pub start_feet: Feet,

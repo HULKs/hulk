@@ -11,8 +11,8 @@ use std::{
     ops::{Add, Div, Index, IndexMut, Mul, Sub},
 };
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
 use self::{
@@ -23,7 +23,18 @@ use self::{
     mirror::Mirror,
 };
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum JointsName {
     Head(HeadJoint),
     LeftArm(ArmJoint),
@@ -33,9 +44,23 @@ pub enum JointsName {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
+)]
 pub struct Joints<T = f32> {
     pub head: HeadJoints<T>,
     pub left_arm: ArmJoints<T>,

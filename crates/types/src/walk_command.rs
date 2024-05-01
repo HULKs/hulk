@@ -1,9 +1,19 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{motion_command::KickVariant, step_plan::Step, support_foot::Side};
 
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum WalkCommand {
     #[default]
     Stand,

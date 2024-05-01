@@ -1,9 +1,19 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Point2, Vector2};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    PathDeserialize,
+    PathIntrospect,
+    PathSerialize,
+    Serialize,
+)]
 pub struct Rectangle<Frame> {
     pub min: Point2<Frame>,
     pub max: Point2<Frame>,

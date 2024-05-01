@@ -8,56 +8,68 @@ use crate::joints::{
     mirror::Mirror,
     Joints,
 };
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use splines::impl_Interpolate;
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-#[serialize_hierarchy(
-    bound = "Joints: SerializeHierarchy + Serialize, for<'de> Joints: Deserialize<'de>"
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
 )]
-pub struct MotorCommands<Joints> {
-    pub positions: Joints,
-    pub stiffnesses: Joints,
+pub struct MotorCommands<T> {
+    pub positions: T,
+    pub stiffnesses: T,
 }
 
 impl_Interpolate!(f32, MotorCommands<Joints<f32>>, PI);
 
-impl<Joints> Mirror for MotorCommands<Joints>
+impl<T> Mirror for MotorCommands<T>
 where
-    Joints: Mirror,
+    T: Mirror,
 {
     fn mirrored(self) -> Self {
         Self {
-            positions: Joints::mirrored(self.positions),
-            stiffnesses: Joints::mirrored(self.stiffnesses),
+            positions: T::mirrored(self.positions),
+            stiffnesses: T::mirrored(self.stiffnesses),
         }
     }
 }
 
-impl<Joints> Mul<f32> for MotorCommands<Joints>
+impl<T> Mul<f32> for MotorCommands<T>
 where
-    Joints: Mul<f32>,
+    T: Mul<f32>,
 {
-    type Output = MotorCommands<Joints::Output>;
+    type Output = MotorCommands<T::Output>;
 
     fn mul(self, right: f32) -> Self::Output {
         Self::Output {
-            positions: Joints::mul(self.positions, right),
+            positions: T::mul(self.positions, right),
             stiffnesses: self.stiffnesses * right,
         }
     }
 }
 
-impl<Joints> Add<MotorCommands<Joints>> for MotorCommands<Joints>
+impl<T> Add<MotorCommands<T>> for MotorCommands<T>
 where
-    Joints: Add<Joints>,
+    T: Add<T>,
 {
-    type Output = MotorCommands<Joints::Output>;
+    type Output = MotorCommands<T::Output>;
 
-    fn add(self, right: MotorCommands<Joints>) -> Self::Output {
+    fn add(self, right: MotorCommands<T>) -> Self::Output {
         Self::Output {
             positions: self.positions + right.positions,
             stiffnesses: self.stiffnesses + right.stiffnesses,
@@ -65,13 +77,13 @@ where
     }
 }
 
-impl<Joints> Sub<MotorCommands<Joints>> for MotorCommands<Joints>
+impl<T> Sub<MotorCommands<T>> for MotorCommands<T>
 where
-    Joints: Sub<Joints>,
+    T: Sub<T>,
 {
-    type Output = MotorCommands<Joints::Output>;
+    type Output = MotorCommands<T::Output>;
 
-    fn sub(self, right: MotorCommands<Joints>) -> Self::Output {
+    fn sub(self, right: MotorCommands<T>) -> Self::Output {
         Self::Output {
             positions: self.positions - right.positions,
             stiffnesses: self.stiffnesses - right.stiffnesses,
@@ -79,11 +91,11 @@ where
     }
 }
 
-impl<Joints> Div<f32> for MotorCommands<Joints>
+impl<T> Div<f32> for MotorCommands<T>
 where
-    Joints: Div<f32>,
+    T: Div<f32>,
 {
-    type Output = MotorCommands<Joints::Output>;
+    type Output = MotorCommands<T::Output>;
 
     fn div(self, right: f32) -> Self::Output {
         Self::Output {
