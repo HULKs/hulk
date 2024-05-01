@@ -103,8 +103,11 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
     // 2 communication writer slots + n reader slots for other cyclers
     let number_of_parameter_slots = 2 + cyclers.number_of_instances();
     let construct_cyclers = generate_cycler_constructors(cyclers, CyclerMode::Replay);
-    let (replayer_fields, replayer_parameters, accessors) =
-        generate_replayer_fields_and_accessors(cyclers, with_communication);
+    let ReplayerTokenStreams {
+        fields,
+        parameters: identifiers,
+        accessors,
+    } = generate_replayer_token_streams(cyclers, with_communication);
     let parameters_reader =
         generate_parameters_reader(number_of_parameter_slots, with_communication);
     let (replayer_arguments, communication_registrations) = if with_communication {
@@ -127,7 +130,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
 
     quote! {
         pub struct Replayer<Hardware> {
-            #replayer_fields
+            #fields
             #cycler_fields
         }
 
@@ -153,7 +156,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                 #communication_registrations
 
                 Ok(Self {
-                    #replayer_parameters
+                    #identifiers
                     #cycler_parameters
                 })
             }
@@ -184,20 +187,26 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
     }
 }
 
-fn generate_replayer_fields_and_accessors(
+struct ReplayerTokenStreams {
+    fields: TokenStream,
+    parameters: TokenStream,
+    accessors: TokenStream,
+}
+
+fn generate_replayer_token_streams(
     cyclers: &Cyclers,
     with_communication: bool,
-) -> (TokenStream, TokenStream, TokenStream) {
+) -> ReplayerTokenStreams {
     if with_communication {
-        (
-            quote! {
+        ReplayerTokenStreams {
+            fields: quote! {
                 _communication_server: communication::server::Runtime<crate::structs::Parameters>,
             },
-            quote! {
+            parameters: quote! {
                 _communication_server: communication_server,
             },
-            Default::default(),
-        )
+            accessors: Default::default(),
+        }
     } else {
         let reader_tokens: Vec<_> = cyclers
             .instances()
@@ -224,19 +233,19 @@ fn generate_replayer_fields_and_accessors(
             }
         });
 
-        (
-            quote! {
+        ReplayerTokenStreams {
+            fields: quote! {
                 _parameters_writer: framework::Writer<crate::structs::Parameters>,
                 #(#reader_fields)*
             },
-            quote! {
+            parameters: quote! {
                 _parameters_writer: parameters_writer,
                 #(#reader_identifiers,)*
             },
-            quote! {
+            accessors: quote! {
                 #(#reader_accessors)*
             },
-        )
+        }
     }
 }
 
