@@ -128,7 +128,7 @@ impl Segment {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum ViewportMode {
     Full,
     Follow,

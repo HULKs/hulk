@@ -12,7 +12,7 @@ use tokio::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct Change {
     pub message_number: usize,
     pub value: Value,
