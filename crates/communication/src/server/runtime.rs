@@ -10,8 +10,8 @@ use std::{
 
 use framework::{multiple_buffer_with_slots, Reader, Writer};
 use parameters::directory::{deserialize, DirectoryError};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{de::DeserializeOwned, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     net::ToSocketAddrs,
     runtime::{self, Runtime as TokioRuntime},
@@ -54,7 +54,15 @@ pub struct Runtime<Parameters> {
 
 impl<Parameters> Runtime<Parameters>
 where
-    Parameters: Clone + DeserializeOwned + Send + Serialize + SerializeHierarchy + Sync + 'static,
+    Parameters: 'static
+        + DeserializeOwned
+        + PathDeserialize
+        + PathIntrospect
+        + PathSerialize
+        + Send
+        + Serialize
+        + Sync
+        + Clone,
 {
     pub fn start(
         addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
@@ -204,7 +212,7 @@ where
         outputs_reader: Reader<Outputs>,
         subscribed_outputs_writer: Writer<HashSet<String>>,
     ) where
-        Outputs: SerializeHierarchy + Send + Sync + 'static,
+        Outputs: Send + Sync + 'static + PathSerialize + PathIntrospect,
     {
         let _guard = self.runtime.enter();
         provider(

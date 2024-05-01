@@ -1,11 +1,21 @@
 use coordinate_systems::{Camera, Pixel};
 use linear_algebra::{point, Isometry3, Point2, Point3, Transform};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::intrinsic::Intrinsic;
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct CameraProjection<From> {
     extrinsic: Isometry3<From, Camera>,
     intrinsic: Intrinsic,
@@ -29,7 +39,17 @@ impl<From> CameraProjection<From> {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct InverseCameraProjection<To> {
     back_project: Transform<Pixel, To, nalgebra::Matrix3<f32>>,
     z: f32,

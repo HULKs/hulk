@@ -1,15 +1,28 @@
 use std::ops::{Index, IndexMut};
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Deserialize,
+)]
 pub struct MotionSelection {
     pub current_motion: MotionType,
     pub dispatching_motion: Option<MotionType>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum MotionType {
     ArmsUpSquat,
     Dispatching,
@@ -33,7 +46,7 @@ impl Default for MotionType {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct MotionSafeExits {
     arms_up_squat: bool,
     dispatching: bool,

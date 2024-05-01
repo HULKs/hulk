@@ -12,9 +12,9 @@ framework = { workspace = true, optional = true}
 futures-util = { workspace = true }
 log = { workspace = true }
 parameters = { workspace = true }
+path_serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serialize_hierarchy = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }

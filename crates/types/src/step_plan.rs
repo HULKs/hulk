@@ -1,10 +1,20 @@
 use std::ops::{Add, Sub};
 
 use nalgebra::Vector2;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy, Default)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Default,
+)]
 pub struct Step {
     pub forward: f32,
     pub left: f32,

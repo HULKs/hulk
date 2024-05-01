@@ -1,7 +1,18 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum Side {
     Left,
     Right,
@@ -22,7 +33,9 @@ impl Default for Side {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SupportFoot {
     pub support_side: Option<Side>,
     pub changed_this_cycle: bool,

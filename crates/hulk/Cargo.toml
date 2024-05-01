@@ -20,11 +20,11 @@ ittapi = { workspace = true }
 libc = { workspace = true, optional = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
-projection = { workspace = true }
 object_detection = { workspace = true }
+path_serde = { workspace = true }
+projection = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
 systemd = { workspace = true, optional = true }

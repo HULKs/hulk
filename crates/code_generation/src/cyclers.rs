@@ -86,7 +86,14 @@ fn generate_cycler_instance(cycler: &Cycler) -> TokenStream {
 
 fn generate_database_struct() -> TokenStream {
     quote! {
-        #[derive(Default, serde::Deserialize, serde::Serialize, serialize_hierarchy::SerializeHierarchy)]
+        #[derive(
+            Default,
+            serde::Deserialize,
+            serde::Serialize,
+            path_serde::PathSerialize,
+            path_serde::PathDeserialize,
+            path_serde::PathIntrospect,
+        )]
         pub(crate) struct Database {
             pub main_outputs: MainOutputs,
             pub additional_outputs: AdditionalOutputs,

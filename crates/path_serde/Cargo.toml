@@ -1,14 +1,12 @@
 [package]
-name = "serialize_hierarchy"
+name = "path_serde"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-bincode = { workspace = true }
 nalgebra = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-serialize_hierarchy_derive = { workspace = true }
+path_serde_derive = { workspace = true }
 thiserror = { workspace = true }

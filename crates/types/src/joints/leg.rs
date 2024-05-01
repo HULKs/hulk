@@ -3,12 +3,23 @@ use std::{
     time::Duration,
 };
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use super::mirror::Mirror;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum LegJoint {
     AnklePitch,
     AnkleRoll,
@@ -19,9 +30,23 @@ pub enum LegJoint {
 }
 
 #[derive(
-    Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize, SerializeHierarchy,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
+)]
 pub struct LegJoints<T = f32> {
     pub ankle_pitch: T,
     pub ankle_roll: T,

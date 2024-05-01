@@ -1,9 +1,11 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::color::{Intensity, Rgb, RgbChannel, YCbCr444};
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct FieldColor {
     pub red_chromaticity_threshold: f32,
     pub blue_chromaticity_threshold: f32,

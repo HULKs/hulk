@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{hash_map::Entry, BTreeSet, HashMap, HashSet},
     num::Wrapping,
     sync::Arc,
 };
@@ -8,7 +8,7 @@ use bincode::{DefaultOptions, Options};
 use framework::{Reader, Writer};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathIntrospect, PathSerialize};
 use tokio::{
     select, spawn,
     sync::{
@@ -36,15 +36,16 @@ pub fn provider<Outputs>(
     subscribed_outputs_writer: Writer<HashSet<String>>,
 ) -> JoinHandle<()>
 where
-    Outputs: SerializeHierarchy + Send + Sync + 'static,
+    Outputs: PathIntrospect + PathSerialize + Send + Sync + 'static,
 {
     spawn(async move {
         let (request_sender, mut request_receiver) = channel(1);
 
+        let fields = Outputs::get_fields();
         outputs_sender
             .send(Request::RegisterCycler {
                 cycler_instance: cycler_instance.to_string(),
-                fields: Outputs::get_fields(),
+                fields: fields.clone(),
                 request_sender,
             })
             .await
@@ -58,10 +59,11 @@ where
                 request = request_receiver.recv() => {
                     match request {
                         Some(request) => {
-                            handle_client_request::<Outputs>(
+                            handle_client_request(
                                 request,
                                 cycler_instance,
                                 &mut subscriptions,
+                                &fields,
                             ).await
                         },
                         None => break,
@@ -87,14 +89,12 @@ enum SubscriptionsState {
     Unchanged,
 }
 
-async fn handle_client_request<Outputs>(
+async fn handle_client_request(
     request: ClientRequest<OutputsRequest>,
     cycler_instance: &'static str,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
-) -> SubscriptionsState
-where
-    Outputs: SerializeHierarchy,
-{
+    fields: &BTreeSet<String>,
+) -> SubscriptionsState {
     let is_get_next = matches!(request.request, OutputsRequest::GetNext { .. });
     match request.request {
         OutputsRequest::GetFields { .. } => {
@@ -113,50 +113,7 @@ where
             format,
         } => {
             assert_eq!(cycler_instance, received_cycler_instance);
-            if Outputs::exists(&path) {
-                match subscriptions.entry((request.client.clone(), id)) {
-                    Entry::Occupied(_) => {
-                        let error_message = format!("already subscribed with id {id}");
-                        request
-                            .client
-                            .response_sender
-                            .send(Response::Textual(TextualResponse::Outputs(
-                                if is_get_next {
-                                    TextualOutputsResponse::GetNext {
-                                        id,
-                                        result: Err(error_message),
-                                    }
-                                } else {
-                                    TextualOutputsResponse::Subscribe {
-                                        id,
-                                        result: Err(error_message),
-                                    }
-                                },
-                            )))
-                            .await
-                            .expect("receiver should always wait for all senders");
-                        SubscriptionsState::Unchanged
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(Subscription {
-                            path,
-                            format,
-                            once: is_get_next,
-                        });
-                        if !is_get_next {
-                            request
-                                .client
-                                .response_sender
-                                .send(Response::Textual(TextualResponse::Outputs(
-                                    TextualOutputsResponse::Subscribe { id, result: Ok(()) },
-                                )))
-                                .await
-                                .expect("receiver should always wait for all senders");
-                        }
-                        SubscriptionsState::Changed
-                    }
-                }
-            } else {
+            if !fields.contains(&path) {
                 request
                     .client
                     .response_sender
@@ -168,7 +125,49 @@ where
                     )))
                     .await
                     .expect("receiver should always wait for all senders");
-                SubscriptionsState::Unchanged
+                return SubscriptionsState::Unchanged;
+            }
+            match subscriptions.entry((request.client.clone(), id)) {
+                Entry::Occupied(_) => {
+                    let error_message = format!("already subscribed with id {id}");
+                    request
+                        .client
+                        .response_sender
+                        .send(Response::Textual(TextualResponse::Outputs(
+                            if is_get_next {
+                                TextualOutputsResponse::GetNext {
+                                    id,
+                                    result: Err(error_message),
+                                }
+                            } else {
+                                TextualOutputsResponse::Subscribe {
+                                    id,
+                                    result: Err(error_message),
+                                }
+                            },
+                        )))
+                        .await
+                        .expect("receiver should always wait for all senders");
+                    SubscriptionsState::Unchanged
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(Subscription {
+                        path,
+                        format,
+                        once: is_get_next,
+                    });
+                    if !is_get_next {
+                        request
+                            .client
+                            .response_sender
+                            .send(Response::Textual(TextualResponse::Outputs(
+                                TextualOutputsResponse::Subscribe { id, result: Ok(()) },
+                            )))
+                            .await
+                            .expect("receiver should always wait for all senders");
+                    }
+                    SubscriptionsState::Changed
+                }
             }
         }
         OutputsRequest::Unsubscribe {
@@ -231,7 +230,7 @@ fn write_subscribed_outputs_from_subscriptions(
 }
 
 async fn handle_notified_output(
-    outputs_reader: &Reader<impl SerializeHierarchy>,
+    outputs_reader: &Reader<impl PathSerialize>,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
     next_binary_reference_id: &mut Wrapping<usize>,
 ) -> SubscriptionsState {
@@ -354,9 +353,9 @@ mod tests {
 
     use bincode::serialize;
     use framework::multiple_buffer_with_slots;
-    use serde::{de::Deserialize, Deserializer, Serialize, Serializer};
+    use path_serde::serialize;
+    use serde::{Serialize, Serializer};
     use serde_json::Value;
-    use serialize_hierarchy::Error;
     use tokio::{sync::mpsc::error::TryRecvError, task::yield_now, time::timeout};
 
     use crate::messages::Format;
@@ -367,42 +366,49 @@ mod tests {
         existing_fields: HashMap<String, T>,
     }
 
-    impl<T> SerializeHierarchy for OutputsFake<T>
+    impl<T> PathSerialize for OutputsFake<T>
     where
-        for<'a> T: Deserialize<'a> + Serialize,
+        T: Serialize,
     {
-        fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
+        fn serialize_path<S>(
+            &self,
+            path: &str,
+            serializer: S,
+        ) -> Result<S::Ok, serialize::Error<S::Error>>
         where
             S: Serializer,
         {
             self.existing_fields
                 .get(path)
-                .ok_or(Error::UnexpectedPathSegment {
-                    segment: path.to_string(),
+                .ok_or(serialize::Error::UnexpectedPath {
+                    path: path.to_owned(),
                 })?
                 .serialize(serializer)
-                .map_err(Error::SerializationFailed)
+                .map_err(serialize::Error::SerializationFailed)
         }
+    }
 
-        fn deserialize_path<'de, D>(
-            &mut self,
-            path: &str,
-            deserializer: D,
-        ) -> Result<(), Error<D::Error>>
-        where
-            D: Deserializer<'de>,
-        {
-            self.existing_fields.insert(
-                path.to_string(),
-                T::deserialize(deserializer).map_err(Error::DeserializationFailed)?,
-            );
-            Ok(())
-        }
+    // impl<T> PathDeserialize for OutputsFake<T>
+    // where
+    //     for<'a> T: Deserialize<'a> + Serialize,
+    // {
+    //     fn deserialize_path<'de, D>(
+    //         &mut self,
+    //         path: &str,
+    //         deserializer: D,
+    //     ) -> Result<(), deserialize::Error<D::Error>>
+    //     where
+    //         D: Deserializer<'de>,
+    //     {
+    //         self.existing_fields.insert(
+    //             path.to_string(),
+    //             T::deserialize(deserializer).map_err(deserialize::Error::DeserializationFailed)?,
+    //         );
+    //         Ok(())
+    //     }
+    // }
 
-        fn exists(field_path: &str) -> bool {
-            field_path == "a.b.c"
-        }
-
+    impl<T> PathIntrospect for OutputsFake<T> {
         fn extend_with_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
             fields.insert("a".to_string());
             fields.insert("a.b".to_string());
@@ -413,7 +419,7 @@ mod tests {
     async fn get_registered_request_sender_from_provider(
         cycler_instance: &'static str,
         outputs_changed: Arc<Notify>,
-        output: Reader<impl SerializeHierarchy + Send + Sync + 'static>,
+        output: Reader<impl PathIntrospect + PathSerialize + Send + Sync + 'static>,
     ) -> (
         JoinHandle<()>,
         BTreeSet<String>,

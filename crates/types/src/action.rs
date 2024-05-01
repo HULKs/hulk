@@ -1,7 +1,9 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Clone, Copy, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub enum Action {
     Calibrate,
     DefendGoal,

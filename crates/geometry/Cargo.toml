@@ -10,5 +10,5 @@ approx = { workspace = true }
 approx_derive = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+path_serde = { workspace = true }
 serde = { workspace = true }
-serialize_hierarchy = { workspace = true }

@@ -1,7 +1,9 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum PenaltyShotDirection {
     NotMoving,
     Left,

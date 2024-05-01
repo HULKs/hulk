@@ -12,15 +12,17 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::Point2;
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     color::{Rgb, YCbCr422, YCbCr444},
     jpeg::JpegImage,
 };
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
-#[serialize_hierarchy(add_leaf(jpeg: JpegImage))]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+#[path_serde(add_leaf(jpeg: JpegImage))]
 pub struct YCbCr422Image {
     width_422: u32,
     height: u32,

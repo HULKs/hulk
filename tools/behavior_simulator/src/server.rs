@@ -12,27 +12,31 @@ use crate::{
 };
 use color_eyre::{eyre::bail, owo_colors::OwoColorize, Result};
 use framework::{multiple_buffer_with_slots, Reader, Writer};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use tokio::{net::ToSocketAddrs, select, sync::Notify, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::{field_dimensions::FieldDimensions, players::Players};
 
-#[derive(Clone, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 struct Parameters {
     selected_frame: usize,
     selected_robot: usize,
     field_dimensions: FieldDimensions,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 struct MainOutputs {
     frame_count: usize,
     ball: Option<Ball>,
     databases: Players<Option<Database>>,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 struct BehaviorSimulatorDatabase {
     main_outputs: MainOutputs,
 }

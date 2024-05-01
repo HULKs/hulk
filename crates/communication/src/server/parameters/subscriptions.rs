@@ -6,7 +6,7 @@ use std::{
 use framework::Reader;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathIntrospect, PathSerialize};
 use tokio::{
     select, spawn,
     sync::{
@@ -30,7 +30,7 @@ pub fn subscriptions<Parameters>(
     storage_request_sender: Sender<StorageRequest>,
 ) -> JoinHandle<()>
 where
-    Parameters: Send + SerializeHierarchy + Sync + 'static,
+    Parameters: Send + PathSerialize + Sync + 'static + PathIntrospect,
 {
     spawn(async move {
         let fields = Parameters::get_fields();
@@ -65,7 +65,7 @@ async fn handle_request<Parameters>(
     subscriptions: &mut HashMap<(Client, usize), Path>,
     fields: &BTreeSet<String>,
 ) where
-    Parameters: SerializeHierarchy,
+    Parameters: PathSerialize,
 {
     match request.request {
         ParametersRequest::GetFields { id } => {
@@ -107,7 +107,7 @@ async fn handle_request<Parameters>(
             .await;
         }
         ParametersRequest::Subscribe { id, ref path } => {
-            if !Parameters::exists(path) {
+            if !fields.contains(path) {
                 let error_message = format!("path {path:?} does not exist");
                 respond(
                     request,
@@ -236,7 +236,7 @@ async fn handle_changed_parameters<Parameters>(
     parameters_reader: &Reader<Parameters>,
     subscriptions: &HashMap<(Client, usize), Path>,
 ) where
-    Parameters: SerializeHierarchy,
+    Parameters: PathSerialize,
 {
     let items: HashMap<_, _> = {
         let parameters = parameters_reader.next();
@@ -283,9 +283,9 @@ async fn handle_changed_parameters<Parameters>(
 mod tests {
     use framework::multiple_buffer_with_slots;
     use parameters::directory::{Id, Location, Scope};
-    use serde::{de::DeserializeOwned, Deserializer, Serialize, Serializer};
+    use path_serde::serialize;
+    use serde::{Serialize, Serializer};
     use serde_json::Value;
-    use serialize_hierarchy::Error;
     use tokio::{
         sync::mpsc::{channel, error::TryRecvError},
         task::yield_now,
@@ -355,42 +355,48 @@ mod tests {
         existing_fields: HashMap<String, T>,
     }
 
-    impl<T> SerializeHierarchy for ParametersFake<T>
+    impl<T> PathSerialize for ParametersFake<T>
     where
-        T: DeserializeOwned + Serialize,
+        T: Serialize,
     {
-        fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
+        fn serialize_path<S>(
+            &self,
+            path: &str,
+            serializer: S,
+        ) -> Result<S::Ok, serialize::Error<S::Error>>
         where
             S: Serializer,
         {
             self.existing_fields
                 .get(path)
-                .ok_or(Error::UnexpectedPathSegment {
-                    segment: path.to_string(),
+                .ok_or(serialize::Error::UnexpectedPath {
+                    path: path.to_string(),
                 })?
                 .serialize(serializer)
-                .map_err(Error::SerializationFailed)
+                .map_err(serialize::Error::SerializationFailed)
         }
+    }
 
-        fn deserialize_path<'de, D>(
-            &mut self,
-            path: &str,
-            deserializer: D,
-        ) -> Result<(), Error<D::Error>>
-        where
-            D: Deserializer<'de>,
-        {
-            self.existing_fields.insert(
-                path.to_string(),
-                T::deserialize(deserializer).map_err(Error::DeserializationFailed)?,
-            );
-            Ok(())
-        }
-
-        fn exists(field_path: &str) -> bool {
-            field_path == "a.b.c"
-        }
-
+    //     fn deserialize_path<'de, D>(
+    //         &mut self,
+    //         path: &str,
+    //         deserializer: D,
+    //     ) -> Result<(), Error<D::Error>>
+    //     where
+    //         D: Deserializer<'de>,
+    //     {
+    //         self.existing_fields.insert(
+    //             path.to_string(),
+    //             T::deserialize(deserializer).map_err(Error::DeserializationFailed)?,
+    //         );
+    //         Ok(())
+    //     }
+    //
+    //     fn exists(field_path: &str) -> bool {
+    //         field_path == "a.b.c"
+    //     }
+    //
+    impl<T> PathIntrospect for ParametersFake<T> {
         fn extend_with_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
             fields.insert("a".to_string());
             fields.insert("a.b".to_string());

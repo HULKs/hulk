@@ -1,14 +1,25 @@
 use std::f32::consts::TAU;
 
 use approx::{AbsDiffEq, RelativeEq};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Point2;
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::{circle::Circle, direction::Direction};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    PathDeserialize,
+    PathIntrospect,
+    PathSerialize,
+    Serialize,
+)]
 pub struct Arc<Frame> {
     pub circle: Circle<Frame>,
     pub start: Point2<Frame>,

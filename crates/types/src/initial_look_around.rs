@@ -1,9 +1,11 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::support_foot::Side;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum Mode {
     Center { moving_towards: Side },
     Left,

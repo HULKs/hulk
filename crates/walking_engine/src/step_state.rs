@@ -3,8 +3,8 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 use coordinate_systems::{LeftSole, RightSole, Walk};
 use kinematics::inverse::leg_angles;
 use linear_algebra::{point, Isometry3, Orientation3, Point3, Pose3, Rotation3};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use splines::Interpolate;
 use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, mirror::Mirror},
@@ -24,7 +24,9 @@ use super::{
     step_plan::StepPlan,
 };
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct StepState {
     pub plan: StepPlan,
     pub time_since_start: Duration,

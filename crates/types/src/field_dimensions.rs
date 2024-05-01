@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Point2;
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::Field;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct FieldDimensions {
     pub ball_radius: f32,
     pub length: f32,

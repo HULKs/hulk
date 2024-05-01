@@ -1,11 +1,12 @@
 use nalgebra::{SMatrix, SVector};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct MultivariateNormalDistribution<const DIMENSION: usize> {
-    #[serialize_hierarchy(leaf)]
     pub mean: SVector<f32, DIMENSION>,
-    #[serialize_hierarchy(leaf)]
+    #[path_serde(leaf)]
     pub covariance: SMatrix<f32, DIMENSION, DIMENSION>,
 }
