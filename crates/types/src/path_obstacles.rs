@@ -1,12 +1,14 @@
 use std::collections::HashSet;
 
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use coordinate_systems::Ground;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum PathObstacleShape {
     Circle(Circle<Ground>),
     LineSegment(LineSegment<Ground>),
@@ -46,7 +48,7 @@ impl PathObstacleShape {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct PathObstacle {
     pub shape: PathObstacleShape,
     pub nodes: Vec<usize>,

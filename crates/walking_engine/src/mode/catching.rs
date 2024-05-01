@@ -16,14 +16,16 @@ use super::{
 use coordinate_systems::{Ground, Robot};
 use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
 use linear_algebra::{point, Isometry3, Point3};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
     step_plan::Step, support_foot::Side,
 };
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Catching {
     pub step: StepState,
 }

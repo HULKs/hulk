@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{motion_command::KickVariant, step_plan::Step};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -20,7 +20,9 @@ pub struct KickStep {
     pub ankle_pitch_overrides: Option<Vec<JointOverride>>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct KickSteps {
     pub forward: Vec<KickStep>,
     pub turn: Vec<KickStep>,

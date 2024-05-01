@@ -9,5 +9,5 @@ homepage = "https://github.com/hulks/hulk"
 approx = { workspace = true }
 nalgebra = { workspace = true }
 num-traits = { workspace = true }
+path_serde = { workspace = true }
 serde = { workspace = true }
-serialize_hierarchy = { workspace = true }

@@ -1,12 +1,14 @@
 use approx::{AbsDiffEq, RelativeEq};
 use geometry::{arc::Arc, direction::Direction, line_segment::LineSegment};
 use linear_algebra::Point2;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use coordinate_systems::Ground;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PartialEq, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum PathSegment {
     LineSegment(LineSegment<Ground>),
     Arc(Arc<Ground>, Direction),
@@ -75,7 +77,9 @@ impl PathSegment {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, SerializeHierarchy, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Deserialize,
+)]
 pub struct PlannedPath {
     pub path: Option<Vec<PathSegment>>,
 }

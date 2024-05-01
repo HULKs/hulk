@@ -1,9 +1,11 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
 use linear_algebra::{point, vector, Point2, Vector3};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Intrinsic {
     focals: nalgebra::Vector2<f32>,
     optical_center: Point2<Pixel>,

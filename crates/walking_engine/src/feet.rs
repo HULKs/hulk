@@ -1,13 +1,15 @@
 use coordinate_systems::{Robot, Walk};
 use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
 use linear_algebra::{point, Isometry3, Orientation3, Pose3, Vector2, Vector3};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{joints::body::BodyJoints, step_plan::Step, support_foot::Side};
 
 use crate::parameters::Parameters;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Feet {
     pub support_sole: Pose3<Walk>,
     pub swing_sole: Pose3<Walk>,

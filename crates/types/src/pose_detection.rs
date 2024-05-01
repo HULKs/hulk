@@ -4,16 +4,20 @@ use crate::bounding_box::BoundingBox;
 use color_eyre::Result;
 use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Keypoint {
     pub point: Point2<Pixel>,
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Keypoints {
     pub left_eye: Keypoint,
     pub right_eye: Keypoint,
@@ -112,7 +116,9 @@ impl From<Keypoints> for [Keypoint; 17] {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct HumanPose {
     pub bounding_box: BoundingBox,
     pub keypoints: Keypoints,
@@ -127,7 +133,9 @@ impl HumanPose {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct RefereePoseCandidate {
     pub pose: HumanPose,
     pub distance_to_referee_position: f32,

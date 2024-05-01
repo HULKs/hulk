@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Field, Head};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::{GamePhase, HulkMessage, PlayerNumber, Team};
 use types::{
     ball_position::BallPosition,
@@ -36,7 +36,9 @@ pub enum Event {
     Goal,
 }
 
-#[derive(Default, Clone, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Default, Clone, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Ball {
     pub position: Point2<Field>,
     pub velocity: Vector2<Field>,

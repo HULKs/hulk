@@ -1,11 +1,21 @@
 use coordinate_systems::Robot;
 use linear_algebra::{Vector2, Vector3};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::joints::Joints;
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct InertialMeasurementUnitData {
     // Linear acceleration is coming from a left handed coordinate system
     pub linear_acceleration: Vector3<Robot>,
@@ -13,13 +23,17 @@ pub struct InertialMeasurementUnitData {
     pub roll_pitch: Vector2<Robot>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SonarSensors {
     pub left: f32,
     pub right: f32,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Foot {
     pub front_left: f32,
     pub front_right: f32,
@@ -33,13 +47,17 @@ impl Foot {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ForceSensitiveResistors {
     pub left: Foot,
     pub right: Foot,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct TouchSensors {
     pub chest_button: bool,
     pub head_front: bool,
@@ -57,7 +75,9 @@ pub struct TouchSensors {
     pub right_hand_right: bool,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SensorData {
     pub positions: Joints<f32>,
     pub inertial_measurement_unit: InertialMeasurementUnitData,

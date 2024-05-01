@@ -1,8 +1,10 @@
 use nalgebra::{UnitComplex, UnitQuaternion, Vector3};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Parameters {
     pub acceleration_threshold: f32,
     pub delta_angular_velocity_threshold: f32,
@@ -12,7 +14,9 @@ pub struct Parameters {
     pub force_sensitive_resistor_threshold: f32,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct State {
     pub previous_angular_velocity: Vector3<f32>,
     pub angular_velocity_bias: Vector3<f32>,

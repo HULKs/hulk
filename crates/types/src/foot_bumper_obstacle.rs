@@ -2,9 +2,19 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(Copy, Clone, Debug, Default, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct FootBumperObstacle {
     pub position: Point2<Ground>,
 }

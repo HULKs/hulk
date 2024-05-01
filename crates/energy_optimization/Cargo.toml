@@ -6,7 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-serde = { workspace = true }
-serialize_hierarchy = { workspace = true }
-types = { workspace = true }
 filtering = { workspace = true }
+path_serde = { workspace = true }
+serde = { workspace = true }
+types = { workspace = true }

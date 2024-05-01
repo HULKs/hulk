@@ -6,13 +6,13 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-serde = { workspace = true }
-types = { workspace = true }
-linear_algebra = { workspace = true }
-nalgebra = { workspace = true }
 coordinate_systems = { workspace = true }
-serialize_hierarchy = { workspace = true }
-splines = { workspace = true }
-kinematics = { workspace = true }
 itertools = { workspace = true }
+kinematics = { workspace = true }
+linear_algebra = { workspace = true }
 motionfile = { workspace = true }
+nalgebra = { workspace = true }
+path_serde = { workspace = true }
+serde = { workspace = true }
+splines = { workspace = true }
+types = { workspace = true }

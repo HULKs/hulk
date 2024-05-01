@@ -1,17 +1,16 @@
 use std::time::SystemTime;
 
-use serde::{Deserialize, Serialize};
-
 use coordinate_systems::Ground;
 use linear_algebra::{vector, Point};
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallFilterParameters,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct Hypothesis {
     pub moving_state: MultivariateNormalDistribution<4>,
     pub resting_state: MultivariateNormalDistribution<4>,

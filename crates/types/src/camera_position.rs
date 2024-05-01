@@ -1,8 +1,18 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 #[derive(
-    Default, Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, SerializeHierarchy,
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub enum CameraPosition {
     #[default]

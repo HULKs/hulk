@@ -1,12 +1,26 @@
 use std::ops::{Index, IndexMut};
 
 use color_eyre::Result;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use spl_network_messages::{Penalty, PlayerNumber, TeamState};
 
-#[derive(Clone, Copy, Default, Debug, Deserialize, Serialize, SerializeHierarchy)]
-#[serialize_hierarchy(bound = "T: SerializeHierarchy + Serialize, for<'de> T: Deserialize<'de>")]
+#[derive(
+    Clone,
+    Copy,
+    Default,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+#[path_serde(
+    bound = 
+        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
+        for<'de> T: Deserialize<'de>
+)]
 pub struct Players<T> {
     pub one: T,
     pub two: T,

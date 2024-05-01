@@ -11,7 +11,9 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
             Default,
             serde::Deserialize,
             serde::Serialize,
-            serialize_hierarchy::SerializeHierarchy,
+            path_serde::PathSerialize,
+            path_serde::PathDeserialize,
+            path_serde::PathIntrospect,
          )]
     };
     let parameters =

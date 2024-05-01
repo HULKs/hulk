@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Isometry3;
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::{
     Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder, LeftSole,
@@ -10,18 +10,24 @@ use coordinate_systems::{
     RightUpperArm, RightWrist, Robot, Torso,
 };
 
-#[derive(Debug, Clone, Default, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct RobotHeadKinematics {
     pub neck_to_robot: Isometry3<Neck, Robot>,
     pub head_to_robot: Isometry3<Head, Robot>,
 }
 
-#[derive(Debug, Clone, Default, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct RobotTorsoKinematics {
     pub torso_to_robot: Isometry3<Torso, Robot>,
 }
 
-#[derive(Debug, Clone, Default, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct RobotLeftArmKinematics {
     pub shoulder_to_robot: Isometry3<LeftShoulder, Robot>,
     pub upper_arm_to_robot: Isometry3<LeftUpperArm, Robot>,
@@ -30,7 +36,9 @@ pub struct RobotLeftArmKinematics {
     pub wrist_to_robot: Isometry3<LeftWrist, Robot>,
 }
 
-#[derive(Debug, Clone, Default, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct RobotRightArmKinematics {
     pub shoulder_to_robot: Isometry3<RightShoulder, Robot>,
     pub upper_arm_to_robot: Isometry3<RightUpperArm, Robot>,
@@ -39,7 +47,9 @@ pub struct RobotRightArmKinematics {
     pub wrist_to_robot: Isometry3<RightWrist, Robot>,
 }
 
-#[derive(Debug, Clone, Default, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct RobotLeftLegKinematics {
     pub pelvis_to_robot: Isometry3<LeftPelvis, Robot>,
     pub hip_to_robot: Isometry3<LeftHip, Robot>,
@@ -50,7 +60,9 @@ pub struct RobotLeftLegKinematics {
     pub sole_to_robot: Isometry3<LeftSole, Robot>,
 }
 
-#[derive(Debug, Clone, Default, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct RobotRightLegKinematics {
     pub pelvis_to_robot: Isometry3<RightPelvis, Robot>,
     pub hip_to_robot: Isometry3<RightHip, Robot>,
@@ -61,7 +73,9 @@ pub struct RobotRightLegKinematics {
     pub sole_to_robot: Isometry3<RightSole, Robot>,
 }
 
-#[derive(Debug, Clone, Default, SerializeHierarchy, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+)]
 pub struct RobotKinematics {
     pub head: RobotHeadKinematics,
     pub torso: RobotTorsoKinematics,

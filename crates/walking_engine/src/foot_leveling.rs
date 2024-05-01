@@ -1,12 +1,22 @@
 use coordinate_systems::Robot;
 use linear_algebra::Orientation3;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{joints::body::LowerBodyJoints, support_foot::Side};
 
 use crate::Context;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, SerializeHierarchy)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct FootLeveling {
     pub roll: f32,
     pub pitch: f32,

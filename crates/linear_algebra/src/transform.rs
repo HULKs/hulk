@@ -1,8 +1,8 @@
 use std::{marker::PhantomData, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
+use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use crate::framed::Framed;
 
@@ -159,36 +159,42 @@ where
     }
 }
 
-impl<From, To, Inner> SerializeHierarchy for Transform<From, To, Inner>
+impl<From, To, Inner> PathSerialize for Transform<From, To, Inner>
 where
-    Inner: SerializeHierarchy,
+    Inner: PathSerialize,
 {
     fn serialize_path<S>(
         &self,
         path: &str,
         serializer: S,
-    ) -> Result<S::Ok, serialize_hierarchy::Error<S::Error>>
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
     where
         S: serde::Serializer,
     {
         self.inner.serialize_path(path, serializer)
     }
+}
 
+impl<From, To, Inner> PathDeserialize for Transform<From, To, Inner>
+where
+    Inner: PathDeserialize,
+{
     fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
         deserializer: D,
-    ) -> Result<(), serialize_hierarchy::Error<D::Error>>
+    ) -> Result<(), deserialize::Error<D::Error>>
     where
         D: serde::Deserializer<'de>,
     {
         self.inner.deserialize_path(path, deserializer)
     }
+}
 
-    fn exists(path: &str) -> bool {
-        Inner::exists(path)
-    }
-
+impl<From, To, Inner> PathIntrospect for Transform<From, To, Inner>
+where
+    Inner: PathIntrospect,
+{
     fn extend_with_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str) {
         Inner::extend_with_fields(fields, prefix)
     }

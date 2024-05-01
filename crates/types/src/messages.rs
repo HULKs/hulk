@@ -2,12 +2,12 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::{
     GameControllerReturnMessage, GameControllerStateMessage, HulkMessage, VisualRefereeMessage,
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub enum IncomingMessage {
     GameController(SocketAddr, GameControllerStateMessage),
     Spl(HulkMessage),
@@ -19,7 +19,7 @@ impl Default for IncomingMessage {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub enum OutgoingMessage {
     GameController(SocketAddr, GameControllerReturnMessage),
     Spl(HulkMessage),

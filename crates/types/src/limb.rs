@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
-use serialize_hierarchy::SerializeHierarchy;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Limb {
     pub pixel_polygon: Vec<Point2<Pixel>>,
 }
@@ -30,7 +32,9 @@ pub fn is_above_limbs(pixel_position: Point2<Pixel>, projected_limbs: &[Limb]) -
     })
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ProjectedLimbs {
     pub limbs: Vec<Limb>,
 }

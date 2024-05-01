@@ -4,8 +4,8 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use motionfile::{SplineInterpolator, TimedSpline};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     cycle_time::CycleTime,
     joints::{arm::ArmJoints, mirror::Mirror as _},
@@ -81,7 +81,9 @@ impl ObstacleAvoidingArms {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, SerializeHierarchy, Default)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Default,
+)]
 pub enum Arm {
     #[default]
     Swing,

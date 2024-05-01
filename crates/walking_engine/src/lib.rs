@@ -7,8 +7,8 @@ use mode::{
     stopping::Stopping, walking::Walking, Mode,
 };
 use parameters::Parameters;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     cycle_time::CycleTime, joints::body::BodyJoints, motion_command::KickVariant,
     motor_commands::MotorCommands, obstacle_avoiding_arms::ArmCommands, sensor_data::SensorData,
@@ -53,7 +53,7 @@ pub trait WalkTransition {
     fn kick(self, context: &Context, variant: KickVariant, side: Side, strength: f32) -> Mode;
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct Engine {
     pub mode: Mode,
 }

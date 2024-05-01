@@ -1,17 +1,29 @@
 use approx::{AbsDiffEq, RelativeEq};
 use geometry::circle::Circle;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
 use coordinate_systems::Pixel;
 
-#[derive(Default, Clone, Copy, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct Row {
     pub circle_radius: f32,
     pub center_y: f32,
 }
 
-#[derive(Default, Clone, Debug, Deserialize, Serialize, SerializeHierarchy)]
+#[derive(
+    Default, Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct PerspectiveGridCandidates {
     pub candidates: Vec<Circle<Pixel>>,
 }

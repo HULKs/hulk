@@ -1,9 +1,11 @@
 use coordinate_systems::Pixel;
 use geometry::rectangle::Rectangle;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BoundingBox {
     pub area: Rectangle<Pixel>,
     pub score: f32,

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use types::{
     joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
     step_plan::Step, support_foot::Side,
@@ -14,7 +14,17 @@ use crate::{
 
 use super::{starting::Starting, Mode};
 
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, SerializeHierarchy)]
+#[derive(
+    Default,
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct Standing {}
 
 impl WalkTransition for Standing {

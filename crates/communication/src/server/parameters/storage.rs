@@ -2,8 +2,8 @@ use std::{path::Path, sync::Arc};
 
 use framework::Writer;
 use parameters::directory::{deserialize, serialize};
+use path_serde::{PathDeserialize, PathSerialize};
 use serde::{de::DeserializeOwned, Serialize};
-use serialize_hierarchy::SerializeHierarchy;
 use tokio::{
     spawn,
     sync::{mpsc::Receiver, Notify},
@@ -26,7 +26,14 @@ pub fn storage<Parameters>(
     head_id: String,
 ) -> JoinHandle<()>
 where
-    Parameters: Clone + DeserializeOwned + Send + Serialize + SerializeHierarchy + Sync + 'static,
+    Parameters: 'static
+        + Clone
+        + DeserializeOwned
+        + PathDeserialize
+        + PathSerialize
+        + Send
+        + Serialize
+        + Sync,
 {
     spawn(async move {
         let mut parameters = (*parameters_writer.next()).clone();
@@ -54,7 +61,7 @@ async fn handle_request<Parameters>(
     body_id: &str,
     head_id: &str,
 ) where
-    Parameters: Clone + DeserializeOwned + Serialize + SerializeHierarchy,
+    Parameters: Clone + DeserializeOwned + Serialize + PathSerialize + PathDeserialize,
 {
     match request {
         StorageRequest::UpdateParameter {
@@ -63,18 +70,6 @@ async fn handle_request<Parameters>(
             path,
             data,
         } => {
-            if !Parameters::exists(&path) {
-                respond(
-                    client,
-                    ParametersResponse::Update {
-                        id,
-                        result: Err(format!("path {path:?} does not exist")),
-                    },
-                )
-                .await;
-                return;
-            }
-
             if let Err(error) = parameters.deserialize_path(&path, data) {
                 respond(
                     client,
@@ -169,12 +164,12 @@ async fn respond(client: Client, response: ParametersResponse) {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeSet, HashMap};
+    use std::collections::HashMap;
 
     use framework::multiple_buffer_with_slots;
+    use path_serde::{deserialize, serialize, PathDeserialize};
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
-    use serialize_hierarchy::Error;
     use tokio::sync::mpsc::{channel, error::TryRecvError};
 
     use crate::server::client::Client;
@@ -204,48 +199,56 @@ mod tests {
         existing_fields: HashMap<String, T>,
     }
 
-    impl<T> SerializeHierarchy for ParametersFake<T>
+    impl<T> PathSerialize for ParametersFake<T>
     where
-        T: DeserializeOwned + Serialize,
+        T: Serialize,
     {
-        fn serialize_path<S>(&self, path: &str, serializer: S) -> Result<S::Ok, Error<S::Error>>
+        fn serialize_path<S>(
+            &self,
+            path: &str,
+            serializer: S,
+        ) -> Result<S::Ok, serialize::Error<S::Error>>
         where
             S: Serializer,
         {
             self.existing_fields
                 .get(path)
-                .ok_or(Error::UnexpectedPathSegment {
-                    segment: path.to_string(),
+                .ok_or(serialize::Error::UnexpectedPath {
+                    path: path.to_string(),
                 })?
                 .serialize(serializer)
-                .map_err(Error::SerializationFailed)
+                .map_err(serialize::Error::SerializationFailed)
         }
+    }
 
+    impl<T> PathDeserialize for ParametersFake<T>
+    where
+        for<'de> T: Deserialize<'de>,
+    {
         fn deserialize_path<'de, D>(
             &mut self,
             path: &str,
             deserializer: D,
-        ) -> Result<(), Error<D::Error>>
+        ) -> Result<(), deserialize::Error<D::Error>>
         where
             D: Deserializer<'de>,
         {
             self.existing_fields.insert(
                 path.to_string(),
-                T::deserialize(deserializer).map_err(Error::DeserializationFailed)?,
+                T::deserialize(deserializer).map_err(deserialize::Error::DeserializationFailed)?,
             );
             Ok(())
         }
-
-        fn exists(field_path: &str) -> bool {
-            field_path == "a.b.c"
-        }
-
-        fn extend_with_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
-            fields.insert("a".to_string());
-            fields.insert("a.b".to_string());
-            fields.insert("a.b.c".to_string());
-        }
     }
+
+    // impl<T> PathIntrospect for ParametersFake<T>
+    // {
+    //     fn extend_with_fields(fields: &mut BTreeSet<String>, _prefix: &str) {
+    //         fields.insert("a".to_string());
+    //         fields.insert("a.b".to_string());
+    //         fields.insert("a.b.c".to_string());
+    //     }
+    // }
 
     #[tokio::test]
     async fn update_request_writes_parameters_and_notifies() {

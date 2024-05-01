@@ -8,11 +8,11 @@ homepage.workspace = true
 [dependencies]
 audio = { workspace = true }
 bincode = { workspace = true }
+chrono = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true, features = ["server"] }
 control = { workspace = true }
 coordinate_systems = { workspace = true }
-chrono = { workspace = true }
 ctrlc = { workspace = true }
 derive_more = { workspace = true }
 eframe = { workspace = true }
@@ -24,10 +24,10 @@ ittapi = {  workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 object_detection = { workspace = true }
+path_serde = { workspace = true }
 projection = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serialize_hierarchy = { workspace = true }
 spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
