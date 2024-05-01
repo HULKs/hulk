@@ -1084,7 +1084,7 @@ name = "checky"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "itertools",
+ "itertools 0.10.5",
  "proc-macro2",
  "syn 1.0.109",
  "walkdir",
