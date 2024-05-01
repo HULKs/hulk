@@ -323,7 +323,10 @@ impl EnumPlotPanel {
         };
 
         if response.double_clicked() {
-            self.viewport_mode = ViewportMode::Follow;
+            self.viewport_mode = match self.viewport_mode {
+                ViewportMode::Full | ViewportMode::Free => ViewportMode::Follow,
+                ViewportMode::Follow => ViewportMode::Full,
+            }
         }
 
         match self.viewport_mode {
