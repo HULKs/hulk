@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
@@ -35,14 +37,8 @@ impl FilteredGameControllerStateTimer {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_filtered_game_controller_state: FilteredGameControllerState::default(),
-            filtered_game_controller_state_changes: LastFilteredGameControllerStateChanges {
-                game_state: CycleTime::default(),
-                opponent_game_state: CycleTime::default(),
-                game_phase: CycleTime::default(),
-                kicking_team: CycleTime::default(),
-                penalties: Players::default(),
-                sub_state: None,
-            },
+            filtered_game_controller_state_changes: LastFilteredGameControllerStateChanges::default(
+            ),
         })
     }
 
@@ -52,9 +48,7 @@ impl FilteredGameControllerStateTimer {
         if context.filtered_game_controller_state.game_state
             != self.last_filtered_game_controller_state.game_state
         {
-            self.filtered_game_controller_state_changes
-                .game_state
-                .start_time = cycle_start_time;
+            self.filtered_game_controller_state_changes.game_state = cycle_start_time;
             self.last_filtered_game_controller_state.game_state =
                 context.filtered_game_controller_state.game_state;
         }
@@ -63,8 +57,7 @@ impl FilteredGameControllerStateTimer {
             != self.last_filtered_game_controller_state.opponent_game_state
         {
             self.filtered_game_controller_state_changes
-                .opponent_game_state
-                .start_time = cycle_start_time;
+                .opponent_game_state = cycle_start_time;
             self.last_filtered_game_controller_state.opponent_game_state =
                 context.filtered_game_controller_state.opponent_game_state;
         }
@@ -72,9 +65,7 @@ impl FilteredGameControllerStateTimer {
         if context.filtered_game_controller_state.game_phase
             != self.last_filtered_game_controller_state.game_phase
         {
-            self.filtered_game_controller_state_changes
-                .game_phase
-                .start_time = cycle_start_time;
+            self.filtered_game_controller_state_changes.game_phase = cycle_start_time;
             self.last_filtered_game_controller_state.game_phase =
                 context.filtered_game_controller_state.game_phase;
         }
@@ -82,9 +73,7 @@ impl FilteredGameControllerStateTimer {
         if context.filtered_game_controller_state.kicking_team
             != self.last_filtered_game_controller_state.kicking_team
         {
-            self.filtered_game_controller_state_changes
-                .kicking_team
-                .start_time = cycle_start_time;
+            self.filtered_game_controller_state_changes.kicking_team = cycle_start_time;
             self.last_filtered_game_controller_state.kicking_team =
                 context.filtered_game_controller_state.kicking_team;
         }
@@ -93,11 +82,11 @@ impl FilteredGameControllerStateTimer {
             != self.last_filtered_game_controller_state.penalties
         {
             fn update_player_penalty(
-                last_penalty: Option<Penalty>,
                 new_penalty: Option<Penalty>,
-            ) -> Option<CycleTime> {
-                if last_penalty != new_penalty {
-                    Some(CycleTime::default())
+                cycle_start_time: SystemTime,
+            ) -> Option<SystemTime> {
+                if new_penalty.is_some() {
+                    Some(cycle_start_time)
                 } else {
                     None
                 }
@@ -105,32 +94,32 @@ impl FilteredGameControllerStateTimer {
 
             self.filtered_game_controller_state_changes.penalties = Players {
                 one: update_player_penalty(
-                    self.last_filtered_game_controller_state.penalties.one,
                     context.filtered_game_controller_state.penalties.one,
+                    cycle_start_time,
                 ),
                 two: update_player_penalty(
-                    self.last_filtered_game_controller_state.penalties.two,
                     context.filtered_game_controller_state.penalties.two,
+                    cycle_start_time,
                 ),
                 three: update_player_penalty(
-                    self.last_filtered_game_controller_state.penalties.three,
                     context.filtered_game_controller_state.penalties.three,
+                    cycle_start_time,
                 ),
                 four: update_player_penalty(
-                    self.last_filtered_game_controller_state.penalties.four,
                     context.filtered_game_controller_state.penalties.four,
+                    cycle_start_time,
                 ),
                 five: update_player_penalty(
-                    self.last_filtered_game_controller_state.penalties.five,
                     context.filtered_game_controller_state.penalties.five,
+                    cycle_start_time,
                 ),
                 six: update_player_penalty(
-                    self.last_filtered_game_controller_state.penalties.six,
                     context.filtered_game_controller_state.penalties.six,
+                    cycle_start_time,
                 ),
                 seven: update_player_penalty(
-                    self.last_filtered_game_controller_state.penalties.seven,
                     context.filtered_game_controller_state.penalties.seven,
+                    cycle_start_time,
                 ),
             };
         }
@@ -138,7 +127,9 @@ impl FilteredGameControllerStateTimer {
         if context.filtered_game_controller_state.sub_state
             != self.last_filtered_game_controller_state.sub_state
         {
-            self.filtered_game_controller_state_changes.sub_state = Some(CycleTime::default());
+            self.filtered_game_controller_state_changes.sub_state = Some(cycle_start_time);
+            self.last_filtered_game_controller_state.sub_state =
+                context.filtered_game_controller_state.sub_state;
         }
 
         Ok(MainOutputs {

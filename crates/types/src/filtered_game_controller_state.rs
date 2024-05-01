@@ -1,4 +1,4 @@
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use path_serde::PathSerialize;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
@@ -16,7 +16,6 @@ use crate::{
     Serialize,
     Deserialize,
     PathSerialize,
-    PathDeserialize,
     PartialEq,
 )]
 
