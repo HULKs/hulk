@@ -19,7 +19,7 @@ use crate::{line_segment::LineSegment, two_line_segments::TwoLineSegments};
     Serialize,
 )]
 #[path_serde(
-    bound = 
+    bound =
         Frame: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
         for<'de> Frame: Deserialize<'de>
 )]
