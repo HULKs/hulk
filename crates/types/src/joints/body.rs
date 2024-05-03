@@ -30,7 +30,7 @@ pub enum BodyJointsName {
     PathIntrospect,
 )]
 #[path_serde(
-    bound = 
+    bound =
         T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
         for<'de> T: Deserialize<'de>
 )]
@@ -165,7 +165,7 @@ impl Div<f32> for BodyJoints<f32> {
     PathIntrospect,
 )]
 #[path_serde(
-    bound = 
+    bound =
         T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
         for<'de> T: Deserialize<'de>
 )]
@@ -200,7 +200,7 @@ where
     PathIntrospect,
 )]
 #[path_serde(
-    bound = 
+    bound =
         T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
         for<'de> T: Deserialize<'de>
 )]
