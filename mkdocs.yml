@@ -26,10 +26,11 @@ nav:
   - Introduction: index.md
   - Setup:
       - Overview: setup/overview.md
-      - Main Setup & Webots: setup/main_setup.md
+      - Development Environment: setup/development_environment.md
+      - Configure Team: setup/configure_team.md
       - NAO Image & SDK: setup/nao_image_and_sdk.md
       - NAO Setup: setup/nao_setup.md
-      - Git Setup: setup/git_setup.md
+      - Upload HULK: setup/upload.md
   - Framework:
       - Overview: framework/overview.md
       - Directory Structure: framework/directory_structure.md
@@ -44,6 +45,7 @@ nav:
       - Thread Communication: framework/thread_communication.md
       - Filtering: framework/filtering.md
       - Macros: framework/macros.md
+      - Path SerDe: framework/path_serde.md
       - Error Handling: framework/error_handling.md
       - Logging: framework/logging.md
   - Tooling:
@@ -88,6 +90,8 @@ nav:
       - GitHub Webhooks: workflow/github_webhooks.md
       - Leadership: workflow/leadership.md
 markdown_extensions:
+  - admonition
+  - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite

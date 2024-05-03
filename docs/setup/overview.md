@@ -1,5 +1,14 @@
 # Overview
 
-TODO: Symbolbild HULK mit pepsi
+!!! todo
 
-This section describes the necessary steps to download the code, compile for the Webots simulator, how to prepare the NAO SDK and image using Yocto and finally how to compile and upload the software to a real NAO robot.
+    High-Level visualization of the Software Architecture: NAO, SDK, HULKs-Robotics code, Pepsi, etc.
+
+
+This section describes the steps required to set up and get started with our framework.
+The following pages include documentation to
+
+- setup the [Development Environment](./development_environment.md),
+- acquire or build the latest [NAO operating system image](./nao_image_and_sdk.md) and Software Development Toolkit (SDK) to cross-compile for the NAO,
+- [setup the NAO](./nao_setup.md) by flashing the operating system image to the NAO,
+- and [compile, upload, and run](./upload.md) the HULKs robotics software on the robot
