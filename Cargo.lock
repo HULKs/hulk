@@ -1237,6 +1237,7 @@ version = "0.1.0"
 dependencies = [
  "convert_case 0.6.0",
  "itertools 0.10.5",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "source_analyzer",
