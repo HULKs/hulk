@@ -21,7 +21,7 @@ use crate::{
     PathIntrospect,
 )]
 #[path_serde(
-    bound = 
+    bound =
         Camera: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
         for<'de> Camera: Deserialize<'de>
 )]

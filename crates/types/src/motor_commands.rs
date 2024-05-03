@@ -26,7 +26,7 @@ use splines::impl_Interpolate;
     PathIntrospect,
 )]
 #[path_serde(
-    bound = 
+    bound =
         T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
         for<'de> T: Deserialize<'de>
 )]

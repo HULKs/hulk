@@ -45,7 +45,7 @@ pub enum ArmJoint {
     PathIntrospect,
 )]
 #[path_serde(
-    bound = 
+    bound =
         T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
         for<'de> T: Deserialize<'de>
 )]
