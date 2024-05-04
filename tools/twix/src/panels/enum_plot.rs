@@ -136,14 +136,14 @@ enum ViewportMode {
 }
 
 #[derive(Default)]
-struct SegmentData {
+struct SegmentRow {
     output_key: String,
     change_buffer: Option<ChangeBuffer>,
     messages_count: usize,
     last_error: Option<String>,
 }
 
-impl SegmentData {
+impl SegmentRow {
     fn subscribe(&mut self, nao: Arc<Nao>) {
         self.change_buffer = match CyclerOutput::from_str(&self.output_key) {
             Ok(output) => {
@@ -222,7 +222,7 @@ impl SegmentData {
 
 pub struct EnumPlotPanel {
     nao: Arc<Nao>,
-    segment_datas: Vec<SegmentData>,
+    segment_rows: Vec<SegmentRow>,
     x_range: Rangef,
     viewport_mode: ViewportMode,
 }
@@ -237,10 +237,10 @@ impl Panel for EnumPlotPanel {
             .map(|values| values.iter().flat_map(|value| value.as_str()).collect())
             .unwrap_or_default();
 
-        let segment_datas = output_keys
+        let segment_rows = output_keys
             .iter()
             .map(|&output_key| {
-                let mut result = SegmentData {
+                let mut result = SegmentRow {
                     output_key: String::from(output_key),
                     ..Default::default()
                 };
@@ -252,7 +252,7 @@ impl Panel for EnumPlotPanel {
 
         Self {
             nao,
-            segment_datas,
+            segment_rows,
             x_range: Rangef::new(0.0, 1000.0),
             viewport_mode: ViewportMode::Follow,
         }
@@ -260,7 +260,7 @@ impl Panel for EnumPlotPanel {
 
     fn save(&self) -> Value {
         json!({
-            "subscribe_keys": self.segment_datas.iter().map(|segment_data|&segment_data.output_key).collect::<Vec<_>>()
+            "subscribe_keys": self.segment_rows.iter().map(|segment_data|&segment_data.output_key).collect::<Vec<_>>()
         })
     }
 }
@@ -350,11 +350,11 @@ impl EnumPlotPanel {
 
         let desired_size = Vec2::new(
             ui.available_width(),
-            self.segment_datas.len().max(1) as f32 * LINE_HEIGHT,
+            self.segment_rows.len().max(1) as f32 * LINE_HEIGHT,
         );
 
         let lines: Vec<_> = self
-            .segment_datas
+            .segment_rows
             .iter_mut()
             .map(|segment_data| (segment_data.segments(), segment_data.messages_count))
             .collect();
@@ -371,7 +371,7 @@ impl EnumPlotPanel {
 
         let viewport_rect = Rect::from_x_y_ranges(
             self.x_range,
-            Rangef::new(0.0, self.segment_datas.len() as f32),
+            Rangef::new(0.0, self.segment_rows.len() as f32),
         );
 
         let viewport_transform = RectTransform::from_to(viewport_rect, response.rect);
@@ -400,7 +400,7 @@ impl Widget for &mut EnumPlotPanel {
 
             ui.horizontal(|ui| {
                 if ui.button("Clear").clicked() {
-                    for segment_data in &mut self.segment_datas {
+                    for segment_data in &mut self.segment_rows {
                         segment_data.clear();
                     }
                 }
@@ -419,7 +419,7 @@ impl Widget for &mut EnumPlotPanel {
                     });
             });
 
-            self.segment_datas.retain_mut(|segment_data| {
+            self.segment_rows.retain_mut(|segment_data| {
                 ui.horizontal(|ui| {
                     let delete_button = ui.add(
                         Button::new(RichText::new("❌").color(Color32::WHITE).strong())
@@ -433,7 +433,7 @@ impl Widget for &mut EnumPlotPanel {
             });
 
             if ui.button("✚").clicked() {
-                self.segment_datas.push(SegmentData::default());
+                self.segment_rows.push(SegmentRow::default());
             }
         })
         .response
