@@ -6,7 +6,10 @@ use control::{
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
     kick_selector::{self, KickSelector},
-    motion::look_around::LookAround,
+    motion::{
+        look_around::LookAround,
+        motion_selector::{self, MotionSelector},
+    },
     role_assignment::{self, RoleAssignment},
     rule_obstacle_composer::RuleObstacleComposer,
     search_suggestor::SearchSuggestor,
@@ -37,12 +40,14 @@ pub struct Database {
 pub struct BehaviorCycler {
     hardware_interface: Arc<Interfake>,
     own_changed: Arc<Notify>,
+
     search_suggestor: SearchSuggestor,
     active_vision: ActiveVision,
     ball_state_composer: BallStateComposer,
     behavior: Behavior,
     kick_selector: KickSelector,
     look_around: LookAround,
+    motion_selector: MotionSelector,
     role_assignment: RoleAssignment,
     rule_obstacle_composer: RuleObstacleComposer,
     world_state_composer: WorldStateComposer,
@@ -79,6 +84,8 @@ impl BehaviorCycler {
             control::motion::look_around::CreationContext::new(),
         )
         .wrap_err("failed to create node `LookAround`")?;
+        let motion_selector = MotionSelector::new(motion_selector::CreationContext::new())
+            .wrap_err("failed to create node `MotionSelector`")?;
         let role_assignment = RoleAssignment::new(role_assignment::CreationContext::new())
             .wrap_err("failed to create node `RoleAssignment`")?;
         let rule_obstacle_composer = control::rule_obstacle_composer::RuleObstacleComposer::new(
@@ -99,6 +106,7 @@ impl BehaviorCycler {
             behavior,
             kick_selector,
             look_around,
+            motion_selector,
             role_assignment,
             rule_obstacle_composer,
             world_state_composer,
@@ -313,6 +321,7 @@ impl BehaviorCycler {
                     &true,
                     &own_database.main_outputs.world_state,
                     &own_database.main_outputs.cycle_time,
+                    &own_database.main_outputs.is_localization_converged,
                     &parameters.behavior,
                     &parameters.in_walk_kicks,
                     &parameters.field_dimensions,
@@ -327,10 +336,27 @@ impl BehaviorCycler {
         }
         {
             let main_outputs = {
+                self.motion_selector
+                    .cycle(control::motion::motion_selector::CycleContext::new(
+                        &own_database.main_outputs.motion_command,
+                        &own_database.main_outputs.has_ground_contact,
+                        &mut cycler_state.motion_safe_exits,
+                    ))
+                    .wrap_err("failed to execute cycle of node `MotionSelector`")?
+            };
+            own_database.main_outputs.motion_selection = main_outputs.motion_selection.value;
+        }
+        {
+            let main_outputs = {
                 self.look_around
                     .cycle(control::motion::look_around::CycleContext::new(
                         &parameters.look_around,
+                        own_database
+                            .main_outputs
+                            .filtered_game_controller_state
+                            .as_ref(),
                         &own_database.main_outputs.motion_command,
+                        &own_database.main_outputs.motion_selection,
                         &own_database.main_outputs.cycle_time,
                         AdditionalOutput::new(
                             true,
