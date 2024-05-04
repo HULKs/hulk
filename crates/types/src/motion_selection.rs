@@ -64,6 +64,27 @@ pub struct MotionSafeExits {
     walk: bool,
 }
 
+impl MotionSafeExits {
+    pub fn fill(value: bool) -> Self {
+        Self {
+            arms_up_squat: value,
+            dispatching: value,
+            fall_protection: value,
+            initial: value,
+            jump_left: value,
+            jump_right: value,
+            penalized: value,
+            sit_down: value,
+            stand_up_back: value,
+            stand_up_front: value,
+            stand_up_sitting: value,
+            stand: value,
+            unstiff: value,
+            walk: value,
+        }
+    }
+}
+
 impl Default for MotionSafeExits {
     fn default() -> Self {
         Self {
