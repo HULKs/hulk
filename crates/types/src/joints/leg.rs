@@ -42,11 +42,6 @@ pub enum LegJoint {
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
-)]
 pub struct LegJoints<T = f32> {
     pub ankle_pitch: T,
     pub ankle_roll: T,

@@ -25,18 +25,14 @@ struct Parameters {
     field_dimensions: FieldDimensions,
 }
 
-#[derive(
-    Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Default, Serialize, PathSerialize, PathIntrospect)]
 struct MainOutputs {
     frame_count: usize,
     ball: Option<Ball>,
     databases: Players<Option<Database>>,
 }
 
-#[derive(
-    Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Default, Serialize, PathSerialize, PathIntrospect)]
 struct BehaviorSimulatorDatabase {
     main_outputs: MainOutputs,
 }

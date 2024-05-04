@@ -2,12 +2,15 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, Result};
 
-use crate::{container::Container, extend_generics::ExtendGenerics};
+use crate::{bound::ExtendGenerics, container::Container};
 
 pub fn derive_path_serialize(mut input: DeriveInput) -> Result<TokenStream> {
     let container = Container::try_from_ast(&input)?;
 
-    input.generics.extend_from_attributes(&container);
+    input.generics.remove_defaults();
+    input
+        .generics
+        .extend_with_bounds(container.serialize_bounds.clone());
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -29,14 +32,14 @@ pub fn derive_path_serialize(mut input: DeriveInput) -> Result<TokenStream> {
                 match split {
                     Some((name, suffix)) => match name {
                         #(#path_serializations,)*
-                        segment => Err(path_serde::serialize::Error::UnexpectedPath {
+                        segment => Err(path_serde::serialize::Error::PathDoesNotExist {
                             path: segment.to_string(),
                         }),
                     },
                     None => {
                         match path {
                             #(#leaf_serializations,)*
-                            segment => Err(path_serde::serialize::Error::UnexpectedPath {
+                            segment => Err(path_serde::serialize::Error::PathDoesNotExist {
                                 path: segment.to_string(),
                             }),
                         }
@@ -51,10 +54,10 @@ fn generate_path_serializations(container: &Container) -> Vec<TokenStream> {
     container
         .fields
         .iter()
-        .filter(|field| !field.skip && !field.leaf)
+        .filter(|field| !field.skip_serialize && !field.is_leaf)
         .map(|field| {
             let identifier = &field.identifier;
-            let pattern = identifier.to_string();
+            let pattern = identifier.to_field_name();
             quote! {
                 #pattern => self.#identifier.serialize_path(suffix, serializer)
             }
@@ -66,10 +69,10 @@ fn generate_leaf_serializations(container: &Container) -> Vec<TokenStream> {
     container
         .fields
         .iter()
-        .filter(|field| !field.skip)
+        .filter(|field| !field.skip_serialize)
         .map(|field| {
             let identifier = &field.identifier;
-            let pattern = identifier.to_string();
+            let pattern = identifier.to_field_name();
             quote! {
                 #pattern => serde::Serialize::serialize(&self.#identifier, serializer)
                     .map_err(path_serde::serialize::Error::SerializationFailed)

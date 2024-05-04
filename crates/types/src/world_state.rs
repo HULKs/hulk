@@ -14,9 +14,7 @@ use crate::{
     roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
 };
 
-#[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub rule_ball: Option<BallState>,
@@ -31,9 +29,7 @@ pub struct WorldState {
     pub robot: RobotState,
 }
 
-#[derive(
-    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
     pub ball_in_field: Point2<Field>,

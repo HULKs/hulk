@@ -38,11 +38,6 @@ pub enum HeadJoint {
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
-)]
 pub struct HeadJoints<T> {
     pub yaw: T,
     pub pitch: T,

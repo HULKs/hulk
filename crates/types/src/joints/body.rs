@@ -29,11 +29,6 @@ pub enum BodyJointsName {
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
-)]
 pub struct BodyJoints<T = f32> {
     pub left_arm: ArmJoints<T>,
     pub right_arm: ArmJoints<T>,
@@ -164,11 +159,6 @@ impl Div<f32> for BodyJoints<f32> {
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
-)]
 pub struct LowerBodyJoints<T = f32> {
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
@@ -198,11 +188,6 @@ where
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
-)]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
 )]
 pub struct UpperBodyJoints<T> {
     pub left_arm: ArmJoints<T>,

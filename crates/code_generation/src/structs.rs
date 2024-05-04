@@ -4,20 +4,33 @@ use quote::{format_ident, quote};
 use source_analyzer::{struct_hierarchy::StructHierarchy, structs::Structs};
 
 pub fn generate_structs(structs: &Structs) -> TokenStream {
+    let parameters = hierarchy_to_token_stream(
+        &structs.parameters,
+        format_ident!("Parameters"),
+        &quote! {
+            #[derive(
+                Clone,
+                Debug,
+                Default,
+                serde::Deserialize,
+                serde::Serialize,
+                path_serde::PathSerialize,
+                path_serde::PathDeserialize,
+                path_serde::PathIntrospect,
+             )]
+        },
+    );
+
     let derives = quote! {
         #[derive(
             Clone,
             Debug,
             Default,
-            serde::Deserialize,
             serde::Serialize,
             path_serde::PathSerialize,
-            path_serde::PathDeserialize,
             path_serde::PathIntrospect,
          )]
     };
-    let parameters =
-        hierarchy_to_token_stream(&structs.parameters, format_ident!("Parameters"), &derives);
     let cyclers = structs
         .cyclers
         .iter()

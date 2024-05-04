@@ -13,13 +13,8 @@ use spl_network_messages::{Penalty, PlayerNumber, TeamState};
     Deserialize,
     Serialize,
     PathSerialize,
-    PathDeserialize,
     PathIntrospect,
-)]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
+    PathDeserialize,
 )]
 pub struct Players<T> {
     pub one: T,
