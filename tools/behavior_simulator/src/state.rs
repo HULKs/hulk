@@ -134,8 +134,8 @@ impl State {
                 } => {
                     if let Some(ball) = self.ball.as_mut() {
                         let side = match kicking_side {
-                            Side::Left => 1.0,
-                            Side::Right => -1.0,
+                            Side::Left => -1.0,
+                            Side::Right => 1.0,
                         };
 
                         // TODO: Check if ball is even in range
