@@ -369,7 +369,7 @@ mod tests {
         {
             self.existing_fields
                 .get(path)
-                .ok_or(serialize::Error::UnexpectedPath {
+                .ok_or(serialize::Error::PathDoesNotExist {
                     path: path.to_string(),
                 })?
                 .serialize(serializer)

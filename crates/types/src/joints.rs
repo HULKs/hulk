@@ -56,11 +56,6 @@ pub enum JointsName {
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
-)]
 pub struct Joints<T = f32> {
     pub head: HeadJoints<T>,
     pub left_arm: ArmJoints<T>,

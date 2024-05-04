@@ -20,11 +20,6 @@ use crate::{
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        Camera: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> Camera: Deserialize<'de>
-)]
 pub struct CameraMatrix {
     pub ground_to_robot: Isometry3<Ground, Robot>,
     pub robot_to_head: Isometry3<Robot, Head>,

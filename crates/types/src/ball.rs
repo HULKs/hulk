@@ -6,17 +6,7 @@ use geometry::circle::Circle;
 use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, PathSerialize, PathIntrospect)]
 pub struct CandidateEvaluation {
     pub candidate_circle: Circle<Pixel>,
     pub preclassifier_confidence: f32,

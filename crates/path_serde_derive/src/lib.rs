@@ -4,9 +4,9 @@ use proc_macro_error::proc_macro_error;
 use serialize::derive_path_serialize;
 use syn::{parse_macro_input, DeriveInput};
 
+mod bound;
 mod container;
 mod deserialize;
-mod extend_generics;
 mod introspect;
 mod serialize;
 

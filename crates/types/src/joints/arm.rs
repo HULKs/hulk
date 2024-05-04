@@ -44,11 +44,6 @@ pub enum ArmJoint {
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
-)]
 pub struct ArmJoints<T = f32> {
     pub shoulder_pitch: T,
     pub shoulder_roll: T,

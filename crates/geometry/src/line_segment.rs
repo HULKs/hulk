@@ -1,13 +1,25 @@
 use std::{cmp::PartialEq, f32::consts::TAU};
 
 use approx::{AbsDiffEq, RelativeEq};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{vector, Point2, Vector2};
 
 use crate::{arc::Arc, direction::Direction};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    PathSerialize,
+    PathIntrospect,
+    PathDeserialize,
+)]
 pub struct LineSegment<Frame>(pub Point2<Frame>, pub Point2<Frame>);
 
 impl<Frame> AbsDiffEq for LineSegment<Frame>
