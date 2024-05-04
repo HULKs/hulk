@@ -29,7 +29,7 @@ use crate::{
     PlayerNumber, HULKS_TEAM_NUMBER,
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathDeserialize, PathSerialize, PathIntrospect)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect)]
 pub struct GameControllerStateMessage {
     pub competition_phase: CompetitionPhase,
     pub competition_type: CompetitionType,

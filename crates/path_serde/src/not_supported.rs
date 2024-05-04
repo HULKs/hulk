@@ -20,8 +20,7 @@ macro_rules! implement_as_not_supported {
             where
                 S: Serializer,
             {
-                Err(serialize::Error::NotSupported {
-                    type_name: stringify!($type),
+                Err(serialize::Error::PathDoesNotExist {
                     path: path.to_string(),
                 })
             }
@@ -36,8 +35,7 @@ macro_rules! implement_as_not_supported {
             where
                 D: Deserializer<'de>,
             {
-                Err(deserialize::Error::NotSupported {
-                    type_name: stringify!($type),
+                Err(deserialize::Error::PathDoesNotExist {
                     path: path.to_string(),
                 })
             }
@@ -57,8 +55,7 @@ macro_rules! implement_as_not_supported {
             where
                 S: Serializer,
             {
-                Err(serialize::Error::NotSupported {
-                    type_name: stringify!($type),
+                Err(serialize::Error::PathDoesNotExist {
                     path: path.to_string(),
                 })
             }
@@ -73,8 +70,7 @@ macro_rules! implement_as_not_supported {
             where
                 D: Deserializer<'de>,
             {
-                Err(deserialize::Error::NotSupported {
-                    type_name: stringify!($type),
+                Err(deserialize::Error::PathDoesNotExist {
                     path: path.to_string(),
                 })
             }

@@ -23,7 +23,6 @@ use crate::{
     PathSerialize,
     Serialize,
 )]
-#[serde(bound = "")]
 pub struct Circle<Frame> {
     pub center: Point2<Frame>,
     pub radius: f32,

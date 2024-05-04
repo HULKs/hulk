@@ -9,6 +9,7 @@ use crate::intrinsic::Intrinsic;
     Clone,
     Copy,
     Debug,
+    Default,
     Deserialize,
     PartialEq,
     Serialize,

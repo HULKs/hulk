@@ -25,11 +25,6 @@ use splines::impl_Interpolate;
     PathDeserialize,
     PathIntrospect,
 )]
-#[path_serde(
-    bound =
-        T: PathSerialize + Serialize + PathDeserialize + PathIntrospect,
-        for<'de> T: Deserialize<'de>
-)]
 pub struct MotorCommands<T> {
     pub positions: T,
     pub stiffnesses: T,

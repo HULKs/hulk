@@ -7,13 +7,8 @@ where
 {
     #[error("failed to serialize")]
     SerializationFailed(#[source] E),
-    #[error("type {type_name} does not support serialization for path {path:?}")]
-    NotSupported {
-        type_name: &'static str,
-        path: String,
-    },
-    #[error("unexpected path {path}")]
-    UnexpectedPath { path: String },
+    #[error("path `{path}` does not exist")]
+    PathDoesNotExist { path: String },
 }
 
 pub trait PathSerialize {

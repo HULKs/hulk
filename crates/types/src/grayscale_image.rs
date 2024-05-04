@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::jpeg::JpegImage;
 
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathIntrospect)]
 #[path_serde(add_leaf(jpeg: JpegImage))]
 pub struct GrayscaleImage {
     width: u32,

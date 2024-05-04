@@ -32,12 +32,12 @@ where
     fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
-        data: D,
+        deserializer: D,
     ) -> Result<(), deserialize::Error<D::Error>>
     where
         D: Deserializer<'de>,
     {
-        self.deref_mut().deserialize_path(path, data)
+        self.deref_mut().deserialize_path(path, deserializer)
     }
 }
 
@@ -63,25 +63,6 @@ where
         S: Serializer,
     {
         self.deref().serialize_path(path, serializer)
-    }
-}
-
-impl<T> PathDeserialize for Arc<T>
-where
-    T: PathDeserialize,
-{
-    fn deserialize_path<'de, D>(
-        &mut self,
-        path: &str,
-        _data: D,
-    ) -> Result<(), deserialize::Error<D::Error>>
-    where
-        D: Deserializer<'de>,
-    {
-        Err(deserialize::Error::NotSupported {
-            type_name: "Arc",
-            path: path.to_string(),
-        })
     }
 }
 
@@ -117,20 +98,25 @@ where
 
 impl<T> PathDeserialize for Option<T>
 where
-    T: PathDeserialize,
+    T: PathDeserialize + Default,
 {
     fn deserialize_path<'de, D>(
         &mut self,
         path: &str,
-        _data: D,
+        deserializer: D,
     ) -> Result<(), deserialize::Error<D::Error>>
     where
         D: Deserializer<'de>,
     {
-        Err(deserialize::Error::NotSupported {
-            type_name: "Option",
-            path: path.to_string(),
-        })
+        match self {
+            Some(some) => some.deserialize_path(path, deserializer),
+            None => {
+                let mut value = T::default();
+                value.deserialize_path(path, deserializer)?;
+                *self = Some(value);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -167,7 +153,7 @@ where
                 .end
                 .serialize(serializer)
                 .map_err(serialize::Error::SerializationFailed),
-            _ => Err(serialize::Error::UnexpectedPath {
+            _ => Err(serialize::Error::PathDoesNotExist {
                 path: path.to_owned(),
             }),
         }
@@ -201,7 +187,7 @@ where
                     .map_err(deserialize::Error::DeserializationFailed)?;
                 Ok(())
             }
-            _ => Err(deserialize::Error::UnexpectedPath {
+            _ => Err(deserialize::Error::PathDoesNotExist {
                 path: path.to_owned(),
             }),
         }
@@ -237,7 +223,7 @@ where
             Some(index) => self[index]
                 .serialize(serializer)
                 .map_err(serialize::Error::SerializationFailed),
-            _ => Err(serialize::Error::UnexpectedPath {
+            _ => Err(serialize::Error::PathDoesNotExist {
                 path: path.to_owned(),
             }),
         }
@@ -267,7 +253,7 @@ where
                 self[index] = deserialized;
                 Ok(())
             }
-            None => Err(deserialize::Error::UnexpectedPath {
+            None => Err(deserialize::Error::PathDoesNotExist {
                 path: path.to_owned(),
             }),
         }

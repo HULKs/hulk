@@ -12,16 +12,14 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::Point2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use path_serde::{PathIntrospect, PathSerialize};
 
 use crate::{
     color::{Rgb, YCbCr422, YCbCr444},
     jpeg::JpegImage,
 };
 
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathIntrospect)]
 #[path_serde(add_leaf(jpeg: JpegImage))]
 pub struct YCbCr422Image {
     width_422: u32,
