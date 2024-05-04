@@ -12,7 +12,7 @@ use linear_algebra::vector;
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
 use spl_network_messages::PlayerNumber;
-use types::messages::IncomingMessage;
+use types::{messages::IncomingMessage, motion_selection::MotionSafeExits};
 
 use crate::{
     cycler::{BehaviorCycler, Database},
@@ -62,8 +62,12 @@ impl Robot {
             .as_transform(),
         );
         database.main_outputs.has_ground_contact = true;
+        database.main_outputs.is_localization_converged = true;
 
-        let cycler_state = Default::default();
+        let cycler_state = CyclerState {
+            motion_safe_exits: MotionSafeExits::fill(true),
+            ..Default::default()
+        };
 
         Ok(Self {
             interface,

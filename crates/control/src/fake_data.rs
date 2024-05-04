@@ -52,6 +52,7 @@ pub struct MainOutputs {
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
+    pub is_localization_converged: MainOutput<bool>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub primary_state: MainOutput<PrimaryState>,
