@@ -45,16 +45,11 @@ impl Widget for Labels {
             let mut child_ui = ui.child_ui(child_rect, Layout::top_down(Align::Min));
             child_ui.set_height(row_height);
             child_ui.label(RichText::new(label_content.name).strong());
-            if row_height
-                >= (2.0 * ui.style().text_styles.get(&TextStyle::Body).unwrap().size)
-                    + ui.spacing().item_spacing.y
-            {
+            let text_height = ui.style().text_styles.get(&TextStyle::Body).unwrap().size;
+            if child_ui.available_height() >= text_height {
                 child_ui.label(format!("{} frames", label_content.number_of_frames));
             }
-            if row_height
-                >= (3.0 * ui.style().text_styles.get(&TextStyle::Body).unwrap().size)
-                    + ui.spacing().item_spacing.y
-            {
+            if child_ui.available_height() >= text_height {
                 if let ScanState::Loading { progress } = label_content.scan_state {
                     child_ui.label(format!("{:.2} %", progress * 100.0));
                 }
