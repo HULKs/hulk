@@ -78,7 +78,7 @@ fn generate_leaf_serializations(container: &Container) -> Vec<TokenStream> {
                     .map_err(path_serde::serialize::Error::SerializationFailed)
             }
         })
-        .chain(container.computed_leafs.iter().map(|leaf| {
+        .chain(container.computed_leaves.iter().map(|leaf| {
             let identifier = &leaf.identifier;
             let into_type = &leaf.into_type;
             let pattern = identifier.to_string();
