@@ -16,7 +16,7 @@ use control::{
 
 use framework::{AdditionalOutput, PerceptionInput};
 use path_serde::{PathIntrospect, PathSerialize};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 use types::messages::IncomingMessage;
 
@@ -28,7 +28,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Default, Serialize, PathSerialize, PathIntrospect)]
+#[derive(Clone, Default, Deserialize, Serialize, PathSerialize, PathIntrospect)]
 pub struct Database {
     pub main_outputs: MainOutputs,
     pub additional_outputs: AdditionalOutputs,
