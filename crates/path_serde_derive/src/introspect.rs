@@ -35,7 +35,7 @@ fn generate_extend_with_fields(container: &Container) -> Vec<TokenStream> {
         .fields
         .iter()
         .filter(|field| !field.skip_introspect && !field.is_leaf);
-    let computed_leafs = container.computed_leafs.iter();
+    let computed_leafs = container.computed_leaves.iter();
 
     leafs.map(|field| {
             let field_name = &field.identifier.to_field_name();

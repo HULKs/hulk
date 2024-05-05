@@ -12,7 +12,7 @@ pub struct Container {
     pub serialize_bounds: Vec<WherePredicate>,
     pub deserialize_bounds: Vec<WherePredicate>,
     pub introspect_bounds: Vec<WherePredicate>,
-    pub computed_leafs: Vec<ComputedLeaf>,
+    pub computed_leaves: Vec<ComputedLeaf>,
 }
 
 impl Container {
@@ -20,7 +20,7 @@ impl Container {
         let mut serialize_bounds = None;
         let mut deserialize_bounds = None;
         let mut introspect_bounds = None;
-        let mut computed_leafs = Vec::new();
+        let mut computed_leaves = Vec::new();
 
         for attribute in &item.attrs {
             if !attribute.path().is_ident("path_serde") {
@@ -64,7 +64,7 @@ impl Container {
                     let identifier: Ident = content.parse()?;
                     content.parse::<Token![:]>()?;
                     let into_type = content.parse::<Type>()?;
-                    computed_leafs.push(ComputedLeaf {
+                    computed_leaves.push(ComputedLeaf {
                         identifier,
                         into_type,
                     });
@@ -99,11 +99,11 @@ impl Container {
         });
 
         Ok(Container {
-            computed_leafs,
+            fields,
             serialize_bounds,
             deserialize_bounds,
             introspect_bounds,
-            fields,
+            computed_leaves,
         })
     }
 }
