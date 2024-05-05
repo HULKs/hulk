@@ -9,8 +9,8 @@ The directory structure is organized as follows, only touching parts relevant fo
     - `context_attribute/`: Contains the proc-macro `#[context]` used in our nodes to augment and prepare them for the execution in the framework
     - `framework/`: Some basic building blocks (future queue and multiple buffers) and other framework types
     - `parameters/`: Functionality for de/serializing a parameter directory
-    - `serialize_hierarchy/`: Traits needed for all types available via Communication
-    - `serialize_hierarchy_derive/`: Derive macro for the `PathSerialize, PathDeserialize, PathIntrospect` trait
+    - `path_serde/`: Traits needed for all types available via Communication
+    - `path_serde_derive/`: Derive macro for the `PathSerialize, PathDeserialize, PathIntrospect` trait
 - `etc/`: All additional files necessary when deploying the code to a robot
     - `parameters/`: Parameter files that are deployed to NAOs and are read during startup
 - `tools/`: Miscellaneous projects and tools more or less related to the code
