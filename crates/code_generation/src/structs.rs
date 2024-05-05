@@ -27,6 +27,7 @@ pub fn generate_structs(structs: &Structs) -> TokenStream {
             Debug,
             Default,
             serde::Serialize,
+            serde::Deserialize,
             path_serde::PathSerialize,
             path_serde::PathIntrospect,
          )]
