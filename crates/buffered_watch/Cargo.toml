@@ -1,0 +1,10 @@
+[package]
+name = "buffered_watch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+parking_lot = { workspace = true }
+tokio = { workspace = true }

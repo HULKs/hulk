@@ -1,20 +1,9 @@
-use std::{
-    collections::{hash_map::Entry, BTreeSet, HashMap},
-    sync::Arc,
-};
+use std::collections::{hash_map::Entry, BTreeSet, HashMap};
 
-use framework::Reader;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
 use path_serde::{PathIntrospect, PathSerialize};
-use tokio::{
-    select, spawn,
-    sync::{
-        mpsc::{Receiver, Sender},
-        Notify,
-    },
-    task::JoinHandle,
-};
+use tokio::{select, spawn, sync::mpsc, task::JoinHandle};
 
 use crate::{
     messages::{ParametersRequest, ParametersResponse, Path, Response, TextualResponse},
@@ -24,10 +13,9 @@ use crate::{
 use super::StorageRequest;
 
 pub fn subscriptions<Parameters>(
-    mut request_receiver: Receiver<ClientRequest<ParametersRequest>>,
-    parameters_reader: Reader<Parameters>,
-    parameters_changed: Arc<Notify>,
-    storage_request_sender: Sender<StorageRequest>,
+    mut request_receiver: mpsc::Receiver<ClientRequest<ParametersRequest>>,
+    mut parameters_reader: buffered_watch::Receiver<Parameters>,
+    storage_request_sender: mpsc::Sender<StorageRequest>,
 ) -> JoinHandle<()>
 where
     Parameters: Send + PathSerialize + Sync + 'static + PathIntrospect,
@@ -44,14 +32,14 @@ where
                     };
                     handle_request(
                         request,
-                        &parameters_reader,
+                        &mut parameters_reader,
                         &storage_request_sender,
                         &mut subscriptions,
                         &fields,
                     ).await;
                 },
-                _ = parameters_changed.notified() => {
-                    handle_changed_parameters(&parameters_reader, &subscriptions).await;
+                _ = parameters_reader.wait_for_change() => {
+                    handle_changed_parameters(&mut parameters_reader, &subscriptions).await;
                 }
             }
         }
@@ -60,8 +48,8 @@ where
 
 async fn handle_request<Parameters>(
     request: ClientRequest<ParametersRequest>,
-    parameters_reader: &Reader<Parameters>,
-    storage_request_sender: &Sender<StorageRequest>,
+    parameters_reader: &mut buffered_watch::Receiver<Parameters>,
+    storage_request_sender: &mpsc::Sender<StorageRequest>,
     subscriptions: &mut HashMap<(Client, usize), Path>,
     fields: &BTreeSet<String>,
 ) where
@@ -80,7 +68,7 @@ async fn handle_request<Parameters>(
         }
         ParametersRequest::GetCurrent { id, ref path } => {
             let data = {
-                let parameters = parameters_reader.next();
+                let parameters = parameters_reader.borrow_and_mark_as_seen();
                 parameters.serialize_path(path, serde_json::value::Serializer)
             };
             let data = match data {
@@ -132,7 +120,7 @@ async fn handle_request<Parameters>(
             };
 
             let data = {
-                let parameters = parameters_reader.next();
+                let parameters = parameters_reader.borrow_and_mark_as_seen();
                 parameters.serialize_path(path, serde_json::value::Serializer)
             };
             let data = match data {
@@ -233,13 +221,13 @@ async fn respond(request: ClientRequest<ParametersRequest>, response: Parameters
 }
 
 async fn handle_changed_parameters<Parameters>(
-    parameters_reader: &Reader<Parameters>,
+    parameters: &mut buffered_watch::Receiver<Parameters>,
     subscriptions: &HashMap<(Client, usize), Path>,
 ) where
     Parameters: PathSerialize,
 {
     let items: HashMap<_, _> = {
-        let parameters = parameters_reader.next();
+        let parameters = parameters.borrow_and_mark_as_seen();
         subscriptions
             .iter()
             .filter_map(|((client, subscription_id), path)| {
@@ -281,13 +269,12 @@ async fn handle_changed_parameters<Parameters>(
 
 #[cfg(test)]
 mod tests {
-    use framework::multiple_buffer_with_slots;
     use parameters::directory::{Id, Location, Scope};
     use path_serde::serialize;
     use serde::{Serialize, Serializer};
     use serde_json::Value;
     use tokio::{
-        sync::mpsc::{channel, error::TryRecvError},
+        sync::mpsc::{self, error::TryRecvError},
         task::yield_now,
     };
 
@@ -295,16 +282,11 @@ mod tests {
 
     #[tokio::test]
     async fn terminates_on_request_sender_drop() {
-        let (request_sender, request_receiver) = channel(1);
-        let (_parameters_writer, parameters_reader) = multiple_buffer_with_slots([42usize]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (request_sender, request_receiver) = mpsc::channel(1);
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(42usize);
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         drop(request_sender);
         subscriptions_task.await.unwrap();
@@ -312,18 +294,13 @@ mod tests {
 
     #[tokio::test]
     async fn fields_are_returned() {
-        let (request_sender, request_receiver) = channel(1);
-        let (_parameters_writer, parameters_reader) = multiple_buffer_with_slots([42usize]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (request_sender, request_receiver) = mpsc::channel(1);
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(42usize);
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::GetFields { id: 42 },
@@ -351,6 +328,7 @@ mod tests {
         subscriptions_task.await.unwrap();
     }
 
+    #[derive(Debug, Clone)]
     struct ParametersFake<T> {
         existing_fields: HashMap<String, T>,
     }
@@ -387,23 +365,17 @@ mod tests {
 
     #[tokio::test]
     async fn get_current_returns_data() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), value.clone())].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::GetCurrent { id: 42, path },
@@ -435,27 +407,21 @@ mod tests {
 
     #[tokio::test]
     async fn subscriptions_with_same_subscription_ids_and_same_client_ids() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path, value.clone())].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         const ID: usize = 42;
         let path = "a.b.c".to_string();
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Subscribe {
@@ -530,25 +496,19 @@ mod tests {
 
     #[tokio::test]
     async fn subscriptions_with_same_subscription_ids_and_different_client_ids() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), value.clone())].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         const ID: usize = 42;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Subscribe {
@@ -623,25 +583,19 @@ mod tests {
 
     #[tokio::test]
     async fn subscriptions_with_different_subscription_ids_and_same_client_ids() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), value.clone())].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Subscribe {
@@ -716,22 +670,16 @@ mod tests {
 
     #[tokio::test]
     async fn unsubscribe_unknown_subscription_results_in_error() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), 42)].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), 42)].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Unsubscribe {
@@ -769,26 +717,20 @@ mod tests {
 
     #[tokio::test]
     async fn unsubscribe_twice_results_in_error() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), value.clone())].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Subscribe {
@@ -896,26 +838,20 @@ mod tests {
 
     #[tokio::test]
     async fn unsubscribe_after_unsubscribe_everything_results_in_error() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), value.clone())].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Subscribe {
@@ -1012,26 +948,20 @@ mod tests {
 
     #[tokio::test]
     async fn parameter_update_is_forwarded_to_storage() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, mut storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), value.clone())].into(),
+        });
+        let (storage_request_sender, mut storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         let path = "a.b.c".to_string();
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Update {
@@ -1075,20 +1005,15 @@ mod tests {
 
     #[tokio::test]
     async fn load_from_disk_is_forwarded_to_storage() {
-        let (request_sender, request_receiver) = channel(1);
-        let (_parameters_writer, parameters_reader) = multiple_buffer_with_slots([42]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, mut storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (request_sender, request_receiver) = mpsc::channel(1);
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(42);
+        let (storage_request_sender, mut storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::LoadFromDisk { id: 42 },
@@ -1126,16 +1051,11 @@ mod tests {
 
     #[tokio::test]
     async fn store_to_disk_is_forwarded_to_storage() {
-        let (request_sender, request_receiver) = channel(1);
-        let (_parameters_writer, parameters_reader) = multiple_buffer_with_slots([42]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, mut storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed,
-            storage_request_sender,
-        );
+        let (request_sender, request_receiver) = mpsc::channel(1);
+        let (_parameters_writer, parameters_reader) = buffered_watch::channel(42);
+        let (storage_request_sender, mut storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         let client_id = 1337;
         let scope = Scope {
@@ -1144,7 +1064,7 @@ mod tests {
         };
         let path = "foo.bar".to_string();
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::StoreToDisk {
@@ -1188,26 +1108,20 @@ mod tests {
 
     #[tokio::test]
     async fn data_from_notified_parameters_is_sent_to_subscribed_client() {
-        let (request_sender, request_receiver) = channel(1);
+        let (request_sender, request_receiver) = mpsc::channel(1);
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let (_parameters_writer, parameters_reader) =
-            multiple_buffer_with_slots([ParametersFake {
-                existing_fields: [(path.clone(), value.clone())].into(),
-            }]);
-        let parameters_changed = Arc::new(Notify::new());
-        let (storage_request_sender, _storage_request_receiver) = channel(1);
-        let subscriptions_task = subscriptions(
-            request_receiver,
-            parameters_reader,
-            parameters_changed.clone(),
-            storage_request_sender,
-        );
+        let (mut parameters_writer, parameters_reader) = buffered_watch::channel(ParametersFake {
+            existing_fields: [(path.clone(), value.clone())].into(),
+        });
+        let (storage_request_sender, _storage_request_receiver) = mpsc::channel(1);
+        let subscriptions_task =
+            subscriptions(request_receiver, parameters_reader, storage_request_sender);
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: ParametersRequest::Subscribe {
@@ -1248,7 +1162,7 @@ mod tests {
             )),
         );
 
-        parameters_changed.notify_one();
+        parameters_writer.borrow_mut();
         let subscribed_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             subscribed_data,

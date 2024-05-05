@@ -2,23 +2,18 @@ use std::{
     collections::HashSet,
     fmt::Debug,
     io,
-    iter::repeat_with,
     path::Path,
     sync::Arc,
     thread::{self, JoinHandle},
 };
 
-use framework::{multiple_buffer_with_slots, Reader, Writer};
 use parameters::directory::{deserialize, DirectoryError};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     net::ToSocketAddrs,
     runtime::{self, Runtime as TokioRuntime},
-    sync::{
-        mpsc::{channel, Sender},
-        oneshot, Notify,
-    },
+    sync::{mpsc, oneshot},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -47,9 +42,8 @@ pub enum StartError {
 pub struct Runtime<Parameters> {
     join_handle: JoinHandle<Result<(), StartError>>,
     runtime: Arc<TokioRuntime>,
-    outputs_sender: Sender<Request>,
-    parameters_reader: Reader<Parameters>,
-    parameters_changed: Arc<Notify>,
+    outputs_sender: mpsc::Sender<Request>,
+    parameters_receiver: buffered_watch::Receiver<Parameters>,
 }
 
 impl<Parameters> Runtime<Parameters>
@@ -69,7 +63,6 @@ where
         parameters_directory: impl AsRef<Path> + Send + Sync + 'static,
         body_id: String,
         head_id: String,
-        amount_of_parameters_slots: usize,
         keep_running: CancellationToken,
     ) -> Result<Self, StartError> {
         let (runtime_sender, runtime_receiver) = oneshot::channel();
@@ -100,23 +93,19 @@ where
                             }
                         };
 
-                    let (outputs_sender, outputs_receiver) = channel(1);
+                    let (outputs_sender, outputs_receiver) = mpsc::channel(1);
 
-                    let parameters_changed = Arc::new(Notify::new());
-                    let (parameters_writer, parameters_reader) = multiple_buffer_with_slots(
-                        repeat_with(|| initial_parameters.clone())
-                            .take(amount_of_parameters_slots + 1),
-                    );
+                    let (parameters_writer, parameters_reader) =
+                        buffered_watch::channel(initial_parameters);
 
-                    let (parameters_sender, parameters_receiver) = channel(1);
-                    let (parameters_storage_sender, parameters_storage_receiver) = channel(1);
+                    let (parameters_sender, parameters_receiver) = mpsc::channel(1);
+                    let (parameters_storage_sender, parameters_storage_receiver) = mpsc::channel(1);
 
                     runtime_sender
                         .send(Some((
                             inner_runtime,
                             outputs_sender.clone(),
                             parameters_reader.clone(),
-                            parameters_changed.clone(),
                         )))
                         .ok()
                         .expect("successful thread creation should always wait for runtime_sender");
@@ -134,12 +123,10 @@ where
                     let parameters_subscriptions_task = subscriptions(
                         parameters_receiver,
                         parameters_reader,
-                        parameters_changed.clone(),
                         parameters_storage_sender,
                     );
                     let parameters_storage_task = storage(
                         parameters_writer,
-                        parameters_changed.clone(),
                         parameters_storage_receiver,
                         parameters_directory,
                         body_id,
@@ -177,26 +164,24 @@ where
             })
             .map_err(StartError::ThreadNotStarted)?;
 
-        let (runtime, outputs_sender, parameters_reader, parameters_changed) =
-            match runtime_receiver
-                .blocking_recv()
-                .expect("successful thread creation should always send into runtime_sender")
-            {
-                Some(response) => response,
-                None => {
-                    return Err(join_handle
-                        .join()
-                        .expect("failed to join runtime thread")
-                        .expect_err("runtime thread without runtime should return an error"));
-                }
-            };
+        let (runtime, outputs_sender, parameters_reader) = match runtime_receiver
+            .blocking_recv()
+            .expect("successful thread creation should always send into runtime_sender")
+        {
+            Some(response) => response,
+            None => {
+                return Err(join_handle
+                    .join()
+                    .expect("failed to join runtime thread")
+                    .expect_err("runtime thread without runtime should return an error"));
+            }
+        };
 
         Ok(Self {
             join_handle,
             runtime,
             outputs_sender,
-            parameters_reader,
-            parameters_changed,
+            parameters_receiver: parameters_reader,
         })
     }
 
@@ -208,9 +193,8 @@ where
     pub fn register_cycler_instance<Outputs>(
         &self,
         cycler_instance: &'static str,
-        outputs_changed: Arc<Notify>,
-        outputs_reader: Reader<Outputs>,
-        subscribed_outputs_writer: Writer<HashSet<String>>,
+        outputs_reader: buffered_watch::Receiver<Outputs>,
+        subscribed_outputs_writer: buffered_watch::Sender<HashSet<String>>,
     ) where
         Outputs: Send + Sync + 'static + PathSerialize + PathIntrospect,
     {
@@ -218,17 +202,12 @@ where
         provider(
             self.outputs_sender.clone(),
             cycler_instance,
-            outputs_changed,
             outputs_reader,
             subscribed_outputs_writer,
         );
     }
 
-    pub fn get_parameters_reader(&self) -> Reader<Parameters> {
-        self.parameters_reader.clone()
-    }
-
-    pub fn get_parameters_changed(&self) -> Arc<Notify> {
-        self.parameters_changed.clone()
+    pub fn get_parameters_receiver(&self) -> buffered_watch::Receiver<Parameters> {
+        self.parameters_receiver.clone()
     }
 }
