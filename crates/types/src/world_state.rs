@@ -29,7 +29,9 @@ pub struct WorldState {
     pub robot: RobotState,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
     pub ball_in_field: Point2<Field>,
@@ -37,6 +39,19 @@ pub struct BallState {
     pub last_seen_ball: SystemTime,
     pub penalty_shot_direction: Option<PenaltyShotDirection>,
     pub field_side: Side,
+}
+
+impl Default for BallState {
+    fn default() -> Self {
+        Self {
+            ball_in_ground: Point2::origin(),
+            ball_in_field: Point2::origin(),
+            ball_in_ground_velocity: Vector2::zeros(),
+            last_seen_ball: UNIX_EPOCH,
+            penalty_shot_direction: Default::default(),
+            field_side: Side::Left,
+        }
+    }
 }
 
 impl BallState {
