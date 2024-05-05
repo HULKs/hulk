@@ -53,7 +53,7 @@ We use Git to manage all our software.
     **First**, install Git (see above).
 
     The **second** thing you should is to set your user name and email address.
-    This is important because every Git commit uses this information, and it’s immutably baked into the commits you start creating:
+    This is important because every Git commit uses this information, and it’s baked into the commits you start creating:
 
     ```
     git config --global user.name "<your-name>"
@@ -78,11 +78,13 @@ For a more in depth overview and introduction to Pepsi, consult [../tooling/peps
 For now, it is sufficient to know that Pepsi takes care of building the source code and also uploading it to the NAO.
 This includes downloading and installing the SDK.
 
-To build Pepsi from source, run
+To build and run Pepsi from source, use
 
 ```sh
 ./pepsi
 ```
+
+This downloads and builds all dependencies for the workspace and displays the help page of Pepsi.
 
 !!! tip
 
@@ -93,5 +95,3 @@ To build Pepsi from source, run
     ```
 
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
-
-This downloads and builds all dependencies for the workspace and displays the help page of Pepsi.

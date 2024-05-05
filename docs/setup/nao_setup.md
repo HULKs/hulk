@@ -5,12 +5,12 @@ See [Development Environment](./development_environment.md) to learn how to setu
 
 !!! warning
 
-    Make sure a RoboCupper image has been flashed before flashing the first Yocto image, since the latter does not flash the chestboard (which needs up-to-date software).
+    Make sure a RoboCupper image has been flashed before flashing the first Yocto image, since the latter does not flash the chestboard (which needs up-to-date firmware).
     This step is not required for flashing subsequent Yocto images.
 
 ## Flashing the Firmware
 
-You can flash the firmware both using [pepsi](../tooling/pepsi.md) or manually using an USB stick.
+You can flash the firmware both using [pepsi](../tooling/pepsi.md) or manually with a USB stick.
 Flashing with pepsi is the preferred option.
 
 ### Using `pepsi gammaray`

@@ -6,7 +6,7 @@
 
 ## HULKs Members
 
-There is nothing to do, all the configuration should be ready to if you cloned the `hulks/hulk` repository.
+There is nothing to do, all the configuration should be ready to go if you cloned the `hulks/hulk` repository.
 
 ## Non HULKs Members
 
