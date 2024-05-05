@@ -4,7 +4,7 @@ The HULKs use the [Yocto Project](https://yoctoproject.org) for creating a custo
 The toolchain compiles all necessary dependencies, tools, and kernel to produce flashable OPN images for the NAO.
 Additionally, Yocto provides means to construct a corresponding software development kit (SDK) containing a complete cross-compilation toolchain.
 
-Team HULKs automatically releases the latest HULKs-OS publically on GitHub [here](https://github.com/hulks/meta-nao/releases).
+Team HULKs automatically releases the latest HULKs-OS publicly on GitHub [here](https://github.com/hulks/meta-nao/releases).
 If you're looking to use these images or SDKs for flashing and deploying software onto your robot, you can opt for the pre-built versions and do not need to build your own image and SDK.
 
 Upon booting, the image automatically configures both wired and wireless network devices for the NAO.
@@ -14,23 +14,19 @@ All HULKs robots come pre-configured in the released images, via the `configure_
 But if you're flashing a new or non-HULKs robot, you'll need to add its head ID to the map and generate a new image.
 
 For robots not listed, the image falls back to configuring its wired network device via DHCP.
-Thus, you're free to flash the HULKs-OS image onto a robot and find its IP address by inspecting your DHCP leases.
+Thus, you're free to flash the HULKs-OS image onto a robot and find its IP address by inspecting your DHCP leases or asking your IT administrator.
 
 ## Image & SDK Creation
 
 The Yocto Project leverages [BitBake](https://en.wikipedia.org/wiki/BitBake) as task execution engine and offers an abstraction layer to modify and extend existing build configurations.
 Combined with [OpenEmbedded](https://www.openembedded.org/wiki/Main_Page), the entire worktree is structured in several layers configuring the distribution and providing support for dependencies or services.
-Basic NAO support to construct a distribution for a minimal NAO robot operating system is configured with the root `meta`-layer in the [`meta-nao`](https://github.com/hulks/meta-nao) repository.
-The HULKs overlay this configuration with an additional `meta-hulks` layer to target the special SPL and HULKs usecase.
+Basic NAO support to construct a distribution for a minimal NAO robot operating system for use in SPL is configured with the root `meta`-layer in the [`meta-nao`](https://github.com/hulks/meta-nao) repository.
+The HULKs overlay this configuration with an additional `meta-hulks` layer to target the special HULKs usecase.
 
 ### Setup of the Working Directory
 
-
 Start by cloning the code and setting up a Yocto working directory.
 This working directory will contain the yocto configuration layers, including [HULKs/meta-nao](https://github.com/HULKs/meta-nao) and meta-hulks.
-Additionally, a helper script for running BitBake commands.
-It will be called `yocto`.
-The new `yocto` working directory must have at least 100 GB of empty space available and should not be part of a Git repository.
 
 ```sh
 mkdir yocto/
@@ -42,7 +38,7 @@ cd yocto/
     For creating the image and SDK, make sure there is at least 100 GB empty disk space available.
 
 
-Continue with cloning the `meta-nao` repository:
+Continue by cloning the `meta-nao` repository:
 
 ```sh
 git clone git@github.com:HULKs/meta-nao
@@ -65,10 +61,10 @@ This file defines the project structure `kas` has to setup for the Yocto build p
 ./kas-container checkout meta-hulks/kas-project.yml
 ```
 
-The last step is to populate the working directory with the proprietary and not open source released software by aldebaran.
+The last step is to populate the working directory with the proprietary and closed source software by aldebaran.
 This mainly is LoLA and HAL for communication with the chestboard.
 We do **not** provide these binaries, but rather extract them from the `.opn` files shipped with the RoboCupper image.
-For HULKs members contact our dev-leads and for non HULKs members contact the RoboCup SPL Technical Committee to get this image.
+To get the Robocupper image, HULKs members can ask our dev-leads, and non HULKs members should contact the RoboCup SPL Technical Committee.
 
 To extract the necessary binaries we provide a helper script called `extract_binaries.sh`.
 This script mounts the file system contained in the OPN image, fetches all binaries from inside the RoboCupper image, and collects them in an archive for the upcoming build phase.
@@ -80,7 +76,7 @@ mkdir -p aldebaran-binaries
 ./extract_binaries.sh -o aldebaran-binaries/aldebaran_binaries.tar.gz nao-2.8.5.11_ROBOCUP_ONLY_with_root.opn
 ```
 
-Now, your working directory is ready to build your own NAO image and SDK.
+Now your working directory is ready to build your own NAO image and SDK.
 At this point, you may adjust the distribution to your liking.
 This includes adding hardware IDs, configuring network, installing additional dependencies, and much more.
 
@@ -102,8 +98,8 @@ All BitBake and Devtool commands must be executed from inside this shell.
 
 ### Building the Image
 
-Inside of the build shell, you can build a NAO OPN image or SDK via BitBake.
-The initial build may take multiple hours depending on your computing performance and internet downlink speed.
+Inside of the build shell, you can build a NAO OPN image and SDK via BitBake.
+The initial build may take multiple hours depending on your computing performance and download speed.
 Remember, you are building an entire linux distribution.
 BitBake provides advanced caching of the build artifacts which means that future builds are done in minutes or even seconds depending on the changes.
 The cache relies in the `build/sstate-cache` which can be copied from another build directory or even shared between machines, see [Yocto Documentation about Shared State Cache](https://docs.yoctoproject.org/overview-manual/concepts.html#shared-state-cache) for further explanation.
@@ -114,14 +110,13 @@ bitbake nao-image
 ```
 
 This generates and executes all necessary tasks and targets to construct a proper `.opn` file.
-As soon as the build has successfully finished, the image is ready to be flashed to a robot.
-After BitBake ran all tasks up to `nao-image`, a new `.opn` file is generated in `build/tmp/deploy/images/nao-v6/nao-image-HULKs-OS-[...].ext3.gz.opn`.
-The image can now be flashed to a NAO as described in the [NAO setup section](./nao_setup.md#flashing-the-firmware).
+After BitBake finishes the `nao-image` task, the image file can be found at `build/tmp/deploy/images/nao-v6/nao-image-HULKs-OS-[...].ext3.gz.opn`.
+The image can directly be flashed to a NAO as described in the [NAO setup section](./nao_setup.md#flashing-the-firmware).
 
 ### Building the SDK
 
 To be able to compile software targeting the NAO platform, the code needs to be cross compiled for the NAO target.
-When you only change configuration for the NAO image, you may still maintain compatability with the publically released SDK at [meta-nao](https://github.com/hulks/meta-nao/releases) and opt for this SDK instead of building your own.
+When you only change configuration for the NAO image, you may still maintain compatibility with the publicly released SDK at [meta-nao](https://github.com/hulks/meta-nao/releases) and opt for this SDK instead of building your own.
 
 Within the build shell, the following command will build a full SDK:
 
@@ -151,8 +146,8 @@ The following policy exists for the HULKs:
 -   Both images and SDKs have major, minor, and patch version numbers (e.g. 4.2.3).
 -   Images and SDKs with the same major and minor version number are compatible with each other.
 -   Major changes, refactorings, or implementations result in the increase of the major version number.
--   Minor changes, additionsk, and iterations result in the increase of the minor version number.
--   Changes in the image that do not require SDK recreation, result in the increase of the patch version number. This consequently only requires to create a new image and not necessarily a redistribution of new SDKs.
+-   Minor changes, additions, and iterations result in the increase of the minor version number.
+-   Changes in the image that do not require SDK recreation, result in the increase of the patch version number. This consequently only requires creating a new image and not necessarily a redistribution of new SDKs.
 
 Before building new images, the version number needs to be set in `meta-nao/conf/distro/HULKsOS.conf`.
 Only change the `DISTRO_VERSION`, the `SDK_VERSION` is automatically derived from the `DISTRO_VERSION`.
@@ -166,7 +161,6 @@ Successive builds with pepsi will use the new version.
 Since upgrading the Rust version often requires manual steps, this section describes the approach on how to upgrade and generate the needed patch files.
 These instructions can be followed e.g. if a new Rust version is available and a new image/SDK should be created with this new version.
 Users that just want to use the current version that we upgraded to should skip this section.
-The latest patch set for is included in the meta-nao layer (in `patches/`).
 
 Rust is provided by the poky repository.
 The recipes are located in `meta/recipes-devtools/{cargo,rust}`.

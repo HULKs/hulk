@@ -5,7 +5,7 @@ This functionality is mainly used by *Communication* to serialize data and provi
 
 ## Traits
 
-The crate is providing three distinct traits: `PathSerialize`, `PathDeserialize`, and `PathIntrospect`.
+The crate provides three distinct traits: `PathSerialize`, `PathDeserialize`, and `PathIntrospect`.
 
 ### `PathSerialize`
 
@@ -42,7 +42,7 @@ This functionality is used when changing only parts of parameters.
 
 ## `PathIntrospect`
 
-The `PathIntrospect` trait enables type introspection, allowing the user to generate a set of available paths to fiels of a type.
+The `PathIntrospect` trait enables type introspection, allowing the user to generate a set of available paths to fields of a type.
 This functionality is valuable for dynamically exploring the structure of data types and determining the paths that can be utilized for serialization and deserialization.
 For instance, tooling may use these paths to autocomplete available paths when subscribing data from the robot.
 
