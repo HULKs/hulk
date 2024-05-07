@@ -17,7 +17,7 @@ linear_algebra = { workspace = true }
 parameters = { workspace = true }
 projection = { workspace = true }
 serde = { workspace = true }
-serialize_hierarchy = { workspace = true }
+path_serde = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
