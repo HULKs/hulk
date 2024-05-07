@@ -83,42 +83,50 @@ impl FilteredGameControllerStateTimer {
         {
             fn update_player_penalty(
                 new_penalty: Option<Penalty>,
+                current_penalty: Option<SystemTime>,
                 cycle_start_time: SystemTime,
             ) -> Option<SystemTime> {
                 if new_penalty.is_some() {
                     Some(cycle_start_time)
                 } else {
-                    None
+                    current_penalty
                 }
             }
 
             self.filtered_game_controller_state_changes.penalties = Players {
                 one: update_player_penalty(
                     context.filtered_game_controller_state.penalties.one,
+                    self.filtered_game_controller_state_changes.penalties.one,
                     cycle_start_time,
                 ),
                 two: update_player_penalty(
                     context.filtered_game_controller_state.penalties.two,
+                    self.filtered_game_controller_state_changes.penalties.two,
                     cycle_start_time,
                 ),
                 three: update_player_penalty(
                     context.filtered_game_controller_state.penalties.three,
+                    self.filtered_game_controller_state_changes.penalties.three,
                     cycle_start_time,
                 ),
                 four: update_player_penalty(
                     context.filtered_game_controller_state.penalties.four,
+                    self.filtered_game_controller_state_changes.penalties.four,
                     cycle_start_time,
                 ),
                 five: update_player_penalty(
                     context.filtered_game_controller_state.penalties.five,
+                    self.filtered_game_controller_state_changes.penalties.five,
                     cycle_start_time,
                 ),
                 six: update_player_penalty(
                     context.filtered_game_controller_state.penalties.six,
+                    self.filtered_game_controller_state_changes.penalties.six,
                     cycle_start_time,
                 ),
                 seven: update_player_penalty(
                     context.filtered_game_controller_state.penalties.seven,
+                    self.filtered_game_controller_state_changes.penalties.seven,
                     cycle_start_time,
                 ),
             };
