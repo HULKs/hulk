@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     fall_state::FallState,
-    pose_detection::{HumanPose, Keypoint, Keypoints, RefereePoseCandidate},
+    pose_detection::{HumanPose, Keypoints, RefereePoseCandidate},
     pose_kinds::{PoseKind, PoseKindPosition},
 };
 
@@ -30,19 +30,14 @@ pub struct CycleContext {
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    human_poses: Input<Vec<HumanPose>, "human_poses">,
+    unfiltered_human_poses: Input<Vec<HumanPose>, "unfiltered_human_poses">,
+    filtered_human_poses: Input<Vec<HumanPose>, "filtered_human_poses">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position:
         Input<Option<Point2<Field>>, "Control", "expected_referee_position?">,
     fall_state: Input<FallState, "Control", "fall_state">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
-    overall_keypoint_confidence_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.overall_keypoint_confidence_threshold">,
-    visual_referee_keypoint_confidence_threshold: Parameter<
-        f32,
-        "object_detection.$cycler_instance.visual_referee_keypoint_confidence_threshold",
-    >,
     distance_to_referee_position_threshold:
         Parameter<f32, "object_detection.$cycler_instance.distance_to_referee_position_threshold">,
     foot_z_offset: Parameter<f32, "object_detection.$cycler_instance.foot_z_offset">,
@@ -79,9 +74,7 @@ impl PoseInterpretation {
         };
 
         let referee_pose = get_referee_pose(
-            context.human_poses.clone(),
-            *context.overall_keypoint_confidence_threshold,
-            *context.visual_referee_keypoint_confidence_threshold,
+            context.filtered_human_poses.clone(),
             context.camera_matrices.top.clone(),
             *context.distance_to_referee_position_threshold,
             ground_to_field.inverse() * expected_referee_position,
@@ -91,10 +84,8 @@ impl PoseInterpretation {
         let pose_kind = interpret_pose(referee_pose, *context.shoulder_angle_threshold);
 
         context.raw_pose_kinds.fill_if_subscribed(|| {
-            get_all_pose_kinds(
-                context.human_poses,
-                0.0,
-                0.0,
+            get_all_pose_kind_positions(
+                context.unfiltered_human_poses,
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
@@ -103,10 +94,8 @@ impl PoseInterpretation {
         });
 
         context.filtered_pose_kinds.fill_if_subscribed(|| {
-            get_all_pose_kinds(
-                context.human_poses,
-                *context.overall_keypoint_confidence_threshold,
-                *context.visual_referee_keypoint_confidence_threshold,
+            get_all_pose_kind_positions(
+                context.filtered_human_poses,
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
@@ -121,24 +110,14 @@ impl PoseInterpretation {
 }
 
 fn get_referee_pose(
-    poses: Vec<HumanPose>,
-    overall_keypoint_confidence_threshold: f32,
-    visual_referee_keypoint_confidence_threshold: f32,
+    filtered_poses: Vec<HumanPose>,
     camera_matrix_top: CameraMatrix,
     distance_to_referee_position_threshold: f32,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
 ) -> Option<HumanPose> {
-    let overall_pose_candidates =
-        filter_poses_by_overall_confidence(poses, overall_keypoint_confidence_threshold);
-
-    let visual_referee_pose_candidates = filter_poses_by_visual_referee_confidence(
-        overall_pose_candidates,
-        visual_referee_keypoint_confidence_threshold,
-    );
-
     let located_pose_candidate: RefereePoseCandidate = get_closest_referee_pose(
-        visual_referee_pose_candidates,
+        filtered_poses,
         camera_matrix_top,
         expected_referee_position,
         foot_z_offset,
@@ -150,41 +129,6 @@ fn get_referee_pose(
     } else {
         None
     }
-}
-
-fn filter_poses_by_overall_confidence(
-    poses: Vec<HumanPose>,
-    overall_keypoint_confidence_threshold: f32,
-) -> Vec<HumanPose> {
-    poses
-        .iter()
-        .filter(|pose| {
-            pose.keypoints
-                .iter()
-                .all(|keypoint| keypoint.confidence > overall_keypoint_confidence_threshold)
-        })
-        .copied()
-        .collect()
-}
-
-fn filter_poses_by_visual_referee_confidence(
-    pose_candidates: Vec<HumanPose>,
-    visual_referee_keypoint_confidence_threshold: f32,
-) -> Vec<HumanPose> {
-    pose_candidates
-        .iter()
-        .filter(|pose| {
-            let visual_referee_keypoint_indices = [0, 1, 5, 6, 7, 8, 9, 10, 15, 16];
-            let visual_referee_keypoints: Vec<Keypoint> = visual_referee_keypoint_indices
-                .iter()
-                .map(|&i| pose.keypoints[i])
-                .collect();
-            visual_referee_keypoints
-                .iter()
-                .all(|keypoint| keypoint.confidence > visual_referee_keypoint_confidence_threshold)
-        })
-        .copied()
-        .collect()
 }
 
 fn get_closest_referee_pose(
@@ -270,10 +214,8 @@ fn is_shoulder_angled_up(
     f32::atan2(shoulder_to_elbow.y(), shoulder_to_elbow.x()) > shoulder_angle_threshold
 }
 
-fn get_all_pose_kinds(
-    poses: &[HumanPose],
-    overall_keypoint_confidence_threshold: f32,
-    visual_referee_keypoint_confidence_threshold: f32,
+fn get_all_pose_kind_positions(
+    filtered_poses: &[HumanPose],
     camera_matrix_top: CameraMatrix,
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
@@ -282,14 +224,8 @@ fn get_all_pose_kinds(
     let Some(ground_to_field) = ground_to_field else {
         return Vec::new();
     };
-    let overall_filtered_poses =
-        filter_poses_by_overall_confidence(poses.to_vec(), overall_keypoint_confidence_threshold);
-    let visual_referee_filtered_poses = filter_poses_by_overall_confidence(
-        overall_filtered_poses,
-        visual_referee_keypoint_confidence_threshold,
-    );
 
-    visual_referee_filtered_poses
+    filtered_poses
         .iter()
         .filter_map(|pose| {
             let left_foot_ground_position = camera_matrix_top

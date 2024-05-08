@@ -64,7 +64,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub human_poses: MainOutput<Vec<HumanPose>>,
+    pub unfiltered_human_poses: MainOutput<Vec<HumanPose>>,
 }
 
 impl PoseDetection {
@@ -197,7 +197,7 @@ impl PoseDetection {
         });
 
         Ok(MainOutputs {
-            human_poses: poses.into(),
+            unfiltered_human_poses: poses.into(),
         })
     }
 }
