@@ -1,0 +1,2014 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../configure_team/">
+      
+      
+        <link rel="next" href="../nao_setup/">
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.6">
+    
+    
+      
+        <title>NAO Image & SDK - HULKs Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.558e4712.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.2505c338.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#nao-image-sdk" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="HULKs Documentation" class="md-header__button md-logo" aria-label="HULKs Documentation" data-md-component="logo">
+      
+  <img src="../../logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            HULKs Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              NAO Image & SDK
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent=""  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </label>
+          
+        
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent=""  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../.." class="md-tabs__link">
+      Introduction
+    </a>
+  </li>
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../overview/" class="md-tabs__link md-tabs__link--active">
+        Setup
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../framework/overview/" class="md-tabs__link">
+        Framework
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../tooling/overview/" class="md-tabs__link">
+        Tooling
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../operating_system/overview/" class="md-tabs__link">
+        Operating System
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../robotics/overview/" class="md-tabs__link">
+        Robotics
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../workflow/getting_started/" class="md-tabs__link">
+        Workflow
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="HULKs Documentation" class="md-nav__button md-logo" aria-label="HULKs Documentation" data-md-component="logo">
+      
+  <img src="../../logo.svg" alt="logo">
+
+    </a>
+    HULKs Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Introduction
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_2" tabindex="0" aria-expanded="true">
+          Setup
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Setup" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Setup
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development_environment/" class="md-nav__link">
+        Development Environment
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configure_team/" class="md-nav__link">
+        Configure Team
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          NAO Image & SDK
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        NAO Image & SDK
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#image-sdk-creation" class="md-nav__link">
+    Image &amp; SDK Creation
+  </a>
+  
+    <nav class="md-nav" aria-label="Image &amp; SDK Creation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup-of-the-working-directory" class="md-nav__link">
+    Setup of the Working Directory
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#starting-a-build-shell" class="md-nav__link">
+    Starting a Build Shell
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-the-image" class="md-nav__link">
+    Building the Image
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-the-sdk" class="md-nav__link">
+    Building the SDK
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced" class="md-nav__link">
+    Advanced:
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced:">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-other-yocto-layers" class="md-nav__link">
+    Upgrade other Yocto Layers
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-imagesdk-versions-and-semantic-versioning" class="md-nav__link">
+    Upgrade Image/SDK Versions and Semantic Versioning
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-rust-version" class="md-nav__link">
+    Upgrade Rust Version
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nao_setup/" class="md-nav__link">
+        NAO Setup
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upload/" class="md-nav__link">
+        Upload HULK
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_3" tabindex="0" aria-expanded="false">
+          Framework
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Framework" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          Framework
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/directory_structure/" class="md-nav__link">
+        Directory Structure
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/process_entrypoint/" class="md-nav__link">
+        Process Entrypoint
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/runtime/" class="md-nav__link">
+        Runtime
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/cyclers/" class="md-nav__link">
+        Cyclers
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/nodes/" class="md-nav__link">
+        Nodes
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/databases_and_types/" class="md-nav__link">
+        Databases & Types
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/parameters/" class="md-nav__link">
+        Parameters
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/communication/" class="md-nav__link">
+        Communication
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/hardware_interface/" class="md-nav__link">
+        Hardware Interface
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/thread_communication/" class="md-nav__link">
+        Thread Communication
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/filtering/" class="md-nav__link">
+        Filtering
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/macros/" class="md-nav__link">
+        Macros
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/path_serde/" class="md-nav__link">
+        Path SerDe
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/error_handling/" class="md-nav__link">
+        Error Handling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../framework/logging/" class="md-nav__link">
+        Logging
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_4" type="checkbox" id="__nav_4" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_4" tabindex="0" aria-expanded="false">
+          Tooling
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Tooling" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Tooling
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/aliveness/" class="md-nav__link">
+        Aliveness
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/pepsi/" class="md-nav__link">
+        Pepsi
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/twix/" class="md-nav__link">
+        Twix
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/depp/" class="md-nav__link">
+        Depp
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/fanta/" class="md-nav__link">
+        Fanta
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/recording_and_replay/" class="md-nav__link">
+        Recording & Replay
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/machine-learning/" class="md-nav__link">
+        Machine Learning
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/sprite/" class="md-nav__link">
+        Behavior-Simulator & Sprite
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tooling/debugging/" class="md-nav__link">
+        Debugging with GDB/LLDB
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_5" type="checkbox" id="__nav_5" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_5" tabindex="0" aria-expanded="false">
+          Operating System
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Operating System" data-md-level="1">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Operating System
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operating_system/overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operating_system/partitioning/" class="md-nav__link">
+        Partitioning
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operating_system/home_directory/" class="md-nav__link">
+        Home Directory
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operating_system/linux/" class="md-nav__link">
+        Linux
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operating_system/wifi/" class="md-nav__link">
+        WiFi
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operating_system/hula/" class="md-nav__link">
+        HULA
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_6" type="checkbox" id="__nav_6" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_6" tabindex="0" aria-expanded="false">
+          Robotics
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Robotics" data-md-level="1">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Robotics
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_6_2" type="checkbox" id="__nav_6_2" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_6_2" tabindex="0" aria-expanded="false">
+          Perception
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Perception" data-md-level="2">
+        <label class="md-nav__title" for="__nav_6_2">
+          <span class="md-nav__icon md-icon"></span>
+          Perception
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/perception/vision/" class="md-nav__link">
+        Vision
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/perception/audio/" class="md-nav__link">
+        Audio
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/perception/filters/" class="md-nav__link">
+        Filters
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/perception/spl_network/" class="md-nav__link">
+        SPL Network
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/behavior/behavior/" class="md-nav__link">
+        Behavior
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_6_4" type="checkbox" id="__nav_6_4" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_6_4" tabindex="0" aria-expanded="false">
+          Motion
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Motion" data-md-level="2">
+        <label class="md-nav__title" for="__nav_6_4">
+          <span class="md-nav__icon md-icon"></span>
+          Motion
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/motion/step_planning/" class="md-nav__link">
+        Step planning
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/motion/walking/" class="md-nav__link">
+        Walking
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/motion/kicking/" class="md-nav__link">
+        Kicking
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/motion/motion_files/" class="md-nav__link">
+        Motion Files
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_6_5" type="checkbox" id="__nav_6_5" >
+      
+      
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_6_5" tabindex="0" aria-expanded="false">
+          Miscellaneous
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Miscellaneous" data-md-level="2">
+        <label class="md-nav__title" for="__nav_6_5">
+          <span class="md-nav__icon md-icon"></span>
+          Miscellaneous
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../robotics/miscellaneous/create_urdf/" class="md-nav__link">
+        Create URDF and PROTO for NAOv6
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " data-md-toggle="__nav_7" type="checkbox" id="__nav_7" >
+      
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        <label class="md-nav__link" for="__nav_7" tabindex="0" aria-expanded="false">
+          Workflow
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Workflow" data-md-level="1">
+        <label class="md-nav__title" for="__nav_7">
+          <span class="md-nav__icon md-icon"></span>
+          Workflow
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/getting_started/" class="md-nav__link">
+        Getting Started
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/competition/" class="md-nav__link">
+        Competition
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/development/" class="md-nav__link">
+        Development
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/engineering/" class="md-nav__link">
+        Engineering
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/github_webhooks/" class="md-nav__link">
+        GitHub Webhooks
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../workflow/leadership/" class="md-nav__link">
+        Leadership
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#image-sdk-creation" class="md-nav__link">
+    Image &amp; SDK Creation
+  </a>
+  
+    <nav class="md-nav" aria-label="Image &amp; SDK Creation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup-of-the-working-directory" class="md-nav__link">
+    Setup of the Working Directory
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#starting-a-build-shell" class="md-nav__link">
+    Starting a Build Shell
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-the-image" class="md-nav__link">
+    Building the Image
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-the-sdk" class="md-nav__link">
+    Building the SDK
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced" class="md-nav__link">
+    Advanced:
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced:">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-other-yocto-layers" class="md-nav__link">
+    Upgrade other Yocto Layers
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-imagesdk-versions-and-semantic-versioning" class="md-nav__link">
+    Upgrade Image/SDK Versions and Semantic Versioning
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrade-rust-version" class="md-nav__link">
+    Upgrade Rust Version
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="nao-image-sdk">NAO Image &amp; SDK</h1>
+<p>The HULKs use the <a href="https://yoctoproject.org">Yocto Project</a> for creating a custom linux distribution, we call HULKs-OS.
+The toolchain compiles all necessary dependencies, tools, and kernel to produce flashable OPN images for the NAO.
+Additionally, Yocto provides means to construct a corresponding software development kit (SDK) containing a complete cross-compilation toolchain.</p>
+<p>Team HULKs automatically releases the latest HULKs-OS publicly on GitHub <a href="https://github.com/hulks/meta-nao/releases">here</a>.
+If you're looking to use these images or SDKs for flashing and deploying software onto your robot, you can opt for the pre-built versions and do not need to build your own image and SDK.</p>
+<p>Upon booting, the image automatically configures both wired and wireless network devices for the NAO.
+Each robot is identified by its unique Head-ID, which is used to assign a distinct IP address.
+The mapping between Head-IDs and IP addresses is configured in the image (<a href="https://github.com/HULKs/meta-nao/blob/main/meta-hulks/recipes-hulks/network-config/network-config/id_map.json">here</a>).
+All HULKs robots come pre-configured in the released images, via the <code>configure_network</code> service (<a href="https://github.com/HULKs/meta-nao/blob/main/meta-hulks/recipes-hulks/network-config/network-config/configure_network">here</a>).
+But if you're flashing a new or non-HULKs robot, you'll need to add its head ID to the map and generate a new image.</p>
+<p>For robots not listed, the image falls back to configuring its wired network device via DHCP.
+Thus, you're free to flash the HULKs-OS image onto a robot and find its IP address by inspecting your DHCP leases or asking your IT administrator.</p>
+<h2 id="image-sdk-creation">Image &amp; SDK Creation</h2>
+<p>The Yocto Project leverages <a href="https://en.wikipedia.org/wiki/BitBake">BitBake</a> as task execution engine and offers an abstraction layer to modify and extend existing build configurations.
+Combined with <a href="https://www.openembedded.org/wiki/Main_Page">OpenEmbedded</a>, the entire worktree is structured in several layers configuring the distribution and providing support for dependencies or services.
+Basic NAO support to construct a distribution for a minimal NAO robot operating system for use in SPL is configured with the root <code>meta</code>-layer in the <a href="https://github.com/hulks/meta-nao"><code>meta-nao</code></a> repository.
+The HULKs overlay this configuration with an additional <code>meta-hulks</code> layer to target the special HULKs usecase.</p>
+<h3 id="setup-of-the-working-directory">Setup of the Working Directory</h3>
+<p>Start by cloning the code and setting up a Yocto working directory.
+This working directory will contain the yocto configuration layers, including <a href="https://github.com/HULKs/meta-nao">HULKs/meta-nao</a> and meta-hulks.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mkdir<span class="w"> </span>yocto/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>yocto/
+</code></pre></div>
+<div class="admonition danger">
+<p class="admonition-title">Danger</p>
+<p>For creating the image and SDK, make sure there is at least 100 GB empty disk space available.</p>
+</div>
+<p>Continue by cloning the <code>meta-nao</code> repository:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:HULKs/meta-nao
+</code></pre></div>
+<p>For project setup we use <a href="https://github.com/siemens/kas">siemens/kas</a>, a setup tool for bitbake based projects.
+To run kas, either install it locally (<a href="https://kas.readthedocs.io/en/latest/userguide/getting-started.html">see here</a>), or use the containerized version via the <a href="https://github.com/siemens/kas/blob/master/kas-container">kas-container script</a>.
+We prefer the containarized solution, as the container comes with all batteries included.
+The <code>kas-container</code> script makes it easy to spin a container (via podman or docker).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>wget<span class="w"> </span>https://raw.githubusercontent.com/siemens/kas/master/kas-container
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>chmod<span class="w"> </span>u+x<span class="w"> </span>kas-container
+</code></pre></div>
+<p>Subsequently, you can clone all necessary layers, we specify in our <code>kas-project.yml</code>.
+This file defines the project structure <code>kas</code> has to setup for the Yocto build phase.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./kas-container<span class="w"> </span>checkout<span class="w"> </span>meta-hulks/kas-project.yml
+</code></pre></div>
+<p>The last step is to populate the working directory with the proprietary and closed source software by aldebaran.
+This mainly is LoLA and HAL for communication with the chestboard.
+We do <strong>not</strong> provide these binaries, but rather extract them from the <code>.opn</code> files shipped with the RoboCupper image.
+To get the Robocupper image, HULKs members can ask our dev-leads, and non HULKs members should contact the RoboCup SPL Technical Committee.</p>
+<p>To extract the necessary binaries we provide a helper script called <code>extract_binaries.sh</code>.
+This script mounts the file system contained in the OPN image, fetches all binaries from inside the RoboCupper image, and collects them in an archive for the upcoming build phase.
+Mounting the OPN file system may require root privileges.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>meta-nao/recipes-support/aldebaran/
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>aldebaran-binaries
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>./extract_binaries.sh<span class="w"> </span>-o<span class="w"> </span>aldebaran-binaries/aldebaran_binaries.tar.gz<span class="w"> </span>nao-2.8.5.11_ROBOCUP_ONLY_with_root.opn
+</code></pre></div>
+<p>Now your working directory is ready to build your own NAO image and SDK.
+At this point, you may adjust the distribution to your liking.
+This includes adding hardware IDs, configuring network, installing additional dependencies, and much more.</p>
+<div class="admonition todo">
+<p class="admonition-title">Todo</p>
+<p>Explain what to do when configuring a new robot.</p>
+</div>
+<h3 id="starting-a-build-shell">Starting a Build Shell</h3>
+<p><code>kas</code> is able to start a shell inside of the build environment.
+The <code>kas-project.yml</code> of meta-nao needs to be referenced:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># working directory is `yocto`</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>./kas-container<span class="w"> </span>shell<span class="w"> </span>meta-nao/kas-project.yml
+</code></pre></div>
+<p>All BitBake and Devtool commands must be executed from inside this shell.</p>
+<h3 id="building-the-image">Building the Image</h3>
+<p>Inside of the build shell, you can build a NAO OPN image and SDK via BitBake.
+The initial build may take multiple hours depending on your computing performance and download speed.
+Remember, you are building an entire linux distribution.
+BitBake provides advanced caching of the build artifacts which means that future builds are done in minutes or even seconds depending on the changes.
+The cache relies in the <code>build/sstate-cache</code> which can be copied from another build directory or even shared between machines, see <a href="https://docs.yoctoproject.org/overview-manual/concepts.html#shared-state-cache">Yocto Documentation about Shared State Cache</a> for further explanation.
+To build the image, run the following command from inside the build shell:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>bitbake<span class="w"> </span>nao-image
+</code></pre></div>
+<p>This generates and executes all necessary tasks and targets to construct a proper <code>.opn</code> file.
+After BitBake finishes the <code>nao-image</code> task, the image file can be found at <code>build/tmp/deploy/images/nao-v6/nao-image-HULKs-OS-[...].ext3.gz.opn</code>.
+The image can directly be flashed to a NAO as described in the <a href="../nao_setup/#flashing-the-firmware">NAO setup section</a>.</p>
+<h3 id="building-the-sdk">Building the SDK</h3>
+<p>To be able to compile software targeting the NAO platform, the code needs to be cross compiled for the NAO target.
+When you only change configuration for the NAO image, you may still maintain compatibility with the publicly released SDK at <a href="https://github.com/hulks/meta-nao/releases">meta-nao</a> and opt for this SDK instead of building your own.</p>
+<p>Within the build shell, the following command will build a full SDK:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>bitbake<span class="w"> </span>-c<span class="w"> </span>populate_sdk<span class="w"> </span>nao-image
+</code></pre></div>
+<p>Again, this build phase may take several hours.
+After a successful build, the SDK is located at <code>build/tmp/deploy/sdk/HULKs-OS-toolchain-[...].sh</code>.
+To install the SDK run the script and follow the instructions.
+Afterwards, you are able to source the build environment and use the respective cross compilers.</p>
+<h3 id="advanced">Advanced:</h3>
+<h4 id="upgrade-other-yocto-layers">Upgrade other Yocto Layers</h4>
+<p>The Yocto Project and the Poky reference distribution provide a Linux kernel, userland programs, libraries, and other tooling.
+All these things are updated in the regular Yocto releases.
+To ensure deterministic builds the HULKs freeze versions of all used layers in the <code>kas-project.yml</code> files of meta-nao.</p>
+<h4 id="upgrade-imagesdk-versions-and-semantic-versioning">Upgrade Image/SDK Versions and Semantic Versioning</h4>
+<p>The HULKs use semantic versioning for the Yocto images and SDKs.
+This means that versions are increased depending on the severity of changes.
+The following policy exists for the HULKs:</p>
+<ul>
+<li>Both images and SDKs have major, minor, and patch version numbers (e.g. 4.2.3).</li>
+<li>Images and SDKs with the same major and minor version number are compatible with each other.</li>
+<li>Major changes, refactorings, or implementations result in the increase of the major version number.</li>
+<li>Minor changes, additions, and iterations result in the increase of the minor version number.</li>
+<li>Changes in the image that do not require SDK recreation, result in the increase of the patch version number. This consequently only requires creating a new image and not necessarily a redistribution of new SDKs.</li>
+</ul>
+<p>Before building new images, the version number needs to be set in <code>meta-nao/conf/distro/HULKsOS.conf</code>.
+Only change the <code>DISTRO_VERSION</code>, the <code>SDK_VERSION</code> is automatically derived from the <code>DISTRO_VERSION</code>.</p>
+<p>Once a new image and/or SDK is released, pepsi needs to know the new version numbers.
+Therefore update the variables <code>OS_VERSION</code> and/or <code>SDK_VERSION</code> in <code>crates/constants/src/lib.rs</code>.
+Successive builds with pepsi will use the new version.</p>
+<h4 id="upgrade-rust-version">Upgrade Rust Version</h4>
+<p>Since upgrading the Rust version often requires manual steps, this section describes the approach on how to upgrade and generate the needed patch files.
+These instructions can be followed e.g. if a new Rust version is available and a new image/SDK should be created with this new version.
+Users that just want to use the current version that we upgraded to should skip this section.</p>
+<p>Rust is provided by the poky repository.
+The recipes are located in <code>meta/recipes-devtools/{cargo,rust}</code>.
+The following steps are high-level instructions on how to modify the poky repository.
+A patch file can be created after applying these instructions and saved to the corresponding meta-hulks layer.</p>
+<ul>
+<li>Set new version in the <code>RUSTVERSION</code> variable in <code>poky/meta/conf/distro/include/tcmode-default.inc</code></li>
+<li>Rename files (to new version) in <code>poky/meta/recipes-devtools/cargo/</code></li>
+<li>Rename files (to new version) in <code>poky/meta/recipes-devtools/rust/</code></li>
+<li>Some LLVM benchmarks are built and run during the compilation which often results in errors.
+    Therefore, it is a good idea to just exclude them by appending <code>-DLLVM_BUILD_BENCHMARKS=OFF</code> and <code>-DLLVM_INCLUDE_BENCHMARKS=OFF</code> to the <code>EXTRA_OECMAKE</code> variable in <code>poky/meta/recipes-devtools/rust/rust-llvm.inc</code>.</li>
+<li>Set new version in the <code>RS_VERSION</code> and <code>CARGO_VERSION</code> variable in <code>poky/meta/recipes-devtools/rust/rust-snapshot.inc</code></li>
+<li>Update the checksums in <code>poky/meta/recipes-devtools/rust/rust-snapshot.inc</code> for the NAO architecture <code>x86_64</code><ul>
+<li>Download the files in your command line (example for Rust version 1.63):
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">RS_VERSION</span><span class="o">=</span><span class="s2">&quot;1.63.0&quot;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nv">CARGO_VERSION</span><span class="o">=</span><span class="s2">&quot;1.63.0&quot;</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nv">RUST_BUILD_ARCH</span><span class="o">=</span><span class="s2">&quot;x86_64&quot;</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nv">RUST_STD_SNAPSHOT</span><span class="o">=</span><span class="s2">&quot;rust-std-</span><span class="si">${</span><span class="nv">RS_VERSION</span><span class="si">}</span><span class="s2">-</span><span class="si">${</span><span class="nv">RUST_BUILD_ARCH</span><span class="si">}</span><span class="s2">-unknown-linux-gnu&quot;</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nv">RUSTC_SNAPSHOT</span><span class="o">=</span><span class="s2">&quot;rustc-</span><span class="si">${</span><span class="nv">RS_VERSION</span><span class="si">}</span><span class="s2">-</span><span class="si">${</span><span class="nv">RUST_BUILD_ARCH</span><span class="si">}</span><span class="s2">-unknown-linux-gnu&quot;</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nv">CARGO_SNAPSHOT</span><span class="o">=</span><span class="s2">&quot;cargo-</span><span class="si">${</span><span class="nv">CARGO_VERSION</span><span class="si">}</span><span class="s2">-</span><span class="si">${</span><span class="nv">RUST_BUILD_ARCH</span><span class="si">}</span><span class="s2">-unknown-linux-gnu&quot;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>wget<span class="w"> </span><span class="s2">&quot;https://static.rust-lang.org/dist/</span><span class="si">${</span><span class="nv">RUST_STD_SNAPSHOT</span><span class="si">}</span><span class="s2">.tar.xz&quot;</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>wget<span class="w"> </span><span class="s2">&quot;https://static.rust-lang.org/dist/</span><span class="si">${</span><span class="nv">RUSTC_SNAPSHOT</span><span class="si">}</span><span class="s2">.tar.xz&quot;</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>wget<span class="w"> </span><span class="s2">&quot;https://static.rust-lang.org/dist/</span><span class="si">${</span><span class="nv">CARGO_SNAPSHOT</span><span class="si">}</span><span class="s2">.tar.xz&quot;</span>
+</code></pre></div></li>
+<li>Generate the checksums in the same terminal:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>sha256sum<span class="w"> </span><span class="si">${</span><span class="nv">RUST_STD_SNAPSHOT</span><span class="si">}</span>.tar.xz<span class="w"> </span><span class="si">${</span><span class="nv">RUSTC_SNAPSHOT</span><span class="si">}</span>.tar.xz<span class="w"> </span><span class="si">${</span><span class="nv">CARGO_SNAPSHOT</span><span class="si">}</span>.tar.xz
+</code></pre></div></li>
+<li>Keep the terminal open for the next step</li>
+</ul>
+</li>
+<li>Update the checksums in <code>poky/meta/recipes-devtools/rust/rust-source.inc</code><ul>
+<li>Download the files:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>wget<span class="w"> </span><span class="s2">&quot;https://static.rust-lang.org/dist/rustc-</span><span class="si">${</span><span class="nv">RS_VERSION</span><span class="si">}</span><span class="s2">-src.tar.xz&quot;</span>
+</code></pre></div></li>
+<li>Generate the checksums in the same terminal:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>sha256sum<span class="w"> </span><span class="s2">&quot;rustc-</span><span class="si">${</span><span class="nv">RS_VERSION</span><span class="si">}</span><span class="s2">-src.tar.xz&quot;</span>
+</code></pre></div></li>
+</ul>
+</li>
+<li>Run <code>bitbake nao-image</code> within the build shell<ul>
+<li>Errors similar to <code>libstd-rs-1.63.0-r0 do_patch: Applying patch...</code> often mean that patches are obsolete.
+    These patches are located in <code>poky/meta/recipes-devtools/rust/libstd-rs/</code> and <code>poky/meta/recipes-devtools/rust/rust-llvm/</code>.
+    Deleted patches need to be removed from their corresponding recipes.
+    Afterwards rerun the image build.</li>
+</ul>
+</li>
+<li>Once a successful build completed, create a patch from the changes in poky:<ul>
+<li><code>sh
+    cd poky/
+    git add .
+    git commit # ...
+    git format-patch HEAD~  # this generates 0001-....patch</code></li>
+<li>Copy the patch file into <code>meta-nao/patches/0001....patch</code> and fix the patch path in <code>meta-nao/kas-project.yml</code></li>
+</ul>
+</li>
+</ul>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["content.code.annotate", "content.tabs.link", "navigation.indexes", "navigation.tabs", "navigation.tracking"], "search": "../../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.51d95adb.min.js"></script>
+      
+    
+  </body>
+</html>
