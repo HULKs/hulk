@@ -48,6 +48,13 @@ pub struct MainOutputs {
     pub leds: MainOutput<Leds>,
 }
 
+struct BallData {
+    at_least_one_ball_data_top: bool,
+    at_least_one_ball_data_bottom: bool,
+    last_ball_data_top_too_old: bool,
+    last_ball_data_bottom_too_old: bool,
+}
+
 impl LedStatus {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
@@ -158,14 +165,18 @@ impl LedStatus {
             .unwrap()
             > Duration::from_secs(1);
 
-        let (left_eye, right_eye) = Self::get_eyes(
-            context.cycle_time.start_time,
-            context.primary_state,
-            context.role,
+        let ball_data = BallData {
             at_least_one_ball_data_top,
             at_least_one_ball_data_bottom,
             last_ball_data_top_too_old,
             last_ball_data_bottom_too_old,
+        };
+
+        let (left_eye, right_eye) = Self::get_eyes(
+            context.cycle_time.start_time,
+            context.primary_state,
+            context.role,
+            ball_data,
             *context.is_own_referee_initial_pose_detected,
         );
 
@@ -257,10 +268,7 @@ impl LedStatus {
         cycle_start_time: SystemTime,
         primary_state: &PrimaryState,
         role: &Role,
-        at_least_one_ball_data_top: bool,
-        at_least_one_ball_data_bottom: bool,
-        last_ball_data_top_too_old: bool,
-        last_ball_data_bottom_too_old: bool,
+        ball_data: BallData,
         is_own_referee_initial_pose_detected: bool,
     ) -> (Eye, Eye) {
         match primary_state {
@@ -269,18 +277,19 @@ impl LedStatus {
                 (rainbow_eye, rainbow_eye)
             }
             _ => {
-                let ball_background_color =
-                    if at_least_one_ball_data_top || at_least_one_ball_data_bottom {
-                        Some(Rgb::GREEN)
-                    } else {
-                        None
-                    };
-                let ball_color_top = if last_ball_data_top_too_old {
+                let ball_background_color = if ball_data.at_least_one_ball_data_top
+                    || ball_data.at_least_one_ball_data_bottom
+                {
+                    Some(Rgb::GREEN)
+                } else {
+                    None
+                };
+                let ball_color_top = if ball_data.last_ball_data_top_too_old {
                     Some(Rgb::RED)
                 } else {
                     None
                 };
-                let ball_color_bottom = if last_ball_data_bottom_too_old {
+                let ball_color_bottom = if ball_data.last_ball_data_bottom_too_old {
                     Some(Rgb::RED)
                 } else {
                     None
