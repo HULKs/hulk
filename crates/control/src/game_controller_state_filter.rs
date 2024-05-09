@@ -77,7 +77,7 @@ impl GameControllerStateFilter {
             own_team_is_home_after_coin_toss: context
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
-            last_filtered_game_controller_state_change: Default::default(),  
+            last_filtered_game_controller_state_change: Default::default(),
         };
         context
             .whistle_in_set_ball_position
