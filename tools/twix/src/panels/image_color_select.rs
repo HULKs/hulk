@@ -1,19 +1,19 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{
-        self, load::SizedTexture, Color32, ColorImage, Response, RichText, Stroke, TextureOptions,
-        Ui, Widget,
+        self, load::SizedTexture, Color32, ColorImage, Image, Response, RichText, Sense, Stroke,
+        TextureOptions, Ui, Widget,
     },
     epaint::Vec2,
 };
 
 use egui_plot::{Bar, BarChart};
 use itertools::iproduct;
-use linear_algebra::{vector, Point2};
+use linear_algebra::{point, vector, Point2};
 use log::error;
 
 use nalgebra::Similarity2;
@@ -38,7 +38,6 @@ use super::image::cycler_selector::VisionCyclerSelector;
 enum ImageKind {
     YCbCr422,
 }
-
 struct PixelColor {
     red: f32,
     green: f32,
@@ -92,39 +91,14 @@ impl Default for Statistics {
     }
 }
 
-impl Statistics {
-    fn sample(mut self, pixel: Color32) -> Self {
-        let sum = pixel.r() as f32 + pixel.g() as f32 + pixel.b() as f32;
-        let mut pixel_color = PixelColor {
-            red: 0.0,
-            green: 0.0,
-            blue: 0.0,
-        };
-        if sum != 0.0 {
-            pixel_color.red = (pixel.r() as f32) / sum;
-            pixel_color.green = (pixel.g() as f32) / sum;
-            pixel_color.blue = (pixel.b() as f32) / sum;
-        }
-
-        self.max.red = self.max.red.max(pixel_color.red);
-        self.max.green = self.max.green.max(pixel_color.green);
-        self.max.blue = self.max.blue.max(pixel_color.blue);
-        self.min.red = self.min.red.min(pixel_color.red);
-        self.min.green = self.min.green.min(pixel_color.green);
-        self.min.blue = self.min.blue.min(pixel_color.blue);
-        self.average.red += pixel_color.red;
-        self.average.green += pixel_color.green;
-        self.average.blue += pixel_color.blue;
-        self.pixel_count += 1;
-        self
-    }
-}
-
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
     image_buffer: ImageBuffer,
     cycler_selector: VisionCyclerSelector,
     brush_size: f32,
+    pixel_pos: Point2<Pixel>,
+    colored_pixels: BTreeSet<usize>,
+    colored_image: ColorImage,
 }
 
 impl Panel for ImageColorSelectPanel {
@@ -157,11 +131,18 @@ impl Panel for ImageColorSelectPanel {
         let cycler_selector = VisionCyclerSelector::new(cycler);
 
         let brush_size = 50.0;
+        let pixel_pos = point![0.0, 0.0];
+        let colored_pixels = BTreeSet::new();
+        let colored_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
+
         Self {
             nao,
             image_buffer,
             cycler_selector,
             brush_size,
+            pixel_pos,
+            colored_pixels,
+            colored_image,
         }
     }
 
@@ -185,6 +166,11 @@ impl Widget for &mut ImageColorSelectPanel {
                 };
                 self.image_buffer = self.nao.subscribe_image(output);
             }
+
+            if ui.button("reset").clicked() {
+                self.colored_pixels.clear();
+                self.colored_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
+            };
             ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
         });
 
@@ -205,7 +191,8 @@ impl Widget for &mut ImageColorSelectPanel {
             id: handle,
             size: Vec2::new(image.width() as f32, image.height() as f32),
         };
-        let response = ui.image(texture);
+        let image_widget = Image::new(texture).sense(Sense::click_and_drag());
+        let response = ui.add(image_widget);
 
         ui.separator();
 
@@ -220,99 +207,168 @@ impl Widget for &mut ImageColorSelectPanel {
             if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
                 let scroll_delta = ui.input(|input| input.raw_scroll_delta);
                 self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
-                let mut statistics = self
-                    .pixels_in_brush(pixel_pos, &image)
-                    .fold(Statistics::default(), Statistics::sample);
-
-                if statistics.pixel_count != 0 {
-                    statistics.average.red /= statistics.pixel_count as f32;
-                    statistics.average.green /= statistics.pixel_count as f32;
-                    statistics.average.blue /= statistics.pixel_count as f32;
+                if response.dragged() {
+                    self.pixels_in_brush(pixel_pos, &image)
+                        .for_each(|position| {
+                            if response.dragged_by(egui::PointerButton::Primary) {
+                                self.add_to_selection(position)
+                            }
+                            if response.dragged_by(egui::PointerButton::Secondary) {
+                                self.remove_from_selection(position)
+                            }
+                        });
                 }
-                ui.label(format!(
-                    "x: {}\t\ty: {}\t\tpixels: {}\n",
-                    pixel_pos.x() as usize,
-                    pixel_pos.y() as usize,
-                    statistics.pixel_count,
-                ));
-
-                let grid = egui::Grid::new("colors").num_columns(4).striped(true);
-                grid.show(ui, |ui| {
-                    ui.label(RichText::new("max:").strong());
-                    ui.colored_label(Color32::RED, format!("r: {:.3}", statistics.max.red));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.max.green));
-                    ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", statistics.max.blue),
-                    );
-                    ui.end_row();
-
-                    ui.label(RichText::new("min:").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.min.red));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.min.green));
-                    ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", statistics.min.blue),
-                    );
-                    ui.end_row();
-
-                    ui.label(RichText::new("average:").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.average.red));
-                    ui.colored_label(
-                        Color32::GREEN,
-                        format!("g: {:.3}", statistics.average.green),
-                    );
-                    ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", statistics.average.blue),
-                    );
-                    ui.end_row();
-                });
-
-                ui.separator();
-
-                let red_chart = create_chart(statistics.color_distribution.red, Color32::RED, -0.002);
-                let green_chart = create_chart(statistics.color_distribution.green, Color32::GREEN, 0.0);
-                let blue_chart = create_chart(statistics.color_distribution.blue, Color32::BLUE, 0.002);
-
-                egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
-                    plot_ui.bar_chart(red_chart);
-                    plot_ui.bar_chart(green_chart);
-                    plot_ui.bar_chart(blue_chart);
-                });
 
                 painter.circle(
-                    pixel_pos,
+                    self.pixel_pos,
                     self.brush_size,
                     Color32::TRANSPARENT,
                     Stroke::new(1.0, Color32::BLACK),
                 );
             }
         }
+
+        let colored_handle = ui
+            .ctx()
+            .load_texture(
+                "image",
+                self.colored_image.clone(),
+                TextureOptions::default(),
+            )
+            .id();
+        painter.image(colored_handle, response.rect);
+        let mut statistics = Statistics::default();
+        for pixel_number in self.colored_pixels.range(0..) {
+            let pixel = image.pixels[*pixel_number];
+            let sum = pixel.r() as f32 + pixel.g() as f32 + pixel.b() as f32;
+            let mut pixel_color = PixelColor {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+            };
+            if sum != 0.0 {
+                pixel_color.red = (pixel.r() as f32) / sum;
+                pixel_color.green = (pixel.g() as f32) / sum;
+                pixel_color.blue = (pixel.b() as f32) / sum;
+            }
+
+            statistics.max.red = statistics.max.red.max(pixel_color.red);
+            statistics.max.green = statistics.max.green.max(pixel_color.green);
+            statistics.max.blue = statistics.max.blue.max(pixel_color.blue);
+            statistics.min.red = statistics.min.red.min(pixel_color.red);
+            statistics.min.green = statistics.min.green.min(pixel_color.green);
+            statistics.min.blue = statistics.min.blue.min(pixel_color.blue);
+            statistics.average.red += pixel_color.red;
+            statistics.average.green += pixel_color.green;
+            statistics.average.blue += pixel_color.blue;
+            statistics.pixel_count += 1;
+
+            statistics.color_distribution.red[(pixel_color.red * 90.0) as usize] += 1.0;
+            statistics.color_distribution.green[(pixel_color.green * 90.0) as usize] += 1.0;
+            statistics.color_distribution.blue[(pixel_color.blue * 90.0) as usize] += 1.0;
+        }
+        if statistics.pixel_count != 0 {
+            statistics.average.red /= statistics.pixel_count as f32;
+            statistics.average.green /= statistics.pixel_count as f32;
+            statistics.average.blue /= statistics.pixel_count as f32;
+        }
+        for i in 0..100 {
+            statistics.color_distribution.red[i] /= statistics.pixel_count as f64;
+            statistics.color_distribution.green[i] /= statistics.pixel_count as f64;
+            statistics.color_distribution.blue[i] /= statistics.pixel_count as f64;
+        }
+
+        ui.label(format!(
+            "x: {}\t\ty: {}\t\tpixels: {}\n",
+            self.pixel_pos.x() as usize,
+            self.pixel_pos.y() as usize,
+            statistics.pixel_count,
+        ));
+        let grid = egui::Grid::new("colors").num_columns(4).striped(true);
+        grid.show(ui, |ui| {
+            ui.label(RichText::new("max:").strong());
+            ui.colored_label(Color32::RED, format!("r: {:.3}", statistics.max.red));
+            ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.max.green));
+            ui.colored_label(
+                Color32::from_rgb(50, 100, 255),
+                format!("b: {:.3}", statistics.max.blue),
+            );
+            ui.end_row();
+
+            ui.label(RichText::new("min:").strong());
+            ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.min.red));
+            ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.min.green));
+            ui.colored_label(
+                Color32::from_rgb(50, 100, 255),
+                format!("b: {:.3}", statistics.min.blue),
+            );
+            ui.end_row();
+
+            ui.label(RichText::new("average:").strong());
+            ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.average.red));
+            ui.colored_label(
+                Color32::GREEN,
+                format!("g: {:.3}", statistics.average.green),
+            );
+            ui.colored_label(
+                Color32::from_rgb(50, 100, 255),
+                format!("b: {:.3}", statistics.average.blue),
+            );
+            ui.end_row();
+        });
+
+        ui.separator();
+
+        let red_chart = create_chart(statistics.color_distribution.red, Color32::RED, -0.002);
+        let green_chart = create_chart(statistics.color_distribution.green, Color32::GREEN, 0.0);
+        let blue_chart = create_chart(statistics.color_distribution.blue, Color32::BLUE, 0.002);
+
+        egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
+            plot_ui.bar_chart(red_chart);
+            plot_ui.bar_chart(green_chart);
+            plot_ui.bar_chart(blue_chart);
+        });
+
         response
     }
 }
 
-impl<'a> ImageColorSelectPanel {
+impl ImageColorSelectPanel {
     fn pixels_in_brush(
-        &'a self,
+        &self,
         brush_position: Point2<Pixel>,
-        image: &'a ColorImage,
-    ) -> impl Iterator<Item = Color32> + 'a {
+        image: &ColorImage,
+    ) -> impl Iterator<Item = (isize, isize)> {
+        let brush_size = self.brush_size;
+        let width = image.width();
+        let height = image.height();
         iproduct!(
-            (brush_position.x() as isize - self.brush_size as isize)
-                ..(brush_position.x() as isize + self.brush_size as isize + 1),
-            (brush_position.y() as isize - self.brush_size as isize)
-                ..(brush_position.y() as isize + self.brush_size as isize + 1)
+            (brush_position.x() as isize - brush_size as isize)
+                ..(brush_position.x() as isize + brush_size as isize + 1),
+            (brush_position.y() as isize - brush_size as isize)
+                ..(brush_position.y() as isize + brush_size as isize + 1)
         )
         .filter(move |(i, j)| {
             ((*i as f32 - brush_position.x()).powi(2) + (*j as f32 - brush_position.y()).powi(2))
                 .sqrt()
-                <= self.brush_size
-                && (0..image.width() as isize).contains(i)
-                && (0..image.height() as isize).contains(j)
+                <= brush_size
+                && (0..width as isize).contains(i)
+                && (0..height as isize).contains(j)
         })
-        .map(|(i, j)| image.pixels[j as usize * image.width() + i as usize])
+    }
+    fn add_to_selection(&mut self, position: (isize, isize)) {
+        let width = self.colored_image.width();
+        self.colored_pixels
+            .insert(position.1 as usize * width + position.0 as usize);
+        self.colored_image.pixels[position.1 as usize * width + position.0 as usize] =
+            Color32::from_rgba_unmultiplied(255, 225, 0, 15);
+    }
+    fn remove_from_selection(&mut self, position: (isize, isize)) {
+        let width = self.colored_image.width();
+        self.colored_pixels
+            .remove(&(position.1 as usize * width + position.0 as usize));
+        self.colored_image.pixels[position.1 as usize * width + position.0 as usize] =
+            Color32::TRANSPARENT;
     }
 
     fn get_image(&self) -> Result<ColorImage> {
