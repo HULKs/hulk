@@ -1,12 +1,11 @@
 use std::time::SystemTime;
 
 use crate::players::Players;
-use serde::{Deserialize, Serialize};
 use path_serde::PathSerialize;
-
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PartialEq)]
+
 pub struct LastFilteredGameControllerStateChanges {
     pub game_state: SystemTime,
     pub opponent_game_state: SystemTime,
@@ -23,7 +22,7 @@ impl Default for LastFilteredGameControllerStateChanges {
             opponent_game_state: SystemTime::now(),
             game_phase: SystemTime::now(),
             kicking_team: SystemTime::now(),
-            penalties: Players{
+            penalties: Players {
                 one: None,
                 two: None,
                 three: None,
