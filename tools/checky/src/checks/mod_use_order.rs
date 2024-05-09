@@ -1,184 +1,101 @@
-use std::{cmp::Ordering, path::Path};
+use ariadne::{Label, Line, ReportKind};
+use syn::{spanned::Spanned, Item, ItemMod, ItemUse, Visibility};
 
-use proc_macro2::LineColumn;
-use syn::{spanned::Spanned, File, Item, ItemMod, ItemUse, UsePath, UseTree, Visibility};
+use crate::rust_file::RustFile;
 
-use crate::output::output_diagnostic;
+use super::Report;
 
-pub fn check<P>(file_path: P, buffer: &str, file: &File) -> bool
-where
-    P: AsRef<Path>,
-{
-    let mut state = None;
-    for item in file.items.iter() {
-        match item {
-            Item::Mod(ItemMod {
-                vis, content: None, ..
-            }) => {
-                let end = item.span().end();
-                let new_state = Order::Modules {
-                    visibility: vis.clone(),
-                    end,
-                };
-                if let Some(state) = state {
-                    if new_state != state && state.end().line + 1 == end.line {
-                        output_diagnostic(
-                            file_path,
-                            buffer,
-                            state.end().line..end.line+1,
-                            "error: different categories of mods and uses must be separated by empty lines",
-                        );
-                        return false;
-                    }
-                    if new_state < state {
-                        output_diagnostic(
-                            file_path,
-                            buffer,
-                            state.end().line..end.line+1,
-                            "error: mods and uses are out of order (must be ordered `mod ...`, `use std...`, `use ...`, `use crate...`; and `pub`, `crate`, `pub(...)`, `` within these categories)",
-                        );
-                        return false;
-                    }
+pub fn check(file: &RustFile) -> Vec<Report> {
+    let mut reports = Vec::new();
+
+    let mut last_order_number = 0;
+    let mut last_end_line: Option<Line> = None;
+
+    for item in file.file.items.iter() {
+        if let Some(order_number) = item_into_order_number(item) {
+            let start_line = item.span().start().line;
+            let Some(start_line) = file.source.line(start_line - 1) else {
+                panic!("line {start_line} does not exist");
+            };
+            let end_line = item.span().end().line;
+            let Some(end_line) = file.source.line(end_line - 1) else {
+                panic!("line {end_line} does not exist");
+            };
+
+            let is_different_order_group = order_number != last_order_number;
+            if let Some(last_end_line) = last_end_line {
+                let is_separated_with_empty_line =
+                    last_end_line.span().end != start_line.span().start;
+                if is_different_order_group && !is_separated_with_empty_line {
+                    let span = last_end_line.offset()..(start_line.offset() + start_line.len());
+
+                    reports.push(
+                        Report::build(
+                            ReportKind::Error,
+                            file.source_id.as_str(),
+                            start_line.offset(),
+                        )
+                        .with_message("`mod` and `use` groups must be separated by one empty line")
+                        .with_label(
+                            Label::new((file.source_id.as_str(), span))
+                                .with_message("missing empty line"),
+                        )
+                        .finish(),
+                    );
                 }
-                state = Some(new_state);
             }
-            Item::Use(ItemUse {
-                vis,
-                tree: UseTree::Path(UsePath { ident, .. }),
-                ..
-            }) => {
-                let end = item.span().end();
-                let new_state = if ident == "std" {
-                    Order::StandardUses {
-                        visibility: vis.clone(),
-                        end,
-                    }
-                } else if ident == "crate" {
-                    Order::CrateUses {
-                        visibility: vis.clone(),
-                        end,
-                    }
-                } else {
-                    Order::ExternUses {
-                        visibility: vis.clone(),
-                        end,
-                    }
-                };
-                if let Some(state) = state {
-                    if new_state != state && state.end().line + 1 == end.line {
-                        output_diagnostic(
-                            file_path,
-                            buffer,
-                            state.end().line..end.line+1,
-                            "error: different categories of mods and uses must be separated by empty lines",
-                        );
-                        return false;
-                    }
-                    if new_state < state {
-                        output_diagnostic(
-                            file_path,
-                            buffer,
-                            state.end().line..end.line+1,
-                            "error: mods and uses are out of order (must be ordered `mod ...`, `use std...`, `use ...`, `use crate...`; and `pub`, `crate`, `pub(...)`, `` within these categories)",
-                        );
-                        return false;
-                    }
-                }
-                state = Some(new_state);
-            }
-            _ => {}
-        }
-    }
-    true
-}
 
-#[derive(Debug)]
-enum Order {
-    Modules {
-        visibility: Visibility,
-        end: LineColumn,
-    },
-    StandardUses {
-        visibility: Visibility,
-        end: LineColumn,
-    },
-    ExternUses {
-        visibility: Visibility,
-        end: LineColumn,
-    },
-    CrateUses {
-        visibility: Visibility,
-        end: LineColumn,
-    },
-}
+            let is_too_late = order_number < last_order_number;
+            if is_too_late {
+                let span = start_line.offset()..(end_line.offset() + end_line.len());
 
-impl PartialEq for Order {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Modules { .. }, Self::Modules { .. }) => self.visibility() == other.visibility(),
-            (Self::StandardUses { .. }, Self::StandardUses { .. }) => {
-                self.visibility() == other.visibility()
+                reports.push(
+                    Report::build(
+                        ReportKind::Error,
+                        file.source_id.as_str(),
+                        start_line.offset(),
+                    )
+                    .with_message("`mod` and `use` not ordered correctly")
+                    .with_label(
+                        Label::new((file.source_id.as_str(), span))
+                            .with_message("must be placed earlier"),
+                    )
+                    .with_note(
+                        "Expected order: pub use, pub(...) use, use, pub mod, pub(...) mod, mod",
+                    )
+                    .with_help("see https://doc.rust-lang.org/beta/style-guide/items.html")
+                    .finish(),
+                );
             }
-            (Self::ExternUses { .. }, Self::ExternUses { .. }) => {
-                self.visibility() == other.visibility()
-            }
-            (Self::CrateUses { .. }, Self::CrateUses { .. }) => {
-                self.visibility() == other.visibility()
-            }
-            _ => false,
-        }
-    }
-}
 
-impl Order {
-    fn visibility(&self) -> &Visibility {
-        match self {
-            Order::Modules { visibility, .. } => visibility,
-            Order::StandardUses { visibility, .. } => visibility,
-            Order::ExternUses { visibility, .. } => visibility,
-            Order::CrateUses { visibility, .. } => visibility,
+            last_order_number = order_number;
+            last_end_line = Some(end_line);
         }
     }
 
-    fn end(&self) -> &LineColumn {
-        match self {
-            Order::Modules { end, .. } => end,
-            Order::StandardUses { end, .. } => end,
-            Order::ExternUses { end, .. } => end,
-            Order::CrateUses { end, .. } => end,
-        }
+    reports
+}
+
+fn item_into_order_number(item: &Item) -> Option<usize> {
+    match item {
+        Item::Mod(item) => Some(item_mod_into_order_number(item)),
+        Item::Use(item) => Some(item_use_into_order_number(item)),
+        _ => None,
     }
 }
 
-impl PartialOrd for Order {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let order_index = order_to_index(self);
-        let other_order_index = order_to_index(other);
-        match order_index.cmp(&other_order_index) {
-            Ordering::Less => Some(Ordering::Less),
-            Ordering::Equal => Some(
-                visibility_to_index(self.visibility())
-                    .cmp(&visibility_to_index(other.visibility())),
-            ),
-            Ordering::Greater => Some(Ordering::Greater),
-        }
-    }
-}
-
-fn order_to_index(order: &Order) -> usize {
-    match order {
-        Order::Modules { .. } => 0,
-        Order::StandardUses { .. } => 1,
-        Order::ExternUses { .. } => 2,
-        Order::CrateUses { .. } => 3,
-    }
-}
-
-fn visibility_to_index(visibility: &Visibility) -> usize {
-    match visibility {
+fn item_mod_into_order_number(item: &ItemMod) -> usize {
+    200 + match item.vis {
         Visibility::Public(_) => 0,
-        Visibility::Crate(_) => 1,
-        Visibility::Restricted(_) => 2,
-        Visibility::Inherited => 3,
+        Visibility::Restricted(_) => 1,
+        Visibility::Inherited => 2,
+    }
+}
+
+fn item_use_into_order_number(item: &ItemUse) -> usize {
+    100 + match item.vis {
+        Visibility::Public(_) => 0,
+        Visibility::Restricted(_) => 1,
+        Visibility::Inherited => 2,
     }
 }
