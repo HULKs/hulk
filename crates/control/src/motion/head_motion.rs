@@ -8,6 +8,7 @@ use types::{
     cycle_time::CycleTime,
     joints::head::HeadJoints,
     motion_command::{HeadMotion as HeadMotionCommand, MotionCommand},
+    motion_selection::MotionSelection,
     motor_commands::MotorCommands,
     sensor_data::SensorData,
 };
@@ -34,6 +35,7 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
     has_ground_contact: Input<bool, "has_ground_contact">,
+    motion_selection: Input<MotionSelection, "motion_selection">,
 }
 
 #[context]
@@ -50,6 +52,16 @@ impl HeadMotion {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        if context.motion_selection.dispatching_motion.is_some() {
+            return Ok(MainOutputs {
+                head_joints_command: MotorCommands {
+                    positions: self.last_positions,
+                    stiffnesses: HeadJoints::fill(0.8),
+                }
+                .into(),
+            });
+        }
+
         let MotorCommands {
             positions: raw_positions,
             stiffnesses,
