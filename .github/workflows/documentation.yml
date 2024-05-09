@@ -3,21 +3,66 @@ on:
   push:
     branches:
       - main
-    paths:
-      - mkdocs.yml
-      - 'docs/**'
+  workflow_dispatch:
 jobs:
-  deploy:
-    if: github.repository_owner == 'HULKs'
-    name: Deploy to GitHub Pages
-    runs-on: ubuntu-latest
+  build_rustdoc:
+    name: Build rustdoc docs
+    runs-on:
+      - self-hosted
+      - v3
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - name: Build docs
+        run: cargo doc --no-deps --workspace --document-private-items
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdoc
+          path: target/doc
+  build_mkdocs:
+    name: Build mkdocs
+    runs-on:
+      - self-hosted
+      - v3
+    steps:
+      - uses: actions/checkout@v4
         with:
           lfs: true
-      - run: |
-          rm requirements.txt
-      - uses: mhausenblas/mkdocs-deploy-gh-pages@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EXTRA_PACKAGES: git-lfs
+      - name: Build docs
+        run: mkdocs build --strict
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mkdocs
+          path: site
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [build_rustdoc, build_mkdocs]
+    if: github.repository_owner == 'HULKs'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on:
+      - self-hosted
+      - v3
+    steps:
+      - name: Download mkdocs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mkdocs
+          path: ${{ runner.temp }}/page
+      - name: Download rustdoc artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rustdoc
+          path: ${{ runner.temp }}/page/docs
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/page
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
