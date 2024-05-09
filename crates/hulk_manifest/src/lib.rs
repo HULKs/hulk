@@ -96,6 +96,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::visual_referee_filter",
                     "control::whistle_filter",
                     "control::world_state_composer",
+                    "control::zero_moment_point_provider",
                 ],
             },
             CyclerManifest {
