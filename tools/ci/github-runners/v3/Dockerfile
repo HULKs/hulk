@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
   libsystemd-dev \
   libudev-dev \
   lua-inspect \
+  mkdocs \
+  mkdocs-material \
   ninja-build \
   python3 \
   python3-click \
