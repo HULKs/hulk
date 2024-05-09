@@ -1,6 +1,6 @@
 # Getting Started Programming at HULKs
 
-Please follow the instructions given in [Setup](../setup/overview.md) to setup [`rust`](../setup/main_setup.md) on your machine.
+Please follow the instructions given in [Setup](../setup/overview.md) to setup [`rust`](../setup/development_environment.md) on your machine.
 The tool used for compiling, uploading or changing the robot state otherwise is called [`pepsi`](../tooling/pepsi.md).
 Another tool often used to debug on the robot is called [`twix`](../tooling/twix.md).
 With `twix` you can connect to a robot and inspect the output of [nodes](../framework/nodes.md).
