@@ -13,7 +13,7 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct KickTargetProvider;
+pub struct KickTargetProvider {}
 
 #[context]
 pub struct CreationContext {}
@@ -34,6 +34,7 @@ pub struct CycleContext {
         Parameter<f32, "kick_target_provider.max_kick_around_obstacle_angle">,
 
     corner_kick_strength: Parameter<f32, "kick_target_provider.corner_kick_strength">,
+    kick_targets: AdditionalOutput<Vec<KickTarget>, "kick_targets">,
 }
 
 #[context]
@@ -48,7 +49,7 @@ impl KickTargetProvider {
         Ok(Self {})
     }
 
-    pub fn cycle(&self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
 
         let obstacle_circles = generate_obstacle_circles(
@@ -65,6 +66,10 @@ impl KickTargetProvider {
             context.find_kick_targets,
             *context.corner_kick_strength,
         );
+
+        context
+            .kick_targets
+            .fill_if_subscribed(|| kick_targets.clone());
 
         Ok(MainOutputs {
             kick_targets: kick_targets.into(),
