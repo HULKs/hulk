@@ -6,6 +6,7 @@ use control::{
     ball_state_composer::{self, BallStateComposer},
     behavior::node::{self, Behavior},
     kick_selector::{self, KickSelector},
+    kick_target_provider::{self, KickTargetProvider},
     motion::{
         look_around::LookAround,
         motion_selector::{self, MotionSelector},
@@ -46,6 +47,7 @@ pub struct BehaviorCycler {
     ball_state_composer: BallStateComposer,
     behavior: Behavior,
     kick_selector: KickSelector,
+    kick_target_provider: KickTargetProvider,
     look_around: LookAround,
     motion_selector: MotionSelector,
     role_assignment: RoleAssignment,
@@ -80,6 +82,9 @@ impl BehaviorCycler {
             .wrap_err("failed to create node `Behavior`")?;
         let kick_selector = KickSelector::new(kick_selector::CreationContext {})
             .wrap_err("failed to create node `KickSelector`")?;
+        let kick_target_provider =
+            KickTargetProvider::new(kick_target_provider::CreationContext {})
+                .wrap_err("failed to create node `KickTargetProvider`")?;
         let look_around = control::motion::look_around::LookAround::new(
             control::motion::look_around::CreationContext::new(),
         )
@@ -105,6 +110,7 @@ impl BehaviorCycler {
             ball_state_composer,
             behavior,
             kick_selector,
+            kick_target_provider,
             look_around,
             motion_selector,
             role_assignment,
@@ -240,28 +246,53 @@ impl BehaviorCycler {
                 && own_database.main_outputs.ball_state.as_ref().is_some()
             {
                 let main_outputs = {
-                    self.kick_selector
-                        .cycle(control::kick_selector::CycleContext::new(
-                            own_database.main_outputs.ground_to_field.as_ref().unwrap(),
+                    self.kick_target_provider
+                        .cycle(control::kick_target_provider::CycleContext::new(
                             own_database.main_outputs.ball_state.as_ref().unwrap(),
+                            own_database.main_outputs.ground_to_field.as_ref().unwrap(),
                             &own_database.main_outputs.obstacles,
                             &parameters.field_dimensions,
-                            &parameters.in_walk_kicks,
-                            &parameters.kick_selector.angle_distance_weight,
-                            &parameters.kick_selector.max_kick_around_obstacle_angle,
-                            &parameters.kick_selector.kick_pose_obstacle_radius,
                             &parameters
-                                .kick_selector
+                                .kick_target_provider
                                 .ball_radius_for_kick_target_selection,
-                            &parameters.kick_selector.closer_threshold,
-                            &parameters.kick_selector.find_kick_targets,
-                            &parameters.kick_selector.goal_accuracy_margin,
-                            &parameters.kick_selector.default_kick_strength,
-                            &parameters.kick_selector.corner_kick_strength,
+                            &parameters.kick_target_provider.find_kick_targets,
+                            &parameters
+                                .kick_target_provider
+                                .max_kick_around_obstacle_angle,
+                            &parameters.kick_target_provider.corner_kick_strength,
                             framework::AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.kick_targets,
                             ),
+                        ))
+                        .wrap_err("failed to execute cycle of node `KickTargetProvider`")?
+                };
+                own_database.main_outputs.kick_targets = main_outputs.kick_targets.value;
+                own_database.main_outputs.obstacle_circles = main_outputs.obstacle_circles.value;
+            } else {
+                own_database.main_outputs.kick_targets = Default::default();
+                own_database.main_outputs.obstacle_circles = Default::default();
+            }
+        }
+        {
+            if own_database.main_outputs.ground_to_field.as_ref().is_some()
+                && own_database.main_outputs.ball_state.as_ref().is_some()
+            {
+                let main_outputs = {
+                    self.kick_selector
+                        .cycle(control::kick_selector::CycleContext::new(
+                            own_database.main_outputs.ground_to_field.as_ref().unwrap(),
+                            own_database.main_outputs.ball_state.as_ref().unwrap(),
+                            &own_database.main_outputs.kick_targets,
+                            &own_database.main_outputs.obstacles,
+                            &own_database.main_outputs.obstacle_circles,
+                            &parameters.field_dimensions,
+                            &parameters.in_walk_kicks,
+                            &parameters.kick_selector.angle_distance_weight,
+                            &parameters.kick_selector.kick_pose_obstacle_radius,
+                            &parameters.kick_selector.closer_threshold,
+                            &parameters.kick_selector.goal_accuracy_margin,
+                            &parameters.kick_selector.default_kick_strength,
                             framework::AdditionalOutput::new(
                                 true,
                                 &mut own_database.additional_outputs.instant_kick_targets,
