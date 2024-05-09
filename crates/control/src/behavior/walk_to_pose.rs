@@ -39,6 +39,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             last_motion_command,
         }
     }
+
     #[allow(clippy::too_many_arguments)]
     pub fn plan(
         &self,

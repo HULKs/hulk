@@ -1095,11 +1095,11 @@ name = "checky"
 version = "0.1.0"
 dependencies = [
  "ariadne",
- "clap 4.5.4",
+ "clap 4.5.8",
  "color-eyre",
  "itertools 0.10.5",
  "proc-macro2",
- "syn 2.0.60",
+ "syn 2.0.69",
  "walkdir",
 ]
 
