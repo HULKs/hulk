@@ -3,7 +3,7 @@ use ordered_float::NotNan;
 
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, line_segment::LineSegment, two_line_segments::TwoLineSegments};
 use linear_algebra::{distance, point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
