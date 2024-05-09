@@ -34,9 +34,9 @@ impl Container {
                             .into_iter()
                             .collect(),
                     );
-                    serialize_bounds = bounds.clone();
-                    deserialize_bounds = bounds.clone();
-                    introspect_bounds = bounds.clone();
+                    serialize_bounds.clone_from(&bounds);
+                    deserialize_bounds.clone_from(&bounds);
+                    introspect_bounds.clone_from(&bounds);
                 } else if meta.path.is_ident("serialize_bound") {
                     serialize_bounds = Some(
                         meta.value()?
