@@ -23,10 +23,18 @@ impl Default for BallSearchLookAround {
 }
 
 #[derive(
-    Debug, Default, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct QuickLookAround {
-    pub mode: BallSearchLookAround
+    pub mode: BallSearchLookAround,
 }
 
 #[derive(
