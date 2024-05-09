@@ -11,7 +11,7 @@ use eframe::{
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground, Screen};
-use geometry::{arc::Arc, circle::Circle, direction::Direction, rectangle::Rectangle};
+use geometry::{arc::Arc, circle::Circle, direction::Direction};
 use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Transform, Vector2};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
@@ -433,17 +433,10 @@ impl<World> TwixPainter<World> {
         self.painter.text(position, align, text, font_id, color);
     }
 
-    pub fn image(&self, texture_id: TextureId, rect: Rectangle<World>) {
-        let Rectangle { min, max } = rect;
-        let min = self.transform_world_to_pixel(min);
-        let max = self.transform_world_to_pixel(max);
-        self.painter.image(
-            texture_id,
-            Rect::from_two_pos(min, max),
-            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-            Color32::WHITE,
-        );
+    pub fn image(&self, texture_id: TextureId, rect: Rect){
+        self.painter.image(texture_id, rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
     }
+
 }
 impl TwixPainter<Ground> {
     pub fn path(
