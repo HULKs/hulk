@@ -29,6 +29,7 @@ pub struct Walking {
     step_plan: ValueBuffer,
     center_of_mass: ValueBuffer,
     robot_to_walk: ValueBuffer,
+    zero_moment_point: ValueBuffer,
 }
 
 impl Layer<Ground> for Walking {
@@ -51,6 +52,8 @@ impl Layer<Ground> for Walking {
         let robot_to_walk = nao.subscribe_output(
             CyclerOutput::from_str("Control.additional.walking.robot_to_walk").unwrap(),
         );
+        let zero_moment_point =
+            nao.subscribe_output(CyclerOutput::from_str("Control.main.zero_moment_point").unwrap());
         Self {
             robot_to_ground,
             robot_kinematics,
@@ -59,6 +62,7 @@ impl Layer<Ground> for Walking {
             step_plan,
             center_of_mass,
             robot_to_walk,
+            zero_moment_point,
         }
     }
 
@@ -75,6 +79,7 @@ impl Layer<Ground> for Walking {
         let center_of_mass: Point3<Robot> = self.center_of_mass.require_latest()?;
         let center_of_mass_in_ground = robot_to_ground * center_of_mass;
         let robot_to_walk: Isometry3<Robot, Walk> = self.robot_to_walk.require_latest()?;
+        let zero_moment_point: Point3<Ground> = self.zero_moment_point.require_latest()?;
 
         paint_actuated_feet(
             painter,
@@ -118,6 +123,13 @@ impl Layer<Ground> for Walking {
             center_of_mass_in_ground.xy(),
             0.01,
             Color32::RED,
+            Stroke::new(0.001, Color32::BLACK),
+        );
+
+        painter.circle(
+            zero_moment_point.xy(),
+            0.01,
+            Color32::GRAY,
             Stroke::new(0.001, Color32::BLACK),
         );
 
