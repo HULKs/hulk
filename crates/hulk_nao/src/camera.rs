@@ -20,7 +20,7 @@ pub struct Camera {
 pub struct CameraHardware {
     i2c_head_mutex: Arc<Mutex<()>>,
     camera: Option<NaoCamera>,
-    config: CameraConfiguration,
+    configuration: CameraConfiguration,
     camera_position: CameraPosition,
 }
 
@@ -40,7 +40,7 @@ impl Camera {
         let camera = Self {
             camera: Mutex::new(CameraHardware {
                 i2c_head_mutex,
-                config: CameraConfiguration {
+                configuration: CameraConfiguration {
                     path: path.as_ref().to_path_buf(),
                     parameters,
                 },
@@ -83,17 +83,17 @@ impl CameraHardware {
         camera
             .queue(vec![
                 0;
-                match self.config.parameters.format {
+                match self.configuration.parameters.format {
                     nao_camera::Format::YUVU =>
-                        (4 * self.config.parameters.width / 2 * self.config.parameters.height)
-                            as usize,
+                        (4 * self.configuration.parameters.width / 2
+                            * self.configuration.parameters.height) as usize,
                 }
             ])
             .wrap_err("failed to queue buffer")?;
 
         Ok(YCbCr422Image::from_raw_buffer(
-            self.config.parameters.width / 2,
-            self.config.parameters.height,
+            self.configuration.parameters.width / 2,
+            self.configuration.parameters.height,
             buffer,
         ))
     }
@@ -123,19 +123,20 @@ impl CameraHardware {
     fn reset(&mut self) -> Result<()> {
         let _lock = self.i2c_head_mutex.lock();
 
-        reset_camera_device(&self.config.path, self.camera_position)
+        reset_camera_device(&self.configuration.path, self.camera_position)
             .wrap_err("failed to reset camera device")?;
-        let mut camera = NaoCamera::open(&self.config.path, &self.config.parameters)
+        let mut camera = NaoCamera::open(&self.configuration.path, &self.configuration.parameters)
             .wrap_err("failed to open")?;
         camera.start().wrap_err("failed to start")?;
-        for _ in 0..self.config.parameters.amount_of_buffers {
+        for _ in 0..self.configuration.parameters.amount_of_buffers {
             camera
                 .queue(vec![
                     0;
-                    match self.config.parameters.format {
+                    match self.configuration.parameters.format {
                         nao_camera::Format::YUVU =>
-                            ((4 * self.config.parameters.width * self.config.parameters.height) / 2)
-                                as usize,
+                            ((4 * self.configuration.parameters.width
+                                * self.configuration.parameters.height)
+                                / 2) as usize,
                     }
                 ])
                 .wrap_err("failed to queue buffer")?;

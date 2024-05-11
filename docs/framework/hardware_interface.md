@@ -35,7 +35,6 @@ TODO: Elaborate
         - Simulation World
         - Directory structure, symlink
 
-
 ## Camera
 
 This section explains the semantics of the camera interface in the context of multiple readers.
