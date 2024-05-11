@@ -19,7 +19,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub zero_moment_point: MainOutput<Point3<Robot>>,
+    pub zero_moment_point: MainOutput<Point3<Ground>>,
 }
 
 impl ZeroMomentPointProvider {
@@ -36,28 +36,23 @@ impl ZeroMomentPointProvider {
             0.0,
         );
 
-        let g = (imu_orientation * vector![0.0, 0.0, -GRAVITATIONAL_CONSTANT])
-            .inner
-            .z;
-
         let y_com = context.center_of_mass.y();
         let x_com = context.center_of_mass.x();
         let z = context.center_of_mass.z();
 
-        let x_hat = context
-            .sensor_data
-            .inertial_measurement_unit
-            .linear_acceleration
-            .x();
-        let y_hat = context
-            .sensor_data
-            .inertial_measurement_unit
-            .linear_acceleration
-            .y();
-        let x_zero_moment_point_in_robot = ((x_com * g) + (x_hat * z)) / g;
-        let y_zero_moment_point_in_robot = ((y_com * g) + (y_hat * z)) / g;
+        let imu_rotated_parallel_to_ground = imu_orientation.inverse()
+            * context
+                .sensor_data
+                .inertial_measurement_unit
+                .linear_acceleration;
+        let x_hat = imu_rotated_parallel_to_ground.x();
+        let y_hat = imu_rotated_parallel_to_ground.y();
+        let x_zero_moment_point_in_robot =
+            ((x_com * GRAVITATIONAL_CONSTANT) + (x_hat * z)) / GRAVITATIONAL_CONSTANT;
+        let y_zero_moment_point_in_robot =
+            ((y_com * GRAVITATIONAL_CONSTANT) + (y_hat * z)) / GRAVITATIONAL_CONSTANT;
 
-        let zero_moment_point: Point3<Robot> = point![
+        let zero_moment_point: Point3<Ground> = point![
             x_zero_moment_point_in_robot,
             y_zero_moment_point_in_robot,
             0.0
