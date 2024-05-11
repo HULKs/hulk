@@ -3,15 +3,16 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use linear_algebra::{Isometry3, Point2, Point3, Vector3};
+use geometry::{convex_hull::reduce_to_convex_hull, is_inside_polygon::is_inside_polygon};
+use linear_algebra::{point, Isometry3, Point2, Point3, Vector3};
 use serde::{Deserialize, Serialize};
-use types::sensor_data::SensorData;
+use types::{robot_kinematics::RobotKinematics, sensor_data::SensorData};
 
 #[derive(Deserialize, Serialize)]
 pub struct ZeroMomentPointProvider {
     linear_acceleration_filter: LowPassFilter<Vector3<Robot>>,
+    number_of_frames_zero_moment_point_has_been_outside_support_polygon: i32,
 }
-
 #[context]
 pub struct CreationContext {
     linear_acceleration_low_pass_factor:
@@ -26,12 +27,14 @@ pub struct CycleContext {
     gravity_acceleration: Parameter<f32, "physical_constants.gravity_acceleration">,
 
     robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub zero_moment_point: MainOutput<Point2<Ground>>,
+    pub number_of_frames_zero_moment_point_has_been_outside_support_polygon: MainOutput<i32>,
 }
 
 impl ZeroMomentPointProvider {
@@ -41,6 +44,7 @@ impl ZeroMomentPointProvider {
                 Vector3::zeros(),
                 *context.linear_acceleration_low_pass_factor,
             ),
+            number_of_frames_zero_moment_point_has_been_outside_support_polygon: 0,
         })
     }
 
@@ -59,8 +63,232 @@ impl ZeroMomentPointProvider {
         let zero_moment_point = center_of_mass_in_ground.xy()
             + linear_acceleration.xy() * center_of_mass_in_ground.z()
                 / *context.gravity_acceleration;
+
+        let left_sole_to_ground =
+            *context.robot_to_ground * context.robot_kinematics.left_leg.sole_to_robot;
+        let right_sole_to_ground =
+            *context.robot_to_ground * context.robot_kinematics.right_leg.sole_to_robot;
+        let left_outline = [
+            point![-0.05457, -0.015151, 0.0],
+            point![-0.050723, -0.021379, 0.0],
+            point![-0.046932, -0.025796, 0.0],
+            point![-0.04262, -0.030603, 0.0],
+            point![-0.037661, -0.033714, 0.0],
+            point![-0.03297, -0.034351, 0.0],
+            point![-0.028933, -0.033949, 0.0],
+            point![-0.022292, -0.033408, 0.0],
+            point![-0.015259, -0.032996, 0.0],
+            point![-0.009008, -0.032717, 0.0],
+            point![-0.000411, -0.032822, 0.0],
+            point![0.008968, -0.033185, 0.0],
+            point![0.020563, -0.034062, 0.0],
+            point![0.029554, -0.035208, 0.0],
+            point![0.039979, -0.03661, 0.0],
+            point![0.050403, -0.038012, 0.0],
+            point![0.0577, -0.038771, 0.0],
+            point![0.063951, -0.038362, 0.0],
+            point![0.073955, -0.03729, 0.0],
+            point![0.079702, -0.03532, 0.0],
+            point![0.084646, -0.033221, 0.0],
+            point![0.087648, -0.031482, 0.0],
+            point![0.091805, -0.027692, 0.0],
+            point![0.094009, -0.024299, 0.0],
+            point![0.096868, -0.018802, 0.0],
+            point![0.099419, -0.01015, 0.0],
+            point![0.100097, -0.001573, 0.0],
+            point![0.098991, 0.008695, 0.0],
+            point![0.097014, 0.016504, 0.0],
+            point![0.093996, 0.02418, 0.0],
+            point![0.090463, 0.02951, 0.0],
+            point![0.084545, 0.0361, 0.0],
+            point![0.079895, 0.039545, 0.0],
+            point![0.074154, 0.042654, 0.0],
+            point![0.065678, 0.046145, 0.0],
+            point![0.057207, 0.047683, 0.0],
+            point![0.049911, 0.048183, 0.0],
+            point![0.039758, 0.045938, 0.0],
+            point![0.029217, 0.042781, 0.0],
+            point![0.020366, 0.04054, 0.0],
+            point![0.00956, 0.038815, 0.0],
+            point![0.000183, 0.038266, 0.0],
+            point![-0.008417, 0.039543, 0.0],
+            point![-0.015589, 0.042387, 0.0],
+            point![-0.021987, 0.047578, 0.0],
+            point![-0.027076, 0.050689, 0.0],
+            point![-0.031248, 0.051719, 0.0],
+            point![-0.03593, 0.049621, 0.0],
+            point![-0.040999, 0.045959, 0.0],
+            point![-0.045156, 0.042039, 0.0],
+            point![-0.04905, 0.037599, 0.0],
+            point![-0.054657, 0.029814, 0.0],
+            point![-0.05457, -0.015151, 0.0],
+            point![-0.050723, -0.021379, 0.0],
+        ];
+
+        let sole_in_ground = left_outline
+            .into_iter()
+            .map(|point| (left_sole_to_ground * point).xy())
+            .chain(left_outline.into_iter().map(|point| {
+                (right_sole_to_ground * point![point.x(), -point.y(), point.z()]).xy()
+            }))
+            .collect::<Vec<_>>();
+        let convex_hull = reduce_to_convex_hull(&sole_in_ground);
+
+        if is_inside_polygon(&convex_hull, &zero_moment_point) {
+            self.number_of_frames_zero_moment_point_has_been_outside_support_polygon += 1;
+        } else {
+            self.number_of_frames_zero_moment_point_has_been_outside_support_polygon = 0;
+        }
+
         Ok(MainOutputs {
             zero_moment_point: zero_moment_point.into(),
+            number_of_frames_zero_moment_point_has_been_outside_support_polygon: self
+                .number_of_frames_zero_moment_point_has_been_outside_support_polygon
+                .into(),
         })
     }
+}
+
+#[test]
+fn inside_polygon() {
+    use geometry::is_inside_polygon::is_inside_polygon;
+    let polygon: Vec<Point2<Ground>> = vec![
+        point![-0.05457, -0.015151],
+        point![-0.050723, -0.021379],
+        point![-0.046932, -0.025796],
+        point![-0.04262, -0.030603],
+        point![-0.037661, -0.033714],
+        point![-0.03297, -0.034351],
+        point![-0.028933, -0.033949],
+        point![-0.022292, -0.033408],
+        point![-0.015259, -0.032996],
+        point![-0.009008, -0.032717],
+        point![-0.000411, -0.032822],
+        point![0.008968, -0.033185],
+        point![0.020563, -0.034062],
+        point![0.029554, -0.035208],
+        point![0.039979, -0.03661],
+        point![0.050403, -0.038012],
+        point![0.0577, -0.038771],
+        point![0.063951, -0.038362],
+        point![0.073955, -0.03729],
+        point![0.079702, -0.03532],
+        point![0.084646, -0.033221],
+        point![0.087648, -0.031482],
+        point![0.091805, -0.027692],
+        point![0.094009, -0.024299],
+        point![0.096868, -0.018802],
+        point![0.099419, -0.01015],
+        point![0.100097, -0.001573],
+        point![0.098991, 0.008695],
+        point![0.097014, 0.016504],
+        point![0.093996, 0.02418],
+        point![0.090463, 0.02951],
+        point![0.084545, 0.0361],
+        point![0.079895, 0.039545],
+        point![0.074154, 0.042654],
+        point![0.065678, 0.046145],
+        point![0.057207, 0.047683],
+        point![0.049911, 0.048183],
+        point![0.039758, 0.045938],
+        point![0.029217, 0.042781],
+        point![0.020366, 0.04054],
+        point![0.00956, 0.038815],
+        point![0.000183, 0.038266],
+        point![-0.008417, 0.039543],
+        point![-0.015589, 0.042387],
+        point![-0.021987, 0.047578],
+        point![-0.027076, 0.050689],
+        point![-0.031248, 0.051719],
+        point![-0.03593, 0.049621],
+        point![-0.040999, 0.045959],
+        point![-0.045156, 0.042039],
+        point![-0.04905, 0.037599],
+        point![-0.054657, 0.029814],
+        point![-0.05457, -0.015151],
+        point![-0.050723, -0.021379],
+    ];
+    let point1 = point!(0.0, 0.0);
+    let point2 = point!(0.0, 0.045);
+    let point3 = point!(-0.03, 0.045);
+    assert!(is_inside_polygon(&polygon, &point1));
+    assert!(!is_inside_polygon(&polygon, &point2));
+    assert!(is_inside_polygon(&polygon, &point3));
+
+    let polygon2: Vec<Point2<Ground>> = vec![
+        point![-0.05457, -0.015151],
+        point![-0.050723, -0.021379],
+        point![-0.046932, -0.025796],
+        point![-0.04262, -0.030603],
+        point![-0.037661, -0.033714],
+        point![-0.03297, -0.034351],
+        point![-0.028933, -0.033949],
+        point![-0.022292, -0.033408],
+        point![-0.015259, -0.032996],
+        point![-0.009008, -0.032717],
+        point![-0.000411, -0.032822],
+        point![0.008968, -0.033185],
+        point![0.020563, -0.034062],
+        point![0.029554, -0.035208],
+        point![0.039979, -0.03661],
+        point![0.050403, -0.038012],
+        point![0.0577, -0.038771],
+        point![0.063951, -0.038362],
+        point![0.073955, -0.03729],
+        point![0.079702, -0.03532],
+        point![0.084646, -0.033221],
+        point![0.087648, -0.031482],
+        point![0.091805, -0.027692],
+        point![0.094009, -0.024299],
+        point![0.096868, -0.018802],
+        point![0.099419, -0.01015],
+        point![0.100097, -0.001573],
+        point![0.098991, 0.008695],
+        point![0.097014, 0.016504],
+        point![0.093996, 0.02418],
+        point![0.090463, 0.02951],
+        point![0.084545, 0.0361],
+        point![0.079895, 0.039545],
+        point![0.074154, 0.042654],
+        point![0.065678, 0.046145],
+        point![0.057207, 0.047683],
+        point![0.049911, 0.048183],
+        point![0.039758, 0.045938],
+        point![0.029217, 0.042781],
+        point![0.020366, 0.04054],
+        point![0.00956, 0.038815],
+        point![0.000183, 0.038266],
+        point![-0.008417, 0.039543],
+        point![-0.015589, 0.042387],
+        point![-0.021987, 0.047578],
+        point![-0.027076, 0.050689],
+        point![-0.031248, 0.051719],
+        point![-0.03593, 0.049621],
+        point![-0.040999, 0.045959],
+        point![-0.045156, 0.042039],
+        point![-0.04905, 0.037599],
+        point![-0.054657, 0.029814],
+        point![-0.05457, -0.015151],
+        point![-0.050723, -0.021379],
+    ];
+    let sole_in_ground = polygon2
+        .into_iter()
+        .chain(
+            polygon
+                .into_iter()
+                .map(|point| (point![point.x(), -0.1 - point.y()])),
+        )
+        .collect::<Vec<_>>();
+    let output = sole_in_ground
+        .iter()
+        .map(|framed| framed.inner)
+        .collect::<Vec<_>>();
+    print!("{:?}", output);
+    println!();
+    let convex_hull = reduce_to_convex_hull(&sole_in_ground);
+    let output = convex_hull
+        .iter()
+        .map(|framed| framed.inner)
+        .collect::<Vec<_>>();
+    print!("{:?}", output);
 }
