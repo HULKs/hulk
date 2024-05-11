@@ -35,7 +35,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     filtered_angular_velocity: AdditionalOutput<Vector3<Robot>, "filtered_angular_velocity">,
-    filtered_linear_acceleration: AdditionalOutput<Vector3<Robot>, "filtered_linear_acceleration">,
+    // filtered_linear_acceleration: AdditionalOutput<Vector3<Robot>, "filtered_linear_acceleration">,
     filtered_roll_pitch: AdditionalOutput<Vector2<Robot>, "filtered_roll_pitch">,
     fallen_down_gravitational_difference:
         AdditionalOutput<f32, "fallen_down_gravitational_difference">,
@@ -67,6 +67,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub fall_state: MainOutput<FallState>,
+    pub filtered_linear_acceleration: MainOutput<Vector3<Robot>>,
 }
 
 impl FallStateEstimation {
@@ -242,9 +243,9 @@ impl FallStateEstimation {
         context
             .filtered_roll_pitch
             .fill_if_subscribed(|| self.roll_pitch_filter.state());
-        context
-            .filtered_linear_acceleration
-            .fill_if_subscribed(|| self.linear_acceleration_filter.state());
+        // context
+        //     .filtered_linear_acceleration
+        //     .fill_if_subscribed(|| self.linear_acceleration_filter.state());
         context
             .filtered_angular_velocity
             .fill_if_subscribed(|| self.angular_velocity_filter.state());
@@ -257,6 +258,7 @@ impl FallStateEstimation {
 
         Ok(MainOutputs {
             fall_state: fall_state.into(),
+            filtered_linear_acceleration: self.linear_acceleration_filter.state().into(),
         })
     }
 

@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use framework::MainOutput;
-use linear_algebra::{point, Isometry3, Point3};
+use linear_algebra::{point, Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use types::sensor_data::SensorData;
 
@@ -16,6 +16,7 @@ pub struct CycleContext {
     center_of_mass: Input<Point3<Robot>, "center_of_mass">,
     sensor_data: Input<SensorData, "sensor_data">,
     robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
+    filtered_linear_acceleration: Input<Vector3<Robot>, "filtered_linear_acceleration">,
 }
 #[context]
 #[derive(Default)]
@@ -36,11 +37,13 @@ impl ZeroMomentPointProvider {
         let y_com = center_of_mass_in_ground.y();
         let z_com = center_of_mass_in_ground.z();
 
-        let imu_rotated_parallel_to_ground = context.robot_to_ground
+        let _unfitlered_imu_rotated_parallel_to_ground = context.robot_to_ground
             * context
                 .sensor_data
                 .inertial_measurement_unit
                 .linear_acceleration;
+        let imu_rotated_parallel_to_ground =
+            context.robot_to_ground * *context.filtered_linear_acceleration;
         let x_hat = imu_rotated_parallel_to_ground.x();
         let y_hat = imu_rotated_parallel_to_ground.y();
         let x_zero_moment_point_in_robot =
