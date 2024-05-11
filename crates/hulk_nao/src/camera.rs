@@ -75,9 +75,7 @@ impl CameraHardware {
         self.wait_for_device()
             .wrap_err("failed to wait for device")?;
 
-        let Some(camera) = self.camera.as_mut() else {
-            bail!("camera does not exist")
-        };
+        let camera = self.camera.as_mut().ok_or_else(|| eyre!("camera does not exist"))?;
         let buffer = camera.dequeue().wrap_err("failed to dequeue buffer")?;
         camera
             .queue(vec![
