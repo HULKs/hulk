@@ -5,7 +5,7 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{bail, Context},
+    eyre::{bail, eyre, Context},
     Result,
 };
 use nao_camera::{reset_camera_device, Camera as NaoCamera, Parameters, PollingError};
@@ -75,7 +75,10 @@ impl CameraHardware {
         self.wait_for_device()
             .wrap_err("failed to wait for device")?;
 
-        let camera = self.camera.as_mut().ok_or_else(|| eyre!("camera does not exist"))?;
+        let camera = self
+            .camera
+            .as_mut()
+            .ok_or_else(|| eyre!("camera does not exist"))?;
         let buffer = camera.dequeue().wrap_err("failed to dequeue buffer")?;
         camera
             .queue(vec![
