@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use framework::MainOutput;
-use linear_algebra::{point, vector, Point3, Rotation3};
+use linear_algebra::{point, Point3, Rotation3};
 use serde::{Deserialize, Serialize};
 use types::sensor_data::SensorData;
 
