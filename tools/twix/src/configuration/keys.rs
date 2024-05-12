@@ -1,5 +1,4 @@
 use std::fmt;
-use std::ops::BitOr;
 
 use serde::{
     de::{self, Deserializer},
@@ -12,6 +11,8 @@ use thiserror::Error;
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Duplicate modifier `{0}`")]
+    DuplicateModifier(String),
     #[error("Invalid modifier `{0}`")]
     InvalidModifier(String),
     #[error("Invalid key `{0}`")]
@@ -57,19 +58,20 @@ impl KeybindTrigger {
             return Err(Error::InvalidKey(v.into()));
         };
 
-        let modifiers = raw_modifiers
-            .iter()
-            .map(KeybindTrigger::parse_modifier)
-            .collect::<Result<Vec<_>, _>>()?
-            .iter()
-            .copied()
-            .fold(
-                Modifiers {
-                    shift: is_single_ascii_uppercase_letter,
-                    ..Modifiers::NONE
-                },
-                Modifiers::bitor,
-            );
+        let mut modifiers = Modifiers {
+            shift: is_single_ascii_uppercase_letter,
+            ..Modifiers::NONE
+        };
+
+        for raw_modifier in raw_modifiers {
+            let modifier = KeybindTrigger::parse_modifier(raw_modifier)?;
+
+            if modifiers.contains(modifier) {
+                return Err(Error::DuplicateModifier(String::from(*raw_modifier)));
+            }
+
+            modifiers = modifiers | modifier;
+        }
 
         Ok(Self { key, modifiers })
     }
@@ -205,6 +207,16 @@ mod tests {
         assert_eq!(
             KeybindTrigger::parse("XX"),
             Err(Error::InvalidKey("XX".into()))
+        );
+
+        assert_eq!(
+            KeybindTrigger::parse("S-A"),
+            Err(Error::DuplicateModifier("S".into()))
+        );
+
+        assert_eq!(
+            KeybindTrigger::parse("C-A-C-x"),
+            Err(Error::DuplicateModifier("C".into()))
         );
     }
 }
