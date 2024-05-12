@@ -45,6 +45,7 @@ use visuals::Visuals;
 
 mod change_buffer;
 mod completion_edit;
+mod configuration;
 mod image_buffer;
 mod nao;
 mod panel;
