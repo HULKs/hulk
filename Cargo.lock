@@ -5979,7 +5979,9 @@ dependencies = [
  "repository",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
+ "toml",
  "types",
  "walking_engine",
 ]
