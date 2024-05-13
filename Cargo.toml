@@ -92,6 +92,7 @@ convert_case = "0.6.0"
 coordinate_systems = { path = "crates/coordinate_systems" }
 ctrlc = { version = "3.2.3", features = ["termination"] }
 derive_more = "0.99.17"
+dirs = "5.0.1"
 eframe = { version = "0.27.2", features = ["persistence"] }
 egui_dock = { version = "0.12.0", features = ["serde"] }
 egui_extras = { version = "0.27.2", features = ["image"] }
