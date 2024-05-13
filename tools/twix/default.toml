@@ -1,0 +1,16 @@
+[keys]
+"C-t" = "open_split"
+
+"C-r" = "reconnect"
+
+"C-o" = "focus_address"
+"C-p" = "focus_panel"
+
+"C-h" = "focus_left"
+"C-j" = "focus_below"
+"C-k" = "focus_above"
+"C-l" = "focus_right"
+
+"C-w" = "close_tab"
+"C-d" = "duplicate_tab"
+
