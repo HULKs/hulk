@@ -1,19 +1,18 @@
+use std::collections::BTreeMap;
+
 use eframe::egui::{
     pos2, vec2, Color32, Key, Painter, PointerButton, Pos2, Rect, Response, Rounding, Sense,
     Stroke, Ui, Vec2, Widget,
 };
-use framework::{RecordingIndex, Timing};
 
-use crate::{
-    coordinate_systems::{
-        AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
-    },
-    execution::Replayer,
-    ReplayerHardwareInterface,
+use framework::Timing;
+
+use crate::coordinate_systems::{
+    AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
 };
 
 pub struct Frames<'state> {
-    replayer: &'state Replayer<ReplayerHardwareInterface>,
+    indices: &'state BTreeMap<String, Vec<Timing>>,
     frame_range: &'state FrameRange,
     viewport_range: &'state mut ViewportRange,
     position: &'state mut RelativeTime,
@@ -22,14 +21,14 @@ pub struct Frames<'state> {
 
 impl<'state> Frames<'state> {
     pub fn new(
-        replayer: &'state Replayer<ReplayerHardwareInterface>,
+        indices: &'state BTreeMap<String, Vec<Timing>>,
         frame_range: &'state FrameRange,
         viewport_range: &'state mut ViewportRange,
         position: &'state mut RelativeTime,
         item_spacing: Vec2,
     ) -> Self {
         Self {
-            replayer,
+            indices,
             frame_range,
             viewport_range,
             position,
@@ -117,12 +116,11 @@ impl<'state> Frames<'state> {
     }
 
     fn show_cyclers(&self, painter: &Painter, color: Color32, screen_range: &ScreenRange) {
-        let indices = self.replayer.get_recording_indices();
         let spacing = self.item_spacing.y;
-        let total_spacing = spacing * (indices.len() - 1) as f32;
-        let row_height = (painter.clip_rect().height() - total_spacing) / indices.len() as f32;
+        let total_spacing = spacing * (self.indices.len() - 1) as f32;
+        let row_height = (painter.clip_rect().height() - total_spacing) / self.indices.len() as f32;
 
-        for (index, recording_index) in indices.into_values().enumerate() {
+        for (index, recording_index) in self.indices.values().enumerate() {
             let top_left =
                 painter.clip_rect().left_top() + vec2(0.0, (row_height + spacing) * index as f32);
             let mut painter = painter.clone();
@@ -136,13 +134,13 @@ impl<'state> Frames<'state> {
 
     fn show_cycler(
         &self,
-        index: &RecordingIndex,
+        index: &[Timing],
         painter: Painter,
         color: Color32,
         screen_range: &ScreenRange,
     ) {
-        for frame in index.iter() {
-            self.show_frame(&frame, &painter, color, screen_range);
+        for frame in index {
+            self.show_frame(frame, &painter, color, screen_range);
         }
     }
 

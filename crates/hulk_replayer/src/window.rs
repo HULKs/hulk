@@ -1,5 +1,5 @@
 use std::{
-    sync::{Arc, Mutex},
+    collections::BTreeMap,
     thread::spawn,
     time::{Duration, SystemTime},
 };
@@ -8,6 +8,7 @@ use eframe::{
     egui::{CentralPanel, Context},
     App, CreationContext, Frame,
 };
+use framework::Timing;
 use tokio::{runtime::Builder, select, sync::watch, time::sleep};
 
 use crate::{
@@ -19,12 +20,11 @@ use crate::{
 };
 
 pub struct Window {
-    replayer: Arc<Mutex<Replayer<ReplayerHardwareInterface>>>,
     time_sender: watch::Sender<SystemTime>,
-    frames_changed: watch::Receiver<()>,
     frame_range: FrameRange,
     viewport_range: ViewportRange,
     position: RelativeTime,
+    indices: BTreeMap<String, Vec<Timing>>,
 }
 
 impl Window {
@@ -32,32 +32,28 @@ impl Window {
         creation_context: &CreationContext,
         replayer: Replayer<ReplayerHardwareInterface>,
     ) -> Self {
-        let replayer = Arc::new(Mutex::new(replayer));
-        let (time_sender, time_receiver) = watch::channel(SystemTime::UNIX_EPOCH);
-        let (frames_changed_sender, frames_changed_receiver) = watch::channel(());
-        spawn_replay_thread(
-            replayer.clone(),
-            creation_context.egui_ctx.clone(),
-            time_receiver,
-            frames_changed_sender,
-        );
-
-        let frame_range = join_timing(&replayer.lock().unwrap());
+        let frame_range = join_timing(&replayer);
         let viewport_range = ViewportRange::from_frame_range(&frame_range);
 
+        let (time_sender, time_receiver) = watch::channel(SystemTime::UNIX_EPOCH);
+        let indices = replayer
+            .get_recording_indices()
+            .iter()
+            .map(|(name, index)| (name.clone(), index.iter().collect()))
+            .collect();
+        spawn_replay_thread(replayer, creation_context.egui_ctx.clone(), time_receiver);
+
         Self {
-            replayer,
             time_sender,
-            frames_changed: frames_changed_receiver,
             frame_range,
             viewport_range,
             position: RelativeTime::new(0.0),
+            indices,
         }
     }
 
     fn replay_at_position(&mut self) {
-        let frame_range = join_timing(&self.replayer.lock().unwrap());
-        let timestamp = self.position.map_to_absolute_time(&frame_range);
+        let timestamp = self.position.map_to_absolute_time(&self.frame_range);
         self.time_sender
             .send(timestamp.inner())
             .expect("failed to send replay time");
@@ -66,18 +62,12 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
-        if self.frames_changed.has_changed().unwrap_or(false) {
-            self.frame_range = join_timing(&self.replayer.lock().unwrap());
-            self.viewport_range = ViewportRange::from_frame_range(&self.frame_range);
-            self.frames_changed.mark_unchanged();
-        }
-
         CentralPanel::default().show(context, |ui| {
             ui.horizontal_top(|ui| {
-                ui.add(Labels::new(&self.replayer.lock().unwrap()));
+                ui.add(Labels::new(&self.indices));
                 if ui
                     .add(Timeline::new(
-                        &self.replayer.lock().unwrap(),
+                        &self.indices,
                         &self.frame_range,
                         &mut self.viewport_range,
                         &mut self.position,
@@ -111,39 +101,15 @@ fn join_timing(replayer: &Replayer<ReplayerHardwareInterface>) -> FrameRange {
 }
 
 fn spawn_replay_thread(
-    replayer: Arc<Mutex<Replayer<ReplayerHardwareInterface>>>,
+    mut replayer: Replayer<ReplayerHardwareInterface>,
     egui_context: Context,
     mut time: watch::Receiver<SystemTime>,
-    frames_changed: watch::Sender<()>,
 ) {
     spawn(move || {
-        loop {
-            let mut frames_found = false;
-            let mut replayer = replayer.lock().unwrap();
-            let mut indices = replayer.get_recording_indices_mut();
-            for index in indices.values_mut() {
-                match index.collect_next_frame_metadata() {
-                    Ok(Some(())) => {
-                        frames_changed.send(()).unwrap();
-                        frames_found = true;
-                    }
-                    Ok(None) => {}
-                    Err(error) => eprintln!("{error}"),
-                }
-            }
-            if !frames_found {
-                break;
-            }
-            if time.has_changed().unwrap() {
-                time.mark_unchanged();
-                let _ = replayer.replay_at(*time.borrow());
-            }
-            egui_context.request_repaint();
-        }
         let runtime = Builder::new_current_thread().enable_all().build().unwrap();
 
         runtime.block_on(async move {
-            let parameters_changed = replayer.lock().unwrap().get_parameters_changed();
+            let parameters_changed = replayer.get_parameters_changed();
             loop {
                 select! {
                     _ = parameters_changed.notified() => {}
@@ -156,7 +122,9 @@ fn spawn_replay_thread(
                     }
                 }
 
-                let _ = replayer.lock().unwrap().replay_at(*time.borrow());
+                if let Err(error) = replayer.replay_at(*time.borrow()) {
+                    eprintln!("{error}");
+                }
                 egui_context.request_repaint();
             }
         });
