@@ -1,11 +1,10 @@
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
+use eframe::egui::{InputState, Key, Modifiers};
 use serde::{
     de::{self, Deserializer},
     Deserialize,
 };
-
-use eframe::egui::{Key, Modifiers};
 use thiserror::Error;
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -19,16 +18,23 @@ pub enum Error {
     InvalidKey(String),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum KeybindAction {
+    CloseTab,
+    DuplicateTab,
+    FocusAbove,
+    FocusAddress,
+    FocusBelow,
+    FocusLeft,
+    FocusPanel,
+    FocusRight,
+    None,
     OpenSplit,
-    OpenTab,
     Reconnect,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct KeybindTrigger {
     pub key: Key,
     pub modifiers: Modifiers,
@@ -38,7 +44,7 @@ impl KeybindTrigger {
     pub fn parse_modifier(value: &&str) -> Result<Modifiers, Error> {
         match *value {
             "A" => Ok(Modifiers::ALT),
-            "C" => Ok(Modifiers::COMMAND),
+            "C" => Ok(Modifiers::CTRL | Modifiers::COMMAND),
             "S" => Ok(Modifiers::SHIFT),
             _ => Err(Error::InvalidModifier(String::from(*value))),
         }
@@ -103,20 +109,48 @@ impl<'de> Deserialize<'de> for KeybindTrigger {
     }
 }
 
-#[derive(Debug)]
-pub struct Keybind {
-    pub trigger: KeybindTrigger,
-    pub action: KeybindAction,
-}
-
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Keybinds {
-    pub keys: Vec<Keybind>,
+    keybinds: HashMap<KeybindTrigger, KeybindAction>,
 }
 
 impl Keybinds {
     pub fn new() -> Self {
-        Self { keys: Vec::new() }
+        Self {
+            keybinds: HashMap::new(),
+        }
+    }
+
+    pub fn read_actions(&self, input: &mut InputState) -> Vec<KeybindAction> {
+        let mut actions = Vec::new();
+
+        input.events.retain(|event| {
+            let eframe::egui::Event::Key {
+                key,
+                pressed: true,
+                modifiers,
+                ..
+            } = event
+            else {
+                return true;
+            };
+
+            for (trigger, action) in &self.keybinds {
+                if trigger.key == *key && trigger.modifiers.matches_exact(*modifiers) {
+                    actions.push(*action);
+                    return false;
+                }
+            }
+
+            true
+        });
+
+        actions
+    }
+
+    pub fn merge(&mut self, other: Self) {
+        self.keybinds.extend(other.keybinds);
     }
 }
 
@@ -145,13 +179,13 @@ impl<'de> Deserialize<'de> for Keybinds {
             where
                 V: de::MapAccess<'de>,
             {
-                let mut keys = Vec::new();
+                let mut keybinds = HashMap::new();
 
                 while let Some((trigger, action)) = visitor.next_entry()? {
-                    keys.push(Keybind { trigger, action });
+                    keybinds.insert(trigger, action);
                 }
 
-                Ok(Keybinds { keys })
+                Ok(Keybinds { keybinds })
             }
         }
 

@@ -5959,6 +5959,7 @@ dependencies = [
  "communication",
  "convert_case 0.6.0",
  "coordinate_systems",
+ "dirs",
  "eframe",
  "egui_dock",
  "egui_extras",

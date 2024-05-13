@@ -16,10 +16,9 @@ use color_eyre::{
 
 use communication::client::ConnectionStatus;
 use completion_edit::CompletionEdit;
+use configuration::{keys::KeybindAction, Configuration};
 use eframe::{
-    egui::{
-        CentralPanel, Context, Id, Key, Layout, Modifiers, TopBottomPanel, Ui, Widget, WidgetText,
-    },
+    egui::{CentralPanel, Context, Id, Layout, TopBottomPanel, Ui, Widget, WidgetText},
     emath::Align,
     epaint::{Color32, Rounding},
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
@@ -94,13 +93,15 @@ fn main() -> Result<(), eframe::Error> {
             .unwrap();
     }
 
+    let configuration = Configuration::load().expect("failed to load configuration");
+
     let options = NativeOptions::default();
     run_native(
         "Twix",
         options,
         Box::new(|creation_context| {
             egui_extras::install_image_loaders(&creation_context.egui_ctx);
-            Box::new(TwixApp::create(creation_context, arguments))
+            Box::new(TwixApp::create(creation_context, arguments, configuration))
         }),
     )
 }
@@ -170,10 +171,15 @@ struct TwixApp {
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
     visual: Visuals,
+    configuration: Configuration,
 }
 
 impl TwixApp {
-    fn create(creation_context: &CreationContext, arguments: Arguments) -> Self {
+    fn create(
+        creation_context: &CreationContext,
+        arguments: Arguments,
+        configuration: Configuration,
+    ) -> Self {
         let ip_address = arguments.nao_address.map_or(
             creation_context
                 .storage
@@ -236,6 +242,7 @@ impl TwixApp {
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
             visual,
+            configuration,
         }
     }
 
@@ -352,6 +359,9 @@ impl App for TwixApp {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
         self.reachable_naos.update();
 
+        let keybind_actions =
+            context.input_mut(|input| self.configuration.keys.read_actions(input));
+
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
@@ -364,7 +374,7 @@ impl App for TwixApp {
                     if address_input.gained_focus() {
                         self.reachable_naos.query_reachability();
                     }
-                    if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::O)) {
+                    if keybind_actions.contains(&KeybindAction::FocusAddress) {
                         address_input.request_focus();
                         CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
                     }
@@ -389,7 +399,7 @@ impl App for TwixApp {
                     {
                         self.nao.set_connect(self.connection_intent);
                     }
-                    if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::R)) {
+                    if keybind_actions.contains(&KeybindAction::Reconnect) {
                         self.nao.set_connect(false);
                         self.connection_intent = true;
                         self.nao.set_connect(true);
@@ -411,7 +421,7 @@ impl App for TwixApp {
                         "Panel",
                     )
                     .ui(ui);
-                    if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::P)) {
+                    if keybind_actions.contains(&KeybindAction::FocusPanel) {
                         panel_input.request_focus();
                         CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
                     }
@@ -447,7 +457,7 @@ impl App for TwixApp {
             })
         });
         CentralPanel::default().show(context, |ui| {
-            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::T)) {
+            if keybind_actions.contains(&KeybindAction::OpenSplit) {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     let node = &mut self.dock_state[surface_index][node_id];
@@ -470,28 +480,28 @@ impl App for TwixApp {
                 }
             }
 
-            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::H)) {
+            if keybind_actions.contains(&KeybindAction::FocusLeft) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     self.focus_left(node_id, surface_index);
                 }
             }
-            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::J)) {
+            if keybind_actions.contains(&KeybindAction::FocusBelow) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     self.focus_below(node_id, surface_index);
                 }
             }
-            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::K)) {
+            if keybind_actions.contains(&KeybindAction::FocusAbove) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     self.focus_above(node_id, surface_index);
                 }
             }
-            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::L)) {
+            if keybind_actions.contains(&KeybindAction::FocusRight) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     self.focus_right(node_id, surface_index);
                 }
             }
 
-            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::D)) {
+            if keybind_actions.contains(&KeybindAction::DuplicateTab) {
                 if let Some((_, tab)) = self.dock_state.find_active_focused() {
                     let new_tab = &tab.panel.save();
                     self.dock_state.push_to_focused_leaf(Tab::from(
@@ -500,7 +510,7 @@ impl App for TwixApp {
                 }
             }
 
-            if ui.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::W)) {
+            if keybind_actions.contains(&KeybindAction::CloseTab) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     let active_node = &mut self.dock_state[surface_index][node_id];
                     if let Node::Leaf { active, tabs, .. } = active_node {

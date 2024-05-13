@@ -7,13 +7,14 @@ homepage.workspace = true
 
 [dependencies]
 aliveness = { workspace = true }
+argument_parsers = { workspace = true }
 bincode = { workspace = true }
 clap = { workspace = true }
-argument_parsers = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
 convert_case = { workspace = true }
 coordinate_systems = { workspace = true }
+dirs = { workspace = true }
 eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
