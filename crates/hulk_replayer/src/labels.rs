@@ -1,23 +1,24 @@
+use std::collections::BTreeMap;
+
 use eframe::egui::{
     pos2, vec2, Align, Layout, Rect, Response, RichText, Sense, TextStyle, Ui, Widget,
 };
-use framework::ScanState;
 
-use crate::{execution::Replayer, ticks::ticks_height, ReplayerHardwareInterface};
+use framework::Timing;
 
-pub struct Labels {
-    labels: Vec<LabelContent>,
+use crate::ticks::ticks_height;
+
+pub struct Labels<'state> {
+    labels: Vec<LabelContent<'state>>,
 }
 
-impl Labels {
-    pub fn new(replayer: &Replayer<ReplayerHardwareInterface>) -> Self {
-        let labels = replayer
-            .get_recording_indices()
-            .into_iter()
-            .map(|(name, index)| LabelContent {
+impl<'state> Labels<'state> {
+    pub fn new(indices: &'state BTreeMap<String, Vec<Timing>>) -> Self {
+        let labels = indices
+            .iter()
+            .map(|(name, timings)| LabelContent {
                 name,
-                number_of_frames: index.number_of_frames(),
-                scan_state: index.scan_state(),
+                number_of_frames: timings.len(),
             })
             .collect();
 
@@ -25,7 +26,7 @@ impl Labels {
     }
 }
 
-impl Widget for Labels {
+impl<'state> Widget for Labels<'state> {
     fn ui(self, ui: &mut Ui) -> Response {
         let spacing = ui.spacing().item_spacing.y;
         let total_spacing = spacing * (self.labels.len() - 1) as f32;
@@ -49,11 +50,6 @@ impl Widget for Labels {
             if child_ui.available_height() >= text_height {
                 child_ui.label(format!("{} frames", label_content.number_of_frames));
             }
-            if child_ui.available_height() >= text_height {
-                if let ScanState::Loading { progress } = label_content.scan_state {
-                    child_ui.label(format!("{:.2} %", progress * 100.0));
-                }
-            }
             maximum_width = maximum_width.max(child_ui.min_size().x);
         }
 
@@ -64,8 +60,7 @@ impl Widget for Labels {
     }
 }
 
-struct LabelContent {
-    name: String,
+struct LabelContent<'state> {
+    name: &'state str,
     number_of_frames: usize,
-    scan_state: ScanState,
 }
