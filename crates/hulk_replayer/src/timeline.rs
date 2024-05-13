@@ -1,15 +1,17 @@
+use std::collections::BTreeMap;
+
 use eframe::egui::{vec2, Align, Layout, Rect, Response, Ui, Vec2, Widget};
+
+use framework::Timing;
 
 use crate::{
     coordinate_systems::{FrameRange, RelativeTime, ViewportRange},
-    execution::Replayer,
     frames::Frames,
     ticks::{ticks_height, Ticks},
-    ReplayerHardwareInterface,
 };
 
 pub struct Timeline<'state> {
-    replayer: &'state Replayer<ReplayerHardwareInterface>,
+    indices: &'state BTreeMap<String, Vec<Timing>>,
     frame_range: &'state FrameRange,
     viewport_range: &'state mut ViewportRange,
     position: &'state mut RelativeTime,
@@ -17,13 +19,13 @@ pub struct Timeline<'state> {
 
 impl<'state> Timeline<'state> {
     pub fn new(
-        replayer: &'state Replayer<ReplayerHardwareInterface>,
+        indices: &'state BTreeMap<String, Vec<Timing>>,
         frame_range: &'state FrameRange,
         viewport_range: &'state mut ViewportRange,
         position: &'state mut RelativeTime,
     ) -> Self {
         Self {
-            replayer,
+            indices,
             frame_range,
             viewport_range,
             position,
@@ -45,7 +47,7 @@ impl<'state> Widget for Timeline<'state> {
             ui.advance_cursor_after_rect(ticks_rect);
 
             let response = ui.add(Frames::new(
-                self.replayer,
+                self.indices,
                 self.frame_range,
                 self.viewport_range,
                 self.position,
