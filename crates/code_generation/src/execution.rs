@@ -207,10 +207,6 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                 Ok(())
             }
 
-            pub fn get_parameters_changed(&self) -> std::sync::Arc<tokio::sync::Notify> {
-                self.communication_server.get_parameters_changed()
-            }
-
             #accessors
         }
     }
@@ -234,7 +230,11 @@ fn generate_replayer_token_streams(
             parameters: quote! {
                 communication_server,
             },
-            accessors: Default::default(),
+            accessors: quote! {
+                pub fn get_parameters_changed(&self) -> std::sync::Arc<tokio::sync::Notify> {
+                    self.communication_server.get_parameters_changed()
+                }
+            },
         }
     } else {
         let reader_tokens: Vec<_> = cyclers
