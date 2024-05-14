@@ -38,8 +38,8 @@ impl Window {
         let (time_sender, time_receiver) = watch::channel(SystemTime::UNIX_EPOCH);
         let indices = replayer
             .get_recording_indices()
-            .iter()
-            .map(|(name, index)| (name.clone(), index.iter().collect()))
+            .into_iter()
+            .map(|(name, index)| (name, index.iter().collect()))
             .collect();
         spawn_replay_thread(replayer, creation_context.egui_ctx.clone(), time_receiver);
 
