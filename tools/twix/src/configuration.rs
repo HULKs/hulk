@@ -37,9 +37,10 @@ impl Configuration {
     pub fn load_at_path(path: impl AsRef<Path>) -> Result<Self, Error> {
         match std::fs::read_to_string(&path) {
             Ok(config_file) => {
-                let mut configuration: Configuration = toml::from_str(&config_file)?;
+                let mut configuration = Self::load_default();
+                let user_configuration: Configuration = toml::from_str(&config_file)?;
 
-                configuration.merge(Self::load_default());
+                configuration.merge(user_configuration);
 
                 Ok(configuration)
             }
