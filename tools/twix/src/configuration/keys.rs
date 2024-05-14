@@ -29,7 +29,7 @@ pub enum KeybindAction {
     FocusLeft,
     FocusPanel,
     FocusRight,
-    None,
+    NoOp,
     OpenSplit,
     Reconnect,
 }
