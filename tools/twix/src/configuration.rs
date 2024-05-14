@@ -78,16 +78,17 @@ mod tests {
         let mut config_1: Configuration = toml::from_str(
             r#"
                 [keys]
-                "C-a" = "focus_left"
-                "C-S-a" = "reconnect"
+                C-a = "focus_left"
+                C-S-a = "reconnect"
             "#,
         )
         .unwrap();
+
         let config_2: Configuration = toml::from_str(
             r#"
                 [keys]
-                "C-c" = "focus_left"
-                "C-A" = "focus_right"
+                C-c = "focus_left"
+                C-A = "focus_right"
             "#,
         )
         .unwrap();
@@ -99,9 +100,9 @@ mod tests {
             toml::from_str(
                 r#"
                 [keys]
-                "C-a" = "focus_left"
-                "C-A" = "focus_right"
-                "C-c" = "focus_left"
+                C-a = "focus_left"
+                C-A = "focus_right"
+                C-c = "focus_left"
             "#
             )
             .unwrap()
