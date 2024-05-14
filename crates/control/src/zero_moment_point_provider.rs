@@ -44,12 +44,14 @@ impl ZeroMomentPointProvider {
                 .linear_acceleration;
         let imu_rotated_parallel_to_ground =
             context.robot_to_ground * *context.filtered_linear_acceleration;
-        let x_hat = imu_rotated_parallel_to_ground.x();
-        let y_hat = imu_rotated_parallel_to_ground.y();
-        let x_zero_moment_point_in_robot =
-            ((x_com * GRAVITATIONAL_CONSTANT) + (x_hat * z_com)) / GRAVITATIONAL_CONSTANT;
-        let y_zero_moment_point_in_robot =
-            ((y_com * GRAVITATIONAL_CONSTANT) + (y_hat * z_com)) / GRAVITATIONAL_CONSTANT;
+        let x_acceleration_parallel_to_ground = imu_rotated_parallel_to_ground.x();
+        let y_acceleration_parallel_to_ground = imu_rotated_parallel_to_ground.y();
+        let x_zero_moment_point_in_robot = ((x_com * GRAVITATIONAL_CONSTANT)
+            + (x_acceleration_parallel_to_ground * z_com))
+            / GRAVITATIONAL_CONSTANT;
+        let y_zero_moment_point_in_robot = ((y_com * GRAVITATIONAL_CONSTANT)
+            + (y_acceleration_parallel_to_ground * z_com))
+            / GRAVITATIONAL_CONSTANT;
 
         let zero_moment_point: Point3<Ground> = point![
             x_zero_moment_point_in_robot,
