@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use thiserror::Error;
 
+pub mod keybind_plugin;
 pub mod keys;
 
 const DEFAULT_CONFIG: &str = include_str!("../default.toml");
