@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt};
 
-use eframe::egui::{InputState, Key, Modifiers};
+use eframe::egui::{Key, Modifiers};
 use serde::{
     de::{self, Deserializer},
     Deserialize,
@@ -44,7 +44,7 @@ impl KeybindTrigger {
     pub fn parse_modifier(value: &&str) -> Result<Modifiers, Error> {
         match *value {
             "A" => Ok(Modifiers::ALT),
-            "C" => Ok(Modifiers::CTRL | Modifiers::COMMAND),
+            "C" => Ok(Modifiers::CTRL),
             "S" => Ok(Modifiers::SHIFT),
             _ => Err(Error::InvalidModifier(String::from(*value))),
         }
@@ -122,35 +122,12 @@ impl Keybinds {
         }
     }
 
-    pub fn read_actions(&self, input: &mut InputState) -> Vec<KeybindAction> {
-        let mut actions = Vec::new();
-
-        input.events.retain(|event| {
-            let eframe::egui::Event::Key {
-                key,
-                pressed: true,
-                modifiers,
-                ..
-            } = event
-            else {
-                return true;
-            };
-
-            for (trigger, action) in &self.keybinds {
-                if trigger.key == *key && trigger.modifiers.matches_exact(*modifiers) {
-                    actions.push(*action);
-                    return false;
-                }
-            }
-
-            true
-        });
-
-        actions
-    }
-
     pub fn merge(&mut self, other: Self) {
         self.keybinds.extend(other.keybinds);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&KeybindTrigger, &KeybindAction)> {
+        self.keybinds.iter()
     }
 }
 
