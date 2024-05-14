@@ -182,7 +182,7 @@ mod tests {
             KeybindTrigger::parse("C-x"),
             Ok(KeybindTrigger {
                 key: Key::X,
-                modifiers: Modifiers::COMMAND
+                modifiers: Modifiers::CTRL
             })
         );
 
@@ -198,7 +198,7 @@ mod tests {
             KeybindTrigger::parse("C-ArrowDown"),
             Ok(KeybindTrigger {
                 key: Key::ArrowDown,
-                modifiers: Modifiers::COMMAND
+                modifiers: Modifiers::CTRL
             })
         );
 
