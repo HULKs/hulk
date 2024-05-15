@@ -398,6 +398,9 @@
     "translation_exponent": 1.5,
     "rotation_exponent": 2.0
   },
+  "zero_moment_point": {
+    "linear_acceleration_low_pass_factor": 0.05
+  },
   "whistle_filter": {
     "buffer_length": 20,
     "minimum_detections": 2
@@ -1428,5 +1431,8 @@
     "heatmap_decay_factor": 0.002,
     "minimum_validity": 0.01
   },
-  "stand_up_stiffness_upper_body": 0.5
+  "stand_up_stiffness_upper_body": 0.5,
+  "physical_constants": {
+    "gravity_acceleration": 9.81
+  }
 }
