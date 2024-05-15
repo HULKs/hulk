@@ -1,23 +1,23 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
-use eframe::{
-    egui::{ComboBox, Image, Response, TextureOptions, Ui, Widget},
-    epaint::Vec2,
-};
+use coordinate_systems::Pixel;
+use eframe::egui::{vec2, ComboBox, Response, Sense, SizeHint, TextureOptions, Ui, Widget};
+use geometry::rectangle::Rectangle;
 use log::error;
 use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 
 use communication::client::{Cycler, CyclerOutput, Output};
-use linear_algebra::vector;
+use linear_algebra::{point, vector};
 
 use crate::{
     image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
     twix_painter::{CoordinateSystem, TwixPainter},
+    zoom_and_pan::ZoomAndPanManager,
 };
 
 use self::{cycler_selector::VisionCyclerSelector, overlay::Overlays};
@@ -51,6 +51,7 @@ pub struct ImagePanel {
     cycler_selector: VisionCyclerSelector,
     overlays: Overlays,
     image_kind: ImageKind,
+    zoom_and_pan: ZoomAndPanManager,
 }
 
 impl Panel for ImagePanel {
@@ -94,6 +95,7 @@ impl Panel for ImagePanel {
             cycler_selector,
             overlays,
             image_kind,
+            zoom_and_pan: ZoomAndPanManager::default(),
         }
     }
 
@@ -151,36 +153,49 @@ impl Widget for &mut ImagePanel {
             self.overlays
                 .combo_box(ui, self.cycler_selector.selected_cycler());
         });
-
-        match self.show_image(ui) {
-            Ok(response) => response,
-            Err(error) => ui.label(format!("{error:#?}")),
-        }
+        let (rect, response) = ui.allocate_at_least(vec2(640.0, 480.0), Sense::click_and_drag());
+        let mut painter = TwixPainter::paint_at(ui, rect).with_camera(
+            vector![640.0, 480.0],
+            Similarity2::identity(),
+            CoordinateSystem::LeftHand,
+        );
+        painter.append_transform(self.zoom_and_pan.transformation());
+        let _ = self
+            .show_image(&painter)
+            .map_err(|error| ui.label(format!("{error:#?}")));
+        let _ = self.overlays.paint(&painter);
+        self.zoom_and_pan.apply(ui, &mut painter, &response);
+        response
     }
 }
 
 impl ImagePanel {
-    fn show_image(&self, ui: &mut Ui) -> Result<Response> {
+    fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let image_data = self
             .image_buffer
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
         let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
+        let context = painter.context();
 
         let image_identifier = format!("bytes://image-{:?}", self.cycler_selector);
-        ui.ctx().forget_image(&image_identifier);
-        let image = Image::from_bytes(image_identifier, image_raw)
-            .texture_options(TextureOptions::NEAREST)
-            .fit_to_fraction(Vec2::splat(1.0));
+        context.forget_image(&image_identifier);
+        context.include_bytes(image_identifier.clone(), image_raw);
+        let result = context.try_load_texture(
+            &image_identifier,
+            TextureOptions::NEAREST,
+            SizeHint::Size(640, 480),
+        )?;
 
-        let image_response = ui.add(image);
-
-        let painter = TwixPainter::paint_at(ui, image_response.rect).with_camera(
-            vector![640.0, 480.0],
-            Similarity2::identity(),
-            CoordinateSystem::LeftHand,
-        );
-        let _ = self.overlays.paint(&painter);
-        Ok(image_response)
+        if let Some(id) = result.texture_id() {
+            painter.image(
+                id,
+                Rectangle {
+                    min: point!(0.0, 0.0),
+                    max: point!(640.0, 480.0),
+                },
+            );
+        }
+        Ok(())
     }
 }

@@ -4,14 +4,14 @@ use std::{
 };
 
 use eframe::{
-    egui::{Painter, Response, Sense, Ui},
+    egui::{pos2, Context, Painter, Response, Sense, TextureId, Ui},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground};
-use geometry::{arc::Arc, circle::Circle, direction::Direction};
+use geometry::{arc::Arc, circle::Circle, direction::Direction, rectangle::Rectangle};
 use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Vector2};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
@@ -111,6 +111,14 @@ impl<Frame> TwixPainter<Frame> {
 
     pub fn append_transform(&mut self, transformation: Similarity2<f32>) {
         self.world_to_pixel = transformation * self.world_to_pixel;
+    }
+
+    pub fn context(&self) -> &Context {
+        self.painter.ctx()
+    }
+
+    pub fn is_right_handed(&self) -> bool{
+        self.camera_coordinate_system.y_scale() >= 0.0
     }
 
     pub fn arc(&self, arc: Arc<Frame>, orientation: Direction, stroke: Stroke) {
@@ -392,6 +400,18 @@ impl<Frame> TwixPainter<Frame> {
     ) {
         let position = self.transform_world_to_pixel(position);
         self.painter.text(position, align, text, font_id, color);
+    }
+
+    pub fn image(&self, texture_id: TextureId, rect: Rectangle<Frame>) {
+        let Rectangle { min, max } = rect;
+        let min = self.transform_world_to_pixel(min);
+        let max = self.transform_world_to_pixel(max);
+        self.painter.image(
+            texture_id,
+            Rect::from_two_pos(min, max),
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+            Color32::WHITE,
+        );
     }
 }
 impl TwixPainter<Ground> {
