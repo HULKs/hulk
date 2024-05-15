@@ -277,6 +277,7 @@ impl Widget for &mut ImageColorSelectPanel {
             statistics.color_distribution.green[i] /= statistics.pixel_count as f64;
             statistics.color_distribution.blue[i] /= statistics.pixel_count as f64;
         }
+        //TODO noch RGB anzeigen
 
         ui.label(format!(
             "x: {}\t\ty: {}\t\tpixels: {}\n",
@@ -403,9 +404,9 @@ fn create_chart(vector: Vec<f64>, color: Color32, offset: f64) -> BarChart {
         vector
             .iter()
             .enumerate()
-            .map(|(index, &value)| Bar::new(index as f64 * 0.01 + offset, value))
+            .map(|(index, &value)| Bar::new(index as f64 * 0.02 + offset, value))
             .collect(),
     )
     .color(color)
-    .width(0.002)
+    .width(0.004)
 }
