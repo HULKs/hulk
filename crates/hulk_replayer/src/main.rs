@@ -6,6 +6,7 @@ mod replayer;
 mod ticks;
 mod timeline;
 mod window;
+mod worker_thread;
 
 use std::time::SystemTime;
 
