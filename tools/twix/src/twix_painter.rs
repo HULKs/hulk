@@ -117,7 +117,7 @@ impl<Frame> TwixPainter<Frame> {
         self.painter.ctx()
     }
 
-    pub fn is_right_handed(&self) -> bool{
+    pub fn is_right_handed(&self) -> bool {
         self.camera_coordinate_system.y_scale() >= 0.0
     }
 

@@ -10,10 +10,7 @@ use serde_json::{from_value, json, Value};
 use types::{self, field_dimensions::FieldDimensions};
 
 use crate::{
-    nao::Nao,
-    panel::Panel,
-    twix_painter::TwixPainter,
-    value_buffer::ValueBuffer,
+    nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer,
     zoom_and_pan::ZoomAndPanManager,
 };
 
