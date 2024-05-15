@@ -1,4 +1,4 @@
-use std::{env::args, fs::File, path::PathBuf, sync::Arc};
+use std::{env::args, fs::File, path::PathBuf, sync::Arc, time::SystemTime};
 
 use color_eyre::{
     eyre::{Report, WrapErr},
@@ -9,10 +9,13 @@ use eframe::run_native;
 use framework::Parameters as FrameworkParameters;
 use hardware::IdInterface;
 use serde_json::from_reader;
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 use types::hardware::Ids;
 
-use crate::{execution::Replayer, window::Window, ReplayerHardwareInterface};
+use crate::{
+    execution::Replayer, window::Window, worker_thread::spawn_worker, ReplayerHardwareInterface,
+};
 
 pub fn replayer() -> Result<()> {
     let replay_path = PathBuf::from(
@@ -59,10 +62,19 @@ pub fn replayer() -> Result<()> {
     )
     .wrap_err("failed to create replayer")?;
 
+    let indices = replayer
+        .get_recording_indices()
+        .into_iter()
+        .map(|(name, index)| (name, index.iter().collect()))
+        .collect();
+
+    let (time_sender, time_receiver) = watch::channel(SystemTime::UNIX_EPOCH);
+    spawn_worker(replayer, time_receiver);
+
     run_native(
         "Replayer",
         Default::default(),
-        Box::new(move |creation_context| Box::new(Window::new(creation_context, replayer))),
+        Box::new(move |_creation_context| Box::new(Window::new(indices, time_sender))),
     )
     .map_err(|error| Report::msg(error.to_string()))
     .wrap_err("failed to run user interface")
