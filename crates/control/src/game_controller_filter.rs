@@ -35,10 +35,8 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
-    time_since_last_game_controller_message_to_consider_ip_active: Parameter<
-        Duration,
-        "game_controller_filter.time_since_last_game_controller_message_to_consider_ip_active",
-    >,
+    time_since_last_message_to_consider_ip_active:
+        Parameter<Duration, "game_controller_filter.time_since_last_message_to_consider_ip_active">,
     collision_alert_cooldown:
         Parameter<Duration, "game_controller_filter.collision_alert_cooldown">,
 
@@ -134,7 +132,7 @@ impl GameControllerFilter {
         let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
             time.duration_since(**last_contact)
                 .expect("time ran backwards")
-                < *context.time_since_last_game_controller_message_to_consider_ip_active
+                < *context.time_since_last_message_to_consider_ip_active
         });
         let collision_detected = recent_contacts.count() > 1;
 

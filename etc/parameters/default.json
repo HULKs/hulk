@@ -1159,7 +1159,7 @@
     }
   },
   "game_controller_filter": {
-    "time_since_last_game_controller_message_to_consider_ip_active": {
+    "time_since_last_message_to_consider_ip_active": {
       "nanos": 0,
       "secs": 5
     },
