@@ -35,6 +35,7 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     filtered_angular_velocity: AdditionalOutput<Vector3<Robot>, "filtered_angular_velocity">,
+    filtered_linear_acceleration: AdditionalOutput<Vector3<Robot>, "filtered_linear_acceleration">,
     filtered_roll_pitch: AdditionalOutput<Vector2<Robot>, "filtered_roll_pitch">,
     fallen_down_gravitational_difference:
         AdditionalOutput<f32, "fallen_down_gravitational_difference">,
@@ -46,16 +47,17 @@ pub struct CycleContext {
     falling_direction: AdditionalOutput<Option<Direction>, "falling_direction">,
     fallen_direction: AdditionalOutput<Option<Kind>, "fallen_direction">,
 
-    gravitational_acceleration_threshold:
-        Parameter<f32, "fall_state_estimation.gravitational_acceleration_threshold">,
-    falling_angle_threshold_forward:
-        Parameter<Vector2<Robot>, "fall_state_estimation.falling_angle_threshold_forward">,
     difference_to_sitting_threshold:
         Parameter<f32, "fall_state_estimation.difference_to_sitting_threshold">,
+    falling_angle_threshold_forward:
+        Parameter<Vector2<Robot>, "fall_state_estimation.falling_angle_threshold_forward">,
     falling_timeout: Parameter<Duration, "fall_state_estimation.falling_timeout">,
-    sitting_pose: Parameter<Joints<f32>, "fall_state_estimation.sitting_pose">,
+    gravitational_acceleration_threshold:
+        Parameter<f32, "fall_state_estimation.gravitational_acceleration_threshold">,
     gravitational_force_sitting:
         Parameter<Vector3<Robot>, "fall_state_estimation.gravitational_force_sitting">,
+    gravity_acceleration: Parameter<f32, "physical_constants.gravity_acceleration">,
+    sitting_pose: Parameter<Joints<f32>, "fall_state_estimation.sitting_pose">,
 
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -66,7 +68,6 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub fall_state: MainOutput<FallState>,
-    pub filtered_linear_acceleration: MainOutput<Vector3<Robot>>,
 }
 
 impl FallStateEstimation {
@@ -100,10 +101,9 @@ impl FallStateEstimation {
         let estimated_roll = self.roll_pitch_filter.state().x();
         let estimated_pitch = self.roll_pitch_filter.state().y();
 
-        const GRAVITATIONAL_CONSTANT: f32 = 9.81;
-        let gravitational_force_down = vector![-GRAVITATIONAL_CONSTANT, 0.0, 0.0];
-        let gravitational_force_up = vector![GRAVITATIONAL_CONSTANT, 0.0, 0.0];
-        let gravitational_force_upright = vector![0.0, 0.0, GRAVITATIONAL_CONSTANT];
+        let gravitational_force_down = vector![-context.gravity_acceleration, 0.0, 0.0];
+        let gravitational_force_up = vector![*context.gravity_acceleration, 0.0, 0.0];
+        let gravitational_force_upright = vector![0.0, 0.0, *context.gravity_acceleration];
 
         let fallen_down_gravitational_difference =
             self.compute_gravitational_difference(gravitational_force_down);
@@ -243,6 +243,9 @@ impl FallStateEstimation {
             .filtered_roll_pitch
             .fill_if_subscribed(|| self.roll_pitch_filter.state());
         context
+            .filtered_linear_acceleration
+            .fill_if_subscribed(|| self.linear_acceleration_filter.state());
+        context
             .filtered_angular_velocity
             .fill_if_subscribed(|| self.angular_velocity_filter.state());
         context
@@ -254,7 +257,6 @@ impl FallStateEstimation {
 
         Ok(MainOutputs {
             fall_state: fall_state.into(),
-            filtered_linear_acceleration: self.linear_acceleration_filter.state().into(),
         })
     }
 
