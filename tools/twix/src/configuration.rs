@@ -31,10 +31,10 @@ pub struct Configuration {
 
 impl Configuration {
     pub fn load() -> Result<Self, Error> {
-        Self::load_at_path(config_path())
+        Self::load_from_file(config_path())
     }
 
-    pub fn load_at_path(path: impl AsRef<Path>) -> Result<Self, Error> {
+    pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         match std::fs::read_to_string(&path) {
             Ok(config_file) => {
                 let mut configuration = Self::load_default();
