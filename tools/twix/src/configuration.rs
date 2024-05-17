@@ -103,11 +103,11 @@ mod tests {
             config_1,
             toml::from_str(
                 r#"
-                [keys]
-                C-a = "focus_left"
-                C-A = "focus_right"
-                C-b = "focus_left"
-            "#
+                    [keys]
+                    C-a = "focus_left"
+                    C-A = "focus_right"
+                    C-b = "focus_left"
+                "#
             )
             .unwrap()
         );
