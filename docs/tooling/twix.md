@@ -7,7 +7,7 @@ Twix loads a user configuration file on startup. The location of the configurati
 
 See the example config further down on this page for the general format.
 
-After loading the user configuration, it is merged with the default values, are defined at `tools/twix/default.toml` in this repository.
+After loading the user configuration, it is merged with the default values, which are defined in `tools/twix/default.toml`.
 
 ## Keybindings
 
