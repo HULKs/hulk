@@ -16,6 +16,8 @@ pub enum Error {
     InvalidModifier(String),
     #[error("Invalid key `{0}`")]
     InvalidKey(String),
+    #[error("Unsupported keybind `{0}`")]
+    UnsupportedKeybind(String),
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
@@ -50,6 +52,18 @@ impl KeybindTrigger {
         }
     }
 
+    fn is_supported_keybind(&self) -> bool {
+        match self {
+            // Binding CTRL+[cvx] is not supported.
+            // See https://github.com/emilk/egui/issues/4065
+            KeybindTrigger {
+                key: Key::C | Key::V | Key::X,
+                modifiers: Modifiers::CTRL,
+            } => false,
+            _ => true,
+        }
+    }
+
     pub fn parse(v: &str) -> Result<Self, Error> {
         let parts = v.split('-').collect::<Vec<_>>();
 
@@ -79,7 +93,13 @@ impl KeybindTrigger {
             modifiers = modifiers | modifier;
         }
 
-        Ok(Self { key, modifiers })
+        let result = Self { key, modifiers };
+
+        if result.is_supported_keybind() {
+            Ok(result)
+        } else {
+            Err(Error::UnsupportedKeybind(v.into()))
+        }
     }
 }
 
@@ -179,9 +199,9 @@ mod tests {
     #[test]
     fn parse_triggers() {
         assert_eq!(
-            KeybindTrigger::parse("C-x"),
+            KeybindTrigger::parse("C-p"),
             Ok(KeybindTrigger {
-                key: Key::X,
+                key: Key::P,
                 modifiers: Modifiers::CTRL
             })
         );
@@ -228,6 +248,11 @@ mod tests {
         assert_eq!(
             KeybindTrigger::parse("C-A-C-x"),
             Err(Error::DuplicateModifier("C".into()))
+        );
+
+        assert_eq!(
+            KeybindTrigger::parse("C-c"),
+            Err(Error::UnsupportedKeybind("C-c".into()))
         );
     }
 }
