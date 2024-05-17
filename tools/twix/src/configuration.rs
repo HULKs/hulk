@@ -18,7 +18,7 @@ pub enum Error {
 
 fn config_path() -> PathBuf {
     let mut result = dirs::config_dir().unwrap();
-    result.extend(["twix", "config.toml"]);
+    result.extend(["hulks", "twix.toml"]);
 
     result
 }
