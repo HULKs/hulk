@@ -20,6 +20,7 @@ pub enum Error {
     UnsupportedKeybind(String),
 }
 
+// Make sure to update docs/tooling/twix.md when changing this!
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum KeybindAction {
