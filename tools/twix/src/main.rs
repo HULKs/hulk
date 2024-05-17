@@ -97,7 +97,8 @@ fn main() -> Result<(), eframe::Error> {
             .unwrap();
     }
 
-    let configuration = Configuration::load().expect("failed to load configuration");
+    let configuration = Configuration::load()
+        .unwrap_or_else(|error| panic!("failed to load configuration: {error}"));
 
     let options = NativeOptions::default();
     run_native(
