@@ -37,7 +37,7 @@ impl Configuration {
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         match std::fs::read_to_string(&path) {
             Ok(config_file) => {
-                let mut configuration = Self::load_default();
+                let mut configuration = Self::default();
                 let user_configuration: Configuration = toml::from_str(&config_file)?;
 
                 configuration.merge(user_configuration);
@@ -50,19 +50,21 @@ impl Configuration {
                     path.as_ref().display()
                 );
 
-                Ok(Self::load_default())
+                Ok(Self::default())
             }
         }
-    }
-
-    fn load_default() -> Self {
-        toml::from_str(DEFAULT_CONFIG).unwrap()
     }
 
     pub fn merge(&mut self, other: Self) {
         let Self { keys } = other;
 
         self.keys.merge(keys);
+    }
+}
+
+impl Default for Configuration {
+    fn default() -> Self {
+        toml::from_str(DEFAULT_CONFIG).unwrap()
     }
 }
 
