@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eframe::egui::{Context, Id, InputState};
+use eframe::egui::{Context, Event, Id, InputState};
 
 use super::keys::{KeybindAction, Keybinds};
 
@@ -22,7 +22,7 @@ fn consume_actions(keybinds: Arc<Keybinds>, input: &mut InputState) -> Vec<Keybi
     let mut actions = Vec::new();
 
     input.events.retain(|event| {
-        if let eframe::egui::Event::Key {
+        if let Event::Key {
             key,
             pressed: true,
             modifiers,
