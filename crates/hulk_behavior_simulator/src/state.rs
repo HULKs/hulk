@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     f32::consts::FRAC_PI_4,
     mem::take,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -16,7 +16,7 @@ use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team
 use types::{
     ball_position::BallPosition,
     game_controller_state::GameControllerState,
-    messages::{IncomingMessage, OutgoingMessage},
+    messages::OutgoingMessage,
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     planned_path::PathSegment,
     players::Players,
@@ -24,11 +24,7 @@ use types::{
     support_foot::Side,
 };
 
-use crate::{
-    cycler::Database,
-    robot::Robot,
-    structs::{control::AdditionalOutputs, Parameters},
-};
+use crate::{cycler::Database, robot::Robot, structs::Parameters};
 
 pub enum Event {
     Cycle,

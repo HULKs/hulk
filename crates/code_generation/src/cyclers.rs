@@ -94,7 +94,7 @@ fn generate_database_struct() -> TokenStream {
             path_serde::PathSerialize,
             path_serde::PathIntrospect,
         )]
-        pub(crate) struct Database {
+        pub struct Database {
             pub main_outputs: MainOutputs,
             pub additional_outputs: AdditionalOutputs,
         }

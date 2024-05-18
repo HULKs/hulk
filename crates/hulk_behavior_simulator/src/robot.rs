@@ -1,12 +1,10 @@
 use std::{
-    borrow::BorrowMut,
-    collections::{BTreeMap, HashMap},
     convert::Into,
     sync::{mpsc, Arc},
     time::{Duration, SystemTime},
 };
 
-use buffered_watch::{Receiver, Sender};
+use buffered_watch::Receiver;
 use color_eyre::{eyre::WrapErr, Result};
 
 use control::localization::generate_initial_pose;
@@ -18,10 +16,10 @@ use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{messages::IncomingMessage, motion_selection::MotionSafeExits};
 
 use crate::{
-    cycler::{BehaviorCycler, Database},
+    cycler::Database,
     cyclers::control::{Cycler, CyclerInstance},
     interfake::{FakeDataInterface, Interfake},
-    structs::{control::CyclerState, Parameters},
+    structs::Parameters,
 };
 
 pub struct Robot {
@@ -62,7 +60,7 @@ impl Robot {
         let (mut parameters_sender, parameters_receiver) =
             buffered_watch::channel(Default::default());
         let (spl_network_sender, spl_network_consumer) = future_queue();
-        let (recording_sender, recording_receiver) = mpsc::sync_channel(0);
+        let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
         *parameters_sender.borrow_mut() = parameter.clone();
 
         let mut cycler2 = Cycler::new(

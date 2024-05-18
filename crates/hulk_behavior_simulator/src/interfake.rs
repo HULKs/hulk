@@ -1,11 +1,10 @@
 use std::{
-    borrow::BorrowMut,
     mem::take,
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use buffered_watch::{ReaderGuard, Receiver, Sender};
+use buffered_watch::{Receiver, Sender};
 use color_eyre::Result;
 use hardware::{NetworkInterface, RecordingInterface, TimeInterface};
 use types::messages::{IncomingMessage, OutgoingMessage};
