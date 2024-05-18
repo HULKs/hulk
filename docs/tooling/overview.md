@@ -8,5 +8,5 @@ Apart from the NAO code our repository contains several tools to aid in the deve
 - [Fanta](./fanta.md): TODO: Irgendwas mit live data auf der CLI
 - [Recording & Replay](./recording_and_replay.md): Post-mortem analysis of game data
 - [Machine Learning](./machine-learning.md): Our tooling to create datasets and neural networks
-- [Behavior Simulator](./sprite.md): The simulator and viewer to debug and automatically test behavior
+- [Behavior Simulator](./behavior_simulator.md): The simulator and viewer to debug and automatically test behavior
 - [Debugging with GDB/LLDB](./debugging.md): How to use a debugger with our software

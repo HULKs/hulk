@@ -20,21 +20,19 @@ In addition, robots may need different parameters depending on the location.
 The location is selected in the parameter directory and points to a directory where overwriting parameter files are placed.
 To create a full parameter object from the whole parameter directory, the following procedure is used:
 
-1. Read and parse `etc/configuration/default.json`
-2. If existing, read and parse...
-    - For NAO: `etc/nao_location/default.json`
-    - For Webots: `etc/webots_location/default.json`
-    - For behavior simulator: `etc/simulated_behavior/default.json`
-3. If existing, read and parse `etc/body.{body_id}.json`
-4. If existing, read and parse `etc/head.{body_id}.json`
-5. If existing, read and parse...
-    - For NAO: `etc/nao_location/body.{body_id}.json`
-    - For Webots: `etc/webots_location/body.{body_id}.json`
-    - For behavior simulator: `etc/simulated_behavior/body.{body_id}.json`
-6. If existing, read and parse...
-    - For NAO: `etc/nao_location/head.{body_id}.json`
-    - For Webots: `etc/webots_location/head.{body_id}.json`
-    - For behavior simulator: `etc/simulated_behavior/head.{body_id}.json`
+1. Read and parse `etc/parameters/default.json`
+2. If exists, read and parse...
+    - For NAO: `etc/parameters/nao_location/default.json`
+    - For Webots: `etc/parameters/webots_location/default.json`
+    - For behavior simulator: `etc/parameters/simulated_behavior/default.json`
+3. If exists, read and parse `etc/parameters/body.{body_id}.json`
+4. If exists, read and parse `etc/parameters/head.{body_id}.json`
+5. If exists, read and parse...
+    - For NAO: `etc/parameters/nao_location/body.{body_id}.json`
+    - For Webots: `etc/parameters/webots_location/body.{body_id}.json`
+6. If exists, read and parse...
+    - For NAO: `etc/parameters/nao_location/head.{body_id}.json`
+    - For Webots: `etc/parameters/webots_location/head.{body_id}.json`
 
 The location directories are usually symlinks to actual directories with the location names.
 This allows to easily swap locations by retargeting the symlink.
