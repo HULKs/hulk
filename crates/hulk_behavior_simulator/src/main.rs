@@ -7,7 +7,7 @@ use fern::{Dispatch, InitError};
 use log::LevelFilter;
 use tokio_util::sync::CancellationToken;
 
-use behavior_simulator::{server, simulator::Simulator};
+use hulk_behavior_simulator::{server, simulator::Simulator};
 
 #[derive(Parser)]
 enum Arguments {

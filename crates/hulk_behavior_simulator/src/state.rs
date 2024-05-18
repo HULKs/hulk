@@ -2,7 +2,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     f32::consts::FRAC_PI_4,
     mem::take,
-    time::{Duration, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use color_eyre::Result;
@@ -12,11 +12,10 @@ use coordinate_systems::{Field, Head};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use spl_network_messages::{GamePhase, HulkMessage, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
 use types::{
     ball_position::BallPosition,
-    filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     planned_path::PathSegment,
@@ -51,7 +50,7 @@ pub struct State {
     pub ball: Option<Ball>,
     pub messages: Vec<(PlayerNumber, HulkMessage)>,
     pub finished: bool,
-    pub filtered_game_controller_state: FilteredGameControllerState,
+    pub game_controller_state: GameControllerState,
 }
 
 impl State {
@@ -183,23 +182,9 @@ impl State {
     }
 
     fn cycle_robots(&mut self, now: std::time::SystemTime) -> Result<()> {
-        let incoming_messages = take(&mut self.messages);
+        let messages_sent_last_cycle = take(&mut self.messages);
 
         for (player_number, robot) in self.robots.iter_mut() {
-            let incoming_messages: Vec<_> = incoming_messages
-                .iter()
-                .map(|(sender, message)| {
-                    (sender != player_number).then_some(IncomingMessage::Spl(*message))
-                })
-                .collect();
-            let messages_with_time = BTreeMap::from_iter([(
-                now,
-                incoming_messages
-                    .iter()
-                    .map(|message| message.as_ref())
-                    .collect(),
-            )]);
-
             robot.database.main_outputs.cycle_time.start_time = now;
 
             let ground_to_field = robot
@@ -233,26 +218,22 @@ impl State {
                 } else {
                     None
                 };
-            robot.database.main_outputs.primary_state = match (
-                robot.is_penalized,
-                self.filtered_game_controller_state.game_state,
-            ) {
-                (true, _) => PrimaryState::Penalized,
-                (false, FilteredGameState::Initial) => PrimaryState::Initial,
-                (false, FilteredGameState::Ready { .. }) => PrimaryState::Ready,
-                (false, FilteredGameState::Set) => PrimaryState::Set,
-                (false, FilteredGameState::Playing { .. }) => PrimaryState::Playing,
-                (false, FilteredGameState::Finished) => PrimaryState::Finished,
-            };
-            robot.database.main_outputs.filtered_game_controller_state =
-                Some(self.filtered_game_controller_state);
-            robot.cycle(messages_with_time)?;
+            robot.database.main_outputs.primary_state =
+                match (robot.is_penalized, self.game_controller_state.game_state) {
+                    (true, _) => PrimaryState::Penalized,
+                    (false, GameState::Initial) => PrimaryState::Initial,
+                    (false, GameState::Ready { .. }) => PrimaryState::Ready,
+                    (false, GameState::Set) => PrimaryState::Set,
+                    (false, GameState::Playing { .. }) => PrimaryState::Playing,
+                    (false, GameState::Finished) => PrimaryState::Finished,
+                };
+            robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
+            robot.cycle(&messages_sent_last_cycle)?;
 
             for message in robot.interface.take_outgoing_messages() {
                 if let OutgoingMessage::Spl(message) = message {
                     self.messages.push((*player_number, message));
-                    self.filtered_game_controller_state
-                        .remaining_number_of_messages -= 1
+                    self.game_controller_state.remaining_amount_of_messages -= 1
                 }
             }
         }
@@ -285,7 +266,7 @@ impl State {
 
             finished: self.finished,
 
-            filtered_game_controller_state: self.filtered_game_controller_state,
+            game_controller_state: self.game_controller_state,
         }
     }
 
@@ -302,7 +283,7 @@ impl State {
 
         self.finished = lua_state.finished;
 
-        self.filtered_game_controller_state = lua_state.filtered_game_controller_state;
+        self.game_controller_state = lua_state.game_controller_state;
 
         Ok(())
     }
@@ -311,11 +292,11 @@ impl State {
 impl Default for State {
     fn default() -> Self {
         let robots = HashMap::new();
-        let filtered_game_controller_state = FilteredGameControllerState {
-            game_state: FilteredGameState::Initial,
-            opponent_game_state: FilteredGameState::Initial,
+        let game_controller_state = GameControllerState {
+            game_state: GameState::Initial,
             game_phase: GamePhase::Normal,
             kicking_team: Team::Hulks,
+            last_game_state_change: SystemTime::UNIX_EPOCH,
             penalties: Players {
                 one: None,
                 two: None,
@@ -325,9 +306,9 @@ impl Default for State {
                 six: None,
                 seven: None,
             },
-            remaining_number_of_messages: 1200,
+            remaining_amount_of_messages: 1200,
             sub_state: None,
-            own_team_is_home_after_coin_toss: false,
+            hulks_team_is_home_after_coin_toss: true,
         };
 
         Self {
@@ -337,7 +318,7 @@ impl Default for State {
             ball: None,
             messages: Vec::new(),
             finished: false,
-            filtered_game_controller_state,
+            game_controller_state,
         }
     }
 }
@@ -350,7 +331,7 @@ pub struct LuaState {
     pub ball: Option<Ball>,
     pub messages: Vec<(PlayerNumber, HulkMessage)>,
     pub finished: bool,
-    pub filtered_game_controller_state: FilteredGameControllerState,
+    pub game_controller_state: GameControllerState,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

@@ -130,7 +130,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
             own_sender: buffered_watch::Sender<Database>,
             own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
             parameters_receiver: buffered_watch::Receiver<crate::structs::Parameters>,
-            cycler_state: crate::structs::#module_name::CyclerState,
+            pub cycler_state: crate::structs::#module_name::CyclerState,
             #realtime_inputs
             #input_output_fields
             #node_fields
@@ -1071,7 +1071,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
                         ).join(".");
                     quote! {
                         framework::AdditionalOutput::new(
-                            own_subscribed_outputs
+                            true || own_subscribed_outputs
                                 .iter()
                                 .any(|subscribed_output| framework::should_be_filled(subscribed_output, #path_string)),
                             #accessor,

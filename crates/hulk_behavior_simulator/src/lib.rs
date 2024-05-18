@@ -1,6 +1,8 @@
 use hardware::{NetworkInterface, RecordingInterface, TimeInterface};
+use interfake::FakeDataInterface;
 
 pub mod cycler;
+pub mod fake_data;
 pub mod interfake;
 pub mod robot;
 pub mod server;
@@ -9,4 +11,7 @@ pub mod state;
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
-pub trait HardwareInterface: TimeInterface + NetworkInterface + RecordingInterface {}
+pub trait HardwareInterface:
+    TimeInterface + NetworkInterface + RecordingInterface + FakeDataInterface
+{
+}

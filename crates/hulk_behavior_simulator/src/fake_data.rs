@@ -22,6 +22,8 @@ use types::{
     sensor_data::SensorData,
 };
 
+use crate::interfake::FakeDataInterface;
+
 #[derive(Deserialize, Serialize)]
 pub struct FakeData {}
 
@@ -37,6 +39,7 @@ pub struct CreationContext {
 #[context]
 #[allow(dead_code)]
 pub struct CycleContext {
+    hardware_interface: HardwareInterface,
     glance_angle: Parameter<f32, "look_at.glance_angle">,
 }
 
@@ -51,6 +54,7 @@ pub struct MainOutputs {
     pub game_controller_address: MainOutput<Option<SocketAddr>>,
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
+    pub is_referee_initial_pose_detected: MainOutput<bool>,
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
     pub is_localization_converged: MainOutput<bool>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
@@ -67,7 +71,36 @@ impl FakeData {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, _context: CycleContext) -> Result<MainOutputs> {
-        Ok(MainOutputs::default())
+    pub fn cycle(&mut self, context: CycleContext<impl FakeDataInterface>) -> Result<MainOutputs> {
+        let mut receiver = context
+            .hardware_interface
+            .get_last_database_receiver()
+            .lock()
+            .unwrap();
+        let last_database = &receiver.borrow_and_mark_as_seen().main_outputs;
+        Ok(MainOutputs {
+            ball_position: last_database.ball_position.into(),
+            cycle_time: last_database.cycle_time.into(),
+            fall_state: last_database.fall_state.into(),
+            filtered_whistle: last_database.filtered_whistle.clone().into(),
+            game_controller_state: last_database.game_controller_state.into(),
+            game_controller_address: last_database.game_controller_address.into(),
+            has_ground_contact: last_database.has_ground_contact.into(),
+            hulk_messages: last_database.hulk_messages.clone().into(),
+            is_referee_initial_pose_detected: last_database.is_referee_initial_pose_detected.into(),
+            hypothetical_ball_positions: last_database.hypothetical_ball_positions.clone().into(),
+            is_localization_converged: last_database.is_localization_converged.into(),
+            obstacles: last_database.obstacles.clone().into(),
+            penalty_shot_direction: last_database.penalty_shot_direction.into(),
+            primary_state: last_database.primary_state.into(),
+            ground_to_field: last_database.ground_to_field.into(),
+            sensor_data: last_database.sensor_data.clone().into(),
+            stand_up_front_estimated_remaining_duration: last_database
+                .stand_up_front_estimated_remaining_duration
+                .into(),
+            stand_up_back_estimated_remaining_duration: last_database
+                .stand_up_back_estimated_remaining_duration
+                .into(),
+        })
     }
 }

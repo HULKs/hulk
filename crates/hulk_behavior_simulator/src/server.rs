@@ -86,7 +86,7 @@ pub fn run(
 ) -> Result<()> {
     let communication_server = communication::server::Runtime::<Parameters>::start(
         addresses,
-        "tools/behavior_simulator",
+        "crates/hulk_behavior_simulator",
         "behavior_simulator".to_string(),
         "behavior_simulator".to_string(),
         keep_running.clone(),
