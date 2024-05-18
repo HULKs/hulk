@@ -118,7 +118,7 @@ pub fn run(
 
     let start = Instant::now();
     if let Err(error) = simulator.run() {
-        eprintln!("{}", error.bright_red())
+        eprintln!("{}", format!("{:#?}", error).bright_red())
     }
     let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());

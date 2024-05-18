@@ -33,24 +33,15 @@ function on_cycle()
   end
 
   if state.cycle_count == 100 then
-    state.filtered_game_controller_state.game_state = {
-      Ready = {
-        kicking_team = "Opponent",
-      }
-    }
+    state.game_controller_state.game_state = "Ready"
   end
 
   if state.cycle_count == 1600 then
-    state.filtered_game_controller_state.game_state = "Set"
+    state.game_controller_state.game_state = "Set"
   end
 
   if state.cycle_count == 1700 then
-    state.filtered_game_controller_state.game_state = {
-      Playing = {
-        ball_is_free = true,
-        kick_off = false
-      }
-    }
+    state.game_controller_state.game_state = "Playing"
     state.ball.velocity = { -1.0, 3.0 }
   end
 
@@ -68,13 +59,9 @@ function on_cycle()
 
 
   if state.cycle_count == 2650 then
-    state.filtered_game_controller_state.sub_state = "PenaltyKick"
-    state.filtered_game_controller_state.kicking_team = "Opponent"
-    state.filtered_game_controller_state.game_state = {
-      Ready = {
-        kicking_team = "Opponent"
-      }
-    }
+    state.game_controller_state.sub_state = "PenaltyKick"
+    state.game_controller_state.kicking_team = "Opponent"
+    state.game_controller_state.game_state = "Ready"
     state.ball = {
       position = { -3.2, 0.0 },
       velocity = { 0.0, 0.0 },
@@ -84,16 +71,11 @@ function on_cycle()
 
 
   if state.cycle_count == 4000 then
-    state.filtered_game_controller_state.game_state = "Set"
+    state.game_controller_state.game_state = "Set"
   end
 
   if state.cycle_count == 4300 then
-    state.filtered_game_controller_state.game_state = {
-      Playing = {
-        ball_is_free = false,
-        kick_off = false
-      }
-    }
+    state.game_controller_state.game_state = "Playing"
   end
 
   if state.cycle_count == 4500 then
@@ -102,13 +84,8 @@ function on_cycle()
   end
 
   if state.cycle_count == 4700 then
-    state.filtered_game_controller_state.sub_state = null
-    state.filtered_game_controller_state.game_state = {
-      Playing = {
-        ball_is_free = true,
-        kick_off = false
-      }
-    }
+    state.game_controller_state.sub_state = null
+    state.game_controller_state.game_state = "Playing"
   end
 
   if state.cycle_count == game_end_time then
