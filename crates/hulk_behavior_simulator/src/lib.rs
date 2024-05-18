@@ -1,7 +1,6 @@
 use hardware::{NetworkInterface, RecordingInterface, TimeInterface};
 use interfake::FakeDataInterface;
 
-pub mod cycler;
 pub mod fake_data;
 pub mod interfake;
 pub mod robot;

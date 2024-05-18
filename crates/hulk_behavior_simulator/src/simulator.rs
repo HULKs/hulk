@@ -12,11 +12,9 @@ use linear_algebra::{Isometry2, Point2, Vector2};
 use types::{obstacles::Obstacle, players::Players};
 
 use crate::{
-    cycler::Database,
-    robot::to_player_number,
-    robot::Robot,
-    state::Ball,
-    state::{Event, LuaRobot, State},
+    cyclers::control::Database,
+    robot::{to_player_number, Robot},
+    state::{Ball, Event, LuaRobot, State},
 };
 
 const SERIALIZE_OPTIONS: SerializeOptions = SerializeOptions::new().serialize_none_to_null(false);

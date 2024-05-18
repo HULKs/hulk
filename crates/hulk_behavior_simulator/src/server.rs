@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    cycler::Database,
+    cyclers::control::Database,
     robot::to_player_number,
     simulator::{Frame, Simulator},
     state::Ball,

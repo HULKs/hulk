@@ -16,8 +16,7 @@ use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{messages::IncomingMessage, motion_selection::MotionSafeExits};
 
 use crate::{
-    cycler::Database,
-    cyclers::control::{Cycler, CyclerInstance},
+    cyclers::control::{Cycler, CyclerInstance, Database},
     interfake::{FakeDataInterface, Interfake},
     structs::Parameters,
 };
@@ -31,7 +30,7 @@ pub struct Robot {
     pub ball_last_seen: Option<SystemTime>,
 
     cycler: Cycler<Interfake>,
-    control_receiver: Receiver<crate::cyclers::control::Database>,
+    control_receiver: Receiver<Database>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
 }
 
@@ -53,8 +52,7 @@ impl Robot {
 
         let interface: Arc<_> = Interfake::default().into();
 
-        let (control_sender, control_receiver) =
-            buffered_watch::channel(crate::cyclers::control::Database::default());
+        let (control_sender, control_receiver) = buffered_watch::channel(Database::default());
         let (mut subscriptions_sender, subscriptions_receiver) =
             buffered_watch::channel(Default::default());
         let (mut parameters_sender, parameters_receiver) =

@@ -24,7 +24,7 @@ use types::{
     support_foot::Side,
 };
 
-use crate::{cycler::Database, robot::Robot, structs::Parameters};
+use crate::{cyclers::control::Database, robot::Robot, structs::Parameters};
 
 pub enum Event {
     Cycle,
