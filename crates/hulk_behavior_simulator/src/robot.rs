@@ -26,15 +26,13 @@ use crate::{
 
 pub struct Robot {
     pub interface: Arc<Interfake>,
-    // pub cycler: BehaviorCycler,
     pub database: Database,
-    // pub cycler_state: CyclerState,
     pub parameters: Parameters,
     pub is_penalized: bool,
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
 
-    cycler2: Cycler<Interfake>,
+    cycler: Cycler<Interfake>,
     control_receiver: Receiver<crate::cyclers::control::Database>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
 }
@@ -59,7 +57,7 @@ impl Robot {
 
         let (control_sender, control_receiver) =
             buffered_watch::channel(crate::cyclers::control::Database::default());
-        let (subscriptions_sender, subscriptions_receiver) =
+        let (mut subscriptions_sender, subscriptions_receiver) =
             buffered_watch::channel(Default::default());
         let (mut parameters_sender, parameters_receiver) =
             buffered_watch::channel(Default::default());
@@ -79,9 +77,6 @@ impl Robot {
         )?;
         cycler2.cycler_state.motion_safe_exits = MotionSafeExits::fill(true);
 
-        // let cycler = BehaviorCycler::new(interface.clone(), &parameter)
-        //     .wrap_err("failed to create cycler")?;
-
         let mut database = Database::default();
 
         database.main_outputs.ground_to_field = Some(
@@ -93,30 +88,26 @@ impl Robot {
         );
         database.main_outputs.has_ground_contact = true;
         database.main_outputs.is_localization_converged = true;
-
-        // let cycler_state = CyclerState {
-        //     motion_safe_exits: MotionSafeExits::fill(true),
-        //     ..Default::default()
-        // };
+        subscriptions_sender
+            .borrow_mut()
+            .insert("additional_outputs".to_string());
 
         Ok(Self {
             interface,
-            // cycler,
             database,
-            // cycler_state,
             parameters: parameter,
             is_penalized: false,
             last_kick_time: Duration::default(),
             ball_last_seen: None,
 
-            cycler2,
+            cycler: cycler2,
             control_receiver,
             spl_network_sender,
         })
     }
 
     pub fn cycle(&mut self, messages: &[(PlayerNumber, HulkMessage)]) -> Result<()> {
-        for (source, hulks_message) in messages.into_iter() {
+        for (source, hulks_message) in messages.iter() {
             let source_is_other = *source != self.parameters.player_number;
             let message = IncomingMessage::Spl(*hulks_message);
             self.spl_network_sender.announce();
@@ -130,19 +121,13 @@ impl Robot {
             &mut self.interface.get_last_database_sender().lock().unwrap(),
         )
         .main_outputs = self.database.main_outputs.clone();
-        self.cycler2.cycle()?;
-        self.database.main_outputs = self
-            .control_receiver
-            .borrow_and_mark_as_seen()
-            .main_outputs
-            .clone();
-        return Ok(());
-        // self.cycler.cycle(
-        //     &mut self.database,
-        //     &mut self.cycler_state,
-        //     &self.parameters,
-        //     messages,
-        // )
+
+        self.cycler.cycle()?;
+
+        let database = self.control_receiver.borrow_and_mark_as_seen();
+        self.database.main_outputs = database.main_outputs.clone();
+        self.database.additional_outputs = database.additional_outputs.clone();
+        Ok(())
     }
 
     pub fn field_of_view(&self) -> f32 {

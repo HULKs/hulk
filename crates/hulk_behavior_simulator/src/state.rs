@@ -78,7 +78,6 @@ impl State {
                 .as_mut()
                 .expect("simulated robots should always have a known pose");
 
-            robot.database.additional_outputs = AdditionalOutputs::default();
             let head_motion = match &robot.database.main_outputs.motion_command {
                 MotionCommand::Walk {
                     head,

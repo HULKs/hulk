@@ -1071,7 +1071,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
                         ).join(".");
                     quote! {
                         framework::AdditionalOutput::new(
-                            true || own_subscribed_outputs
+                            own_subscribed_outputs
                                 .iter()
                                 .any(|subscribed_output| framework::should_be_filled(subscribed_output, #path_string)),
                             #accessor,
