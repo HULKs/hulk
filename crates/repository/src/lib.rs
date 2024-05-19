@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    env::current_dir,
+    env::{self, current_dir},
     ffi::OsStr,
     fmt::Display,
     fs::Permissions,
@@ -311,7 +311,10 @@ impl Repository {
     ) -> Result<()> {
         let symlink = self.root.join("naosdk");
         let version = version.unwrap_or(SDK_VERSION);
-        let installation_directory = if let Some(directory) = installation_directory {
+        let environment_installation_directory = env::var("NAOSDK_HOME").ok().map(PathBuf::from);
+        let installation_directory = if let Some(directory) =
+            installation_directory.or(environment_installation_directory.as_deref())
+        {
             create_symlink(directory, &symlink).await?;
             directory.to_path_buf()
         } else if symlink.exists() {
