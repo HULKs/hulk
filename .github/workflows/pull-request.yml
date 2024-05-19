@@ -8,6 +8,7 @@ env:
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
   NAOSDK_HOME: /__w/hulk/naosdk
+  NAOSDK_AUTOMATIC_YES: 1
 jobs:
   check:
     name: Check
@@ -112,8 +113,7 @@ jobs:
           lfs: true
       - name: Build
         run: |
-          ln -s /ci/.naosdk naosdk
-          ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }} --no-sdk-installation
+          ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }}
   build_tools:
     name: Build
     strategy:
