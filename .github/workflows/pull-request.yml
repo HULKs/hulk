@@ -7,6 +7,7 @@ env:
   CARGO_HOME: /__w/hulk/cargo
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
+  NAOSDK_HOME: /__w/hulk/naosdk
 jobs:
   check:
     name: Check
@@ -14,7 +15,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -37,7 +38,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -53,7 +54,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -68,7 +69,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -83,7 +84,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -103,7 +104,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
@@ -133,7 +134,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v3
