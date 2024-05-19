@@ -247,7 +247,7 @@ impl BehaviorCycler {
             {
                 let main_outputs = {
                     self.kick_target_provider
-                        .cycle(control::kick_target_provider::CycleContext::new(
+                        .cycle(kick_target_provider::CycleContext::new(
                             own_database.main_outputs.ball_state.as_ref().unwrap(),
                             own_database.main_outputs.ground_to_field.as_ref().unwrap(),
                             &own_database.main_outputs.obstacles,
@@ -260,10 +260,6 @@ impl BehaviorCycler {
                                 .kick_target_provider
                                 .max_kick_around_obstacle_angle,
                             &parameters.kick_target_provider.corner_kick_strength,
-                            framework::AdditionalOutput::new(
-                                true,
-                                &mut own_database.additional_outputs.kick_targets,
-                            ),
                         ))
                         .wrap_err("failed to execute cycle of node `KickTargetProvider`")?
                 };
@@ -280,7 +276,7 @@ impl BehaviorCycler {
             {
                 let main_outputs = {
                     self.kick_selector
-                        .cycle(control::kick_selector::CycleContext::new(
+                        .cycle(kick_selector::CycleContext::new(
                             own_database.main_outputs.ground_to_field.as_ref().unwrap(),
                             own_database.main_outputs.ball_state.as_ref().unwrap(),
                             &own_database.main_outputs.kick_targets,
