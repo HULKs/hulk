@@ -8,6 +8,6 @@ jobs:
       - self-hosted
       - v3
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: docker build --tag 134.28.57.223:5000/hulk tools/ci/github-runners
       - run: docker push 134.28.57.223:5000/hulk

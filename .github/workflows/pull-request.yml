@@ -19,7 +19,7 @@ jobs:
       image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Check
@@ -42,7 +42,7 @@ jobs:
       image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Check
@@ -58,7 +58,7 @@ jobs:
       image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Check
@@ -73,7 +73,7 @@ jobs:
       image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Check
@@ -88,7 +88,7 @@ jobs:
       image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Test
@@ -108,7 +108,7 @@ jobs:
       image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Build
@@ -137,7 +137,7 @@ jobs:
       image: 134.28.57.223:5000/hulk:no-sdk
       options: --user=1000:1000
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Build
