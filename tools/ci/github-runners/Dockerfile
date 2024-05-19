@@ -23,18 +23,3 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
   && rm --recursive --force /var/lib/apt/lists/*
 
 RUN rustup component add clippy rustfmt
-
-# RUN useradd --no-log-init --create-home --home-dir /ci ci
-# WORKDIR /ci
-# USER ci:ci
-#
-# ARG SDK_VERSION
-# RUN wget --no-verbose https://github.com/HULKs/meta-nao/releases/download/${SDK_VERSION}/HULKs-OS-toolchain-${SDK_VERSION}.sh && \
-#   chmod +x HULKs-OS-toolchain-${SDK_VERSION}.sh && \
-#   ./HULKs-OS-toolchain-${SDK_VERSION}.sh -y -d /ci/.naosdk/${SDK_VERSION} && \
-#   rm HULKs-OS-toolchain-${SDK_VERSION}.sh
-#
-# COPY cargo.sh.patch /ci
-# RUN cd /ci/.naosdk/${SDK_VERSION}/sysroots/x86_64-naosdk-linux/environment-setup.d && \
-#   patch -i /ci/cargo.sh.patch && \
-#   rm /ci/cargo.sh.patch
