@@ -1076,7 +1076,8 @@
       "ball_radius_for_kick_target_selection": 0.15
     },
     "max_kick_around_obstacle_angle": 0.8,
-    "corner_kick_strength": 0.25
+    "corner_kick_strength": 0.25,
+    "kick_off_kick_strength": 0.25
   },
   "role_assignment": {
     "forced_role": null,

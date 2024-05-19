@@ -3,12 +3,13 @@ use ordered_float::NotNan;
 
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::{AdditionalOutput, MainOutput};
+use framework::MainOutput;
 use geometry::{circle::Circle, line_segment::LineSegment, two_line_segments::TwoLineSegments};
 use linear_algebra::{distance, point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use types::{
-    field_dimensions::FieldDimensions, kick_target::KickTarget, obstacles::Obstacle,
+    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState, kick_target::KickTarget, obstacles::Obstacle,
     parameters::FindKickTargetsParameters, world_state::BallState,
 };
 
@@ -23,6 +24,8 @@ pub struct CycleContext {
     ball_state: RequiredInput<Option<BallState>, "ball_state?">,
     ground_to_field: RequiredInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -32,9 +35,15 @@ pub struct CycleContext {
         Parameter<FindKickTargetsParameters, "kick_target_provider.find_kick_targets">,
     max_kick_around_obstacle_angle:
         Parameter<f32, "kick_target_provider.max_kick_around_obstacle_angle">,
-
     corner_kick_strength: Parameter<f32, "kick_target_provider.corner_kick_strength">,
-    kick_targets: AdditionalOutput<Vec<KickTarget>, "kick_targets">,
+    kick_off_kick_strength: Parameter<f32, "kick_target_provider.kick_off_kick_strength">,
+}
+
+struct CollectKickTargetsParameter<'cycle> {
+    find_kick_targets: &'cycle FindKickTargetsParameters,
+    max_kick_around_obstacle_angle: f32,
+    corner_kick_strength: f32,
+    kick_off_kick_strength: f32,
 }
 
 #[context]
@@ -49,7 +58,7 @@ impl KickTargetProvider {
         Ok(Self {})
     }
 
-    pub fn cycle(&self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&self, context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
 
         let obstacle_circles = generate_obstacle_circles(
@@ -57,19 +66,21 @@ impl KickTargetProvider {
             *context.ball_radius_for_kick_target_selection,
         );
 
+        let collect_kick_targets_parameters = CollectKickTargetsParameter {
+            find_kick_targets: context.find_kick_targets,
+            max_kick_around_obstacle_angle: *context.max_kick_around_obstacle_angle,
+            corner_kick_strength: *context.corner_kick_strength,
+            kick_off_kick_strength: *context.kick_off_kick_strength,
+        };
+
         let kick_targets = collect_kick_targets(
             *context.ground_to_field,
             context.field_dimensions,
             &obstacle_circles,
             ball_position,
-            *context.max_kick_around_obstacle_angle,
-            context.find_kick_targets,
-            *context.corner_kick_strength,
+            collect_kick_targets_parameters,
+            context.filtered_game_controller_state,
         );
-
-        context
-            .kick_targets
-            .fill_if_subscribed(|| kick_targets.clone());
 
         Ok(MainOutputs {
             kick_targets: kick_targets.into(),
@@ -100,23 +111,40 @@ fn collect_kick_targets(
     field_dimensions: &FieldDimensions,
     obstacle_circles: &[Circle<Ground>],
     ball_position: Point2<Ground>,
-    max_kick_around_obstacle_angle: f32,
-    parameters: &FindKickTargetsParameters,
-    corner_kick_strength: f32,
+    collect_kick_targets_parameters: CollectKickTargetsParameter<'_>,
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
 ) -> Vec<KickTarget> {
     let field_to_ground = ground_to_field.inverse();
 
-    let kick_targets = if is_ball_in_opponents_corners(
+    let is_own_kick_off = matches!(
+        filtered_game_controller_state.map(|x| x.game_state),
+        Some(FilteredGameState::Playing { kick_off: true, .. })
+    );
+    let is_not_free_for_opponent = matches!(
+        filtered_game_controller_state.map(|x| x.opponent_game_state),
+        Some(FilteredGameState::Playing {
+            ball_is_free: false,
+            ..
+        })
+    );
+
+    let kick_targets = if is_own_kick_off && is_not_free_for_opponent {
+        generate_kick_off_kick_targets(
+            field_dimensions,
+            field_to_ground,
+            collect_kick_targets_parameters.kick_off_kick_strength,
+        )
+    } else if is_ball_in_opponents_corners(
         ball_position,
-        parameters,
+        collect_kick_targets_parameters.find_kick_targets,
         field_dimensions,
         ground_to_field,
     ) {
         generate_corner_kick_targets(
-            parameters,
+            collect_kick_targets_parameters.find_kick_targets,
             field_dimensions,
             field_to_ground,
-            corner_kick_strength,
+            collect_kick_targets_parameters.corner_kick_strength,
         )
     } else {
         generate_goal_line_kick_targets(field_dimensions, field_to_ground)
@@ -126,7 +154,10 @@ fn collect_kick_targets(
         .iter()
         .map(|circle| {
             let ball_to_obstacle = circle.center - ball_position;
-            let safety_radius = circle.radius / max_kick_around_obstacle_angle.sin();
+            let safety_radius = circle.radius
+                / collect_kick_targets_parameters
+                    .max_kick_around_obstacle_angle
+                    .sin();
             let distance_to_obstacle = ball_to_obstacle.norm();
             let center = if distance_to_obstacle < safety_radius {
                 circle.center
@@ -221,5 +252,27 @@ fn generate_goal_line_kick_targets(
     vec![
         KickTarget::new(left_goal_half),
         KickTarget::new(right_goal_half),
+    ]
+}
+
+fn generate_kick_off_kick_targets(
+    field_dimensions: &FieldDimensions,
+    field_to_ground: Isometry2<Field, Ground>,
+    kick_off_kick_strength: f32,
+) -> Vec<KickTarget> {
+    let left_kick_off_target = field_to_ground
+        * point![
+            0.0,
+            field_dimensions.width / 2.0 - field_dimensions.center_circle_diameter,
+        ];
+    let right_kick_off_target = field_to_ground
+        * point![
+            0.0,
+            -(field_dimensions.width / 2.0 - field_dimensions.center_circle_diameter),
+        ];
+
+    vec![
+        KickTarget::new_with_strength(left_kick_off_target, kick_off_kick_strength),
+        KickTarget::new_with_strength(right_kick_off_target, kick_off_kick_strength),
     ]
 }
