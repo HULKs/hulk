@@ -589,12 +589,16 @@ async fn install_sdk(
     installer_path: impl AsRef<Path>,
     installation_directory: impl AsRef<Path>,
 ) -> Result<()> {
-    let status = Command::new(installer_path.as_ref().as_os_str())
-        .arg("-d")
-        .arg(installation_directory.as_ref().as_os_str())
-        .status()
-        .await
-        .wrap_err("failed to spawn command")?;
+    let mut command = Command::new(installer_path.as_ref().as_os_str());
+    command.arg("-d");
+    command.arg(installation_directory.as_ref().as_os_str());
+    if env::var("NAOSDK_AUTOMATIC_YES")
+        .map(|value| value == "1")
+        .unwrap_or(false)
+    {
+        command.arg("-y");
+    }
+    let status = command.status().await.wrap_err("failed to spawn command")?;
 
     if !status.success() {
         bail!("SDK installer exited with {status}");
