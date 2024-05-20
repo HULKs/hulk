@@ -4,7 +4,7 @@ use color_eyre::{
     eyre::{eyre, WrapErr},
     Result,
 };
-use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value};
+use mlua::{Error as LuaError, Function, Lua, LuaSerdeExt, SerializeOptions, Value, Variadic};
 use parking_lot::Mutex;
 
 use coordinate_systems::Field;
@@ -37,24 +37,34 @@ impl Simulator {
         let state = Arc::new(Mutex::new(State::default()));
 
         let lua = Lua::new();
+
+        let print = lua.create_function(|_, arguments: Variadic<String>| {
+            for to_string in arguments {
+                println!("{to_string}");
+            }
+            Ok(())
+        })?;
+        lua.globals().set("print", print)?;
+
         let create_robot = lua
             .create_function(|lua, player_number: usize| {
                 let player_number = to_player_number(player_number).map_err(LuaError::external)?;
                 let robot = Robot::try_new(player_number).map_err(LuaError::external)?;
                 Ok(lua.to_value(&LuaRobot::new(&robot)))
             })
-            .wrap_err("failed to create function create_robot")?;
+            .wrap_err("failed to create function `create_robot`")?;
+
         lua.globals()
             .set("create_robot", create_robot)
-            .wrap_err("failed to insert create_robot")?;
+            .wrap_err("failed to insert `create_robot` function")?;
         let error = lua
             .create_function(|_lua, message: String| -> Result<(), LuaError> {
                 Err(LuaError::external(message))
             })
-            .wrap_err("failed to create function create_robot")?;
+            .wrap_err("failed to create function `error`")?;
         lua.globals()
             .set("error", error)
-            .wrap_err("failed to insert create_robot")?;
+            .wrap_err("failed to insert `error` function")?;
 
         Ok(Self {
             state,
