@@ -39,9 +39,8 @@ impl Simulator {
         let lua = Lua::new();
 
         let print = lua.create_function(|_, arguments: Variadic<String>| {
-            for to_string in arguments {
-                println!("{to_string}");
-            }
+            let line = arguments.join("\t");
+            println!("{line}");
             Ok(())
         })?;
         lua.globals().set("print", print)?;
