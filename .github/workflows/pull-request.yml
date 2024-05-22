@@ -10,17 +10,15 @@ env:
   NAOSDK_HOME: /__w/hulk/naosdk
   NAOSDK_AUTOMATIC_YES: 1
 
-defaults:
-  container:
-    image: 134.28.57.223:5000/hulk:1.78.0
-    options: --user=1000:1000
-  runs-on:
-    - self-hosted
-    - v3
-
 jobs:
   check:
     name: Check
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk:1.78.0
+      options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,6 +37,12 @@ jobs:
             tools/aliveness,
             tools/hula,
           ]
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk:1.78.0
+      options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,6 +54,12 @@ jobs:
 
   check-parameters:
     name: Check parameters
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk:1.78.0
+      options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,6 +70,12 @@ jobs:
 
   format:
     name: Format
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk:1.78.0
+      options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,6 +86,12 @@ jobs:
 
   test:
     name: Test
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk:1.78.0
+      options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -85,6 +107,12 @@ jobs:
       matrix:
         target: [imagine, nao, replayer, webots]
         profile: [release, dev]
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk:1.78.0
+      options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -109,6 +137,12 @@ jobs:
             pepsi,
             twix,
           ]
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: 134.28.57.223:5000/hulk:1.78.0
+      options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
