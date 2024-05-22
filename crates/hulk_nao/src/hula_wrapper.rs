@@ -5,6 +5,7 @@ use std::{
 };
 
 use color_eyre::{eyre::WrapErr, Result};
+use parking_lot::{Mutex, RwLock};
 use types::{hardware::Ids, joints::Joints, led::Leds, sensor_data::SensorData};
 
 use super::{
@@ -14,10 +15,10 @@ use super::{
 use constants::HULA_SOCKET_PATH;
 
 pub struct HulaWrapper {
-    now: SystemTime,
+    now: RwLock<SystemTime>,
     ids: Ids,
-    stream: UnixStream,
-    hula_reader: DoubleBufferedReader<StateStorage, UnixStream, SelectPoller>,
+    stream: Mutex<UnixStream>,
+    hula_reader: Mutex<DoubleBufferedReader<StateStorage, UnixStream, SelectPoller>>,
 }
 
 impl HulaWrapper {
@@ -44,26 +45,31 @@ impl HulaWrapper {
                 .to_string(),
         };
         Ok(Self {
-            now: UNIX_EPOCH,
+            now: RwLock::new(UNIX_EPOCH),
             ids,
-            stream,
-            hula_reader,
+            stream: Mutex::new(stream),
+            hula_reader: Mutex::new(hula_reader),
         })
     }
 
     pub fn get_now(&self) -> SystemTime {
-        self.now
+        *self.now.read()
     }
 
     pub fn get_ids(&self) -> Ids {
         self.ids.clone()
     }
 
-    pub fn read_from_hula(&mut self) -> Result<SensorData> {
-        let state_storage =
-            read_from_hula(&mut self.hula_reader).wrap_err("failed to read from HULA")?;
+    pub fn read_from_hula(&self) -> Result<SensorData> {
+        let state_storage = {
+            let mut hula_reader = self.hula_reader.lock();
+            read_from_hula(&mut hula_reader).wrap_err("failed to read from HULA")?
+        };
 
-        self.now = UNIX_EPOCH + Duration::from_secs_f32(state_storage.received_at);
+        {
+            let mut now = self.now.write();
+            *now = UNIX_EPOCH + Duration::from_secs_f32(state_storage.received_at);
+        }
 
         let positions = state_storage.position.into();
         let inertial_measurement_unit = state_storage.inertial_measurement_unit.into();
@@ -85,7 +91,7 @@ impl HulaWrapper {
     }
 
     pub fn write_to_actuators(
-        &mut self,
+        &self,
         positions: Joints<f32>,
         stiffnesses: Joints<f32>,
         leds: Leds,
@@ -102,6 +108,7 @@ impl HulaWrapper {
             stiffness: stiffnesses.into(),
         };
 
-        write_to_hula(&mut self.stream, control_storage).wrap_err("failed to write to HULA")
+        let mut stream = self.stream.lock();
+        write_to_hula(&mut stream, control_storage).wrap_err("failed to write to HULA")
     }
 }

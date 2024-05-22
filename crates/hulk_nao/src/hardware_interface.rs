@@ -53,7 +53,7 @@ pub struct Parameters {
 }
 
 pub struct HardwareInterface {
-    hula_wrapper: Mutex<HulaWrapper>,
+    hula_wrapper: HulaWrapper,
     microphones: Mutex<Microphones>,
     speakers: Speakers,
     paths: Paths,
@@ -74,9 +74,7 @@ impl HardwareInterface {
             .wrap_err("failed to create tokio runtime")?;
 
         Ok(Self {
-            hula_wrapper: Mutex::new(
-                HulaWrapper::new().wrap_err("failed to initialize HULA wrapper")?,
-            ),
+            hula_wrapper: HulaWrapper::new().wrap_err("failed to initialize HULA wrapper")?,
             microphones: Mutex::new(
                 Microphones::new(parameters.microphones)
                     .wrap_err("failed to initialize microphones")?,
@@ -118,7 +116,6 @@ impl ActuatorInterface for HardwareInterface {
         leds: Leds,
     ) -> Result<()> {
         self.hula_wrapper
-            .lock()
             .write_to_actuators(positions, stiffnesses, leds)
     }
 }
@@ -134,7 +131,7 @@ impl CameraInterface for HardwareInterface {
 
 impl IdInterface for HardwareInterface {
     fn get_ids(&self) -> Ids {
-        self.hula_wrapper.lock().get_ids()
+        self.hula_wrapper.get_ids()
     }
 }
 
@@ -183,7 +180,7 @@ impl RecordingInterface for HardwareInterface {
 
 impl SensorInterface for HardwareInterface {
     fn read_from_sensors(&self) -> Result<SensorData> {
-        self.hula_wrapper.lock().read_from_hula()
+        self.hula_wrapper.read_from_hula()
     }
 }
 
@@ -195,7 +192,7 @@ impl SpeakerInterface for HardwareInterface {
 
 impl TimeInterface for HardwareInterface {
     fn get_now(&self) -> SystemTime {
-        self.hula_wrapper.lock().get_now()
+        self.hula_wrapper.get_now()
     }
 }
 
