@@ -1,8 +1,8 @@
 use std::time::SystemTime;
 
-use coordinate_systems::Field;
 use serde::{Deserialize, Serialize};
 
+use coordinate_systems::Field;
 use linear_algebra::{Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
@@ -16,7 +16,15 @@ pub struct BallPosition<Frame> {
 }
 
 #[derive(
-    Debug, Clone, Copy, PathDeserialize, PathSerialize, PathIntrospect, Serialize, Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PathDeserialize,
+    PathIntrospect,
+    PathSerialize,
+    Serialize,
 )]
 pub struct SimulatorBallState {
     pub position: Point2<Field>,

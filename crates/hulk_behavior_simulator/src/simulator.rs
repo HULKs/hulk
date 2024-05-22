@@ -1,66 +1,78 @@
-use std::time::{Duration, SystemTime};
-
-use crate::{cyclers::control::Database, server};
+use bevy::{
+    app::{App, AppExit, First, Plugin, Update},
+    core::{FrameCountPlugin, TaskPoolPlugin, TypeRegistrationPlugin},
+    ecs::event::{Events, ManualEventReader},
+    time::Time,
+};
 use color_eyre::Result;
-use tokio_util::sync::CancellationToken;
-use types::{ball_position::SimulatorBallState, players::Players};
 
-use crate::state::State;
+use crate::{
+    ball::{move_ball, BallResource},
+    game_controller::GameController,
+    recorder::Recording,
+    robot::{cycle_robots, move_robots, Messages},
+    time::{update_time, Ticks},
+};
 
-pub struct Frame {
-    pub ball: Option<SimulatorBallState>,
-    pub robots: Players<Option<Database>>,
+#[derive(Default, Copy, Clone)]
+pub struct SimulatorPlugin {
+    pub use_recording: bool,
 }
 
-pub trait Scenario {
-    fn init(&mut self, state: &mut State) -> Result<()>;
+impl SimulatorPlugin {
+    pub fn with_recording(mut self, use_recording: bool) -> Self {
+        self.use_recording = use_recording;
 
-    fn cycle(&mut self, state: &mut State) -> Result<()> {
-        state.cycle(Duration::from_millis(12))
+        self
     }
+}
 
-    fn run(&mut self) -> Result<()> {
-        let mut state = State::default();
-        self.init(&mut state)?;
-        let mut recorder = Recorder::default();
-        let start = SystemTime::now();
-        while self.should_continue(&mut state) {
-            self.cycle(&mut state)?;
-            recorder.record(&mut state);
+impl Plugin for SimulatorPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            TypeRegistrationPlugin,
+            FrameCountPlugin,
+        ))
+        .insert_resource(GameController::default())
+        .insert_resource(BallResource::default())
+        .insert_resource(Messages::default())
+        .insert_resource(Time::<()>::default())
+        .insert_resource(Time::<Ticks>::default())
+        .add_systems(First, update_time)
+        .add_systems(Update, move_robots)
+        .add_systems(Update, move_ball)
+        .add_systems(Update, cycle_robots);
+
+        if self.use_recording {
+            app.add_plugins(crate::recorder::recording_plugin);
         }
-        let duration = start.elapsed().expect("time ran backwards");
-        println!("Took {:.2}s", duration.as_secs_f32());
-        let cycles = state.cycle_count;
-        println!(
-            "{} cycles, {:.2} cycles/s",
-            cycles,
-            cycles as f32 / duration.as_secs_f32()
-        );
+    }
+}
 
-        server::run(recorder.frames, "[::]:1337", CancellationToken::new())?;
+pub trait AppExt {
+    fn run_to_completion(&mut self) -> Result<()>;
+}
+
+impl AppExt for App {
+    fn run_to_completion(&mut self) -> Result<()> {
+        let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+        loop {
+            self.update();
+            if self
+                .world
+                .get_resource_mut::<Events<AppExit>>()
+                .and_then(|events| app_exit_event_reader.read(&events).last().cloned())
+                .is_some()
+            {
+                break;
+            }
+        }
+        if let Some(mut recording) = self.world.get_resource_mut::<Recording>() {
+            println!("serving {} frames", recording.frames.len());
+            recording.serve()?
+        }
 
         Ok(())
-    }
-
-    fn should_continue(&mut self, state: &mut State) -> bool {
-        !state.finished && state.cycle_count < 10_000
-    }
-}
-
-#[derive(Default)]
-pub struct Recorder {
-    pub frames: Vec<Frame>,
-}
-
-impl Recorder {
-    pub fn record(&mut self, state: &mut State) {
-        let mut robots = Players::<Option<Database>>::default();
-        for (player_number, robot) in &state.robots {
-            robots[*player_number] = Some(robot.database.clone())
-        }
-        self.frames.push(Frame {
-            robots,
-            ball: state.ball,
-        });
     }
 }
