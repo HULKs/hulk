@@ -1,4 +1,4 @@
-FROM rust:latest
+FROM rust:1.78.0
 
 RUN apt-get update && apt-get install --no-install-recommends --yes \
   clang \
