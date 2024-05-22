@@ -100,6 +100,7 @@ impl GameControllerStateFilter {
             penalties: context.game_controller_state.penalties,
             remaining_number_of_messages: context
                 .game_controller_state
+                .hulks_team
                 .remaining_amount_of_messages,
             sub_state: context.game_controller_state.sub_state,
             own_team_is_home_after_coin_toss: context

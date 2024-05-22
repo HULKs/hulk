@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 ball_filter = { workspace = true }
+bevy = { workspace = true }
 bincode = { workspace = true }
 buffered_watch = { workspace = true }
 chrono = { workspace = true }
