@@ -3,7 +3,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use linear_algebra::{point, Isometry3, Point3, Vector3};
+use linear_algebra::{Isometry3, Point2, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use types::sensor_data::SensorData;
 
@@ -31,7 +31,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub zero_moment_point: MainOutput<Point3<Ground>>,
+    pub zero_moment_point: MainOutput<Point2<Ground>>,
 }
 
 impl ZeroMomentPointProvider {
@@ -53,25 +53,12 @@ impl ZeroMomentPointProvider {
         );
 
         let center_of_mass_in_ground = context.robot_to_ground * *context.center_of_mass;
-        let x_center_of_mass = center_of_mass_in_ground.x();
-        let y_center_of_mass = center_of_mass_in_ground.y();
-        let z_center_of_mass = center_of_mass_in_ground.z();
 
         let linear_acceleration = context.robot_to_ground * self.linear_acceleration_filter.state();
-        let x_acceleration_parallel_to_ground = linear_acceleration.x();
-        let y_acceleration_parallel_to_ground = linear_acceleration.y();
-        let x_zero_moment_point_in_robot = ((x_center_of_mass * context.gravity_acceleration)
-            + (x_acceleration_parallel_to_ground * z_center_of_mass))
-            / context.gravity_acceleration;
-        let y_zero_moment_point_in_robot = ((y_center_of_mass * context.gravity_acceleration)
-            + (y_acceleration_parallel_to_ground * z_center_of_mass))
-            / context.gravity_acceleration;
 
-        let zero_moment_point: Point3<Ground> = point![
-            x_zero_moment_point_in_robot,
-            y_zero_moment_point_in_robot,
-            0.0
-        ];
+        let zero_moment_point = center_of_mass_in_ground.xy()
+            + linear_acceleration.xy() * center_of_mass_in_ground.z()
+                / *context.gravity_acceleration;
         Ok(MainOutputs {
             zero_moment_point: zero_moment_point.into(),
         })

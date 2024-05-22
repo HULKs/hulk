@@ -5,7 +5,7 @@ use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Ground, Robot, Walk};
-use linear_algebra::{point, vector, Isometry3, Point3, Pose2, Pose3};
+use linear_algebra::{point, vector, Isometry3, Point2, Point3, Pose2, Pose3};
 use types::{
     field_dimensions::FieldDimensions, joints::body::BodyJoints, robot_kinematics::RobotKinematics,
     step_plan::Step, support_foot::Side,
@@ -79,7 +79,7 @@ impl Layer<Ground> for Walking {
         let center_of_mass: Point3<Robot> = self.center_of_mass.require_latest()?;
         let center_of_mass_in_ground = robot_to_ground * center_of_mass;
         let robot_to_walk: Isometry3<Robot, Walk> = self.robot_to_walk.require_latest()?;
-        let zero_moment_point: Point3<Ground> = self.zero_moment_point.require_latest()?;
+        let zero_moment_point: Point2<Ground> = self.zero_moment_point.require_latest()?;
 
         paint_actuated_feet(
             painter,
@@ -127,7 +127,7 @@ impl Layer<Ground> for Walking {
         );
 
         painter.circle(
-            zero_moment_point.xy(),
+            zero_moment_point,
             0.01,
             Color32::GRAY,
             Stroke::new(0.001, Color32::BLACK),
