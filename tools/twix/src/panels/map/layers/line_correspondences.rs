@@ -14,6 +14,7 @@ use crate::{
 
 pub struct LineCorrespondences {
     correspondence_lines: ValueBuffer,
+    lines_in_field: ValueBuffer,
 }
 
 impl Layer<Field> for LineCorrespondences {
@@ -23,8 +24,13 @@ impl Layer<Field> for LineCorrespondences {
         let correspondence_lines = nao.subscribe_output(
             CyclerOutput::from_str("Control.additional.localization.correspondence_lines").unwrap(),
         );
+        let lines_in_field = nao.subscribe_output(
+            CyclerOutput::from_str("Control.additional.localization.measured_lines_in_field")
+                .unwrap(),
+        );
         Self {
             correspondence_lines,
+            lines_in_field,
         }
     }
 
@@ -33,18 +39,16 @@ impl Layer<Field> for LineCorrespondences {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let lines = match self
+        let lines = self
             .correspondence_lines
-            .parse_latest::<Vec<Line2<Field>>>()
-        {
-            Ok(value) => value,
-            Err(error) => {
-                println!("{error:?}");
-                Default::default()
-            }
-        };
+            .parse_latest::<Vec<Line2<Field>>>()?;
         for line in lines {
             painter.line_segment(line.0, line.1, Stroke::new(0.02, Color32::YELLOW));
+        }
+
+        let lines = self.lines_in_field.parse_latest::<Vec<Line2<Field>>>()?;
+        for line in lines {
+            painter.line_segment(line.0, line.1, Stroke::new(0.04, Color32::RED));
         }
         Ok(())
     }
