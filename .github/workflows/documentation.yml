@@ -11,7 +11,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:1.78.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:1.78.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: 134.28.57.223:5000/hulk
+      image: 134.28.57.223:5000/hulk:1.78.0
       options: --user=1000:1000
     steps:
       - name: Download mkdocs artifact
