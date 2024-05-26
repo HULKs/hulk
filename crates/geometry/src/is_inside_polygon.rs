@@ -1,4 +1,5 @@
 use linear_algebra::Point2;
+use nalgebra::Matrix2;
 
 pub fn is_inside_polygon<Frame>(points: &[Point2<Frame>], target_point: &Point2<Frame>) -> bool {
     if !points.is_empty() {
@@ -29,6 +30,7 @@ fn cross_product<Frame>(
     segment_start: &Point2<Frame>,
     segment_end: &Point2<Frame>,
 ) -> f32 {
-    (segment_start.x() - point.x()) * (segment_end.y() - point.y())
-        - (segment_start.y() - point.y()) * (segment_end.x() - point.x())
+    let point_to_segment_start = *segment_start - *point;
+    let point_to_segment_end = *segment_end - *point;
+    Matrix2::from_columns(&[point_to_segment_start.inner, point_to_segment_end.inner]).determinant()
 }
