@@ -26,9 +26,9 @@ pub fn is_inside_polygon<Frame>(points: &[Point2<Frame>], target_point: &Point2<
 
 fn cross_product<Frame>(
     point: &Point2<Frame>,
-    seg_start: &Point2<Frame>,
-    seg_end: &Point2<Frame>,
+    segment_start: &Point2<Frame>,
+    segment_end: &Point2<Frame>,
 ) -> f32 {
-    (seg_start.x() - point.x()) * (seg_end.y() - point.y())
-        - (seg_start.y() - point.y()) * (seg_end.x() - point.x())
+    (segment_start.x() - point.x()) * (segment_end.y() - point.y())
+        - (segment_start.y() - point.y()) * (segment_end.x() - point.x())
 }
