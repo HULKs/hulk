@@ -15,7 +15,7 @@ use super::{
 };
 use coordinate_systems::{Ground, Robot};
 use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
-use linear_algebra::{point, Isometry3, Point3};
+use linear_algebra::{point, Isometry3, Point2, Point3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -31,11 +31,7 @@ pub struct Catching {
 }
 
 impl Catching {
-    pub fn new(
-        context: &Context,
-        support_side: Side,
-        robot_to_ground: Isometry3<Robot, Ground>,
-    ) -> Self {
+    pub fn new(context: &Context, support_side: Side) -> Self {
         let parameters = &context.parameters;
         let target_overestimation_factor = context
             .parameters
@@ -48,8 +44,7 @@ impl Catching {
 
         let end_feet = catching_end_feet(
             parameters,
-            *context.center_of_mass,
-            robot_to_ground,
+            *context.zero_moment_point,
             target_overestimation_factor,
             support_side,
         );
@@ -99,31 +94,22 @@ impl Catching {
 
 fn catching_end_feet(
     parameters: &Parameters,
-    center_of_mass: Point3<Robot>,
-    robot_to_ground: Isometry3<Robot, Ground>,
+    zero_moment_point: Point2<Ground>,
     target_overestimation_factor: f32,
     support_side: Side,
 ) -> Feet {
     let max_adjustment = parameters.catching_steps.max_adjustment;
-    let target = project_onto_ground(robot_to_ground, center_of_mass);
+    // let target = project_onto_ground(robot_to_ground, center_of_mass);
     Feet::end_from_request(
         parameters,
         Step {
-            forward: (target.x() * target_overestimation_factor)
+            forward: (zero_moment_point.x() * target_overestimation_factor)
                 .clamp(-max_adjustment, max_adjustment),
             left: 0.0,
             turn: 0.0,
         },
         support_side,
     )
-}
-
-fn project_onto_ground(
-    robot_to_ground: Isometry3<Robot, Ground>,
-    target: Point3<Robot>,
-) -> Point3<Ground> {
-    let target = robot_to_ground * target;
-    point![target.x(), target.y(), 0.0]
 }
 
 impl WalkTransition for Catching {
@@ -164,18 +150,15 @@ impl Catching {
     }
 
     pub fn tick(&mut self, context: &Context) {
-        if let Some(&robot_to_ground) = context.robot_to_ground {
-            self.step.plan.end_feet = catching_end_feet(
-                context.parameters,
-                *context.center_of_mass,
-                robot_to_ground,
-                context
-                    .parameters
-                    .catching_steps
-                    .target_overestimation_factor,
-                self.step.plan.support_side,
-            );
-        }
+        self.step.plan.end_feet = catching_end_feet(
+            context.parameters,
+            *context.zero_moment_point,
+            context
+                .parameters
+                .catching_steps
+                .target_overestimation_factor,
+            self.step.plan.support_side,
+        );
         self.step.tick(context);
     }
 }

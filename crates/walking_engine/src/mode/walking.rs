@@ -1,9 +1,4 @@
-use super::{
-    catching::{is_in_support_polygon, Catching},
-    kicking::Kicking,
-    stopping::Stopping,
-    Mode, WalkTransition,
-};
+use super::{catching::Catching, kicking::Kicking, stopping::Stopping, Mode, WalkTransition};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -66,21 +61,13 @@ impl WalkTransition for Walking {
         let current_step = self.step;
 
         if context.parameters.catching_steps.use_catching_steps {
-            let Some(&robot_to_ground) = context.robot_to_ground else {
+            if context.robot_to_ground.is_none() {
                 return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
-            };
+            }
 
-            if !is_in_support_polygon(
-                &context.parameters.catching_steps,
-                &context.current_joints,
-                robot_to_ground,
-                *context.center_of_mass,
-            ) {
-                return Mode::Catching(Catching::new(
-                    context,
-                    current_step.plan.support_side,
-                    robot_to_ground,
-                ));
+            if *context.number_of_frames_zero_moment_point_has_been_outside_support_polygon > 10 {
+                //todo!("change this to be a parameter")
+                return Mode::Catching(Catching::new(context, current_step.plan.support_side));
             };
         }
         if current_step.is_timeouted(context.parameters) {

@@ -1,7 +1,7 @@
 use arm::ArmOverrides as _;
 use coordinate_systems::{Ground, Robot, Walk};
 use kick_steps::KickSteps;
-use linear_algebra::{Isometry3, Point3};
+use linear_algebra::{Isometry3, Point2, Point3};
 use mode::{
     catching::Catching, kicking::Kicking, standing::Standing, starting::Starting,
     stopping::Stopping, walking::Walking, Mode,
@@ -39,6 +39,8 @@ pub struct Context<'a> {
     pub kick_steps: &'a KickSteps,
     pub cycle_time: &'a CycleTime,
     pub center_of_mass: &'a Point3<Robot>,
+    pub zero_moment_point: &'a Point2<Ground>,
+    pub number_of_frames_zero_moment_point_has_been_outside_support_polygon: &'a i32,
     pub sensor_data: &'a SensorData,
     pub robot_to_ground: Option<&'a Isometry3<Robot, Ground>>,
     pub gyro: nalgebra::Vector3<f32>,
