@@ -47,7 +47,7 @@ impl KeybindTrigger {
     pub fn parse_modifier(value: &&str) -> Result<Modifiers, Error> {
         match *value {
             "A" => Ok(Modifiers::ALT),
-            "C" => Ok(Modifiers::CTRL),
+            "C" => Ok(Modifiers::COMMAND),
             "S" => Ok(Modifiers::SHIFT),
             _ => Err(Error::InvalidModifier(String::from(*value))),
         }
@@ -59,7 +59,7 @@ impl KeybindTrigger {
             // See https://github.com/emilk/egui/issues/4065
             KeybindTrigger {
                 key: Key::C | Key::V | Key::X,
-                modifiers: Modifiers::CTRL,
+                modifiers: Modifiers::COMMAND,
             } => false,
             _ => true,
         }
@@ -203,7 +203,7 @@ mod tests {
             KeybindTrigger::parse("C-p"),
             Ok(KeybindTrigger {
                 key: Key::P,
-                modifiers: Modifiers::CTRL
+                modifiers: Modifiers::COMMAND
             })
         );
 
@@ -219,7 +219,7 @@ mod tests {
             KeybindTrigger::parse("C-ArrowDown"),
             Ok(KeybindTrigger {
                 key: Key::ArrowDown,
-                modifiers: Modifiers::CTRL
+                modifiers: Modifiers::COMMAND
             })
         );
 
