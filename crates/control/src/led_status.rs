@@ -48,11 +48,11 @@ pub struct MainOutputs {
     pub leds: MainOutput<Leds>,
 }
 
-struct BallData {
-    at_least_one_ball_data_top: bool,
-    at_least_one_ball_data_bottom: bool,
-    last_ball_data_top_too_old: bool,
-    last_ball_data_bottom_too_old: bool,
+struct BallSeen {
+    at_least_one_ball_top: bool,
+    at_least_one_ball_bottom: bool,
+    last_ball_top_too_old: bool,
+    last_ball_bottom_too_old: bool,
 }
 
 impl LedStatus {
@@ -92,7 +92,7 @@ impl LedStatus {
             PrimaryState::Calibration => Rgb::PURPLE,
         };
 
-        let at_least_one_ball_data_top =
+        let at_least_one_ball_top =
             context
                 .balls_top
                 .persistent
@@ -122,14 +122,14 @@ impl LedStatus {
         if let Some(newer_ball_data_top) = newer_ball_data_top {
             self.last_ball_data_top = newer_ball_data_top;
         }
-        let last_ball_data_top_too_old = context
+        let last_ball_top_too_old = context
             .cycle_time
             .start_time
             .duration_since(self.last_ball_data_top)
             .unwrap()
             > Duration::from_secs(1);
 
-        let at_least_one_ball_data_bottom = context
+        let at_least_one_ball_bottom = context
             .balls_bottom
             .persistent
             .values()
@@ -158,18 +158,18 @@ impl LedStatus {
         if let Some(newer_ball_data_bottom) = newer_ball_data_bottom {
             self.last_ball_data_bottom = newer_ball_data_bottom;
         }
-        let last_ball_data_bottom_too_old = context
+        let last_ball_bottom_too_old = context
             .cycle_time
             .start_time
             .duration_since(self.last_ball_data_bottom)
             .unwrap()
             > Duration::from_secs(1);
 
-        let ball_data = BallData {
-            at_least_one_ball_data_top,
-            at_least_one_ball_data_bottom,
-            last_ball_data_top_too_old,
-            last_ball_data_bottom_too_old,
+        let ball_data = BallSeen {
+            at_least_one_ball_top,
+            at_least_one_ball_bottom,
+            last_ball_top_too_old,
+            last_ball_bottom_too_old,
         };
 
         let (left_eye, right_eye) = Self::get_eyes(
@@ -268,7 +268,7 @@ impl LedStatus {
         cycle_start_time: SystemTime,
         primary_state: &PrimaryState,
         role: &Role,
-        ball_data: BallData,
+        ball_data: BallSeen,
         is_own_referee_initial_pose_detected: bool,
     ) -> (Eye, Eye) {
         match primary_state {
@@ -277,19 +277,18 @@ impl LedStatus {
                 (rainbow_eye, rainbow_eye)
             }
             _ => {
-                let ball_background_color = if ball_data.at_least_one_ball_data_top
-                    || ball_data.at_least_one_ball_data_bottom
-                {
-                    Some(Rgb::GREEN)
-                } else {
-                    None
-                };
-                let ball_color_top = if ball_data.last_ball_data_top_too_old {
+                let ball_background_color =
+                    if ball_data.at_least_one_ball_top || ball_data.at_least_one_ball_bottom {
+                        Some(Rgb::GREEN)
+                    } else {
+                        None
+                    };
+                let ball_color_top = if ball_data.last_ball_top_too_old {
                     Some(Rgb::RED)
                 } else {
                     None
                 };
-                let ball_color_bottom = if ball_data.last_ball_data_bottom_too_old {
+                let ball_color_bottom = if ball_data.last_ball_bottom_too_old {
                     Some(Rgb::RED)
                 } else {
                     None
@@ -312,18 +311,32 @@ impl LedStatus {
                 };
                 (
                     Eye {
-                        color_at_0: referee_color.unwrap_or(Rgb::BLACK),
+                        color_at_0: ball_color_top
+                            .or(ball_background_color)
+                            .or(referee_color)
+                            .unwrap_or(Rgb::BLACK),
                         color_at_45: ball_color_top
-                            .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
+                            .or(ball_background_color)
+                            .or(referee_color)
+                            .unwrap_or(Rgb::BLACK),
                         color_at_90: ball_background_color.unwrap_or(Rgb::BLACK),
                         color_at_135: ball_color_bottom
-                            .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
-                        color_at_180: referee_color.unwrap_or(Rgb::BLACK),
+                            .or(ball_background_color)
+                            .or(referee_color)
+                            .unwrap_or(Rgb::BLACK),
+                        color_at_180: ball_color_bottom
+                            .or(ball_background_color)
+                            .or(referee_color)
+                            .unwrap_or(Rgb::BLACK),
                         color_at_225: ball_color_bottom
-                            .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
+                            .or(ball_background_color)
+                            .or(referee_color)
+                            .unwrap_or(Rgb::BLACK),
                         color_at_270: ball_background_color.unwrap_or(Rgb::BLACK),
                         color_at_315: ball_color_top
-                            .unwrap_or_else(|| ball_background_color.unwrap_or(Rgb::BLACK)),
+                            .or(ball_background_color)
+                            .or(referee_color)
+                            .unwrap_or(Rgb::BLACK),
                     },
                     Eye::from(right_color),
                 )

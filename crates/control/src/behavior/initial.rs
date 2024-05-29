@@ -3,7 +3,6 @@ use linear_algebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
-    filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     primary_state::PrimaryState,
@@ -21,7 +20,6 @@ pub fn execute(
     Some(
         look_at_referee(
             world_state.robot.ground_to_field,
-            world_state.filtered_game_controller_state,
             expected_referee_position,
             world_state.clone(),
         )
@@ -34,13 +32,12 @@ pub fn execute(
 
 fn look_at_referee(
     ground_to_field: Option<Isometry2<Ground, Field>>,
-    filtered_game_controller_state: Option<FilteredGameControllerState>,
     expected_referee_position: Option<Point2<Field>>,
     world_state: WorldState,
 ) -> Option<MotionCommand> {
     let ground_to_field = ground_to_field?;
     let expected_referee_position = expected_referee_position?;
-    if filtered_game_controller_state?.game_state != FilteredGameState::Initial {
+    if world_state.filtered_game_controller_state?.game_state != FilteredGameState::Initial {
         return None;
     }
 
