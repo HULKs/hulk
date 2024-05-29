@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
-use eframe::egui::{vec2, ComboBox, Response, Sense, SizeHint, TextureOptions, Ui, Widget};
+use eframe::egui::{ComboBox, Response, SizeHint, TextureOptions, Ui, Widget};
 use geometry::rectangle::Rectangle;
 use log::error;
 use nalgebra::Similarity2;
@@ -153,8 +153,8 @@ impl Widget for &mut ImagePanel {
             self.overlays
                 .combo_box(ui, self.cycler_selector.selected_cycler());
         });
-        let (rect, response) = ui.allocate_at_least(vec2(640.0, 480.0), Sense::click_and_drag());
-        let mut painter = TwixPainter::paint_at(ui, rect).with_camera(
+        let (response, painter) = TwixPainter::allocate_new(ui);
+        let mut painter = painter.with_camera(
             vector![640.0, 480.0],
             Similarity2::identity(),
             CoordinateSystem::LeftHand,
