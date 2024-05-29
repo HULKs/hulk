@@ -1,5 +1,6 @@
 [keys]
 C-t = "open_split"
+C-T = "open_tab"
 
 C-r = "reconnect"
 
