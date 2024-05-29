@@ -49,6 +49,18 @@ struct PixelColor {
     green: f32,
     blue: f32,
 }
+impl PixelColor {
+    pub const BLACK: Self = Self {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0,
+    };
+    pub const WHITE: Self = Self {
+        red: 1.0,
+        green: 1.0,
+        blue: 1.0,
+    };
+}
 
 impl Panel for ImageColorSelectPanel {
     const NAME: &'static str = "Image Color Select";
@@ -138,27 +150,15 @@ impl Widget for &mut ImageColorSelectPanel {
             CoordinateSystem::LeftHand,
         );
 
-        if let Some(hoverpos) = response.hover_pos() {
-            let pixel_pos = painter.transform_pixel_to_world(hoverpos);
+        if let Some(hoverposition) = response.hover_pos() {
+            let pixel_pos = painter.transform_pixel_to_world(hoverposition);
             if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
                 let scroll_delta = ui.input(|input| input.raw_scroll_delta);
                 self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
 
-                let mut max = PixelColor {
-                    red: 0.0,
-                    green: 0.0,
-                    blue: 0.0,
-                };
-                let mut min = PixelColor {
-                    red: 1.0,
-                    green: 1.0,
-                    blue: 1.0,
-                };
-                let mut average = PixelColor {
-                    red: 0.0,
-                    green: 0.0,
-                    blue: 0.0,
-                };
+                let mut max = PixelColor::BLACK;
+                let mut min = PixelColor::WHITE;
+                let mut average = PixelColor::BLACK;
                 let mut pixel_count: usize = 0;
 
                 for i in (pixel_pos.x() as isize - self.brush_size as isize)
@@ -190,10 +190,11 @@ impl Widget for &mut ImageColorSelectPanel {
                         }
                     }
                 }
-                average.red /= pixel_count as f32;
-                average.green /= pixel_count as f32;
-                average.blue /= pixel_count as f32;
-
+                if pixel_count != 0 {
+                    average.red /= pixel_count as f32;
+                    average.green /= pixel_count as f32;
+                    average.blue /= pixel_count as f32;
+                }
                 ui.label(format!(
                     "x: {}\t\ty: {}\t\tpixels: {}\n",
                     pixel_pos.x() as usize,
