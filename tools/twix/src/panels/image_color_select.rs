@@ -198,8 +198,8 @@ impl Widget for &mut ImageColorSelectPanel {
             CoordinateSystem::LeftHand,
         );
 
-        if let Some(hoverposition) = response.hover_pos() {
-            let pixel_pos = painter.transform_pixel_to_world(hoverposition);
+        if let Some(hover_position) = response.hover_pos() {
+            let pixel_pos = painter.transform_pixel_to_world(hover_position);
             if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
                 let scroll_delta = ui.input(|input| input.raw_scroll_delta);
                 self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
