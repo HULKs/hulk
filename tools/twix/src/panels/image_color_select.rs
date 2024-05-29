@@ -43,6 +43,7 @@ pub struct ImageColorSelectPanel {
     cycler_selector: VisionCyclerSelector,
     brush_size: f32,
 }
+
 struct PixelColor {
     red: f32,
     green: f32,
