@@ -278,6 +278,7 @@ impl Widget for &mut ImageColorSelectPanel {
             statistics.color_distribution.blue[i] /= statistics.pixel_count as f64;
         }
         //TODO noch RGB anzeigen
+        //TODO chromaticities hinzufügen
 
         ui.label(format!(
             "x: {}\t\ty: {}\t\tpixels: {}\n",
