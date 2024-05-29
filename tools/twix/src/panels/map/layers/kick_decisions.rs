@@ -7,7 +7,8 @@ use eframe::epaint::{Color32, Stroke};
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
 use types::{
-    field_dimensions::FieldDimensions, kick_decision::KickDecision, kick_target::KickTarget,
+    field_dimensions::FieldDimensions, kick_decision::KickDecision,
+    kick_target::KickTargetWithKickVariants,
 };
 
 use crate::{
@@ -17,7 +18,7 @@ use crate::{
 pub struct KickDecisions {
     kick_decisions: ValueBuffer,
     instant_kick_decisions: ValueBuffer,
-    kick_targets: ValueBuffer,
+    kick_opportunities: ValueBuffer,
     instant_kick_targets: ValueBuffer,
 }
 
@@ -31,15 +32,16 @@ impl Layer<Ground> for KickDecisions {
         let instant_kick_decisions = nao.subscribe_output(
             CyclerOutput::from_str("Control.main_outputs.instant_kick_decisions").unwrap(),
         );
-        let kick_targets = nao
-            .subscribe_output(CyclerOutput::from_str("Control.main_outputs.kick_targets").unwrap());
+        let kick_opportunities = nao.subscribe_output(
+            CyclerOutput::from_str("Control.main_outputs.kick_opportunities").unwrap(),
+        );
         let instant_kick_targets = nao.subscribe_output(
             CyclerOutput::from_str("Control.additional_outputs.instant_kick_targets").unwrap(),
         );
         Self {
             kick_decisions,
             instant_kick_decisions,
-            kick_targets,
+            kick_opportunities,
             instant_kick_targets,
         }
     }
@@ -96,12 +98,13 @@ impl KickDecisions {
     }
 
     fn draw_kick_targets(&self, painter: &TwixPainter<Ground>) -> Result<()> {
-        let kick_targets: Vec<KickTarget> = self.kick_targets.parse_latest()?;
+        let kick_opportunities: Vec<KickTargetWithKickVariants> =
+            self.kick_opportunities.parse_latest()?;
         draw_kick_target(
             painter,
-            kick_targets
+            kick_opportunities
                 .iter()
-                .map(|kick_target| kick_target.position)
+                .map(|kick_opportunity| kick_opportunity.kick_target.position)
                 .collect(),
             Color32::BLACK,
         );

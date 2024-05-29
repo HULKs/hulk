@@ -4,6 +4,8 @@ use linear_algebra::Point2;
 
 use coordinate_systems::Ground;
 
+use crate::motion_command::KickVariant;
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct KickTarget {
     pub position: Point2<Ground>,
@@ -24,4 +26,10 @@ impl KickTarget {
             strength: Some(strength),
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KickTargetWithKickVariants {
+    pub kick_target: KickTarget,
+    pub kick_variants: Vec<KickVariant>,
 }
