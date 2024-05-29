@@ -11,7 +11,8 @@ use eframe::{
     epaint::Vec2,
 };
 
-use linear_algebra::{point, vector, Point2};
+use itertools::iproduct;
+use linear_algebra::{vector, Point2};
 use log::error;
 
 use nalgebra::Similarity2;
@@ -37,18 +38,12 @@ enum ImageKind {
     YCbCr422,
 }
 
-pub struct ImageColorSelectPanel {
-    nao: Arc<Nao>,
-    image_buffer: ValueBuffer,
-    cycler_selector: VisionCyclerSelector,
-    brush_size: f32,
-}
-
 struct PixelColor {
     red: f32,
     green: f32,
     blue: f32,
 }
+
 impl PixelColor {
     pub const BLACK: Self = Self {
         red: 0.0,
@@ -60,6 +55,59 @@ impl PixelColor {
         green: 1.0,
         blue: 1.0,
     };
+}
+
+struct Statistics {
+    max: PixelColor,
+    min: PixelColor,
+    average: PixelColor,
+    pixel_count: usize,
+}
+
+impl Default for Statistics {
+    fn default() -> Self {
+        Self {
+            max: PixelColor::BLACK,
+            min: PixelColor::WHITE,
+            average: PixelColor::BLACK,
+            pixel_count: 0,
+        }
+    }
+}
+
+impl Statistics {
+    fn sample(mut self, pixel: Color32) -> Self {
+        let sum = pixel.r() as f32 + pixel.g() as f32 + pixel.b() as f32;
+        let mut pixel_color = PixelColor {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+        };
+        if sum != 0.0 {
+            pixel_color.red = (pixel.r() as f32) / sum;
+            pixel_color.green = (pixel.g() as f32) / sum;
+            pixel_color.blue = (pixel.b() as f32) / sum;
+        }
+
+        self.max.red = self.max.red.max(pixel_color.red);
+        self.max.green = self.max.green.max(pixel_color.green);
+        self.max.blue = self.max.blue.max(pixel_color.blue);
+        self.min.red = self.min.red.min(pixel_color.red);
+        self.min.green = self.min.green.min(pixel_color.green);
+        self.min.blue = self.min.blue.min(pixel_color.blue);
+        self.average.red += pixel_color.red;
+        self.average.green += pixel_color.green;
+        self.average.blue += pixel_color.blue;
+        self.pixel_count += 1;
+        self
+    }
+}
+
+pub struct ImageColorSelectPanel {
+    nao: Arc<Nao>,
+    image_buffer: ValueBuffer,
+    cycler_selector: VisionCyclerSelector,
+    brush_size: f32,
 }
 
 impl Panel for ImageColorSelectPanel {
@@ -155,79 +203,51 @@ impl Widget for &mut ImageColorSelectPanel {
             if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
                 let scroll_delta = ui.input(|input| input.raw_scroll_delta);
                 self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
+                let mut statistics = self
+                    .pixels_in_brush(pixel_pos, &image)
+                    .fold(Statistics::default(), Statistics::sample);
 
-                let mut max = PixelColor::BLACK;
-                let mut min = PixelColor::WHITE;
-                let mut average = PixelColor::BLACK;
-                let mut pixel_count: usize = 0;
-
-                for i in (pixel_pos.x() as isize - self.brush_size as isize)
-                    ..(pixel_pos.x() as isize + self.brush_size as isize + 1)
-                {
-                    for j in (pixel_pos.y() as isize - self.brush_size as isize)
-                        ..(pixel_pos.y() as isize + self.brush_size as isize + 1)
-                    {
-                        if f32::sqrt(
-                            f32::powi(i as f32 - pixel_pos.x(), 2)
-                                + f32::powi(j as f32 - pixel_pos.y(), 2),
-                        ) <= self.brush_size
-                            && (0..image.width() as isize).contains(&i)
-                            && (0..image.height() as isize).contains(&j)
-                        {
-                            let circle_pixel = point![i as f32, j as f32];
-
-                            let color = get_pixel_chromaticity(&image, circle_pixel);
-                            max.red = max.red.max(color.red);
-                            max.green = max.green.max(color.green);
-                            max.blue = max.blue.max(color.blue);
-                            min.red = min.red.min(color.red);
-                            min.green = min.green.min(color.green);
-                            min.blue = min.blue.min(color.blue);
-                            average.red += color.red;
-                            average.green += color.green;
-                            average.blue += color.blue;
-                            pixel_count += 1;
-                        }
-                    }
-                }
-                if pixel_count != 0 {
-                    average.red /= pixel_count as f32;
-                    average.green /= pixel_count as f32;
-                    average.blue /= pixel_count as f32;
+                if statistics.pixel_count != 0 {
+                    statistics.average.red /= statistics.pixel_count as f32;
+                    statistics.average.green /= statistics.pixel_count as f32;
+                    statistics.average.blue /= statistics.pixel_count as f32;
                 }
                 ui.label(format!(
                     "x: {}\t\ty: {}\t\tpixels: {}\n",
                     pixel_pos.x() as usize,
                     pixel_pos.y() as usize,
-                    pixel_count,
+                    statistics.pixel_count,
                 ));
 
                 let grid = egui::Grid::new("colors").num_columns(4).striped(true);
                 grid.show(ui, |ui| {
                     ui.label(RichText::new("max:").strong());
-                    ui.colored_label(Color32::RED, format!("r: {:.3}", max.red));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", max.green));
+                    ui.colored_label(Color32::RED, format!("r: {:.3}", statistics.max.red));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.max.green));
                     ui.colored_label(
                         Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", max.blue),
+                        format!("b: {:.3}", statistics.max.blue),
                     );
                     ui.end_row();
 
                     ui.label(RichText::new("min:").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", min.red));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", min.green));
+                    ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.min.red));
+                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.min.green));
                     ui.colored_label(
                         Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", min.blue),
+                        format!("b: {:.3}", statistics.min.blue),
                     );
                     ui.end_row();
 
                     ui.label(RichText::new("average:").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", average.red));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", average.green));
+                    ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.average.red));
+                    ui.colored_label(
+                        Color32::GREEN,
+                        format!("g: {:.3}", statistics.average.green),
+                    );
                     ui.colored_label(
                         Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", average.blue),
+                        format!("b: {:.3}", statistics.average.blue),
                     );
                     ui.end_row();
                 });
@@ -244,7 +264,28 @@ impl Widget for &mut ImageColorSelectPanel {
     }
 }
 
-impl ImageColorSelectPanel {
+impl<'a> ImageColorSelectPanel {
+    fn pixels_in_brush(
+        &'a self,
+        brush_position: Point2<Pixel>,
+        image: &'a ColorImage,
+    ) -> impl Iterator<Item = Color32> + 'a {
+        iproduct!(
+            (brush_position.x() as isize - self.brush_size as isize)
+                ..(brush_position.x() as isize + self.brush_size as isize + 1),
+            (brush_position.y() as isize - self.brush_size as isize)
+                ..(brush_position.y() as isize + self.brush_size as isize + 1)
+        )
+        .filter(move |(i, j)| {
+            ((*i as f32 - brush_position.x()).powi(2) + (*j as f32 - brush_position.y()).powi(2))
+                .sqrt()
+                <= self.brush_size
+                && (0..image.width() as isize).contains(i)
+                && (0..image.height() as isize).contains(j)
+        })
+        .map(|(i, j)| image.pixels[j as usize * image.width() + i as usize])
+    }
+
     fn get_image(&self) -> Result<ColorImage> {
         let image_data: YCbCr422Image = self
             .image_buffer
@@ -265,20 +306,4 @@ impl ImageColorSelectPanel {
         let image = ColorImage::from_rgba_unmultiplied([640, 480], &buffer);
         Ok(image)
     }
-}
-
-fn get_pixel_chromaticity(image: &ColorImage, pixel_pos: Point2<Pixel>) -> PixelColor {
-    let color32 = image.pixels[(pixel_pos.y() as usize) * image.width() + (pixel_pos.x() as usize)];
-    let sum = color32.r() as f32 + color32.g() as f32 + color32.b() as f32;
-    let mut pixel = PixelColor {
-        red: 0.0,
-        green: 0.0,
-        blue: 0.0,
-    };
-    if sum != 0.0 {
-        pixel.red = (color32.r() as f32) / sum;
-        pixel.green = (color32.g() as f32) / sum;
-        pixel.blue = (color32.b() as f32) / sum;
-    }
-    pixel
 }
