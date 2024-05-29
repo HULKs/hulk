@@ -36,9 +36,15 @@ impl ZoomAndPanManager {
             vector![response.drag_delta().x, -response.drag_delta().y]
         };
         self.transformation.append_scaling_mut(zoom_factor);
+        let zoom_shift = if painter.is_right_handed() {
+            vector![shift_from_zoom.x, shift_from_zoom.y]
+        }
+        else{
+            vector![shift_from_zoom.x, -shift_from_zoom.y]
+        };
         self.transformation
             .append_translation_mut(&Translation2::from(
-                pixel_drag + vector![shift_from_zoom.x, -shift_from_zoom.y],
+                pixel_drag + zoom_shift,
             ));
     }
     pub fn transformation(&self) -> Similarity2<f32> {
