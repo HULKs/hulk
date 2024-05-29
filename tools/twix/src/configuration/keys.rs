@@ -10,13 +10,13 @@ use thiserror::Error;
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Duplicate modifier `{0}`")]
+    #[error("duplicate modifier `{0}`")]
     DuplicateModifier(String),
-    #[error("Invalid modifier `{0}`")]
+    #[error("invalid modifier `{0}`")]
     InvalidModifier(String),
-    #[error("Invalid key `{0}`")]
+    #[error("invalid key `{0}`")]
     InvalidKey(String),
-    #[error("Unsupported keybind `{0}`")]
+    #[error("unsupported keybind `{0}`")]
     UnsupportedKeybind(String),
 }
 
