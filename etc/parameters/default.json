@@ -1427,6 +1427,7 @@
     "cells_per_meter": 2.0,
     "heatmap_decay_factor": 0.002,
     "minimum_validity": 0.01
+  },
   "physical_constants": {
     "gravity_acceleration": 9.81
     }
