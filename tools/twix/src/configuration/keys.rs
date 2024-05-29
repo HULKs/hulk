@@ -34,6 +34,7 @@ pub enum KeybindAction {
     FocusRight,
     NoOp,
     OpenSplit,
+    OpenTab,
     Reconnect,
 }
 
