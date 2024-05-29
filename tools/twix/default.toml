@@ -11,6 +11,11 @@ C-j = "focus_below"
 C-k = "focus_above"
 C-l = "focus_right"
 
+C-Up = "focus_above"
+C-Down = "focus_below"
+C-Left = "focus_left"
+C-Right = "focus_right"
+
 C-w = "close_tab"
 C-d = "duplicate_tab"
 
