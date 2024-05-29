@@ -344,7 +344,7 @@ impl<Frame> TwixPainter<Frame> {
         } else if b == 0.0 && a < c {
             FRAC_PI_2
         } else {
-            b.atan2(l1 - a)
+            (l1 - a).atan2(b)
         };
         self.ellipse(position, l1.sqrt(), l2.sqrt(), theta, stroke, fill_color)
     }
