@@ -6,3 +6,4 @@ pub mod orientation_filtering;
 pub mod pose_filter;
 pub mod statistics;
 pub mod tap_detector;
+pub mod time_error_projected_kalman_filter;
