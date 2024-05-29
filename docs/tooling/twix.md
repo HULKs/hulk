@@ -38,6 +38,7 @@ Possible actions are:
 |`focus_panel`   | Focus the panel selector                         |
 |`focus_right`   | Move focus right                                 |
 |`open_split`    | Split the current surface along the longest axis |
+|`open_tab`      | Open a new tab in the current surface            |
 |`reconnect`     | Reestablish the connection to the NAO            |
 
 ## Example configuration
