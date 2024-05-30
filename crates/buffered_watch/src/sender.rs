@@ -26,6 +26,8 @@ impl<T> Sender<T> {
             lock_a_free_buffer(states)
         };
 
+        // Safety: access is managed by the `shared.states`, we are allowed to dereference mutably
+        // as we are the only one with reference to the buffer (`LockedForWriting`).
         let buffer = unsafe { &mut *shared.buffers[index].get() };
 
         WriterGuard {
@@ -83,7 +85,7 @@ impl<'lock, T> Drop for WriterGuard<'lock, T> {
                         } => {
                             *age += 1;
                         }
-                        _ => unreachable!(),
+                        _ => panic!("we are the writer, and we are dropping our buffer guard, there cannot be any other buffer that is locked for writing")
                     }
                 }
             }

@@ -28,6 +28,7 @@ impl<T> Receiver<T> {
             self.notifier.mark_unchanged();
             lock_a_readable_buffer(states)
         };
+        // Safety: access is managed by the `shared.states`, we are allowed to dereference
         let buffer = unsafe { &*shared.buffers[index].get() };
 
         ReaderGuard {
