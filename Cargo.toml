@@ -35,6 +35,7 @@ members = [
   "crates/path_serde",
   "crates/path_serde_derive",
   "crates/projection",
+  "crates/ransac",
   "crates/repository",
   "crates/source_analyzer",
   "crates/spl_network",
@@ -154,7 +155,9 @@ proc-macro2 = { version = "1.0.44", features = ["span-locations"] }
 projection = { path = "crates/projection" }
 quote = "1.0.21"
 rand = "0.8.5"
+rand_chacha = { version = "0.3.1", features = ["serde1"] }
 rand_distr = "0.4.3"
+ransac = { path = "crates/ransac" }
 regex = "1.6.0"
 repository = { path = "crates/repository" }
 reqwest = { version = "0.11.23", features = ["blocking"] }

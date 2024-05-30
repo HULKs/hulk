@@ -1,5 +1,6 @@
 use num_traits::cast::FromPrimitive;
 use rand::prelude::*;
+use rand_chacha::ChaChaRng;
 use std::{
     net::SocketAddr,
     time::{Duration, SystemTime},
@@ -20,6 +21,7 @@ use types::{
 pub struct VisualRefereeFilter {
     last_primary_state: PrimaryState,
     time_of_last_visual_referee_related_state_change: Option<SystemTime>,
+    random_state: ChaChaRng,
 }
 
 #[context]
@@ -46,6 +48,7 @@ impl VisualRefereeFilter {
         Ok(Self {
             last_primary_state: PrimaryState::Unstiff,
             time_of_last_visual_referee_related_state_change: None,
+            random_state: ChaChaRng::from_entropy(),
         })
     }
 
@@ -93,8 +96,8 @@ impl VisualRefereeFilter {
             }
 
             // Initially a random visual referee decision
-            let mut rng = thread_rng();
-            let gesture = VisualRefereeDecision::from_u32(rng.gen_range(1..=13)).unwrap();
+            let gesture =
+                VisualRefereeDecision::from_u32(self.random_state.gen_range(1..=13)).unwrap();
 
             if let Some(address) = context.game_controller_address {
                 let message = OutgoingMessage::VisualReferee(
