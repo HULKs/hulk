@@ -1,8 +1,7 @@
 use geometry::line::{Line, Line2};
 use linear_algebra::Point2;
 use ordered_float::NotNan;
-use rand::seq::SliceRandom;
-use rand_chacha::ChaChaRng;
+use rand::{seq::SliceRandom, Rng};
 
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {
@@ -23,7 +22,7 @@ impl<Frame> Ransac<Frame> {
 impl<Frame> Ransac<Frame> {
     pub fn next_line(
         &mut self,
-        random_number_generator: &mut ChaChaRng,
+        random_number_generator: &mut impl Rng,
         iterations: usize,
         maximum_score_distance: f32,
         maximum_inclusion_distance: f32,
@@ -73,6 +72,7 @@ mod test {
     use approx::{assert_relative_eq, relative_eq};
     use linear_algebra::point;
     use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
 
     use super::*;
 
