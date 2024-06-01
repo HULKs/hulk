@@ -20,6 +20,23 @@ impl<T> Receiver<T> {
         self.notifier.changed().await.map_err(|_| NoSender)
     }
 
+    /// Borrows the latest value
+    pub fn borrow(&mut self) -> ReceiverGuard<T> {
+        let shared = self.shared.read();
+        let index = {
+            let states = &mut *shared.states.lock();
+            lock_a_readable_buffer(states)
+        };
+        // Safety: access is managed by the `shared.states`, we are allowed to dereference
+        let buffer = unsafe { &*shared.buffers[index].get() };
+
+        ReceiverGuard {
+            shared,
+            buffer_index: index,
+            buffer,
+        }
+    }
+
     /// Borrows the latest value and marks the buffer as seen
     pub fn borrow_and_mark_as_seen(&mut self) -> ReceiverGuard<T> {
         let shared = self.shared.read();

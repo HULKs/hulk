@@ -68,7 +68,7 @@ async fn handle_request<Parameters>(
         }
         ParametersRequest::GetCurrent { id, ref path } => {
             let data = {
-                let parameters = parameters_reader.borrow_and_mark_as_seen();
+                let parameters = parameters_reader.borrow();
                 parameters.serialize_path(path, serde_json::value::Serializer)
             };
             let data = match data {
@@ -120,7 +120,7 @@ async fn handle_request<Parameters>(
             };
 
             let data = {
-                let parameters = parameters_reader.borrow_and_mark_as_seen();
+                let parameters = parameters_reader.borrow();
                 parameters.serialize_path(path, serde_json::value::Serializer)
             };
             let data = match data {
