@@ -321,16 +321,18 @@
     },
     "measurement_matching_distance": 1.0,
     "hypothesis_merge_distance": 1.0,
-    "process_noise": [0.005, 0.005, 0.2, 0.2],
-    "measurement_noise_moving": [0.5, 2.0],
-    "measurement_noise_resting": [300.0, 500.0],
-    "initial_covariance": [0.5, 0.5, 0.5, 0.5],
     "resting_ball_velocity_threshold": 0.25,
     "visible_validity_exponential_decay_factor": 0.96,
     "hidden_validity_exponential_decay_factor": 0.999,
     "validity_output_threshold": 3.0,
     "validity_discard_threshold": 0.5,
-    "velocity_decay_factor": 0.99
+    "velocity_decay_factor": 0.998,
+    "noise": {
+      "process_noise_moving": [0.005, 0.005, 0.2, 0.2],
+      "process_noise_resting": [0.001, 0.001],
+      "measurement_noise": [0.5, 2.0],
+      "initial_covariance": [0.5, 0.5, 10.0, 10.0]
+    }
   },
   "button_filter": {
     "head_buttons_timeout": {

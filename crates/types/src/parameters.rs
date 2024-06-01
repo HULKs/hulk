@@ -314,20 +314,27 @@ pub struct BallDetectionParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
+pub struct BallFilterNoise {
+    pub process_noise_moving: nalgebra::Vector4<f32>,
+    pub process_noise_resting: nalgebra::Vector2<f32>,
+    pub measurement_noise: nalgebra::Vector2<f32>,
+    pub initial_covariance: nalgebra::Vector4<f32>,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
     pub measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,
-    pub process_noise: nalgebra::Vector4<f32>,
-    pub measurement_noise_moving: nalgebra::Vector2<f32>,
-    pub measurement_noise_resting: nalgebra::Vector2<f32>,
-    pub initial_covariance: nalgebra::Vector4<f32>,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
     pub validity_output_threshold: f32,
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub resting_ball_velocity_threshold: f32,
+    pub noise: BallFilterNoise,
 }
 
 #[derive(

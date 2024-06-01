@@ -5,6 +5,7 @@ members = [
   "crates/approx_derive",
   "crates/argument_parsers",
   "crates/audio",
+  "crates/ball_filter",
   "crates/buffered_watch",
   "crates/calibration",
   "crates/code_generation",
@@ -70,6 +71,7 @@ approx_derive = { path = "crates/approx_derive" }
 argument_parsers = { path = "crates/argument_parsers" }
 audio = { path = "crates/audio" }
 awaitgroup = "0.6.0"
+ball_filter = { path = "crates/ball_filter" }
 base64 = "0.21.0"
 bat = { version = "0.23.0", default-features = false, features = [
   "regex-onig",
