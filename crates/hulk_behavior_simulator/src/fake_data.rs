@@ -75,8 +75,7 @@ impl FakeData {
         let mut receiver = context
             .hardware_interface
             .get_last_database_receiver()
-            .lock()
-            .unwrap();
+            .lock();
         let last_database = &receiver.borrow_and_mark_as_seen().main_outputs;
         Ok(MainOutputs {
             ball_position: last_database.ball_position.into(),

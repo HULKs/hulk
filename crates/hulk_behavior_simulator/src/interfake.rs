@@ -1,8 +1,10 @@
 use std::{
     mem::take,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use parking_lot::Mutex;
 
 use buffered_watch::{Receiver, Sender};
 use color_eyre::Result;
@@ -37,7 +39,7 @@ impl NetworkInterface for Interfake {
     }
 
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
-        self.messages.lock().unwrap().push(message);
+        self.messages.lock().push(message);
         Ok(())
     }
 }
@@ -73,7 +75,7 @@ impl FakeDataInterface for Interfake {
 
 impl Interfake {
     pub fn take_outgoing_messages(&self) -> Vec<OutgoingMessage> {
-        take(&mut self.messages.lock().unwrap())
+        take(&mut self.messages.lock())
     }
 }
 

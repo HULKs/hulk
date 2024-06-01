@@ -114,7 +114,7 @@ impl Robot {
                 });
         }
         buffered_watch::Sender::<_>::borrow_mut(
-            &mut self.interface.get_last_database_sender().lock().unwrap(),
+            &mut self.interface.get_last_database_sender().lock(),
         )
         .main_outputs = self.database.main_outputs.clone();
 
