@@ -21,7 +21,7 @@ impl<T> Receiver<T> {
     }
 
     /// Borrows the latest value and marks the buffer as seen
-    pub fn borrow_and_mark_as_seen(&mut self) -> ReaderGuard<T> {
+    pub fn borrow_and_mark_as_seen(&mut self) -> ReceiverGuard<T> {
         let shared = self.shared.read();
         let index = {
             let states = &mut *shared.states.lock();
@@ -31,7 +31,7 @@ impl<T> Receiver<T> {
         // Safety: access is managed by the `shared.states`, we are allowed to dereference
         let buffer = unsafe { &*shared.buffers[index].get() };
 
-        ReaderGuard {
+        ReceiverGuard {
             shared,
             buffer_index: index,
             buffer,
@@ -97,13 +97,13 @@ impl<T> Drop for Receiver<T> {
 }
 
 /// RAII guard for reading from a buffer
-pub struct ReaderGuard<'lock, T> {
+pub struct ReceiverGuard<'lock, T> {
     shared: RwLockReadGuard<'lock, Shared<T>>,
     buffer_index: usize,
     buffer: &'lock T,
 }
 
-impl<T> Deref for ReaderGuard<'_, T> {
+impl<T> Deref for ReceiverGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -111,7 +111,7 @@ impl<T> Deref for ReaderGuard<'_, T> {
     }
 }
 
-impl<T> Drop for ReaderGuard<'_, T> {
+impl<T> Drop for ReceiverGuard<'_, T> {
     fn drop(&mut self) {
         let mut states = self.shared.states.lock();
         let state = states

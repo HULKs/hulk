@@ -77,8 +77,8 @@ use std::{
 };
 
 use parking_lot::{Mutex, RwLock};
-pub use receiver::{ReaderGuard, Receiver};
-pub use sender::{Sender, WriterGuard};
+pub use receiver::{Receiver, ReceiverGuard};
+pub use sender::{Sender, SenderGuard};
 use tokio::sync::watch;
 
 mod receiver;

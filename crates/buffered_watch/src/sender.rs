@@ -19,7 +19,7 @@ unsafe impl<T> Send for Sender<T> where T: Send + Sync {}
 
 impl<T> Sender<T> {
     /// Borrows a buffer to write to
-    pub fn borrow_mut(&mut self) -> WriterGuard<T> {
+    pub fn borrow_mut(&mut self) -> SenderGuard<T> {
         let shared = self.shared.read();
         let index = {
             let states = &mut *shared.states.lock();
@@ -30,7 +30,7 @@ impl<T> Sender<T> {
         // as we are the only one with reference to the buffer (`LockedForWriting`).
         let buffer = unsafe { &mut *shared.buffers[index].get() };
 
-        WriterGuard {
+        SenderGuard {
             shared,
             notifier: &self.notifier,
             buffer_index: index,
@@ -46,14 +46,14 @@ fn lock_a_free_buffer(states: &mut [State]) -> usize {
 }
 
 /// RAII guard for writing to a buffer
-pub struct WriterGuard<'lock, T> {
+pub struct SenderGuard<'lock, T> {
     shared: RwLockReadGuard<'lock, Shared<T>>,
     notifier: &'lock watch::Sender<()>,
     buffer_index: usize,
     buffer: &'lock mut T,
 }
 
-impl<'lock, T> Deref for WriterGuard<'lock, T> {
+impl<'lock, T> Deref for SenderGuard<'lock, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -61,13 +61,13 @@ impl<'lock, T> Deref for WriterGuard<'lock, T> {
     }
 }
 
-impl<'lock, T> DerefMut for WriterGuard<'lock, T> {
+impl<'lock, T> DerefMut for SenderGuard<'lock, T> {
     fn deref_mut(&mut self) -> &mut T {
         self.buffer.deref_mut()
     }
 }
 
-impl<'lock, T> Drop for WriterGuard<'lock, T> {
+impl<'lock, T> Drop for SenderGuard<'lock, T> {
     fn drop(&mut self) {
         {
             let mut states = self.shared.states.lock();
