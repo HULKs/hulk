@@ -35,7 +35,6 @@ struct BehaviorSimulatorDatabase {
     main_outputs: MainOutputs,
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn timeline_server(
     keep_running: CancellationToken,
     mut parameters_reader: buffered_watch::Receiver<Parameters>,
