@@ -14,7 +14,8 @@ pub struct ButtonFilter {
     last_head_buttons_touched: bool,
     calibration_buttons_touched: SystemTime,
     last_calibration_buttons_touched: bool,
-    animation_button_touched: SystemTime, 
+    animation_button_touched: SystemTime,
+    animation_button_released: TapDetector,
     last_animation_button_touched: bool,
 }
 
@@ -47,6 +48,7 @@ impl ButtonFilter {
             last_calibration_buttons_touched: false,
             animation_button_touched: UNIX_EPOCH,
             last_animation_button_touched: false,
+            animation_button_released: TapDetector::default(),
         })
     }
 

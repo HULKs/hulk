@@ -21,6 +21,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    animation_positions: Input<MotorCommands<Joints<f32>>, "animation_positions">,
     arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
     dispatching_command: Input<MotorCommands<Joints<f32>>, "dispatching_command">,
     fall_protection_command: Input<MotorCommands<Joints<f32>>, "fall_protection_command">,
@@ -62,6 +63,8 @@ impl MotorCommandCollector {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let measured_positions = context.sensor_data.positions;
+        let current_positions = context.sensor_data.positions;
+        let animation_positions = context.animation_positions;    
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;
         let fall_protection_stiffnesses = context.fall_protection_command.stiffnesses;
