@@ -1,4 +1,5 @@
 mod ball_filter;
+mod ball_measurements;
 mod ball_position;
 mod ball_search_heatmap;
 mod behavior_simulator;
@@ -19,6 +20,7 @@ mod walking;
 
 pub use self::behavior_simulator::BehaviorSimulator;
 pub use ball_filter::BallFilter;
+pub use ball_measurements::BallMeasurement;
 pub use ball_position::BallPositionLayer as BallPosition;
 pub use ball_search_heatmap::BallSearchHeatmap;
 pub use feet_detection::FeetDetection;
