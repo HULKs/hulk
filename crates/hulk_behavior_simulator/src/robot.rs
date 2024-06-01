@@ -61,7 +61,7 @@ impl Robot {
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
         *parameters_sender.borrow_mut() = parameter.clone();
 
-        let mut cycler2 = Cycler::new(
+        let mut cycler = Cycler::new(
             CyclerInstance::Control,
             interface.clone(),
             control_sender,
@@ -71,7 +71,7 @@ impl Robot {
             recording_sender,
             RecordingTrigger::new(0),
         )?;
-        cycler2.cycler_state.motion_safe_exits = MotionSafeExits::fill(true);
+        cycler.cycler_state.motion_safe_exits = MotionSafeExits::fill(true);
 
         let mut database = Database::default();
 
@@ -96,7 +96,7 @@ impl Robot {
             last_kick_time: Duration::default(),
             ball_last_seen: None,
 
-            cycler: cycler2,
+            cycler,
             control_receiver,
             spl_network_sender,
         })
