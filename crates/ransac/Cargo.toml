@@ -1,0 +1,15 @@
+[package]
+name = "ransac"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+approx = { workspace = true }
+geometry = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+ordered-float = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }

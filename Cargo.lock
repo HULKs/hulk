@@ -1464,6 +1464,7 @@ dependencies = [
  "path_serde",
  "projection",
  "rand",
+ "rand_chacha",
  "serde",
  "smallvec",
  "spl_network_messages",
@@ -4756,6 +4757,7 @@ checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
  "rand_core",
+ "serde",
 ]
 
 [[package]]
@@ -4775,6 +4777,19 @@ checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
  "rand",
+]
+
+[[package]]
+name = "ransac"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "geometry",
+ "linear_algebra",
+ "nalgebra",
+ "ordered-float",
+ "rand",
+ "rand_chacha",
 ]
 
 [[package]]
@@ -6172,6 +6187,8 @@ dependencies = [
  "ordered-float",
  "projection",
  "rand",
+ "rand_chacha",
+ "ransac",
  "serde",
  "types",
 ]
