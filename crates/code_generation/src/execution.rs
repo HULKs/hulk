@@ -1,5 +1,3 @@
-use std::iter::repeat;
-
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -8,11 +6,9 @@ use source_analyzer::cyclers::{CyclerKind, Cyclers};
 use crate::{accessor::ReferenceKind, CyclerMode};
 
 pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
-    let construct_multiple_buffers = generate_multiple_buffers(cyclers);
+    let construct_buffered_watch_channels = generate_buffered_watch_channels(cyclers);
     let construct_future_queues = generate_future_queues(cyclers);
-    // 2 communication writer slots + n reader slots for other cyclers
-    let number_of_parameter_slots = 2 + cyclers.number_of_instances();
-    let parameters_reader = generate_parameters_reader(number_of_parameter_slots, true);
+    let parameters_receiver = generate_parameters_receiver(true);
     let recording_thread = generate_recording_thread(cyclers);
     let construct_cyclers = generate_cycler_constructors(cyclers, CyclerMode::Run);
     let communication_registrations = generate_communication_registrations(cyclers);
@@ -43,10 +39,10 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                 }));
             }
 
-            #construct_multiple_buffers
+            #construct_buffered_watch_channels
             #construct_future_queues
 
-            #parameters_reader
+            #parameters_receiver
 
             let (recording_sender, recording_receiver) = std::sync::mpsc::sync_channel(420);
             let recording_thread = #recording_thread;
@@ -98,18 +94,15 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
 
 pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> TokenStream {
     let cycler_fields = generate_cycler_fields(cyclers);
-    let construct_multiple_buffers = generate_multiple_buffers(cyclers);
+    let construct_buffered_watch_channels = generate_buffered_watch_channels(cyclers);
     let construct_future_queues = generate_future_queues(cyclers);
-    // 2 communication writer slots + n reader slots for other cyclers
-    let number_of_parameter_slots = 2 + cyclers.number_of_instances();
     let construct_cyclers = generate_cycler_constructors(cyclers, CyclerMode::Replay);
     let ReplayerTokenStreams {
         fields,
         parameters: identifiers,
         accessors,
     } = generate_replayer_token_streams(cyclers, with_communication);
-    let parameters_reader =
-        generate_parameters_reader(number_of_parameter_slots, with_communication);
+    let parameters_receiver = generate_parameters_receiver(with_communication);
     let (replayer_arguments, communication_registrations) = if with_communication {
         (
             quote! {
@@ -147,10 +140,10 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
             {
                 use color_eyre::eyre::WrapErr;
 
-                #construct_multiple_buffers
+                #construct_buffered_watch_channels
                 #construct_future_queues
 
-                #parameters_reader
+                #parameters_receiver
 
                 #construct_cyclers
                 #communication_registrations
@@ -231,63 +224,59 @@ fn generate_replayer_token_streams(
                 communication_server,
             },
             accessors: quote! {
-                pub fn get_parameters_changed(&self) -> std::sync::Arc<tokio::sync::Notify> {
-                    self.communication_server.get_parameters_changed()
+                pub fn get_parameters_receiver(&self) -> buffered_watch::Receiver<crate::structs::Parameters> {
+                    self.communication_server.get_parameters_receiver()
                 }
             },
         }
     } else {
-        let reader_tokens: Vec<_> = cyclers
+        let receiver_tokens: Vec<_> = cyclers
             .instances()
             .map(|(cycler, instance)| {
                 (
-                    format_ident!("{}_reader", instance.to_case(Case::Snake)),
+                    format_ident!("{}_receiver", instance.to_case(Case::Snake)),
                     format_ident!("{}", cycler.name.to_case(Case::Snake)),
                 )
             })
             .collect();
 
-        let reader_identifiers = reader_tokens.iter().map(|(reader, _cycler)| reader);
-        let reader_fields = reader_tokens.iter().map(|(reader, cycler)| {
+        let receiver_identifiers = receiver_tokens.iter().map(|(receiver, _cycler)| receiver);
+        let receiver_fields = receiver_tokens.iter().map(|(receiver, cycler)| {
             quote! {
-                #reader: framework::Reader<crate::cyclers::#cycler::Database>,
+                #receiver: buffered_watch::Receiver<crate::cyclers::#cycler::Database>,
             }
         });
-        let reader_accessors = reader_tokens.iter().map(|(reader, cycler)| {
+        let receiver_accessors = receiver_tokens.iter().map(|(receiver, cycler)| {
             quote! {
                 #[allow(unused)]
-                pub(crate) fn #reader(&self) -> framework::Reader<crate::cyclers::#cycler::Database> {
-                    self.#reader.clone()
+                pub(crate) fn #receiver(&self) -> buffered_watch::Receiver<crate::cyclers::#cycler::Database> {
+                    self.#receiver.clone()
                 }
             }
         });
 
         ReplayerTokenStreams {
             fields: quote! {
-                _parameters_writer: framework::Writer<crate::structs::Parameters>,
-                #(#reader_fields)*
+                _parameters_sender: buffered_watch::Sender<crate::structs::Parameters>,
+                #(#receiver_fields)*
             },
             parameters: quote! {
-                _parameters_writer: parameters_writer,
-                #(#reader_identifiers,)*
+                _parameters_sender: parameters_sender,
+                #(#receiver_identifiers,)*
             },
             accessors: quote! {
-                #(#reader_accessors)*
+                #(#receiver_accessors)*
             },
         }
     }
 }
 
-fn generate_parameters_reader(
-    number_of_parameter_slots: usize,
-    with_communication: bool,
-) -> TokenStream {
+fn generate_parameters_receiver(with_communication: bool) -> TokenStream {
     if with_communication {
         quote! {
-            let communication_server = communication::server::Runtime::start(
-                addresses, parameters_directory, body_id, head_id, #number_of_parameter_slots, keep_running.clone())
+            let communication_server = communication::server::Runtime::start(addresses, parameters_directory, body_id, head_id, keep_running.clone())
                 .wrap_err("failed to start communication server")?;
-            let parameters_reader = communication_server.get_parameters_reader();
+            let parameters_receiver = communication_server.get_parameters_receiver();
         }
     } else {
         quote! {
@@ -297,10 +286,8 @@ fn generate_parameters_reader(
             )
             .wrap_err("failed to parse initial parameters")?;
 
-            let (parameters_writer, parameters_reader) = framework::multiple_buffer_with_slots(
-                std::iter::repeat_with(|| initial_parameters.clone())
-                    .take(#number_of_parameter_slots + 1),
-            );
+            let (parameters_sender, parameters_receiver) =
+                buffered_watch::channel(initial_parameters);
         }
     }
 }
@@ -321,28 +308,19 @@ fn generate_cycler_fields(cyclers: &Cyclers) -> TokenStream {
         .collect()
 }
 
-fn generate_multiple_buffers(cyclers: &Cyclers) -> TokenStream {
-    // 2 writer slots + n-1 reader slots for other cyclers + 1 reader slot for communication
-    let slots_for_real_time_cyclers: TokenStream = repeat(quote! { Default::default(), })
-        .take(2 + cyclers.number_of_instances())
-        .collect();
-    // 2 writer slots + 1 reader slot for communication
-    let slots_for_perception_cyclers: TokenStream =
-        repeat(quote! { Default::default(), }).take(2 + 1).collect();
-
-    cyclers.instances().map(|(cycler, instance)| {
-        let writer_identifier = format_ident!("{}_writer", instance.to_case(Case::Snake));
-        let reader_identifier = format_ident!("{}_reader", instance.to_case(Case::Snake));
-        let slot_initializers = match cycler.kind {
-            CyclerKind::Perception => &slots_for_perception_cyclers,
-            CyclerKind::RealTime => &slots_for_real_time_cyclers,
-        };
-        quote! {
-            let (#writer_identifier, #reader_identifier) = framework::multiple_buffer_with_slots([
-                #slot_initializers
-            ]);
-        }
-    }).collect()
+fn generate_buffered_watch_channels(cyclers: &Cyclers) -> TokenStream {
+    cyclers
+        .instances()
+        .map(|(_cycler, instance)| {
+            let sender_identifier = format_ident!("{}_sender", instance.to_case(Case::Snake));
+            let receiver_identifier = format_ident!("{}_receiver", instance.to_case(Case::Snake));
+            quote! {
+                let (#sender_identifier, #receiver_identifier) = buffered_watch::channel(
+                    Default::default()
+                );
+            }
+        })
+        .collect()
 }
 
 fn generate_future_queues(cyclers: &Cyclers) -> TokenStream {
@@ -394,13 +372,13 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
     quote! {
         {
             let keep_running = keep_running.clone();
-            let parameters_reader = parameters_reader.clone();
+            let mut parameters_receiver = communication_server.get_parameters_receiver();
             std::thread::Builder::new()
                 .name("Recording".to_string())
                 .spawn(move || -> color_eyre::Result<()> {
                     let result = (|| {
                         use std::io::Write;
-                        std::fs::write(log_path.as_ref().join("default.json"), serde_json::to_string_pretty(&*parameters_reader.next())?)?;
+                        std::fs::write(log_path.as_ref().join("default.json"), serde_json::to_string_pretty(&*parameters_receiver.borrow_and_mark_as_seen())?)?;
                         #(#file_creations)*
                         for recording_frame in recording_receiver {
                             match recording_frame {
@@ -421,15 +399,14 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
 fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     cyclers.instances().map(|(cycler, instance)| {
         let instance_name_snake_case = instance.to_case(Case::Snake);
-        let cycler_database_changed_identifier = format_ident!("{instance_name_snake_case}_changed");
         let cycler_variable_identifier = format_ident!("{instance_name_snake_case}_cycler");
         let cycler_index_identifier = format_ident!("{instance_name_snake_case}_index");
         let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
         let cycler_instance_name = &instance;
         let cycler_instance_name_identifier = format_ident!("{cycler_instance_name}");
-        let own_writer_identifier = format_ident!("{instance_name_snake_case}_writer");
-        let own_subscribed_outputs_writer_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_writer");
-        let own_subscribed_outputs_reader_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_reader");
+        let own_sender_identifier = format_ident!("{instance_name_snake_case}_sender");
+        let own_subscribed_outputs_sender_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_sender");
+        let own_subscribed_outputs_receiver_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_receiver");
         let recording_trigger = if mode == CyclerMode::Run {
             quote! {
                 let recording_trigger = framework::RecordingTrigger::new(
@@ -466,7 +443,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStr
                     quote! { #identifier }
                 },
                 CyclerKind::RealTime => {
-                    let identifier = format_ident!("{}_reader", instance.to_case(Case::Snake));
+                    let identifier = format_ident!("{}_receiver", instance.to_case(Case::Snake));
                     quote! { #identifier.clone() }
                 },
             });
@@ -481,23 +458,16 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStr
         let error_message = format!("failed to create cycler `{}`", instance);
 
         quote! {
-            let #cycler_database_changed_identifier = std::sync::Arc::new(tokio::sync::Notify::new());
             #[allow(unused)]
-            let (#own_subscribed_outputs_writer_identifier, #own_subscribed_outputs_reader_identifier) = framework::multiple_buffer_with_slots([
-                Default::default(),
-                Default::default(),
-                Default::default(),
-            ]);
-
+            let (#own_subscribed_outputs_sender_identifier, #own_subscribed_outputs_receiver_identifier) = buffered_watch::channel(Default::default());
             #recording_trigger
             #recording_index
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
                 hardware_interface.clone(),
-                #own_writer_identifier,
-                #cycler_database_changed_identifier.clone(),
-                #own_subscribed_outputs_reader_identifier,
-                parameters_reader.clone(),
+                #own_sender_identifier,
+                #own_subscribed_outputs_receiver_identifier,
+                parameters_receiver.clone(),
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
                 #recording_parameters
@@ -513,18 +483,15 @@ fn generate_communication_registrations(cyclers: &Cyclers) -> TokenStream {
         .instances()
         .map(|(_cycler, instance)| {
             let instance_name_snake_case = instance.to_case(Case::Snake);
-            let cycler_database_changed_identifier =
-                format_ident!("{instance_name_snake_case}_changed");
             let cycler_instance_name = &instance;
-            let own_reader_identifier = format_ident!("{instance_name_snake_case}_reader");
-            let own_subscribed_outputs_writer_identifier =
-                format_ident!("{instance_name_snake_case}_subscribed_outputs_writer");
+            let own_receiver_identifier = format_ident!("{instance_name_snake_case}_receiver");
+            let own_subscribed_outputs_sender_identifier =
+                format_ident!("{instance_name_snake_case}_subscribed_outputs_sender");
             quote! {
                 communication_server.register_cycler_instance(
                     #cycler_instance_name,
-                    #cycler_database_changed_identifier,
-                    #own_reader_identifier.clone(),
-                    #own_subscribed_outputs_writer_identifier,
+                    #own_receiver_identifier.clone(),
+                    #own_subscribed_outputs_sender_identifier,
                 );
             }
         })

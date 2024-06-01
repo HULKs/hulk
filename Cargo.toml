@@ -5,6 +5,7 @@ members = [
   "crates/approx_derive",
   "crates/argument_parsers",
   "crates/audio",
+  "crates/buffered_watch",
   "crates/calibration",
   "crates/code_generation",
   "crates/communication",
@@ -128,6 +129,7 @@ linear_algebra = { path = "crates/linear_algebra" }
 log = "0.4.17"
 mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
 motionfile = { path = "crates/motionfile" }
+buffered_watch = { path = "crates/buffered_watch" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }

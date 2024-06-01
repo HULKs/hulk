@@ -694,6 +694,7 @@ name = "behavior_simulator"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "buffered_watch",
  "chrono",
  "clap 4.5.4",
  "code_generation",
@@ -933,6 +934,14 @@ dependencies = [
  "memchr",
  "regex-automata",
  "serde",
+]
+
+[[package]]
+name = "buffered_watch"
+version = "0.1.0"
+dependencies = [
+ "parking_lot",
+ "tokio",
 ]
 
 [[package]]
@@ -1352,8 +1361,8 @@ name = "communication"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "buffered_watch",
  "color-eyre",
- "framework",
  "futures-util",
  "log",
  "parameters",
@@ -2942,6 +2951,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "bincode",
+ "buffered_watch",
  "code_generation",
  "color-eyre",
  "communication",
@@ -2977,6 +2987,7 @@ name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "buffered_watch",
  "code_generation",
  "color-eyre",
  "coordinate_systems",
@@ -3041,6 +3052,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "bincode",
+ "buffered_watch",
  "chrono",
  "code_generation",
  "color-eyre",

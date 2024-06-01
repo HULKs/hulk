@@ -1,22 +1,13 @@
 use std::{
     collections::{hash_map::Entry, BTreeSet, HashMap, HashSet},
     num::Wrapping,
-    sync::Arc,
 };
 
 use bincode::{DefaultOptions, Options};
-use framework::{Reader, Writer};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use log::error;
 use path_serde::{PathIntrospect, PathSerialize};
-use tokio::{
-    select, spawn,
-    sync::{
-        mpsc::{channel, Sender},
-        Notify,
-    },
-    task::JoinHandle,
-};
+use tokio::{select, spawn, sync::mpsc, task::JoinHandle};
 
 use crate::{
     messages::{
@@ -29,17 +20,16 @@ use crate::{
 use super::{Request, Subscription};
 
 pub fn provider<Outputs>(
-    outputs_sender: Sender<Request>,
+    outputs_sender: mpsc::Sender<Request>,
     cycler_instance: &'static str,
-    outputs_changed: Arc<Notify>,
-    outputs_reader: Reader<Outputs>,
-    subscribed_outputs_writer: Writer<HashSet<String>>,
+    mut outputs_reader: buffered_watch::Receiver<Outputs>,
+    mut subscribed_outputs_writer: buffered_watch::Sender<HashSet<String>>,
 ) -> JoinHandle<()>
 where
     Outputs: PathIntrospect + PathSerialize + Send + Sync + 'static,
 {
     spawn(async move {
-        let (request_sender, mut request_receiver) = channel(1);
+        let (request_sender, mut request_receiver) = mpsc::channel(1);
 
         let fields = Outputs::get_fields();
         outputs_sender
@@ -69,14 +59,14 @@ where
                         None => break,
                     }
                 },
-                _ = outputs_changed.notified() => {
-                    handle_notified_output(&outputs_reader, &mut subscriptions, &mut next_binary_reference_id).await
+                _ = outputs_reader.wait_for_change() => {
+                    handle_notified_output(&mut outputs_reader, &mut subscriptions, &mut next_binary_reference_id).await
                 },
             };
             if subscriptions_state == SubscriptionsState::Changed {
                 write_subscribed_outputs_from_subscriptions(
                     &mut subscriptions,
-                    &subscribed_outputs_writer,
+                    &mut subscribed_outputs_writer,
                 );
             }
         }
@@ -219,18 +209,18 @@ async fn handle_client_request(
 
 fn write_subscribed_outputs_from_subscriptions(
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
-    subscribed_outputs_writer: &Writer<HashSet<String>>,
+    subscribed_outputs_writer: &mut buffered_watch::Sender<HashSet<String>>,
 ) {
     let subscribed_outputs = subscriptions
         .values()
         .map(|subscription| subscription.path.clone())
         .collect();
-    let mut subscribed_outputs_slot = subscribed_outputs_writer.next();
+    let mut subscribed_outputs_slot = subscribed_outputs_writer.borrow_mut();
     *subscribed_outputs_slot = subscribed_outputs;
 }
 
 async fn handle_notified_output(
-    outputs_reader: &Reader<impl PathSerialize>,
+    outputs_reader: &mut buffered_watch::Receiver<impl PathSerialize>,
     subscriptions: &mut HashMap<(Client, usize), Subscription>,
     next_binary_reference_id: &mut Wrapping<usize>,
 ) -> SubscriptionsState {
@@ -243,7 +233,7 @@ async fn handle_notified_output(
     let mut binary_subscribed_items: HashMap<Client, HashMap<usize, Vec<u8>>> = HashMap::new();
     let mut subscriptions_state = SubscriptionsState::Unchanged;
     {
-        let output = outputs_reader.next();
+        let output = outputs_reader.borrow_and_mark_as_seen();
         subscriptions.retain(|(client, subscription_id), subscription| {
             let data = match subscription.format {
                 Format::Textual => {
@@ -352,7 +342,6 @@ mod tests {
     use std::{collections::BTreeSet, time::Duration};
 
     use bincode::serialize;
-    use framework::multiple_buffer_with_slots;
     use path_serde::serialize;
     use serde::{Serialize, Serializer};
     use serde_json::Value;
@@ -362,6 +351,7 @@ mod tests {
 
     use super::*;
 
+    #[derive(Clone)]
     struct OutputsFake<T> {
         existing_fields: HashMap<String, T>,
     }
@@ -398,24 +388,21 @@ mod tests {
 
     async fn get_registered_request_sender_from_provider(
         cycler_instance: &'static str,
-        outputs_changed: Arc<Notify>,
-        output: Reader<impl PathIntrospect + PathSerialize + Send + Sync + 'static>,
+        output: buffered_watch::Receiver<
+            impl PathIntrospect + PathSerialize + Send + Sync + 'static,
+        >,
     ) -> (
         JoinHandle<()>,
         BTreeSet<String>,
-        Sender<ClientRequest<OutputsRequest>>,
-        Reader<HashSet<String>>,
+        mpsc::Sender<ClientRequest<OutputsRequest>>,
+        buffered_watch::Receiver<HashSet<String>>,
     ) {
-        let (outputs_sender, mut outputs_receiver) = channel(1);
-        let (subscribed_outputs_writer, subscribed_outputs_reader) = multiple_buffer_with_slots([
-            Default::default(),
-            Default::default(),
-            Default::default(),
-        ]);
+        let (outputs_sender, mut outputs_receiver) = mpsc::channel(1);
+        let (subscribed_outputs_writer, subscribed_outputs_reader) =
+            buffered_watch::channel(Default::default());
         let join_handle = provider(
             outputs_sender,
             cycler_instance,
-            outputs_changed,
             output,
             subscribed_outputs_writer,
         );
@@ -447,19 +434,16 @@ mod tests {
 
     #[tokio::test]
     async fn provider_registers_itself_at_router() {
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42)].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                "CyclerInstance",
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider("CyclerInstance", outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -468,19 +452,16 @@ mod tests {
     #[tokio::test]
     async fn fields_are_collected() {
         let cycler_instance = "CyclerInstance";
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake::<()> {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake::<()> {
             existing_fields: Default::default(),
-        }]);
+        });
 
-        let (provider_task, fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         assert_eq!(
             fields,
@@ -494,19 +475,16 @@ mod tests {
     #[tokio::test]
     async fn subscriptions_with_same_subscription_ids_and_same_client_ids() {
         let cycler_instance = "CyclerInstance";
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42)].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const ID: usize = 42;
         let cycler_instance = cycler_instance.to_string();
@@ -514,7 +492,7 @@ mod tests {
         let format = Format::Textual;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -548,7 +526,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
@@ -585,7 +563,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -596,26 +574,23 @@ mod tests {
     #[tokio::test]
     async fn subscriptions_with_same_subscription_ids_and_different_client_ids() {
         let cycler_instance = "CyclerInstance";
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42)].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const ID: usize = 42;
         let cycler_instance = cycler_instance.to_string();
         let path = "a.b.c".to_string();
         let format = Format::Textual;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -649,7 +624,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
@@ -686,7 +661,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -697,26 +672,23 @@ mod tests {
     #[tokio::test]
     async fn subscriptions_with_different_subscription_ids_and_same_client_ids() {
         let cycler_instance = "CyclerInstance";
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42)].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         let cycler_instance = cycler_instance.to_string();
         let path = "a.b.c".to_string();
         let format = Format::Textual;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -750,7 +722,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
@@ -787,7 +759,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -798,21 +770,18 @@ mod tests {
     #[tokio::test]
     async fn unsubscribe_unknown_subscription_results_in_error() {
         let cycler_instance = "CyclerInstance";
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42)].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Unsubscribe {
@@ -843,7 +812,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -852,25 +824,22 @@ mod tests {
     #[tokio::test]
     async fn unsubscribe_twice_results_in_error() {
         let cycler_instance = "CyclerInstance";
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42)].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const SUBSCRIPTION_ID: usize = 42;
         let path = "a.b.c".to_string();
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -904,7 +873,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -938,7 +907,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         request_sender
             .send(ClientRequest {
@@ -970,7 +942,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -980,21 +955,18 @@ mod tests {
     async fn unsubscribe_after_unsubscribe_everything_results_in_error() {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (_output_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [("a.b.c".to_string(), 42)].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed,
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -1028,7 +1000,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -1050,7 +1022,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         request_sender
             .send(ClientRequest {
@@ -1082,7 +1057,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1093,24 +1071,21 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (mut outputs_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed.clone(),
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -1144,11 +1119,11 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         let subscribed_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
@@ -1167,7 +1142,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -1201,14 +1176,20 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1220,24 +1201,21 @@ mod tests {
         let path = "a.b.c".to_string();
         let value = vec![42, 1, 3, 3, 7];
         let serialized_value = serialize(&value).unwrap();
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (mut outputs_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed.clone(),
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -1271,11 +1249,11 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         let subscribed_data = response_receiver.recv().await.unwrap();
         let Response::Textual(TextualResponse::Outputs(TextualOutputsResponse::SubscribedData {
             items,
@@ -1303,7 +1281,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -1337,14 +1315,20 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1355,24 +1339,21 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (mut outputs_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed.clone(),
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender0, mut response_receiver0) = channel(1);
+        let (response_sender0, mut response_receiver0) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -1406,11 +1387,11 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
-        let (response_sender1, mut response_receiver1) = channel(1);
+        let (response_sender1, mut response_receiver1) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::Subscribe {
@@ -1444,11 +1425,11 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         let subscribed_data = response_receiver0.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
@@ -1486,7 +1467,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path.clone()]),
         );
 
@@ -1521,7 +1502,7 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
@@ -1555,9 +1536,12 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         match response_receiver0.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
@@ -1566,7 +1550,10 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1577,24 +1564,21 @@ mod tests {
         let cycler_instance = "CyclerInstance";
         let path = "a.b.c".to_string();
         let value = Value::from(42);
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (mut outputs_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed.clone(),
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::GetNext {
@@ -1619,11 +1603,11 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         let subscribed_data = response_receiver.recv().await.unwrap();
         assert_eq!(
             subscribed_data,
@@ -1636,14 +1620,20 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
@@ -1655,24 +1645,21 @@ mod tests {
         let path = "a.b.c".to_string();
         let value = vec![42, 1, 3, 3, 7];
         let serialized_value = serialize(&value).unwrap();
-        let outputs_changed = Arc::new(Notify::new());
-        let (_output_writer, outputs_reader) = multiple_buffer_with_slots([OutputsFake {
+        let (mut outputs_writer, outputs_reader) = buffered_watch::channel(OutputsFake {
             existing_fields: [(path.clone(), value.clone())].into(),
-        }]);
+        });
 
-        let (provider_task, _fields, request_sender, subscribed_outputs_reader) =
-            get_registered_request_sender_from_provider(
-                cycler_instance,
-                outputs_changed.clone(),
-                outputs_reader,
-            )
-            .await;
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        let (provider_task, _fields, request_sender, mut subscribed_outputs_reader) =
+            get_registered_request_sender_from_provider(cycler_instance, outputs_reader).await;
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         const SUBSCRIPTION_ID: usize = 42;
         let client_id = 1337;
 
-        let (response_sender, mut response_receiver) = channel(1);
+        let (response_sender, mut response_receiver) = mpsc::channel(1);
         request_sender
             .send(ClientRequest {
                 request: OutputsRequest::GetNext {
@@ -1697,11 +1684,11 @@ mod tests {
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
         assert_eq!(
-            *subscribed_outputs_reader.next(),
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
             HashSet::from_iter([path]),
         );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         let subscribed_data = response_receiver.recv().await.unwrap();
         let Response::Textual(TextualResponse::Outputs(TextualOutputsResponse::GetNext {
             id: SUBSCRIPTION_ID,
@@ -1722,14 +1709,20 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
-        outputs_changed.notify_one();
+        outputs_writer.borrow_mut();
         match response_receiver.try_recv() {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        assert_eq!(*subscribed_outputs_reader.next(), HashSet::new());
+        assert_eq!(
+            *subscribed_outputs_reader.borrow_and_mark_as_seen(),
+            HashSet::new()
+        );
 
         drop(request_sender);
         provider_task.await.unwrap();
