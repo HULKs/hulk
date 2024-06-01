@@ -22,5 +22,7 @@ nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }
+rand_chacha = { workspace = true }
+ransac = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }

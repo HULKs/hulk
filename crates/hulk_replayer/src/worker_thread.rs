@@ -29,7 +29,7 @@ pub fn spawn_worker(
                 }
 
                 if let Err(error) = replayer.replay_at(*time.borrow()) {
-                    eprintln!("{error}");
+                    eprintln!("{error:#?}");
                 }
             }
         });
