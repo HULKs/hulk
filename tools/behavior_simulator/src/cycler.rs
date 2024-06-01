@@ -21,7 +21,6 @@ use control::{
 use framework::{AdditionalOutput, PerceptionInput};
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use tokio::sync::Notify;
 use types::messages::IncomingMessage;
 
 use crate::{
@@ -40,8 +39,6 @@ pub struct Database {
 
 pub struct BehaviorCycler {
     hardware_interface: Arc<Interfake>,
-    own_changed: Arc<Notify>,
-
     search_suggestor: SearchSuggestor,
     active_vision: ActiveVision,
     ball_state_composer: BallStateComposer,
@@ -57,11 +54,7 @@ pub struct BehaviorCycler {
 }
 
 impl BehaviorCycler {
-    pub fn new(
-        hardware_interface: Arc<Interfake>,
-        own_changed: Arc<Notify>,
-        parameters: &Parameters,
-    ) -> Result<Self> {
+    pub fn new(hardware_interface: Arc<Interfake>, parameters: &Parameters) -> Result<Self> {
         let search_suggestor = control::search_suggestor::SearchSuggestor::new(
             control::search_suggestor::CreationContext::new(
                 &parameters.field_dimensions,
@@ -103,7 +96,6 @@ impl BehaviorCycler {
 
         Ok(Self {
             hardware_interface,
-            own_changed,
             search_suggestor,
             active_vision,
             time_to_reach_kick_position,
@@ -423,7 +415,6 @@ impl BehaviorCycler {
                 ))
                 .wrap_err("failed to execute cycle of `TimeToReachKickPosition`");
         }
-        self.own_changed.notify_one();
         Ok(())
     }
 }

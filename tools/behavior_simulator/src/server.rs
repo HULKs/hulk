@@ -1,6 +1,5 @@
 use std::{
     path::Path,
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -11,10 +10,9 @@ use crate::{
     state::Ball,
 };
 use color_eyre::{eyre::bail, owo_colors::OwoColorize, Result};
-use framework::{multiple_buffer_with_slots, Reader, Writer};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use tokio::{net::ToSocketAddrs, select, sync::Notify, time::interval};
+use tokio::{net::ToSocketAddrs, select, time::interval};
 use tokio_util::sync::CancellationToken;
 use types::{field_dimensions::FieldDimensions, players::Players};
 
@@ -40,12 +38,9 @@ struct BehaviorSimulatorDatabase {
 #[allow(clippy::too_many_arguments)]
 async fn timeline_server(
     keep_running: CancellationToken,
-    parameters_reader: Reader<Parameters>,
-    parameters_changed: Arc<Notify>,
-    outputs_writer: Writer<BehaviorSimulatorDatabase>,
-    outputs_changed: Arc<Notify>,
-    control_writer: Writer<Database>,
-    control_changed: Arc<Notify>,
+    mut parameters_reader: buffered_watch::Receiver<Parameters>,
+    mut outputs_writer: buffered_watch::Sender<BehaviorSimulatorDatabase>,
+    mut control_writer: buffered_watch::Sender<Database>,
     frames: Vec<Frame>,
 ) {
     // Hack to provide frame count to clients initially.
@@ -55,26 +50,25 @@ async fn timeline_server(
 
     loop {
         select! {
-            _ = parameters_changed.notified() => { }
+            _ = parameters_reader.wait_for_change() => { }
             _ = interval.tick() => { }
             _ = keep_running.cancelled() => {
                 break
             }
         }
 
-        let parameters = parameters_reader.next();
+        let parameters = parameters_reader.borrow_and_mark_as_seen();
 
         {
-            let mut outputs = outputs_writer.next();
+            let mut outputs = outputs_writer.borrow_mut();
             outputs.main_outputs.frame_count = frames.len();
             let frame = &frames[parameters.selected_frame];
             outputs.main_outputs.ball.clone_from(&frame.ball);
             outputs.main_outputs.databases = frame.robots.clone();
         }
-        outputs_changed.notify_waiters();
 
         {
-            let mut control = control_writer.next();
+            let mut control = control_writer.borrow_mut();
             *control = to_player_number(parameters.selected_robot)
                 .ok()
                 .and_then(|player_number| {
@@ -82,7 +76,6 @@ async fn timeline_server(
                 })
                 .unwrap_or_default();
         }
-        control_changed.notify_waiters();
     }
 }
 
@@ -91,39 +84,31 @@ pub fn run(
     keep_running: CancellationToken,
     scenario_file: impl AsRef<Path>,
 ) -> Result<()> {
-    let parameter_slots = 3; // 2 for communication writer + 1 reader for timeline_server
     let communication_server = communication::server::Runtime::<Parameters>::start(
         addresses,
         "tools/behavior_simulator",
         "behavior_simulator".to_string(),
         "behavior_simulator".to_string(),
-        parameter_slots,
         keep_running.clone(),
     )?;
 
-    let (outputs_writer, outputs_reader) =
-        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
+    let (outputs_writer, outputs_reader) = buffered_watch::channel(Default::default());
 
-    let outputs_changed = Arc::new(Notify::new());
     let (subscribed_outputs_writer, _subscribed_outputs_reader) =
-        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
+        buffered_watch::channel(Default::default());
 
     communication_server.register_cycler_instance(
         "BehaviorSimulator",
-        outputs_changed.clone(),
         outputs_reader,
         subscribed_outputs_writer,
     );
 
-    let (control_writer, control_reader) =
-        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
+    let (control_writer, control_reader) = buffered_watch::channel(Default::default());
 
-    let control_changed = Arc::new(Notify::new());
     let (subscribed_control_writer, _subscribed_control_reader) =
-        multiple_buffer_with_slots([Default::default(), Default::default(), Default::default()]);
+        buffered_watch::channel(Default::default());
     communication_server.register_cycler_instance(
         "Control",
-        control_changed.clone(),
         control_reader,
         subscribed_control_writer,
     );
@@ -142,17 +127,13 @@ pub fn run(
 
     let runtime = tokio::runtime::Runtime::new()?;
     {
-        let parameters_changed = communication_server.get_parameters_changed();
-        let parameters_reader = communication_server.get_parameters_reader();
+        let parameters_reader = communication_server.get_parameters_receiver();
         runtime.spawn(async {
             timeline_server(
                 keep_running,
                 parameters_reader,
-                parameters_changed,
                 outputs_writer,
-                outputs_changed,
                 control_writer,
-                control_changed,
                 frames,
             )
             .await
