@@ -1,40 +1,41 @@
 use std::{
-    collections::BTreeMap,
     convert::Into,
-    sync::Arc,
+    sync::{mpsc, Arc},
     time::{Duration, SystemTime},
 };
 
+use buffered_watch::Receiver;
 use color_eyre::{eyre::WrapErr, Result};
 
 use control::localization::generate_initial_pose;
+use framework::{future_queue, Producer, RecordingTrigger};
 use linear_algebra::vector;
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
-use spl_network_messages::PlayerNumber;
+use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{messages::IncomingMessage, motion_selection::MotionSafeExits};
 
 use crate::{
-    cycler::{BehaviorCycler, Database},
-    interfake::Interfake,
-    structs::{control::CyclerState, Parameters},
+    cyclers::control::{Cycler, CyclerInstance, Database},
+    interfake::{FakeDataInterface, Interfake},
+    structs::Parameters,
 };
 
 pub struct Robot {
     pub interface: Arc<Interfake>,
-    pub cycler: BehaviorCycler,
     pub database: Database,
-    pub cycler_state: CyclerState,
     pub parameters: Parameters,
     pub is_penalized: bool,
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
+
+    cycler: Cycler<Interfake>,
+    control_receiver: Receiver<Database>,
+    spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
 }
 
 impl Robot {
     pub fn try_new(player_number: PlayerNumber) -> Result<Self> {
-        let interface: Arc<_> = Interfake::default().into();
-
         let runtime = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
@@ -49,8 +50,28 @@ impl Robot {
         })?;
         parameter.player_number = player_number;
 
-        let cycler = BehaviorCycler::new(interface.clone(), &parameter)
-            .wrap_err("failed to create cycler")?;
+        let interface: Arc<_> = Interfake::default().into();
+
+        let (control_sender, control_receiver) = buffered_watch::channel(Database::default());
+        let (mut subscriptions_sender, subscriptions_receiver) =
+            buffered_watch::channel(Default::default());
+        let (mut parameters_sender, parameters_receiver) =
+            buffered_watch::channel(Default::default());
+        let (spl_network_sender, spl_network_consumer) = future_queue();
+        let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
+        *parameters_sender.borrow_mut() = parameter.clone();
+
+        let mut cycler = Cycler::new(
+            CyclerInstance::Control,
+            interface.clone(),
+            control_sender,
+            subscriptions_receiver,
+            parameters_receiver,
+            spl_network_consumer,
+            recording_sender,
+            RecordingTrigger::new(0),
+        )?;
+        cycler.cycler_state.motion_safe_exits = MotionSafeExits::fill(true);
 
         let mut database = Database::default();
 
@@ -63,34 +84,46 @@ impl Robot {
         );
         database.main_outputs.has_ground_contact = true;
         database.main_outputs.is_localization_converged = true;
-
-        let cycler_state = CyclerState {
-            motion_safe_exits: MotionSafeExits::fill(true),
-            ..Default::default()
-        };
+        subscriptions_sender
+            .borrow_mut()
+            .insert("additional_outputs".to_string());
 
         Ok(Self {
             interface,
-            cycler,
             database,
-            cycler_state,
             parameters: parameter,
             is_penalized: false,
             last_kick_time: Duration::default(),
             ball_last_seen: None,
+
+            cycler,
+            control_receiver,
+            spl_network_sender,
         })
     }
 
-    pub fn cycle(
-        &mut self,
-        messages: BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
-    ) -> Result<()> {
-        self.cycler.cycle(
-            &mut self.database,
-            &mut self.cycler_state,
-            &self.parameters,
-            messages,
+    pub fn cycle(&mut self, messages: &[(PlayerNumber, HulkMessage)]) -> Result<()> {
+        for (source, hulks_message) in messages.iter() {
+            let source_is_other = *source != self.parameters.player_number;
+            let message = IncomingMessage::Spl(*hulks_message);
+            self.spl_network_sender.announce();
+            self.spl_network_sender
+                .finalize(crate::structs::spl_network::MainOutputs {
+                    filtered_message: source_is_other.then(|| message.clone()),
+                    message,
+                });
+        }
+        buffered_watch::Sender::<_>::borrow_mut(
+            &mut self.interface.get_last_database_sender().lock(),
         )
+        .main_outputs = self.database.main_outputs.clone();
+
+        self.cycler.cycle()?;
+
+        let database = self.control_receiver.borrow_and_mark_as_seen();
+        self.database.main_outputs = database.main_outputs.clone();
+        self.database.additional_outputs = database.additional_outputs.clone();
+        Ok(())
     }
 
     pub fn field_of_view(&self) -> f32 {

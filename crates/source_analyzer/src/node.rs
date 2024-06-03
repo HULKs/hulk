@@ -77,6 +77,9 @@ fn file_path_from_module_path(root: &Path, module: syn::Path) -> Result<PathBuf,
         .split_first()
         .ok_or(Error::InvalidModulePath)?;
     let path_to_module = path_segments.join("/");
+    if crate_name == "crate" {
+        return Ok(PathBuf::from(format!("src/{path_to_module}.rs")));
+    }
     Ok(root.join(format!("{crate_name}/src/{path_to_module}.rs")))
 }
 

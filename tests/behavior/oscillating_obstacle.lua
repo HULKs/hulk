@@ -4,12 +4,7 @@ end
 
 spawn_robot(7)
 
-state.filtered_game_controller_state.game_state = {
-  Playing = {
-    ball_is_free = true,
-    kick_off = false
-  },
-}
+state.game_controller_state.game_state = "Playing"
 
 function on_cycle()
   if state.cycle_count == 1 then

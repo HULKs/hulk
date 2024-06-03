@@ -57,7 +57,7 @@ nav:
       - Fanta: tooling/fanta.md
       - Recording & Replay: tooling/recording_and_replay.md
       - Machine Learning: tooling/machine-learning.md
-      - Behavior-Simulator & Sprite: tooling/sprite.md
+      - Behavior Simulator: tooling/behavior_simulator.md
       - Debugging with GDB/LLDB: tooling/debugging.md
   - Operating System:
       - Overview: operating_system/overview.md
