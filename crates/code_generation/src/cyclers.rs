@@ -94,7 +94,7 @@ fn generate_database_struct() -> TokenStream {
             path_serde::PathSerialize,
             path_serde::PathIntrospect,
         )]
-        pub(crate) struct Database {
+        pub struct Database {
             pub main_outputs: MainOutputs,
             pub additional_outputs: AdditionalOutputs,
         }
@@ -130,7 +130,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
             own_sender: buffered_watch::Sender<Database>,
             own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
             parameters_receiver: buffered_watch::Receiver<crate::structs::Parameters>,
-            cycler_state: crate::structs::#module_name::CyclerState,
+            pub cycler_state: crate::structs::#module_name::CyclerState,
             #realtime_inputs
             #input_output_fields
             #node_fields

@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    cycler::Database,
+    cyclers::control::Database,
     robot::to_player_number,
     simulator::{Frame, Simulator},
     state::Ball,
@@ -35,7 +35,6 @@ struct BehaviorSimulatorDatabase {
     main_outputs: MainOutputs,
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn timeline_server(
     keep_running: CancellationToken,
     mut parameters_reader: buffered_watch::Receiver<Parameters>,
@@ -86,7 +85,7 @@ pub fn run(
 ) -> Result<()> {
     let communication_server = communication::server::Runtime::<Parameters>::start(
         addresses,
-        "tools/behavior_simulator",
+        "crates/hulk_behavior_simulator",
         "behavior_simulator".to_string(),
         "behavior_simulator".to_string(),
         keep_running.clone(),
@@ -118,7 +117,7 @@ pub fn run(
 
     let start = Instant::now();
     if let Err(error) = simulator.run() {
-        eprintln!("{}", error.bright_red())
+        eprintln!("{}", format!("{:#?}", error).bright_red())
     }
     let duration = Instant::now() - start;
     println!("Took {:.2} seconds", duration.as_secs_f32());

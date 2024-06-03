@@ -1,12 +1,12 @@
 [package]
-name = "behavior_simulator"
+name = "hulk_behavior_simulator"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [[bin]]
-name = "behavior_simulator"
+name = "hulk_behavior_simulator"
 
 [dependencies]
 bincode = { workspace = true }
@@ -15,6 +15,7 @@ chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
+context_attribute = { workspace = true }
 control = { workspace = true }
 coordinate_systems = { workspace = true }
 ctrlc = { workspace = true }
@@ -32,6 +33,7 @@ parking_lot = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
 tokio = { workspace = true }
