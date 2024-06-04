@@ -167,7 +167,10 @@ impl Behavior {
                     actions.push(Action::Jump);
                     actions.push(Action::PrepareJump);
                 }
-                _ => actions.push(Action::DefendGoal),
+                _ => {
+                    actions.push(Action::WideStance);
+                    actions.push(Action::DefendGoal);
+                }
             },
             Role::Loser => actions.push(Action::SearchForLostBall),
             Role::MidfielderLeft => actions.push(Action::SupportLeft),
@@ -266,6 +269,7 @@ impl Behavior {
                     ),
                     Action::Calibrate => calibrate::execute(world_state),
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles_output),
+                    Action::WideStance => defend.wide_stance(),
                     Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles_output),
                     Action::DefendLeft => defend.left(&mut context.path_obstacles_output),
                     Action::DefendRight => defend.right(&mut context.path_obstacles_output),

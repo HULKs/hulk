@@ -42,6 +42,7 @@ pub enum MotionCommand {
     StandUp {
         kind: Kind,
     },
+    WideStance,
     #[default]
     Unstiff,
     Walk {
@@ -75,6 +76,7 @@ impl MotionCommand {
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
             | MotionCommand::StandUp { .. } => None,
+            MotionCommand::WideStance => None,
         }
     }
 

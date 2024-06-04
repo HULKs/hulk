@@ -51,6 +51,13 @@ impl<'cycle> Defend<'cycle> {
             .execute(pose, self.look_action.execute(), path_obstacles_output)
     }
 
+    pub fn wide_stance(&self) -> Option<MotionCommand> {
+        match self.world_state.ball {
+            Some(_) => Some(MotionCommand::WideStance),
+            None => None,
+        }
+    }
+
     pub fn left(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,

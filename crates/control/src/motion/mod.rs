@@ -19,3 +19,4 @@ pub mod stand_up_sitting;
 pub mod step_planner;
 pub mod walk_manager;
 pub mod walking_engine;
+pub mod wide_stance;
