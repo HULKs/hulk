@@ -1,4 +1,4 @@
-use path_serde::PathSerialize;
+use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
@@ -9,14 +9,7 @@ use crate::{
 };
 
 #[derive(
-    Default,
-    Clone,
-    Copy,
-    Debug,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PartialEq,
+    Default, Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq,
 )]
 
 pub struct FilteredGameControllerState {

@@ -1,7 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 use color_eyre::Result;
-use path_serde::{PathIntrospect, PathSerialize};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{Penalty, PlayerNumber, TeamState};
 
@@ -14,6 +14,7 @@ use spl_network_messages::{Penalty, PlayerNumber, TeamState};
     Serialize,
     PathSerialize,
     PathIntrospect,
+    PathDeserialize,
     PartialEq,
 )]
 
