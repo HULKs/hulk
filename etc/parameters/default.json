@@ -9,6 +9,22 @@
       "foot_z_offset": 0.05
     }
   },
+  "feet_detection": {
+    "vision_top": {
+      "enable": true,
+      "maximum_cluster_distance": 0.2,
+      "minimum_consecutive_segments": 7,
+      "minimum_luminance_standard_deviation": 7,
+      "minimum_samples_per_cluster": 8
+    },
+    "vision_bottom": {
+      "enable": true,
+      "maximum_cluster_distance": 0.2,
+      "minimum_consecutive_segments": 7,
+      "minimum_luminance_standard_deviation": 7,
+      "minimum_samples_per_cluster": 8
+    }
+  },
   "whistle_detection": {
     "detection_band": {
       "start": 2000,
@@ -249,22 +265,6 @@
       "minimum_radius": 3.0
     }
   },
-  "feet_detection": {
-    "vision_top": {
-      "enable": true,
-      "maximum_cluster_distance": 0.2,
-      "minimum_consecutive_segments": 7,
-      "minimum_luminance_standard_deviation": 7,
-      "minimum_samples_per_cluster": 8
-    },
-    "vision_bottom": {
-      "enable": true,
-      "maximum_cluster_distance": 0.2,
-      "minimum_consecutive_segments": 7,
-      "minimum_luminance_standard_deviation": 7,
-      "minimum_samples_per_cluster": 8
-    }
-  },
   "current_minimizer_parameters": {
     "allowed_current": 0.1,
     "minimum_reached_hysteresis": 0.05,
@@ -368,14 +368,6 @@
     "robot_obstacle_radius_at_foot_height": 0.2,
     "unknown_obstacle_radius": 0.125,
     "goal_post_obstacle_radius": 0.2
-  },
-  "role_assignment": {
-    "forced_role": null,
-    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 }
-  },
-  "stand_up": {
-    "gyro_low_pass_filter_coefficient": 0.1,
-    "gyro_low_pass_filter_tolerance": 0.005
   },
   "sonar_filter": {
     "low_pass_filter_coefficient": 0.05,
@@ -728,44 +720,6 @@
       }
     }
   },
-  "initial_pose": {
-    "head": {
-      "pitch": 0.0,
-      "yaw": 0.0
-    },
-    "left_arm": {
-      "elbow_roll": 0.0,
-      "elbow_yaw": -1.57,
-      "hand": 0.0,
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": 0.1,
-      "wrist_yaw": 0.0
-    },
-    "left_leg": {
-      "ankle_pitch": 0.01,
-      "ankle_roll": -0.002,
-      "hip_pitch": 0.09,
-      "hip_roll": 0.0,
-      "hip_yaw_pitch": 0.0,
-      "knee_pitch": -0.06
-    },
-    "right_arm": {
-      "elbow_roll": 0.0,
-      "elbow_yaw": 1.57,
-      "hand": 0.0,
-      "shoulder_pitch": 1.57,
-      "shoulder_roll": -0.1,
-      "wrist_yaw": 0.0
-    },
-    "right_leg": {
-      "ankle_pitch": 0.01,
-      "ankle_roll": 0.002,
-      "hip_pitch": 0.09,
-      "hip_roll": 0.0,
-      "hip_yaw_pitch": 0.0,
-      "knee_pitch": -0.06
-    }
-  },
   "fall_protection": {
     "early_protection_timeout": {
       "nanos": 400000000,
@@ -938,6 +892,45 @@
       }
     }
   },
+  "stand_up_stiffness_upper_body": 0.5,
+  "initial_pose": {
+    "head": {
+      "pitch": 0.0,
+      "yaw": 0.0
+    },
+    "left_arm": {
+      "elbow_roll": 0.0,
+      "elbow_yaw": -1.57,
+      "hand": 0.0,
+      "shoulder_pitch": 1.57,
+      "shoulder_roll": 0.1,
+      "wrist_yaw": 0.0
+    },
+    "left_leg": {
+      "ankle_pitch": 0.01,
+      "ankle_roll": -0.002,
+      "hip_pitch": 0.09,
+      "hip_roll": 0.0,
+      "hip_yaw_pitch": 0.0,
+      "knee_pitch": -0.06
+    },
+    "right_arm": {
+      "elbow_roll": 0.0,
+      "elbow_yaw": 1.57,
+      "hand": 0.0,
+      "shoulder_pitch": 1.57,
+      "shoulder_roll": -0.1,
+      "wrist_yaw": 0.0
+    },
+    "right_leg": {
+      "ankle_pitch": 0.01,
+      "ankle_roll": 0.002,
+      "hip_pitch": 0.09,
+      "hip_roll": 0.0,
+      "hip_yaw_pitch": 0.0,
+      "knee_pitch": -0.06
+    }
+  },
   "penalized_pose": {
     "head": {
       "pitch": 0.0,
@@ -978,18 +971,6 @@
   },
   "penalty_shot_direction_estimation": {
     "moving_distance_threshold": 0.2
-  },
-  "head_motion_limits": {
-    "maximum_yaw": 2.076941809873252,
-    "maximum_pitch_at_center": 0.4886921905584123,
-    "maximum_pitch_at_shoulder": 0.2007128639793479,
-    "shoulder_yaw_position": 0.4014257279586958,
-    "ear_shoulder_avoidance_width": 0.3490658503988659,
-    "ear_shoulder_avoidance_pitch_penalty": 0.19198621771937624
-  },
-  "dispatching_head_interpolator": {
-    "maximum_yaw_velocity": 6.283185307179586,
-    "maximum_pitch_velocity": 3.141592653589793
   },
   "head_motion": {
     "maximum_velocity": {
@@ -1093,6 +1074,10 @@
     "max_kick_around_obstacle_angle": 0.8,
     "corner_kick_strength": 0.25
   },
+  "role_assignment": {
+    "forced_role": null,
+    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 }
+  },
   "behavior": {
     "optional_roles": [
       "DefenderLeft",
@@ -1174,7 +1159,7 @@
     }
   },
   "game_controller_filter": {
-    "time_since_last_game_controller_state_message_to_consider_source_ip_address_active": {
+    "time_since_last_message_to_consider_ip_active": {
       "nanos": 0,
       "secs": 5
     },
@@ -1430,7 +1415,9 @@
       "knee_pitch": 0.0
     }
   },
-  "angular_velocity_smoothing_factor": 0.1,
+  "condition_input_provider": {
+    "angular_velocity_smoothing_factor": 0.1
+  },
   "rule_obstacles": {
     "center_circle_obstacle_increase": 1.2,
     "free_kick_obstacle_radius": 0.75,
@@ -1441,7 +1428,6 @@
     "heatmap_decay_factor": 0.002,
     "minimum_validity": 0.01
   },
-  "stand_up_stiffness_upper_body": 0.5,
   "physical_constants": {
     "gravity_acceleration": 9.81
   }
