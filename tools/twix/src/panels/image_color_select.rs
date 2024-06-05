@@ -287,9 +287,7 @@ impl<'a> ImageColorSelectPanel {
     }
 
     fn get_image(&self) -> Result<ColorImage> {
-        let image_data: YCbCr422Image = self
-            .image_buffer
-            .parse_latest()?;
+        let image_data: YCbCr422Image = self.image_buffer.parse_latest()?;
         let buffer = image_data
             .buffer()
             .iter()
@@ -302,7 +300,10 @@ impl<'a> ImageColorSelectPanel {
                 [rgb.r, rgb.g, rgb.b, 255]
             })
             .collect::<Vec<_>>();
-        let image = ColorImage::from_rgba_unmultiplied([image_data.width() as usize, image_data.height() as usize], &buffer);
+        let image = ColorImage::from_rgba_unmultiplied(
+            [image_data.width() as usize, image_data.height() as usize],
+            &buffer,
+        );
         Ok(image)
     }
 }
