@@ -4,7 +4,7 @@ use color_eyre::Result;
 use communication::client::CyclerOutput;
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
-use linear_algebra::Isometry2;
+use linear_algebra::{IntoTransform, Isometry2};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 use types::{self, field_dimensions::FieldDimensions};
@@ -206,13 +206,13 @@ impl Widget for &mut MapPanel {
             PlotType::Field => {
                 let (response, painter) = TwixPainter::allocate_new(ui);
                 let mut painter = painter.with_map_transforms(&field_dimensions);
-                painter.append_transform(self.zoom_and_pan.transformation());
+                painter.append_transform(self.zoom_and_pan.transformation().framed_transform());
                 (response, painter)
             }
             PlotType::Ground => {
                 let (response, painter) = TwixPainter::allocate_new(ui);
                 let mut painter = painter.with_ground_transforms();
-                painter.append_transform(self.zoom_and_pan.transformation());
+                painter.append_transform(self.zoom_and_pan.transformation().framed_transform());
 
                 (response, painter.transform_painter(ground_to_field))
             }

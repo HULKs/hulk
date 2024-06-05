@@ -20,7 +20,7 @@ use types::{
 use crate::{
     nao::Nao,
     panel::Panel,
-    twix_painter::{CoordinateSystem, TwixPainter},
+    twix_painter::TwixPainter,
     value_buffer::ValueBuffer,
 };
 
@@ -165,7 +165,6 @@ impl Widget for &mut ImageSegmentsPanel {
         let painter = painter.with_camera(
             vector![640.0, 480.0],
             Similarity2::identity(),
-            CoordinateSystem::LeftHand,
         );
         if let Some(hover_pos) = response.hover_pos() {
             let image_coords = painter.transform_pixel_to_world(hover_pos);

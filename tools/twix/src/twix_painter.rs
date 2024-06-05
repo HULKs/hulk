@@ -8,34 +8,32 @@ use eframe::{
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
-use nalgebra::{Rotation2, SMatrix, Similarity2};
+use nalgebra::{Affine2, Rotation2, SMatrix, Similarity2};
 
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, Screen};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, rectangle::Rectangle};
-use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Vector2};
+use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Transform, Vector2};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
-#[derive(Clone)]
-pub enum CoordinateSystem {
-    RightHand,
-    LeftHand,
-}
-
-impl CoordinateSystem {
-    fn y_scale(&self) -> f32 {
-        match self {
-            CoordinateSystem::RightHand => -1.0,
-            CoordinateSystem::LeftHand => 1.0,
-        }
-    }
-}
-
+type ScreenTransform<Frame> = Transform<Frame, Screen, Affine2<f32>>;
 pub struct TwixPainter<Frame> {
     painter: Painter,
     pixel_rect: Rect,
-    world_to_pixel: Similarity2<f32>,
-    camera_coordinate_system: CoordinateSystem,
+    world_to_pixel: ScreenTransform<Frame>,
     frame: PhantomData<Frame>,
+}
+trait Convert {
+    fn as_pos2(&self) -> Pos2;
+    fn as_point(position: Pos2) -> Self;
+}
+impl Convert for Point2<Screen> {
+    fn as_pos2(&self) -> Pos2 {
+        Pos2::new(self.x(), self.y())
+    }
+
+    fn as_point(position: Pos2) -> Self {
+        point!(position.x, position.y)
+    }
 }
 
 impl<Frame> TwixPainter<Frame> {
@@ -43,16 +41,16 @@ impl<Frame> TwixPainter<Frame> {
         let (response, painter) =
             ui.allocate_painter(ui.available_size_before_wrap(), Sense::click_and_drag());
         let pixel_rect = response.rect;
-        let world_to_pixel = Similarity2::new(
-            nalgebra::vector![pixel_rect.left_top().x, -pixel_rect.left_top().y],
+        let world_to_pixel: Affine2<f32> = nalgebra::convert(Similarity2::new(
+            nalgebra::vector![pixel_rect.left_top().x, pixel_rect.left_top().y],
             0.0,
             1.0,
-        );
+        ));
+        let world_to_pixel = world_to_pixel.framed_transform();
         let twix_painter = Self {
             painter,
             pixel_rect,
             world_to_pixel,
-            camera_coordinate_system: CoordinateSystem::RightHand,
             frame: PhantomData,
         };
         (response, twix_painter)
@@ -65,24 +63,23 @@ impl<Frame> TwixPainter<Frame> {
         TwixPainter::<NewFrame> {
             painter: self.painter.clone(),
             pixel_rect: self.pixel_rect,
-            world_to_pixel: (self.world_to_pixel * isometry.inverse().inner),
-            camera_coordinate_system: self.camera_coordinate_system.clone(),
+            world_to_pixel: (self.world_to_pixel * isometry.inverse()),
             frame: PhantomData,
         }
     }
 
     pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
         let painter = ui.painter_at(pixel_rect);
-        let world_to_pixel = Similarity2::new(
+        let world_to_pixel: Affine2<f32> = nalgebra::convert(Similarity2::new(
             nalgebra::vector![pixel_rect.left_top().x, -pixel_rect.left_top().y],
             0.0,
             1.0,
-        );
+        ));
+        let world_to_pixel = world_to_pixel.framed_transform();
         Self {
             painter,
             pixel_rect,
             world_to_pixel,
-            camera_coordinate_system: CoordinateSystem::RightHand,
             frame: PhantomData,
         }
     }
@@ -91,34 +88,39 @@ impl<Frame> TwixPainter<Frame> {
         self,
         camera_dimensions: Vector2<Frame, f32>,
         world_to_camera: Similarity2<f32>,
-        camera_coordinate_system: CoordinateSystem,
     ) -> Self {
         let width_scale = self.pixel_rect.width() / camera_dimensions.x();
         let height_scale = self.pixel_rect.height() / camera_dimensions.y();
-        let top_left = nalgebra::vector![
-            self.pixel_rect.left_top().x,
-            self.pixel_rect.left_top().y * camera_coordinate_system.y_scale()
-        ];
+        let top_left =
+            nalgebra::vector![self.pixel_rect.left_top().x, self.pixel_rect.left_top().y,];
         let camera_to_pixel = Similarity2::new(top_left, 0.0, width_scale.min(height_scale));
+        let world_to_pixel: Affine2<f32> = nalgebra::convert(camera_to_pixel * world_to_camera);
+        let world_to_pixel = world_to_pixel.framed_transform();
         Self {
             painter: self.painter,
             pixel_rect: self.pixel_rect,
-            world_to_pixel: camera_to_pixel * world_to_camera,
-            camera_coordinate_system,
+            world_to_pixel,
             frame: PhantomData,
         }
     }
 
-    pub fn append_transform(&mut self, transformation: Similarity2<f32>) {
+    pub fn append_transform(
+        &mut self,
+        transformation: Transform<Screen, Screen, Similarity2<f32>>,
+    ) {
         self.world_to_pixel = transformation * self.world_to_pixel;
     }
 
     pub fn context(&self) -> &Context {
         self.painter.ctx()
     }
-
-    pub fn is_right_handed(&self) -> bool {
-        self.camera_coordinate_system.y_scale() >= 0.0
+    pub fn scaling(&self) -> f32 {
+        self.world_to_pixel
+            .inner
+            .matrix()
+            .determinant()
+            .abs()
+            .sqrt()
     }
 
     pub fn arc(&self, arc: Arc<Frame>, orientation: Direction, stroke: Stroke) {
@@ -148,14 +150,13 @@ impl<Frame> TwixPainter<Frame> {
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
         let samples = 1.max(
-            (signed_angle_difference.abs() * radius * self.world_to_pixel.scaling()
-                / PIXELS_PER_SAMPLE) as usize,
+            (signed_angle_difference.abs() * radius * self.scaling() / PIXELS_PER_SAMPLE) as usize,
         );
         let points = (0..samples + 1)
             .map(|index| {
                 let angle = signed_angle_difference / samples as f32 * index as f32;
                 let point = center + Rotation2::new(angle).framed_transform() * start_relative;
-                self.transform_world_to_pixel(point)
+                (self.world_to_pixel * point).as_pos2()
             })
             .collect();
 
@@ -187,10 +188,12 @@ impl<Frame> TwixPainter<Frame> {
     pub fn n_gon(&self, corners: usize, position: Point2<Frame>, radius: f32, fill_color: Color32) {
         let points: Vec<_> = (0..corners)
             .map(|index| {
-                self.transform_world_to_pixel({
-                    let angle = index as f32 * TAU / corners as f32;
-                    position + vector![angle.cos(), angle.sin()] * radius
-                })
+                (self.world_to_pixel
+                    * ({
+                        let angle = index as f32 * TAU / corners as f32;
+                        position + vector![angle.cos(), angle.sin()] * radius
+                    }))
+                .as_pos2()
             })
             .collect();
         self.painter.add(Shape::Path(PathShape::convex_polygon(
@@ -203,7 +206,7 @@ impl<Frame> TwixPainter<Frame> {
     pub fn polygon(&self, points: impl IntoIterator<Item = Point2<Frame>>, stroke: Stroke) {
         let points: Vec<_> = points
             .into_iter()
-            .map(|point| self.transform_world_to_pixel(point))
+            .map(|point| (self.world_to_pixel * point).as_pos2())
             .collect();
         let stroke = self.transform_stroke(stroke);
         self.painter
@@ -227,32 +230,35 @@ impl<Frame> TwixPainter<Frame> {
         );
     }
 
+    pub fn inverse_tranform(&self) -> Transform<Screen, Frame, Affine2<f32>> {
+        self.world_to_pixel.inner.inverse().framed_transform()
+    }
+
     pub fn transform_world_to_pixel(&self, point: Point2<Frame>) -> Pos2 {
-        let normalized = self.world_to_pixel * nalgebra::point![point.x(), point.y()];
+        let normalized = self.world_to_pixel * point;
         Pos2 {
-            x: normalized.x,
-            y: normalized.y * self.camera_coordinate_system.y_scale(),
+            x: normalized.x(),
+            y: normalized.y(),
         }
     }
 
     pub fn transform_pixel_to_world(&self, pos: Pos2) -> Point2<Frame> {
-        let world_point = self.world_to_pixel.inverse()
-            * nalgebra::point![pos.x, pos.y * self.camera_coordinate_system.y_scale()];
-        point![world_point.x, world_point.y]
+        self.inverse_tranform() * point![pos.x, pos.y]
     }
 
     fn transform_stroke(&self, stroke: Stroke) -> Stroke {
         Stroke {
-            width: stroke.width * self.world_to_pixel.scaling(),
+            width: stroke.width * self.scaling(),
             ..stroke
         }
     }
 
     pub fn line_segment(&self, start: Point2<Frame>, end: Point2<Frame>, stroke: Stroke) {
-        let start = self.transform_world_to_pixel(start);
-        let end = self.transform_world_to_pixel(end);
+        let start = self.world_to_pixel * start;
+        let end = self.world_to_pixel * end;
         let stroke = self.transform_stroke(stroke);
-        self.painter.line_segment([start, end], stroke);
+        self.painter
+            .line_segment([start.as_pos2(), end.as_pos2()], stroke);
     }
 
     pub fn rect_filled(&self, min: Point2<Frame>, max: Point2<Frame>, fill_color: Color32) {
@@ -260,10 +266,10 @@ impl<Frame> TwixPainter<Frame> {
         let left_top = point![min.x(), max.y()];
 
         let points: Vec<_> = vec![
-            self.transform_world_to_pixel(min),
-            self.transform_world_to_pixel(right_bottom),
-            self.transform_world_to_pixel(max),
-            self.transform_world_to_pixel(left_top),
+            (self.world_to_pixel * min).as_pos2(),
+            (self.world_to_pixel * right_bottom).as_pos2(),
+            (self.world_to_pixel * max).as_pos2(),
+            (self.world_to_pixel * left_top).as_pos2(),
         ];
 
         self.painter.add(Shape::Path(PathShape::convex_polygon(
@@ -278,10 +284,10 @@ impl<Frame> TwixPainter<Frame> {
         let left_top = point![min.x(), max.y()];
 
         let points: Vec<_> = vec![
-            self.transform_world_to_pixel(min),
-            self.transform_world_to_pixel(right_bottom),
-            self.transform_world_to_pixel(max),
-            self.transform_world_to_pixel(left_top),
+            (self.world_to_pixel * min).as_pos2(),
+            (self.world_to_pixel * right_bottom).as_pos2(),
+            (self.world_to_pixel * max).as_pos2(),
+            (self.world_to_pixel * left_top).as_pos2(),
         ];
 
         self.painter.add(Shape::Path(PathShape::convex_polygon(
@@ -292,23 +298,25 @@ impl<Frame> TwixPainter<Frame> {
     }
 
     pub fn circle(&self, center: Point2<Frame>, radius: f32, fill_color: Color32, stroke: Stroke) {
-        let center = self.transform_world_to_pixel(center);
-        let radius = radius * self.world_to_pixel.scaling();
+        let center = self.world_to_pixel * center;
+        let radius = radius * self.scaling();
         let stroke = self.transform_stroke(stroke);
-        self.painter.circle(center, radius, fill_color, stroke);
+        self.painter
+            .circle(center.as_pos2(), radius, fill_color, stroke);
     }
 
     pub fn circle_filled(&self, center: Point2<Frame>, radius: f32, fill_color: Color32) {
-        let center = self.transform_world_to_pixel(center);
-        let radius = radius * self.world_to_pixel.scaling();
-        self.painter.circle_filled(center, radius, fill_color);
+        let center = self.world_to_pixel * center;
+        let radius = radius * self.scaling();
+        self.painter
+            .circle_filled(center.as_pos2(), radius, fill_color);
     }
 
     pub fn circle_stroke(&self, center: Point2<Frame>, radius: f32, stroke: Stroke) {
-        let center = self.transform_world_to_pixel(center);
-        let radius = radius * self.world_to_pixel.scaling();
+        let center = self.world_to_pixel * center;
+        let radius = radius * self.scaling();
         let stroke = self.transform_stroke(stroke);
-        self.painter.circle_stroke(center, radius, stroke);
+        self.painter.circle_stroke(center.as_pos2(), radius, stroke);
     }
 
     pub fn ellipse(
@@ -326,7 +334,7 @@ impl<Frame> TwixPainter<Frame> {
                 let t = i as f32 * TAU / samples as f32;
                 let x = w * theta.cos() * t.cos() - h * theta.sin() * t.sin();
                 let y = w * theta.sin() * t.cos() + h * theta.cos() * t.sin();
-                self.transform_world_to_pixel(position + vector![x, y])
+                (self.world_to_pixel * (position + vector![x, y])).as_pos2()
             })
             .collect();
         let stroke = self.transform_stroke(stroke);
@@ -398,17 +406,18 @@ impl<Frame> TwixPainter<Frame> {
         font_id: eframe::epaint::FontId,
         color: Color32,
     ) {
-        let position = self.transform_world_to_pixel(position);
-        self.painter.text(position, align, text, font_id, color);
+        let position = self.world_to_pixel * position;
+        self.painter
+            .text(position.as_pos2(), align, text, font_id, color);
     }
 
     pub fn image(&self, texture_id: TextureId, rect: Rectangle<Frame>) {
         let Rectangle { min, max } = rect;
-        let min = self.transform_world_to_pixel(min);
-        let max = self.transform_world_to_pixel(max);
+        let min = self.world_to_pixel * min;
+        let max = self.world_to_pixel * max;
         self.painter.image(
             texture_id,
-            Rect::from_two_pos(min, max),
+            Rect::from_two_pos(min.as_pos2(), max.as_pos2()),
             Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
             Color32::WHITE,
         );
@@ -420,8 +429,8 @@ impl TwixPainter<Ground> {
         let width = 2.0;
         let dimensions = vector![length, width];
         let world_to_camera =
-            Similarity2::new(nalgebra::vector![length / 2.0, -width / 2.0], 0.0, 1.0);
-        self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
+            Similarity2::new(nalgebra::vector![length / 2.0, width / 2.0], 0.0, 1.0);
+        self.with_camera(dimensions, world_to_camera)
     }
 
     pub fn path(
@@ -459,9 +468,10 @@ impl TwixPainter<Field> {
         let length = field_dimensions.length + field_dimensions.border_strip_width * 2.0;
         let width = field_dimensions.width + field_dimensions.border_strip_width * 2.0;
         let dimensions = vector![length, width];
+        //let world_to_camera = Similarity2::identity();
         let world_to_camera =
-            Similarity2::new(nalgebra::vector![length / 2.0, -width / 2.0], 0.0, 1.0);
-        self.with_camera(dimensions, world_to_camera, CoordinateSystem::RightHand)
+            Similarity2::new(nalgebra::vector![length / 2.0, width / 2.0], 0.0, 1.0);
+        self.with_camera(dimensions, world_to_camera)
     }
 
     pub fn field(&self, field_dimensions: &FieldDimensions) {

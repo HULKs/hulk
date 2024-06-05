@@ -10,13 +10,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 
 use communication::client::{Cycler, CyclerOutput, Output};
-use linear_algebra::{point, vector};
+use linear_algebra::{point, vector, IntoTransform};
 
 use crate::{
-    image_buffer::ImageBuffer,
-    nao::Nao,
-    panel::Panel,
-    twix_painter::{CoordinateSystem, TwixPainter},
+    image_buffer::ImageBuffer, nao::Nao, panel::Panel, twix_painter::TwixPainter,
     zoom_and_pan::ZoomAndPanManager,
 };
 
@@ -154,12 +151,8 @@ impl Widget for &mut ImagePanel {
                 .combo_box(ui, self.cycler_selector.selected_cycler());
         });
         let (response, painter) = TwixPainter::allocate_new(ui);
-        let mut painter = painter.with_camera(
-            vector![640.0, 480.0],
-            Similarity2::identity(),
-            CoordinateSystem::LeftHand,
-        );
-        painter.append_transform(self.zoom_and_pan.transformation());
+        let mut painter = painter.with_camera(vector![640.0, 480.0], Similarity2::identity());
+        painter.append_transform(self.zoom_and_pan.transformation().framed_transform());
         let _ = self
             .show_image(&painter)
             .map_err(|error| ui.label(format!("{error:#?}")));
