@@ -4,7 +4,7 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{Context, ContextCompat},
+    eyre::{bail, Context, ContextCompat},
     Result,
 };
 use context_attribute::context;
@@ -15,7 +15,7 @@ use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
 use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
-use openvino::{Blob, Core, ExecutableNetwork, Layout, Precision, TensorDesc};
+use openvino::{CompiledModel, Core, DeviceType, ElementType, Tensor};
 use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
@@ -28,24 +28,17 @@ use types::{
 const DETECTION_IMAGE_HEIGHT: usize = 480;
 const DETECTION_IMAGE_WIDTH: usize = 192;
 const DETECTION_IMAGE_START_X: usize = (640 - DETECTION_IMAGE_WIDTH) / 2;
-const DETECTION_NUMBER_CHANNELS: usize = 3;
 
-const MAX_DETECTION: usize = 1890;
-
-const DETECTION_SCRATCHPAD_SIZE: usize =
-    DETECTION_IMAGE_WIDTH * DETECTION_IMAGE_HEIGHT * DETECTION_NUMBER_CHANNELS;
+const MAX_DETECTIONS: usize = 1890;
 
 const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
-    scratchpad: Vec<f32>,
+    scratchpad: Box<[f32]>,
     #[serde(skip, default = "deserialize_not_implemented")]
-    network: ExecutableNetwork,
-
-    input_name: String,
-    output_name: String,
+    network: CompiledModel,
 }
 
 #[context]
@@ -87,9 +80,9 @@ impl PoseDetection {
         let model_path = neural_network_folder.join(&model_xml_name);
         let weights_path = neural_network_folder.join(model_xml_name.with_extension("bin"));
 
-        let mut core = Core::new(None)?;
-        let mut network = core
-            .read_network_from_file(
+        let mut core = Core::new()?;
+        let network = core
+            .read_model_from_file(
                 model_path
                     .to_str()
                     .wrap_err("failed to get detection model path")?,
@@ -99,18 +92,29 @@ impl PoseDetection {
             )
             .wrap_err("failed to create detection network")?;
 
-        let input_name = network.get_input_name(0)?;
-        let output_name = network.get_output_name(0)?;
+        if !network
+            .get_inputs_len()
+            .wrap_err("failed to get number of inputs")?
+            == 1
+            && !network
+                .get_outputs_len()
+                .wrap_err("failed to get number of outputs")?
+                == 1
+        {
+            bail!("expected exactly one input and one output");
+        }
 
-        network
-            .set_input_layout(&input_name, Layout::NCHW)
-            .wrap_err("failed to set input data format")?;
+        let input_shape = network
+            .get_input_by_index(0)
+            .wrap_err("failed to get input node")?
+            .get_shape()
+            .wrap_err("failed to get shape of input node")?;
+        let number_of_elements = input_shape.get_dimensions().iter().product::<i64>();
+        let scratchpad = vec![0.0; number_of_elements as usize].into_boxed_slice();
 
         Ok(Self {
-            scratchpad: vec![0.0; DETECTION_SCRATCHPAD_SIZE],
-            network: core.load_network(&network, "CPU")?,
-            input_name,
-            output_name,
+            scratchpad,
+            network: core.compile_model(&network, DeviceType::CPU)?,
         })
     }
 
@@ -134,7 +138,7 @@ impl PoseDetection {
         {
             let earlier = context.hardware_interface.get_now();
 
-            load_into_scratchpad(&mut self.scratchpad, image);
+            load_into_scratchpad(self.scratchpad.as_mut(), image);
 
             context.preprocess_duration.fill_if_subscribed(|| {
                 context
@@ -146,22 +150,16 @@ impl PoseDetection {
         }
 
         let mut infer_request = self.network.create_infer_request()?;
+        let tensor = Tensor::new_from_host_ptr(
+            ElementType::F32,
+            &self.network.get_input()?.get_shape()?,
+            self.scratchpad.as_bytes(),
+        )?;
+        infer_request.set_input_tensor(&tensor)?;
 
-        let tensor_description = TensorDesc::new(
-            Layout::NCHW,
-            &[
-                1,
-                DETECTION_NUMBER_CHANNELS,
-                DETECTION_IMAGE_HEIGHT,
-                DETECTION_IMAGE_WIDTH,
-            ],
-            Precision::FP32,
-        );
-        let blob = Blob::new(&tensor_description, self.scratchpad[..].as_bytes())?;
         {
             let earlier = SystemTime::now();
 
-            infer_request.set_blob(&self.input_name, &blob)?;
             infer_request.infer()?;
             context.inference_duration.fill_if_subscribed(|| {
                 context
@@ -171,17 +169,17 @@ impl PoseDetection {
                     .expect("time ran backwards")
             });
         }
-        let mut prediction = infer_request.get_blob("output0")?;
-        let prediction = unsafe { prediction.buffer_mut_as_type::<f32>().unwrap() };
-        let prediction = ArrayView::from_shape((56, MAX_DETECTION), prediction)?;
+        let mut prediction = infer_request.get_output_tensor()?;
+        let prediction =
+            ArrayView::from_shape((56, MAX_DETECTIONS), prediction.get_data::<f32>()?)?;
 
         let earlier = SystemTime::now();
         let poses = prediction
             .columns()
             .into_iter()
             .filter_map(|row| {
-                let probability = row[4];
-                if probability < *context.keypoint_confidence_threshold {
+                let confidence = row[4];
+                if confidence < *context.keypoint_confidence_threshold {
                     return None;
                 }
                 let bounding_box_slice = row.slice(s![0..4]);
@@ -197,7 +195,7 @@ impl PoseDetection {
 
                 let bounding_box = BoundingBox {
                     area: Rectangle::<Pixel>::new_with_center_and_size(center, size),
-                    score: probability,
+                    score: confidence,
                 };
 
                 let keypoints_slice = row.slice(s![5..]);
