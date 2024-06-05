@@ -303,7 +303,7 @@ impl<'a> ImageColorSelectPanel {
                 [rgb.r, rgb.g, rgb.b, 255]
             })
             .collect::<Vec<_>>();
-        let image = ColorImage::from_rgba_unmultiplied([640, 480], &buffer);
+        let image = ColorImage::from_rgba_unmultiplied([image_data.width() as usize, image_data.height() as usize], &buffer);
         Ok(image)
     }
 }
