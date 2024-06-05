@@ -13,7 +13,8 @@ pub struct ConditionInputProvider {
 
 #[context]
 pub struct CreationContext {
-    angular_velocity_smoothing_factor: Parameter<f32, "angular_velocity_smoothing_factor">,
+    angular_velocity_smoothing_factor:
+        Parameter<f32, "condition_input_provider.angular_velocity_smoothing_factor">,
 }
 
 #[context]
