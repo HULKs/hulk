@@ -34,10 +34,11 @@ use log::error;
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    BehaviorSimulatorPanel, EnumPlotPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel,
-    ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel,
-    VisionTunerPanel,
+    BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel,
+    LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel, RemotePanel,
+    TextPanel, VisionTunerPanel,
 };
+
 use repository::{get_repository_root, Repository};
 use serde_json::{from_str, to_string, Value};
 use tokio::{
@@ -165,7 +166,8 @@ impl_selectable_panel!(
     EnumPlotPanel,
     RemotePanel,
     TextPanel,
-    VisionTunerPanel
+    VisionTunerPanel,
+    ImageColorSelectPanel,
 );
 struct TwixApp {
     nao: Arc<Nao>,

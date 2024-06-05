@@ -1,6 +1,7 @@
 mod behavior_simulator;
 mod enum_plot;
 mod image;
+mod image_color_select;
 mod image_segments;
 mod look_at;
 mod manual_camera_calibration;
@@ -14,6 +15,7 @@ mod vision_tuner;
 pub use self::behavior_simulator::BehaviorSimulatorPanel;
 pub use self::image::ImagePanel;
 pub use enum_plot::EnumPlotPanel;
+pub use image_color_select::ImageColorSelectPanel;
 pub use image_segments::ImageSegmentsPanel;
 pub use look_at::LookAtPanel;
 pub use manual_camera_calibration::ManualCalibrationPanel;
