@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::Result;
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
@@ -289,8 +289,7 @@ impl<'a> ImageColorSelectPanel {
     fn get_image(&self) -> Result<ColorImage> {
         let image_data: YCbCr422Image = self
             .image_buffer
-            .parse_latest()
-            .map_err(|error| eyre!("{error}"))?;
+            .parse_latest()?;
         let buffer = image_data
             .buffer()
             .iter()
