@@ -13,6 +13,8 @@ use linear_algebra::{
 };
 use types::{
     field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
     kick_decision::KickDecision,
     kick_target::{KickTarget, KickTargetWithKickVariants},
     motion_command::KickVariant,
@@ -36,6 +38,8 @@ pub struct CycleContext {
     obstacles: Input<Vec<Obstacle>, "obstacles">,
     obstacle_circles: Input<Vec<Circle<Ground>>, "obstacle_circles">,
     allow_instant_kicks: Input<bool, "allow_instant_kicks">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -90,6 +94,7 @@ impl KickSelector {
                 &mut context.instant_kick_targets,
                 *context.default_kick_strength,
                 *context.goal_accuracy_margin,
+                context.filtered_game_controller_state,
             )
         } else {
             context
@@ -154,6 +159,7 @@ fn generate_decisions_for_instant_kicks(
     instant_kick_targets: &mut AdditionalOutput<Vec<Point2<Ground>>>,
     default_kick_strength: f32,
     goal_accuracy_margin: f32,
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
 ) -> Vec<KickDecision> {
     let field_to_ground = ground_to_field.inverse();
     instant_kick_targets.fill_if_subscribed(Default::default);
@@ -210,7 +216,31 @@ fn generate_decisions_for_instant_kicks(
             let is_good_emergency_target =
                 is_ball_close_to_own_goal && is_target_farer_away_from_our_goal;
             let is_strategic_target = is_target_closer_to_opponent_goal || is_good_emergency_target;
-            if (is_inside_field || scores_goal)
+
+            let is_inside_kick_off_target_region =
+                field_dimensions.is_inside_kick_off_target_region(ground_to_field * target);
+
+            let is_own_kick_off = matches!(
+                filtered_game_controller_state.map(|x| x.game_state),
+                Some(FilteredGameState::Playing { kick_off: true, .. })
+            );
+
+            if is_own_kick_off
+                && is_inside_field
+                && is_inside_kick_off_target_region
+                && !is_intersecting_with_an_obstacle
+            {
+                instant_kick_targets
+                    .mutate_if_subscribed(|targets| targets.as_mut().unwrap().push(target));
+                let kick_pose = compute_kick_pose(ball_position, target, kick_info, kicking_side);
+                Some(KickDecision {
+                    variant,
+                    kicking_side,
+                    kick_pose,
+                    strength: default_kick_strength,
+                })
+            } else if !is_own_kick_off
+                && (is_inside_field || scores_goal)
                 && !is_intersecting_with_an_obstacle
                 && is_strategic_target
             {

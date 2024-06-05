@@ -150,7 +150,7 @@ fn collect_kick_targets(
                 kick_variants: vec![KickVariant::Forward, KickVariant::Side],
             })
             .collect(),
-            false,
+            true,
         )
     } else if is_ball_in_opponents_corners(
         ball_position,
