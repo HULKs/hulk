@@ -24,15 +24,10 @@ pub struct TwixPainter<Frame> {
 }
 trait Convert {
     fn as_pos2(&self) -> Pos2;
-    fn as_point(position: Pos2) -> Self;
 }
 impl Convert for Point2<Screen> {
     fn as_pos2(&self) -> Pos2 {
         Pos2::new(self.x(), self.y())
-    }
-
-    fn as_point(position: Pos2) -> Self {
-        point!(position.x, position.y)
     }
 }
 
