@@ -107,8 +107,8 @@ impl PrimaryStateFilter {
 
             // non-GameController transitions
             (PrimaryState::Unstiff, _, true, _, None, _) => PrimaryState::Initial,
-            (PrimaryState::Unstiff, _, false, _, None, true) => PrimaryState::Animation, //here double tap = true & single tap = false => Animation mode
-            (PrimaryState::Animation, _, false, _, None, true) => PrimaryState::AnimationStiff,
+            (PrimaryState::Unstiff|PrimaryState::Animation {stiff:true}, _, false, _, None, true) => PrimaryState::Animation {stiff:false}, //here double tap = true & single tap = false => Animation mode
+            (PrimaryState::Animation{..}, _, true, _, None, false) => PrimaryState::Animation {stiff:true},
             (PrimaryState::Finished, _, true, _, None, _) => PrimaryState::Initial,
             (PrimaryState::Initial, _, true, _, None, _) => PrimaryState::Penalized,
             (PrimaryState::Penalized, _, true, _, None, _) => PrimaryState::Playing,

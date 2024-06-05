@@ -1,14 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::PathsInterface;
 use serde::{Deserialize, Serialize};
 use types::{
-    condition_input::ConditionInput,
-    cycle_time::CycleTime,
     joints::Joints,
     motion_command::MotionCommand,
-    motion_selection::MotionSelection,
     motor_commands::MotorCommands,
     sensor_data::SensorData,
 };
@@ -20,14 +16,11 @@ pub struct Animation {
 
 #[context]
 pub struct CreationContext {
-    hardware_interface: HardwareInterface,
+    
 }
 
 #[context]
 pub struct CycleContext {
-    condition_input: Input<ConditionInput, "condition_input">,
-    cycle_time: Input<CycleTime, "cycle_time">,
-    motion_selection: Input<MotionSelection, "motion_selection">,
     sensor_data: Input<SensorData, "sensor_data">,
     motion_command: Input<MotionCommand, "motion_command">,
 }
@@ -39,8 +32,7 @@ pub struct MainOutputs {
 }
 
 impl Animation {
-    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
-        let paths = context.hardware_interface.get_paths();
+    pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             save_joints_value: Joints::default(),
         })

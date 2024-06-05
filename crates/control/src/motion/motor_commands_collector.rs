@@ -64,7 +64,7 @@ impl MotorCommandCollector {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let measured_positions = context.sensor_data.positions;
         let current_positions = context.sensor_data.positions;
-        let animation_positions = context.animation_positions;    
+        let animation = context.animation_positions;    
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;
         let fall_protection_stiffnesses = context.fall_protection_command.stiffnesses;
@@ -80,8 +80,8 @@ impl MotorCommandCollector {
         let walk = context.walk_motor_commands;
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
-            MotionType::Animation => (current_positions, Joints::fill(0.0)),
-            MotionType::AnimationStiff => (current_positions, Joints::fill(1.0)),
+            MotionType::Animation => (animation.positions, animation.stiffnesses),
+            MotionType::AnimationStiff => (animation.positions, animation.stiffnesses),
             MotionType::ArmsUpSquat => (arms_up_squat.positions, arms_up_squat.stiffnesses),
             MotionType::Dispatching => {
                 self.current_minimizer.reset();
