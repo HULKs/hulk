@@ -67,12 +67,12 @@ fn main() -> Result<()> {
     )
     .wrap_err("failed to create image extractor")?;
 
-    let vision_top_reader = replayer.vision_top_reader();
-    let vision_bottom_reader = replayer.vision_bottom_reader();
+    let vision_top_receiver = replayer.vision_top_receiver();
+    let vision_bottom_receiver = replayer.vision_bottom_receiver();
 
-    for (instance_name, reader) in [
-        ("VisionTop", vision_top_reader),
-        ("VisionBottom", vision_bottom_reader),
+    for (instance_name, mut receiver) in [
+        ("VisionTop", vision_top_receiver),
+        ("VisionBottom", vision_bottom_receiver),
     ] {
         let output_folder = &output_folder.join(instance_name);
         create_dir_all(output_folder).expect("failed to create output folder");
@@ -102,7 +102,7 @@ fn main() -> Result<()> {
                     .replay(instance_name, frame.timing.timestamp, &frame.data)
                     .expect("failed to replay frame");
 
-                let database = reader.next();
+                let database = &*receiver.borrow_and_mark_as_seen();
                 let output_file = output_folder.join(format!(
                     "{}.png",
                     frame

@@ -483,6 +483,10 @@ impl App for TwixApp {
                     }
                 }
             }
+            if context.keybind_pressed(KeybindAction::OpenTab) {
+                let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
+                self.dock_state.push_to_focused_leaf(tab.into());
+            }
 
             if context.keybind_pressed(KeybindAction::FocusLeft) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {

@@ -2,6 +2,8 @@ use std::{collections::HashSet, iter::Peekable, ops::Range};
 
 use color_eyre::Result;
 use geometry::line::{Line, Line2};
+use rand::SeedableRng;
+use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -10,6 +12,7 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, point, vector, Point2, Vector2};
 use ordered_float::NotNan;
 use projection::{camera_matrix::CameraMatrix, Projection};
+use ransac::{Ransac, RansacResult};
 use types::{
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, Segment},
@@ -17,10 +20,10 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-use crate::ransac::{Ransac, RansacResult};
-
 #[derive(Deserialize, Serialize)]
-pub struct LineDetection {}
+pub struct LineDetection {
+    random_state: ChaChaRng,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -69,7 +72,9 @@ pub struct MainOutputs {
 
 impl LineDetection {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            random_state: ChaChaRng::from_entropy(),
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -106,6 +111,7 @@ impl LineDetection {
                 line: ransac_line,
                 used_points,
             } = ransac.next_line(
+                &mut self.random_state,
                 *context.ransac_iterations,
                 *context.maximum_fit_distance_in_ground,
                 *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,

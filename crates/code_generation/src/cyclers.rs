@@ -88,12 +88,13 @@ fn generate_database_struct() -> TokenStream {
     quote! {
         #[derive(
             Default,
+            Clone,
             serde::Serialize,
             serde::Deserialize,
             path_serde::PathSerialize,
             path_serde::PathIntrospect,
         )]
-        pub(crate) struct Database {
+        pub struct Database {
             pub main_outputs: MainOutputs,
             pub additional_outputs: AdditionalOutputs,
         }
@@ -126,11 +127,10 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
         pub(crate) struct Cycler<HardwareInterface>  {
             instance: CyclerInstance,
             hardware_interface: std::sync::Arc<HardwareInterface>,
-            own_writer: framework::Writer<Database>,
-            own_changed: std::sync::Arc<tokio::sync::Notify>,
-            own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
-            parameters_reader: framework::Reader<crate::structs::Parameters>,
-            cycler_state: crate::structs::#module_name::CyclerState,
+            own_sender: buffered_watch::Sender<Database>,
+            own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
+            parameters_receiver: buffered_watch::Receiver<crate::structs::Parameters>,
+            pub cycler_state: crate::structs::#module_name::CyclerState,
             #realtime_inputs
             #input_output_fields
             #node_fields
@@ -142,10 +142,10 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
 fn generate_input_output_fields(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     match cycler.kind {
         CyclerKind::Perception => {
-            let readers = generate_reader_fields(cyclers);
+            let receivers = generate_receiver_fields(cyclers);
             quote! {
                 own_producer: framework::Producer<MainOutputs>,
-                #readers
+                #receivers
             }
         }
         CyclerKind::RealTime => {
@@ -157,15 +157,15 @@ fn generate_input_output_fields(cycler: &Cycler, cyclers: &Cyclers) -> TokenStre
     }
 }
 
-fn generate_reader_fields(cyclers: &Cyclers) -> TokenStream {
+fn generate_receiver_fields(cyclers: &Cyclers) -> TokenStream {
     cyclers
         .instances_with(CyclerKind::RealTime)
         .map(|(cycler, instance)| {
-            let field_name = format_ident!("{}_reader", instance.to_case(Case::Snake));
+            let field_name = format_ident!("{}_receiver", instance.to_case(Case::Snake));
             let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
 
             quote! {
-                #field_name: framework::Reader<crate::cyclers::#cycler_module_name::Database>,
+                #field_name: buffered_watch::Receiver<crate::cyclers::#cycler_module_name::Database>,
             }
         })
         .collect()
@@ -251,23 +251,23 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> 
         pub(crate) fn new(
             instance: CyclerInstance,
             hardware_interface: std::sync::Arc<HardwareInterface>,
-            own_writer: framework::Writer<Database>,
-            own_changed: std::sync::Arc<tokio::sync::Notify>,
-            own_subscribed_outputs_reader: framework::Reader<std::collections::HashSet<String>>,
-            parameters_reader: framework::Reader<crate::structs::Parameters>,
+            own_sender: buffered_watch::Sender<Database>,
+            own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
+            mut parameters_receiver: buffered_watch::Receiver<crate::structs::Parameters>,
             #input_output_fields
             #recording_parameter_fields
         ) -> color_eyre::Result<Self> {
-            let parameters = parameters_reader.next().clone();
+            let parameters_guard = parameters_receiver.borrow_and_mark_as_seen();
+            let parameters = &* parameters_guard;
             let mut cycler_state = crate::structs::#cycler_module_name::CyclerState::default();
             #node_initializers
+            drop(parameters_guard);
             Ok(Self {
                 instance,
                 hardware_interface,
-                own_writer,
-                own_changed,
-                own_subscribed_outputs_reader,
-                parameters_reader,
+                own_sender,
+                own_subscribed_outputs_receiver,
+                parameters_receiver,
                 cycler_state,
                 #input_output_identifiers
                 #(#node_identifiers,)*
@@ -353,10 +353,10 @@ fn generate_node_field_initializers(node: &Node, cycler: &Cycler) -> TokenStream
 fn generate_input_output_identifiers(cycler: &Cycler, cyclers: &Cyclers) -> TokenStream {
     match cycler.kind {
         CyclerKind::Perception => {
-            let readers = generate_reader_identifiers(cyclers);
+            let receivers = generate_receiver_identifiers(cyclers);
             quote! {
                 own_producer,
-                #(#readers,)*
+                #(#receivers,)*
             }
         }
         CyclerKind::RealTime => {
@@ -370,10 +370,10 @@ fn generate_input_output_identifiers(cycler: &Cycler, cyclers: &Cyclers) -> Toke
     }
 }
 
-fn generate_reader_identifiers(cyclers: &Cyclers) -> Vec<Ident> {
+fn generate_receiver_identifiers(cyclers: &Cyclers) -> Vec<Ident> {
     cyclers
         .instances_with(CyclerKind::RealTime)
-        .map(|(_cycler, instance)| format_ident!("{}_reader", instance.to_case(Case::Snake)))
+        .map(|(_cycler, instance)| format_ident!("{}_receiver", instance.to_case(Case::Snake)))
         .collect()
 }
 
@@ -487,14 +487,14 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
             }
         }
     };
-    let lock_readers = match cycler.kind {
+    let borrow_receivers = match cycler.kind {
         CyclerKind::Perception => cyclers
             .instances_with(CyclerKind::RealTime)
             .map(|(_cycler, instance)| {
-                let reader = format_ident!("{}_reader", instance.to_case(Case::Snake));
+                let receiver = format_ident!("{}_receiver", instance.to_case(Case::Snake));
                 let database = format_ident!("{}_database", instance.to_case(Case::Snake));
                 quote! {
-                    let #database = self.#reader.next();
+                    let #database = self.#receiver.borrow_and_mark_as_seen();
                 }
             })
             .collect(),
@@ -502,14 +502,14 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
     };
     let after_remaining_nodes = match cycler.kind {
         CyclerKind::Perception => quote! {
-            self.own_producer.finalize(own_database_reference.main_outputs.clone());
+            self.own_producer.finalize(own_database.main_outputs.clone());
         },
         CyclerKind::RealTime => quote! {
             self.historic_databases.update(
                 now,
                 self.perception_databases
                     .get_first_timestamp_of_temporary_databases(),
-                &own_database_reference.main_outputs,
+                &own_database.main_outputs,
             );
         },
     };
@@ -543,38 +543,31 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
     quote! {
         #[allow(clippy::nonminimal_bool)]
         #cycle_function_signature {
+            let instance = self.instance;
+            let instance_name = format!("{instance:?}");
+            let itt_domain = ittapi::Domain::new(&instance_name);
+
+            let own_database = &mut *self.own_sender.borrow_mut();
+
+            #pre_setup
+
             {
-                let instance = self.instance;
-                let instance_name = format!("{instance:?}");
-                let itt_domain = ittapi::Domain::new(&instance_name);
-
-                let mut own_database = self.own_writer.next();
-                let own_database_reference = {
-                    use std::ops::DerefMut;
-                    own_database.deref_mut()
-                };
-
-                #pre_setup
-
-                {
-                    let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
-                    let parameters = self.parameters_reader.next();
-                    #(#setup_node_executions)*
-                }
-
-                #post_setup
-
-                {
-                    let own_subscribed_outputs = self.own_subscribed_outputs_reader.next();
-                    let parameters = self.parameters_reader.next();
-                    #lock_readers
-                    #cross_inputs
-                    #(#cycle_node_executions)*
-                }
-
-                #after_remaining_nodes
+                let own_subscribed_outputs = self.own_subscribed_outputs_receiver.borrow_and_mark_as_seen();
+                let parameters = self.parameters_receiver.borrow_and_mark_as_seen();
+                #(#setup_node_executions)*
             }
-            self.own_changed.notify_one();
+
+            #post_setup
+
+            {
+                let own_subscribed_outputs = self.own_subscribed_outputs_receiver.borrow_and_mark_as_seen();
+                let parameters = self.parameters_receiver.borrow_and_mark_as_seen();
+                #borrow_receivers
+                #cross_inputs
+                #(#cycle_node_executions)*
+            }
+
+            #after_remaining_nodes
             Ok(())
         }
     }
@@ -637,7 +630,7 @@ fn generate_cross_inputs_recording(
             }
             Field::HistoricInput { path, .. } => {
                 let now_accessor = path_to_accessor_token_stream(
-                    quote!{ own_database_reference.main_outputs },
+                    quote!{ own_database.main_outputs },
                     &path,
                     ReferenceKind::Immutable,
                     cycler,
@@ -932,7 +925,7 @@ fn generate_record_main_outputs(node: &Node) -> TokenStream {
                 let error_message = format!("failed to record {name}");
                 Some(quote! {
                     if enable_recording {
-                        bincode::serialize_into(&mut recording_frame, &own_database_reference.main_outputs.#name).wrap_err(#error_message)?;
+                        bincode::serialize_into(&mut recording_frame, &own_database.main_outputs.#name).wrap_err(#error_message)?;
                     }
                 })
             },
@@ -959,7 +952,7 @@ fn generate_deserialize_frame_and_write_main_outputs(node: &Node) -> TokenStream
             Field::MainOutput { name, .. } => {
                 let error_message = format!("failed to extract {name}");
                 Some(quote! {
-                    own_database_reference.main_outputs.#name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
+                    own_database.main_outputs.#name = bincode::deserialize_from(&mut recording_frame).wrap_err(#error_message)?;
                 })
             }
             _ => None,
@@ -1015,7 +1008,7 @@ fn generate_required_input_condition(
                             quote! { #identifier.main_outputs }
                         }
                         None => {
-                            quote! { own_database_reference.main_outputs }
+                            quote! { own_database.main_outputs }
                         }
                     };
                     let accessor = path_to_accessor_token_stream(
@@ -1041,7 +1034,7 @@ fn generate_required_input_condition(
                     }
                     None => {
                         let accessor = path_to_accessor_token_stream(
-                            quote! { own_database_reference.main_outputs },
+                            quote! { own_database.main_outputs },
                             path,
                             ReferenceKind::Immutable,
                             cycler,
@@ -1068,7 +1061,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
             .map(|field| match field {
                 Field::AdditionalOutput {  path, .. } => {
                     let accessor = path_to_accessor_token_stream(
-                        quote!{ own_database_reference.additional_outputs },
+                        quote!{ own_database.additional_outputs },
                         path,
                         ReferenceKind::Mutable,
                         cycler,
@@ -1113,7 +1106,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
                     match mode {
                         CyclerMode::Run => {
                             let now_accessor = path_to_accessor_token_stream(
-                                quote!{ own_database_reference.main_outputs },
+                                quote!{ own_database.main_outputs },
                                 path,
                                 ReferenceKind::Immutable,
                                 cycler,
@@ -1207,7 +1200,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
                             }
                         }
                         None => {
-                            let database_prefix = quote! { own_database_reference.main_outputs };
+                            let database_prefix = quote! { own_database.main_outputs };
                             let accessor = path_to_accessor_token_stream(
                                 database_prefix,
                                 path,
@@ -1345,7 +1338,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
                             }
                         }
                         None => {
-                            let database_prefix = quote! { own_database_reference.main_outputs };
+                            let database_prefix = quote! { own_database.main_outputs };
                             let accessor = path_to_accessor_token_stream(
                                 database_prefix,
                                 path,
@@ -1370,7 +1363,7 @@ fn generate_write_main_outputs(node: &Node) -> TokenStream {
         .iter()
         .filter_map(|field| match field {
             Field::MainOutput { name, .. } => Some(quote! {
-                own_database_reference.main_outputs.#name = main_outputs.#name.value;
+                own_database.main_outputs.#name = main_outputs.#name.value;
             }),
             _ => None,
         })
@@ -1384,7 +1377,7 @@ fn generate_write_main_outputs_from_defaults(node: &Node) -> TokenStream {
         .filter_map(|field| match field {
             Field::MainOutput { name, .. } => {
                 let setter = quote! {
-                    own_database_reference.main_outputs.#name = Default::default();
+                    own_database.main_outputs.#name = Default::default();
                 };
                 Some(setter)
             }

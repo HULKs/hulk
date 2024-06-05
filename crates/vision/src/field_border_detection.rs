@@ -1,5 +1,7 @@
 use color_eyre::Result;
 use geometry::line::{Line, Line2};
+use rand::SeedableRng;
+use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -7,16 +9,17 @@ use coordinate_systems::Pixel;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
+use ransac::Ransac;
 use types::{
     color::Intensity,
     field_border::FieldBorder,
     image_segments::{ImageSegments, ScanLine, Segment},
 };
 
-use crate::ransac::Ransac;
-
 #[derive(Deserialize, Serialize)]
-pub struct FieldBorderDetection {}
+pub struct FieldBorderDetection {
+    random_state: ChaChaRng,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -46,7 +49,9 @@ pub struct MainOutputs {
 
 impl FieldBorderDetection {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            random_state: ChaChaRng::from_entropy(),
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -75,6 +80,7 @@ impl FieldBorderDetection {
         let ransac = Ransac::new(first_field_pixels);
         let border_lines = find_border_lines(
             ransac,
+            &mut self.random_state,
             context.camera_matrix,
             *context.min_points_per_line,
             *context.angle_threshold,
@@ -96,6 +102,7 @@ fn get_first_field_segment(scan_line: &ScanLine) -> Option<&Segment> {
 
 fn find_border_lines(
     mut ransac: Ransac<Pixel>,
+    random_state: &mut ChaChaRng,
     camera_matrix: &CameraMatrix,
     min_points_per_line: usize,
     angle_threshold: f32,
@@ -104,6 +111,7 @@ fn find_border_lines(
 ) -> Vec<Line2<Pixel>> {
     // first line
     let result = ransac.next_line(
+        random_state,
         20,
         first_line_association_distance,
         first_line_association_distance,
@@ -114,6 +122,7 @@ fn find_border_lines(
     let first_line = best_fit_line(&result.used_points);
     // second line
     let result = ransac.next_line(
+        random_state,
         20,
         second_line_association_distance,
         second_line_association_distance,

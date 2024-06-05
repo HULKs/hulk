@@ -2,7 +2,7 @@ use std::{path::Path, time::Instant};
 
 use color_eyre::{eyre::Context, Result};
 
-use behavior_simulator::simulator::Simulator;
+use hulk_behavior_simulator::simulator::Simulator;
 
 fn test_scenario(path: impl AsRef<Path>) -> Result<()> {
     let mut simulator = Simulator::try_new()?;

@@ -690,43 +690,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "behavior_simulator"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "chrono",
- "clap 4.5.4",
- "code_generation",
- "color-eyre",
- "communication",
- "control",
- "coordinate_systems",
- "ctrlc",
- "fern",
- "framework",
- "geometry",
- "hardware",
- "ittapi",
- "linear_algebra",
- "log",
- "mlua",
- "nalgebra",
- "parameters",
- "parking_lot",
- "path_serde",
- "proc-macro2",
- "projection",
- "quote",
- "serde",
- "source_analyzer",
- "spl_network",
- "spl_network_messages",
- "tokio",
- "tokio-util",
- "types",
-]
-
-[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -933,6 +896,14 @@ dependencies = [
  "memchr",
  "regex-automata",
  "serde",
+]
+
+[[package]]
+name = "buffered_watch"
+version = "0.1.0"
+dependencies = [
+ "parking_lot",
+ "tokio",
 ]
 
 [[package]]
@@ -1352,8 +1323,8 @@ name = "communication"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "buffered_watch",
  "color-eyre",
- "framework",
  "futures-util",
  "log",
  "parameters",
@@ -1464,6 +1435,7 @@ dependencies = [
  "path_serde",
  "projection",
  "rand",
+ "rand_chacha",
  "serde",
  "smallvec",
  "spl_network_messages",
@@ -2941,6 +2913,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "bincode",
+ "buffered_watch",
  "code_generation",
  "color-eyre",
  "communication",
@@ -2972,10 +2945,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "hulk_behavior_simulator"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "buffered_watch",
+ "chrono",
+ "clap 4.5.4",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "context_attribute",
+ "control",
+ "coordinate_systems",
+ "ctrlc",
+ "fern",
+ "framework",
+ "geometry",
+ "hardware",
+ "ittapi",
+ "linear_algebra",
+ "log",
+ "mlua",
+ "nalgebra",
+ "parameters",
+ "parking_lot",
+ "path_serde",
+ "proc-macro2",
+ "projection",
+ "quote",
+ "serde",
+ "serde_json",
+ "source_analyzer",
+ "spl_network",
+ "spl_network_messages",
+ "tokio",
+ "tokio-util",
+ "types",
+]
+
+[[package]]
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "buffered_watch",
  "code_generation",
  "color-eyre",
  "coordinate_systems",
@@ -3040,6 +3054,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "bincode",
+ "buffered_watch",
  "chrono",
  "code_generation",
  "color-eyre",
@@ -4756,6 +4771,7 @@ checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
  "rand_core",
+ "serde",
 ]
 
 [[package]]
@@ -4775,6 +4791,19 @@ checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
  "rand",
+]
+
+[[package]]
+name = "ransac"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "geometry",
+ "linear_algebra",
+ "nalgebra",
+ "ordered-float",
+ "rand",
+ "rand_chacha",
 ]
 
 [[package]]
@@ -6172,6 +6201,8 @@ dependencies = [
  "ordered-float",
  "projection",
  "rand",
+ "rand_chacha",
+ "ransac",
  "serde",
  "types",
 ]

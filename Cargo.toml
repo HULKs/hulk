@@ -5,6 +5,7 @@ members = [
   "crates/approx_derive",
   "crates/argument_parsers",
   "crates/audio",
+  "crates/buffered_watch",
   "crates/calibration",
   "crates/code_generation",
   "crates/communication",
@@ -18,6 +19,7 @@ members = [
   "crates/geometry",
   "crates/hardware",
   "crates/hulk",
+  "crates/hulk_behavior_simulator",
   "crates/hulk_imagine",
   "crates/hulk_manifest",
   "crates/hulk_nao",
@@ -35,6 +37,7 @@ members = [
   "crates/path_serde",
   "crates/path_serde_derive",
   "crates/projection",
+  "crates/ransac",
   "crates/repository",
   "crates/source_analyzer",
   "crates/spl_network",
@@ -43,7 +46,6 @@ members = [
   "crates/vision",
   "crates/walking_engine",
   "tools/annotato",
-  "tools/behavior_simulator",
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
@@ -127,6 +129,7 @@ linear_algebra = { path = "crates/linear_algebra" }
 log = "0.4.17"
 mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
 motionfile = { path = "crates/motionfile" }
+buffered_watch = { path = "crates/buffered_watch" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
@@ -154,7 +157,9 @@ proc-macro2 = { version = "1.0.44", features = ["span-locations"] }
 projection = { path = "crates/projection" }
 quote = "1.0.21"
 rand = "0.8.5"
+rand_chacha = { version = "0.3.1", features = ["serde1"] }
 rand_distr = "0.4.3"
+ransac = { path = "crates/ransac" }
 regex = "1.6.0"
 repository = { path = "crates/repository" }
 reqwest = { version = "0.11.23", features = ["blocking"] }

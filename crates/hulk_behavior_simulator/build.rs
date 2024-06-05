@@ -17,18 +17,17 @@ fn main() -> Result<()> {
                 name: "Control",
                 kind: CyclerKind::RealTime,
                 instances: vec![""],
-                setup_nodes: vec!["control::fake_data"],
+                setup_nodes: vec!["crate::fake_data"],
                 nodes: vec![
                     "control::active_vision",
                     "control::ball_state_composer",
                     "control::behavior::node",
-                    "control::referee_position_provider",
                     "control::game_controller_state_filter",
                     "control::kick_selector",
                     "control::kick_target_provider",
                     "control::motion::look_around",
                     "control::motion::motion_selector",
-                    "control::referee_pose_detection_filter",
+                    "control::referee_position_provider",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
                     "control::search_suggestor",
@@ -41,7 +40,7 @@ fn main() -> Result<()> {
                 kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
-                nodes: vec![],
+                nodes: vec!["spl_network::message_filter"],
             },
         ],
     };
@@ -77,7 +76,7 @@ fn main() -> Result<()> {
     paths
         .write_to_file("behavior_files.rs")
         .wrap_err("failed to write generated tests to file")?;
-    generate(&cyclers, &structs, ExecutionMode::None)
+    generate(&cyclers, &structs, ExecutionMode::Run)
         .write_to_file("generated_code.rs")
         .wrap_err("failed to write generated code to file")
 }

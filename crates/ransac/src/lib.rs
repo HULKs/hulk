@@ -1,7 +1,7 @@
 use geometry::line::{Line, Line2};
 use linear_algebra::Point2;
 use ordered_float::NotNan;
-use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng};
 
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {
@@ -11,22 +11,18 @@ pub struct RansacResult<Frame> {
 
 pub struct Ransac<Frame> {
     pub unused_points: Vec<Point2<Frame>>,
-    random_number_generator: StdRng,
 }
 
 impl<Frame> Ransac<Frame> {
-    pub fn new(unused_points: Vec<Point2<Frame>>) -> Self {
-        Self {
-            unused_points,
-            random_number_generator: StdRng::from_rng(thread_rng())
-                .expect("Failed to create random number generator"),
-        }
+    pub fn new(unused_points: Vec<Point2<Frame>>) -> Ransac<Frame> {
+        Ransac { unused_points }
     }
 }
 
 impl<Frame> Ransac<Frame> {
     pub fn next_line(
         &mut self,
+        random_number_generator: &mut impl Rng,
         iterations: usize,
         maximum_score_distance: f32,
         maximum_inclusion_distance: f32,
@@ -37,6 +33,7 @@ impl<Frame> Ransac<Frame> {
                 used_points: vec![],
             };
         }
+
         let maximum_score_distance_squared = maximum_score_distance * maximum_score_distance;
         let maximum_inclusion_distance_squared =
             maximum_inclusion_distance * maximum_inclusion_distance;
@@ -44,7 +41,7 @@ impl<Frame> Ransac<Frame> {
             .map(|_| {
                 let mut points = self
                     .unused_points
-                    .choose_multiple(&mut self.random_number_generator, 2);
+                    .choose_multiple(random_number_generator, 2);
                 let line = Line(*points.next().unwrap(), *points.next().unwrap());
                 let score: f32 = self
                     .unused_points
@@ -72,43 +69,50 @@ impl<Frame> Ransac<Frame> {
 
 #[cfg(test)]
 mod test {
-    use approx::assert_relative_eq;
+    use approx::{assert_relative_eq, relative_eq};
     use linear_algebra::point;
+    use rand::SeedableRng;
+    use rand_chacha::ChaChaRng;
 
     use super::*;
 
     #[derive(Debug, PartialEq, Eq, Default)]
     struct SomeFrame;
 
-    fn ransac_with_seed(unused_points: Vec<Point2<SomeFrame>>, seed: u64) -> Ransac<SomeFrame> {
-        Ransac {
-            unused_points,
-            random_number_generator: StdRng::seed_from_u64(seed),
-        }
-    }
-
     #[test]
     fn ransac_empty_input() {
-        let mut ransac = ransac_with_seed(vec![], 0);
-        assert_eq!(ransac.next_line(10, 5.0, 5.0), RansacResult::default());
+        let mut ransac = Ransac::<SomeFrame>::new(vec![]);
+        let mut rng = ChaChaRng::from_entropy();
+        assert_eq!(
+            ransac.next_line(&mut rng, 10, 5.0, 5.0),
+            RansacResult::default()
+        );
     }
 
     #[test]
     fn ransac_single_point() {
-        let mut ransac = ransac_with_seed(vec![point![15.0, 15.0]], 0);
-        assert_eq!(ransac.next_line(10, 5.0, 5.0), RansacResult::default());
+        let mut ransac = Ransac::<SomeFrame>::new(vec![]);
+        let mut rng = ChaChaRng::from_entropy();
+        assert_eq!(
+            ransac.next_line(&mut rng, 10, 5.0, 5.0),
+            RansacResult::default()
+        );
     }
 
     #[test]
     fn ransac_two_points() {
-        let mut ransac = ransac_with_seed(vec![point![15.0, 15.0], point![30.0, 30.0]], 0);
-        let result = ransac.next_line(10, 5.0, 5.0);
-        assert_relative_eq!(
-            result.line.expect("No line found"),
-            Line(point![15.0, 15.0], point![30.0, 30.0])
-        );
-        assert_relative_eq!(result.used_points[0], point![15.0, 15.0]);
-        assert_relative_eq!(result.used_points[1], point![30.0, 30.0]);
+        let p1 = point![15.0, 15.0];
+        let p2 = point![30.0, 30.0];
+        let mut ransac = Ransac::<SomeFrame>::new(vec![p1, p2]);
+        let mut rng = ChaChaRng::from_entropy();
+        let RansacResult { line, used_points } = ransac.next_line(&mut rng, 10, 5.0, 5.0);
+        let line = line.expect("No line found");
+        println!("{line:#?}");
+        println!("{used_points:#?}");
+
+        assert!(relative_eq!(line, Line(p1, p2)) || relative_eq!(line, Line(p2, p1)));
+        assert!(relative_eq!(used_points[0], p1) || relative_eq!(used_points[0], p2));
+        assert!(relative_eq!(used_points[1], p2) || relative_eq!(used_points[0], p1));
     }
 
     #[test]
@@ -119,8 +123,9 @@ mod test {
             .map(|x| point![x as f32, y_intercept + x as f32 * slope])
             .collect();
 
-        let mut ransac = ransac_with_seed(points.clone(), 0);
-        let result = ransac.next_line(15, 1.0, 1.0);
+        let mut ransac = Ransac::<SomeFrame>::new(points.clone());
+        let mut rng = ChaChaRng::from_entropy();
+        let result = ransac.next_line(&mut rng, 15, 1.0, 1.0);
         let line = result.line.expect("No line was found");
         assert_relative_eq!(line.slope(), slope, epsilon = 0.0001);
         assert_relative_eq!(line.y_axis_intercept(), y_intercept, epsilon = 0.0001);

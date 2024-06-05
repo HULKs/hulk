@@ -1,14 +1,9 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
-use framework::Writer;
 use parameters::directory::{deserialize, serialize};
 use path_serde::{PathDeserialize, PathSerialize};
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::{
-    spawn,
-    sync::{mpsc::Receiver, Notify},
-    task::JoinHandle,
-};
+use tokio::{spawn, sync::mpsc::Receiver, task::JoinHandle};
 
 use crate::{
     messages::{ParametersResponse, Response, TextualResponse},
@@ -18,8 +13,7 @@ use crate::{
 use super::StorageRequest;
 
 pub fn storage<Parameters>(
-    parameters_writer: Writer<Parameters>,
-    parameters_changed: Arc<Notify>,
+    mut parameters_writer: buffered_watch::Sender<Parameters>,
     mut request_receiver: Receiver<StorageRequest>,
     parameters_directory: impl AsRef<Path> + Send + Sync + 'static,
     body_id: String,
@@ -36,13 +30,12 @@ where
         + Sync,
 {
     spawn(async move {
-        let mut parameters = (*parameters_writer.next()).clone();
+        let mut parameters = (*parameters_writer.borrow_mut()).clone();
         while let Some(request) = request_receiver.recv().await {
             handle_request(
                 request,
                 &mut parameters,
-                &parameters_writer,
-                &parameters_changed,
+                &mut parameters_writer,
                 &parameters_directory,
                 &body_id,
                 &head_id,
@@ -55,8 +48,7 @@ where
 async fn handle_request<Parameters>(
     request: StorageRequest,
     parameters: &mut Parameters,
-    parameters_writer: &Writer<Parameters>,
-    parameters_changed: &Arc<Notify>,
+    parameters_writer: &mut buffered_watch::Sender<Parameters>,
     parameters_directory: impl AsRef<Path>,
     body_id: &str,
     head_id: &str,
@@ -83,10 +75,9 @@ async fn handle_request<Parameters>(
             }
 
             {
-                let mut slot = parameters_writer.next();
+                let mut slot = parameters_writer.borrow_mut();
                 *slot = parameters.clone();
             }
-            parameters_changed.notify_one();
 
             respond(client, ParametersResponse::Update { id, result: Ok(()) }).await;
         }
@@ -107,10 +98,9 @@ async fn handle_request<Parameters>(
             };
 
             {
-                let mut slot = parameters_writer.next();
+                let mut slot = parameters_writer.borrow_mut();
                 *slot = parameters;
             }
-            parameters_changed.notify_one();
 
             respond(
                 client,
@@ -166,7 +156,6 @@ async fn respond(client: Client, response: ParametersResponse) {
 mod tests {
     use std::collections::HashMap;
 
-    use framework::multiple_buffer_with_slots;
     use path_serde::{deserialize, serialize, PathDeserialize};
     use serde::{Deserialize, Deserializer, Serializer};
     use serde_json::Value;
@@ -178,12 +167,10 @@ mod tests {
 
     #[tokio::test]
     async fn terminates_on_request_sender_drop() {
-        let (parameters_writer, _parameters_reader) = multiple_buffer_with_slots([42usize]);
-        let parameters_changed = Arc::new(Notify::new());
+        let (parameters_writer, _parameters_reader) = buffered_watch::channel(42usize);
         let (request_sender, request_receiver) = channel(1);
         let subscriptions_task = storage(
             parameters_writer,
-            parameters_changed,
             request_receiver,
             ".",
             Default::default(),
@@ -244,14 +231,12 @@ mod tests {
     #[tokio::test]
     async fn update_request_writes_parameters_and_notifies() {
         let path = "a.b.c".to_string();
-        let (parameters_writer, parameters_reader) = multiple_buffer_with_slots([ParametersFake {
+        let (parameters_writer, mut parameters_reader) = buffered_watch::channel(ParametersFake {
             existing_fields: [(path.clone(), 42)].into(),
-        }]);
-        let parameters_changed = Arc::new(Notify::new());
+        });
         let (request_sender, request_receiver) = channel(1);
         let subscriptions_task = storage(
             parameters_writer,
-            parameters_changed.clone(),
             request_receiver,
             ".",
             Default::default(),
@@ -284,9 +269,11 @@ mod tests {
             Err(TryRecvError::Empty) => {}
             response => panic!("unexpected result from try_recv(): {response:?}"),
         }
-        let parameters = parameters_reader.next();
-        assert_eq!(parameters.existing_fields.get(&path), Some(value).as_ref());
-        parameters_changed.notified().await;
+        parameters_reader.wait_for_change().await.unwrap();
+        {
+            let parameters = parameters_reader.borrow_and_mark_as_seen();
+            assert_eq!(parameters.existing_fields.get(&path), Some(value).as_ref());
+        }
 
         drop(request_sender);
         subscriptions_task.await.unwrap();

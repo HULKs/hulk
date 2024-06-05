@@ -105,7 +105,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        target: [imagine, nao, replayer, webots]
+        target: [behavior_simulator, imagine, nao, replayer, webots]
         profile: [release, dev]
     runs-on:
       - self-hosted
@@ -129,7 +129,6 @@ jobs:
           [
             aliveness,
             annotato,
-            behavior_simulator,
             camera_matrix_extractor,
             depp,
             fanta,
