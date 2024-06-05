@@ -22,8 +22,8 @@ use crate::{
 
 use self::{cycler_selector::VisionCyclerSelector, overlay::Overlays};
 
-mod cycler_selector;
-mod overlay;
+pub mod cycler_selector;
+pub mod overlay;
 mod overlays;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
