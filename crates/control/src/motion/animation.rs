@@ -32,7 +32,7 @@ pub struct MainOutputs {
 }
 
 impl Animation {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             save_joints_value: Joints::default(),
         })

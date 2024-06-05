@@ -85,13 +85,10 @@ impl LedStatus {
                 false => Rgb::BLACK,
             },
             PrimaryState::Animation {stiff: false}=> match self.blink_state {
-                true => Rgb::TURQUOISE,
-                false => Rgb::PINK,
+                true => Rgb::PINK,
+                false => Rgb::ORANGE,
             },
-            PrimaryState::Animation {stiff:true} => match self.blink_state {
-                true => Rgb::PURPLE,
-                false => Rgb::GREEN,
-            },
+            PrimaryState::Animation {stiff:true} => Rgb::TURQUOISE,
             PrimaryState::Initial => Rgb::BLACK,
             PrimaryState::Ready => Rgb::BLUE,
             PrimaryState::Set => Rgb::YELLOW,
