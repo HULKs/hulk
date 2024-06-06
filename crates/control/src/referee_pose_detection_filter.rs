@@ -60,8 +60,8 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
+    pub majority_vote_is_referee_initial_pose_detected: MainOutput<bool>,
     pub is_referee_initial_pose_detected: MainOutput<bool>,
-    pub is_own_referee_initial_pose_detected: MainOutput<bool>,
 }
 
 impl RefereePoseDetectionFilter {
@@ -80,9 +80,9 @@ impl RefereePoseDetectionFilter {
     ) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
 
-        let is_own_referee_initial_pose_detected = self.update(&context);
+        let is_referee_initial_pose_detected = self.update(&context);
 
-        let is_referee_initial_pose_detected = decide(
+        let majority_vote_is_referee_initial_pose_detected = decide(
             self.detection_times,
             cycle_start_time,
             *context.initial_message_grace_period,
@@ -98,8 +98,9 @@ impl RefereePoseDetectionFilter {
             .fill_if_subscribed(|| self.detected_above_arm_poses_queue.clone());
 
         Ok(MainOutputs {
+            majority_vote_is_referee_initial_pose_detected:
+                majority_vote_is_referee_initial_pose_detected.into(),
             is_referee_initial_pose_detected: is_referee_initial_pose_detected.into(),
-            is_own_referee_initial_pose_detected: is_own_referee_initial_pose_detected.into(),
         })
     }
 

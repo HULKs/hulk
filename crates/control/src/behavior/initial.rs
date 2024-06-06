@@ -1,5 +1,5 @@
-use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Point2};
+use coordinate_systems::Field;
+use linear_algebra::Point2;
 use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
@@ -18,24 +18,20 @@ pub fn execute(
     }
 
     Some(
-        look_at_referee(
-            world_state.robot.ground_to_field,
-            expected_referee_position,
-            world_state.clone(),
-        )
-        .unwrap_or(MotionCommand::Initial {
-            head: HeadMotion::Center,
-            should_look_for_referee: false,
-        }),
+        look_at_referee(expected_referee_position, world_state.clone()).unwrap_or(
+            MotionCommand::Initial {
+                head: HeadMotion::Center,
+                should_look_for_referee: false,
+            },
+        ),
     )
 }
 
 fn look_at_referee(
-    ground_to_field: Option<Isometry2<Ground, Field>>,
     expected_referee_position: Option<Point2<Field>>,
     world_state: WorldState,
 ) -> Option<MotionCommand> {
-    let ground_to_field = ground_to_field?;
+    let ground_to_field = world_state.robot.ground_to_field?;
     let expected_referee_position = expected_referee_position?;
     if world_state.filtered_game_controller_state?.game_state != FilteredGameState::Initial {
         return None;
