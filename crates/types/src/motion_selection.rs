@@ -71,6 +71,8 @@ pub struct MotionSafeExits {
 impl MotionSafeExits {
     pub fn fill(value: bool) -> Self {
         Self {
+            animation: value,
+            animationstiff: value,
             arms_up_squat: value,
             dispatching: value,
             fall_protection: value,

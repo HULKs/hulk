@@ -28,7 +28,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub animation_positions: MainOutput<MotorCommands<Joints<f32>>>,
+    pub animation_commands: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
 impl Animation {
@@ -54,7 +54,7 @@ impl Animation {
         };
 
         Ok(MainOutputs {
-            animation_positions: framework::MainOutput { value: output },
+            animation_commands: framework::MainOutput { value: output },
         })
     }
 }

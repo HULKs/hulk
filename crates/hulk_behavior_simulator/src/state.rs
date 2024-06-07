@@ -165,6 +165,7 @@ impl State {
                 }
                 HeadMotion::Unstiff => 0.0,
                 HeadMotion::Animation => 0.0,
+                HeadMotion::AnimationStiff => 0.0,
             };
 
             let max_head_rotation_per_cycle =

@@ -25,6 +25,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    animation_commands: Input<MotorCommands<Joints<f32>>, "animation_commands">, 
     arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
     jump_left_joints_command: Input<MotorCommands<Joints<f32>>, "jump_left_joints_command">,
     jump_right_joints_command: Input<MotorCommands<Joints<f32>>, "jump_right_joints_command">,
@@ -99,8 +100,8 @@ impl DispatchingInterpolator {
                 MotionType::StandUpFront => *context.stand_up_front_positions,
                 MotionType::StandUpSitting => *context.stand_up_sitting_positions,
                 MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
-                MotionType::Animation => panic!("Dispatching Animation doesn't make sense"),
-                MotionType::AnimationStiff => panic!("Dispatching AnimationStiff should not happen"),
+                MotionType::Animation => context.animation_commands.positions,
+                MotionType::AnimationStiff => context.animation_commands.positions,
                 MotionType::Walk => Joints::from_head_and_body(
                     HeadJoints::fill(0.0),
                     context.walk_motor_commands.positions,

@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum Action {
     Animation,
-    Animationstiff,
     Calibrate,
     DefendGoal,
     DefendKickOff,
