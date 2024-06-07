@@ -84,11 +84,11 @@ impl LedStatus {
                 true => Rgb::BLUE,
                 false => Rgb::BLACK,
             },
-            PrimaryState::Animation {stiff: false}=> match self.blink_state {
+            PrimaryState::Animation { stiff: false } => match self.blink_state {
                 true => Rgb::PINK,
                 false => Rgb::ORANGE,
             },
-            PrimaryState::Animation {stiff:true} => Rgb::TURQUOISE,
+            PrimaryState::Animation { stiff: true } => Rgb::TURQUOISE,
             PrimaryState::Initial => Rgb::BLACK,
             PrimaryState::Ready => Rgb::BLUE,
             PrimaryState::Set => Rgb::YELLOW,
@@ -282,7 +282,9 @@ impl LedStatus {
         did_detect_any_referee_this_cycle: bool,
     ) -> (Eye, Eye) {
         match primary_state {
-            PrimaryState::Unstiff | PrimaryState::Animation {stiff: true} | PrimaryState::Animation {stiff: false} => {
+            PrimaryState::Unstiff
+            | PrimaryState::Animation { stiff: true }
+            | PrimaryState::Animation { stiff: false } => {
                 let rainbow_eye = Self::get_rainbow_eye(cycle_start_time);
                 (rainbow_eye, rainbow_eye)
             }

@@ -120,7 +120,7 @@ impl Index<MotionType> for MotionSafeExits {
     fn index(&self, motion_type: MotionType) -> &Self::Output {
         match motion_type {
             MotionType::Animation => &self.animation,
-            MotionType::AnimationStiff => &self.animationstiff,  
+            MotionType::AnimationStiff => &self.animationstiff,
             MotionType::ArmsUpSquat => &self.arms_up_squat,
             MotionType::Dispatching => &self.dispatching,
             MotionType::Initial => &self.initial,

@@ -96,7 +96,7 @@ impl ButtonFilter {
                 .unwrap()
                 >= calibration_buttons_timeout;
 
-        let animation_button_touched = touch_sensors.head_rear; 
+        let animation_button_touched = touch_sensors.head_rear;
 
         let animation_button_touched_initially =
             animation_button_touched && !self.last_animation_button_touched;
@@ -113,14 +113,12 @@ impl ButtonFilter {
                 .unwrap()
                 >= animation_button_timeout;
 
-             
-
         Ok(MainOutputs {
             buttons: Buttons {
                 is_chest_button_pressed_once: self.chest_button_tap_detector.is_single_tapped,
                 head_buttons_touched: debounced_head_buttons_touched,
                 calibration_buttons_touched: debounced_calibration_buttons_touched,
-                animation_button_touched: debounced_animation_button_touched,    
+                animation_button_touched: debounced_animation_button_touched,
             }
             .into(),
         })

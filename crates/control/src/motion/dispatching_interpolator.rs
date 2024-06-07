@@ -25,7 +25,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    animation_commands: Input<MotorCommands<Joints<f32>>, "animation_commands">, 
+    animation_commands: Input<MotorCommands<Joints<f32>>, "animation_commands">,
     arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
     jump_left_joints_command: Input<MotorCommands<Joints<f32>>, "jump_left_joints_command">,
     jump_right_joints_command: Input<MotorCommands<Joints<f32>>, "jump_right_joints_command">,

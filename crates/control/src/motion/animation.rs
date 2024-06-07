@@ -3,9 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::Joints,
-    motion_command::MotionCommand,
-    motor_commands::MotorCommands,
+    joints::Joints, motion_command::MotionCommand, motor_commands::MotorCommands,
     sensor_data::SensorData,
 };
 
@@ -15,9 +13,7 @@ pub struct Animation {
 }
 
 #[context]
-pub struct CreationContext {
-    
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -49,8 +45,11 @@ impl Animation {
         };
         let output = match context.motion_command {
             MotionCommand::Animation { stiff: true } => animation_stiff_command,
-            MotionCommand::Animation { stiff: false } => {self.save_joints_value = context.sensor_data.positions; animation_unstiff_command},
-                                                     _=> Default::default(),
+            MotionCommand::Animation { stiff: false } => {
+                self.save_joints_value = context.sensor_data.positions;
+                animation_unstiff_command
+            }
+            _ => Default::default(),
         };
 
         Ok(MainOutputs {

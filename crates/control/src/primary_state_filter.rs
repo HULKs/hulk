@@ -63,12 +63,11 @@ impl PrimaryStateFilter {
             context.buttons.head_buttons_touched,
             context.buttons.is_chest_button_pressed_once,
             context.buttons.calibration_buttons_touched,
-            context.filtered_game_controller_state,               //these four lines translate to four positions down there (_,_,_,_)
+            context.filtered_game_controller_state, //these four lines translate to four positions down there (_,_,_,_)
             context.buttons.animation_button_touched,
         ) {
-            // Animation transitions 
-            
-            
+            // Animation transitions
+
             // Unstiff transitions (entering and exiting)
             (last_primary_state, true, _, _, _, _) => {
                 if last_primary_state != PrimaryState::Unstiff {
@@ -84,14 +83,14 @@ impl PrimaryStateFilter {
             (PrimaryState::Initial, _, _, true, _, _) => PrimaryState::Calibration,
 
             // GameController transitions (entering listening mode and staying within)
-            (PrimaryState::Unstiff, _, true, _, Some(filtered_game_controller_state),_)
-            | (PrimaryState::Finished, _, true, _, Some(filtered_game_controller_state),_) => {
+            (PrimaryState::Unstiff, _, true, _, Some(filtered_game_controller_state), _)
+            | (PrimaryState::Finished, _, true, _, Some(filtered_game_controller_state), _) => {
                 Self::game_state_to_primary_state(
                     filtered_game_controller_state.game_state,
                     is_penalized,
                 )
             }
-            (_, _, _, _, Some(filtered_game_controller_state),_)
+            (_, _, _, _, Some(filtered_game_controller_state), _)
                 if {
                     let finished_to_initial = self.last_primary_state == PrimaryState::Finished
                         && filtered_game_controller_state.game_state == FilteredGameState::Initial;
@@ -107,8 +106,17 @@ impl PrimaryStateFilter {
 
             // non-GameController transitions
             (PrimaryState::Unstiff, _, true, _, None, _) => PrimaryState::Initial,
-            (PrimaryState::Unstiff|PrimaryState::Animation {stiff:true}, _, false, _, None, true) => PrimaryState::Animation {stiff:false}, //here double tap = true & single tap = false => Animation mode
-            (PrimaryState::Animation{..}, _, true, _, None, false) => PrimaryState::Animation {stiff:true},
+            (
+                PrimaryState::Unstiff | PrimaryState::Animation { stiff: true },
+                _,
+                false,
+                _,
+                None,
+                true,
+            ) => PrimaryState::Animation { stiff: false }, //here double tap = true & single tap = false => Animation mode
+            (PrimaryState::Animation { .. }, _, true, _, None, false) => {
+                PrimaryState::Animation { stiff: true }
+            }
             (PrimaryState::Finished, _, true, _, None, _) => PrimaryState::Initial,
             (PrimaryState::Initial, _, true, _, None, _) => PrimaryState::Penalized,
             (PrimaryState::Penalized, _, true, _, None, _) => PrimaryState::Playing,

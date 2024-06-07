@@ -30,7 +30,7 @@ use types::{
 use crate::dribble_path_planner;
 
 use super::{
-    calibrate,
+    animation, calibrate,
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
@@ -38,7 +38,6 @@ use super::{
     prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
     walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
-    animation,
 };
 
 #[derive(Deserialize, Serialize)]

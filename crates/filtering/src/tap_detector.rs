@@ -21,16 +21,15 @@ impl TapDetector {
         //             //compares the type Duration with the 500 ms, if it's less than that, double tap is true
         //             self.is_single_tapped = false;
         //             self.is_double_tapped = true;
-        //         } 
+        //         }
         //     }
-        // } 
+        // }
         // self.last_reading = sensor_reading;
     }
-    
+
     pub fn is_single_tapped(&self) -> bool {
         self.is_single_tapped
     }
-  
 }
 // to detect double tap, detect two falling edges,
 // we need detect tap time, but the time between tap has to not be too long, else it should be a single tap,
