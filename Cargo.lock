@@ -4328,8 +4328,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bce71ae0f510b0017dccb049b6c00a7513026b7a2085538da4aa88d93066c629"
 dependencies = [
  "env_logger",
- "libloading 0.8.3",
- "once_cell",
  "openvino-finder",
 ]
 
