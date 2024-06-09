@@ -97,7 +97,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             .plan(Point::origin(), clamped_target_in_robot)
             .unwrap();
         path_obstacles_output.fill_if_subscribed(|| planner.obstacles.clone());
-        path.unwrap_or_else(|| direct_path(Point::origin(), Point::origin()))
+        path.unwrap_or_else(|| direct_path(Point::origin(), target_in_ground))
     }
 
     pub fn walk_with_obstacle_avoiding_arms(
