@@ -136,14 +136,12 @@ impl PoseDetection {
 
         let image = context.image;
         {
-            let earlier = context.hardware_interface.get_now();
+            let earlier = SystemTime::now();
 
             load_into_scratchpad(self.scratchpad.as_mut(), image);
 
             context.preprocess_duration.fill_if_subscribed(|| {
-                context
-                    .hardware_interface
-                    .get_now()
+                SystemTime::now()
                     .duration_since(earlier)
                     .expect("time ran backwards")
             });
@@ -162,9 +160,7 @@ impl PoseDetection {
 
             infer_request.infer()?;
             context.inference_duration.fill_if_subscribed(|| {
-                context
-                    .hardware_interface
-                    .get_now()
+                SystemTime::now()
                     .duration_since(earlier)
                     .expect("time ran backwards")
             });
