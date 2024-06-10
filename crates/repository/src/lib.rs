@@ -327,7 +327,9 @@ impl Repository {
             directory
         };
         let sdk = installation_directory.join(version);
-        if !sdk.exists() {
+        let incomplete_marker = installation_directory.join(format!("{version}.incomplete"));
+        let need_to_install = !sdk.exists() || incomplete_marker.exists();
+        if need_to_install {
             let downloads_directory = installation_directory.join("downloads");
             let installer_name = format!("HULKs-OS-toolchain-{version}.sh");
             let installer_path = downloads_directory.join(&installer_name);
@@ -336,9 +338,15 @@ impl Repository {
                     .await
                     .wrap_err("failed to download SDK")?;
             }
+            File::create(&incomplete_marker)
+                .await
+                .wrap_err("failed to create marker")?;
             install_sdk(installer_path, &sdk)
                 .await
                 .wrap_err("failed to install SDK")?;
+            remove_file(&incomplete_marker)
+                .await
+                .wrap_err("failed to remove marker")?;
         }
         Ok(())
     }
