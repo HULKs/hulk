@@ -16,6 +16,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
                     camera,
                     image_region_target: ImageRegion::Bottom,
                 },
+                // TODO Add walk-to-penalty area/ centre circle during CalibrationCommand::INITIALIZE
                 _ => HeadMotion::Center,
             };
 

@@ -120,38 +120,10 @@ impl CalibrationController {
                 }
             }
             CalibrationCommand::CAPTURE { dispatch_time } => {
-                // TODO verify if this mess is indeed correct!
-                let mut values_top = context
-                    .measurement_top
-                    .persistent
-                    .iter()
-                    .filter_map(|(time, measurement)| {
-                        // TODO check if we really need this!
-                        if *time >= dispatch_time.start_time {
-                            Some(measurement.iter().flatten())
-                        } else {
-                            None
-                        }
-                    })
-                    .flatten()
-                    .map(|m| (*m).clone())
-                    .collect_vec();
-
-                let mut values_bottom = context
-                    .measurement_bottom
-                    .persistent
-                    .iter()
-                    .filter_map(|(time, measurement)| {
-                        // TODO check if we really need this!
-                        if *time >= dispatch_time.start_time {
-                            Some(measurement.iter().flatten())
-                        } else {
-                            None
-                        }
-                    })
-                    .flatten()
-                    .map(|m| (*m).clone())
-                    .collect_vec();
+                let mut values_top =
+                    collect_filtered_values(&context.measurement_top, dispatch_time);
+                let mut values_bottom =
+                    collect_filtered_values(&context.measurement_bottom, dispatch_time);
 
                 if !values_bottom.is_empty() || !values_bottom.is_empty() {
                     // TODO Require both cameras to give values or another mechanism to track that.
@@ -210,6 +182,29 @@ impl CalibrationController {
             None
         }
     }
+}
+
+fn collect_filtered_values(
+    measurement_perception_input: &PerceptionInput<Vec<Option<&Measurement>>>,
+    dispatch_time: &CycleTime,
+) -> Vec<Measurement> {
+    // TODO verify if this mess is indeed correct!
+    measurement_perception_input
+        .persistent
+        .iter()
+        .filter_map(|(time, measurement)| {
+            // TODO check if we really need this!
+            //tHIS TIMESTAMP IS CONTROL CYCLE TIME!! NOT PERCEPTION CYCLER'S TIME. 
+            // USER PERCEPTION INPUT CALLED TIMEINTO OR SO TO GET THOSE TIMES.
+            if *time >= dispatch_time.start_time {
+                Some(measurement.iter().flatten())
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .map(|m| (*m).clone())
+        .collect_vec()
 }
 
 // x_min:f32, x_max:f32, x_steps:usize, y_min:f32, y_max:f32,y_steps:usize
