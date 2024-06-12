@@ -25,9 +25,10 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
 # Expose default SSH port
 EXPOSE 22
 
-# Copy host key to image
-RUN mkdir -p /root/.ssh && chmod 600 /root/.ssh
-COPY id.pub /root/.ssh/authorized_keys
+# Set empty password and enable root login
+RUN passwd -d root
+RUN sed -i 's/#PermitEmptyPasswords no/PermitEmptyPasswords yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
 # Set environment variables
 RUN echo '\

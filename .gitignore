@@ -28,7 +28,6 @@ target/
 
 .nao_cargo_home
 .REMOTE_WORKSPACE
-id.pub
 
 rust-toolchain.toml
 
