@@ -99,3 +99,42 @@ This downloads and builds all dependencies for the workspace and displays the he
     ```
 
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
+
+## Optional: Building for the NAO using a docker container
+
+To support building for the NAO on e.g. macOS, we additionally support building for the NAO within a docker container.
+We use the same interface as for the [Remote Compile](../tooling/pepsi.md#Remote-Compile) feature in Pepsi.
+
+Assuming you have already set up docker for your OS, start by switching to the HULKs repository and copy your public SSH key to the repository root, e.g.:
+
+```sh
+cd path/to/hulk
+cp ~/.ssh/id_ed25519.pub id.pub
+```
+
+Next, build the docker image using the provided Dockerfile and start a new container from the image:
+
+```sh
+docker build -t hulk .
+docker run -d hulk
+```
+
+The docker container should now be available via SSH, usually via `172.17.0.2`. You can verify this using the following command:
+
+```sh
+ssh root@172.17.0.2 echo Works!
+```
+
+Finally, add the file `.REMOTE_WORKSPACE` in the repository root with the following content:
+
+```
+root@172.17.0.2:hulk
+```
+
+Now you are able build for the NAO within the docker container:
+
+```sh
+./pepsi build --target=nao --remote
+```
+
+It is recommended to reuse the docker container instead of creating a new one each time, so its best to denote the name of previously created one (using e.g. `docker container list`).
