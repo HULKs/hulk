@@ -339,6 +339,7 @@ impl Repository {
                     .wrap_err("failed to download SDK")?;
             }
             if sdk.exists() {
+                println!("Removing incomplete SDK directory...");
                 remove_dir_all(&sdk)
                     .await
                     .wrap_err("failed to remove old SDK directory")?;
