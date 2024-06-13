@@ -100,35 +100,26 @@ This downloads and builds all dependencies for the workspace and displays the he
 
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
 
-## Optional: Building for the NAO using a docker container
 
-To support building for the NAO on e.g. macOS, we additionally support building for the NAO within a docker container.
-We use the same interface as for the [Remote Compile](../tooling/pepsi.md#Remote-Compile) feature in Pepsi.
+## Non-Linux: Set up docker container to build for the NAO
 
-Assuming you have already set up docker for your OS, start by switching to the HULKs repository, building the docker image and running the container.
+On Non-Linux architectures like macOS, we build for the NAO within a docker container.
+Start by installing docker by following the [installation instructions](https://docs.docker.com/engine/install/) for your operating system.
+
+Switch to the hulk repository, build the image, and create a container running it in the background:
 
 ```sh
 cd path/to/hulk
-docker build -t hulk docker
-docker run -d hulk
+docker build --tag hulk docker/
+docker run --name hulk --detach --tty --volume .:/hulk --volume ./naosdk/:/naosdk hulk /bin/sh
 ```
 
-The docker container should now be available via SSH, usually at `172.17.0.2`. You can verify this using the following command:
+When building for the NAO using e.g. `./pepsi build --target=nao`, the build process is now executed within the docker container.
 
-```sh
-ssh root@172.17.0.2 echo Works!
-```
+!!! tip
 
-Finally, add the file `.REMOTE_WORKSPACE` in the repository root with the following content:
+    It is recommended to reuse the docker container instead of creating a new one each time, so if it was stopped you to restart it using
 
-```
-root@172.17.0.2:hulk
-```
-
-Now you are able build for the NAO within the docker container:
-
-```sh
-./pepsi build --target=nao --remote
-```
-
-It is recommended to reuse the docker container instead of creating a new one each time, so its best to denote the name of previously created one (using e.g. `docker container list`).
+    ```
+    docker container start hulk
+    ```
