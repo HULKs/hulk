@@ -114,7 +114,7 @@ docker build --tag hulk docker/
 docker run --name hulk --detach --tty --volume .:/hulk --volume ./naosdk/:/naosdk hulk /bin/sh
 ```
 
-When building for the NAO using e.g. `./pepsi build --target=nao`, the build process is now executed within the docker container.
+When building for the NAO using e.g. `./pepsi build --target nao`, the build process is now executed within the docker container.
 
 !!! tip
 
