@@ -29,8 +29,8 @@ use serde_json::{from_slice, from_str, to_string_pretty, to_value, Value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
     fs::{
-        create_dir_all, read_dir, read_link, read_to_string, remove_file, rename, set_permissions,
-        symlink, try_exists, write, File,
+        create_dir_all, read_dir, read_link, read_to_string, remove_dir_all, remove_file, rename,
+        set_permissions, symlink, try_exists, write, File,
     },
     io::AsyncReadExt,
     process::Command,
@@ -338,6 +338,12 @@ impl Repository {
                     .await
                     .wrap_err("failed to download SDK")?;
             }
+            if sdk.exists() {
+                remove_dir_all(&sdk)
+                    .await
+                    .wrap_err("failed to remove old SDK directory")?;
+            }
+
             File::create(&incomplete_marker)
                 .await
                 .wrap_err("failed to create marker")?;
