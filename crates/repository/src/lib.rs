@@ -327,9 +327,16 @@ impl Repository {
             directory
         };
         let sdk = installation_directory.join(version);
+
         let incomplete_marker = installation_directory.join(format!("{version}.incomplete"));
-        let need_to_install = !sdk.exists() || incomplete_marker.exists();
-        if need_to_install {
+        if sdk.exists() && incomplete_marker.exists() {
+            println!("Removing incomplete SDK directory...");
+            remove_dir_all(&sdk)
+                .await
+                .wrap_err("failed to remove old SDK directory")?;
+        }
+
+        if !sdk.exists() {
             let downloads_directory = installation_directory.join("downloads");
             let installer_name = format!("HULKs-OS-toolchain-{version}.sh");
             let installer_path = downloads_directory.join(&installer_name);
@@ -337,12 +344,6 @@ impl Repository {
                 download_sdk(&downloads_directory, version, &installer_name)
                     .await
                     .wrap_err("failed to download SDK")?;
-            }
-            if sdk.exists() {
-                println!("Removing incomplete SDK directory...");
-                remove_dir_all(&sdk)
-                    .await
-                    .wrap_err("failed to remove old SDK directory")?;
             }
 
             File::create(&incomplete_marker)
