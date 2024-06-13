@@ -40,6 +40,11 @@ use spl_network_messages::PlayerNumber;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
+#[cfg(not(target_os = "linux"))]
+const USE_DOCKER: bool = true;
+#[cfg(target_os = "linux")]
+const USE_DOCKER: bool = false;
+
 #[derive(Clone)]
 pub struct Repository {
     root: PathBuf,
@@ -139,26 +144,18 @@ impl Repository {
         target: &str,
         passthrough_arguments: &[String],
     ) -> Result<()> {
-        let mut shell_command = String::new();
-
-        if target == "nao" {
-            shell_command += &format!(
-                ". {} && ",
-                self.root
-                    .join(format!(
-                        "naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux"
-                    ))
-                    .display()
-            );
-        }
-
         let cargo_command = format!("cargo {action} ")
             + format!("--profile {profile} ").as_str()
             + if workspace {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
                 let manifest = format!("crates/hulk_{target}/Cargo.toml");
-                format!("--manifest-path={} ", self.root.join(manifest).display())
+                let root = if target == "nao" && USE_DOCKER {
+                    Path::new("/hulk")
+                } else {
+                    &self.root
+                };
+                format!("--manifest-path={} ", root.join(manifest).display())
             }
             .as_str()
             + "-- "
@@ -170,9 +167,28 @@ impl Repository {
 
         println!("Running: {cargo_command}");
 
+        let shell_command = if target == "nao" {
+            if USE_DOCKER {
+                format!(
+                    "docker exec --interactive --tty hulk /bin/sh -c '. /naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux && {cargo_command}'",
+                )
+            } else {
+                format!(
+                    ". {} && {cargo_command}",
+                    self.root
+                        .join(format!(
+                            "naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux"
+                        ))
+                        .display()
+                )
+            }
+        } else {
+            cargo_command
+        };
+
         let status = Command::new("sh")
             .arg("-c")
-            .arg(shell_command + &cargo_command)
+            .arg(shell_command)
             .status()
             .await
             .wrap_err("failed to execute cargo command")?;
@@ -349,7 +365,7 @@ impl Repository {
             File::create(&incomplete_marker)
                 .await
                 .wrap_err("failed to create marker")?;
-            install_sdk(installer_path, &sdk)
+            install_sdk(installer_path, &sdk, version)
                 .await
                 .wrap_err("failed to install SDK")?;
             remove_file(&incomplete_marker)
@@ -604,10 +620,27 @@ async fn download_sdk(
 async fn install_sdk(
     installer_path: impl AsRef<Path>,
     installation_directory: impl AsRef<Path>,
+    version: &str,
 ) -> Result<()> {
-    let mut command = Command::new(installer_path.as_ref().as_os_str());
-    command.arg("-d");
-    command.arg(installation_directory.as_ref().as_os_str());
+    let mut command = if USE_DOCKER {
+        let mut command = Command::new("docker");
+        command.arg("exec");
+        command.arg("--interactive");
+        command.arg("--tty");
+        command.arg("hulk");
+        command.arg(format!("/naosdk/downloads/HULKs-OS-toolchain-{version}.sh"));
+        command.arg("-d");
+        command.arg(format!("/naosdk/{version}"));
+
+        command
+    } else {
+        let mut command = Command::new(installer_path.as_ref().as_os_str());
+        command.arg("-d");
+        command.arg(installation_directory.as_ref().as_os_str());
+
+        command
+    };
+
     if env::var("NAOSDK_AUTOMATIC_YES")
         .map(|value| value == "1")
         .unwrap_or(false)
