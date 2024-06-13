@@ -29,8 +29,8 @@ use serde_json::{from_slice, from_str, to_string_pretty, to_value, Value};
 use tempfile::{tempdir, TempDir};
 use tokio::{
     fs::{
-        create_dir_all, read_dir, read_link, read_to_string, remove_file, rename, set_permissions,
-        symlink, try_exists, write, File,
+        create_dir_all, read_dir, read_link, read_to_string, remove_dir_all, remove_file, rename,
+        set_permissions, symlink, try_exists, write, File,
     },
     io::AsyncReadExt,
     process::Command,
@@ -327,6 +327,15 @@ impl Repository {
             directory
         };
         let sdk = installation_directory.join(version);
+
+        let incomplete_marker = installation_directory.join(format!("{version}.incomplete"));
+        if sdk.exists() && incomplete_marker.exists() {
+            println!("Removing incomplete SDK directory...");
+            remove_dir_all(&sdk)
+                .await
+                .wrap_err("failed to remove old SDK directory")?;
+        }
+
         if !sdk.exists() {
             let downloads_directory = installation_directory.join("downloads");
             let installer_name = format!("HULKs-OS-toolchain-{version}.sh");
@@ -336,9 +345,16 @@ impl Repository {
                     .await
                     .wrap_err("failed to download SDK")?;
             }
+
+            File::create(&incomplete_marker)
+                .await
+                .wrap_err("failed to create marker")?;
             install_sdk(installer_path, &sdk)
                 .await
                 .wrap_err("failed to install SDK")?;
+            remove_file(&incomplete_marker)
+                .await
+                .wrap_err("failed to remove marker")?;
         }
         Ok(())
     }
