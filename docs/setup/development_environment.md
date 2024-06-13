@@ -101,12 +101,12 @@ This downloads and builds all dependencies for the workspace and displays the he
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
 
 
-## Non-Linux: Set up docker container to build for the NAO
+## Non-Linux: Set up a docker container to build for the NAO
 
-On Non-Linux architectures like macOS, we build for the NAO within a docker container.
+On Non-Linux operating systems like macOS, we build for the NAO within a docker container.
 Start by installing docker by following the [installation instructions](https://docs.docker.com/engine/install/) for your operating system.
 
-Switch to the hulk repository, build the image, and create a container running it in the background:
+Switch to the hulk repository, build the image, and create a container running in the background:
 
 ```sh
 cd path/to/hulk
