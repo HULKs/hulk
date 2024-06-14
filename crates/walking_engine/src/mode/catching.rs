@@ -99,7 +99,6 @@ fn catching_end_feet(
     support_side: Side,
 ) -> Feet {
     let max_adjustment = parameters.catching_steps.max_adjustment;
-    // let target = project_onto_ground(robot_to_ground, center_of_mass);
     Feet::end_from_request(
         parameters,
         Step {
