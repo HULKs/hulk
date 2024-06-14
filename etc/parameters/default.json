@@ -382,11 +382,7 @@
     "sensor_angle": 0.35
   },
   "step_planner": {
-    "injected_step": {
-      "forward": 0,
-      "left": 0,
-      "turn": 0
-    },
+    "injected_step": null,
     "max_step_size": {
       "forward": 0.065,
       "left": 0.13,
