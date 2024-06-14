@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use filtering::low_pass_filter::LowPassFilter;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use geometry::{convex_hull::reduce_to_convex_hull, is_inside_polygon::is_inside_polygon};
 use linear_algebra::{point, Isometry3, Point2, Point3, Vector3};
 use serde::{Deserialize, Serialize};
@@ -22,13 +22,16 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
+    robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
+
     center_of_mass: Input<Point3<Robot>, "center_of_mass">,
+    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     sensor_data: Input<SensorData, "sensor_data">,
 
     gravity_acceleration: Parameter<f32, "physical_constants.gravity_acceleration">,
 
-    robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
-    robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+    number_of_frames_center_of_mass_has_been_outside_support_polygon:
+        AdditionalOutput<i32, "number_of_frames_center_of_mass_has_been_outside_support_polygon">,
 }
 
 #[context]
@@ -36,7 +39,6 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub zero_moment_point: MainOutput<Point2<Ground>>,
     pub number_of_frames_zero_moment_point_has_been_outside_support_polygon: MainOutput<i32>,
-    pub number_of_frames_center_of_mass_has_been_outside_support_polygon: MainOutput<i32>,
 }
 
 impl ZeroMomentPointProvider {
@@ -51,7 +53,7 @@ impl ZeroMomentPointProvider {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.linear_acceleration_filter.update(
             context
                 .sensor_data
@@ -126,13 +128,16 @@ impl ZeroMomentPointProvider {
             self.number_of_frames_center_of_mass_has_been_outside_support_polygon += 1;
         }
 
+        context
+            .number_of_frames_center_of_mass_has_been_outside_support_polygon
+            .fill_if_subscribed(|| {
+                self.number_of_frames_center_of_mass_has_been_outside_support_polygon
+            });
+
         Ok(MainOutputs {
             zero_moment_point: zero_moment_point.into(),
             number_of_frames_zero_moment_point_has_been_outside_support_polygon: self
                 .number_of_frames_zero_moment_point_has_been_outside_support_polygon
-                .into(),
-            number_of_frames_center_of_mass_has_been_outside_support_polygon: self
-                .number_of_frames_center_of_mass_has_been_outside_support_polygon
                 .into(),
         })
     }
