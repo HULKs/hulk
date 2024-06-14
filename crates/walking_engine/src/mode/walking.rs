@@ -65,8 +65,12 @@ impl WalkTransition for Walking {
                 return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
             }
 
-            if *context.number_of_frames_zero_moment_point_has_been_outside_support_polygon > 10 {
-                //todo!("change this to be a parameter")
+            if *context.number_of_frames_zero_moment_point_has_been_outside_support_polygon
+                > context
+                    .parameters
+                    .catching_steps
+                    .catching_step_zero_moment_point_frame_count_threshold
+            {
                 return Mode::Catching(Catching::new(context, current_step.plan.support_side));
             };
         }
