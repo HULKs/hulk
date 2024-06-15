@@ -92,15 +92,14 @@ impl PoseDetection {
             )
             .wrap_err("failed to create detection network")?;
 
-        if !network
+        let number_of_inputs = network
             .get_inputs_len()
-            .wrap_err("failed to get number of inputs")?
-            == 1
-            && !network
-                .get_outputs_len()
-                .wrap_err("failed to get number of outputs")?
-                == 1
-        {
+            .wrap_err("failed to get number of inputs")?;
+        let number_of_outputs = network
+            .get_outputs_len()
+            .wrap_err("failed to get number of outputs")?;
+
+        if number_of_inputs != 1 || number_of_outputs != 1 {
             bail!("expected exactly one input and one output");
         }
 
