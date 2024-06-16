@@ -1,32 +1,30 @@
 use std::{
-    collections::BTreeMap,
-    sync::Arc,
+    collections::{BTreeMap, VecDeque},
     time::{Duration, SystemTime},
 };
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{HulkMessage, PlayerNumber};
+use spl_network_messages::PlayerNumber;
 use types::{
-    cycle_time::CycleTime,
-    fall_state::FallState,
-    messages::{IncomingMessage, OutgoingMessage},
-    players::Players,
+    cycle_time::CycleTime, fall_state::FallState, messages::IncomingMessage, players::Players,
     pose_kinds::PoseKind,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct RefereePoseDetectionFilter {
     detection_times: Players<Option<SystemTime>>,
+    detected_above_arm_poses_queue: VecDeque<bool>,
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    referee_pose_queue_length:
+        Parameter<usize, "object_detection.object_detection_top.referee_pose_queue_length">,
+}
 
 #[context]
 pub struct CycleContext {
@@ -48,18 +46,31 @@ pub struct CycleContext {
 
     player_referee_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
+
+    referee_pose_queue_length:
+        Parameter<usize, "object_detection.object_detection_top.referee_pose_queue_length">,
+    minimum_number_poses_before_message: Parameter<
+        usize,
+        "object_detection.object_detection_top.minimum_number_poses_before_message",
+    >,
+
+    referee_pose_queue: AdditionalOutput<VecDeque<bool>, "referee_pose_queue">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
+    pub majority_vote_is_referee_initial_pose_detected: MainOutput<bool>,
     pub is_referee_initial_pose_detected: MainOutput<bool>,
 }
 
 impl RefereePoseDetectionFilter {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             detection_times: Default::default(),
+            detected_above_arm_poses_queue: VecDeque::with_capacity(
+                *context.referee_pose_queue_length,
+            ),
         })
     }
 
@@ -69,9 +80,9 @@ impl RefereePoseDetectionFilter {
     ) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
 
-        self.update(&context)?;
+        let is_referee_initial_pose_detected = self.update(&context);
 
-        let is_referee_initial_pose_detected = decide(
+        let majority_vote_is_referee_initial_pose_detected = decide(
             self.detection_times,
             cycle_start_time,
             *context.initial_message_grace_period,
@@ -82,37 +93,41 @@ impl RefereePoseDetectionFilter {
             .player_referee_detection_times
             .fill_if_subscribed(|| self.detection_times);
 
+        context
+            .referee_pose_queue
+            .fill_if_subscribed(|| self.detected_above_arm_poses_queue.clone());
+
         Ok(MainOutputs {
+            majority_vote_is_referee_initial_pose_detected:
+                majority_vote_is_referee_initial_pose_detected.into(),
             is_referee_initial_pose_detected: is_referee_initial_pose_detected.into(),
         })
     }
 
-    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> Result<()> {
-        let time_tagged_persistent_messages =
-            unpack_message_tree(&context.network_message.persistent);
-
-        for (time, message) in time_tagged_persistent_messages {
-            if message.is_referee_ready_signal_detected {
-                self.detection_times[message.player_number] = Some(time);
-            }
-        }
-
+    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> bool {
         let own_detected_pose_times =
             unpack_own_detection_tree(&context.detected_referee_pose_kind.persistent);
 
-        if let Some((time, _)) = own_detected_pose_times
-            .into_iter()
-            .find(|(_, pose_kind)| *pose_kind == PoseKind::AboveHeadArms)
-        {
-            self.detection_times[*context.player_number] = Some(time);
-            send_own_detection_message(
-                context.hardware_interface.clone(),
-                *context.player_number,
-                *context.fall_state,
-                *context.time_to_reach_kick_position,
-            )?;
+        for (_, detection) in own_detected_pose_times {
+            self.detected_above_arm_poses_queue.push_front(
+                detection.map_or(false, |pose_kind| pose_kind == PoseKind::AboveHeadArms),
+            );
         }
-        Ok(())
+
+        self.detected_above_arm_poses_queue
+            .truncate(*context.referee_pose_queue_length);
+
+        let detected_referee_pose_count = self
+            .detected_above_arm_poses_queue
+            .iter()
+            .filter(|x| **x)
+            .count();
+
+        if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
+            self.detection_times[*context.player_number] = Some(context.cycle_time.start_time);
+        }
+
+        detected_referee_pose_count >= *context.minimum_number_poses_before_message
     }
 }
 
@@ -147,41 +162,15 @@ fn is_in_grace_period(
         < grace_period
 }
 
-fn unpack_message_tree(
-    message_tree: &BTreeMap<SystemTime, Vec<&IncomingMessage>>,
-) -> BTreeMap<SystemTime, HulkMessage> {
-    message_tree
-        .iter()
-        .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
-        .filter_map(|(time, message)| match message {
-            IncomingMessage::GameController(_, _) => None,
-            IncomingMessage::Spl(message) => Some((time, *message)),
-        })
-        .collect()
-}
-
 fn unpack_own_detection_tree(
     pose_kind_tree: &BTreeMap<SystemTime, Vec<Option<&PoseKind>>>,
-) -> BTreeMap<SystemTime, PoseKind> {
+) -> BTreeMap<SystemTime, Option<PoseKind>> {
     pose_kind_tree
         .iter()
-        .flat_map(|(time, pose_kinds)| pose_kinds.iter().map(|&pose_kind| (*time, pose_kind)))
-        .filter_map(|(time, pose_kind)| Some(time).zip(pose_kind.cloned()))
+        .flat_map(|(time, pose_kinds)| {
+            pose_kinds
+                .iter()
+                .map(|&pose_kind| (*time, pose_kind.cloned()))
+        })
         .collect()
-}
-
-fn send_own_detection_message<T: NetworkInterface>(
-    hardware_interface: Arc<T>,
-    player_number: PlayerNumber,
-    fall_state: FallState,
-    time_to_reach_kick_position: Duration,
-) -> Result<()> {
-    hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage {
-        player_number,
-        fallen: matches!(fall_state, FallState::Fallen { .. }),
-        pose: Isometry2::<Ground, Field>::default().as_pose(),
-        is_referee_ready_signal_detected: true,
-        ball_position: None,
-        time_to_reach_kick_position: Some(time_to_reach_kick_position),
-    }))
 }
