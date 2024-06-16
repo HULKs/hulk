@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet, VecDeque},
     net::SocketAddr,
     path::PathBuf,
     time::{Duration, SystemTime},
@@ -110,3 +110,4 @@ implement_as_not_supported!(SocketAddr);
 implement_as_not_supported!(String);
 implement_as_not_supported!(SystemTime);
 implement_as_not_supported!(Vec<T>, T);
+implement_as_not_supported!(VecDeque<T>, T);
