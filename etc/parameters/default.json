@@ -423,8 +423,6 @@
     "catching_steps": {
       "catching_step_zero_moment_point_frame_count_threshold": 5,
       "use_catching_steps" : false,
-      "toe_offset": 0.09,
-      "heel_offset": -0.035,
       "max_adjustment": 0.07,
       "midpoint": 0.3,
       "target_overestimation_factor": 1.05,
