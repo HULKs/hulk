@@ -170,7 +170,8 @@ impl Repository {
         let shell_command = if target == "nao" {
             if USE_DOCKER {
                 format!(
-                    "docker exec --interactive --tty hulk /bin/sh -c '. /naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux && {cargo_command}'",
+                    "docker run --volume={}:/hulk --rm --interactive --tty naosdk:{SDK_VERSION} /bin/bash --login -c '{cargo_command}'",
+                    self.root.display()
                 )
             } else {
                 format!(
@@ -325,6 +326,10 @@ impl Repository {
         version: Option<&str>,
         installation_directory: Option<&Path>,
     ) -> Result<()> {
+        if USE_DOCKER {
+            return Ok(());
+        }
+
         let symlink = self.root.join("naosdk");
         let version = version.unwrap_or(SDK_VERSION);
         let environment_installation_directory = env::var("NAOSDK_HOME").ok().map(PathBuf::from);
@@ -365,7 +370,7 @@ impl Repository {
             File::create(&incomplete_marker)
                 .await
                 .wrap_err("failed to create marker")?;
-            install_sdk(installer_path, &sdk, version)
+            install_sdk(installer_path, &sdk)
                 .await
                 .wrap_err("failed to install SDK")?;
             remove_file(&incomplete_marker)
@@ -620,27 +625,10 @@ async fn download_sdk(
 async fn install_sdk(
     installer_path: impl AsRef<Path>,
     installation_directory: impl AsRef<Path>,
-    version: &str,
 ) -> Result<()> {
-    let mut command = if USE_DOCKER {
-        let mut command = Command::new("docker");
-        command.arg("exec");
-        command.arg("--interactive");
-        command.arg("--tty");
-        command.arg("hulk");
-        command.arg(format!("/naosdk/downloads/HULKs-OS-toolchain-{version}.sh"));
-        command.arg("-d");
-        command.arg(format!("/naosdk/{version}"));
-
-        command
-    } else {
-        let mut command = Command::new(installer_path.as_ref().as_os_str());
-        command.arg("-d");
-        command.arg(installation_directory.as_ref().as_os_str());
-
-        command
-    };
-
+    let mut command = Command::new(installer_path.as_ref().as_os_str());
+    command.arg("-d");
+    command.arg(installation_directory.as_ref().as_os_str());
     if env::var("NAOSDK_AUTOMATIC_YES")
         .map(|value| value == "1")
         .unwrap_or(false)
