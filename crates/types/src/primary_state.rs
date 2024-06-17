@@ -25,4 +25,5 @@ pub enum PrimaryState {
     Penalized,
     Finished,
     Calibration,
+    Standby,
 }

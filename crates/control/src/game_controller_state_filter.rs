@@ -194,26 +194,32 @@ fn next_filtered_state(
         (_, GameState::Finished) => State::TentativeFinished {
             time_when_finished_clicked: cycle_start_time,
         },
-        (State::Initial, GameState::Initial) => {
+        (State::Standby, GameState::Standby) => {
             if is_referee_initial_pose_detected {
                 State::Ready
             } else {
-                State::Initial
+                State::Standby
             }
         }
 
         (State::Ready, GameState::Initial) => State::Ready,
 
-        (State::Initial | State::Ready, _)
-        | (State::Set, GameState::Initial | GameState::Ready | GameState::Playing)
+        (State::Initial | State::Ready | State::Standby, _)
+        | (
+            State::Set,
+            GameState::Initial | GameState::Ready | GameState::Playing | GameState::Standby,
+        )
         | (
             State::WhistleInSet { .. },
-            GameState::Initial | GameState::Ready | GameState::Playing,
+            GameState::Initial | GameState::Ready | GameState::Playing | GameState::Standby,
         )
-        | (State::Playing, GameState::Initial | GameState::Ready | GameState::Set)
+        | (
+            State::Playing,
+            GameState::Initial | GameState::Ready | GameState::Set | GameState::Standby,
+        )
         | (
             State::WhistleInPlaying { .. },
-            GameState::Initial | GameState::Ready | GameState::Set,
+            GameState::Initial | GameState::Ready | GameState::Set | GameState::Standby,
         ) => State::from_game_state(game_controller_state.game_state),
         (State::Set, GameState::Set) => {
             if is_whistle_detected {
@@ -317,6 +323,7 @@ enum State {
         time_when_finished_clicked: SystemTime,
     },
     Finished,
+    Standby,
 }
 
 impl State {
@@ -327,6 +334,7 @@ impl State {
             GameState::Set => State::Set,
             GameState::Playing => State::Playing,
             GameState::Finished => State::Finished,
+            GameState::Standby => State::Standby,
         }
     }
 
@@ -383,13 +391,14 @@ impl State {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
 
         match self {
-            State::Initial => {
+            State::Initial => FilteredGameState::Initial,
+            State::Standby => {
                 if is_referee_initial_pose_detected {
                     FilteredGameState::Ready {
                         kicking_team: game_controller_state.kicking_team,
                     }
                 } else {
-                    FilteredGameState::Initial
+                    FilteredGameState::Standby
                 }
             }
             State::Ready => FilteredGameState::Ready {
