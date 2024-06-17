@@ -196,7 +196,7 @@ impl Localization {
             (PrimaryState::Ready, PrimaryState::Penalized, _) => {
                 self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
                 match penalty {
-                    Some(Penalty::IllegalMotionInInitial { .. }) => {
+                    Some(Penalty::IllegalMotionInStandby { .. }) => {
                         self.is_penalized_with_motion_in_set_or_initial = true;
                     }
                     Some(_) => {}

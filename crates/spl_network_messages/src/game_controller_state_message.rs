@@ -16,7 +16,7 @@ use crate::{
         COMPETITION_TYPE_NORMAL, COMPETITION_TYPE_SHARED_AUTONOMY, GAMECONTROLLER_STRUCT_HEADER,
         GAMECONTROLLER_STRUCT_VERSION, GAME_PHASE_NORMAL, GAME_PHASE_OVERTIME,
         GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT, MAX_NUM_PLAYERS, PENALTY_MANUAL, PENALTY_NONE,
-        PENALTY_SPL_ILLEGAL_BALL_CONTACT, PENALTY_SPL_ILLEGAL_MOTION_IN_INITIAL,
+        PENALTY_SPL_ILLEGAL_BALL_CONTACT, PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY,
         PENALTY_SPL_ILLEGAL_MOTION_IN_SET, PENALTY_SPL_ILLEGAL_POSITION,
         PENALTY_SPL_ILLEGAL_POSITION_IN_SET, PENALTY_SPL_INACTIVE_PLAYER,
         PENALTY_SPL_LEAVING_THE_FIELD, PENALTY_SPL_LOCAL_GAME_STUCK, PENALTY_SPL_PLAYER_PUSHING,
@@ -473,7 +473,7 @@ impl TryFrom<RobotInfo> for Player {
 pub enum Penalty {
     IllegalBallContact { remaining: Duration },
     PlayerPushing { remaining: Duration },
-    IllegalMotionInInitial { remaining: Duration },
+    IllegalMotionInStandby { remaining: Duration },
     IllegalMotionInSet { remaining: Duration },
     InactivePlayer { remaining: Duration },
     IllegalPosition { remaining: Duration },
@@ -492,8 +492,8 @@ impl Penalty {
             PENALTY_NONE => Ok(None),
             PENALTY_SPL_ILLEGAL_BALL_CONTACT => Ok(Some(Penalty::IllegalBallContact { remaining })),
             PENALTY_SPL_PLAYER_PUSHING => Ok(Some(Penalty::PlayerPushing { remaining })),
-            PENALTY_SPL_ILLEGAL_MOTION_IN_INITIAL => {
-                Ok(Some(Penalty::IllegalMotionInInitial { remaining }))
+            PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY => {
+                Ok(Some(Penalty::IllegalMotionInStandby { remaining }))
             }
             PENALTY_SPL_ILLEGAL_MOTION_IN_SET => {
                 Ok(Some(Penalty::IllegalMotionInSet { remaining }))
