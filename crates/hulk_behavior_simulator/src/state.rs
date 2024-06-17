@@ -217,6 +217,7 @@ impl State {
                 match (robot.is_penalized, self.game_controller_state.game_state) {
                     (true, _) => PrimaryState::Penalized,
                     (false, GameState::Initial) => PrimaryState::Initial,
+                    (false, GameState::Standby) => PrimaryState::Standby,
                     (false, GameState::Ready { .. }) => PrimaryState::Ready,
                     (false, GameState::Set) => PrimaryState::Set,
                     (false, GameState::Playing { .. }) => PrimaryState::Playing,
