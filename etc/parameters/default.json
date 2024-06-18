@@ -421,6 +421,7 @@
       "walk_height": 0.22
     },
     "catching_steps": {
+      "use_catching_steps" : false,
       "toe_offset": 0.09,
       "heel_offset": -0.035,
       "max_adjustment": 0.05,
@@ -678,6 +679,7 @@
     "gravitational_acceleration_threshold": 7.0,
     "gravitational_force_sitting": [3.6, 0.0, 8.8],
     "falling_angle_threshold_forward": [-0.3, 0.5],
+    "falling_angle_threshold_forward_with_catching_steps": [-0.45, 0.6],
     "falling_timeout": {
       "nanos": 0,
       "secs": 1

@@ -51,6 +51,10 @@ pub struct CycleContext {
         Parameter<f32, "fall_state_estimation.difference_to_sitting_threshold">,
     falling_angle_threshold_forward:
         Parameter<Vector2<Robot>, "fall_state_estimation.falling_angle_threshold_forward">,
+    falling_angle_threshold_forward_with_catching_steps: Parameter<
+        Vector2<Robot>,
+        "fall_state_estimation.falling_angle_threshold_forward_with_catching_steps",
+    >,
     falling_timeout: Parameter<Duration, "fall_state_estimation.falling_timeout">,
     gravitational_acceleration_threshold:
         Parameter<f32, "fall_state_estimation.gravitational_acceleration_threshold">,
@@ -58,6 +62,7 @@ pub struct CycleContext {
         Parameter<Vector3<Robot>, "fall_state_estimation.gravitational_force_sitting">,
     gravity_acceleration: Parameter<f32, "physical_constants.gravity_acceleration">,
     sitting_pose: Parameter<Joints<f32>, "fall_state_estimation.sitting_pose">,
+    use_catching_steps: Parameter<bool, "walking_engine.catching_steps.use_catching_steps">,
 
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -141,9 +146,14 @@ impl FallStateEstimation {
             None
         };
 
+        let falling_angle_threshold = if *context.use_catching_steps {
+            context.falling_angle_threshold_forward_with_catching_steps
+        } else {
+            context.falling_angle_threshold_forward
+        };
+
         let falling_direction = {
-            if !(context.falling_angle_threshold_forward.x()
-                ..context.falling_angle_threshold_forward.y())
+            if !(falling_angle_threshold.x()..falling_angle_threshold.y())
                 .contains(&estimated_pitch)
             {
                 let side = {
