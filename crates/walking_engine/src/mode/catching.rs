@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use crate::{parameters::Parameters, step_plan::StepPlan, stiffness::Stiffness as _, Context};
+use crate::{
+    anatomic_constraints::AnatomicConstraints, parameters::Parameters, step_plan::StepPlan,
+    stiffness::Stiffness as _, Context,
+};
 
 use super::{
     super::{feet::Feet, step_state::StepState},
@@ -100,7 +103,8 @@ fn catching_end_feet(
             left: (zero_moment_point.y() * target_overestimation_factor)
                 .clamp(-max_adjustment, max_adjustment),
             turn: 0.0,
-        },
+        }
+        .clamp_to_anatomic_constraints(support_side, parameters.max_inside_turn),
         support_side,
     )
 }
