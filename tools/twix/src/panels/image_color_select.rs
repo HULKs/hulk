@@ -203,12 +203,14 @@ impl Widget for &mut ImageColorSelectPanel {
         );
 
         if let Some(hover_position) = response.hover_pos() {
-            let pixel_pos = painter.transform_pixel_to_world(hover_position);
-            if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
+            self.pixel_pos = painter.transform_pixel_to_world(hover_position);
+            if self.pixel_pos.x() < image.width() as f32
+                && self.pixel_pos.y() < image.height() as f32
+            {
                 let scroll_delta = ui.input(|input| input.raw_scroll_delta);
                 self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
                 if response.dragged() {
-                    self.pixels_in_brush(pixel_pos, &image)
+                    self.pixels_in_brush(self.pixel_pos, &image)
                         .for_each(|position| {
                             if response.dragged_by(egui::PointerButton::Primary) {
                                 self.add_to_selection(position)
@@ -218,13 +220,6 @@ impl Widget for &mut ImageColorSelectPanel {
                             }
                         });
                 }
-
-                painter.circle(
-                    self.pixel_pos,
-                    self.brush_size,
-                    Color32::TRANSPARENT,
-                    Stroke::new(1.0, Color32::BLACK),
-                );
             }
         }
 
@@ -263,21 +258,21 @@ impl Widget for &mut ImageColorSelectPanel {
             statistics.average.blue += pixel_color.blue;
             statistics.pixel_count += 1;
 
-            statistics.color_distribution.red[(pixel_color.red * 90.0) as usize] += 1.0;
-            statistics.color_distribution.green[(pixel_color.green * 90.0) as usize] += 1.0;
-            statistics.color_distribution.blue[(pixel_color.blue * 90.0) as usize] += 1.0;
+            statistics.color_distribution.red[(pixel_color.red * 40.0) as usize] += 1.0;
+            statistics.color_distribution.green[(pixel_color.green * 40.0) as usize] += 1.0;
+            statistics.color_distribution.blue[(pixel_color.blue * 40.0) as usize] += 1.0;
         }
         if statistics.pixel_count != 0 {
             statistics.average.red /= statistics.pixel_count as f32;
             statistics.average.green /= statistics.pixel_count as f32;
             statistics.average.blue /= statistics.pixel_count as f32;
         }
-        for i in 0..100 {
+        for i in 0..50 {
             statistics.color_distribution.red[i] /= statistics.pixel_count as f64;
             statistics.color_distribution.green[i] /= statistics.pixel_count as f64;
             statistics.color_distribution.blue[i] /= statistics.pixel_count as f64;
         }
-        //TODO noch RGB anzeigen
+        //TODO noch RGB + Lumineszenz anzeigen
         //TODO chromaticities hinzufügen
 
         ui.label(format!(
@@ -330,6 +325,13 @@ impl Widget for &mut ImageColorSelectPanel {
             plot_ui.bar_chart(green_chart);
             plot_ui.bar_chart(blue_chart);
         });
+
+        painter.circle(
+            self.pixel_pos,
+            self.brush_size,
+            Color32::TRANSPARENT,
+            Stroke::new(1.0, Color32::BLACK),
+        );
 
         response
     }
