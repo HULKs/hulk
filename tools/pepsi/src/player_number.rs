@@ -45,7 +45,7 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
         arguments.assignments,
         "Setting player number...",
         |assignment, _progress_bar| {
-            let hardware = &hardware_ids
+            let hardware_id = &hardware_ids
                 .get(&assignment.nao_number.number)
                 .unwrap_or_else(|| {
                     panic!(
@@ -53,7 +53,7 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
                         &assignment.nao_number.number
                     )
                 });
-            let head_id = &hardware.head_id;
+            let head_id = &hardware_id.head_id;
             async move {
                 repository
                     .set_player_number(head_id, assignment.player_number)
