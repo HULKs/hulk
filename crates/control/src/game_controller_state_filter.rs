@@ -202,7 +202,7 @@ fn next_filtered_state(
             }
         }
 
-        (State::Ready, GameState::Initial) => State::Ready,
+        (State::Ready, GameState::Standby) => State::Ready,
 
         (State::Initial | State::Ready | State::Standby, _)
         | (
