@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use color_eyre::Result;
+use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
@@ -24,10 +24,10 @@ use types::{
 };
 
 use crate::{
+    image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
     twix_painter::{CoordinateSystem, TwixPainter},
-    value_buffer::ValueBuffer,
 };
 
 use super::image::cycler_selector::VisionCyclerSelector;
@@ -105,7 +105,7 @@ impl Statistics {
 
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
-    image_buffer: ValueBuffer,
+    image_buffer: ImageBuffer,
     cycler_selector: VisionCyclerSelector,
     brush_size: f32,
 }
@@ -136,7 +136,7 @@ impl Panel for ImageColorSelectPanel {
                 path: "image".to_string(),
             },
         };
-        let image_buffer = nao.subscribe_output(output);
+        let image_buffer = nao.subscribe_image(output);
         let cycler_selector = VisionCyclerSelector::new(cycler);
 
         let brush_size = 50.0;
@@ -166,7 +166,7 @@ impl Widget for &mut ImageColorSelectPanel {
                         path: "image".to_string(),
                     },
                 };
-                self.image_buffer = self.nao.subscribe_output(output);
+                self.image_buffer = self.nao.subscribe_image(output);
             }
             ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
         });
@@ -287,8 +287,13 @@ impl<'a> ImageColorSelectPanel {
     }
 
     fn get_image(&self) -> Result<ColorImage> {
-        let image_data: YCbCr422Image = self.image_buffer.parse_latest()?;
-        let buffer = image_data
+        let buffer = self
+            .image_buffer
+            .get_latest()
+            .map_err(|error| eyre!("{error}"))?;
+        let image_ycbcr = bincode::deserialize::<YCbCr422Image>(&buffer)?;
+
+        let rgb_bytes = image_ycbcr
             .buffer()
             .iter()
             .flat_map(|&ycbcr422| {
@@ -301,8 +306,8 @@ impl<'a> ImageColorSelectPanel {
             })
             .collect::<Vec<_>>();
         let image = ColorImage::from_rgba_unmultiplied(
-            [image_data.width() as usize, image_data.height() as usize],
-            &buffer,
+            [image_ycbcr.width() as usize, image_ycbcr.height() as usize],
+            &rgb_bytes,
         );
         Ok(image)
     }
