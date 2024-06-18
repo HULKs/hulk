@@ -39,11 +39,7 @@ use tokio::{
 use spl_network_messages::PlayerNumber;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-
-#[cfg(not(target_os = "linux"))]
-const USE_DOCKER: bool = true;
-#[cfg(target_os = "linux")]
-const USE_DOCKER: bool = false;
+const USE_DOCKER: bool = !cfg!(target_os = "linux");
 
 #[derive(Clone)]
 pub struct Repository {
