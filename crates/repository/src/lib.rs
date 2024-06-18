@@ -324,10 +324,6 @@ impl Repository {
         version: Option<&str>,
         installation_directory: Option<&Path>,
     ) -> Result<()> {
-        if USE_DOCKER {
-            return Ok(());
-        }
-
         let symlink = self.root.join("naosdk");
         let version = version.unwrap_or(SDK_VERSION);
         let environment_installation_directory = env::var("NAOSDK_HOME").ok().map(PathBuf::from);
@@ -345,6 +341,11 @@ impl Repository {
             create_symlink(&directory, &symlink).await?;
             directory
         };
+
+        if USE_DOCKER {
+            return Ok(());
+        }
+
         let sdk = installation_directory.join(version);
 
         let incomplete_marker = installation_directory.join(format!("{version}.incomplete"));
