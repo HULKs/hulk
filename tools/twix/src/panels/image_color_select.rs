@@ -115,20 +115,19 @@ impl Panel for ImageColorSelectPanel {
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let cycler = value
-            .and_then(|value| value.get("cycler"))
-            .and_then(|value| value.as_str())
-            .map(Cycler::from_str)
-            .and_then(|cycler| match cycler {
-                Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
-                Ok(cycler) => {
-                    error!("Invalid vision cycler: {cycler}");
-                    None
-                }
-                Err(error) => {
-                    error!("{error}");
-                    None
-                }
-            })
+            .and_then(
+                |value| match Cycler::from_str(value.get("cycler")?.as_str()?) {
+                    Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
+                    Ok(cycler) => {
+                        error!("Invalid vision cycler: {cycler}");
+                        None
+                    }
+                    Err(error) => {
+                        error!("{error}");
+                        None
+                    }
+                },
+            )
             .unwrap_or(Cycler::VisionTop);
         let image_buffer = nao.subscribe_image(CyclerOutput {
             cycler,
@@ -163,6 +162,17 @@ impl Panel for ImageColorSelectPanel {
             },
         });
 
+        let x_axis = value
+            .and_then(|value| serde_json::from_value::<Axis>(value.get("x_axis")?.clone()).ok())
+            .unwrap_or(Axis::GreenChromaticity);
+        let y_axis = value
+            .and_then(|value| serde_json::from_value::<Axis>(value.get("y_axis")?.clone()).ok())
+            .unwrap_or(Axis::Luminance);
+
+        let filter_by_other_axes = value
+            .and_then(|value| value.get("filter_by_other_axes")?.as_bool())
+            .unwrap_or(true);
+
         Self {
             nao,
             image_buffer,
@@ -171,9 +181,9 @@ impl Panel for ImageColorSelectPanel {
             brush_size,
             field_image,
             other_image,
-            x_axis: Axis::GreenChromaticity,
-            y_axis: Axis::Luminance,
-            filter_by_other_axes: true,
+            x_axis,
+            y_axis,
+            filter_by_other_axes,
         }
     }
 
@@ -181,6 +191,9 @@ impl Panel for ImageColorSelectPanel {
         let cycler = self.cycler_selector.selected_cycler();
         json!({
             "cycler": cycler.to_string(),
+            "x_axis": self.x_axis,
+            "y_axis": self.y_axis,
+            "filter_by_other_axes": self.filter_by_other_axes,
         })
     }
 }
@@ -440,7 +453,7 @@ impl ImageColorSelectPanel {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 enum Axis {
     RedChromaticity,
     GreenChromaticity,
