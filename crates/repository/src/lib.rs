@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    env::{self, current_dir},
+    env::{self, consts::ARCH, current_dir},
     ffi::OsStr,
     fmt::Display,
     fs::Permissions,
@@ -338,7 +338,7 @@ impl Repository {
 
         if !sdk.exists() {
             let downloads_directory = installation_directory.join("downloads");
-            let installer_name = format!("HULKs-OS-x86_64-toolchain-{version}.sh");
+            let installer_name = format!("HULKs-OS-{ARCH}-toolchain-{version}.sh");
             let installer_path = downloads_directory.join(&installer_name);
             if !installer_path.exists() {
                 download_sdk(&downloads_directory, version, &installer_name)
