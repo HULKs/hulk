@@ -183,7 +183,7 @@ impl Widget for &mut ImageColorSelectPanel {
         let image = self.get_image();
         TopBottomPanel::new(TopBottomSide::Bottom, "Franz Josef von Panellington")
             .resizable(true)
-            .show(ui.ctx(), |ui| {
+            .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("x:");
                     ComboBox::from_id_source("x_axis")
@@ -237,7 +237,7 @@ impl Widget for &mut ImageColorSelectPanel {
                             );
                             ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
                         });
-                    ui.checkbox(&mut self.filter_by_other_axes, "Fitler")
+                    ui.checkbox(&mut self.filter_by_other_axes, "Filter")
                 });
 
                 egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
@@ -251,7 +251,7 @@ impl Widget for &mut ImageColorSelectPanel {
                                 self.y_axis,
                                 self.filter_by_other_axes,
                             )
-                            .color(Color32::GREEN),
+                            .color(Color32::RED),
                         );
                         plot_ui.points(
                             generate_points(
@@ -274,7 +274,7 @@ impl Widget for &mut ImageColorSelectPanel {
                 })
             });
         CentralPanel::default()
-            .show(ui.ctx(), |ui| {
+            .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
                     if self.cycler_selector.ui(ui).changed() {
                         self.image_buffer = self.nao.subscribe_image(CyclerOutput {
