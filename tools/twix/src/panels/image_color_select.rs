@@ -339,8 +339,8 @@ impl Widget for &mut ImageColorSelectPanel {
                     .color(Color32::BLUE),
             );
             if let Ok(field_color) = self.field_color.parse_latest::<FieldColor>() {
-                plot_ui.vline(VLine::new(self.x_axis.get_threshold(field_color).1));
-                plot_ui.hline(HLine::new(self.y_axis.get_threshold(field_color).1));
+                plot_ui.vline(VLine::new(self.x_axis.get_threshold(field_color).1).width(5.0));
+                plot_ui.hline(HLine::new(self.y_axis.get_threshold(field_color).1).width(5.0));
             }
         });
 
