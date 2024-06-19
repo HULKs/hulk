@@ -1,12 +1,4 @@
-use std::{
-    cmp::Ordering,
-    fs::File,
-    io::{Read, Write},
-    ops::Add,
-    path::Path,
-    str::FromStr,
-    sync::Arc,
-};
+use std::{cmp::Ordering, ops::Add, str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
@@ -44,6 +36,9 @@ use crate::{
 
 use super::image::cycler_selector::VisionCyclerSelector;
 
+const FIELD_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(255, 0, 0, 50);
+const OTHER_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 255, 50);
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 
 enum ImageKind {
@@ -55,8 +50,7 @@ pub struct ImageColorSelectPanel {
     field_color: ValueBuffer,
     cycler_selector: VisionCyclerSelector,
     brush_size: f32,
-    field_image: ColorImage,
-    other_image: ColorImage,
+    selection_mask: ColorImage,
     x_axis: Axis,
     y_axis: Axis,
     filter_by_other_axes: bool,
@@ -140,21 +134,7 @@ impl Panel for ImageColorSelectPanel {
 
         let brush_size = 50.0;
 
-        let mut field_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
-        let path = Path::new("mask_field.png");
-        if path.exists() {
-            let mut buf = Vec::new();
-            File::open(path).unwrap().read_to_end(&mut buf).unwrap();
-            field_image = bincode::deserialize(&buf).unwrap();
-        }
-
-        let mut other_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
-        let path = Path::new("mask_other.png");
-        if path.exists() {
-            let mut buf = Vec::new();
-            File::open(path).unwrap().read_to_end(&mut buf).unwrap();
-            other_image = bincode::deserialize(&buf).unwrap();
-        }
+        let selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
 
         let field_color = nao.subscribe_output(CyclerOutput {
             cycler,
@@ -180,8 +160,7 @@ impl Panel for ImageColorSelectPanel {
             field_color,
             cycler_selector,
             brush_size,
-            field_image,
-            other_image,
+            selection_mask,
             x_axis,
             y_axis,
             filter_by_other_axes,
@@ -205,64 +184,69 @@ impl Widget for &mut ImageColorSelectPanel {
         TopBottomPanel::new(TopBottomSide::Bottom, "Franz Josef von Panellington")
             .resizable(true)
             .show(ui.ctx(), |ui| {
-                ComboBox::from_id_source("x_axis")
-                    .selected_text(format!("{:?}", self.x_axis))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.x_axis,
-                            Axis::RedChromaticity,
-                            "Red Chromaticity",
-                        );
-                        ui.selectable_value(
-                            &mut self.x_axis,
-                            Axis::GreenChromaticity,
-                            "Green Chromaticity",
-                        );
-                        ui.selectable_value(
-                            &mut self.x_axis,
-                            Axis::BlueChromaticity,
-                            "Blue Chromaticity",
-                        );
-                        ui.selectable_value(
-                            &mut self.x_axis,
-                            Axis::GreenLuminance,
-                            "Green Luminance",
-                        );
-                        ui.selectable_value(&mut self.x_axis, Axis::Luminance, "Luminance");
-                    });
-                ComboBox::from_id_source("y_axis")
-                    .selected_text(format!("{:?}", self.y_axis))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.y_axis,
-                            Axis::RedChromaticity,
-                            "Red Chromaticity",
-                        );
-                        ui.selectable_value(
-                            &mut self.y_axis,
-                            Axis::GreenChromaticity,
-                            "Green Chromaticity",
-                        );
-                        ui.selectable_value(
-                            &mut self.y_axis,
-                            Axis::BlueChromaticity,
-                            "Blue Chromaticity",
-                        );
-                        ui.selectable_value(
-                            &mut self.y_axis,
-                            Axis::GreenLuminance,
-                            "Green Luminance",
-                        );
-                        ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
-                    });
-                ui.checkbox(&mut self.filter_by_other_axes, "Fitler");
+                ui.horizontal(|ui| {
+                    ui.label("x:");
+                    ComboBox::from_id_source("x_axis")
+                        .selected_text(format!("{:?}", self.x_axis))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::RedChromaticity,
+                                "Red Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::GreenChromaticity,
+                                "Green Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::BlueChromaticity,
+                                "Blue Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::GreenLuminance,
+                                "Green Luminance",
+                            );
+                            ui.selectable_value(&mut self.x_axis, Axis::Luminance, "Luminance");
+                        });
+                    ui.label("y:");
+                    ComboBox::from_id_source("y_axis")
+                        .selected_text(format!("{:?}", self.y_axis))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::RedChromaticity,
+                                "Red Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::GreenChromaticity,
+                                "Green Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::BlueChromaticity,
+                                "Blue Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::GreenLuminance,
+                                "Green Luminance",
+                            );
+                            ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
+                        });
+                    ui.checkbox(&mut self.filter_by_other_axes, "Fitler")
+                });
 
                 egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
                     if let Ok(image) = &image {
                         plot_ui.points(
                             generate_points(
                                 image,
-                                &self.field_image,
+                                &self.selection_mask,
+                                FIELD_SELECTION_COLOR,
                                 self.x_axis,
                                 self.y_axis,
                                 self.filter_by_other_axes,
@@ -272,7 +256,8 @@ impl Widget for &mut ImageColorSelectPanel {
                         plot_ui.points(
                             generate_points(
                                 image,
-                                &self.other_image,
+                                &self.selection_mask,
+                                OTHER_SELECTION_COLOR,
                                 self.x_axis,
                                 self.y_axis,
                                 self.filter_by_other_axes,
@@ -290,33 +275,33 @@ impl Widget for &mut ImageColorSelectPanel {
             });
         CentralPanel::default()
             .show(ui.ctx(), |ui| {
-                if self.cycler_selector.ui(ui).changed() {
-                    self.image_buffer = self.nao.subscribe_image(CyclerOutput {
-                        cycler: self.cycler_selector.selected_cycler(),
-                        output: Output::Main {
-                            path: "image".to_string(),
-                        },
-                    });
-                    self.field_color = self.nao.subscribe_output(CyclerOutput {
-                        cycler: self.cycler_selector.selected_cycler(),
-                        output: Output::Main {
-                            path: "field_color".to_string(),
-                        },
-                    });
-                }
+                ui.horizontal(|ui| {
+                    if self.cycler_selector.ui(ui).changed() {
+                        self.image_buffer = self.nao.subscribe_image(CyclerOutput {
+                            cycler: self.cycler_selector.selected_cycler(),
+                            output: Output::Main {
+                                path: "image".to_string(),
+                            },
+                        });
+                        self.field_color = self.nao.subscribe_output(CyclerOutput {
+                            cycler: self.cycler_selector.selected_cycler(),
+                            output: Output::Main {
+                                path: "field_color".to_string(),
+                            },
+                        });
+                    }
 
-                if ui.button("reset").clicked() {
-                    self.field_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
-                    self.other_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
-                };
-                ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
+                    if ui.button("reset").clicked() {
+                        self.selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
+                    };
+                    ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"))
+                });
                 let image = match image {
                     Ok(image) => image,
                     Err(error) => {
                         return ui.label(format!("{error:#?}"));
                     }
                 };
-
                 let handle = ui
                     .ctx()
                     .load_texture("image", image.clone(), TextureOptions::default())
@@ -328,12 +313,13 @@ impl Widget for &mut ImageColorSelectPanel {
                 let image_widget = Image::new(texture)
                     .shrink_to_fit()
                     .sense(Sense::click_and_drag());
-                let response = ui.add(image_widget);
-
+                let mut response = ui.add(image_widget);
+                response.rect.set_width(response.rect.width().max(1.0));
+                response.rect.set_height(response.rect.height().max(1.0));
                 let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
                     vector![
-                        self.field_image.width() as f32,
-                        self.field_image.height() as f32
+                        self.selection_mask.width() as f32,
+                        self.selection_mask.height() as f32
                     ],
                     Similarity2::identity(),
                     Orientation::LeftHanded,
@@ -341,34 +327,23 @@ impl Widget for &mut ImageColorSelectPanel {
 
                 if let Some(hover_position) = response.hover_pos() {
                     let pixel_pos = painter.transform_pixel_to_world(hover_position);
-                    if pixel_pos.x() < self.field_image.width() as f32
-                        && pixel_pos.y() < self.field_image.height() as f32
+                    if pixel_pos.x() < self.selection_mask.width() as f32
+                        && pixel_pos.y() < self.selection_mask.height() as f32
                     {
                         let scroll_delta = ui.input(|input| input.raw_scroll_delta);
                         self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
                         if response.is_pointer_button_down_on() {
-                            self.pixels_in_brush(pixel_pos, &self.field_image).for_each(
-                                |position| {
+                            self.pixels_in_brush(pixel_pos, &self.selection_mask)
+                                .for_each(|position| {
                                     ui.input(|i| {
                                         if i.pointer.button_down(PointerButton::Primary) {
                                             self.add_to_selection(position, i.modifiers.shift)
                                         }
                                         if i.pointer.button_down(PointerButton::Secondary) {
-                                            self.remove_from_selection(position, i.modifiers.shift)
+                                            self.remove_from_selection(position)
                                         }
                                     })
-                                },
-                            );
-                            let buf = bincode::serialize(&self.field_image).unwrap();
-                            File::create("mask_field.png")
-                                .unwrap()
-                                .write_all(&buf)
-                                .unwrap();
-                            let buf = bincode::serialize(&self.other_image).unwrap();
-                            File::create("mask_other.png")
-                                .unwrap()
-                                .write_all(&buf)
-                                .unwrap();
+                                });
                         }
 
                         painter.circle(
@@ -382,12 +357,11 @@ impl Widget for &mut ImageColorSelectPanel {
 
                 let colored_handle = ui
                     .ctx()
-                    .load_texture("image", self.field_image.clone(), TextureOptions::default())
-                    .id();
-                painter.image(colored_handle, response.rect);
-                let colored_handle = ui
-                    .ctx()
-                    .load_texture("image", self.other_image.clone(), TextureOptions::default())
+                    .load_texture(
+                        "image",
+                        self.selection_mask.clone(),
+                        TextureOptions::default(),
+                    )
                     .id();
                 painter.image(colored_handle, response.rect);
                 response
@@ -421,29 +395,19 @@ impl ImageColorSelectPanel {
     }
 
     fn add_to_selection(&mut self, position: (isize, isize), other: bool) {
-        let (image, color) = if other {
-            (
-                &mut self.other_image,
-                Color32::from_rgba_unmultiplied(0, 0, 225, 50),
-            )
+        let color = if other {
+            OTHER_SELECTION_COLOR
         } else {
-            (
-                &mut self.field_image,
-                Color32::from_rgba_unmultiplied(255, 225, 0, 50),
-            )
+            FIELD_SELECTION_COLOR
         };
-        let width = image.width();
-        image.pixels[position.1 as usize * width + position.0 as usize] = color;
+        let width = self.selection_mask.width();
+        self.selection_mask.pixels[position.1 as usize * width + position.0 as usize] = color;
     }
 
-    fn remove_from_selection(&mut self, position: (isize, isize), other: bool) {
-        let image = if other {
-            &mut self.other_image
-        } else {
-            &mut self.field_image
-        };
-        let width = image.width();
-        image.pixels[position.1 as usize * width + position.0 as usize] = Color32::TRANSPARENT;
+    fn remove_from_selection(&mut self, position: (isize, isize)) {
+        let width = self.selection_mask.width();
+        self.selection_mask.pixels[position.1 as usize * width + position.0 as usize] =
+            Color32::TRANSPARENT;
     }
 
     fn get_image(&self) -> Result<ColorImage> {
@@ -512,6 +476,7 @@ impl Axis {
 fn generate_points(
     image: &ColorImage,
     mask: &ColorImage,
+    mask_color: Color32,
     x_axis: Axis,
     y_axis: Axis,
     filter_by_other_axes: bool,
@@ -522,7 +487,7 @@ fn generate_points(
             .iter()
             .zip(&mask.pixels)
             .filter_map(|(color, mask)| {
-                if mask.a() == 0 {
+                if *mask != mask_color {
                     return None;
                 }
                 let rgb = Rgb::new(color.r(), color.g(), color.b());
