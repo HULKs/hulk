@@ -167,7 +167,7 @@ impl Repository {
             if USE_DOCKER {
                 format!(
                     "docker run --volume={}:/hulk --volume={}:/naosdk/sysroots/corei7-64-aldebaran-linux/home/cargo \
-                    --rm --interactive --tty ghcr.io/hulks/naosdk:{SDK_VERSION}-{ARCH} /bin/bash --login -c '{cargo_command}'",
+                    --rm --interactive --tty ghcr.io/hulks/naosdk:{SDK_VERSION} /bin/bash --login -c '{cargo_command}'",
                     self.root.display(),
                     self.root.join("naosdk/cargo-home").join(SDK_VERSION).display()
                 )
