@@ -13,8 +13,9 @@ use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{
-        self, load::SizedTexture, Color32, ColorImage, ComboBox, Image, PointerButton, Response,
-        Sense, Stroke, TextureOptions, Ui, Widget,
+        self, load::SizedTexture, panel::TopBottomSide, CentralPanel, Color32, ColorImage,
+        ComboBox, Image, PointerButton, Response, Sense, Stroke, TextureOptions, TopBottomPanel,
+        Ui, Widget,
     },
     epaint::Vec2,
 };
@@ -200,179 +201,198 @@ impl Panel for ImageColorSelectPanel {
 
 impl Widget for &mut ImageColorSelectPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.horizontal(|ui| {
-            if self.cycler_selector.ui(ui).changed() {
-                self.image_buffer = self.nao.subscribe_image(CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: Output::Main {
-                        path: "image".to_string(),
-                    },
-                });
-                self.field_color = self.nao.subscribe_output(CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: Output::Main {
-                        path: "field_color".to_string(),
-                    },
-                });
-            }
+        let image = self.get_image();
+        TopBottomPanel::new(TopBottomSide::Bottom, "Franz Josef von Panellington")
+            .resizable(true)
+            .show(ui.ctx(), |ui| {
+                ComboBox::from_id_source("x_axis")
+                    .selected_text(format!("{:?}", self.x_axis))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.x_axis,
+                            Axis::RedChromaticity,
+                            "Red Chromaticity",
+                        );
+                        ui.selectable_value(
+                            &mut self.x_axis,
+                            Axis::GreenChromaticity,
+                            "Green Chromaticity",
+                        );
+                        ui.selectable_value(
+                            &mut self.x_axis,
+                            Axis::BlueChromaticity,
+                            "Blue Chromaticity",
+                        );
+                        ui.selectable_value(
+                            &mut self.x_axis,
+                            Axis::GreenLuminance,
+                            "Green Luminance",
+                        );
+                        ui.selectable_value(&mut self.x_axis, Axis::Luminance, "Luminance");
+                    });
+                ComboBox::from_id_source("y_axis")
+                    .selected_text(format!("{:?}", self.y_axis))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.y_axis,
+                            Axis::RedChromaticity,
+                            "Red Chromaticity",
+                        );
+                        ui.selectable_value(
+                            &mut self.y_axis,
+                            Axis::GreenChromaticity,
+                            "Green Chromaticity",
+                        );
+                        ui.selectable_value(
+                            &mut self.y_axis,
+                            Axis::BlueChromaticity,
+                            "Blue Chromaticity",
+                        );
+                        ui.selectable_value(
+                            &mut self.y_axis,
+                            Axis::GreenLuminance,
+                            "Green Luminance",
+                        );
+                        ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
+                    });
+                ui.checkbox(&mut self.filter_by_other_axes, "Fitler");
 
-            if ui.button("reset").clicked() {
-                self.field_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
-                self.other_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
-            };
-            ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
-        });
-
-        ui.separator();
-
-        let image = match self.get_image() {
-            Ok(image) => image,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
-        };
-
-        let handle = ui
-            .ctx()
-            .load_texture("image", image.clone(), TextureOptions::default())
-            .id();
-        let texture = SizedTexture {
-            id: handle,
-            size: Vec2::new(image.width() as f32, image.height() as f32),
-        };
-        let image_widget = Image::new(texture).sense(Sense::click_and_drag());
-        let response = ui.add(image_widget);
-
-        ui.separator();
-
-        let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
-            vector![
-                self.field_image.width() as f32,
-                self.field_image.height() as f32
-            ],
-            Similarity2::identity(),
-            Orientation::LeftHanded,
-        );
-
-        if let Some(hover_position) = response.hover_pos() {
-            let pixel_pos = painter.transform_pixel_to_world(hover_position);
-            if pixel_pos.x() < self.field_image.width() as f32
-                && pixel_pos.y() < self.field_image.height() as f32
-            {
-                let scroll_delta = ui.input(|input| input.raw_scroll_delta);
-                self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
-                if response.is_pointer_button_down_on() {
-                    self.pixels_in_brush(pixel_pos, &self.field_image)
-                        .for_each(|position| {
-                            ui.input(|i| {
-                                if i.pointer.button_down(PointerButton::Primary) {
-                                    self.add_to_selection(position, i.modifiers.shift)
-                                }
-                                if i.pointer.button_down(PointerButton::Secondary) {
-                                    self.remove_from_selection(position, i.modifiers.shift)
-                                }
-                            })
-                        });
-                    let buf = bincode::serialize(&self.field_image).unwrap();
-                    File::create("mask_field.png")
-                        .unwrap()
-                        .write_all(&buf)
-                        .unwrap();
-                    let buf = bincode::serialize(&self.other_image).unwrap();
-                    File::create("mask_other.png")
-                        .unwrap()
-                        .write_all(&buf)
-                        .unwrap();
+                egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
+                    if let Ok(image) = &image {
+                        plot_ui.points(
+                            generate_points(
+                                image,
+                                &self.field_image,
+                                self.x_axis,
+                                self.y_axis,
+                                self.filter_by_other_axes,
+                            )
+                            .color(Color32::GREEN),
+                        );
+                        plot_ui.points(
+                            generate_points(
+                                image,
+                                &self.other_image,
+                                self.x_axis,
+                                self.y_axis,
+                                self.filter_by_other_axes,
+                            )
+                            .color(Color32::BLUE),
+                        );
+                    }
+                    if let Ok(field_color) = self.field_color.parse_latest::<FieldColor>() {
+                        plot_ui
+                            .vline(VLine::new(self.x_axis.get_threshold(field_color).1).width(5.0));
+                        plot_ui
+                            .hline(HLine::new(self.y_axis.get_threshold(field_color).1).width(5.0));
+                    }
+                })
+            });
+        CentralPanel::default()
+            .show(ui.ctx(), |ui| {
+                if self.cycler_selector.ui(ui).changed() {
+                    self.image_buffer = self.nao.subscribe_image(CyclerOutput {
+                        cycler: self.cycler_selector.selected_cycler(),
+                        output: Output::Main {
+                            path: "image".to_string(),
+                        },
+                    });
+                    self.field_color = self.nao.subscribe_output(CyclerOutput {
+                        cycler: self.cycler_selector.selected_cycler(),
+                        output: Output::Main {
+                            path: "field_color".to_string(),
+                        },
+                    });
                 }
 
-                painter.circle(
-                    pixel_pos,
-                    self.brush_size,
-                    Color32::TRANSPARENT,
-                    Stroke::new(1.0, Color32::BLACK),
-                );
-            }
-        }
+                if ui.button("reset").clicked() {
+                    self.field_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
+                    self.other_image = ColorImage::new([640, 480], Color32::TRANSPARENT);
+                };
+                ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
+                let image = match image {
+                    Ok(image) => image,
+                    Err(error) => {
+                        return ui.label(format!("{error:#?}"));
+                    }
+                };
 
-        let colored_handle = ui
-            .ctx()
-            .load_texture("image", self.field_image.clone(), TextureOptions::default())
-            .id();
-        painter.image(colored_handle, response.rect);
-        let colored_handle = ui
-            .ctx()
-            .load_texture("image", self.other_image.clone(), TextureOptions::default())
-            .id();
-        painter.image(colored_handle, response.rect);
+                let handle = ui
+                    .ctx()
+                    .load_texture("image", image.clone(), TextureOptions::default())
+                    .id();
+                let texture = SizedTexture {
+                    id: handle,
+                    size: Vec2::new(image.width() as f32, image.height() as f32),
+                };
+                let image_widget = Image::new(texture)
+                    .shrink_to_fit()
+                    .sense(Sense::click_and_drag());
+                let response = ui.add(image_widget);
 
-        //TODO noch RGB anzeigen
-        //TODO chromaticities hinzufügen
-        ui.separator();
+                let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
+                    vector![
+                        self.field_image.width() as f32,
+                        self.field_image.height() as f32
+                    ],
+                    Similarity2::identity(),
+                    Orientation::LeftHanded,
+                );
 
-        ComboBox::from_id_source("x_axis")
-            .selected_text(format!("{:?}", self.x_axis))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.x_axis, Axis::RedChromaticity, "Red Chromaticity");
-                ui.selectable_value(
-                    &mut self.x_axis,
-                    Axis::GreenChromaticity,
-                    "Green Chromaticity",
-                );
-                ui.selectable_value(
-                    &mut self.x_axis,
-                    Axis::BlueChromaticity,
-                    "Blue Chromaticity",
-                );
-                ui.selectable_value(&mut self.x_axis, Axis::GreenLuminance, "Green Luminance");
-                ui.selectable_value(&mut self.x_axis, Axis::Luminance, "Luminance");
-            });
-        ComboBox::from_id_source("y_axis")
-            .selected_text(format!("{:?}", self.y_axis))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.y_axis, Axis::RedChromaticity, "Red Chromaticity");
-                ui.selectable_value(
-                    &mut self.y_axis,
-                    Axis::GreenChromaticity,
-                    "Green Chromaticity",
-                );
-                ui.selectable_value(
-                    &mut self.y_axis,
-                    Axis::BlueChromaticity,
-                    "Blue Chromaticity",
-                );
-                ui.selectable_value(&mut self.y_axis, Axis::GreenLuminance, "Green Luminance");
-                ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
-            });
-        ui.checkbox(&mut self.filter_by_other_axes, "Fitler");
+                if let Some(hover_position) = response.hover_pos() {
+                    let pixel_pos = painter.transform_pixel_to_world(hover_position);
+                    if pixel_pos.x() < self.field_image.width() as f32
+                        && pixel_pos.y() < self.field_image.height() as f32
+                    {
+                        let scroll_delta = ui.input(|input| input.raw_scroll_delta);
+                        self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
+                        if response.is_pointer_button_down_on() {
+                            self.pixels_in_brush(pixel_pos, &self.field_image).for_each(
+                                |position| {
+                                    ui.input(|i| {
+                                        if i.pointer.button_down(PointerButton::Primary) {
+                                            self.add_to_selection(position, i.modifiers.shift)
+                                        }
+                                        if i.pointer.button_down(PointerButton::Secondary) {
+                                            self.remove_from_selection(position, i.modifiers.shift)
+                                        }
+                                    })
+                                },
+                            );
+                            let buf = bincode::serialize(&self.field_image).unwrap();
+                            File::create("mask_field.png")
+                                .unwrap()
+                                .write_all(&buf)
+                                .unwrap();
+                            let buf = bincode::serialize(&self.other_image).unwrap();
+                            File::create("mask_other.png")
+                                .unwrap()
+                                .write_all(&buf)
+                                .unwrap();
+                        }
 
-        egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
-            plot_ui.points(
-                generate_points(
-                    &image,
-                    &self.field_image,
-                    self.x_axis,
-                    self.y_axis,
-                    self.filter_by_other_axes,
-                )
-                .color(Color32::GREEN),
-            );
-            plot_ui.points(
-                generate_points(
-                    &image,
-                    &self.other_image,
-                    self.x_axis,
-                    self.y_axis,
-                    self.filter_by_other_axes,
-                )
-                .color(Color32::BLUE),
-            );
-            if let Ok(field_color) = self.field_color.parse_latest::<FieldColor>() {
-                plot_ui.vline(VLine::new(self.x_axis.get_threshold(field_color).1).width(5.0));
-                plot_ui.hline(HLine::new(self.y_axis.get_threshold(field_color).1).width(5.0));
-            }
-        });
+                        painter.circle(
+                            pixel_pos,
+                            self.brush_size,
+                            Color32::TRANSPARENT,
+                            Stroke::new(1.0, Color32::BLACK),
+                        );
+                    }
+                }
 
-        response
+                let colored_handle = ui
+                    .ctx()
+                    .load_texture("image", self.field_image.clone(), TextureOptions::default())
+                    .id();
+                painter.image(colored_handle, response.rect);
+                let colored_handle = ui
+                    .ctx()
+                    .load_texture("image", self.other_image.clone(), TextureOptions::default())
+                    .id();
+                painter.image(colored_handle, response.rect);
+                response
+            })
+            .response
     }
 }
 
