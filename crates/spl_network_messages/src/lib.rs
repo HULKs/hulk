@@ -23,7 +23,6 @@ pub use visual_referee_message::{VisualRefereeDecision, VisualRefereeMessage};
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct HulkMessage {
     pub player_number: PlayerNumber,
-    pub fallen: bool,
     pub pose: Pose2<Field>,
     pub is_referee_ready_signal_detected: bool,
     pub ball_position: Option<BallPosition<Field>>,
@@ -101,7 +100,6 @@ mod tests {
     fn maximum_hulk_message_size() {
         let test_message = HulkMessage {
             player_number: PlayerNumber::Seven,
-            fallen: false,
             pose: Pose2::default(),
             is_referee_ready_signal_detected: false,
             ball_position: Some(BallPosition {

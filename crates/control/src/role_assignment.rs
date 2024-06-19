@@ -307,7 +307,6 @@ impl RoleAssignment {
                         .hardware
                         .write_to_network(OutgoingMessage::Spl(HulkMessage {
                             player_number: *context.player_number,
-                            fallen: matches!(context.fall_state, FallState::Fallen { .. }),
                             pose: ground_to_field.as_pose(),
                             is_referee_ready_signal_detected: false,
                             ball_position,
