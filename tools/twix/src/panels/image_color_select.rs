@@ -58,6 +58,7 @@ pub struct ImageColorSelectPanel {
     other_image: ColorImage,
     x_axis: Axis,
     y_axis: Axis,
+    filter_by_other_axes: bool,
 }
 
 struct ColorArray {
@@ -172,6 +173,7 @@ impl Panel for ImageColorSelectPanel {
             other_image,
             x_axis: Axis::GreenChromaticity,
             y_axis: Axis::Luminance,
+            filter_by_other_axes: true,
         }
     }
 
@@ -328,15 +330,28 @@ impl Widget for &mut ImageColorSelectPanel {
                 ui.selectable_value(&mut self.y_axis, Axis::GreenLuminance, "Green Luminance");
                 ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
             });
+        ui.checkbox(&mut self.filter_by_other_axes, "Fitler");
 
         egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
             plot_ui.points(
-                generate_points(&image, &self.field_image, self.x_axis, self.y_axis)
-                    .color(Color32::GREEN),
+                generate_points(
+                    &image,
+                    &self.field_image,
+                    self.x_axis,
+                    self.y_axis,
+                    self.filter_by_other_axes,
+                )
+                .color(Color32::GREEN),
             );
             plot_ui.points(
-                generate_points(&image, &self.other_image, self.x_axis, self.y_axis)
-                    .color(Color32::BLUE),
+                generate_points(
+                    &image,
+                    &self.other_image,
+                    self.x_axis,
+                    self.y_axis,
+                    self.filter_by_other_axes,
+                )
+                .color(Color32::BLUE),
             );
             if let Ok(field_color) = self.field_color.parse_latest::<FieldColor>() {
                 plot_ui.vline(VLine::new(self.x_axis.get_threshold(field_color).1).width(5.0));
@@ -461,14 +476,20 @@ impl Axis {
     }
 }
 
-fn generate_points(image: &ColorImage, filter: &ColorImage, x_axis: Axis, y_axis: Axis) -> Points {
+fn generate_points(
+    image: &ColorImage,
+    mask: &ColorImage,
+    x_axis: Axis,
+    y_axis: Axis,
+    filter_by_other_axes: bool,
+) -> Points {
     Points::new(
         image
             .pixels
             .iter()
-            .zip(&filter.pixels)
-            .filter_map(|(color, filter)| {
-                if filter.a() == 0 {
+            .zip(&mask.pixels)
+            .filter_map(|(color, mask)| {
+                if mask.a() == 0 {
                     return None;
                 }
                 let rgb = Rgb::new(color.r(), color.g(), color.b());
@@ -478,10 +499,11 @@ fn generate_points(image: &ColorImage, filter: &ColorImage, x_axis: Axis, y_axis
                 let green_chromaticity = rgb.get_chromaticity(RgbChannel::Green);
                 let blue_chromaticity = rgb.get_chromaticity(RgbChannel::Blue);
 
-                if (red_chromaticity > 0.37 && !skip.contains(&Axis::RedChromaticity)
-                    || blue_chromaticity > 0.38 && !skip.contains(&Axis::BlueChromaticity)
-                    || green_chromaticity < 0.5 && !skip.contains(&Axis::GreenChromaticity)
-                    || (rgb.g as f32) < 25.0 && !skip.contains(&Axis::GreenLuminance))
+                if filter_by_other_axes
+                    && (red_chromaticity > 0.37 && !skip.contains(&Axis::RedChromaticity)
+                        || blue_chromaticity > 0.38 && !skip.contains(&Axis::BlueChromaticity)
+                        || green_chromaticity < 0.5 && !skip.contains(&Axis::GreenChromaticity)
+                        || (rgb.g as f32) < 25.0 && !skip.contains(&Axis::GreenLuminance))
                     && (rgb.get_luminance() as f32 > 25.0 || skip.contains(&Axis::Luminance))
                 {
                     return None;
