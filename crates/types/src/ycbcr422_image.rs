@@ -39,15 +39,15 @@ impl From<RgbImage> for YCbCr422Image {
             .chunks(6)
             .map(|pixel| {
                 let left_color: YCbCr444 = Rgb {
-                    r: pixel[0],
-                    g: pixel[1],
-                    b: pixel[2],
+                    red: pixel[0],
+                    green: pixel[1],
+                    blue: pixel[2],
                 }
                 .into();
                 let right_color: YCbCr444 = Rgb {
-                    r: pixel[3],
-                    g: pixel[4],
-                    b: pixel[5],
+                    red: pixel[3],
+                    green: pixel[4],
+                    blue: pixel[5],
                 }
                 .into();
                 [left_color, right_color].into()
@@ -87,12 +87,12 @@ impl From<&YCbCr422Image> for RgbImage {
                 rgb_image.put_pixel(
                     x * 2,
                     y,
-                    image::Rgb([left_color.r, left_color.g, left_color.b]),
+                    image::Rgb([left_color.red, left_color.green, left_color.blue]),
                 );
                 rgb_image.put_pixel(
                     x * 2 + 1,
                     y,
-                    image::Rgb([right_color.r, right_color.g, right_color.b]),
+                    image::Rgb([right_color.red, right_color.green, right_color.blue]),
                 );
             }
         }

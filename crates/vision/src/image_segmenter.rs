@@ -9,7 +9,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Isometry2, Transform};
 use types::{
-    color::{Intensity, Rgb, RgbChannel, YCbCr444},
+    color::{Intensity, Rgb, YCbCr444},
     field_color::FieldColor,
     image_segments::{EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     interpolated::Interpolated,
@@ -310,7 +310,7 @@ fn pixel_to_edge_detection_value(
         EdgeDetectionSourceParameters::Luminance => pixel.y,
         EdgeDetectionSourceParameters::GreenChromaticity => {
             let rgb = Rgb::from(pixel);
-            (rgb.get_chromaticity(RgbChannel::Green) * 255.0) as u8
+            (rgb.convert_to_rgchromaticity().green * 255.0) as u8
         }
     }
 }

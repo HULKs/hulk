@@ -1,7 +1,7 @@
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use crate::color::{Hsv, Intensity, Rgb, RgbChannel, YCbCr444};
+use crate::color::{Hsv, Intensity, Rgb, YCbCr444};
 
 #[derive(
     Clone,
@@ -52,13 +52,11 @@ impl FieldColor {
 
         match self.function {
             FieldColorFunction::GreenChromaticity => {
-                let red_chromaticity = rgb.get_chromaticity(RgbChannel::Red);
-                let green_chromaticity = rgb.get_chromaticity(RgbChannel::Green);
-                let blue_chromaticity = rgb.get_chromaticity(RgbChannel::Blue);
-                if (red_chromaticity > self.red_chromaticity_threshold
-                    || blue_chromaticity > self.blue_chromaticity_threshold
-                    || green_chromaticity < self.green_chromaticity_threshold
-                    || (rgb.g as f32) < self.green_luminance_threshold)
+                let chromaticity = rgb.convert_to_rgchromaticity();
+                if (chromaticity.red > self.red_chromaticity_threshold
+                    || chromaticity.blue > self.blue_chromaticity_threshold
+                    || chromaticity.green < self.green_chromaticity_threshold
+                    || (rgb.green as f32) < self.green_luminance_threshold)
                     && (rgb.get_luminance() as f32) > self.luminance_threshold
                 {
                     Intensity::Low

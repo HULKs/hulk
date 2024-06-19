@@ -66,7 +66,7 @@ fn paint_segments(
         for segment in scanline.segments.iter().rev() {
             let ycbcr_color = segment.color;
             let rgb_color = Rgb::from(ycbcr_color);
-            let original_color = Color32::from_rgb(rgb_color.r, rgb_color.g, rgb_color.b);
+            let original_color = Color32::from_rgb(rgb_color.red, rgb_color.green, rgb_color.blue);
 
             let segment_in_field = match project_segment_to_ground(x, segment, camera_matrix) {
                 Ok(result) => result,
