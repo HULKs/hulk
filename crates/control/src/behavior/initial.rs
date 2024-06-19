@@ -13,18 +13,23 @@ pub fn execute(
     world_state: &WorldState,
     expected_referee_position: Option<Point2<Field>>,
 ) -> Option<MotionCommand> {
-    if world_state.robot.primary_state != PrimaryState::Initial {
-        return None;
+    if world_state.robot.primary_state == PrimaryState::Initial {
+        return Some(MotionCommand::Initial {
+            head: HeadMotion::Center,
+            should_look_for_referee: false,
+        });
     }
-
-    Some(
-        look_at_referee(expected_referee_position, world_state.clone()).unwrap_or(
-            MotionCommand::Initial {
-                head: HeadMotion::Center,
-                should_look_for_referee: false,
-            },
-        ),
-    )
+    if world_state.robot.primary_state == PrimaryState::Standby {
+        return Some(
+            look_at_referee(expected_referee_position, world_state.clone()).unwrap_or(
+                MotionCommand::Initial {
+                    head: HeadMotion::Center,
+                    should_look_for_referee: false,
+                },
+            ),
+        );
+    }
+    None
 }
 
 fn look_at_referee(
@@ -33,7 +38,7 @@ fn look_at_referee(
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let expected_referee_position = expected_referee_position?;
-    if world_state.filtered_game_controller_state?.game_state != FilteredGameState::Initial {
+    if world_state.filtered_game_controller_state?.game_state != FilteredGameState::Standby {
         return None;
     }
 

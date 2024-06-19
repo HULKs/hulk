@@ -139,7 +139,7 @@ impl Localization {
         penalty: &Option<Penalty>,
     ) {
         match (self.last_primary_state, primary_state, game_phase) {
-            (PrimaryState::Initial, PrimaryState::Ready, _) => {
+            (PrimaryState::Standby, PrimaryState::Ready, _) => {
                 let initial_pose = generate_initial_pose(
                     &context.initial_poses[*context.player_number],
                     context.field_dimensions,
@@ -196,7 +196,7 @@ impl Localization {
             (PrimaryState::Ready, PrimaryState::Penalized, _) => {
                 self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
                 match penalty {
-                    Some(Penalty::IllegalMotionInInitial { .. }) => {
+                    Some(Penalty::IllegalMotionInStandby { .. }) => {
                         self.is_penalized_with_motion_in_set_or_initial = true;
                     }
                     Some(_) => {}
@@ -538,7 +538,7 @@ impl Localization {
         }
 
         let ground_to_field = match primary_state {
-            PrimaryState::Initial => Some(
+            PrimaryState::Initial | PrimaryState::Standby => Some(
                 generate_initial_pose(
                     &context.initial_poses[*context.player_number],
                     context.field_dimensions,
