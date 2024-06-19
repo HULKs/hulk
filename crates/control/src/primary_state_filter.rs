@@ -135,6 +135,7 @@ impl PrimaryStateFilter {
             FilteredGameState::Set => PrimaryState::Set,
             FilteredGameState::Playing { .. } => PrimaryState::Playing,
             FilteredGameState::Finished => PrimaryState::Finished,
+            FilteredGameState::Standby => PrimaryState::Standby,
         }
     }
 }

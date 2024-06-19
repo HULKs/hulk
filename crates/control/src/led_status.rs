@@ -34,7 +34,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     role: Input<Role, "role">,
-    is_own_referee_initial_pose_detected: Input<bool, "is_referee_initial_pose_detected">,
+    is_own_referee_initial_pose_detected: Input<bool, "is_referee_ready_pose_detected">,
 
     balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
@@ -90,6 +90,7 @@ impl LedStatus {
             PrimaryState::Penalized => Rgb::RED,
             PrimaryState::Finished => Rgb::BLACK,
             PrimaryState::Calibration => Rgb::PURPLE,
+            PrimaryState::Standby => Rgb::TURQUOISE,
         };
 
         let at_least_one_ball_top =

@@ -38,7 +38,7 @@ pub struct RoleAssignment {
     role: Role,
     role_initialized: bool,
     team_ball: Option<BallPosition<Field>>,
-    last_time_keeper_penalized: Option<SystemTime>,
+    last_time_player_was_penalized: Players<Option<SystemTime>>,
 }
 
 #[context]
@@ -86,14 +86,22 @@ impl RoleAssignment {
             role: Role::Striker,
             role_initialized: false,
             team_ball: None,
-            last_time_keeper_penalized: None,
+            last_time_player_was_penalized: Players {
+                one: None,
+                two: None,
+                three: None,
+                four: None,
+                five: None,
+                six: None,
+                seven: None,
+            },
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
         let primary_state = *context.primary_state;
-        let mut role = self.role;
+        let mut new_role = self.role;
 
         let ground_to_field =
             context
@@ -136,7 +144,7 @@ impl RoleAssignment {
                     player_roles[striker] = Role::Striker;
                 }
             }
-            role = player_roles[*context.player_number];
+            new_role = player_roles[*context.player_number];
 
             self.role_initialized = true;
             self.last_received_spl_striker_message = Some(cycle_start_time);
@@ -197,7 +205,7 @@ impl RoleAssignment {
         let mut team_ball = self.team_ball;
 
         if spl_striker_message_timeout {
-            match role {
+            match new_role {
                 Role::Keeper => {
                     team_ball = None;
                 }
@@ -207,12 +215,12 @@ impl RoleAssignment {
                 Role::Striker => {
                     send_spl_striker_message = true;
                     team_ball = None;
-                    role = Role::Loser;
+                    new_role = Role::Loser;
                 }
                 _ => {
                     send_spl_striker_message = false;
                     team_ball = None;
-                    role = Role::Searcher
+                    new_role = Role::Searcher
                 }
             }
         }
@@ -229,8 +237,8 @@ impl RoleAssignment {
             })
             .peekable();
         if spl_messages.peek().is_none() {
-            (role, send_spl_striker_message, team_ball) = process_role_state_machine(
-                role,
+            (new_role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                new_role,
                 ground_to_field,
                 context.ball_position,
                 primary_state,
@@ -251,8 +259,8 @@ impl RoleAssignment {
                 if spl_message.player_number != *context.player_number {
                     network_robot_obstacles.push(sender_position);
                 }
-                (role, send_spl_striker_message, team_ball) = process_role_state_machine(
-                    role,
+                (new_role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                    new_role,
                     ground_to_field,
                     context.ball_position,
                     primary_state,
@@ -268,17 +276,25 @@ impl RoleAssignment {
                 );
             }
         }
-
-        if let Some(last_time_keeper_penalized) = self.last_time_keeper_penalized {
-            let deny_replacement_keeper_switch = cycle_start_time
-                .duration_since(last_time_keeper_penalized)
-                .expect("Keeper was penalized in the Future")
-                < *context.keeper_replacementkeeper_switch_time;
-            if self.role == Role::ReplacementKeeper
-                && !send_spl_striker_message
-                && deny_replacement_keeper_switch
+        if self.role == Role::ReplacementKeeper {
+            let previous_player = match context.player_number {
+                PlayerNumber::Three => PlayerNumber::Two,
+                PlayerNumber::Four => PlayerNumber::Three,
+                PlayerNumber::Five => PlayerNumber::Four,
+                PlayerNumber::Six => PlayerNumber::Five,
+                PlayerNumber::Seven => PlayerNumber::Six,
+                _ => PlayerNumber::One,
+            };
+            if let Some(last_time_player_penalized) =
+                self.last_time_player_was_penalized[previous_player]
             {
-                role = Role::ReplacementKeeper;
+                let deny_replacement_keeper_switch = cycle_start_time
+                    .duration_since(last_time_player_penalized)
+                    .expect("Keeper/Replacmentkeeper was penalized in the future")
+                    < *context.keeper_replacementkeeper_switch_time;
+                if !send_spl_striker_message && deny_replacement_keeper_switch {
+                    new_role = Role::ReplacementKeeper;
+                }
             }
         }
 
@@ -307,7 +323,6 @@ impl RoleAssignment {
                         .hardware
                         .write_to_network(OutgoingMessage::Spl(HulkMessage {
                             player_number: *context.player_number,
-                            fallen: matches!(context.fall_state, FallState::Fallen { .. }),
                             pose: ground_to_field.as_pose(),
                             is_referee_ready_signal_detected: false,
                             ball_position,
@@ -320,13 +335,20 @@ impl RoleAssignment {
         if let Some(forced_role) = context.forced_role {
             self.role = *forced_role;
         } else {
-            self.role = role;
+            self.role = new_role;
         }
         self.team_ball = team_ball;
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
-            if game_controller_state.penalties.one.is_some() {
-                self.last_time_keeper_penalized = Some(cycle_start_time);
+            for player in self
+                .last_time_player_was_penalized
+                .clone()
+                .iter()
+                .map(|(playernumber, ..)| playernumber)
+            {
+                if game_controller_state.penalties[player].is_some() {
+                    self.last_time_player_was_penalized[player] = Some(cycle_start_time);
+                }
             }
         }
 
