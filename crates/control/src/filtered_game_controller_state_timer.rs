@@ -3,6 +3,7 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use serde::{Deserialize, Serialize};
 use spl_network_messages::Penalty;
 use types::{
     cycle_time::CycleTime, filtered_game_controller_state::FilteredGameControllerState,
@@ -10,7 +11,7 @@ use types::{
     players::Players,
 };
 
-#[derive(PartialEq)]
+#[derive(Deserialize, Serialize)]
 pub struct FilteredGameControllerStateTimer {
     last_filtered_game_controller_state: FilteredGameControllerState,
     filtered_game_controller_state_changes: LastFilteredGameControllerStateChanges,
@@ -23,13 +24,13 @@ pub struct CreationContext {}
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_game_controller_state:
-        RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state">,
+        RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub last_filterd_game_controller_sate_changes:
+    pub last_filterd_game_controller_state_changes:
         MainOutput<Option<LastFilteredGameControllerStateChanges>>,
 }
 
@@ -45,38 +46,44 @@ impl FilteredGameControllerStateTimer {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
 
-        if context.filtered_game_controller_state.game_state
-            != self.last_filtered_game_controller_state.game_state
-        {
-            self.filtered_game_controller_state_changes.game_state = cycle_start_time;
-            self.last_filtered_game_controller_state.game_state =
-                context.filtered_game_controller_state.game_state;
+        fn update_state_change<T: PartialEq>(
+            current_state: T,
+            last_state: T,
+            change_time: &mut SystemTime,
+            cycle_start_time: SystemTime,
+        ) {
+            if current_state != last_state {
+                *change_time = cycle_start_time;
+            }
         }
-
-        if context.filtered_game_controller_state.opponent_game_state
-            != self.last_filtered_game_controller_state.opponent_game_state
-        {
-            self.filtered_game_controller_state_changes
-                .opponent_game_state = cycle_start_time;
-            self.last_filtered_game_controller_state.opponent_game_state =
-                context.filtered_game_controller_state.opponent_game_state;
-        }
-
-        if context.filtered_game_controller_state.game_phase
-            != self.last_filtered_game_controller_state.game_phase
-        {
-            self.filtered_game_controller_state_changes.game_phase = cycle_start_time;
-            self.last_filtered_game_controller_state.game_phase =
-                context.filtered_game_controller_state.game_phase;
-        }
-
-        if context.filtered_game_controller_state.kicking_team
-            != self.last_filtered_game_controller_state.kicking_team
-        {
-            self.filtered_game_controller_state_changes.kicking_team = cycle_start_time;
-            self.last_filtered_game_controller_state.kicking_team =
-                context.filtered_game_controller_state.kicking_team;
-        }
+    
+        update_state_change(
+            context.filtered_game_controller_state.game_state,
+            self.last_filtered_game_controller_state.game_state,
+            &mut self.filtered_game_controller_state_changes.game_state,
+            cycle_start_time,
+        );
+    
+        update_state_change(
+            context.filtered_game_controller_state.opponent_game_state,
+            self.last_filtered_game_controller_state.opponent_game_state,
+            &mut self.filtered_game_controller_state_changes.opponent_game_state,
+            cycle_start_time,
+        );
+    
+        update_state_change(
+            context.filtered_game_controller_state.game_phase,
+            self.last_filtered_game_controller_state.game_phase,
+            &mut self.filtered_game_controller_state_changes.game_phase,
+            cycle_start_time,
+        );
+    
+        update_state_change(
+            context.filtered_game_controller_state.kicking_team,
+            self.last_filtered_game_controller_state.kicking_team,
+            &mut self.filtered_game_controller_state_changes.kicking_team,
+            cycle_start_time,
+        );
 
         if context.filtered_game_controller_state.penalties
             != self.last_filtered_game_controller_state.penalties
@@ -136,12 +143,12 @@ impl FilteredGameControllerStateTimer {
             != self.last_filtered_game_controller_state.sub_state
         {
             self.filtered_game_controller_state_changes.sub_state = Some(cycle_start_time);
-            self.last_filtered_game_controller_state.sub_state =
-                context.filtered_game_controller_state.sub_state;
         }
 
+        self.last_filtered_game_controller_state = *context.filtered_game_controller_state;
+
         Ok(MainOutputs {
-            last_filterd_game_controller_sate_changes: Some(
+            last_filterd_game_controller_state_changes: Some(
                 self.filtered_game_controller_state_changes,
             )
             .into(),
