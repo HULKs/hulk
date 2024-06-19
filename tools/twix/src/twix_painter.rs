@@ -433,10 +433,14 @@ impl<World> TwixPainter<World> {
         self.painter.text(position, align, text, font_id, color);
     }
 
-    pub fn image(&self, texture_id: TextureId, rect: Rect){
-        self.painter.image(texture_id, rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+    pub fn image(&self, texture_id: TextureId, rect: Rect) {
+        self.painter.image(
+            texture_id,
+            rect,
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+            Color32::WHITE,
+        );
     }
-
 }
 impl TwixPainter<Ground> {
     pub fn path(
