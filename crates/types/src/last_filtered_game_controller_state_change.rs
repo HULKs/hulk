@@ -4,9 +4,7 @@ use crate::players::Players;
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq,
-)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
 
 pub struct LastFilteredGameControllerStateChanges {
     pub game_state: SystemTime,

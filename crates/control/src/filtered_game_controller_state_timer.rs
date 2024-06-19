@@ -56,28 +56,30 @@ impl FilteredGameControllerStateTimer {
                 *change_time = cycle_start_time;
             }
         }
-    
+
         update_state_change(
             context.filtered_game_controller_state.game_state,
             self.last_filtered_game_controller_state.game_state,
             &mut self.filtered_game_controller_state_changes.game_state,
             cycle_start_time,
         );
-    
+
         update_state_change(
             context.filtered_game_controller_state.opponent_game_state,
             self.last_filtered_game_controller_state.opponent_game_state,
-            &mut self.filtered_game_controller_state_changes.opponent_game_state,
+            &mut self
+                .filtered_game_controller_state_changes
+                .opponent_game_state,
             cycle_start_time,
         );
-    
+
         update_state_change(
             context.filtered_game_controller_state.game_phase,
             self.last_filtered_game_controller_state.game_phase,
             &mut self.filtered_game_controller_state_changes.game_phase,
             cycle_start_time,
         );
-    
+
         update_state_change(
             context.filtered_game_controller_state.kicking_team,
             self.last_filtered_game_controller_state.kicking_team,

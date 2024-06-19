@@ -2,10 +2,7 @@ use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
-use crate::{
-    filtered_game_state::FilteredGameState,
-    players::Players,
-};
+use crate::{filtered_game_state::FilteredGameState, players::Players};
 
 #[derive(
     Default, Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq,
