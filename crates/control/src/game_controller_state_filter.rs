@@ -27,7 +27,7 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    is_referee_ready_pose_detected: Input<bool, "is_referee_ready_pose_detected">,
+    is_referee_ready_pose_detected: Input<bool, "majority_vote_is_referee_ready_pose_detected">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

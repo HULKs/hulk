@@ -34,7 +34,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     role: Input<Role, "role">,
-    is_own_referee_initial_pose_detected: Input<bool, "is_referee_ready_pose_detected">,
+    is_own_referee_ready_pose_detected: Input<bool, "is_referee_ready_pose_detected">,
 
     balls_bottom: PerceptionInput<Option<Vec<Ball>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<Ball>>, "VisionTop", "balls?">,
@@ -178,7 +178,7 @@ impl LedStatus {
             context.primary_state,
             context.role,
             ball_percepts,
-            *context.is_own_referee_initial_pose_detected,
+            *context.is_own_referee_ready_pose_detected,
         );
 
         if let Some(latest_game_controller_message_time) = context
@@ -270,7 +270,7 @@ impl LedStatus {
         primary_state: &PrimaryState,
         role: &Role,
         ball_percepts: BallPercepts,
-        is_own_referee_initial_pose_detected: bool,
+        is_own_referee_ready_pose_detected: bool,
     ) -> (Eye, Eye) {
         match primary_state {
             PrimaryState::Unstiff => {
@@ -306,7 +306,7 @@ impl LedStatus {
                     Role::Striker => Rgb::RED,
                     Role::StrikerSupporter => Rgb::TURQUOISE,
                 };
-                let referee_color = if is_own_referee_initial_pose_detected {
+                let referee_color = if is_own_referee_ready_pose_detected {
                     Some(Rgb::PURPLE)
                 } else {
                     None
