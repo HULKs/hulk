@@ -90,7 +90,7 @@ impl PoseDetection {
                     .to_str()
                     .wrap_err("failed to get detection weights path")?,
             ).map_err(|error| match error{
-                openvino::InferenceError::GeneralError => eyre!("General Error: Please ensure OpenVino is installed properly with the required components."),
+                openvino::InferenceError::GeneralError => eyre!("General Error: Please ensure that you have a complete & working OpenVino installation."),
                 _=> eyre!("failed to create detection network: {error}")
             })?;
 
