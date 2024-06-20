@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, ops::Add, str::FromStr, sync::Arc};
+use std::{cmp::Ordering, str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
@@ -16,7 +16,6 @@ use egui_plot::{HLine, Points, VLine};
 use itertools::iproduct;
 use linear_algebra::{vector, Point2};
 use log::error;
-
 use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -39,11 +38,6 @@ use super::image::cycler_selector::VisionCyclerSelector;
 const FIELD_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(255, 0, 0, 50);
 const OTHER_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 255, 50);
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
-
-enum ImageKind {
-    YCbCr422,
-}
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
     image_buffer: ImageBuffer,
@@ -54,55 +48,6 @@ pub struct ImageColorSelectPanel {
     x_axis: Axis,
     y_axis: Axis,
     filter_by_other_axes: bool,
-}
-
-struct ColorArray {
-    red: Vec<f32>,
-    green: Vec<f32>,
-    blue: Vec<f32>,
-}
-
-impl Default for ColorArray {
-    fn default() -> Self {
-        Self {
-            red: vec![0.0; 256],
-            green: vec![0.0; 256],
-            blue: vec![0.0; 256],
-        }
-    }
-}
-
-impl Add for ColorArray {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        fn element_wise_add(a: Vec<f32>, b: Vec<f32>) -> Vec<f32> {
-            a.iter().zip(b.iter()).map(|(a, b)| a + b).collect()
-        }
-
-        Self {
-            red: element_wise_add(self.red, rhs.red),
-            green: element_wise_add(self.green, rhs.green),
-            blue: element_wise_add(self.blue, rhs.blue),
-        }
-    }
-}
-
-#[derive(Default)]
-struct Statistics {
-    color_distribution: ColorArray,
-    pixel_count: usize,
-}
-
-impl Add for Statistics {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            color_distribution: self.color_distribution + rhs.color_distribution,
-            pixel_count: self.pixel_count + rhs.pixel_count,
-        }
-    }
 }
 
 impl Panel for ImageColorSelectPanel {
