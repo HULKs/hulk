@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, WrapErr},
+    eyre::{bail, eyre, WrapErr},
     Result,
 };
 
@@ -40,26 +40,19 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
     ) {
         bail!("Duplication in NAO to player number assignments")
     }
-
+    let hardware_ids = &hardware_ids;
     ProgressIndicator::map_tasks(
         arguments.assignments,
         "Setting player number...",
-        |assignment, _progress_bar| {
-            let hardware_id = &hardware_ids
-                .get(&assignment.nao_number.number)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "NAO with Hardware ID {} does not exist",
-                        &assignment.nao_number.number
-                    )
-                });
-            let head_id = &hardware_id.head_id;
-            async move {
-                repository
-                    .set_player_number(head_id, assignment.player_number)
-                    .await
-                    .wrap_err_with(|| format!("failed to set player number for {assignment:?}"))
-            }
+        |assignment, _progress_bar| async move {
+            let number = assignment.nao_number.number;
+            let hardware_id = hardware_ids
+                .get(&number)
+                .ok_or_else(|| eyre!("NAO with Hardware ID {number} does not exist",))?;
+            repository
+                .set_player_number(&hardware_id.head_id, assignment.player_number)
+                .await
+                .wrap_err_with(|| format!("failed to set player number for {assignment}"))
         },
     )
     .await;
