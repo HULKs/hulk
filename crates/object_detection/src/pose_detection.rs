@@ -4,7 +4,7 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{bail, Context, ContextCompat},
+    eyre::{bail, eyre, Context, ContextCompat},
     Result,
 };
 use context_attribute::context;
@@ -89,8 +89,10 @@ impl PoseDetection {
                 weights_path
                     .to_str()
                     .wrap_err("failed to get detection weights path")?,
-            )
-            .wrap_err("failed to create detection network")?;
+            ).map_err(|error| match error{
+                openvino::InferenceError::GeneralError => eyre!("General Error: Please ensure OpenVino is installed properly with the required components."),
+                _=> eyre!("failed to create detection network: {error}")
+            })?;
 
         let number_of_inputs = network
             .get_inputs_len()
