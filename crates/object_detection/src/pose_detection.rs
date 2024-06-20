@@ -15,7 +15,9 @@ use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
 use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
-use openvino::{CompiledModel, Core, DeviceType, ElementType, Tensor};
+use openvino::{
+    CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, Tensor,
+};
 use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
@@ -89,9 +91,10 @@ impl PoseDetection {
                 weights_path
                     .to_str()
                     .wrap_err("failed to get detection weights path")?,
-            ).map_err(|error| match error{
-                openvino::InferenceError::GeneralError => eyre!("General Error: Please ensure that you have a complete & working OpenVino installation."),
-                _=> eyre!("failed to create detection network: {error}")
+            )
+            .map_err(|error| match error {
+                GeneralError => eyre!("{error}: possible incomplete OpenVino installation"),
+                _ => eyre!("{error}: failed to create detection network"),
             })?;
 
         let number_of_inputs = network
