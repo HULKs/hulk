@@ -1,26 +1,29 @@
 use std::{
-    error::Error,
+    f32::consts::{FRAC_PI_2, PI},
     time::{Duration, Instant},
 };
 
 use crate::image_ops::{generate_luminance_image, gray_image_to_hulks_grayscale_image};
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use fast_image_resize::FilterType;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
-use geometry::circle::Circle;
+use geometry::{circle::Circle, line::Line};
 use image::{GrayImage, Luma, RgbImage};
 use imageproc::{edges::canny, filter::gaussian_blur_f32, map::map_colors};
 use itertools::Itertools;
 use linear_algebra::{distance, point, Point2};
+use nalgebra::ComplexField;
+use ordered_float::Float;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use ransac::circles::circle_ransac::RansacCircleWithRadius;
 use serde::{Deserialize, Serialize};
 use types::{
-    camera_position::CameraPosition, grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image,
+    field_dimensions::FieldDimensions, grayscale_image::GrayscaleImage,
+    ycbcr422_image::YCbCr422Image,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -35,49 +38,48 @@ pub struct CalibrationLineDetection {
 pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
-    pub camera_position:
-        Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
-    pub enable: Parameter<bool, "calibration_line_detection.$cycler_instance.enable">,
-    pub canny_low_threshold: Parameter<f32, "calibration_line_detection.canny_low_threshold">,
-    pub canny_high_threshold: Parameter<f32, "calibration_line_detection.canny_high_threshold">,
-    pub gaussian_sigma: Parameter<f32, "calibration_line_detection.gaussian_sigma">,
-    pub maximum_number_of_circles:
+    enable: Parameter<bool, "calibration_line_detection.$cycler_instance.enable">,
+    canny_low_threshold: Parameter<f32, "calibration_line_detection.canny_low_threshold">,
+    canny_high_threshold: Parameter<f32, "calibration_line_detection.canny_high_threshold">,
+    gaussian_sigma: Parameter<f32, "calibration_line_detection.gaussian_sigma">,
+    maximum_number_of_circles:
         Parameter<usize, "calibration_line_detection.maximum_number_of_circles">,
-    pub ransac_iterations: Parameter<usize, "calibration_line_detection.ransac_iterations">,
-    pub ransac_min_inlier_ratio:
-        Parameter<f32, "calibration_line_detection.ransac_min_inlier_ratio">,
-    pub ransac_maximum_gap: Parameter<f32, "calibration_line_detection.ransac_maximum_gap">,
-    pub use_clustering_ransac: Parameter<bool, "calibration_line_detection.use_clustering_ransac">,
-    pub debug_image_resized_width:
+    ransac_iterations: Parameter<usize, "calibration_line_detection.ransac_iterations">,
+    ransac_circle_inlier_threshold:
+        Parameter<f32, "calibration_line_detection.ransac_circle_inlier_threshold">,
+    ransac_circle_minimum_circumference_percentage:
+        Parameter<f32, "calibration_line_detection.ransac_circle_minimum_circumference_percentage">,
+    debug_image_resized_width:
         Parameter<u32, "calibration_line_detection.debug_image_resized_width">,
-    pub run_next_cycle_after_ms:
-        Parameter<u64, "calibration_line_detection.run_next_cycle_after_ms">,
+    run_next_cycle_after_ms: Parameter<u64, "calibration_line_detection.run_next_cycle_after_ms">,
     // Heavier calculation due to rgb conversion
-    pub skip_rgb_based_difference_image:
+    skip_rgb_based_difference_image:
         Parameter<bool, "calibration_line_detection.skip_rgb_based_difference_image">,
+
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     // TODO activate this once calibration controller can emit this value
     // pub camera_position_of_calibration_lines_request:
     //     RequiredInput<Option<CameraPosition>, "requested_calibration_lines?">,
-    pub image: Input<YCbCr422Image, "image">,
-    pub camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
-    pub difference_image:
+    image: Input<YCbCr422Image, "image">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    difference_image:
         AdditionalOutput<GrayscaleImage, "calibration_line_detection.difference_image">,
-    pub blurred_image: AdditionalOutput<GrayscaleImage, "calibration_line_detection.blurred_image">,
-    pub edges_image: AdditionalOutput<GrayscaleImage, "calibration_line_detection.edges_image">,
-    pub unfiltered_circle:
-        AdditionalOutput<Option<Circle<Ground>>, "calibration_line_detection.unfiltered_circles">,
-    pub timings_for_steps_ms:
+    blurred_image: AdditionalOutput<GrayscaleImage, "calibration_line_detection.blurred_image">,
+    edges_image: AdditionalOutput<GrayscaleImage, "calibration_line_detection.edges_image">,
+    timings_for_steps_ms:
         AdditionalOutput<Vec<(String, u128)>, "calibration_line_detection.timings_for_steps">,
-    pub cycle_time: AdditionalOutput<Duration, "calibration_line_detection.cycle_time">,
-    pub circle_used_points:
-        AdditionalOutput<Vec<Point2<Pixel>>, "calibration_line_detection.circle_used_points">,
+    cycle_time: AdditionalOutput<Duration, "calibration_line_detection.cycle_time">,
+    circles_and_used_points: AdditionalOutput<
+        Vec<(Circle<Ground>, Point2<Pixel>, Vec<Point2<Pixel>>)>,
+        "calibration_line_detection.circles_and_used_points",
+    >,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_calibration_circles: MainOutput<Option<Circle<Ground>>>,
+    pub detected_calibration_circles: MainOutput<Vec<Circle<Ground>>>,
 }
 
 impl CalibrationLineDetection {
@@ -96,7 +98,7 @@ impl CalibrationLineDetection {
             // TODO activate the below part after the calibration controller can emit the request
             // || context.camera_position_of_calibration_lines_request != context.camera_position {
             return Ok(MainOutputs {
-                detected_calibration_circles: None.into(),
+                detected_calibration_circles: vec![].into(),
             });
         }
 
@@ -153,17 +155,24 @@ impl CalibrationLineDetection {
 
         let elapsed_time_after_lines = processing_start.elapsed();
 
-        let circle_and_used_points = detect_circle(
-            filtered_points,
+        let circles_and_used_points = detect_circles(
+            &filtered_points,
             context.camera_matrix,
             *context.maximum_number_of_circles,
             *context.ransac_iterations,
-            *context.ransac_min_inlier_ratio,
+            *context.ransac_circle_inlier_threshold,
+            *context.ransac_circle_minimum_circumference_percentage,
+            (context.field_dimensions.center_circle_diameter / 2.0)
+                + (context.field_dimensions.line_width / 2.0),
         );
 
         let elapsed_time_after_circles = processing_start.elapsed();
 
-        let calibration_circles = circle_and_used_points.clone().map(|(circle, _, _)| circle);
+        let calibration_circles = circles_and_used_points
+            .clone()
+            .into_iter()
+            .map(|(circle, _ground_points, _used_points)| circle)
+            .collect_vec();
 
         let elapsed_time_after_all_processing = processing_start.elapsed();
 
@@ -181,18 +190,21 @@ impl CalibrationLineDetection {
             gray_image_to_hulks_grayscale_image(&edges, debug_image_size, Some(FilterType::Box))
         });
 
-        let (circle_option, used_points_px) =
-            if let Some((circle, _used_points_gnd, used_points_px)) = circle_and_used_points {
-                (Some(circle), used_points_px)
-            } else {
-                (None, vec![])
-            };
-        context
-            .unfiltered_circle
-            .fill_if_subscribed(|| circle_option);
-        context
-            .circle_used_points
-            .fill_if_subscribed(|| used_points_px);
+        context.circles_and_used_points.fill_if_subscribed(|| {
+            circles_and_used_points
+                .into_iter()
+                .map(|(circle, used_ground_points, used_points_px)| {
+                    (
+                        circle,
+                        context
+                            .camera_matrix
+                            .ground_to_pixel(circle.center)
+                            .unwrap(),
+                        used_points_px,
+                    )
+                })
+                .collect_vec()
+        });
 
         context
             .cycle_time
@@ -279,22 +291,48 @@ fn get_filtered_edge_points(
         .collect_vec()
 }
 
-fn detect_circle(
-    edge_points: Vec<Point2<Pixel>>,
+fn circle_circumference_percentage_filter(
+    circle_centre: Point2<Ground>,
+    circle_points: &[Point2<Ground>],
+    circumference_percentage: f32,
+) -> bool {
+    let slices = 100;
+    // Locations 0 to 100, also could be angle in degree or whatever
+    // atan() -> [-PI/2, PI/2]
+    let angle_to_slice_indice_factor = PI * 2.0 / (slices as f32);
+
+    let present_slice_count = circle_points
+        .into_iter()
+        .map(|point| {
+            let angle = (circle_centre.y() - point.y()).atan2((circle_centre.x() - point.x()));
+
+            (angle / angle_to_slice_indice_factor).ceil() as i32
+        })
+        .unique()
+        .count();
+
+    let current_percentage = present_slice_count as f32 / slices as f32;
+
+    current_percentage >= circumference_percentage.clamp(0.0, 1.0)
+}
+
+fn detect_circles(
+    edge_points: &[Point2<Pixel>],
     camera_matrix: &CameraMatrix,
-    maximum_number_of_retries: usize,
+    maximum_number_of_circles: usize,
     ransac_iterations: usize,
-    ransac_min_inlier_ratio: f32,
-) -> Option<(Circle<Ground>, Vec<Point2<Ground>>, Vec<Point2<Pixel>>)> {
-    let radius_variance = 0.05; // 10cm
-    let _centre_distance_penalty_threshold = 10.0; // field length
+    ransac_circle_inlier_threshold: f32,
+    circumference_percentage: f32,
+    target_circle_radius: f32,
+) -> Vec<(Circle<Ground>, Vec<Point2<Ground>>, Vec<Point2<Pixel>>)> {
+    let centre_distance_penalty_threshold = 10.0; // field length
 
     let edge_points_in_ground = edge_points
         .iter()
         .filter_map(|pixel_coordinates| {
             let point = camera_matrix.pixel_to_ground(*pixel_coordinates);
             point.ok().and_then(|point| {
-                if distance(point, point![0.0, 0.0]) <= _centre_distance_penalty_threshold {
+                if distance(point, Point2::origin()) <= centre_distance_penalty_threshold {
                     Some(point)
                 } else {
                     None
@@ -303,22 +341,47 @@ fn detect_circle(
         })
         .collect_vec();
 
-    let total_points = edge_points_in_ground.len();
-    let mut ransac = RansacCircleWithRadius::new(0.75, radius_variance, edge_points_in_ground);
+    let mut ransac = RansacCircleWithRadius::new(
+        target_circle_radius,
+        ransac_circle_inlier_threshold,
+        edge_points_in_ground,
+    );
 
-    for _ in 0..maximum_number_of_retries {
-        let result = ransac.next_candidate(ransac_iterations);
-        if let Some(circle) = result.output {
-            let used_points_px = result
-                .used_points
-                .iter()
-                .map(|point| camera_matrix.ground_to_pixel(*point)
-                .expect("this transformation *must* succeed as the ground point comes from an existing pixel")).collect_vec();
+    let results = (0..maximum_number_of_circles)
+        .filter_map(
+            |_| -> Option<(Circle<Ground>, Vec<Point2<Ground>>, Vec<Point2<Pixel>>)> {
+                let result = ransac.next_candidate(ransac_iterations);
+                result.output.and_then(|circle| {
+                    let center_is_valid =
+                        camera_matrix
+                            .ground_to_pixel(circle.centre)
+                            .is_ok_and(|center| {
+                                center.y() <= camera_matrix.image_size.y()
+                                    && circle_circumference_percentage_filter(
+                                        circle.centre,
+                                        &result.used_points,
+                                        circumference_percentage,
+                                    )
+                            });
 
-            if (used_points_px.len() as f32) / (total_points as f32) >= ransac_min_inlier_ratio {
-                return Some((circle.into(), result.used_points, used_points_px));
-            }
-        }
-    }
-    None
+                    if center_is_valid {
+                        let used_points_px = result
+                            .used_points
+                            .iter()
+                            .map(|point| {
+                                camera_matrix
+                                    .ground_to_pixel(*point)
+                                    .expect("pixel -> ground -> pixel: last failed")
+                            })
+                            .collect_vec();
+                        Some((circle.into(), result.used_points, used_points_px))
+                    } else {
+                        None
+                    }
+                })
+            },
+        )
+        .collect_vec();
+
+    results
 }
