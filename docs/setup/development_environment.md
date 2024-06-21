@@ -46,6 +46,8 @@ Use your distribution's package manager to install the following dependencies:
 You will also need to install the OpenVino:tm: runtime for Webots. The HULKs SDK already contains the runtime for use with the NAOs.
 - [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
 
+If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
+
 ## Cloning the Repository
 
 We use Git to manage all our software.
@@ -99,27 +101,3 @@ This downloads and builds all dependencies for the workspace and displays the he
     ```
 
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
-
-
-## Non-Linux: Set up a docker container to build for the NAO
-
-On Non-Linux operating systems like macOS, we build for the NAO within a docker container.
-Start by installing docker by following the [installation instructions](https://docs.docker.com/engine/install/) for your operating system.
-
-Switch to the hulk repository, build the image, and create a container running in the background:
-
-```sh
-cd path/to/hulk
-docker build --tag hulk docker/
-docker run --name hulk --detach --tty --volume .:/hulk --volume ./naosdk/:/naosdk hulk /bin/sh
-```
-
-When building for the NAO using e.g. `./pepsi build --target nao`, the build process is now executed within the docker container.
-
-!!! tip
-
-    It is recommended to reuse the docker container instead of creating a new one each time, so if it was stopped you to restart it using
-
-    ```
-    docker container start hulk
-    ```
