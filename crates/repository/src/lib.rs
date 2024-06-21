@@ -140,12 +140,13 @@ impl Repository {
         target: &str,
         passthrough_arguments: &[String],
     ) -> Result<()> {
+        let use_docker = target == "nao" && OS_IS_NOT_LINUX;
+
         let cargo_command = format!("cargo {action} ")
             + format!("--profile {profile} ").as_str()
             + if workspace {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
-                let use_docker = target == "nao" && OS_IS_NOT_LINUX;
                 let manifest = format!("crates/hulk_{target}/Cargo.toml");
                 let root = if use_docker {
                     Path::new("/hulk")
@@ -164,25 +165,23 @@ impl Repository {
 
         println!("Running: {cargo_command}");
 
-        let shell_command = if target == "nao" {
-            if OS_IS_NOT_LINUX {
-                format!(
-                    "docker run --volume={}:/hulk --volume={}:/naosdk/sysroots/corei7-64-aldebaran-linux/home/cargo \
-                    --rm --interactive --tty ghcr.io/hulks/naosdk:{SDK_VERSION} /bin/bash -c \
-                    '. /naosdk/environment-setup-corei7-64-aldebaran-linux && {cargo_command}'",
-                    self.root.display(),
-                    self.root.join("naosdk/cargo-home").join(SDK_VERSION).display()
-                )
-            } else {
-                format!(
-                    ". {} && {cargo_command}",
-                    self.root
-                        .join(format!(
-                            "naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux"
-                        ))
-                        .display()
-                )
-            }
+        let shell_command = if use_docker {
+            format!(
+                "docker run --volume={}:/hulk --volume={}:/naosdk/sysroots/corei7-64-aldebaran-linux/home/cargo \
+                --rm --interactive --tty ghcr.io/hulks/naosdk:{SDK_VERSION} /bin/bash -c \
+                '. /naosdk/environment-setup-corei7-64-aldebaran-linux && {cargo_command}'",
+                self.root.display(),
+                self.root.join("naosdk/cargo-home").join(SDK_VERSION).display()
+            )
+        } else if target == "nao" {
+            format!(
+                ". {} && {cargo_command}",
+                self.root
+                    .join(format!(
+                        "naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux"
+                    ))
+                    .display()
+            )
         } else {
             cargo_command
         };
