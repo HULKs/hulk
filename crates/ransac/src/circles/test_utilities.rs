@@ -9,7 +9,7 @@ use rand::{
 
 #[allow(dead_code)]
 pub(crate) fn generate_circle<Frame, T>(
-    circle_centre: &Point2<Frame, T>,
+    circle_center: &Point2<Frame, T>,
     point_count: usize,
     circle_radius: T,
     circle_radius_variance: T,
@@ -44,15 +44,15 @@ where
             .zip(randomized_radiuses.iter())
             .map(|(angle, radius)| {
                 point![
-                    (angle.cos() * *radius) + circle_centre.x(),
-                    (angle.sin() * *radius) + circle_centre.y()
+                    (angle.cos() * *radius) + circle_center.x(),
+                    (angle.sin() * *radius) + circle_center.y()
                 ]
             });
 
     let out_vec = circle_points_iter.collect_vec();
 
     for point in &out_vec {
-        let percieved_radius = (*circle_centre - *point).norm();
+        let percieved_radius = (*circle_center - *point).norm();
         assert!(
             (percieved_radius - circle_radius).abs()
                 <= circle_radius_variance + T::from_f64(1e-5).unwrap()
