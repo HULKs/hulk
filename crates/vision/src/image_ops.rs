@@ -66,7 +66,7 @@ pub(crate) fn gray_image_resize(
     let image_view = ImageView::from_buffer(
         NonZeroU32::new(image.width()).unwrap(),
         NonZeroU32::new(image.height()).unwrap(),
-        &image.as_raw(),
+        image.as_raw(),
     )
     .expect("ImageView creation failed!");
     let new_width = NonZeroU32::new(new_size.0).unwrap();
@@ -74,7 +74,7 @@ pub(crate) fn gray_image_resize(
     let mut new_image =
         fast_image_resize::Image::new(new_width, new_height, image_view.pixel_type());
     let mut resizer = Resizer::new(ResizeAlg::Convolution(
-        filter.unwrap_or_else(|| FilterType::Hamming),
+        filter.unwrap_or(FilterType::Hamming),
     ));
     let mut new_image_view = new_image.view_mut();
 
