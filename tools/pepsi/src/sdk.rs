@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Subcommand;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::Result;
 
 use repository::Repository;
 
@@ -22,11 +22,10 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
         Arguments::Install {
             sdk_version,
             installation_directory,
-        } => repository
-            .install_sdk(sdk_version.as_deref(), installation_directory.as_deref())
-            .await
-            .wrap_err("failed to install SDK")?,
+        } => {
+            repository
+                .link_and_install_sdk(sdk_version.as_deref(), installation_directory.as_deref())
+                .await
+        }
     }
-
-    Ok(())
 }

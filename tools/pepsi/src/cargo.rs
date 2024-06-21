@@ -40,10 +40,7 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
     }
 
     if !arguments.no_sdk_installation && arguments.target == "nao" {
-        repository
-            .install_sdk(None, None)
-            .await
-            .wrap_err("failed to install SDK")?;
+        repository.link_and_install_sdk(None, None).await?;
     }
 
     match command {
