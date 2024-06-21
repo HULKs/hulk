@@ -39,7 +39,7 @@ use tokio::{
 use spl_network_messages::PlayerNumber;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const USE_DOCKER: bool = !cfg!(target_os = "linux");
+const OS_IS_NOT_LINUX: bool = !cfg!(target_os = "linux");
 
 #[derive(Clone)]
 pub struct Repository {
@@ -145,8 +145,9 @@ impl Repository {
             + if workspace {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
+                let use_docker = target == "nao" && OS_IS_NOT_LINUX;
                 let manifest = format!("crates/hulk_{target}/Cargo.toml");
-                let root = if target == "nao" && USE_DOCKER {
+                let root = if use_docker {
                     Path::new("/hulk")
                 } else {
                     &self.root
@@ -164,7 +165,7 @@ impl Repository {
         println!("Running: {cargo_command}");
 
         let shell_command = if target == "nao" {
-            if USE_DOCKER {
+            if OS_IS_NOT_LINUX {
                 format!(
                     "docker run --volume={}:/hulk --volume={}:/naosdk/sysroots/corei7-64-aldebaran-linux/home/cargo \
                     --rm --interactive --tty ghcr.io/hulks/naosdk:{SDK_VERSION} /bin/bash --login -c '{cargo_command}'",
@@ -342,7 +343,7 @@ impl Repository {
             directory
         };
 
-        if USE_DOCKER {
+        if OS_IS_NOT_LINUX {
             return Ok(());
         }
 
