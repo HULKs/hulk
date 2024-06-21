@@ -5,6 +5,7 @@ use color_eyre::{
 };
 use tokio::process::Command as TokioCommand;
 
+use constants::OS_IS_NOT_LINUX;
 use repository::Repository;
 
 #[derive(Args)]
@@ -40,7 +41,18 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
     }
 
     if !arguments.no_sdk_installation && arguments.target == "nao" {
-        repository.link_and_install_sdk(None, None).await?;
+        let installation_directory = repository
+            .link_sdk_home(None)
+            .await
+            .wrap_err("failed to link SDK home")?;
+
+        let use_docker = OS_IS_NOT_LINUX;
+        if !use_docker {
+            repository
+                .install_sdk(None, installation_directory)
+                .await
+                .wrap_err("failed to install SDK")?;
+        }
     }
 
     match command {

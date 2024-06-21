@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use clap::Subcommand;
-use color_eyre::Result;
+use color_eyre::{eyre::WrapErr, Result};
 
+use constants::OS_IS_NOT_LINUX;
 use repository::Repository;
 
 #[derive(Subcommand)]
@@ -23,9 +24,20 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
             sdk_version,
             installation_directory,
         } => {
-            repository
-                .link_and_install_sdk(sdk_version.as_deref(), installation_directory.as_deref())
+            let installation_directory = repository
+                .link_sdk_home(installation_directory.as_deref())
                 .await
+                .wrap_err("failed to link SDK home")?;
+
+            let use_docker = OS_IS_NOT_LINUX;
+            if !use_docker {
+                repository
+                    .install_sdk(sdk_version.as_deref(), installation_directory)
+                    .await
+                    .wrap_err("failed to install SDK")?;
+            }
         }
     }
+
+    Ok(())
 }

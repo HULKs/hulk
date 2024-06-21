@@ -14,7 +14,6 @@ use color_eyre::{
     eyre::{bail, eyre, Context},
     Result,
 };
-use constants::SDK_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use glob::glob;
 use home::home_dir;
@@ -36,10 +35,10 @@ use tokio::{
     process::Command,
 };
 
+use constants::{OS_IS_NOT_LINUX, SDK_VERSION};
 use spl_network_messages::PlayerNumber;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const OS_IS_NOT_LINUX: bool = !cfg!(target_os = "linux");
 
 #[derive(Clone)]
 pub struct Repository {
@@ -317,26 +316,6 @@ impl Repository {
             .await
             .wrap_err("failed to write framework.json")?;
         }
-        Ok(())
-    }
-
-    pub async fn link_and_install_sdk(
-        &self,
-        version: Option<&str>,
-        installation_directory: Option<&Path>,
-    ) -> Result<()> {
-        let installation_directory = self
-            .link_sdk_home(installation_directory)
-            .await
-            .wrap_err("failed to link SDK home")?;
-
-        let use_docker = OS_IS_NOT_LINUX;
-        if !use_docker {
-            self.install_sdk(version, installation_directory)
-                .await
-                .wrap_err("failed to install SDK")?;
-        }
-
         Ok(())
     }
 
