@@ -48,7 +48,7 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
             let number = assignment.nao_number.number;
             let hardware_id = hardware_ids
                 .get(&number)
-                .ok_or_else(|| eyre!("NAO with Hardware ID {number} does not exist",))?;
+                .ok_or_else(|| eyre!("NAO with Hardware ID {number} does not exist"))?;
             repository
                 .set_player_number(&hardware_id.head_id, assignment.player_number)
                 .await
