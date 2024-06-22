@@ -39,7 +39,7 @@ impl ProgressIndicator {
     pub async fn map_tasks<T, F, M>(
         items: impl IntoIterator<Item = T>,
         message: &'static str,
-        task: impl Fn(T, ProgressBar) -> F + Copy,
+        task: impl Fn(T, ProgressBar) -> F,
     ) where
         T: ToString,
         F: Future<Output = Result<M>>,
