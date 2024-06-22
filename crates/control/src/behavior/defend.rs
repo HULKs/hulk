@@ -52,9 +52,22 @@ impl<'cycle> Defend<'cycle> {
     }
 
     pub fn wide_stance(&self) -> Option<MotionCommand> {
-        match self.world_state.ball {
-            Some(_) => Some(MotionCommand::WideStance),
-            None => None,
+        let ball = self.world_state.ball?;
+
+        let position = ball.ball_in_ground;
+        let velocity = ball.ball_in_ground_velocity;
+
+        if velocity.x() >= 0.0 {
+            return None;
+        }
+
+        let horizontal_distance_to_intersection =
+            position.y() - position.x() / velocity.x() * velocity.y();
+
+        if horizontal_distance_to_intersection.abs() < 0.2 {
+            Some(MotionCommand::WideStance)
+        } else {
+            None
         }
     }
 

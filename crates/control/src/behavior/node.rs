@@ -134,6 +134,7 @@ impl Behavior {
             Action::NoGroundContact,
             Action::Stand,
             Action::InterceptBall,
+            Action::WideStance,
             Action::Calibrate,
         ];
 
