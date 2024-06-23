@@ -13,7 +13,7 @@ use linear_algebra::{point, vector};
 use serde_json::{json, Value};
 use types::{
     camera_position::CameraPosition,
-    color::{Rgb, RgbChannel},
+    color::{Hsv, Rgb, RgbChannel},
     image_segments::ImageSegments,
 };
 
@@ -191,8 +191,12 @@ impl Widget for &mut ImageSegmentsPanel {
                     let red_chromaticity = rgb_color.get_chromaticity(RgbChannel::Red);
                     let green_chromaticity = rgb_color.get_chromaticity(RgbChannel::Green);
                     let blue_chromaticity = rgb_color.get_chromaticity(RgbChannel::Blue);
+                    let hsv: Hsv = rgb_color.into();
+                    let h = hsv.h;
+                    let s = hsv.s;
+                    let v = hsv.v;
                     response = response
-                .on_hover_text_at_pointer(format!("x: {x}, start: {start}, end: {end}\nY: {y:3}, Cb: {cb:3}, Cr: {cr:3}\nR: {r:3}, G: {g:3}, B: {b:3}\nr: {red_chromaticity:.2}, g: {green_chromaticity:.2}, b: {blue_chromaticity:.2}"));
+                .on_hover_text_at_pointer(format!("x: {x}, start: {start}, end: {end}\nY: {y:3}, Cb: {cb:3}, Cr: {cr:3}\nR: {r:3}, G: {g:3}, B: {b:3}\nr: {red_chromaticity:.2}, g: {green_chromaticity:.2}, b: {blue_chromaticity:.2}\nh: {h}, s: {s}, v: {v}"));
                 }
             }
         }
