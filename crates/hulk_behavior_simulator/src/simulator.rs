@@ -74,15 +74,16 @@ impl Simulator {
         self.serialze_state()?;
 
         let script_text = read_to_string(&file_name)?;
-        let script = self.lua.load(&script_text).set_name(
-            file_name
-                .as_ref()
-                .file_name()
-                .ok_or_else(|| eyre!("path contains no filename"))?
-                .to_str()
-                .ok_or_else(|| eyre!("filename is not valid unicode"))?,
-        )?;
-        script
+        self.lua
+            .load(&script_text)
+            .set_name(
+                file_name
+                    .as_ref()
+                    .file_name()
+                    .ok_or_else(|| eyre!("path contains no filename"))?
+                    .to_str()
+                    .ok_or_else(|| eyre!("filename is not valid unicode"))?,
+            )
             .exec()
             .wrap_err("failed to execute scenario script")?;
 

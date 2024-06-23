@@ -127,7 +127,7 @@ levenberg-marquardt = "0.13.0"
 libc = "0.2.137"
 linear_algebra = { path = "crates/linear_algebra" }
 log = "0.4.17"
-mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
+mlua = { version = "0.9.7", features = ["luajit", "vendored", "serialize", "parking_lot"] }
 motionfile = { path = "crates/motionfile" }
 buffered_watch = { path = "crates/buffered_watch" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
