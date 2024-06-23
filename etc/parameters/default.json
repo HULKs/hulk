@@ -672,7 +672,7 @@
     "force_sensitive_resistor_threshold": 5.0
   },
   "fall_state_estimation": {
-    "linear_acceleration_low_pass_factor": 0.15,
+    "linear_acceleration_low_pass_factor": 0.05,
     "angular_velocity_low_pass_factor": 0.2,
     "roll_pitch_low_pass_factor": 0.9,
     "gravitational_acceleration_threshold": 7.0,
