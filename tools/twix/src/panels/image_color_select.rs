@@ -186,6 +186,7 @@ impl Widget for &mut ImageColorSelectPanel {
                 });
 
                 egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
+                    let field_color = self.field_color.parse_latest::<FieldColor>().ok();
                     if let Ok(image) = &image {
                         plot_ui.points(
                             generate_points(
@@ -195,6 +196,7 @@ impl Widget for &mut ImageColorSelectPanel {
                                 self.x_axis,
                                 self.y_axis,
                                 self.filter_by_other_axes,
+                                field_color,
                             )
                             .color(Color32::RED),
                         );
@@ -206,11 +208,12 @@ impl Widget for &mut ImageColorSelectPanel {
                                 self.x_axis,
                                 self.y_axis,
                                 self.filter_by_other_axes,
+                                field_color,
                             )
                             .color(Color32::BLUE),
                         );
                     }
-                    if let Ok(field_color) = self.field_color.parse_latest::<FieldColor>() {
+                    if let Some(field_color) = field_color {
                         plot_ui
                             .vline(VLine::new(self.x_axis.get_threshold(field_color).1).width(5.0));
                         plot_ui
@@ -404,17 +407,22 @@ impl Axis {
 
     fn get_threshold(self, field_color: FieldColor) -> (Ordering, f32) {
         match self {
-            Axis::RedChromaticity => (Ordering::Less, field_color.red_chromaticity_threshold),
-            Axis::GreenChromaticity => {
-                (Ordering::Greater, field_color.green_chromaticity_threshold)
-            }
-            Axis::BlueChromaticity => (Ordering::Less, field_color.blue_chromaticity_threshold),
+            Axis::RedChromaticity => (Ordering::Greater, field_color.red_chromaticity_threshold),
+            Axis::GreenChromaticity => (Ordering::Less, field_color.green_chromaticity_threshold),
+            Axis::BlueChromaticity => (Ordering::Greater, field_color.blue_chromaticity_threshold),
             Axis::GreenLuminance => (
-                Ordering::Greater,
+                Ordering::Less,
                 field_color.green_luminance_threshold / 255.0,
             ),
-            Axis::Luminance => (Ordering::Less, field_color.luminance_threshold / 255.0),
+            Axis::Luminance => (Ordering::Greater, field_color.luminance_threshold / 255.0),
         }
+    }
+
+    fn passes_threshold(self, color: Rgb, field_color: FieldColor) -> bool {
+        let value = self.get_value(color);
+        let (ordering, threshold) = self.get_threshold(field_color);
+
+        value.total_cmp(&threshold) == ordering
     }
 }
 
@@ -425,6 +433,7 @@ fn generate_points(
     x_axis: Axis,
     y_axis: Axis,
     filter_by_other_axes: bool,
+    field_color: Option<FieldColor>,
 ) -> Points {
     Points::new(
         image
@@ -436,20 +445,33 @@ fn generate_points(
                     return None;
                 }
                 let rgb = Rgb::new(color.r(), color.g(), color.b());
-                let skip = [x_axis, y_axis];
 
-                let red_chromaticity = rgb.get_chromaticity(RgbChannel::Red);
-                let green_chromaticity = rgb.get_chromaticity(RgbChannel::Green);
-                let blue_chromaticity = rgb.get_chromaticity(RgbChannel::Blue);
+                if let Some(field_color) = field_color {
+                    let skip = [x_axis, y_axis];
+                    let [
+                        red_chromaticity,
+                        green_chromaticity,
+                        blue_chromaticity,
+                        green_luminance,
+                        luminance,
+                    ] = [
+                        Axis::RedChromaticity,
+                        Axis::GreenChromaticity,
+                        Axis::BlueChromaticity,
+                        Axis::GreenLuminance,
+                        Axis::Luminance,
+                    ]
+                    .map(|axis| !skip.contains(&axis) && axis.passes_threshold(rgb, field_color));
 
-                if filter_by_other_axes
-                    && (red_chromaticity > 0.37 && !skip.contains(&Axis::RedChromaticity)
-                        || blue_chromaticity > 0.38 && !skip.contains(&Axis::BlueChromaticity)
-                        || green_chromaticity < 0.5 && !skip.contains(&Axis::GreenChromaticity)
-                        || (rgb.g as f32) < 25.0 && !skip.contains(&Axis::GreenLuminance))
-                    && (rgb.get_luminance() as f32 > 25.0 || skip.contains(&Axis::Luminance))
-                {
-                    return None;
+                    if filter_by_other_axes
+                        && (red_chromaticity
+                            || green_chromaticity
+                            || blue_chromaticity
+                            || green_luminance)
+                        && luminance
+                    {
+                        return None;
+                    }
                 }
 
                 Some([x_axis.get_value(rgb) as f64, y_axis.get_value(rgb) as f64])
