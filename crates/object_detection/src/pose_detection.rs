@@ -4,7 +4,7 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{bail, Context, ContextCompat},
+    eyre::{bail, eyre, Context, ContextCompat},
     Result,
 };
 use context_attribute::context;
@@ -15,7 +15,9 @@ use hardware::{PathsInterface, TimeInterface};
 use itertools::Itertools;
 use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
-use openvino::{CompiledModel, Core, DeviceType, ElementType, Tensor};
+use openvino::{
+    CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, Tensor,
+};
 use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
@@ -90,7 +92,10 @@ impl PoseDetection {
                     .to_str()
                     .wrap_err("failed to get detection weights path")?,
             )
-            .wrap_err("failed to create detection network")?;
+            .map_err(|error| match error {
+                GeneralError => eyre!("{error}: possible incomplete OpenVino installation"),
+                _ => eyre!("{error}: failed to create detection network"),
+            })?;
 
         let number_of_inputs = network
             .get_inputs_len()
