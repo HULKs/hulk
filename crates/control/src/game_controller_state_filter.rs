@@ -17,6 +17,7 @@ use types::{
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
+    whistle_in_set_ball_position: Option<Point2<Ground>>,
 }
 
 #[context]
@@ -45,6 +46,7 @@ impl GameControllerStateFilter {
         Ok(Self {
             state: State::Initial,
             opponent_state: State::Initial,
+            whistle_in_set_ball_position: None,
         })
     }
 
@@ -59,6 +61,7 @@ impl GameControllerStateFilter {
             context.cycle_time,
             &mut self.state,
             &mut self.opponent_state,
+            &mut self.whistle_in_set_ball_position,
             *context.is_referee_ready_pose_detected,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
@@ -98,6 +101,7 @@ fn filter_game_states(
     cycle_time: &CycleTime,
     state: &mut State,
     opponent_state: &mut State,
+    whistle_in_set_ball_position: &mut Option<Point2<Ground>>,
     is_referee_ready_pose_detected: bool,
 ) -> FilteredGameStates {
     let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
@@ -124,11 +128,28 @@ fn filter_game_states(
         ball_detected_far_from_any_goal,
         is_referee_ready_pose_detected,
     );
+
+    if let State::WhistleInSet {
+        time_when_whistle_was_detected,
+    } = state
+    {
+        if *time_when_whistle_was_detected == cycle_time.start_time {
+            *whistle_in_set_ball_position = ball_position.map(|val| val.position);
+        }
+    }
+
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
             let absolute_ball_position = ground_to_field * ball.position;
-            distance(absolute_ball_position, Point2::origin())
-                > config.distance_to_consider_ball_moved_in_kick_off
+            whistle_in_set_ball_position
+                .map(|whistle_position| {
+                    distance(ball.position, whistle_position)
+                        > config.distance_to_consider_ball_moved_in_kick_off
+                })
+                .unwrap_or(
+                    distance(absolute_ball_position, Point2::origin())
+                        > config.distance_to_consider_ball_moved_in_kick_off,
+                )
         })
         .unwrap_or(false);
 
