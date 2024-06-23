@@ -133,7 +133,13 @@ fn filter_game_states(
         time_when_whistle_was_detected,
     } = state
     {
-        if *time_when_whistle_was_detected == cycle_time.start_time {
+        if cycle_time
+            .start_time
+            .duration_since(*time_when_whistle_was_detected)
+            .unwrap()
+            <= config.ball_contact_grace_period
+            && whistle_in_set_ball_position.is_none()
+        {
             *whistle_in_set_ball_position = ball_position.map(|val| val.position);
         }
     }
