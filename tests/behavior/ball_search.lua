@@ -1,4 +1,4 @@
-local inspect = require 'inspect'
+-- local inspect = require 'inspect'
 print("Hello world from lua!")
 
 function spawn_robot(number)
@@ -11,7 +11,7 @@ local game_end_time = -1.0
 
 function on_goal()
     print("Goal scored, resetting ball!")
-    print("Ball: " .. inspect(state.ball))
+    -- print("Ball: " .. inspect(state.ball))
     print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
     state.ball = nil
     game_end_time = state.cycle_count + 200
@@ -24,7 +24,7 @@ state.ball = {
 
 function on_cycle()
     if state.cycle_count % 1000 == 0 then
-        print(inspect(state))
+        -- print(inspect(state))
     end
 
     if state.cycle_count == 100 then

@@ -1,4 +1,4 @@
-local inspect = require 'inspect'
+-- local inspect = require 'inspect'
 
 function spawn_robot(number)
     table.insert(state.robots, create_robot(number))
@@ -11,7 +11,7 @@ local goal_scored = false
 
 function on_goal()
     print("Goal scored, resetting ball!")
-    print("Ball: " .. inspect(state.ball))
+    -- print("Ball: " .. inspect(state.ball))
     print("Ball was at x: " .. state.ball.position[1] .. " y: " .. state.ball.position[2])
     state.ball = nil
     goal_scored = true
