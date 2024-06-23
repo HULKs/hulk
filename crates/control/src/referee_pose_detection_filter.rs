@@ -62,6 +62,7 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub majority_vote_is_referee_ready_pose_detected: MainOutput<bool>,
     pub is_referee_ready_pose_detected: MainOutput<bool>,
+    pub did_detect_any_referee_this_cycle: MainOutput<bool>,
 }
 
 impl RefereePoseDetectionFilter {
@@ -80,7 +81,8 @@ impl RefereePoseDetectionFilter {
     ) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
 
-        let is_referee_ready_pose_detected = self.update(&context);
+        let (is_referee_ready_pose_detected, did_detect_any_referee_this_cycle) =
+            self.update(&context);
 
         let majority_vote_is_referee_ready_pose_detected = decide(
             self.detection_times,
@@ -101,17 +103,22 @@ impl RefereePoseDetectionFilter {
             majority_vote_is_referee_ready_pose_detected:
                 majority_vote_is_referee_ready_pose_detected.into(),
             is_referee_ready_pose_detected: is_referee_ready_pose_detected.into(),
+            did_detect_any_referee_this_cycle: did_detect_any_referee_this_cycle.into(),
         })
     }
 
-    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> bool {
+    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> (bool, bool) {
         let own_detected_pose_times =
             unpack_own_detection_tree(&context.detected_referee_pose_kind.persistent);
 
+        let mut did_detect_any_referee_this_cycle = false;
+
         for (_, detection) in own_detected_pose_times {
-            self.detected_above_arm_poses_queue.push_front(
-                detection.map_or(false, |pose_kind| pose_kind == PoseKind::AboveHeadArms),
-            );
+            let detected_visual_referee =
+                detection.map_or(false, |pose_kind| pose_kind == PoseKind::AboveHeadArms);
+            self.detected_above_arm_poses_queue
+                .push_front(detected_visual_referee);
+            did_detect_any_referee_this_cycle |= detected_visual_referee
         }
 
         self.detected_above_arm_poses_queue
@@ -127,7 +134,10 @@ impl RefereePoseDetectionFilter {
             self.detection_times[*context.player_number] = Some(context.cycle_time.start_time);
         }
 
-        detected_referee_pose_count >= *context.minimum_number_poses_before_message
+        (
+            detected_referee_pose_count >= *context.minimum_number_poses_before_message,
+            did_detect_any_referee_this_cycle,
+        )
     }
 }
 
