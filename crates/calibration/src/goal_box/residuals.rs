@@ -3,7 +3,7 @@ use linear_algebra::IntoTransform;
 use nalgebra::UnitQuaternion;
 use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
 
-use crate::{corrections::Corrections, residuals::ResidualsCalculateFrom};
+use crate::{corrections::Corrections, residuals::CalculateResiduals};
 
 use super::{lines::LinesError, measurement::Measurement};
 
@@ -15,7 +15,7 @@ pub struct GoalBoxResiduals {
     pub distance_between_parallel_line_end_points: f32,
 }
 
-impl ResidualsCalculateFrom<Measurement> for GoalBoxResiduals {
+impl CalculateResiduals<Measurement> for GoalBoxResiduals {
     fn calculate_from(
         parameters: &Corrections,
         measurement: &Measurement,

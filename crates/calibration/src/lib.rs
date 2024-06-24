@@ -1,7 +1,7 @@
 use corrections::Corrections;
 use levenberg_marquardt::LevenbergMarquardt;
 use problem::CalibrationProblem;
-use residuals::ResidualsCalculateFrom;
+use residuals::CalculateResiduals;
 use types::field_dimensions::FieldDimensions;
 
 pub mod center_circle;
@@ -17,7 +17,7 @@ pub fn solve<Measurement, StructuredResidual>(
     field_dimensions: FieldDimensions,
 ) -> Corrections
 where
-    StructuredResidual: ResidualsCalculateFrom<Measurement>,
+    StructuredResidual: CalculateResiduals<Measurement>,
     Vec<f32>: From<StructuredResidual>,
 {
     let problem = CalibrationProblem::<Measurement, StructuredResidual>::new(

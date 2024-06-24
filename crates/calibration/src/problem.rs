@@ -8,7 +8,7 @@ use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},
     jacobian::{calculate_jacobian_from_parameters, Jacobian, JacobianStorage},
     residuals::{
-        calculate_residuals_from_parameters, Residual, ResidualStorage, ResidualsCalculateFrom,
+        calculate_residuals_from_parameters, Residual, ResidualStorage, CalculateResiduals,
     },
 };
 
@@ -41,7 +41,7 @@ impl<MeasurementType, StructuredResidual> CalibrationProblem<MeasurementType, St
 impl<MeasurementType, StructuredResidual> LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>>
     for CalibrationProblem<MeasurementType, StructuredResidual>
 where
-    StructuredResidual: ResidualsCalculateFrom<MeasurementType>,
+    StructuredResidual: CalculateResiduals<MeasurementType>,
     Vec<f32>: From<StructuredResidual>,
 {
     type ResidualStorage = ResidualStorage;

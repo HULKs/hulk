@@ -7,7 +7,7 @@ use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
 
 use crate::{
     center_circle::measurement::Measurement, corrections::Corrections,
-    residuals::ResidualsCalculateFrom,
+    residuals::CalculateResiduals,
 };
 
 pub type Residual = Vector<f32, Dyn, ResidualStorage>;
@@ -18,7 +18,7 @@ pub struct Residuals {
     residual_values: Vec<f32>,
 }
 
-impl ResidualsCalculateFrom<Measurement> for Residuals {
+impl CalculateResiduals<Measurement> for Residuals {
     fn calculate_from(
         parameters: &Corrections,
         measurement: &Measurement,
