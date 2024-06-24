@@ -39,7 +39,7 @@ impl ProgressIndicator {
     pub async fn map_tasks<T, F, M>(
         items: impl IntoIterator<Item = T>,
         message: &'static str,
-        task: impl Fn(T, ProgressBar) -> F + Copy,
+        task: impl Fn(T, ProgressBar) -> F,
     ) where
         T: ToString,
         F: Future<Output = Result<M>>,
@@ -52,7 +52,8 @@ impl ProgressIndicator {
             .map(|(progress, item)| {
                 progress.enable_steady_tick();
                 progress.set_message(message);
-                async move { progress.finish_with(task(item, progress.progress.clone()).await) }
+                let future = task(item, progress.progress.clone());
+                async move { progress.finish_with(future.await) }
             })
             .collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
