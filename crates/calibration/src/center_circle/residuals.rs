@@ -49,7 +49,7 @@ impl ResidualsCalculateFrom<Measurement> for Residuals {
             .filter_map(|&point| corrected.pixel_to_ground(point).ok())
             .collect();
 
-        // Do this better
+        // TODO figure out a better way
         let has_projection_error = projected_points.len() != measurement.circles.points.len();
         if has_projection_error {
             return Err(Error::NotOnProjectionPlane.into());
