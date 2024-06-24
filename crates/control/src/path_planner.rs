@@ -1,8 +1,10 @@
 use color_eyre::{eyre::eyre, Result};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use linear_algebra::{distance, point, vector, Isometry2, Orientation2, Point2};
+use log::{info, warn};
 use ordered_float::NotNan;
 use smallvec::SmallVec;
+use tracing::warn_span;
 
 use coordinate_systems::{Field, Ground};
 use types::{
@@ -307,6 +309,13 @@ impl PathPlanner {
         let navigation_path = a_star_search(0, 1, self);
 
         if !navigation_path.success {
+            // This warning is used for regular logging
+            // it will be logged into a file (see function setup_logger in crates/hulk_nao/src/main.rs)
+            warn!(target: "control", "Path not found: {:?}", navigation_path);
+
+            // This warning is used for Tokio related logging using "tracing" crate
+            // see function setup_logger in tools/fanta/src/main.rs)
+            warn_span! {"Path not found: {:?}", navigation_path};
             return Ok(None);
         }
 

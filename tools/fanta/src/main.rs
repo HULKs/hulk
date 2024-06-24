@@ -24,6 +24,24 @@ struct CommandlineArguments {
 async fn main() -> Result<()> {
     setup_logger()?;
 
+    // create a subscriber for logs used by "tracing" crate
+    // for emitting log messages, see crates/control/src/path_planner.rs, line 318
+    let subscriber = tracing_subscriber::fmt()
+        // Use a more compact, abbreviated log format
+        .compact()
+        // Display source code file paths
+        .with_file(true)
+        // Display source code line numbers
+        .with_line_number(true)
+        // Display the thread ID an event was recorded on
+        .with_thread_ids(true)
+        // Don't display the event's target (module path)
+        .with_target(false)
+        // Build the subscriber
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)?;
+
     let arguments = CommandlineArguments::parse();
     let output_to_subscribe = CyclerOutput::from_str(&arguments.path)?;
     let communication = Communication::new(Some(format!("ws://{}:1337", arguments.address)), true);
