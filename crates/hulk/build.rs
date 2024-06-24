@@ -6,7 +6,7 @@ use source_analyzer::{pretty::to_string_pretty, structs::Structs};
 fn main() -> Result<()> {
     let cyclers = collect_hulk_cyclers()?;
     for path in cyclers.watch_paths() {
-        println!("cargo:rerun-if-changed={}", path.display());
+        println!("cargo::rerun-if-changed={}", path.display());
     }
 
     println!();
