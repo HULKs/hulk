@@ -970,6 +970,7 @@ checksum = "a3e368af43e418a04d52505cf3dbc23dda4e3407ae2fa99fd0e4f308ce546acc"
 name = "calibration"
 version = "0.1.0"
 dependencies = [
+ "color-eyre",
  "coordinate_systems",
  "geometry",
  "levenberg-marquardt",
