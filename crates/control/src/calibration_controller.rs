@@ -35,6 +35,8 @@ pub struct CycleContext {
     measurement_bottom:
         PerceptionInput<Option<Measurement>, "VisionBottom", "calibration_measurement?">,
     measurement_top: PerceptionInput<Option<Measurement>, "VisionTop", "calibration_measurement?">,
+    cycle_time_top: PerceptionInput<CycleTime, "VisionTop", "cycle_time">,
+    cycle_time_bottom: PerceptionInput<CycleTime, "VisionBottom", "cycle_time">,
 }
 
 #[context]
@@ -65,14 +67,38 @@ impl CalibrationController {
             return Ok(MainOutputs::default());
         }
 
-        let primary_state_transition_to_calibration =
+        let primary_state_transitioned_to_calibration =
             calibration_grame_state_active && !self.current_primary_phase_is_calibration;
         self.current_primary_phase_is_calibration = calibration_grame_state_active;
 
-        let current_cycle_time = context.cycle_time;
-        let current_calibration_phase = &self.current_calibration_command;
+        if primary_state_transitioned_to_calibration {
+            self.current_measurements = vec![];
+        }
 
-        let changed_command: Option<CalibrationCommand> = match current_calibration_phase {
+        let current_cycle_time = context.cycle_time;
+        let changed_command: Option<CalibrationCommand> = self.get_next_command(
+            primary_state_transitioned_to_calibration,
+            current_cycle_time,
+            context,
+        );
+
+        if let Some(new_phase) = changed_command {
+            info!("Phase change detected: {:?}", new_phase);
+            self.current_calibration_command = new_phase;
+        }
+
+        Ok(MainOutputs {
+            calibration_command: self.current_calibration_command.clone().into(),
+        })
+    }
+
+    fn get_next_command(
+        &mut self,
+        primary_state_transition_to_calibration: bool,
+        current_cycle_time: &CycleTime,
+        context: CycleContext,
+    ) -> Option<CalibrationCommand> {
+        match self.current_calibration_command {
             CalibrationCommand::INACTIVE => {
                 if primary_state_transition_to_calibration {
                     info!(
@@ -97,7 +123,6 @@ impl CalibrationController {
                         .unwrap_or_default();
 
                     if waiting_duration >= self.initial_stabilization_delay {
-                        self.current_measurements = vec![];
                         Some(self.try_transition_to_look_at(*context.cycle_time))
                     } else {
                         None
@@ -120,10 +145,16 @@ impl CalibrationController {
                 }
             }
             CalibrationCommand::CAPTURE { dispatch_time } => {
-                let mut values_top =
-                    collect_filtered_values(&context.measurement_top, dispatch_time);
-                let mut values_bottom =
-                    collect_filtered_values(&context.measurement_bottom, dispatch_time);
+                let mut values_top = collect_filtered_values(
+                    &context.measurement_top,
+                    &context.cycle_time_top,
+                    &dispatch_time,
+                );
+                let mut values_bottom = collect_filtered_values(
+                    &context.measurement_bottom,
+                    &context.cycle_time_bottom,
+                    &dispatch_time,
+                );
 
                 if !values_bottom.is_empty() || !values_bottom.is_empty() {
                     // TODO Require both cameras to give values or another mechanism to track that.
@@ -146,16 +177,7 @@ impl CalibrationController {
                 Some(CalibrationCommand::FINISH)
             }
             CalibrationCommand::FINISH => None,
-        };
-
-        if let Some(new_phase) = changed_command {
-            info!("Phase change detected: {:?}", new_phase);
-            self.current_calibration_command = new_phase;
         }
-
-        Ok(MainOutputs {
-            calibration_command: self.current_calibration_command.clone().into(),
-        })
     }
 
     fn try_transition_to_look_at(&mut self, dispatch_time: CycleTime) -> CalibrationCommand {
@@ -186,28 +208,32 @@ impl CalibrationController {
 
 fn collect_filtered_values(
     measurement_perception_input: &PerceptionInput<Vec<Option<&Measurement>>>,
+    cycletimes_perception_input: &PerceptionInput<Vec<&CycleTime>>,
     dispatch_time: &CycleTime,
 ) -> Vec<Measurement> {
-    // TODO verify if this mess is indeed correct!
     measurement_perception_input
         .persistent
         .iter()
-        .filter_map(|(time, measurement)| {
-            // TODO check if we really need this!
-            //tHIS TIMESTAMP IS CONTROL CYCLE TIME!! NOT PERCEPTION CYCLER'S TIME. 
-            // USER PERCEPTION INPUT CALLED TIMEINTO OR SO TO GET THOSE TIMES.
-            if *time >= dispatch_time.start_time {
-                Some(measurement.iter().flatten())
-            } else {
-                None
-            }
-        })
-        .flatten()
+        .zip(cycletimes_perception_input.persistent.iter())
+        .flat_map(
+            |((measurement_timestamp, measurements), (cycle_time_timestamp, cycle_times))| {
+                assert_eq!(measurement_timestamp, cycle_time_timestamp);
+                measurements
+                    .iter()
+                    .zip(cycle_times)
+                    .filter_map(|(measurement, &&timestamp)| {
+                        if timestamp.start_time >= dispatch_time.start_time {
+                            *measurement
+                        } else {
+                            None
+                        }
+                    })
+            },
+        )
         .map(|m| (*m).clone())
         .collect_vec()
 }
 
-// x_min:f32, x_max:f32, x_steps:usize, y_min:f32, y_max:f32,y_steps:usize
 fn generate_look_at_list() -> Result<Vec<(Point2<Ground>, Option<CameraPosition>)>> {
     let look_at_points: Vec<Point2<Ground>> = vec![
         point!(1.0, 0.0),
