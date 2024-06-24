@@ -7,7 +7,7 @@ use nalgebra::{Isometry2, Rotation2, Translation2};
 use serde_json::{to_value, Value};
 
 use communication::client::Cycler;
-use types::interpolated::Interpolated;
+use types::{field_color::FieldColorFunction, interpolated::Interpolated};
 
 use crate::{
     nao::Nao, panel::Panel, repository_parameters::RepositoryParameters, value_buffer::ValueBuffer,
@@ -18,7 +18,7 @@ pub struct VisionTunerPanel {
     repository_parameters: Result<RepositoryParameters>,
     cycler: Cycler,
     position: Option<Position>,
-    parameters: Parameters<ValueBuffer>,
+    parameters: Parameters<ValueBuffer, ValueBuffer>,
 }
 
 impl Panel for VisionTunerPanel {
@@ -53,6 +53,7 @@ impl Widget for &mut VisionTunerPanel {
                 &self.repository_parameters,
                 &mut self.cycler,
                 &mut self.position,
+                &mut parameters.function,
                 &mut self.parameters,
             );
 
@@ -74,80 +75,157 @@ impl Widget for &mut VisionTunerPanel {
                         );
                 }
 
-                let value = get_value_from_interpolated(
-                    position,
-                    &mut parameters.red_chromaticity_threshold,
-                );
-                if ui
-                    .add(
-                        Slider::new(value, 0.0..=1.0)
-                            .text("red_chromaticity_threshold")
-                            .smart_aim(false),
-                    )
-                    .changed()
-                {
-                    self.parameters
-                        .red_chromaticity_threshold
-                        .update_parameter_value(
-                            to_value(parameters.red_chromaticity_threshold).unwrap(),
+                match parameters.function {
+                    FieldColorFunction::GreenChromaticity => {
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.red_chromaticity_threshold,
                         );
-                }
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=1.0)
+                                    .text("red_chromaticity_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters
+                                .red_chromaticity_threshold
+                                .update_parameter_value(
+                                    to_value(parameters.red_chromaticity_threshold).unwrap(),
+                                );
+                        }
 
-                let value = get_value_from_interpolated(
-                    position,
-                    &mut parameters.blue_chromaticity_threshold,
-                );
-                if ui
-                    .add(
-                        Slider::new(value, 0.0..=1.0)
-                            .text("blue_chromaticity_threshold")
-                            .smart_aim(false),
-                    )
-                    .changed()
-                {
-                    self.parameters
-                        .blue_chromaticity_threshold
-                        .update_parameter_value(
-                            to_value(parameters.blue_chromaticity_threshold).unwrap(),
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.blue_chromaticity_threshold,
                         );
-                }
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=1.0)
+                                    .text("blue_chromaticity_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters
+                                .blue_chromaticity_threshold
+                                .update_parameter_value(
+                                    to_value(parameters.blue_chromaticity_threshold).unwrap(),
+                                );
+                        }
 
-                let value = get_value_from_interpolated(
-                    position,
-                    &mut parameters.green_chromaticity_threshold,
-                );
-                if ui
-                    .add(
-                        Slider::new(value, 0.0..=1.0)
-                            .text("green_chromaticity_threshold")
-                            .smart_aim(false),
-                    )
-                    .changed()
-                {
-                    self.parameters
-                        .green_chromaticity_threshold
-                        .update_parameter_value(
-                            to_value(parameters.green_chromaticity_threshold).unwrap(),
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.green_chromaticity_threshold,
                         );
-                }
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=1.0)
+                                    .text("green_chromaticity_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters
+                                .green_chromaticity_threshold
+                                .update_parameter_value(
+                                    to_value(parameters.green_chromaticity_threshold).unwrap(),
+                                );
+                        }
 
-                let value = get_value_from_interpolated(
-                    position,
-                    &mut parameters.green_luminance_threshold,
-                );
-                if ui
-                    .add(
-                        Slider::new(value, 0.0..=255.0)
-                            .text("green_luminance_threshold")
-                            .smart_aim(false),
-                    )
-                    .changed()
-                {
-                    self.parameters
-                        .green_luminance_threshold
-                        .update_parameter_value(
-                            to_value(parameters.green_luminance_threshold).unwrap(),
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.green_luminance_threshold,
                         );
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=255.0)
+                                    .text("green_luminance_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters
+                                .green_luminance_threshold
+                                .update_parameter_value(
+                                    to_value(parameters.green_luminance_threshold).unwrap(),
+                                );
+                        }
+                    }
+                    FieldColorFunction::Hsv => {
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.hue_low_threshold,
+                        );
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=360.0)
+                                    .text("hue_low_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters.hue_low_threshold.update_parameter_value(
+                                to_value(parameters.hue_low_threshold).unwrap(),
+                            );
+                        }
+
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.hue_high_threshold,
+                        );
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=360.0)
+                                    .text("hue_high_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters.hue_high_threshold.update_parameter_value(
+                                to_value(parameters.hue_high_threshold).unwrap(),
+                            );
+                        }
+
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.saturation_low_threshold,
+                        );
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=255.0)
+                                    .text("saturation_low_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters
+                                .saturation_low_threshold
+                                .update_parameter_value(
+                                    to_value(parameters.saturation_low_threshold).unwrap(),
+                                );
+                        }
+
+                        let value = get_value_from_interpolated(
+                            position,
+                            &mut parameters.saturation_high_threshold,
+                        );
+                        if ui
+                            .add(
+                                Slider::new(value, 0.0..=255.0)
+                                    .text("saturation_high_threshold")
+                                    .smart_aim(false),
+                            )
+                            .changed()
+                        {
+                            self.parameters
+                                .saturation_high_threshold
+                                .update_parameter_value(
+                                    to_value(parameters.saturation_high_threshold).unwrap(),
+                                );
+                        }
+                    }
                 }
 
                 let value =
@@ -170,17 +248,24 @@ impl Widget for &mut VisionTunerPanel {
     }
 }
 
-struct Parameters<T> {
-    vertical_edge_threshold: T,
-    red_chromaticity_threshold: T,
-    blue_chromaticity_threshold: T,
-    green_chromaticity_threshold: T,
-    green_luminance_threshold: T,
-    luminance_threshold: T,
+struct Parameters<FunctionType, InterpolatedType> {
+    function: FunctionType,
+    luminance_threshold: InterpolatedType,
+    vertical_edge_threshold: InterpolatedType,
+    red_chromaticity_threshold: InterpolatedType,
+    blue_chromaticity_threshold: InterpolatedType,
+    green_chromaticity_threshold: InterpolatedType,
+    green_luminance_threshold: InterpolatedType,
+    hue_low_threshold: InterpolatedType,
+    hue_high_threshold: InterpolatedType,
+    saturation_low_threshold: InterpolatedType,
+    saturation_high_threshold: InterpolatedType,
 }
 
-impl Parameters<ValueBuffer> {
+impl Parameters<ValueBuffer, ValueBuffer> {
     fn from(nao: &Nao, cycler: Cycler) -> Self {
+        let function = nao.subscribe_parameter("field_color_detection.function");
+        let luminance_threshold = nao.subscribe_parameter(get_luminance_threshold_path(cycler));
         let vertical_edge_threshold =
             nao.subscribe_parameter(get_vertical_edge_threshold_path(cycler));
         let red_chromaticity_threshold =
@@ -191,20 +276,38 @@ impl Parameters<ValueBuffer> {
             nao.subscribe_parameter(get_green_chromaticity_threshold_path(cycler));
         let green_luminance_threshold =
             nao.subscribe_parameter(get_green_luminance_threshold_path(cycler));
-        let luminance_threshold = nao.subscribe_parameter(get_luminance_threshold_path(cycler));
+        let hue_low_threshold = nao.subscribe_parameter(get_hue_low_threshold_path(cycler));
+        let hue_high_threshold = nao.subscribe_parameter(get_hue_high_threshold_path(cycler));
+        let saturation_low_threshold =
+            nao.subscribe_parameter(get_saturation_low_threshold_path(cycler));
+        let saturation_high_threshold =
+            nao.subscribe_parameter(get_saturation_high_threshold_path(cycler));
 
         Self {
+            function,
+            luminance_threshold,
             vertical_edge_threshold,
             red_chromaticity_threshold,
             blue_chromaticity_threshold,
             green_chromaticity_threshold,
             green_luminance_threshold,
-            luminance_threshold,
+            hue_low_threshold,
+            hue_high_threshold,
+            saturation_low_threshold,
+            saturation_high_threshold,
         }
     }
 
-    fn parse_latest(&self) -> Result<Parameters<Interpolated>> {
+    fn parse_latest(&self) -> Result<Parameters<FieldColorFunction, Interpolated>> {
         Ok(Parameters {
+            function: self
+                .function
+                .parse_latest()
+                .wrap_err("failed to parse latest function")?,
+            luminance_threshold: self
+                .luminance_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest luminance_threshold")?,
             vertical_edge_threshold: self
                 .vertical_edge_threshold
                 .parse_latest()
@@ -225,21 +328,44 @@ impl Parameters<ValueBuffer> {
                 .green_luminance_threshold
                 .parse_latest()
                 .wrap_err("failed to parse latest green_luminance_threshold")?,
-            luminance_threshold: self
-                .luminance_threshold
+            hue_low_threshold: self
+                .hue_low_threshold
                 .parse_latest()
-                .wrap_err("failed to parse latest luminance_threshold")?,
+                .wrap_err("failed to parse latest hue_low_threshold")?,
+            hue_high_threshold: self
+                .hue_high_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest hue_high_threshold")?,
+            saturation_low_threshold: self
+                .saturation_low_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest saturation_low_threshold")?,
+            saturation_high_threshold: self
+                .saturation_high_threshold
+                .parse_latest()
+                .wrap_err("failed to parse latest saturation_high_threshold")?,
         })
     }
 }
 
-impl Parameters<Interpolated> {
+impl Parameters<FieldColorFunction, Interpolated> {
     fn write_to(
         &self,
         repository_parameters: &RepositoryParameters,
         address: &str,
         cycler: Cycler,
     ) -> Result<()> {
+        repository_parameters.write(
+            address,
+            "field_color_detection.function".to_string(),
+            to_value(self.function).wrap_err("failed to serialize function")?,
+        );
+        repository_parameters.write(
+            address,
+            get_luminance_threshold_path(cycler).to_string(),
+            to_value(self.luminance_threshold)
+                .wrap_err("failed to serialize luminance_threshold")?,
+        );
         repository_parameters.write(
             address,
             get_vertical_edge_threshold_path(cycler).to_string(),
@@ -272,9 +398,25 @@ impl Parameters<Interpolated> {
         );
         repository_parameters.write(
             address,
-            get_luminance_threshold_path(cycler).to_string(),
-            to_value(self.luminance_threshold)
-                .wrap_err("failed to serialize luminance_threshold")?,
+            get_hue_low_threshold_path(cycler).to_string(),
+            to_value(self.hue_low_threshold).wrap_err("failed to serialize hue_low_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_hue_high_threshold_path(cycler).to_string(),
+            to_value(self.hue_high_threshold).wrap_err("failed to serialize hue_high_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_saturation_low_threshold_path(cycler).to_string(),
+            to_value(self.saturation_low_threshold)
+                .wrap_err("failed to serialize saturation_low_threshold")?,
+        );
+        repository_parameters.write(
+            address,
+            get_saturation_high_threshold_path(cycler).to_string(),
+            to_value(self.saturation_high_threshold)
+                .wrap_err("failed to serialize saturation_high_threshold")?,
         );
         Ok(())
     }
@@ -295,7 +437,8 @@ fn add_selector_row(
     repository_parameters: &Result<RepositoryParameters>,
     cycler: &mut Cycler,
     position: &mut Option<Position>,
-    parameters: &mut Parameters<ValueBuffer>,
+    function: &mut FieldColorFunction,
+    parameters: &mut Parameters<ValueBuffer, ValueBuffer>,
 ) -> Response {
     ui.horizontal(|ui| {
         add_vision_cycler_selector(ui, nao, cycler, parameters);
@@ -328,6 +471,13 @@ fn add_selector_row(
                 value,
             );
         }
+
+        let response = add_function_selector(ui, function);
+        if response.changed() {
+            let value = to_value(function).unwrap();
+            nao.update_parameter_value("field_color_detection.function", value);
+        }
+
         match repository_parameters {
             Ok(repository_parameters) => {
                 if ui
@@ -355,7 +505,7 @@ fn add_vision_cycler_selector(
     ui: &mut Ui,
     nao: &Nao,
     cycler: &mut Cycler,
-    parameters: &mut Parameters<ValueBuffer>,
+    parameters: &mut Parameters<ValueBuffer, ValueBuffer>,
 ) -> Response {
     let mut changed = false;
     let response = ComboBox::from_label("Cycler")
@@ -447,6 +597,42 @@ fn add_position_selector(ui: &mut Ui, position: &mut Option<Position>) -> Respon
     combo_box.response
 }
 
+fn add_function_selector(ui: &mut Ui, function: &mut FieldColorFunction) -> Response {
+    let mut function_selection_changed = false;
+    let mut combo_box = ComboBox::from_label("Function")
+        .selected_text(format!("{:?}", function))
+        .show_ui(ui, |ui| {
+            if ui
+                .selectable_value(
+                    function,
+                    FieldColorFunction::GreenChromaticity,
+                    "Green Chromaticity",
+                )
+                .clicked()
+            {
+                function_selection_changed = true;
+            }
+            if ui
+                .selectable_value(function, FieldColorFunction::Hsv, "HSV")
+                .clicked()
+            {
+                function_selection_changed = true;
+            }
+        });
+    if function_selection_changed {
+        combo_box.response.mark_changed()
+    }
+    combo_box.response
+}
+
+fn get_luminance_threshold_path(cycler: Cycler) -> &'static str {
+    match cycler {
+        Cycler::VisionTop => "field_color_detection.vision_top.luminance_threshold",
+        Cycler::VisionBottom => "field_color_detection.vision_bottom.luminance_threshold",
+        _ => panic!("not implemented"),
+    }
+}
+
 fn get_vertical_edge_threshold_path(cycler: Cycler) -> &'static str {
     match cycler {
         Cycler::VisionTop => "image_segmenter.vision_top.vertical_edge_threshold",
@@ -487,10 +673,34 @@ fn get_green_luminance_threshold_path(cycler: Cycler) -> &'static str {
     }
 }
 
-fn get_luminance_threshold_path(cycler: Cycler) -> &'static str {
+fn get_hue_low_threshold_path(cycler: Cycler) -> &'static str {
     match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.luminance_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.luminance_threshold",
+        Cycler::VisionTop => "field_color_detection.vision_top.hue_low_threshold",
+        Cycler::VisionBottom => "field_color_detection.vision_bottom.hue_low_threshold",
+        _ => panic!("not implemented"),
+    }
+}
+
+fn get_hue_high_threshold_path(cycler: Cycler) -> &'static str {
+    match cycler {
+        Cycler::VisionTop => "field_color_detection.vision_top.hue_high_threshold",
+        Cycler::VisionBottom => "field_color_detection.vision_bottom.hue_high_threshold",
+        _ => panic!("not implemented"),
+    }
+}
+
+fn get_saturation_low_threshold_path(cycler: Cycler) -> &'static str {
+    match cycler {
+        Cycler::VisionTop => "field_color_detection.vision_top.saturation_low_threshold",
+        Cycler::VisionBottom => "field_color_detection.vision_bottom.saturation_low_threshold",
+        _ => panic!("not implemented"),
+    }
+}
+
+fn get_saturation_high_threshold_path(cycler: Cycler) -> &'static str {
+    match cycler {
+        Cycler::VisionTop => "field_color_detection.vision_top.saturation_high_threshold",
+        Cycler::VisionBottom => "field_color_detection.vision_bottom.saturation_high_threshold",
         _ => panic!("not implemented"),
     }
 }
