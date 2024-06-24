@@ -187,8 +187,8 @@ fn get_rule_hypotheses(
         (PrimaryState::Playing, Some(SubState::GoalKick)) => {
             let kick_half = kicking_team_half;
             vec![
-                field_dimensions.corner(kick_half, Side::Left),
-                field_dimensions.corner(kick_half, Side::Right),
+                field_dimensions.goal_box_corner(kick_half, Side::Left),
+                field_dimensions.goal_box_corner(kick_half, Side::Right),
             ]
         }
         (_, _) => Vec::new(),
