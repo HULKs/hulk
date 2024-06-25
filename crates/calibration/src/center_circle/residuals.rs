@@ -1,12 +1,14 @@
 use color_eyre::Result;
 use coordinate_systems::Ground;
-use linear_algebra::{IntoTransform, Point2};
-use nalgebra::{Dyn, Owned, UnitQuaternion, Vector};
-use projection::{Error, Projection};
-use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
+use linear_algebra::Point2;
+use nalgebra::{Dyn, Owned, Vector};
+use projection::Error;
+use projection::Projection;
+use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    center_circle::measurement::Measurement, corrections::Corrections,
+    center_circle::measurement::Measurement,
+    corrections::{get_corrected_camera_matrix, Corrections},
     residuals::CalculateResiduals,
 };
 
@@ -24,20 +26,8 @@ impl CalculateResiduals<Measurement> for Residuals {
         measurement: &Measurement,
         field_dimensions: &FieldDimensions,
     ) -> Result<Self> {
-        let corrected = measurement.matrix.to_corrected(
-            UnitQuaternion::from_rotation_matrix(&parameters.correction_in_robot)
-                .framed_transform(),
-            match measurement.position {
-                CameraPosition::Top => {
-                    UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_top)
-                        .framed_transform()
-                }
-                CameraPosition::Bottom => {
-                    UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_bottom)
-                        .framed_transform()
-                }
-            },
-        );
+        let corrected =
+            get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
 
         let radius_squared = field_dimensions.center_circle_diameter / 2.0;
 

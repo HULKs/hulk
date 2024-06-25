@@ -1,9 +1,10 @@
 use color_eyre::Result;
-use linear_algebra::IntoTransform;
-use nalgebra::UnitQuaternion;
-use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
+use types::field_dimensions::FieldDimensions;
 
-use crate::{corrections::Corrections, residuals::CalculateResiduals};
+use crate::{
+    corrections::{get_corrected_camera_matrix, Corrections},
+    residuals::CalculateResiduals,
+};
 
 use super::{lines::LinesError, measurement::Measurement};
 
@@ -21,20 +22,8 @@ impl CalculateResiduals<Measurement> for GoalBoxResiduals {
         measurement: &Measurement,
         field_dimensions: &FieldDimensions,
     ) -> Result<Self> {
-        let corrected = measurement.matrix.to_corrected(
-            UnitQuaternion::from_rotation_matrix(&parameters.correction_in_robot)
-                .framed_transform(),
-            match measurement.position {
-                CameraPosition::Top => {
-                    UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_top)
-                        .framed_transform()
-                }
-                CameraPosition::Bottom => {
-                    UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_bottom)
-                        .framed_transform()
-                }
-            },
-        );
+        let corrected =
+            get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
 
         let projected_lines = measurement
             .lines
