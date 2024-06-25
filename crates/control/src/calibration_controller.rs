@@ -1,17 +1,21 @@
 use std::{time::Duration, vec};
 
-use calibration::measurement::Measurement;
+use calibration::{
+    center_circle::{measurement::Measurement, residuals::Residuals},
+    corrections::Corrections,
+    solve,
+};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{MainOutput, PerceptionInput};
 use itertools::Itertools;
 use linear_algebra::{point, Point2};
-use log::{info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 use types::{
-    camera_position::CameraPosition, cycle_time::CycleTime, primary_state::PrimaryState,
-    world_state::CalibrationCommand,
+    camera_position::CameraPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
+    primary_state::PrimaryState, world_state::CalibrationCommand,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -37,6 +41,7 @@ pub struct CycleContext {
     measurement_top: PerceptionInput<Option<Measurement>, "VisionTop", "calibration_measurement?">,
     cycle_time_top: PerceptionInput<CycleTime, "VisionTop", "cycle_time">,
     cycle_time_bottom: PerceptionInput<CycleTime, "VisionBottom", "cycle_time">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
@@ -171,9 +176,14 @@ impl CalibrationController {
                     "Switching to process!, found {} measurements",
                     self.current_measurements.len()
                 );
-                // TODO Add processing logic
-                warn!("Processing is not defined yet!");
 
+                let solved_result = solve::<Measurement, Residuals>(
+                    Corrections::default(),
+                    self.current_measurements.clone(),
+                    context.field_dimensions.clone(),
+                );
+
+                info!("Calibration complete! Corrections: {solved_result:?}");
                 Some(CalibrationCommand::FINISH)
             }
             CalibrationCommand::FINISH => None,
