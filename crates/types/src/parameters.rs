@@ -328,6 +328,7 @@ pub struct BallFilterParameters {
     pub validity_discard_threshold: f32,
     pub velocity_decay_factor: f32,
     pub resting_ball_velocity_threshold: f32,
+    pub measurement_time_noise: f32,
 }
 
 #[derive(

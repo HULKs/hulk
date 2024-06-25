@@ -1,12 +1,15 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
+use hardware::TimeInterface;
 use nalgebra::{matrix, Matrix2, Matrix2x4, Matrix4, Matrix4x2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
-use filtering::kalman_filter::KalmanFilter;
+use filtering::{
+    kalman_filter::KalmanFilter, time_error_projected_kalman_filter::TimeErrorProjectedKalmanFilter,
+};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
 use linear_algebra::Point2;
@@ -24,11 +27,14 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
+    last_update: SystemTime,
     hypotheses: Vec<Hypothesis>,
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    hardware_interface: HardwareInterface,
+}
 
 #[context]
 pub struct CycleContext {
@@ -65,8 +71,9 @@ pub struct MainOutputs {
 }
 
 impl BallFilter {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl TimeInterface>) -> Result<Self> {
         Ok(Self {
+            last_update: context.hardware_interface.get_now(),
             hypotheses: Vec::new(),
         })
     }
@@ -97,6 +104,11 @@ impl BallFilter {
         context: &CycleContext,
     ) -> Vec<Hypothesis> {
         for (detection_time, balls) in measurements {
+            let cycle_time = detection_time
+                .duration_since(self.last_update)
+                .expect("time ran backwards");
+            self.last_update = *detection_time;
+
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
@@ -105,6 +117,7 @@ impl BallFilter {
                 context.ball_filter_configuration.velocity_decay_factor,
                 current_odometry_to_last_odometry.inverse(),
                 Matrix4::from_diagonal(&context.ball_filter_configuration.process_noise),
+                cycle_time,
             );
 
             let camera_matrices = context.historic_camera_matrices.get(detection_time);
@@ -126,6 +139,7 @@ impl BallFilter {
                     ball.position,
                     *detection_time,
                     context.ball_filter_configuration,
+                    cycle_time,
                 );
             }
         }
@@ -259,9 +273,10 @@ impl BallFilter {
         velocity_decay_factor: f32,
         last_odometry_to_current_odometry: nalgebra::Isometry2<f32>,
         process_noise: Matrix4<f32>,
+        cycle_time: Duration,
     ) {
+        let cycle_time = cycle_time.as_secs_f32();
         for hypothesis in self.hypotheses.iter_mut() {
-            let cycle_time = 0.012;
             let constant_velocity_prediction = matrix![
                 1.0, 0.0, cycle_time, 0.0;
                 0.0, 1.0, 0.0, cycle_time;
@@ -280,13 +295,15 @@ impl BallFilter {
             let state_prediction = constant_velocity_prediction * state_rotation;
             let control_input_model = Matrix4x2::identity();
             let odometry_translation = last_odometry_to_current_odometry.translation.vector;
-            hypothesis.moving_state.predict(
+            KalmanFilter::predict(
+                &mut hypothesis.moving_state,
                 state_prediction,
                 control_input_model,
                 odometry_translation,
                 process_noise,
             );
-            hypothesis.resting_state.predict(
+            KalmanFilter::predict(
+                &mut hypothesis.resting_state,
                 state_prediction,
                 control_input_model,
                 odometry_translation,
@@ -300,18 +317,42 @@ impl BallFilter {
         detected_position: Point2<Ground>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
+        cycle_time: Duration,
     ) {
-        hypothesis.moving_state.update(
+        let moving_state_derivative = nalgebra::vector![
+            hypothesis.moving_state.mean.z,
+            hypothesis.moving_state.mean.w,
+            (configuration.velocity_decay_factor - 1.) * hypothesis.moving_state.mean.z
+                / cycle_time.as_secs_f32(),
+            (configuration.velocity_decay_factor - 1.) * hypothesis.moving_state.mean.w
+                / cycle_time.as_secs_f32(),
+        ];
+        TimeErrorProjectedKalmanFilter::update(
+            &mut hypothesis.moving_state,
             Matrix2x4::identity(),
             detected_position.inner.coords,
             Matrix2::from_diagonal(&configuration.measurement_noise_moving)
                 * detected_position.coords().norm_squared(),
+            moving_state_derivative,
+            configuration.measurement_time_noise,
         );
-        hypothesis.resting_state.update(
+
+        let resting_state_derivative = nalgebra::vector![
+            hypothesis.resting_state.mean.z,
+            hypothesis.resting_state.mean.w,
+            (configuration.velocity_decay_factor - 1.) * hypothesis.resting_state.mean.z
+                / cycle_time.as_secs_f32(),
+            (configuration.velocity_decay_factor - 1.) * hypothesis.resting_state.mean.w
+                / cycle_time.as_secs_f32(),
+        ];
+        TimeErrorProjectedKalmanFilter::update(
+            &mut hypothesis.resting_state,
             Matrix2x4::identity(),
             detected_position.inner.coords,
-            Matrix2::from_diagonal(&configuration.measurement_noise_resting)
+            Matrix2::from_diagonal(&configuration.measurement_noise_moving)
                 * detected_position.coords().norm_squared(),
+            resting_state_derivative,
+            configuration.measurement_time_noise,
         );
 
         if !hypothesis.is_resting(configuration) {
@@ -326,6 +367,7 @@ impl BallFilter {
         detected_position: Point2<Ground>,
         detection_time: SystemTime,
         configuration: &BallFilterParameters,
+        cycle_time: Duration,
     ) {
         let mut matching_hypotheses = self
             .hypotheses
@@ -348,6 +390,7 @@ impl BallFilter {
                 detected_position,
                 detection_time,
                 configuration,
+                cycle_time,
             )
         });
     }
@@ -406,7 +449,7 @@ impl BallFilter {
                     && is_inside_field
             });
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
-        for hypothesis in retained_hypotheses {
+        for mut hypothesis in retained_hypotheses {
             let hypothesis_in_merge_distance =
                 deduplicated_hypotheses
                     .iter_mut()
@@ -421,12 +464,14 @@ impl BallFilter {
             match hypothesis_in_merge_distance {
                 Some(existing_hypothesis) => {
                     let update_state = hypothesis.selected_state(configuration);
-                    existing_hypothesis.moving_state.update(
+                    KalmanFilter::update(
+                        &mut hypothesis.moving_state,
                         Matrix4::identity(),
                         update_state.mean,
                         update_state.covariance,
                     );
-                    existing_hypothesis.resting_state.update(
+                    KalmanFilter::update(
+                        &mut existing_hypothesis.resting_state,
                         Matrix4::identity(),
                         update_state.mean,
                         update_state.covariance,
