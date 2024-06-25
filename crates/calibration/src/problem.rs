@@ -8,7 +8,7 @@ use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},
     jacobian::{calculate_jacobian_from_parameters, Jacobian, JacobianStorage},
     residuals::{
-        calculate_residuals_from_parameters, Residual, ResidualStorage, CalculateResiduals,
+        calculate_residuals_from_parameters, CalculateResiduals, Residual, ResidualStorage,
     },
 };
 
