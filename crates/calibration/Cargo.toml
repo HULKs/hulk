@@ -14,5 +14,3 @@ nalgebra = { workspace = true }
 projection = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
-serde = { workspace = true }
-path_serde = { workspace = true }
