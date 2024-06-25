@@ -22,6 +22,7 @@ pub struct TwixPainter<Frame> {
     world_to_pixel: ScreenTransform<Frame>,
     frame: PhantomData<Frame>,
 }
+
 trait Convert {
     fn as_pos2(&self) -> Pos2;
 }

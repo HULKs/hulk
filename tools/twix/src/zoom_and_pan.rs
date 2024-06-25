@@ -5,11 +5,11 @@ use nalgebra::{vector, Similarity2, Translation2};
 use crate::twix_painter::TwixPainter;
 
 #[derive(Default)]
-pub struct ZoomAndPanManager {
-    transformation: Similarity2<f32>,
+pub struct ZoomAndPanTransform {
+    pub transformation: Similarity2<f32>,
 }
 
-impl ZoomAndPanManager {
+impl ZoomAndPanTransform {
     pub fn apply<Frame>(
         &mut self,
         ui: &mut Ui,
@@ -36,8 +36,5 @@ impl ZoomAndPanManager {
         let zoom_shift = vector![shift_from_zoom.x, shift_from_zoom.y];
         self.transformation
             .append_translation_mut(&Translation2::from(pixel_drag + zoom_shift));
-    }
-    pub fn transformation(&self) -> Similarity2<f32> {
-        self.transformation
     }
 }

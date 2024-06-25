@@ -11,7 +11,7 @@ use types::{self, field_dimensions::FieldDimensions};
 
 use crate::{
     nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer,
-    zoom_and_pan::ZoomAndPanManager,
+    zoom_and_pan::ZoomAndPanTransform,
 };
 
 use self::layer::{EnabledLayer, Layer};
@@ -64,7 +64,7 @@ pub struct MapPanel {
 
     field_dimensions: ValueBuffer,
     ground_to_field: ValueBuffer,
-    zoom_and_pan: ZoomAndPanManager,
+    zoom_and_pan: ZoomAndPanTransform,
 
     field: EnabledLayer<layers::Field, Field>,
     image_segments: EnabledLayer<layers::ImageSegments, Ground>,
@@ -112,7 +112,7 @@ impl Panel for MapPanel {
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let ground_to_field =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
-        let zoom_and_pan = ZoomAndPanManager::default();
+        let zoom_and_pan = ZoomAndPanTransform::default();
         Self {
             current_plot_type: PlotType::Field,
             field_dimensions,
@@ -206,13 +206,13 @@ impl Widget for &mut MapPanel {
             PlotType::Field => {
                 let (response, painter) = TwixPainter::allocate_new(ui);
                 let mut painter = painter.with_map_transforms(&field_dimensions);
-                painter.append_transform(self.zoom_and_pan.transformation().framed_transform());
+                painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
                 (response, painter)
             }
             PlotType::Ground => {
                 let (response, painter) = TwixPainter::allocate_new(ui);
                 let mut painter = painter.with_ground_transforms();
-                painter.append_transform(self.zoom_and_pan.transformation().framed_transform());
+                painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
 
                 (response, painter.transform_painter(ground_to_field))
             }

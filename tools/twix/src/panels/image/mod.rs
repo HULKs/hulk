@@ -14,7 +14,7 @@ use linear_algebra::{point, vector, IntoTransform};
 
 use crate::{
     image_buffer::ImageBuffer, nao::Nao, panel::Panel, twix_painter::TwixPainter,
-    zoom_and_pan::ZoomAndPanManager,
+    zoom_and_pan::ZoomAndPanTransform,
 };
 
 use self::{cycler_selector::VisionCyclerSelector, overlay::Overlays};
@@ -48,7 +48,7 @@ pub struct ImagePanel {
     cycler_selector: VisionCyclerSelector,
     overlays: Overlays,
     image_kind: ImageKind,
-    zoom_and_pan: ZoomAndPanManager,
+    zoom_and_pan: ZoomAndPanTransform,
 }
 
 impl Panel for ImagePanel {
@@ -92,7 +92,7 @@ impl Panel for ImagePanel {
             cycler_selector,
             overlays,
             image_kind,
-            zoom_and_pan: ZoomAndPanManager::default(),
+            zoom_and_pan: ZoomAndPanTransform::default(),
         }
     }
 
@@ -152,7 +152,7 @@ impl Widget for &mut ImagePanel {
         });
         let (response, painter) = TwixPainter::allocate_new(ui);
         let mut painter = painter.with_camera(vector![640.0, 480.0], Similarity2::identity());
-        painter.append_transform(self.zoom_and_pan.transformation().framed_transform());
+        painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
         let _ = self
             .show_image(&painter)
             .map_err(|error| ui.label(format!("{error:#?}")));
