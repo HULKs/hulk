@@ -1,13 +1,17 @@
 use calibration::measurement::Measurement;
 use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
+use coordinate_systems::Ground;
 use framework::MainOutput;
+use geometry::line::Line;
+use linear_algebra::point;
 use projection::camera_matrix::CameraMatrix;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use types::{
-    camera_position::CameraPosition, world_state::CalibrationCommand, ycbcr422_image::YCbCr422Image,
+    camera_position::CameraPosition, field_dimensions::FieldDimensions,
+    world_state::CalibrationCommand, ycbcr422_image::YCbCr422Image,
 };
 
 #[context]
@@ -19,6 +23,7 @@ pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     calibration_command: Input<CalibrationCommand, "control", "calibration_command">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -72,16 +77,18 @@ fn get_measurement_from_image(
     image: &YCbCr422Image,
     matrix: &CameraMatrix,
     position: CameraPosition,
+    context: &CycleContext,
 ) -> Option<Measurement> {
     // TODO replace with a real implementation
 
-    get_fake_measurement(image, matrix, position)
+    get_fake_measurement(image, matrix, position, context)
 }
 
 fn get_fake_measurement(
     _image: &YCbCr422Image,
     matrix: &CameraMatrix,
     position: CameraPosition,
+    context: &CycleContext,
 ) -> Option<Measurement> {
     let mut rng = rand::thread_rng();
     if rng.gen_range(0..10) > 8 {
