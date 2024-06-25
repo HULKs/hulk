@@ -23,12 +23,7 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-use crate::{
-    image_buffer::ImageBuffer,
-    nao::Nao,
-    panel::Panel,
-    twix_painter::TwixPainter,
-};
+use crate::{image_buffer::ImageBuffer, nao::Nao, panel::Panel, twix_painter::TwixPainter};
 
 use super::image::cycler_selector::VisionCyclerSelector;
 
