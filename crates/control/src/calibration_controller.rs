@@ -8,7 +8,7 @@ use calibration::{
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
-use framework::{MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use itertools::Itertools;
 use linear_algebra::{point, Point2};
 use log::info;
@@ -42,6 +42,8 @@ pub struct CycleContext {
     cycle_time_top: PerceptionInput<CycleTime, "VisionTop", "cycle_time">,
     cycle_time_bottom: PerceptionInput<CycleTime, "VisionBottom", "cycle_time">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+
+    calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_measurements">,
 }
 
 #[context]
@@ -64,7 +66,7 @@ impl CalibrationController {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let calibration_grame_state_active =
             matches!(context.primary_state, PrimaryState::Calibration);
         if !calibration_grame_state_active {
@@ -84,7 +86,7 @@ impl CalibrationController {
         let changed_command: Option<CalibrationCommand> = self.get_next_command(
             primary_state_transitioned_to_calibration,
             current_cycle_time,
-            context,
+            &context,
         );
 
         if let Some(new_phase) = changed_command {
@@ -92,6 +94,9 @@ impl CalibrationController {
             self.current_calibration_command = new_phase;
         }
 
+        context
+            .calibration_measurements
+            .fill_if_subscribed(|| self.current_measurements.clone());
         Ok(MainOutputs {
             calibration_command: self.current_calibration_command.clone().into(),
         })
@@ -101,7 +106,7 @@ impl CalibrationController {
         &mut self,
         primary_state_transition_to_calibration: bool,
         current_cycle_time: &CycleTime,
-        context: CycleContext,
+        context: &CycleContext,
     ) -> Option<CalibrationCommand> {
         match self.current_calibration_command {
             CalibrationCommand::INACTIVE => {
