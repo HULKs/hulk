@@ -27,7 +27,7 @@ use crate::{
     image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
-    twix_painter::{CoordinateSystem, TwixPainter},
+    twix_painter::TwixPainter,
 };
 
 use super::image::cycler_selector::VisionCyclerSelector;
@@ -195,7 +195,6 @@ impl Widget for &mut ImageColorSelectPanel {
         let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
             vector![image.width() as f32, image.height() as f32],
             Similarity2::identity(),
-            CoordinateSystem::LeftHand,
         );
 
         if let Some(hover_position) = response.hover_pos() {
