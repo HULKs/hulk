@@ -141,7 +141,7 @@ fn get_fake_measurement(
             .collect_vec()
     };
 
-    if rng.gen_range(0..10) > 4 {
+    if rng.gen_range(0..10) > 8 {
         let projected_center = matrix.ground_to_pixel(CIRCLE_CENTER_GROUND)?;
         let final_circle: CenterOfCircleAndPoints<Pixel> = {
             let projected_points = circle_points
