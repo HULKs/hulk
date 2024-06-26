@@ -1,4 +1,4 @@
-use std::{time::Duration, vec};
+use std::vec;
 
 use calibration::{
     center_circle::{measurement::Measurement, residuals::Residuals},
@@ -18,6 +18,7 @@ use types::{
     camera_position::CameraPosition,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
+    parameters::CameraCalibrationControllerParameters,
     primary_state::PrimaryState,
 };
 
@@ -26,10 +27,10 @@ pub struct CalibrationController {
     pub current_calibration_command: CalibrationCommand,
     pub look_at_list: Vec<(Point2<Ground>, Option<CameraPosition>)>,
     pub current_look_at_index: usize,
-    pub look_at_dispatch_waiting: Duration,
-    pub initial_stabilization_delay: Duration,
+
     pub current_measurements: Vec<Measurement>,
     pub current_primary_phase_is_calibration: bool,
+    pub last_calibration_corrections: Option<Corrections>,
 }
 
 #[context]
@@ -50,7 +51,10 @@ pub struct CycleContext {
         "calibration_measurement",
     >,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    parameters: Parameter<CameraCalibrationControllerParameters, "calibration_controller">,
     calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_measurements">,
+    last_calibration_corrections:
+        AdditionalOutput<Option<Corrections>, "last_calibration_corrections">,
 }
 
 #[context]
@@ -61,15 +65,13 @@ pub struct MainOutputs {
 
 impl CalibrationController {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        info!("Calibration controller start");
         Ok(Self {
             current_calibration_command: CalibrationCommand::default(),
             look_at_list: generate_look_at_list().unwrap(),
             current_look_at_index: 0,
-            look_at_dispatch_waiting: Duration::from_millis(500),
-            initial_stabilization_delay: Duration::from_millis(2000),
             current_measurements: vec![],
             current_primary_phase_is_calibration: false,
+            last_calibration_corrections: None,
         })
     }
 
@@ -104,6 +106,9 @@ impl CalibrationController {
         context
             .calibration_measurements
             .fill_if_subscribed(|| self.current_measurements.clone());
+        context
+            .last_calibration_corrections
+            .fill_if_subscribed(|| self.last_calibration_corrections);
         Ok(MainOutputs {
             calibration_command: self.current_calibration_command.clone().into(),
         })
@@ -115,12 +120,16 @@ impl CalibrationController {
         current_cycle_time: &CycleTime,
         context: &CycleContext,
     ) -> Option<CalibrationCommand> {
+        let look_at_dispatch_waiting = context.parameters.look_at_dispatch_wait_duration;
+        let initial_stabilization_delay = context
+            .parameters
+            .initial_to_calibration_stabilization_delay;
         match self.current_calibration_command {
             CalibrationCommand::INACTIVE => {
                 if primary_state_transition_to_calibration {
                     info!(
                         "Calibration is activated, waiting for {}s until the Robot is stable.",
-                        self.initial_stabilization_delay.as_secs_f32()
+                        initial_stabilization_delay.as_secs_f32()
                     );
 
                     Some(CalibrationCommand::INITIALIZE {
@@ -139,7 +148,7 @@ impl CalibrationController {
                         .duration_since(activated_time.start_time)
                         .unwrap_or_default();
 
-                    if waiting_duration >= self.initial_stabilization_delay {
+                    if waiting_duration >= initial_stabilization_delay {
                         Some(self.try_transition_to_look_at(*context.cycle_time))
                     } else {
                         None
@@ -153,7 +162,7 @@ impl CalibrationController {
                     .duration_since(dispatch_time.start_time)
                     .unwrap_or_default();
 
-                if time_diff > self.look_at_dispatch_waiting {
+                if time_diff > look_at_dispatch_waiting {
                     Some(CalibrationCommand::CAPTURE {
                         dispatch_time: *current_cycle_time,
                     })
@@ -194,6 +203,7 @@ impl CalibrationController {
                 );
 
                 info!("Calibration complete! Corrections: {solved_result:?}");
+                self.last_calibration_corrections = Some(solved_result);
                 Some(CalibrationCommand::FINISH)
             }
             CalibrationCommand::FINISH => None,

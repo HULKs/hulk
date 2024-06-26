@@ -381,3 +381,18 @@ pub struct SearchSuggestorParameters {
     pub heatmap_decay_factor: f32,
     pub minimum_validity: f32,
 }
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct CameraCalibrationMeasurementParameters {
+    pub max_retries: usize,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct CameraCalibrationControllerParameters {
+    pub look_at_dispatch_wait_duration: Duration,
+    pub initial_to_calibration_stabilization_delay: Duration,
+}

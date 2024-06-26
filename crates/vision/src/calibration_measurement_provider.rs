@@ -29,9 +29,10 @@ pub struct CreationContext {}
 pub struct CycleContext {
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     image: Input<YCbCr422Image, "image">,
-    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     calibration_command: Input<CalibrationCommand, "control", "calibration_command">,
+    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    max_retries: Parameter<usize, "calibration_measurement_provider.max_retries">,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -53,8 +54,6 @@ impl CalibrationMeasurementProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        const MAX_RETRIES: usize = 3;
-
         let calibration_measurement = match &context.calibration_command {
             CalibrationCommand::CAPTURE { dispatch_time } => {
                 let retry_attempt_count = self.last_capture_command_time_and_retries.map_or(
@@ -67,7 +66,7 @@ impl CalibrationMeasurementProvider {
                         }
                     },
                 );
-                if retry_attempt_count < MAX_RETRIES {
+                if retry_attempt_count < *context.max_retries {
                     self.last_capture_command_time_and_retries =
                         Some((dispatch_time.start_time, retry_attempt_count));
 
@@ -80,7 +79,7 @@ impl CalibrationMeasurementProvider {
 
                     CalibrationCaptureResponse::CommandRecieved {
                         dispatch_time: *dispatch_time,
-                        output: measurement,
+                        output: measurement.ok(),
                     }
                 } else {
                     CalibrationCaptureResponse::RetriesExceeded {
@@ -102,10 +101,10 @@ fn get_measurement_from_image(
     matrix: &CameraMatrix,
     position: CameraPosition,
     field_dimensions: &FieldDimensions,
-) -> Option<Measurement> {
+) -> Result<Measurement> {
     // TODO replace with a real implementation
 
-    get_fake_measurement(image, matrix, position, field_dimensions).ok()
+    get_fake_measurement(image, matrix, position, field_dimensions)
 }
 
 fn get_fake_measurement(
@@ -114,7 +113,7 @@ fn get_fake_measurement(
     position: CameraPosition,
     field_dimensions: &FieldDimensions,
 ) -> Result<Measurement> {
-    const CIRCLE_CENTER_GROUND: Point2<Ground> = point![1.5, 0.3];
+    const CIRCLE_CENTER_GROUND: Point2<Ground> = point![2.5, 0.3];
     const POINTS_PER_CIRCLE: usize = 20;
     const RADIUS_VARIANCE: f32 = 0.1;
 
@@ -142,14 +141,14 @@ fn get_fake_measurement(
             .collect_vec()
     };
 
-    if rng.gen_range(0..10) > 8 {
+    if rng.gen_range(0..10) > 4 {
         let projected_center = matrix.ground_to_pixel(CIRCLE_CENTER_GROUND)?;
         let final_circle: CenterOfCircleAndPoints<Pixel> = {
             let projected_points = circle_points
                 .iter()
                 .filter_map(|point| matrix.ground_to_pixel(*point).ok())
                 .collect_vec();
-            if projected_points.len() > 3 {
+            if projected_points.len() < 3 {
                 Err(eyre!("expected at least 3 valid projected points"))
             } else {
                 Ok(CenterOfCircleAndPoints::<Pixel> {

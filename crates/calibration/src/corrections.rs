@@ -1,8 +1,23 @@
-use nalgebra::{vector, Rotation3, SVector};
+use linear_algebra::IntoTransform;
+use nalgebra::{vector, Rotation3, SVector, UnitQuaternion};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use projection::camera_matrix::CameraMatrix;
+use serde::{Deserialize, Serialize};
+use types::camera_position::CameraPosition;
 
 pub const AMOUNT_OF_PARAMETERS: usize = 9;
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathDeserialize,
+    PathSerialize,
+    PathIntrospect,
+)]
 pub struct Corrections {
     pub correction_in_robot: Rotation3<f32>,
     pub correction_in_camera_top: Rotation3<f32>,
