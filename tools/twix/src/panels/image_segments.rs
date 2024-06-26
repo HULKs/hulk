@@ -17,12 +17,7 @@ use types::{
     image_segments::ImageSegments,
 };
 
-use crate::{
-    nao::Nao,
-    panel::Panel,
-    twix_painter::{CoordinateSystem, TwixPainter},
-    value_buffer::ValueBuffer,
-};
+use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 enum ColorMode {
@@ -162,11 +157,7 @@ impl Widget for &mut ImageSegmentsPanel {
         };
 
         let (mut response, painter) = TwixPainter::<Pixel>::allocate_new(ui);
-        let painter = painter.with_camera(
-            vector![640.0, 480.0],
-            Similarity2::identity(),
-            CoordinateSystem::LeftHand,
-        );
+        let painter = painter.with_camera(vector![640.0, 480.0], Similarity2::identity());
         if let Some(hover_pos) = response.hover_pos() {
             let image_coords = painter.transform_pixel_to_world(hover_pos);
             let x = image_coords.x().round() as u16;
