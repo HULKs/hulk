@@ -26,6 +26,7 @@ pub struct TwixPainter<Frame> {
 trait Convert {
     fn as_pos2(&self) -> Pos2;
 }
+
 impl Convert for Point2<Screen> {
     fn as_pos2(&self) -> Pos2 {
         Pos2::new(self.x(), self.y())
@@ -110,6 +111,7 @@ impl<Frame> TwixPainter<Frame> {
     pub fn context(&self) -> &Context {
         self.painter.ctx()
     }
+
     pub fn scaling(&self) -> f32 {
         self.world_to_pixel
             .inner
