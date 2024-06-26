@@ -1,7 +1,8 @@
 use types::{
+    calibration::CalibrationCommand,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     primary_state::PrimaryState,
-    world_state::{CalibrationCommand, WorldState},
+    world_state::WorldState,
 };
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {

@@ -16,8 +16,10 @@ use rand::{
 use serde::{Deserialize, Serialize};
 use std::{f32::consts::PI, time::SystemTime};
 use types::{
-    camera_position::CameraPosition, field_dimensions::FieldDimensions,
-    world_state::CalibrationCommand, ycbcr422_image::YCbCr422Image,
+    calibration::{CalibrationCaptureResponse, CalibrationCommand},
+    camera_position::CameraPosition,
+    field_dimensions::FieldDimensions,
+    ycbcr422_image::YCbCr422Image,
 };
 
 #[context]
@@ -34,44 +36,59 @@ pub struct CycleContext {
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationMeasurementProvider {
-    last_completed_capture_command_time: Option<SystemTime>,
+    last_capture_command_time_and_retries: Option<(SystemTime, usize)>,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub calibration_measurement: MainOutput<Option<Measurement>>,
+    pub calibration_measurement: MainOutput<CalibrationCaptureResponse<Measurement>>,
 }
 
 impl CalibrationMeasurementProvider {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_completed_capture_command_time: None,
+            last_capture_command_time_and_retries: None,
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        const MAX_RETRIES: usize = 3;
+
         let calibration_measurement = match &context.calibration_command {
             CalibrationCommand::CAPTURE { dispatch_time } => {
-                let new_request = self.last_completed_capture_command_time.map_or(
-                    true,
-                    |last_capture_command_time| {
-                        dispatch_time.start_time != last_capture_command_time
+                let retry_attempt_count = self.last_capture_command_time_and_retries.map_or(
+                    0,
+                    |(last_capture_command_time, retry_count)| {
+                        if dispatch_time.start_time != last_capture_command_time {
+                            0
+                        } else {
+                            retry_count + 1
+                        }
                     },
                 );
-                if new_request {
-                    self.last_completed_capture_command_time = Some(dispatch_time.start_time);
-                    get_measurement_from_image(
+                if retry_attempt_count < MAX_RETRIES {
+                    self.last_capture_command_time_and_retries =
+                        Some((dispatch_time.start_time, retry_attempt_count));
+
+                    let measurement = get_measurement_from_image(
                         context.image,
                         context.camera_matrix,
                         *context.camera_position,
                         context.field_dimensions,
-                    )
+                    );
+
+                    CalibrationCaptureResponse::CommandRecieved {
+                        dispatch_time: *dispatch_time,
+                        output: measurement,
+                    }
                 } else {
-                    None
+                    CalibrationCaptureResponse::RetriesExceeded {
+                        dispatch_time: *dispatch_time,
+                    }
                 }
             }
-            _ => None,
+            _ => CalibrationCaptureResponse::Idling,
         }
         .into();
         Ok(MainOutputs {

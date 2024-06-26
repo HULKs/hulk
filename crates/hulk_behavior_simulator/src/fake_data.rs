@@ -11,6 +11,7 @@ use framework::MainOutput;
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::HypotheticalBallPosition,
+    calibration::CalibrationCommand,
     cycle_time::CycleTime,
     fall_state::FallState,
     filtered_whistle::FilteredWhistle,
@@ -21,7 +22,6 @@ use types::{
     penalty_shot_direction::PenaltyShotDirection,
     primary_state::PrimaryState,
     sensor_data::SensorData,
-    world_state::CalibrationCommand,
 };
 
 use crate::interfake::FakeDataInterface;

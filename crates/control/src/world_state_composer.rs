@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,
+    calibration::CalibrationCommand,
     fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
@@ -14,7 +15,7 @@ use types::{
     primary_state::PrimaryState,
     roles::Role,
     rule_obstacles::RuleObstacle,
-    world_state::{BallState, CalibrationCommand, RobotState, WorldState},
+    world_state::{BallState, RobotState, WorldState},
 };
 
 #[derive(Deserialize, Serialize)]

@@ -8,11 +8,10 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::PlayerNumber;
 
 use crate::{
-    ball_position::HypotheticalBallPosition, camera_position::CameraPosition,
-    cycle_time::CycleTime, fall_state::FallState,
-    filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
-    obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
-    roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
+    ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
+    fall_state::FallState, filtered_game_controller_state::FilteredGameControllerState,
+    kick_decision::KickDecision, obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect)]
@@ -79,24 +78,4 @@ pub struct RobotState {
     pub fall_state: FallState,
     pub has_ground_contact: bool,
     pub player_number: PlayerNumber,
-}
-#[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub enum CalibrationCommand {
-    #[default]
-    INACTIVE,
-    INITIALIZE {
-        started_time: CycleTime,
-    },
-    LOOKAT {
-        target: Point2<Ground>,
-        camera: Option<CameraPosition>,
-        dispatch_time: CycleTime,
-    },
-    CAPTURE {
-        dispatch_time: CycleTime,
-    },
-    PROCESS,
-    FINISH,
 }

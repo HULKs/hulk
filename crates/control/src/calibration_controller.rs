@@ -14,8 +14,11 @@ use linear_algebra::{point, Point2};
 use log::info;
 use serde::{Deserialize, Serialize};
 use types::{
-    camera_position::CameraPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
-    primary_state::PrimaryState, world_state::CalibrationCommand,
+    calibration::{CalibrationCaptureResponse, CalibrationCommand},
+    camera_position::CameraPosition,
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
+    primary_state::PrimaryState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -36,13 +39,17 @@ pub struct CreationContext {}
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    measurement_bottom:
-        PerceptionInput<Option<Measurement>, "VisionBottom", "calibration_measurement?">,
-    measurement_top: PerceptionInput<Option<Measurement>, "VisionTop", "calibration_measurement?">,
-    cycle_time_top: PerceptionInput<CycleTime, "VisionTop", "cycle_time">,
-    cycle_time_bottom: PerceptionInput<CycleTime, "VisionBottom", "cycle_time">,
+    measurement_bottom: PerceptionInput<
+        CalibrationCaptureResponse<Measurement>,
+        "VisionBottom",
+        "calibration_measurement",
+    >,
+    measurement_top: PerceptionInput<
+        CalibrationCaptureResponse<Measurement>,
+        "VisionTop",
+        "calibration_measurement",
+    >,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-
     calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_measurements">,
 }
 
@@ -155,22 +162,20 @@ impl CalibrationController {
                 }
             }
             CalibrationCommand::CAPTURE { dispatch_time } => {
-                let mut values_top = collect_filtered_values(
-                    &context.measurement_top,
-                    &context.cycle_time_top,
-                    &dispatch_time,
-                );
-                let mut values_bottom = collect_filtered_values(
-                    &context.measurement_bottom,
-                    &context.cycle_time_bottom,
-                    &dispatch_time,
-                );
+                // TODO decide a better way to handle the two cameras. Perhaps set a capture position like in the look-at command?
+                let (values_top, goto_next_position_top) =
+                    collect_filtered_values(&context.measurement_top, &dispatch_time);
+                let (values_bottom, goto_next_position_bottom) =
+                    collect_filtered_values(&context.measurement_bottom, &dispatch_time);
 
-                if !values_bottom.is_empty() || !values_bottom.is_empty() {
-                    // TODO Require both cameras to give values or another mechanism to track that.
-                    self.current_measurements.append(&mut values_top);
-                    self.current_measurements.append(&mut values_bottom);
+                if let Some(measurement) = values_top {
+                    self.current_measurements.push(measurement);
+                }
+                if let Some(measurement) = values_bottom {
+                    self.current_measurements.push(measurement);
+                }
 
+                if goto_next_position_top || goto_next_position_bottom {
                     Some(self.try_transition_to_look_at(*context.cycle_time))
                 } else {
                     None
@@ -197,6 +202,7 @@ impl CalibrationController {
 
     fn try_transition_to_look_at(&mut self, dispatch_time: CycleTime) -> CalibrationCommand {
         let next_look_at = self.get_next_look_at();
+
         match next_look_at {
             Some((target, camera)) => CalibrationCommand::LOOKAT {
                 camera,
@@ -222,33 +228,49 @@ impl CalibrationController {
 }
 
 fn collect_filtered_values(
-    measurement_perception_input: &PerceptionInput<Vec<Option<&Measurement>>>,
-    cycletimes_perception_input: &PerceptionInput<Vec<&CycleTime>>,
-    dispatch_time: &CycleTime,
-) -> Vec<Measurement> {
-    measurement_perception_input
+    measurement_perception_input: &PerceptionInput<Vec<&CalibrationCaptureResponse<Measurement>>>,
+    original_dispatch_time: &CycleTime,
+) -> (Option<Measurement>, bool) {
+    let result = measurement_perception_input
         .persistent
         .iter()
-        .zip(cycletimes_perception_input.persistent.iter())
-        .flat_map(
-            |((measurement_timestamp, measurements), (cycle_time_timestamp, cycle_times))| {
-                assert_eq!(measurement_timestamp, cycle_time_timestamp);
-                measurements
-                    .iter()
-                    .zip(cycle_times)
-                    .filter_map(|(measurement, &&timestamp)| {
-                        if timestamp.start_time >= dispatch_time.start_time {
-                            *measurement
-                        } else {
-                            None
-                        }
-                    })
-            },
-        )
-        .map(|m| (*m).clone())
-        .collect_vec()
+        .flat_map(|(_cycle_timestamp, measurements)| measurements.iter())
+        .find(|&measurement| match measurement {
+            CalibrationCaptureResponse::CommandRecieved {
+                dispatch_time,
+                output: _,
+            } => original_dispatch_time.start_time == dispatch_time.start_time,
+            CalibrationCaptureResponse::Idling => false,
+            CalibrationCaptureResponse::RetriesExceeded { dispatch_time } => {
+                original_dispatch_time.start_time == dispatch_time.start_time
+            }
+        });
+
+    let mut retries_exceeded = false;
+    let mut value_found = false;
+    let measurement: Option<Measurement> = result.and_then(|value| match value {
+        CalibrationCaptureResponse::Idling => None,
+        CalibrationCaptureResponse::CommandRecieved {
+            dispatch_time: _,
+            output,
+        } => {
+            if output.is_some() {
+                value_found = true;
+                output.clone()
+            } else {
+                None
+            }
+        }
+        CalibrationCaptureResponse::RetriesExceeded { dispatch_time: _ } => {
+            retries_exceeded = true;
+            None
+        }
+    });
+
+    (measurement, retries_exceeded || value_found)
 }
 
+// TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
 fn generate_look_at_list() -> Result<Vec<(Point2<Ground>, Option<CameraPosition>)>> {
     let look_at_points: Vec<Point2<Ground>> = vec![
         point!(1.0, 0.0),
