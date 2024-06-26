@@ -212,7 +212,8 @@ impl Widget for &mut ImageSegmentsPanel {
                 let rgb_color = Rgb::from(ycbcr_color);
                 let start = point![x, segment.start as f32];
                 let end = point![x, segment.end as f32];
-                let original_color = Color32::from_rgb(rgb_color.red, rgb_color.green, rgb_color.blue);
+                let original_color =
+                    Color32::from_rgb(rgb_color.red, rgb_color.green, rgb_color.blue);
                 let high_color = Color32::YELLOW;
                 let chromaticity = rgb_color.convert_to_rgchromaticity();
                 let visualized_color = match self.color_mode {
@@ -227,15 +228,15 @@ impl Widget for &mut ImageSegmentsPanel {
                     ColorMode::Red => Color32::from_gray(rgb_color.red),
                     ColorMode::Green => Color32::from_gray(rgb_color.green),
                     ColorMode::Blue => Color32::from_gray(rgb_color.blue),
-                    ColorMode::RedChromaticity => Color32::from_gray(
-                        (chromaticity.red * 255.0) as u8,
-                    ),
-                    ColorMode::GreenChromaticity => Color32::from_gray(
-                        (chromaticity.green * 255.0) as u8,
-                    ),
-                    ColorMode::BlueChromaticity => Color32::from_gray(
-                        (chromaticity.blue * 255.0) as u8,
-                    ),
+                    ColorMode::RedChromaticity => {
+                        Color32::from_gray((chromaticity.red * 255.0) as u8)
+                    }
+                    ColorMode::GreenChromaticity => {
+                        Color32::from_gray((chromaticity.green * 255.0) as u8)
+                    }
+                    ColorMode::BlueChromaticity => {
+                        Color32::from_gray((chromaticity.blue * 255.0) as u8)
+                    }
                 };
                 painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
                 painter.line_segment(
