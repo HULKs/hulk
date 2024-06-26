@@ -3,14 +3,16 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::Result;
 use communication::client::CyclerOutput;
 use coordinate_systems::{Field, Ground};
-use eframe::egui::{ComboBox, Response, Ui, Widget};
-use linear_algebra::Isometry2;
-use nalgebra::{vector, Similarity2, Translation2};
+use eframe::egui::{ComboBox, Ui, Widget};
+use linear_algebra::{IntoTransform, Isometry2};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 use types::{self, field_dimensions::FieldDimensions};
 
-use crate::{nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    zoom_and_pan::ZoomAndPanTransform,
+};
 
 use self::layer::{EnabledLayer, Layer};
 
@@ -62,7 +64,7 @@ pub struct MapPanel {
 
     field_dimensions: ValueBuffer,
     ground_to_field: ValueBuffer,
-    transformation: Similarity2<f32>,
+    zoom_and_pan: ZoomAndPanTransform,
 
     field: EnabledLayer<layers::Field, Field>,
     image_segments: EnabledLayer<layers::ImageSegments, Ground>,
@@ -110,12 +112,12 @@ impl Panel for MapPanel {
         let field_dimensions = nao.subscribe_parameter("field_dimensions");
         let ground_to_field =
             nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
-        let transformation = Similarity2::identity();
+        let zoom_and_pan = ZoomAndPanTransform::default();
         Self {
             current_plot_type: PlotType::Field,
             field_dimensions,
             ground_to_field,
-            transformation,
+            zoom_and_pan,
             field,
             image_segments,
             line_correspondences,
@@ -204,13 +206,13 @@ impl Widget for &mut MapPanel {
             PlotType::Field => {
                 let (response, painter) = TwixPainter::allocate_new(ui);
                 let mut painter = painter.with_map_transforms(&field_dimensions);
-                painter.append_transform(self.transformation);
+                painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
                 (response, painter)
             }
             PlotType::Ground => {
                 let (response, painter) = TwixPainter::allocate_new(ui);
                 let mut painter = painter.with_ground_transforms();
-                painter.append_transform(self.transformation);
+                painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
 
                 (response, painter.transform_painter(ground_to_field))
             }
@@ -272,39 +274,7 @@ impl Widget for &mut MapPanel {
             .walking
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
-        self.apply_zoom_and_pan(ui, &mut painter, &response);
-        if response.double_clicked() {
-            self.transformation = Similarity2::identity();
-        }
-
+        self.zoom_and_pan.apply(ui, &mut painter, &response);
         response
-    }
-}
-
-impl MapPanel {
-    fn apply_zoom_and_pan(
-        &mut self,
-        ui: &mut Ui,
-        painter: &mut TwixPainter<Field>,
-        response: &Response,
-    ) {
-        let pointer_position = match ui.input(|input| input.pointer.interact_pos()) {
-            Some(position) if response.rect.contains(position) => position,
-            _ => return,
-        };
-
-        let pointer_in_world_before_zoom = painter.transform_pixel_to_world(pointer_position);
-        let zoom_factor = 1.01_f32.powf(ui.input(|input| input.smooth_scroll_delta.y));
-        let zoom_transform = Similarity2::from_scaling(zoom_factor);
-        painter.append_transform(zoom_transform);
-        let pointer_in_pixel_after_zoom =
-            painter.transform_world_to_pixel(pointer_in_world_before_zoom);
-        let shift_from_zoom = pointer_position - pointer_in_pixel_after_zoom;
-        let pixel_drag = vector![response.drag_delta().x, -response.drag_delta().y];
-        self.transformation.append_scaling_mut(zoom_factor);
-        self.transformation
-            .append_translation_mut(&Translation2::from(
-                pixel_drag + vector![shift_from_zoom.x, -shift_from_zoom.y],
-            ));
     }
 }
