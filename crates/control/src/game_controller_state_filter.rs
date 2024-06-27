@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Team};
@@ -34,6 +34,9 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+
+    whistle_in_set_ball_position:
+        AdditionalOutput<Option<Point2<Ground>>, "whistle_in_set_ball_position">,
 }
 
 #[context]
@@ -50,7 +53,7 @@ impl GameControllerStateFilter {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let game_states = filter_game_states(
             *context.ground_to_field,
             context.ball_position,
@@ -78,6 +81,9 @@ impl GameControllerStateFilter {
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
         };
+        context
+            .whistle_in_set_ball_position
+            .fill_if_subscribed(|| self.whistle_in_set_ball_position);
 
         Ok(MainOutputs {
             filtered_game_controller_state: Some(filtered_game_controller_state).into(),
@@ -335,7 +341,7 @@ fn is_in_grace_period(
 }
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
-enum State {
+pub enum State {
     Initial,
     Ready,
     Set,
