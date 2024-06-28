@@ -1,6 +1,5 @@
 use std::{
     f32::consts::{FRAC_PI_2, PI},
-    mem::take,
     time::{Duration, SystemTime},
 };
 
@@ -226,22 +225,8 @@ impl Localization {
                 {
                     if self.is_penalized_with_motion_in_set_or_initial {
                         if self.was_picked_up_while_penalized {
-                            self.hypotheses = take(&mut self.hypotheses_when_entered_playing);
-
-                            let penalized_poses = generate_penalized_poses(
-                                context.field_dimensions,
-                                *context.penalized_distance,
-                            );
-                            self.hypotheses_when_entered_playing = penalized_poses
-                                .into_iter()
-                                .map(|pose| {
-                                    ScoredPose::from_isometry(
-                                        pose,
-                                        *context.penalized_hypothesis_covariance,
-                                        *context.initial_hypothesis_score,
-                                    )
-                                })
-                                .collect();
+                            self.hypotheses
+                                .clone_from(&self.hypotheses_when_entered_playing);
                         }
                         self.is_penalized_with_motion_in_set_or_initial = false;
                         self.was_picked_up_while_penalized = false;
