@@ -213,42 +213,37 @@ impl Localization {
                 };
             }
             (PrimaryState::Penalized, _, _) if primary_state != PrimaryState::Penalized => {
-                if self.was_picked_up_while_penalized
-                    || self.time_when_penalized_clicked.map_or(true, |time| {
-                        context
-                            .cycle_time
-                            .start_time
-                            .duration_since(time)
-                            .expect("time ran backwards")
-                            > *context.tentative_penalized_duration
-                    })
-                {
-                    if self.is_penalized_with_motion_in_set_or_initial {
-                        if self.was_picked_up_while_penalized {
-                            self.hypotheses
-                                .clone_from(&self.hypotheses_when_entered_playing);
-                        }
-                        self.is_penalized_with_motion_in_set_or_initial = false;
-                        self.was_picked_up_while_penalized = false;
-                    } else {
-                        let penalized_poses = generate_penalized_poses(
-                            context.field_dimensions,
-                            *context.penalized_distance,
-                        );
-                        self.hypotheses = penalized_poses
-                            .into_iter()
-                            .map(|pose| {
-                                ScoredPose::from_isometry(
-                                    pose,
-                                    *context.penalized_hypothesis_covariance,
-                                    *context.initial_hypothesis_score,
-                                )
-                            })
-                            .collect();
-                        self.hypotheses_when_entered_playing
-                            .clone_from(&self.hypotheses);
+                if self.is_penalized_with_motion_in_set_or_initial {
+                    if self.was_picked_up_while_penalized {
+                        self.hypotheses
+                            .clone_from(&self.hypotheses_when_entered_playing);
                     }
+                } else if self.time_when_penalized_clicked.map_or(true, |time| {
+                    context
+                        .cycle_time
+                        .start_time
+                        .duration_since(time)
+                        .expect("time ran backwards")
+                        > *context.tentative_penalized_duration
+                }) {
+                    let penalized_poses = generate_penalized_poses(
+                        context.field_dimensions,
+                        *context.penalized_distance,
+                    );
+                    self.hypotheses = penalized_poses
+                        .into_iter()
+                        .map(|pose| {
+                            ScoredPose::from_isometry(
+                                pose,
+                                *context.penalized_hypothesis_covariance,
+                                *context.initial_hypothesis_score,
+                            )
+                        })
+                        .collect();
+                    self.hypotheses_when_entered_playing
+                        .clone_from(&self.hypotheses);
                 }
+                self.is_penalized_with_motion_in_set_or_initial = false;
                 self.was_picked_up_while_penalized = false;
             }
             (PrimaryState::Unstiff, _, _) => {
