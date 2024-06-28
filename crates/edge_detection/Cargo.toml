@@ -1,0 +1,12 @@
+[package]
+name = "edge_detection"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+image = { workspace = true }
+imageproc = { workspace = true }
+linear_algebra = { workspace = true }
+types = { workspace = true }

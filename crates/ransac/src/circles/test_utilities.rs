@@ -1,11 +1,12 @@
 use itertools::Itertools;
-use linear_algebra::{point, Point2};
 use nalgebra::RealField;
 use rand::{
     distributions::{Distribution, Uniform},
     rngs::StdRng,
     SeedableRng,
 };
+
+use linear_algebra::{point, Point2};
 
 #[allow(dead_code)]
 pub(crate) fn generate_circle<Frame, T>(

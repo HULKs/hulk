@@ -1,9 +1,10 @@
-use geometry::circle::Circle;
+use std::f32::consts::FRAC_PI_4;
+
 use itertools::Itertools;
 use ordered_float::NotNan;
 use rand::{seq::SliceRandom, Rng};
-use std::f32::consts::FRAC_PI_4;
 
+use geometry::circle::Circle;
 use linear_algebra::{point, Point2};
 
 type T = f32;
@@ -261,7 +262,6 @@ fn get_best_candidate<Frame>(
     })
 }
 
-// TODO refactor this function to use the built-in facilities
 fn circle_from_three_points<Frame>(
     a: &Point2<Frame, T>,
     b: &Point2<Frame, T>,
@@ -299,9 +299,7 @@ fn compute_minimum_point_distance(angle_at_center_to_points: T, radius: T) -> f3
 mod test {
 
     use super::RansacCircle;
-    use crate::circles::{
-        circle_ransac::circle_from_three_points, test_utilities::generate_circle,
-    };
+    use crate::circles::{circle::circle_from_three_points, test_utilities::generate_circle};
     use approx::assert_relative_eq;
     use linear_algebra::{point, Point2};
     use rand::SeedableRng;
