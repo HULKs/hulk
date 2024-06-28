@@ -46,6 +46,8 @@ Use your distribution's package manager to install the following dependencies:
 You will also need to install the OpenVino:tm: runtime for Webots. The HULKs SDK already contains the runtime for use with the NAOs.
 - [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
 
+If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
+
 ## Cloning the Repository
 
 We use Git to manage all our software.

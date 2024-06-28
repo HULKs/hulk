@@ -14,7 +14,6 @@ use color_eyre::{
     eyre::{bail, eyre, Context},
     Result,
 };
-use constants::SDK_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use glob::glob;
 use home::home_dir;
@@ -36,6 +35,7 @@ use tokio::{
     process::Command,
 };
 
+use constants::{OS_IS_NOT_LINUX, SDK_VERSION};
 use spl_network_messages::PlayerNumber;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -139,18 +139,7 @@ impl Repository {
         target: &str,
         passthrough_arguments: &[String],
     ) -> Result<()> {
-        let mut shell_command = String::new();
-
-        if target == "nao" {
-            shell_command += &format!(
-                ". {} && ",
-                self.root
-                    .join(format!(
-                        "naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux"
-                    ))
-                    .display()
-            );
-        }
+        let use_docker = target == "nao" && OS_IS_NOT_LINUX;
 
         let cargo_command = format!("cargo {action} ")
             + format!("--profile {profile} ").as_str()
@@ -158,7 +147,12 @@ impl Repository {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
                 let manifest = format!("crates/hulk_{target}/Cargo.toml");
-                format!("--manifest-path={} ", self.root.join(manifest).display())
+                let root = if use_docker {
+                    Path::new("/hulk")
+                } else {
+                    &self.root
+                };
+                format!("--manifest-path={} ", root.join(manifest).display())
             }
             .as_str()
             + "-- "
@@ -170,9 +164,30 @@ impl Repository {
 
         println!("Running: {cargo_command}");
 
+        let shell_command = if use_docker {
+            format!(
+                "docker run --volume={}:/hulk --volume={}:/naosdk/sysroots/corei7-64-aldebaran-linux/home/cargo \
+                --rm --interactive --tty ghcr.io/hulks/naosdk:{SDK_VERSION} /bin/bash -c \
+                '. /naosdk/environment-setup-corei7-64-aldebaran-linux && {cargo_command}'",
+                self.root.display(),
+                self.root.join("naosdk/cargo-home").join(SDK_VERSION).display()
+            )
+        } else if target == "nao" {
+            format!(
+                ". {} && {cargo_command}",
+                self.root
+                    .join(format!(
+                        "naosdk/{SDK_VERSION}/environment-setup-corei7-64-aldebaran-linux"
+                    ))
+                    .display()
+            )
+        } else {
+            cargo_command
+        };
+
         let status = Command::new("sh")
             .arg("-c")
-            .arg(shell_command + &cargo_command)
+            .arg(shell_command)
             .status()
             .await
             .wrap_err("failed to execute cargo command")?;
@@ -304,13 +319,8 @@ impl Repository {
         Ok(())
     }
 
-    pub async fn install_sdk(
-        &self,
-        version: Option<&str>,
-        installation_directory: Option<&Path>,
-    ) -> Result<()> {
+    pub async fn link_sdk_home(&self, installation_directory: Option<&Path>) -> Result<PathBuf> {
         let symlink = self.root.join("naosdk");
-        let version = version.unwrap_or(SDK_VERSION);
         let environment_installation_directory = env::var("NAOSDK_HOME").ok().map(PathBuf::from);
         let installation_directory = if let Some(directory) =
             installation_directory.or(environment_installation_directory.as_deref())
@@ -326,6 +336,16 @@ impl Repository {
             create_symlink(&directory, &symlink).await?;
             directory
         };
+
+        Ok(installation_directory)
+    }
+
+    pub async fn install_sdk(
+        &self,
+        version: Option<&str>,
+        installation_directory: PathBuf,
+    ) -> Result<()> {
+        let version = version.unwrap_or(SDK_VERSION);
         let sdk = installation_directory.join(version);
 
         let incomplete_marker = installation_directory.join(format!("{version}.incomplete"));
