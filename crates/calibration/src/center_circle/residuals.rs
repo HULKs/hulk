@@ -36,22 +36,18 @@ impl CalculateResiduals for CenterCircleResiduals {
             .filter_map(|&point| corrected.pixel_to_ground(point).ok())
             .collect();
 
-        // TODO figure out a better way
-        let has_projection_error =
-            projected_points.len() != measurement.circle_and_points.points.len();
-        if has_projection_error {
+        if projected_points.len() != measurement.circle_and_points.points.len() {
             return Err(ProjectionError::NotOnProjectionPlane);
         }
-        let residual_values = projected_points
+
+        let radial_residuals = projected_points
             .into_iter()
             .map(|projected_point| {
                 (projected_point - projected_center).norm_squared() - radius_squared
             })
             .collect();
 
-        Ok(CenterCircleResiduals {
-            radial_residuals: residual_values,
-        })
+        Ok(CenterCircleResiduals { radial_residuals })
     }
 }
 

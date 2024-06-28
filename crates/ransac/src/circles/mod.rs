@@ -1,2 +1,2 @@
-pub mod circle_ransac;
+pub mod circle;
 mod test_utilities;

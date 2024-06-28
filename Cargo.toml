@@ -15,6 +15,7 @@ members = [
   "crates/control",
   "crates/coordinate_systems",
   "crates/energy_optimization",
+  "crates/edge_detection",
   "crates/filtering",
   "crates/framework",
   "crates/geometry",
@@ -128,6 +129,7 @@ hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 i2cdev = "0.5.1"
 image = "0.25.2"
 imageproc = "0.25.0"
+edge_detection = { path = "crates/edge_detection" }
 indicatif = "0.17.2"
 itertools = "0.11.0"
 ittapi = "0.3.3"

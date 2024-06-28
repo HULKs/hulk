@@ -2334,6 +2334,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge_detection"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "imageproc",
+ "linear_algebra",
+ "types",
+]
+
+[[package]]
 name = "eframe"
 version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2848,16 +2858,6 @@ dependencies = [
  "log",
  "tokio",
  "tokio-tungstenite",
-]
-
-[[package]]
-name = "fast_image_resize"
-version = "2.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc789a40040e11bbe4ba31ca319406805a12fe3f8d71314bbc4bd076602ad55a"
-dependencies = [
- "num-traits",
- "thiserror",
 ]
 
 [[package]]
@@ -4471,15 +4471,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fae87c125b03c1d2c0150c90365d7d6bcc53fb73a9acaef207d2d065860f062"
 dependencies = [
  "imgref",
-]
-
-[[package]]
-name = "lstsq"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b2591c55069b74283fbdd97167b402b69c534ba6b2c037847cbcae7e14471d8"
-dependencies = [
- "nalgebra",
 ]
 
 [[package]]
@@ -7620,16 +7611,13 @@ dependencies = [
  "compiled-nn",
  "context_attribute",
  "coordinate_systems",
- "fast_image_resize",
+ "edge_detection",
  "filtering",
  "framework",
  "geometry",
  "hardware",
- "image",
- "imageproc",
  "itertools 0.11.0",
  "linear_algebra",
- "lstsq",
  "nalgebra",
  "ordered-float",
  "projection",

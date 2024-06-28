@@ -1472,7 +1472,7 @@
     },
     "use_stand_head_unstiff_calibration": true
   },
-  "calibration_line_detection": {
+  "calibration_circle_detection": {
     "vision_top": {
       "enable": true
     },
@@ -1483,7 +1483,6 @@
     "canny_low_threshold": 15.0,
     "canny_high_threshold": 50.0,
     "get_edges_from_segments": false,
-    "enable_clustering": true,
     "maximum_number_of_circles": 1,
     "ransac_iterations": 1500,
     "ransac_circle_inlier_threshold": 0.1,
