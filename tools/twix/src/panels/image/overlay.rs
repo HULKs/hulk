@@ -13,7 +13,7 @@ use crate::{nao::Nao, twix_painter::TwixPainter};
 use super::{
     cycler_selector::VisionCycler,
     overlays::{
-        BallDetection, CalibrationLineDetection, FeetDetection, FieldBorder, Horizon,
+        BallDetection, CalibrationMeasurementDetection, FeetDetection, FieldBorder, Horizon,
         LimbProjector, LineDetection, PenaltyBoxes, PerspectiveGrid, PoseDetection,
     },
 };
@@ -95,7 +95,7 @@ pub struct Overlays {
     pub field_border: EnabledOverlay<FieldBorder>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
     pub pose_detection: EnabledOverlay<PoseDetection>,
-    pub calibration_line_detection: EnabledOverlay<CalibrationLineDetection>,
+    pub calibration_measurement_detection: EnabledOverlay<CalibrationMeasurementDetection>,
 }
 
 impl Overlays {
@@ -108,8 +108,8 @@ impl Overlays {
         let feet_detection = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
         let field_border = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
         let limb_projector = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let pose_detection = EnabledOverlay::new(nao, storage, false, selected_cycler);
-        let calibration_line_detection = EnabledOverlay::new(nao, storage, true, selected_cycler);
+        let pose_detection = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
+        let calibration_line_detection = EnabledOverlay::new(nao, storage, false, selected_cycler);
         Self {
             line_detection,
             ball_detection,
@@ -120,7 +120,7 @@ impl Overlays {
             field_border,
             limb_projector,
             pose_detection,
-            calibration_line_detection,
+            calibration_measurement_detection,
         }
     }
 
@@ -134,7 +134,7 @@ impl Overlays {
         self.field_border.update_cycler(selected_cycler);
         self.limb_projector.update_cycler(selected_cycler);
         self.pose_detection.update_cycler(selected_cycler);
-        self.calibration_line_detection
+        self.calibration_measurement_detection
             .update_cycler(selected_cycler);
     }
 
@@ -149,7 +149,7 @@ impl Overlays {
             self.field_border.checkbox(ui, selected_cycler);
             self.limb_projector.checkbox(ui, selected_cycler);
             self.pose_detection.checkbox(ui, selected_cycler);
-            self.calibration_line_detection
+            self.calibration_measurement_detection
                 .checkbox(ui, selected_cycler);
         });
     }
@@ -178,7 +178,7 @@ impl Overlays {
             "field_border": self.field_border.save(),
             "limb_projector": self.limb_projector.save(),
             "pose_detection": self.pose_detection.save(),
-            "calibration_line_detection": self.calibration_line_detection.save(),
+            "calibration_measurement_detection": self.calibration_measurement_detection.save(),
         })
     }
 }
