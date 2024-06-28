@@ -1,36 +1,38 @@
 use std::str::FromStr;
 
-use crate::{
-    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
-};
 use color_eyre::eyre::Result;
-use communication::client::{Cycler, CyclerOutput};
-use coordinate_systems::Pixel;
 use eframe::{
     egui::{Align2, FontId},
     epaint::{Color32, Stroke},
 };
+
+use communication::client::{Cycler, CyclerOutput};
+use coordinate_systems::Pixel;
 use linear_algebra::Point2;
 
-pub struct CalibrationLineDetection {
+use crate::{
+    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+};
+
+pub struct CalibrationMeasurementDetection {
     circles_points_pixel: ValueBuffer,
     edge_points_pixel: ValueBuffer,
 }
 
-impl Overlay for CalibrationLineDetection {
-    const NAME: &'static str = "Calibration Line Detection";
+impl Overlay for CalibrationMeasurementDetection {
+    const NAME: &'static str = "Calibration Measurements";
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
         Self {
             circles_points_pixel: nao.subscribe_output(
                 CyclerOutput::from_str(&format!(
-                    "{selected_cycler}.additional.calibration_line_detection.circles_points_pixel"
+                    "{selected_cycler}.additional.calibration_circle_detection.circles_points_pixel"
                 ))
                 .unwrap(),
             ),
             edge_points_pixel: nao.subscribe_output(
                 CyclerOutput::from_str(&format!(
-                    "{selected_cycler}.additional.calibration_line_detection.detected_edge_points"
+                    "{selected_cycler}.additional.calibration_circle_detection.detected_edge_points"
                 ))
                 .unwrap(),
             ),
