@@ -85,7 +85,7 @@ async fn main() -> Result<()> {
         Command::Completions(arguments) => completions(arguments, Arguments::command())
             .await
             .wrap_err("failed to execute completion command")?,
-        Command::Gammaray(arguments) => gammaray(arguments)
+        Command::Gammaray(arguments) => gammaray(arguments, &repository?)
             .await
             .wrap_err("failed to execute gammaray command")?,
         Command::Hulk(arguments) => hulk(arguments)
