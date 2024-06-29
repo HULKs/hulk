@@ -12,7 +12,7 @@ use linear_algebra::{
     distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Vector2,
 };
 use types::{
-    field_dimensions::FieldDimensions,
+    field_dimensions::{is_inside_kick_off_target_region, FieldDimensions},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     kick_decision::KickDecision,
@@ -218,7 +218,7 @@ fn generate_decisions_for_instant_kicks(
             let is_strategic_target = is_target_closer_to_opponent_goal || is_good_emergency_target;
 
             let is_inside_kick_off_target_region =
-                field_dimensions.is_inside_kick_off_target_region(ground_to_field * target);
+                is_inside_kick_off_target_region(ground_to_field * target, field_dimensions.width);
 
             let is_own_kick_off = matches!(
                 filtered_game_controller_state.map(|x| x.game_state),
