@@ -366,3 +366,9 @@ fn compute_kick_pose(
             Side::Right => mirror_kick_pose(kick_pose_in_target_aligned_ball),
         }
 }
+
+pub fn is_inside_kick_off_target_region(position: Point2<Field>, field_width: f32) -> bool {
+    position.x().signum() == position.y().signum()
+        && position.x().abs() < field_width / 2.0
+        && position.x().abs() <= position.y().abs()
+}
