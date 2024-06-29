@@ -83,7 +83,7 @@ impl Nao {
         command
     }
 
-    fn rsync_with_nao(&self, mkpath: bool) -> Command {
+    pub fn rsync_with_nao(&self, mkpath: bool) -> Command {
         let mut command = Command::new("rsync");
         let ssh_flags = self.get_ssh_flags().join(" ");
         command
@@ -376,8 +376,7 @@ impl Nao {
             .wrap_err("failed to execute rsync command")?;
 
         monitor_rsync_progress_with(rsync, progress_callback).await?;
-
-        self.reboot().await
+        Ok(())
     }
 }
 
