@@ -152,11 +152,11 @@ impl PoseDetection {
         }
 
         let mut infer_request = self.network.create_infer_request()?;
-        let tensor = Tensor::new_from_host_ptr(
-            ElementType::F32,
-            &self.network.get_input()?.get_shape()?,
-            self.scratchpad.as_bytes(),
-        )?;
+        let mut tensor = Tensor::new(ElementType::F32, &self.network.get_input()?.get_shape()?)?;
+        tensor
+            .buffer_mut()?
+            .copy_from_slice(self.scratchpad.as_bytes());
+
         infer_request.set_input_tensor(&tensor)?;
 
         {
