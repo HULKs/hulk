@@ -7,7 +7,7 @@ use argument_parsers::NaoAddress;
 use constants::OS_VERSION;
 use nao::Nao;
 use opn::verify_image;
-use repository::get_image_path;
+use repository::{get_image_path, Repository};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -24,7 +24,7 @@ pub struct Arguments {
     naos: Vec<NaoAddress>,
 }
 
-pub async fn gammaray(arguments: Arguments) -> Result<()> {
+pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let version = arguments.os_version.as_deref().unwrap_or(OS_VERSION);
     let image_path = match arguments.image_path {
         Some(image_path) => image_path,
@@ -33,6 +33,8 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
     let image_path = image_path.as_path();
 
     verify_image(image_path).wrap_err("image verification failed")?;
+
+    let hardware_ids = &repository.parameters_root().join("hardware_ids.json");
 
     ProgressIndicator::map_tasks(
         arguments.naos,
@@ -43,7 +45,16 @@ pub async fn gammaray(arguments: Arguments) -> Result<()> {
                 progress_bar.set_message(format!("Uploading image: {}", msg))
             })
             .await
-            .wrap_err_with(|| format!("failed to flash image to {nao_address}"))
+            .wrap_err_with(|| format!("failed to flash image to {nao_address}"))?;
+            progress_bar.set_message("Uploading hardware ids...");
+            nao.rsync_with_nao(false)
+                .arg(hardware_ids.to_str().unwrap())
+                .arg(format!("{}:/media/internal/", nao.host))
+                .spawn()
+                .wrap_err("failed to upload hardware ids")?;
+            nao.reboot()
+                .await
+                .wrap_err_with(|| format!("failed to reboot {nao_address}"))
         },
     )
     .await;
