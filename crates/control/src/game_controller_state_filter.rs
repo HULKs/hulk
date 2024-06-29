@@ -149,6 +149,11 @@ fn filter_game_states(
             *whistle_in_set_ball_position = ball_position.map(|val| val.position);
         }
     }
+    if let State::Playing { .. } = state {
+        if whistle_in_set_ball_position.is_some() {
+            *whistle_in_set_ball_position = None;
+        }
+    }
 
     let ball_detected_far_from_kick_off_point = ball_position
         .map(|ball| {
