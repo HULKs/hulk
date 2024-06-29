@@ -133,7 +133,7 @@ impl PoseDetection {
         {
             let earlier = SystemTime::now();
 
-            load_into_scratchpad(tensor.get_data_mut::<f32>()?, image);
+            load_into_scratchpad(tensor.get_data_mut()?, image);
 
             context.preprocess_duration.fill_if_subscribed(|| {
                 SystemTime::now()
