@@ -1,0 +1,19 @@
+{
+  "camera_matrix_parameters": {
+    "vision_bottom": {
+      "extrinsic_rotations": [
+        -2.261324822902679,
+        -0.4097163677215576,
+        0.0
+      ]
+    },
+    "vision_top": {
+      "extrinsic_rotations": [
+        -4.7751858830451965,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "player_number": "Five"
+}
