@@ -12,7 +12,7 @@ use linear_algebra::{
     distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Vector2,
 };
 use types::{
-    field_dimensions::{is_inside_kick_off_target_region, FieldDimensions},
+    field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     kick_decision::KickDecision,
