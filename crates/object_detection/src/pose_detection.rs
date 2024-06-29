@@ -153,8 +153,9 @@ impl PoseDetection {
 
         let mut infer_request = self.network.create_infer_request()?;
         let mut tensor = Tensor::new(ElementType::F32, &self.network.get_input()?.get_shape()?)?;
+
         tensor
-            .buffer_mut()?
+            .get_raw_data_mut()?
             .copy_from_slice(self.scratchpad.as_bytes());
 
         infer_request.set_input_tensor(&tensor)?;
@@ -169,7 +170,7 @@ impl PoseDetection {
                     .expect("time ran backwards")
             });
         }
-        let mut prediction = infer_request.get_output_tensor()?;
+        let prediction = infer_request.get_output_tensor()?;
         let prediction =
             ArrayView::from_shape((56, MAX_DETECTIONS), prediction.get_data::<f32>()?)?;
 
