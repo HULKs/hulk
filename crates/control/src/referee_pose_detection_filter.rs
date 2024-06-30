@@ -78,6 +78,7 @@ impl RefereePoseDetectionFilter {
             detected_above_arm_poses_queue: VecDeque::with_capacity(
                 *context.referee_pose_queue_length,
             ),
+            motion_in_standby_count: 0,
         })
     }
 
