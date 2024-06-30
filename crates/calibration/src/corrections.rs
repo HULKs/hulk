@@ -1,9 +1,6 @@
-use linear_algebra::IntoTransform;
-use nalgebra::{vector, Rotation3, SVector, UnitQuaternion};
+use nalgebra::{vector, Rotation3, SVector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
-use types::camera_position::CameraPosition;
 
 pub const AMOUNT_OF_PARAMETERS: usize = 9;
 

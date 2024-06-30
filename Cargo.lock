@@ -975,7 +975,9 @@ dependencies = [
  "levenberg-marquardt",
  "linear_algebra",
  "nalgebra",
+ "path_serde",
  "projection",
+ "serde",
  "thiserror",
  "types",
 ]
