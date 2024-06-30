@@ -17,7 +17,7 @@ use types::{
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
-    whistle_in_set_ball_position: Option<Point2<Ground>>,
+    whistle_in_set_ball_position: Option<Point2<Field>>,
 }
 
 #[context]
@@ -36,7 +36,7 @@ pub struct CycleContext {
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
 
     whistle_in_set_ball_position:
-        AdditionalOutput<Option<Point2<Ground>>, "whistle_in_set_ball_position">,
+        AdditionalOutput<Option<Point2<Field>>, "whistle_in_set_ball_position">,
 }
 
 #[context]
@@ -54,7 +54,7 @@ impl GameControllerStateFilter {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let game_states = filter_game_states(
+        let game_states = self.filter_game_states(
             *context.ground_to_field,
             context.ball_position,
             context.field_dimensions,
@@ -62,9 +62,6 @@ impl GameControllerStateFilter {
             context.game_controller_state,
             context.filtered_whistle,
             context.cycle_time,
-            &mut self.state,
-            &mut self.opponent_state,
-            &mut self.whistle_in_set_ball_position,
             *context.is_referee_ready_pose_detected,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
@@ -89,107 +86,90 @@ impl GameControllerStateFilter {
             filtered_game_controller_state: Some(filtered_game_controller_state).into(),
         })
     }
+
+    #[allow(clippy::too_many_arguments)]
+    fn filter_game_states(
+        &mut self,
+        ground_to_field: Isometry2<Ground, Field>,
+        ball_position: Option<&BallPosition<Ground>>,
+        field_dimensions: &FieldDimensions,
+        config: &GameStateFilterParameters,
+        game_controller_state: &GameControllerState,
+        filtered_whistle: &FilteredWhistle,
+        cycle_time: &CycleTime,
+        is_referee_ready_pose_detected: bool,
+    ) -> FilteredGameStates {
+        let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
+            ground_to_field,
+            ball_position,
+            field_dimensions,
+            config.whistle_acceptance_goal_distance,
+        );
+        self.state = next_filtered_state(
+            self.state,
+            game_controller_state,
+            filtered_whistle.is_detected,
+            cycle_time.start_time,
+            config,
+            ball_detected_far_from_any_goal,
+            is_referee_ready_pose_detected,
+        );
+        self.opponent_state = next_filtered_state(
+            self.opponent_state,
+            game_controller_state,
+            filtered_whistle.is_detected,
+            cycle_time.start_time,
+            config,
+            ball_detected_far_from_any_goal,
+            is_referee_ready_pose_detected,
+        );
+
+        if let State::WhistleInSet { .. } = self.state {
+            if self.whistle_in_set_ball_position.is_none() {
+                self.whistle_in_set_ball_position =
+                    ball_position.map(|ball| ground_to_field * ball.position);
+            }
+        }
+        if let State::Playing { .. } = self.state {
+            self.whistle_in_set_ball_position.take();
+        }
+
+        let ball_detected_far_from_kick_off_point = ball_position
+            .map(|ball| {
+                let absolute_ball_position = ground_to_field * ball.position;
+                let reference_ball_position = self.whistle_in_set_ball_position.unwrap_or_default();
+                distance(reference_ball_position, absolute_ball_position)
+                    > config.distance_to_consider_ball_moved_in_kick_off
+            })
+            .unwrap_or(false);
+
+        let filtered_game_state = self.state.construct_hulks_filtered_game_state(
+            game_controller_state,
+            cycle_time.start_time,
+            ball_detected_far_from_kick_off_point,
+            config,
+            is_referee_ready_pose_detected,
+        );
+
+        let filtered_opponent_game_state =
+            self.opponent_state.construct_opponent_filtered_game_state(
+                game_controller_state,
+                cycle_time.start_time,
+                ball_detected_far_from_kick_off_point,
+                config,
+                is_referee_ready_pose_detected,
+            );
+
+        FilteredGameStates {
+            own: filtered_game_state,
+            opponent: filtered_opponent_game_state,
+        }
+    }
 }
 
 struct FilteredGameStates {
     own: FilteredGameState,
     opponent: FilteredGameState,
-}
-
-#[allow(clippy::too_many_arguments)]
-fn filter_game_states(
-    ground_to_field: Isometry2<Ground, Field>,
-    ball_position: Option<&BallPosition<Ground>>,
-    field_dimensions: &FieldDimensions,
-    config: &GameStateFilterParameters,
-    game_controller_state: &GameControllerState,
-    filtered_whistle: &FilteredWhistle,
-    cycle_time: &CycleTime,
-    state: &mut State,
-    opponent_state: &mut State,
-    whistle_in_set_ball_position: &mut Option<Point2<Ground>>,
-    is_referee_ready_pose_detected: bool,
-) -> FilteredGameStates {
-    let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
-        ground_to_field,
-        ball_position,
-        field_dimensions,
-        config.whistle_acceptance_goal_distance,
-    );
-    *state = next_filtered_state(
-        *state,
-        game_controller_state,
-        filtered_whistle.is_detected,
-        cycle_time.start_time,
-        config,
-        ball_detected_far_from_any_goal,
-        is_referee_ready_pose_detected,
-    );
-    *opponent_state = next_filtered_state(
-        *opponent_state,
-        game_controller_state,
-        filtered_whistle.is_detected,
-        cycle_time.start_time,
-        config,
-        ball_detected_far_from_any_goal,
-        is_referee_ready_pose_detected,
-    );
-
-    if let State::WhistleInSet {
-        time_when_whistle_was_detected,
-    } = state
-    {
-        if cycle_time
-            .start_time
-            .duration_since(*time_when_whistle_was_detected)
-            .unwrap()
-            <= config.ball_contact_grace_period
-            && whistle_in_set_ball_position.is_none()
-        {
-            *whistle_in_set_ball_position = ball_position.map(|val| val.position);
-        }
-    }
-    if let State::Playing { .. } = state {
-        if whistle_in_set_ball_position.is_some() {
-            *whistle_in_set_ball_position = None;
-        }
-    }
-
-    let ball_detected_far_from_kick_off_point = ball_position
-        .map(|ball| {
-            let absolute_ball_position = ground_to_field * ball.position;
-            whistle_in_set_ball_position
-                .map(|whistle_position| {
-                    distance(ball.position, whistle_position)
-                        > config.distance_to_consider_ball_moved_in_kick_off
-                })
-                .unwrap_or(
-                    distance(absolute_ball_position, Point2::origin())
-                        > config.distance_to_consider_ball_moved_in_kick_off,
-                )
-        })
-        .unwrap_or(false);
-
-    let filtered_game_state = state.construct_hulks_filtered_game_state(
-        game_controller_state,
-        cycle_time.start_time,
-        ball_detected_far_from_kick_off_point,
-        config,
-        is_referee_ready_pose_detected,
-    );
-
-    let filtered_opponent_game_state = opponent_state.construct_opponent_filtered_game_state(
-        game_controller_state,
-        cycle_time.start_time,
-        ball_detected_far_from_kick_off_point,
-        config,
-        is_referee_ready_pose_detected,
-    );
-
-    FilteredGameStates {
-        own: filtered_game_state,
-        opponent: filtered_opponent_game_state,
-    }
 }
 
 #[allow(clippy::too_many_arguments)]

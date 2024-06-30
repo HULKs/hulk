@@ -206,7 +206,6 @@ pub struct PathPlanningParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct GameStateFilterParameters {
-    pub ball_contact_grace_period: Duration,
     pub game_controller_controller_delay: Duration,
     pub playing_message_delay: Duration,
     pub ready_message_delay: Duration,

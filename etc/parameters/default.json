@@ -1177,10 +1177,6 @@
     }
   },
   "game_state_filter": {
-    "ball_contact_grace_period": {
-      "nanos": 500000000,
-      "secs": 0
-    },
     "game_controller_controller_delay": {
       "nanos": 0,
       "secs": 3
