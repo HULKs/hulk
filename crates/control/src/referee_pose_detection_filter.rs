@@ -107,10 +107,17 @@ impl RefereePoseDetectionFilter {
         })
     }
 
-    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> (bool, bool) {
+    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> Result<(bool, bool)> {
+        let time_tagged_persistent_messages =
+            unpack_message_tree(&context.network_message.persistent);
+
+        for (time, message) in time_tagged_persistent_messages {
+            if message.is_referee_ready_signal_detected {
+                self.detection_times[message.player_number] = Some(time);
+            }
+        }
         let own_detected_pose_times =
             unpack_own_detection_tree(&context.detected_referee_pose_kind.persistent);
-
         let mut did_detect_any_referee_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
@@ -132,12 +139,18 @@ impl RefereePoseDetectionFilter {
 
         if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
             self.detection_times[*context.player_number] = Some(context.cycle_time.start_time);
+
+            send_own_detection_message(
+                context.hardware_interface.clone(),
+                *context.player_number,
+                *context.time_to_reach_kick_position,
+            )?;
         }
 
-        (
+        Ok((
             detected_referee_pose_count >= *context.minimum_number_poses_before_message,
             did_detect_any_referee_this_cycle,
-        )
+        ))
     }
 }
 
@@ -172,6 +185,19 @@ fn is_in_grace_period(
         < grace_period
 }
 
+fn unpack_message_tree(
+    message_tree: &BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
+) -> BTreeMap<SystemTime, HulkMessage> {
+    message_tree
+        .iter()
+        .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
+        .filter_map(|(time, message)| match message {
+            Some(IncomingMessage::Spl(message)) => Some((time, *message)),
+            _ => None,
+        })
+        .collect()
+}
+
 fn unpack_own_detection_tree(
     pose_kind_tree: &BTreeMap<SystemTime, Vec<Option<&PoseKind>>>,
 ) -> BTreeMap<SystemTime, Option<PoseKind>> {
@@ -183,4 +209,18 @@ fn unpack_own_detection_tree(
                 .map(|&pose_kind| (*time, pose_kind.cloned()))
         })
         .collect()
+}
+
+fn send_own_detection_message<T: NetworkInterface>(
+    hardware_interface: Arc<T>,
+    player_number: PlayerNumber,
+    time_to_reach_kick_position: Duration,
+) -> Result<()> {
+    hardware_interface.write_to_network(dbg!(OutgoingMessage::Spl(HulkMessage {
+        player_number,
+        pose: Isometry2::<Ground, Field>::default().as_pose(),
+        is_referee_ready_signal_detected: true,
+        ball_position: None,
+        time_to_reach_kick_position: Some(time_to_reach_kick_position),
+    })))
 }
