@@ -21,7 +21,6 @@ use serde::{Deserialize, Serialize};
     PathIntrospect,
     PathDeserialize,
 )]
-#[serde(bound = "")]
 pub struct Line<Frame, const DIMENSION: usize>(
     pub Point<Frame, DIMENSION>,
     pub Point<Frame, DIMENSION>,

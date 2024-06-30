@@ -10,10 +10,7 @@ use geometry::line::Line;
 use itertools::Itertools;
 use linear_algebra::{point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
-use rand::{
-    distributions::{Distribution, Uniform},
-    Rng,
-};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{f32::consts::PI, time::SystemTime};
 use types::{
