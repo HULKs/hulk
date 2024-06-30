@@ -1,6 +1,6 @@
 use std::vec;
 
-use calibration::{corrections::Corrections, measurement::Measurement, residuals::Residual, solve};
+use calibration::{corrections::Corrections, measurement::Measurement, solve};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
@@ -192,7 +192,7 @@ impl CalibrationController {
                     self.current_measurements.len()
                 );
 
-                let solved_result = solve::<Measurement, Residuals>(
+                let solved_result = solve(
                     Corrections::default(),
                     self.current_measurements.clone(),
                     context.field_dimensions.clone(),

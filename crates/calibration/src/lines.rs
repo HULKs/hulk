@@ -5,7 +5,9 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect, PathDeserialize,
+)]
 pub struct Lines<Frame> {
     pub border_line: Line2<Frame>,
     #[path_serde(leaf)]
