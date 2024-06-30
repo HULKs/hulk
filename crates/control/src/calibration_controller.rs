@@ -1,10 +1,6 @@
 use std::vec;
 
-use calibration::{
-    center_circle::{measurement::Measurement, residuals::Residuals},
-    corrections::Corrections,
-    solve,
-};
+use calibration::{corrections::Corrections, measurement::Measurement, residuals::Residual, solve};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;

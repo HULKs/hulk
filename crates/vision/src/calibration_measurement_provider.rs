@@ -1,4 +1,4 @@
-use calibration::center_circle::{circles::CenterOfCircleAndPoints, measurement::Measurement};
+use calibration::{lines::Lines, measurement::Measurement};
 use color_eyre::{
     eyre::{eyre, Ok},
     Result,
@@ -6,6 +6,7 @@ use color_eyre::{
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
+use geometry::line::Line;
 use itertools::Itertools;
 use linear_algebra::{point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
@@ -107,60 +108,41 @@ fn get_measurement_from_image(
     get_fake_measurement(image, matrix, position, field_dimensions)
 }
 
+fn project_line_to_camera(matrix: &CameraMatrix, line: Line2<Ground>) -> Result<Line2<Pixel>> {
+    Ok(Line(
+        matrix.ground_to_pixel(line.0)?,
+        matrix.ground_to_pixel(line.1)?,
+    ))
+}
+
 fn get_fake_measurement(
     _image: &YCbCr422Image,
     matrix: &CameraMatrix,
     position: CameraPosition,
     field_dimensions: &FieldDimensions,
 ) -> Result<Measurement> {
-    const CIRCLE_CENTER_GROUND: Point2<Ground> = point![2.5, 0.3];
-    const POINTS_PER_CIRCLE: usize = 20;
-    const RADIUS_VARIANCE: f32 = 0.1;
-
-    let radius = field_dimensions.center_circle_diameter / 2.0;
-    let mut rng = rand::thread_rng();
-
-    let circle_points: Vec<Point2<Ground>> = {
-        let angle_generator = Uniform::from(-PI..PI);
-        let radius_variance_generator = Uniform::from(-RADIUS_VARIANCE..RADIUS_VARIANCE);
-
-        angle_generator
-            .sample_iter(rng.clone())
-            .take(POINTS_PER_CIRCLE)
-            .zip(
-                radius_variance_generator
-                    .sample_iter(rng.clone())
-                    .take(POINTS_PER_CIRCLE),
-            )
-            .map(|(angle, radius_change)| {
-                let new_radius = radius + radius_change;
-                let x = angle.cos() * new_radius + CIRCLE_CENTER_GROUND.x();
-                let y = angle.sin() * new_radius + CIRCLE_CENTER_GROUND.y();
-                point![x, y]
-            })
-            .collect_vec()
+    // Minimal length lines representing the 3 lines to make sure they are in the camera's fi
+    // otherwise occlusions/ trimmed lines have to be handled
+    let border_line = Line(point![2.0, 0.0], point![3.0, 0.0]);
+    let goal_box_line = {
+        let y = field_dimensions.goal_box_area_length + center.y();
+        let bottom_x = border_line.0.x() + 0.5;
+        Line(point![bottom_x, y], point![bottom_x + 1.0, y])
     };
+    let connecting_line = Line(
+        goal_box_line.0,
+        point![goal_box_line.0.x(), border_line.0.y()],
+    );
 
     if rng.gen_range(0..10) > 8 {
-        let projected_center = matrix.ground_to_pixel(CIRCLE_CENTER_GROUND)?;
-        let final_circle: CenterOfCircleAndPoints<Pixel> = {
-            let projected_points = circle_points
-                .iter()
-                .filter_map(|point| matrix.ground_to_pixel(*point).ok())
-                .collect_vec();
-            if projected_points.len() < 3 {
-                Err(eyre!("expected at least 3 valid projected points"))
-            } else {
-                Ok(CenterOfCircleAndPoints::<Pixel> {
-                    center: projected_center,
-                    points: projected_points,
-                })
-            }
-        }?;
         Ok(Measurement {
             matrix: matrix.clone(),
             position,
-            circles: final_circle,
+            lines: Lines {
+                border_line: project_line_to_camera(matrix, border_line)?,
+                connecting_line: project_line_to_camera(matrix, connecting_line)?,
+                goal_box_line: project_line_to_camera(matrix, goal_box_line)?,
+            },
         })
     } else {
         Err(eyre!("don't have a measurement for you!"))
