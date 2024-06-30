@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::{ops::Index, time::SystemTime};
 
 use crate::bounding_box::BoundingBox;
 use color_eyre::Result;
@@ -139,4 +139,22 @@ impl HumanPose {
 pub struct RefereePoseCandidate {
     pub pose: HumanPose,
     pub distance_to_referee_position: f32,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub enum VisualRefereeState {
+    WaitingForDetections,
+    WaitingForOpponentPenalties { active_since: SystemTime },
+    WaitingForOwnPenalties { active_since: SystemTime },
+    GoToReady,
 }

@@ -1,16 +1,22 @@
 use std::{
     collections::{BTreeMap, VecDeque},
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
+use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::PlayerNumber;
+use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
-    cycle_time::CycleTime, fall_state::FallState, messages::IncomingMessage, players::Players,
+    cycle_time::CycleTime,
+    messages::{IncomingMessage, OutgoingMessage},
+    players::Players,
+    pose_detection::VisualRefereeState,
     pose_kinds::PoseKind,
 };
 
@@ -18,6 +24,8 @@ use types::{
 pub struct RefereePoseDetectionFilter {
     detection_times: Players<Option<SystemTime>>,
     detected_above_arm_poses_queue: VecDeque<bool>,
+    visual_referee_state: VisualRefereeState,
+    motion_in_standby_count: usize,
 }
 
 #[context]
@@ -32,11 +40,11 @@ pub struct CycleContext {
 
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
-    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     detected_referee_pose_kind:
         PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "detected_referee_pose_kind?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
-    fall_state: Input<FallState, "fall_state">,
 
     initial_message_grace_period:
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
@@ -68,10 +76,12 @@ pub struct MainOutputs {
 impl RefereePoseDetectionFilter {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
+            visual_referee_state: VisualRefereeState::WaitingForDetections,
             detection_times: Default::default(),
             detected_above_arm_poses_queue: VecDeque::with_capacity(
                 *context.referee_pose_queue_length,
             ),
+            motion_in_standby_count: 0,
         })
     }
 
@@ -82,7 +92,7 @@ impl RefereePoseDetectionFilter {
         let cycle_start_time = context.cycle_time.start_time;
 
         let (is_referee_ready_pose_detected, did_detect_any_referee_this_cycle) =
-            self.update(&context);
+            self.update(&context)?;
 
         let majority_vote_is_referee_ready_pose_detected = decide(
             self.detection_times,

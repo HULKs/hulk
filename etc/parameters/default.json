@@ -1207,6 +1207,17 @@
     },
     "minimum_above_head_arms_detections": 2
   },
+  "sacrificial_lamb": {
+    "wait_for_opponent_penalties_period": {
+      "nanos": 0,
+      "secs": 5
+    },
+    "wait_for_own_penalties_period": {
+      "nanos": 0,
+      "secs": 15
+    },
+    "sacrificial_nao_playernumber": "Three"
+  },
   "ground_contact_detector": {
     "pressure_threshold": 0.6,
     "hysteresis": 0.3,
