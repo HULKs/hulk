@@ -83,20 +83,20 @@ impl SacrificialLamb {
             })
             .max();
 
-        let motion_in_initial =
+        let motion_in_standby =
             new_motion_in_standby_count.map_or(false, |new_motion_in_standby_count| {
-                let motion_in_initial = new_motion_in_standby_count > self.motion_in_standby_count;
+                let motion_in_standby = new_motion_in_standby_count > self.motion_in_standby_count;
                 self.motion_in_standby_count = new_motion_in_standby_count;
-                motion_in_initial
+                motion_in_standby
             });
 
         self.visual_referee_state = match (
             self.visual_referee_state,
             context.majority_vote_is_referee_ready_pose_detected,
-            motion_in_initial,
+            motion_in_standby,
         ) {
-            (VisualRefereeState::WaitingForDetections, true, motion_in_initial) => {
-                if motion_in_initial {
+            (VisualRefereeState::WaitingForDetections, true, motion_in_standby) => {
+                if motion_in_standby {
                     self.detection_times = Default::default();
                     VisualRefereeState::WaitingForDetections
                 } else {
