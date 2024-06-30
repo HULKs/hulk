@@ -38,8 +38,6 @@ const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
 #[derive(Deserialize, Serialize)]
 pub struct PoseDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
-    scratchpad: Box<[f32]>,
-    #[serde(skip, default = "deserialize_not_implemented")]
     network: CompiledModel,
 }
 
@@ -108,16 +106,7 @@ impl PoseDetection {
             bail!("expected exactly one input and one output");
         }
 
-        let input_shape = network
-            .get_input_by_index(0)
-            .wrap_err("failed to get input node")?
-            .get_shape()
-            .wrap_err("failed to get shape of input node")?;
-        let number_of_elements = input_shape.get_dimensions().iter().product::<i64>();
-        let scratchpad = vec![0.0; number_of_elements as usize].into_boxed_slice();
-
         Ok(Self {
-            scratchpad,
             network: core.compile_model(&network, DeviceType::CPU)?,
         })
     }
@@ -139,10 +128,12 @@ impl PoseDetection {
         };
 
         let image = context.image;
+
+        let mut tensor = Tensor::new(ElementType::F32, &self.network.get_input()?.get_shape()?)?;
         {
             let earlier = SystemTime::now();
 
-            load_into_scratchpad(self.scratchpad.as_mut(), image);
+            load_into_scratchpad(tensor.get_data_mut()?, image);
 
             context.preprocess_duration.fill_if_subscribed(|| {
                 SystemTime::now()
@@ -152,11 +143,7 @@ impl PoseDetection {
         }
 
         let mut infer_request = self.network.create_infer_request()?;
-        let tensor = Tensor::new_from_host_ptr(
-            ElementType::F32,
-            &self.network.get_input()?.get_shape()?,
-            self.scratchpad.as_bytes(),
-        )?;
+
         infer_request.set_input_tensor(&tensor)?;
 
         {
@@ -169,7 +156,7 @@ impl PoseDetection {
                     .expect("time ran backwards")
             });
         }
-        let mut prediction = infer_request.get_output_tensor()?;
+        let prediction = infer_request.get_output_tensor()?;
         let prediction =
             ArrayView::from_shape((56, MAX_DETECTIONS), prediction.get_data::<f32>()?)?;
 
@@ -266,16 +253,4 @@ fn non_maximum_suppression(
     }
 
     poses
-}
-
-trait AsBytes {
-    fn as_bytes(&self) -> &[u8];
-}
-
-impl AsBytes for [f32] {
-    fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(self.as_ptr() as *const u8, std::mem::size_of_val(self))
-        }
-    }
 }
