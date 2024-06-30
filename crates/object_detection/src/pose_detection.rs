@@ -254,17 +254,3 @@ fn non_maximum_suppression(
 
     poses
 }
-
-// Allowing dead code for future use of `scratchpad` once it is restored.
-#[allow(dead_code)]
-trait AsBytes {
-    fn as_bytes(&self) -> &[u8];
-}
-
-impl AsBytes for [f32] {
-    fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(self.as_ptr() as *const u8, std::mem::size_of_val(self))
-        }
-    }
-}
