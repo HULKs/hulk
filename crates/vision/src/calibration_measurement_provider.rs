@@ -6,13 +6,12 @@ use color_eyre::{
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
-use geometry::line::Line;
-use itertools::Itertools;
-use linear_algebra::{point, Point2};
+use geometry::line::{Line, Line2};
+use linear_algebra::point;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{f32::consts::PI, time::SystemTime};
+use std::time::SystemTime;
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
     camera_position::CameraPosition,
@@ -122,7 +121,7 @@ fn get_fake_measurement(
     // otherwise occlusions/ trimmed lines have to be handled
     let border_line = Line(point![2.0, 0.0], point![3.0, 0.0]);
     let goal_box_line = {
-        let y = field_dimensions.goal_box_area_length + center.y();
+        let y = field_dimensions.goal_box_area_length + border_line.0.y();
         let bottom_x = border_line.0.x() + 0.5;
         Line(point![bottom_x, y], point![bottom_x + 1.0, y])
     };
@@ -131,6 +130,7 @@ fn get_fake_measurement(
         point![goal_box_line.0.x(), border_line.0.y()],
     );
 
+    let mut rng = rand::thread_rng();
     if rng.gen_range(0..10) > 8 {
         Ok(Measurement {
             matrix: matrix.clone(),
