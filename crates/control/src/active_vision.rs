@@ -11,6 +11,8 @@ use linear_algebra::{point, Isometry2, Point2, Vector2};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
     obstacles::{Obstacle, ObstacleKind},
     parameters::LookActionParameters,
     point_of_interest::PointOfInterest,
@@ -37,6 +39,8 @@ pub struct CycleContext {
     obstacles: Input<Vec<Obstacle>, "obstacles">,
     parameters: Parameter<LookActionParameters, "behavior.look_action">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 }
 
 #[context]
@@ -58,7 +62,17 @@ impl ActiveVision {
         let cycle_start_time = context.cycle_time.start_time;
 
         if let Some(&ground_to_field) = context.ground_to_field {
-            if self.last_point_of_interest_switch.is_none()
+            if let Some(FilteredGameControllerState {
+                game_state:
+                    FilteredGameState::Playing {
+                        ball_is_free: false,
+                        kick_off: true,
+                    },
+                ..
+            }) = context.filtered_game_controller_state
+            {
+                self.current_point_of_interest = PointOfInterest::Ball
+            } else if self.last_point_of_interest_switch.is_none()
                 || cycle_start_time.duration_since(self.last_point_of_interest_switch.unwrap())?
                     > context.parameters.position_of_interest_switch_interval
             {
@@ -73,7 +87,6 @@ impl ActiveVision {
 
                 self.last_point_of_interest_switch = Some(cycle_start_time);
             }
-
             let position_of_interest = match self.current_point_of_interest {
                 PointOfInterest::Forward => context.parameters.look_forward_position,
                 PointOfInterest::FieldMark { absolute_position } => {
