@@ -92,10 +92,6 @@ pub struct CycleContext {
     score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
     tentative_penalized_duration: Parameter<Duration, "localization.tentative_penalized_duration">,
     use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
-    injected_ground_to_field_of_home_after_coin_toss_before_second_half: Parameter<
-        Option<Isometry2<Ground, Field>>,
-        "injected_ground_to_field_of_home_after_coin_toss_before_second_half?",
-    >,
 
     line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
@@ -551,25 +547,20 @@ impl Localization {
             }
             _ => None,
         };
-        let ground_to_field_of_home_after_coin_toss_before_second_half = context
-            .injected_ground_to_field_of_home_after_coin_toss_before_second_half
-            .copied()
-            .or_else(|| {
-                ground_to_field
-                    .and_then(|ground_to_field| {
-                        Some((ground_to_field, context.filtered_game_controller_state?))
-                    })
-                    .map(|(ground_to_field, game_controller_state)| {
-                        if !game_controller_state.own_team_is_home_after_coin_toss {
-                            (nalgebra::Isometry2::from_parts(
-                                Translation2::default(),
-                                Rotation2::new(PI).into(),
-                            ) * ground_to_field.inner)
-                                .framed_transform()
-                        } else {
-                            ground_to_field
-                        }
-                    })
+        let ground_to_field_of_home_after_coin_toss_before_second_half = ground_to_field
+            .and_then(|ground_to_field| {
+                Some((ground_to_field, context.filtered_game_controller_state?))
+            })
+            .map(|(ground_to_field, game_controller_state)| {
+                if !game_controller_state.own_team_is_home_after_coin_toss {
+                    (nalgebra::Isometry2::from_parts(
+                        Translation2::default(),
+                        Rotation2::new(PI).into(),
+                    ) * ground_to_field.inner)
+                        .framed_transform()
+                } else {
+                    ground_to_field
+                }
             });
         let is_localization_converged = self.hypotheses.len() == 1;
 

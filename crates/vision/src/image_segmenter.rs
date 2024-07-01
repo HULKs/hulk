@@ -12,7 +12,6 @@ use types::{
     color::{Intensity, Rgb, RgbChannel, YCbCr444},
     field_color::FieldColor,
     image_segments::{EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
-    interpolated::Interpolated,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
@@ -48,7 +47,7 @@ pub struct CycleContext {
         "image_segmenter.$cycler_instance.vertical_edge_detection_source",
     >,
     vertical_edge_threshold:
-        Parameter<Interpolated, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
+        Parameter<u8, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     vertical_median_mode:
         Parameter<MedianModeParameters, "image_segmenter.$cycler_instance.vertical_median_mode">,
 }
@@ -93,10 +92,7 @@ impl ImageSegmenter {
             *context.horizontal_stride,
             *context.vertical_stride,
             *context.vertical_edge_detection_source,
-            context
-                .vertical_edge_threshold
-                .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half)
-                as i16,
+            *context.vertical_edge_threshold as i16,
             *context.vertical_median_mode,
             projected_limbs,
         );
@@ -494,8 +490,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
         let vertical_stride = 2;
         let vertical_edge_threshold = 16;
@@ -529,8 +525,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
         let scan_line = new_vertical_scan_line(
             &image,
@@ -556,8 +552,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
         let scan_line = new_vertical_scan_line(
             &image,
@@ -592,8 +588,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         let scan_line = new_vertical_scan_line(
@@ -638,8 +634,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         let scan_line = new_vertical_scan_line(
@@ -689,8 +685,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -761,8 +757,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -836,8 +832,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         // y  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
@@ -915,8 +911,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         // y  y_median  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
@@ -1022,8 +1018,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -1174,8 +1170,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -1330,8 +1326,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         //  y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -1404,8 +1400,8 @@ mod tests {
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            green_luminance_threshold: 255,
+            luminance_threshold: 25,
         };
 
         //  y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres

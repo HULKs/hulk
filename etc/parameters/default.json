@@ -108,24 +108,14 @@
       "horizontal_stride": 4,
       "vertical_stride": 2,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": {
-        "first_half_own_half_towards_own_goal": 20.0,
-        "first_half_own_half_away_own_goal": 20.0,
-        "first_half_opponent_half_towards_own_goal": 20.0,
-        "first_half_opponent_half_away_own_goal": 20.0
-      },
+      "vertical_edge_threshold": 20,
       "vertical_median_mode": "ThreePixels"
     },
     "vision_bottom": {
       "horizontal_stride": 4,
       "vertical_stride": 8,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": {
-        "first_half_own_half_towards_own_goal": 32.0,
-        "first_half_own_half_away_own_goal": 32.0,
-        "first_half_opponent_half_towards_own_goal": 32.0,
-        "first_half_opponent_half_away_own_goal": 32.0
-      },
+      "vertical_edge_threshold": 32,
       "vertical_median_mode": "ThreePixels"
     }
   },
@@ -195,68 +185,18 @@
   },
   "field_color_detection": {
     "vision_top": {
-      "red_chromaticity_threshold": {
-        "first_half_own_half_towards_own_goal": 0.37,
-        "first_half_own_half_away_own_goal": 0.37,
-        "first_half_opponent_half_towards_own_goal": 0.37,
-        "first_half_opponent_half_away_own_goal": 0.37
-      },
-      "blue_chromaticity_threshold": {
-        "first_half_own_half_towards_own_goal": 0.38,
-        "first_half_own_half_away_own_goal": 0.38,
-        "first_half_opponent_half_towards_own_goal": 0.38,
-        "first_half_opponent_half_away_own_goal": 0.38
-      },
-      "green_chromaticity_threshold": {
-        "first_half_own_half_towards_own_goal": 0.5,
-        "first_half_own_half_away_own_goal": 0.5,
-        "first_half_opponent_half_towards_own_goal": 0.5,
-        "first_half_opponent_half_away_own_goal": 0.5
-      },
-      "green_luminance_threshold": {
-        "first_half_own_half_towards_own_goal": 25.0,
-        "first_half_own_half_away_own_goal": 25.0,
-        "first_half_opponent_half_towards_own_goal": 25.0,
-        "first_half_opponent_half_away_own_goal": 25.0
-      },
-      "luminance_threshold": {
-        "first_half_own_half_towards_own_goal": 25.0,
-        "first_half_own_half_away_own_goal": 25.0,
-        "first_half_opponent_half_towards_own_goal": 25.0,
-        "first_half_opponent_half_away_own_goal": 25.0
-      }
+      "red_chromaticity_threshold": 0.37,
+      "blue_chromaticity_threshold": 0.38,
+      "green_chromaticity_threshold": 0.5,
+      "green_luminance_threshold": 25,
+      "luminance_threshold": 25
     },
     "vision_bottom": {
-      "red_chromaticity_threshold": {
-        "first_half_own_half_towards_own_goal": 0.37,
-        "first_half_own_half_away_own_goal": 0.37,
-        "first_half_opponent_half_towards_own_goal": 0.37,
-        "first_half_opponent_half_away_own_goal": 0.37
-      },
-      "blue_chromaticity_threshold": {
-        "first_half_own_half_towards_own_goal": 0.38,
-        "first_half_own_half_away_own_goal": 0.38,
-        "first_half_opponent_half_towards_own_goal": 0.38,
-        "first_half_opponent_half_away_own_goal": 0.38
-      },
-      "green_chromaticity_threshold": {
-        "first_half_own_half_towards_own_goal": 0.5,
-        "first_half_own_half_away_own_goal": 0.5,
-        "first_half_opponent_half_towards_own_goal": 0.5,
-        "first_half_opponent_half_away_own_goal": 0.5
-      },
-      "green_luminance_threshold": {
-        "first_half_own_half_towards_own_goal": 25.0,
-        "first_half_own_half_away_own_goal": 25.0,
-        "first_half_opponent_half_towards_own_goal": 25.0,
-        "first_half_opponent_half_away_own_goal": 25.0
-      },
-      "luminance_threshold": {
-        "first_half_own_half_towards_own_goal": 25.0,
-        "first_half_own_half_away_own_goal": 25.0,
-        "first_half_opponent_half_towards_own_goal": 25.0,
-        "first_half_opponent_half_away_own_goal": 25.0
-      }
+      "red_chromaticity_threshold": 0.37,
+      "blue_chromaticity_threshold": 0.38,
+      "green_chromaticity_threshold": 0.5,
+      "green_luminance_threshold": 25,
+      "luminance_threshold": 25
     }
   },
   "perspective_grid_candidates_provider": {
