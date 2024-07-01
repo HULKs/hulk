@@ -8,6 +8,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use linear_algebra::{point, Isometry2, Point2, Vector2};
+use spl_network_messages::GamePhase;
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -62,30 +63,37 @@ impl ActiveVision {
         let cycle_start_time = context.cycle_time.start_time;
 
         if let Some(&ground_to_field) = context.ground_to_field {
-            if let Some(FilteredGameControllerState {
-                game_state:
-                    FilteredGameState::Playing {
-                        ball_is_free: false,
-                        kick_off: true,
-                    },
-                ..
-            }) = context.filtered_game_controller_state
-            {
-                self.current_point_of_interest = PointOfInterest::Ball
-            } else if self.last_point_of_interest_switch.is_none()
-                || cycle_start_time.duration_since(self.last_point_of_interest_switch.unwrap())?
-                    > context.parameters.position_of_interest_switch_interval
-            {
-                self.current_point_of_interest = next_point_of_interest(
-                    self.current_point_of_interest,
-                    &self.field_mark_positions,
-                    context.obstacles,
-                    *context.parameters,
-                    ground_to_field,
-                    context.rule_ball.or(context.ball),
-                );
+            match context.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            kick_off: true,
+                        },
+                    ..
+                })
+                | Some(FilteredGameControllerState {
+                    game_state: FilteredGameState::Set,
+                    game_phase: GamePhase::PenaltyShootout { .. },
+                    ..
+                }) => self.current_point_of_interest = PointOfInterest::Ball,
+                _ if self.last_point_of_interest_switch.is_none()
+                    || cycle_start_time
+                        .duration_since(self.last_point_of_interest_switch.unwrap())?
+                        > context.parameters.position_of_interest_switch_interval =>
+                {
+                    self.current_point_of_interest = next_point_of_interest(
+                        self.current_point_of_interest,
+                        &self.field_mark_positions,
+                        context.obstacles,
+                        *context.parameters,
+                        ground_to_field,
+                        context.rule_ball.or(context.ball),
+                    );
 
-                self.last_point_of_interest_switch = Some(cycle_start_time);
+                    self.last_point_of_interest_switch = Some(cycle_start_time);
+                }
+                _ => (),
             }
             let position_of_interest = match self.current_point_of_interest {
                 PointOfInterest::Forward => context.parameters.look_forward_position,
