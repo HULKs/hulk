@@ -195,7 +195,7 @@ impl CalibrationController {
                 let solved_result = solve(
                     Corrections::default(),
                     self.current_measurements.clone(),
-                    context.field_dimensions.clone(),
+                    *context.field_dimensions,
                 );
 
                 info!("Calibration complete! Corrections: {solved_result:?}");
