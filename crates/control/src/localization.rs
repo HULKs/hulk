@@ -153,8 +153,8 @@ impl Localization {
                     .clone_from(&self.hypotheses);
             }
             (
+                _,
                 PrimaryState::Set,
-                PrimaryState::Playing,
                 Some(GamePhase::PenaltyShootout {
                     kicking_team: Team::Hulks,
                 }),
@@ -173,8 +173,8 @@ impl Localization {
                     .clone_from(&self.hypotheses);
             }
             (
+                _,
                 PrimaryState::Set,
-                PrimaryState::Playing,
                 Some(GamePhase::PenaltyShootout {
                     kicking_team: Team::Opponent,
                 }),
