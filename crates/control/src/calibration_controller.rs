@@ -6,7 +6,6 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use linear_algebra::{point, Point2};
-use log::info;
 use serde::{Deserialize, Serialize};
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
@@ -80,6 +79,7 @@ impl CalibrationController {
             matches!(context.primary_state, PrimaryState::Calibration);
         if !calibration_grame_state_active {
             self.current_calibration_command = CalibrationCommand::Inactive;
+            self.current_primary_phase_is_calibration = false;
             return Ok(MainOutputs::default());
         }
 
@@ -99,7 +99,6 @@ impl CalibrationController {
         );
 
         if let Some(new_phase) = changed_command {
-            info!("Phase change detected: {:?}", new_phase);
             self.current_calibration_command = new_phase;
         }
 
@@ -125,11 +124,6 @@ impl CalibrationController {
         match self.current_calibration_command {
             CalibrationCommand::Inactive => {
                 if primary_state_transition_to_calibration {
-                    info!(
-                        "Calibration is activated, waiting for {}s until the Robot is stable.",
-                        initial_stabilization_delay.as_secs_f32()
-                    );
-
                     Some(CalibrationCommand::Initialize {
                         started_time: *current_cycle_time,
                     })
@@ -203,10 +197,7 @@ impl CalibrationController {
                 })
             }
             CalibrationCommand::Process => {
-                info!(
-                    "Switching to process!, found {} measurements",
-                    self.current_measurements.len()
-                );
+                // TODO Handle not enough measurements
 
                 let solved_result = solve(
                     Corrections::default(),
@@ -214,7 +205,6 @@ impl CalibrationController {
                     *context.field_dimensions,
                 );
 
-                info!("Calibration complete! Corrections: {solved_result:?}");
                 self.last_calibration_corrections = Some(solved_result);
                 Some(CalibrationCommand::Finish)
             }
@@ -229,10 +219,7 @@ impl CalibrationController {
                 target,
                 dispatch_time,
             },
-            None => {
-                info!("\tNothing else to LOOKAT, goto PROCESS");
-                CalibrationCommand::Process
-            }
+            None => CalibrationCommand::Process,
         }
     }
 
