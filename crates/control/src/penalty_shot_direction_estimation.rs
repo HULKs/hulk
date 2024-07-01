@@ -25,7 +25,7 @@ pub struct CycleContext {
     moving_distance_threshold:
         Parameter<f32, "penalty_shot_direction_estimation.moving_distance_threshold">,
     minimum_robot_radius_at_foot_height:
-        Parameter<f32, "path_planning.minimum_robot_radius_at_foot_height">,
+        Parameter<f32, "behavior.path_planning.minimum_robot_radius_at_foot_height">,
 
     ball_position: RequiredInput<Option<BallPosition<Ground>>, "ball_position?">,
     filtered_game_controller_state:
