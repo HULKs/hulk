@@ -27,12 +27,8 @@ pub enum CalibrationCommand {
     Finish,
 }
 
-#[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub enum CalibrationCaptureResponse<Measurement> {
-    #[default]
-    Idling,
     CommandRecieved {
         dispatch_time: CycleTime,
         output: Option<Measurement>,

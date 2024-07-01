@@ -40,7 +40,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub calibration_measurement: MainOutput<CalibrationCaptureResponse<Measurement>>,
+    pub calibration_measurement: MainOutput<Option<CalibrationCaptureResponse<Measurement>>>,
 }
 
 impl CalibrationMeasurementProvider {
@@ -82,18 +82,18 @@ impl CalibrationMeasurementProvider {
                             context.field_dimensions,
                         );
 
-                        CalibrationCaptureResponse::CommandRecieved {
+                        Some(CalibrationCaptureResponse::CommandRecieved {
                             dispatch_time: *dispatch_time,
                             output: measurement.ok(),
-                        }
+                        })
                     }
-                    (true, false) => CalibrationCaptureResponse::RetriesExceeded {
+                    (true, false) => Some(CalibrationCaptureResponse::RetriesExceeded {
                         dispatch_time: *dispatch_time,
-                    },
-                    _ => CalibrationCaptureResponse::Idling,
+                    }),
+                    _ => None,
                 }
             }
-            _ => CalibrationCaptureResponse::Idling,
+            _ => None,
         }
         .into();
         Ok(MainOutputs {
@@ -140,7 +140,7 @@ fn get_fake_measurement(
     );
 
     let mut rng = rand::thread_rng();
-    if rng.gen_range(0..10) > 8 {
+    if rng.gen_range(0..10) > 5 {
         Ok(Measurement {
             matrix: matrix.clone(),
             position,

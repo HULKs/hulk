@@ -1504,7 +1504,7 @@
     "gravity_acceleration": 9.81
   },
   "calibration_measurement_provider": {
-    "max_retries": 4
+    "max_retries": 10
   },
   "calibration_controller": {
     "initial_to_calibration_stabilization_delay": {

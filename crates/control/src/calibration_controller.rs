@@ -35,14 +35,14 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
     measurement_bottom: PerceptionInput<
-        CalibrationCaptureResponse<Measurement>,
+        Option<CalibrationCaptureResponse<Measurement>>,
         "VisionBottom",
-        "calibration_measurement",
+        "calibration_measurement?",
     >,
     measurement_top: PerceptionInput<
-        CalibrationCaptureResponse<Measurement>,
+        Option<CalibrationCaptureResponse<Measurement>>,
         "VisionTop",
-        "calibration_measurement",
+        "calibration_measurement?",
     >,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     look_at_dispatch_wait_duration:
@@ -235,19 +235,21 @@ impl CalibrationController {
 }
 
 fn collect_filtered_values(
-    measurement_perception_input: &PerceptionInput<Vec<&CalibrationCaptureResponse<Measurement>>>,
+    measurement_perception_input: &PerceptionInput<
+        Vec<Option<&CalibrationCaptureResponse<Measurement>>>,
+    >,
     original_dispatch_time: &CycleTime,
 ) -> (Option<Measurement>, bool) {
     let result = measurement_perception_input
         .persistent
         .iter()
         .flat_map(|(_cycle_timestamp, measurements)| measurements.iter())
-        .find(|&measurement| match measurement {
+        .flatten()
+        .find(|&&measurement| match measurement {
             CalibrationCaptureResponse::CommandRecieved {
                 dispatch_time,
                 output: _,
             } => original_dispatch_time.start_time == dispatch_time.start_time,
-            CalibrationCaptureResponse::Idling => false,
             CalibrationCaptureResponse::RetriesExceeded { dispatch_time } => {
                 original_dispatch_time.start_time == dispatch_time.start_time
             }
@@ -257,7 +259,6 @@ fn collect_filtered_values(
         return (None, false);
     };
     match response {
-        CalibrationCaptureResponse::Idling => (None, false),
         CalibrationCaptureResponse::CommandRecieved { output, .. } => {
             (output.clone(), output.is_some())
         }
