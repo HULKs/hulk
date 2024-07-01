@@ -1,11 +1,10 @@
-use std::vec;
+use std::{time::Duration, vec};
 
 use calibration::{corrections::Corrections, measurement::Measurement, solve};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use itertools::Itertools;
 use linear_algebra::{point, Point2};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -14,14 +13,13 @@ use types::{
     camera_position::CameraPosition,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
-    parameters::CameraCalibrationControllerParameters,
     primary_state::PrimaryState,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationController {
     pub current_calibration_command: CalibrationCommand,
-    pub look_at_list: Vec<(Point2<Ground>, Option<CameraPosition>)>,
+    pub look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
     pub current_look_at_index: usize,
 
     pub current_measurements: Vec<Measurement>,
@@ -47,7 +45,11 @@ pub struct CycleContext {
         "calibration_measurement",
     >,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    parameters: Parameter<CameraCalibrationControllerParameters, "calibration_controller">,
+    look_at_dispatch_wait_duration:
+        Parameter<Duration, "calibration_controller.look_at_dispatch_wait_duration">,
+    initial_to_calibration_stabilization_delay:
+        Parameter<Duration, "calibration_controller.initial_to_calibration_stabilization_delay">,
+
     calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_measurements">,
     last_calibration_corrections:
         AdditionalOutput<Option<Corrections>, "last_calibration_corrections">,
@@ -63,7 +65,7 @@ impl CalibrationController {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             current_calibration_command: CalibrationCommand::default(),
-            look_at_list: generate_look_at_list().unwrap(),
+            look_at_list: generate_look_at_list(),
             current_look_at_index: 0,
             current_measurements: vec![],
             current_primary_phase_is_calibration: false,
@@ -75,7 +77,7 @@ impl CalibrationController {
         let calibration_grame_state_active =
             matches!(context.primary_state, PrimaryState::Calibration);
         if !calibration_grame_state_active {
-            self.current_calibration_command = CalibrationCommand::INACTIVE;
+            self.current_calibration_command = CalibrationCommand::Inactive;
             return Ok(MainOutputs::default());
         }
 
@@ -116,26 +118,24 @@ impl CalibrationController {
         current_cycle_time: &CycleTime,
         context: &CycleContext,
     ) -> Option<CalibrationCommand> {
-        let look_at_dispatch_waiting = context.parameters.look_at_dispatch_wait_duration;
-        let initial_stabilization_delay = context
-            .parameters
-            .initial_to_calibration_stabilization_delay;
+        let look_at_dispatch_waiting = *context.look_at_dispatch_wait_duration;
+        let initial_stabilization_delay = *context.initial_to_calibration_stabilization_delay;
         match self.current_calibration_command {
-            CalibrationCommand::INACTIVE => {
+            CalibrationCommand::Inactive => {
                 if primary_state_transition_to_calibration {
                     info!(
                         "Calibration is activated, waiting for {}s until the Robot is stable.",
                         initial_stabilization_delay.as_secs_f32()
                     );
 
-                    Some(CalibrationCommand::INITIALIZE {
+                    Some(CalibrationCommand::Initialize {
                         started_time: *current_cycle_time,
                     })
                 } else {
                     None
                 }
             }
-            CalibrationCommand::INITIALIZE {
+            CalibrationCommand::Initialize {
                 started_time: activated_time,
             } => match context.primary_state {
                 PrimaryState::Calibration => {
@@ -152,41 +152,48 @@ impl CalibrationController {
                 }
                 _ => None,
             },
-            CalibrationCommand::LOOKAT { dispatch_time, .. } => {
+            CalibrationCommand::LookAt {
+                dispatch_time,
+                camera,
+                ..
+            } => {
                 let time_diff = current_cycle_time
                     .start_time
                     .duration_since(dispatch_time.start_time)
                     .unwrap_or_default();
 
                 if time_diff > look_at_dispatch_waiting {
-                    Some(CalibrationCommand::CAPTURE {
+                    Some(CalibrationCommand::Capture {
+                        camera,
                         dispatch_time: *current_cycle_time,
                     })
                 } else {
                     None
                 }
             }
-            CalibrationCommand::CAPTURE { dispatch_time } => {
-                // TODO decide a better way to handle the two cameras. Perhaps set a capture position like in the look-at command?
-                let (values_top, goto_next_position_top) =
-                    collect_filtered_values(&context.measurement_top, &dispatch_time);
-                let (values_bottom, goto_next_position_bottom) =
-                    collect_filtered_values(&context.measurement_bottom, &dispatch_time);
-
-                if let Some(measurement) = values_top {
+            CalibrationCommand::Capture {
+                dispatch_time,
+                camera,
+            } => {
+                let (measurement, goto_next_lookat) = match camera {
+                    CameraPosition::Top => {
+                        collect_filtered_values(&context.measurement_top, &dispatch_time)
+                    }
+                    CameraPosition::Bottom => {
+                        collect_filtered_values(&context.measurement_bottom, &dispatch_time)
+                    }
+                };
+                if let Some(measurement) = measurement {
                     self.current_measurements.push(measurement);
                 }
-                if let Some(measurement) = values_bottom {
-                    self.current_measurements.push(measurement);
-                }
 
-                if goto_next_position_top || goto_next_position_bottom {
+                if goto_next_lookat {
                     Some(self.try_transition_to_look_at(*context.cycle_time))
                 } else {
                     None
                 }
             }
-            CalibrationCommand::PROCESS => {
+            CalibrationCommand::Process => {
                 info!(
                     "Switching to process!, found {} measurements",
                     self.current_measurements.len()
@@ -200,9 +207,9 @@ impl CalibrationController {
 
                 info!("Calibration complete! Corrections: {solved_result:?}");
                 self.last_calibration_corrections = Some(solved_result);
-                Some(CalibrationCommand::FINISH)
+                Some(CalibrationCommand::Finish)
             }
-            CalibrationCommand::FINISH => None,
+            CalibrationCommand::Finish => None,
         }
     }
 
@@ -210,19 +217,19 @@ impl CalibrationController {
         let next_look_at = self.get_next_look_at();
 
         match next_look_at {
-            Some((target, camera)) => CalibrationCommand::LOOKAT {
+            Some((target, camera)) => CalibrationCommand::LookAt {
                 camera,
                 target,
                 dispatch_time,
             },
             None => {
                 info!("\tNothing else to LOOKAT, goto PROCESS");
-                CalibrationCommand::PROCESS
+                CalibrationCommand::Process
             }
         }
     }
 
-    fn get_next_look_at(&mut self) -> Option<(Point2<Ground>, Option<CameraPosition>)> {
+    fn get_next_look_at(&mut self) -> Option<(Point2<Ground>, CameraPosition)> {
         let current_index = self.current_look_at_index;
         self.current_look_at_index += 1;
         if current_index < self.look_at_list.len() {
@@ -277,7 +284,7 @@ fn collect_filtered_values(
 }
 
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
-fn generate_look_at_list() -> Result<Vec<(Point2<Ground>, Option<CameraPosition>)>> {
+fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
     let look_at_points: Vec<Point2<Ground>> = vec![
         point!(1.0, 0.0),
         point!(1.0, -0.5),
@@ -287,13 +294,8 @@ fn generate_look_at_list() -> Result<Vec<(Point2<Ground>, Option<CameraPosition>
         point!(1.0, -0.5),
     ];
 
-    let attach_camera_to_lookat =
-        |point: &Point2<Ground>,
-         camera_position: &CameraPosition|
-         -> (Point2<Ground>, Option<CameraPosition>) { (*point, Some(*camera_position)) };
-
-    Ok(look_at_points
+    look_at_points
         .iter()
-        .map(|&point| attach_camera_to_lookat(&point, &CameraPosition::Top))
-        .collect_vec())
+        .map(|&point| (point, CameraPosition::Top))
+        .collect()
 }

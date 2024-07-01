@@ -10,9 +10,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct Lines<Frame> {
     pub border_line: Line2<Frame>,
-    #[path_serde(leaf)]
     pub goal_box_line: Line2<Frame>,
-    #[path_serde(leaf)]
     pub connecting_line: Line2<Frame>,
 }
 

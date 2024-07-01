@@ -52,7 +52,10 @@ impl CalibrationMeasurementProvider {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let calibration_measurement = match &context.calibration_command {
-            CalibrationCommand::CAPTURE { dispatch_time } => {
+            CalibrationCommand::Capture {
+                dispatch_time,
+                camera,
+            } => {
                 let retry_attempt_count = self.last_capture_command_time_and_retries.map_or(
                     0,
                     |(last_capture_command_time, retry_count)| {
@@ -63,25 +66,31 @@ impl CalibrationMeasurementProvider {
                         }
                     },
                 );
-                if retry_attempt_count < *context.max_retries {
-                    self.last_capture_command_time_and_retries =
-                        Some((dispatch_time.start_time, retry_attempt_count));
 
-                    let measurement = get_measurement_from_image(
-                        context.image,
-                        context.camera_matrix,
-                        *context.camera_position,
-                        context.field_dimensions,
-                    );
+                match (
+                    camera == context.camera_position,
+                    retry_attempt_count < *context.max_retries,
+                ) {
+                    (true, true) => {
+                        self.last_capture_command_time_and_retries =
+                            Some((dispatch_time.start_time, retry_attempt_count));
 
-                    CalibrationCaptureResponse::CommandRecieved {
-                        dispatch_time: *dispatch_time,
-                        output: measurement.ok(),
+                        let measurement = get_measurement_from_image(
+                            context.image,
+                            context.camera_matrix,
+                            *context.camera_position,
+                            context.field_dimensions,
+                        );
+
+                        CalibrationCaptureResponse::CommandRecieved {
+                            dispatch_time: *dispatch_time,
+                            output: measurement.ok(),
+                        }
                     }
-                } else {
-                    CalibrationCaptureResponse::RetriesExceeded {
+                    (true, false) => CalibrationCaptureResponse::RetriesExceeded {
                         dispatch_time: *dispatch_time,
-                    }
+                    },
+                    _ => CalibrationCaptureResponse::Idling,
                 }
             }
             _ => CalibrationCaptureResponse::Idling,

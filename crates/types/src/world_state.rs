@@ -27,7 +27,7 @@ pub struct WorldState {
     pub kick_decisions: Option<Vec<KickDecision>>,
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
-    pub calibration_command: Option<CalibrationCommand>,
+    pub calibration_command: CalibrationCommand,
 }
 
 #[derive(
