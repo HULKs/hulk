@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::{MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use linear_algebra::{Isometry2, Point2, Vector};
 use spl_network_messages::{
@@ -67,6 +67,9 @@ pub struct CycleContext {
     spl_network: Parameter<SplNetworkParameters, "spl_network">,
 
     hardware: HardwareInterface,
+
+    last_time_player_was_penalized:
+        AdditionalOutput<Players<Option<SystemTime>>, "last_time_player_penalized">,
 }
 
 #[context]
@@ -98,7 +101,10 @@ impl RoleAssignment {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        mut context: CycleContext<impl NetworkInterface>,
+    ) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
         let primary_state = *context.primary_state;
         let mut new_role = self.role;
@@ -277,26 +283,27 @@ impl RoleAssignment {
             }
         }
         if self.role == Role::ReplacementKeeper {
-            let previous_player = match context.player_number {
-                PlayerNumber::Three => PlayerNumber::Two,
-                PlayerNumber::Four => PlayerNumber::Three,
-                PlayerNumber::Five => PlayerNumber::Four,
-                PlayerNumber::Six => PlayerNumber::Five,
-                PlayerNumber::Seven => PlayerNumber::Six,
-                _ => PlayerNumber::One,
-            };
-            if let Some(last_time_player_penalized) =
-                self.last_time_player_was_penalized[previous_player]
-            {
-                let deny_replacement_keeper_switch = cycle_start_time
-                    .duration_since(last_time_player_penalized)
-                    .expect("Keeper/Replacmentkeeper was penalized in the future")
-                    < *context.keeper_replacementkeeper_switch_time;
-                if !send_spl_striker_message && deny_replacement_keeper_switch {
-                    new_role = Role::ReplacementKeeper;
-                }
+            let allow_replacement_keeper_switch = self
+                .last_time_player_was_penalized
+                .iter()
+                .take_while(|(player_number, _)| player_number != context.player_number)
+                .any(|(_, penalized_time)| {
+                    penalized_time
+                        .filter(|system_time| {
+                            cycle_start_time
+                                .duration_since(*system_time)
+                                .expect("Keeper/Replacmentkeeper was penalized in the future")
+                                < *context.keeper_replacementkeeper_switch_time
+                        })
+                        .is_none()
+                });
+            if !send_spl_striker_message && !allow_replacement_keeper_switch {
+                new_role = Role::ReplacementKeeper;
             }
         }
+        context
+            .last_time_player_was_penalized
+            .fill_if_subscribed(|| self.last_time_player_was_penalized);
 
         if send_spl_striker_message
             && primary_state == PrimaryState::Playing
