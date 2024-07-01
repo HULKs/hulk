@@ -214,9 +214,7 @@ impl CalibrationController {
     }
 
     fn try_transition_to_look_at(&mut self, dispatch_time: CycleTime) -> CalibrationCommand {
-        let next_look_at = self.get_next_look_at();
-
-        match next_look_at {
+        match self.get_next_look_at() {
             Some((target, camera)) => CalibrationCommand::LookAt {
                 camera,
                 target,
@@ -232,11 +230,7 @@ impl CalibrationController {
     fn get_next_look_at(&mut self) -> Option<(Point2<Ground>, CameraPosition)> {
         let current_index = self.current_look_at_index;
         self.current_look_at_index += 1;
-        if current_index < self.look_at_list.len() {
-            Some(self.look_at_list[current_index])
-        } else {
-            None
-        }
+        self.look_at_list.get(current_index).copied()
     }
 }
 
@@ -259,28 +253,16 @@ fn collect_filtered_values(
             }
         });
 
-    let mut retries_exceeded = false;
-    let mut value_found = false;
-    let measurement: Option<Measurement> = result.and_then(|value| match value {
-        CalibrationCaptureResponse::Idling => None,
-        CalibrationCaptureResponse::CommandRecieved {
-            dispatch_time: _,
-            output,
-        } => {
-            if output.is_some() {
-                value_found = true;
-                output.clone()
-            } else {
-                None
-            }
+    let Some(response) = result else {
+        return (None, false);
+    };
+    match response {
+        CalibrationCaptureResponse::Idling => (None, false),
+        CalibrationCaptureResponse::CommandRecieved { output, .. } => {
+            (output.clone(), output.is_some())
         }
-        CalibrationCaptureResponse::RetriesExceeded { dispatch_time: _ } => {
-            retries_exceeded = true;
-            None
-        }
-    });
-
-    (measurement, retries_exceeded || value_found)
+        CalibrationCaptureResponse::RetriesExceeded { .. } => (None, true),
+    }
 }
 
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc

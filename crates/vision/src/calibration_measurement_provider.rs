@@ -19,6 +19,11 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
+#[derive(Deserialize, Serialize)]
+pub struct CalibrationMeasurementProvider {
+    last_capture_command_time_and_retries: Option<(SystemTime, usize)>,
+}
+
 #[context]
 pub struct CreationContext {}
 
@@ -30,11 +35,6 @@ pub struct CycleContext {
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     max_retries: Parameter<usize, "calibration_measurement_provider.max_retries">,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct CalibrationMeasurementProvider {
-    last_capture_command_time_and_retries: Option<(SystemTime, usize)>,
 }
 
 #[context]
