@@ -18,13 +18,13 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationController {
-    pub current_calibration_command: CalibrationCommand,
-    pub look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
-    pub current_look_at_index: usize,
-
-    pub current_measurements: Vec<Measurement>,
     pub current_primary_phase_is_calibration: bool,
+    pub current_look_at_index: usize,
+    pub current_calibration_command: CalibrationCommand,
+    pub current_measurements: Vec<Measurement>,
     pub last_calibration_corrections: Option<Corrections>,
+    pub look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
+    pub last_capture_retries: u32,
 }
 
 #[context]
@@ -49,6 +49,7 @@ pub struct CycleContext {
         Parameter<Duration, "calibration_controller.look_at_dispatch_wait_duration">,
     initial_to_calibration_stabilization_delay:
         Parameter<Duration, "calibration_controller.initial_to_calibration_stabilization_delay">,
+    max_retries_per_capture: Parameter<u32, "calibration_controller.max_retries_per_capture">,
 
     calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_measurements">,
     last_calibration_corrections:
@@ -70,6 +71,7 @@ impl CalibrationController {
             current_measurements: vec![],
             current_primary_phase_is_calibration: false,
             last_calibration_corrections: None,
+            last_capture_retries: 0,
         })
     }
 
@@ -163,6 +165,7 @@ impl CalibrationController {
                     .unwrap_or_default();
 
                 if time_diff > look_at_dispatch_waiting {
+                    self.last_capture_retries = 0;
                     Some(CalibrationCommand::Capture {
                         camera,
                         dispatch_time: *current_cycle_time,
@@ -175,7 +178,7 @@ impl CalibrationController {
                 dispatch_time,
                 camera,
             } => {
-                let (measurement, goto_next_lookat) = match camera {
+                let calibration_response = match camera {
                     CameraPosition::Top => {
                         collect_filtered_values(&context.measurement_top, &dispatch_time)
                     }
@@ -183,15 +186,21 @@ impl CalibrationController {
                         collect_filtered_values(&context.measurement_bottom, &dispatch_time)
                     }
                 };
-                if let Some(measurement) = measurement {
-                    self.current_measurements.push(measurement);
-                }
 
-                if goto_next_lookat {
-                    Some(self.try_transition_to_look_at(*context.cycle_time))
-                } else {
-                    None
-                }
+                calibration_response.and_then(|response| {
+                    let goto_next_lookat = if let Some(measurement) = response.measurement {
+                        self.current_measurements.push(measurement);
+                        true
+                    } else {
+                        self.last_capture_retries += 1;
+                        self.last_capture_retries > *context.max_retries_per_capture
+                    };
+                    if goto_next_lookat {
+                        Some(self.try_transition_to_look_at(*context.cycle_time))
+                    } else {
+                        None
+                    }
+                })
             }
             CalibrationCommand::Process => {
                 info!(
@@ -239,31 +248,20 @@ fn collect_filtered_values(
         Vec<Option<&CalibrationCaptureResponse<Measurement>>>,
     >,
     original_dispatch_time: &CycleTime,
-) -> (Option<Measurement>, bool) {
-    let result = measurement_perception_input
+) -> Option<CalibrationCaptureResponse<Measurement>> {
+    measurement_perception_input
         .persistent
         .iter()
         .flat_map(|(_cycle_timestamp, measurements)| measurements.iter())
         .flatten()
-        .find(|&&measurement| match measurement {
-            CalibrationCaptureResponse::CommandRecieved {
+        .find(|&measurement| match measurement {
+            CalibrationCaptureResponse {
                 dispatch_time,
-                output: _,
+                measurement: _,
             } => original_dispatch_time.start_time == dispatch_time.start_time,
-            CalibrationCaptureResponse::RetriesExceeded { dispatch_time } => {
-                original_dispatch_time.start_time == dispatch_time.start_time
-            }
-        });
-
-    let Some(response) = result else {
-        return (None, false);
-    };
-    match response {
-        CalibrationCaptureResponse::CommandRecieved { output, .. } => {
-            (output.clone(), output.is_some())
-        }
-        CalibrationCaptureResponse::RetriesExceeded { .. } => (None, true),
-    }
+        })
+        .cloned()
+        .cloned()
 }
 
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc

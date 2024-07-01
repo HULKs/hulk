@@ -1503,10 +1503,8 @@
   "physical_constants": {
     "gravity_acceleration": 9.81
   },
-  "calibration_measurement_provider": {
-    "max_retries": 10
-  },
   "calibration_controller": {
+    "max_retries_per_capture": 10,
     "initial_to_calibration_stabilization_delay": {
       "nanos": 0,
       "secs": 5

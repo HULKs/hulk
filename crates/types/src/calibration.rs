@@ -27,13 +27,13 @@ pub enum CalibrationCommand {
     Finish,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
-pub enum CalibrationCaptureResponse<Measurement> {
-    CommandRecieved {
-        dispatch_time: CycleTime,
-        output: Option<Measurement>,
-    },
-    RetriesExceeded {
-        dispatch_time: CycleTime,
-    },
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct CalibrationCaptureResponse<Measurement>
+where
+    Measurement: Default,
+{
+    pub dispatch_time: CycleTime,
+    pub measurement: Option<Measurement>,
 }

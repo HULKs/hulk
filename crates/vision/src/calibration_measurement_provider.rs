@@ -11,7 +11,6 @@ use linear_algebra::point;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
     camera_position::CameraPosition,
@@ -20,9 +19,7 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct CalibrationMeasurementProvider {
-    last_capture_command_time_and_retries: Option<(SystemTime, usize)>,
-}
+pub struct CalibrationMeasurementProvider {}
 
 #[context]
 pub struct CreationContext {}
@@ -34,7 +31,6 @@ pub struct CycleContext {
     calibration_command: Input<CalibrationCommand, "control", "calibration_command">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    max_retries: Parameter<usize, "calibration_measurement_provider.max_retries">,
 }
 
 #[context]
@@ -45,9 +41,7 @@ pub struct MainOutputs {
 
 impl CalibrationMeasurementProvider {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            last_capture_command_time_and_retries: None,
-        })
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
@@ -56,41 +50,20 @@ impl CalibrationMeasurementProvider {
                 dispatch_time,
                 camera,
             } => {
-                let retry_attempt_count = self.last_capture_command_time_and_retries.map_or(
-                    0,
-                    |(last_capture_command_time, retry_count)| {
-                        if dispatch_time.start_time != last_capture_command_time {
-                            0
-                        } else {
-                            retry_count + 1
-                        }
-                    },
-                );
+                if camera == context.camera_position {
+                    let measurement = get_measurement_from_image(
+                        context.image,
+                        context.camera_matrix,
+                        *context.camera_position,
+                        context.field_dimensions,
+                    );
 
-                match (
-                    camera == context.camera_position,
-                    retry_attempt_count < *context.max_retries,
-                ) {
-                    (true, true) => {
-                        self.last_capture_command_time_and_retries =
-                            Some((dispatch_time.start_time, retry_attempt_count));
-
-                        let measurement = get_measurement_from_image(
-                            context.image,
-                            context.camera_matrix,
-                            *context.camera_position,
-                            context.field_dimensions,
-                        );
-
-                        Some(CalibrationCaptureResponse::CommandRecieved {
-                            dispatch_time: *dispatch_time,
-                            output: measurement.ok(),
-                        })
-                    }
-                    (true, false) => Some(CalibrationCaptureResponse::RetriesExceeded {
+                    Some(CalibrationCaptureResponse {
                         dispatch_time: *dispatch_time,
-                    }),
-                    _ => None,
+                        measurement: measurement.ok(),
+                    })
+                } else {
+                    None
                 }
             }
             _ => None,
