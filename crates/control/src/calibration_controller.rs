@@ -254,11 +254,12 @@ fn collect_filtered_values(
         .iter()
         .flat_map(|(_cycle_timestamp, measurements)| measurements.iter())
         .flatten()
-        .find(|&measurement| match measurement {
-            CalibrationCaptureResponse {
+        .find(|&measurement| {
+            let CalibrationCaptureResponse {
                 dispatch_time,
                 measurement: _,
-            } => original_dispatch_time.start_time == dispatch_time.start_time,
+            } = measurement;
+            original_dispatch_time.start_time == dispatch_time.start_time
         })
         .cloned()
         .cloned()
