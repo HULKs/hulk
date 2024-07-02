@@ -60,7 +60,6 @@ mod selectable_panel_macro;
 mod twix_painter;
 mod value_buffer;
 mod visuals;
-mod zoom_and_pan;
 
 #[derive(Debug, Parser)]
 struct Arguments {
