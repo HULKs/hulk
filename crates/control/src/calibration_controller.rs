@@ -243,11 +243,7 @@ fn collect_filtered_values(
         .flat_map(|(_cycle_timestamp, measurements)| measurements.iter())
         .flatten()
         .find(|&measurement| {
-            let CalibrationCaptureResponse {
-                dispatch_time,
-                measurement: _,
-            } = measurement;
-            original_dispatch_time.start_time == dispatch_time.start_time
+            original_dispatch_time.start_time == measurement.dispatch_time.start_time
         })
         .cloned()
         .cloned()
@@ -256,12 +252,12 @@ fn collect_filtered_values(
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
 fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
     let look_at_points: Vec<Point2<Ground>> = vec![
-        point!(1.0, 0.0),
-        point!(1.0, -0.5),
-        point!(3.0, -0.5),
-        point!(3.0, 0.0),
-        point!(3.0, 0.5),
-        point!(1.0, -0.5),
+        point![1.0, 0.0],
+        point![1.0, -0.5],
+        point![3.0, -0.5],
+        point![3.0, 0.0],
+        point![3.0, 0.5],
+        point![1.0, -0.5],
     ];
 
     look_at_points
