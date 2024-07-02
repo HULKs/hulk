@@ -125,10 +125,4 @@ generate_coordinate_system!(
     /// Same as [RightFoot] but shifted down to the sole.
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-foot)
     RightSole,
-    /// 2D Coordinate System for Twix Widgets
-    ///
-    /// Origin: top left corner of the image
-    /// X axis points right
-    /// Y axis points down
-    Screen,
 );
