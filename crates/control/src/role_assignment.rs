@@ -283,21 +283,22 @@ impl RoleAssignment {
             }
         }
         if self.role == Role::ReplacementKeeper {
-            let allow_replacement_keeper_switch = self
+            let mut other_players_with_lower_number = self
                 .last_time_player_was_penalized
                 .iter()
-                .take_while(|(player_number, _)| player_number != context.player_number)
-                .any(|(_, penalized_time)| {
+                .filter(|(player_number, _)| player_number < context.player_number);
+            let is_lowest_number_without =
+                other_players_with_lower_number.all(|(_, penalized_time)| {
                     penalized_time
-                        .filter(|system_time| {
-                            cycle_start_time
-                                .duration_since(*system_time)
-                                .expect("Keeper/Replacmentkeeper was penalized in the future")
-                                < *context.keeper_replacementkeeper_switch_time
+                        .map(|system_time| {
+                            let since_last_penalized = cycle_start_time
+                                .duration_since(system_time)
+                                .expect("penalty time to be in the past");
+                            since_last_penalized < *context.keeper_replacementkeeper_switch_time
                         })
-                        .is_none()
+                        .unwrap_or(false)
                 });
-            if !send_spl_striker_message && !allow_replacement_keeper_switch {
+            if !send_spl_striker_message && is_lowest_number_without {
                 new_role = Role::ReplacementKeeper;
             }
         }
