@@ -46,32 +46,32 @@ impl CalibrationMeasurementProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let calibration_measurement = match &context.calibration_command {
-            CalibrationCommand::Capture {
-                dispatch_time,
-                camera,
-            } => {
-                if camera == context.camera_position {
-                    let measurement = get_measurement_from_image(
-                        context.image,
-                        context.camera_matrix,
-                        *context.camera_position,
-                        context.field_dimensions,
-                    );
+        let calibration_measurement = if let CalibrationCommand::Capture {
+            camera,
+            dispatch_time,
+        } = context.calibration_command
+        {
+            if camera == context.camera_position {
+                let measurement = get_measurement_from_image(
+                    context.image,
+                    context.camera_matrix,
+                    *context.camera_position,
+                    context.field_dimensions,
+                );
 
-                    Some(CalibrationCaptureResponse {
-                        dispatch_time: *dispatch_time,
-                        measurement: measurement.ok(),
-                    })
-                } else {
-                    None
-                }
+                Some(CalibrationCaptureResponse {
+                    dispatch_time: *dispatch_time,
+                    measurement: measurement.ok(),
+                })
+            } else {
+                None
             }
-            _ => None,
-        }
-        .into();
+        } else {
+            None
+        };
+
         Ok(MainOutputs {
-            calibration_measurement,
+            calibration_measurement: calibration_measurement.into(),
         })
     }
 }
