@@ -37,13 +37,11 @@ pub struct CycleContext {
     fall_state: Input<FallState, "Control", "fall_state">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
-    keypoint_confidence_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.keypoint_confidence_threshold">,
+    keypoint_confidence_threshold: Parameter<f32, "pose_detection.keypoint_confidence_threshold">,
     distance_to_referee_position_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.distance_to_referee_position_threshold">,
-    foot_z_offset: Parameter<f32, "object_detection.$cycler_instance.foot_z_offset">,
-    shoulder_angle_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.shoulder_angle_threshold">,
+        Parameter<f32, "pose_detection.distance_to_referee_position_threshold">,
+    foot_z_offset: Parameter<f32, "pose_detection.foot_z_offset">,
+    shoulder_angle_threshold: Parameter<f32, "pose_detection.shoulder_angle_threshold">,
 
     detected_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "detected_pose_kinds">,
 }

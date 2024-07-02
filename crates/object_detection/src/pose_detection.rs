@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
     color::Rgb,
+    cycle_time::CycleTime,
     motion_command::MotionCommand,
     pose_detection::{HumanPose, Keypoints},
     ycbcr422_image::YCbCr422Image,
@@ -54,14 +55,14 @@ pub struct CycleContext {
     inference_duration: AdditionalOutput<Duration, "inference_duration">,
     postprocess_duration: AdditionalOutput<Duration, "postprocess_duration">,
 
+    cycle_time: Input<CycleTime, "cycle_time">,
     image: Input<YCbCr422Image, "image">,
     motion_command: Input<MotionCommand, "Control", "motion_command">,
 
     intersection_over_union_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.intersection_over_union_threshold">,
-    keypoint_confidence_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.keypoint_confidence_threshold">,
-    enable: Parameter<bool, "object_detection.$cycler_instance.enable">,
+        Parameter<f32, "pose_detection.intersection_over_union_threshold">,
+    keypoint_confidence_threshold: Parameter<f32, "pose_detection.keypoint_confidence_threshold">,
+    enable: Parameter<bool, "pose_detection.enable">,
 }
 
 #[context]

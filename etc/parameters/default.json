@@ -1,6 +1,5 @@
 {
-  "object_detection": {
-    "object_detection_top": {
+  "pose_detection": {
       "enable": false,
       "intersection_over_union_threshold": 0.45,
       "distance_to_referee_position_threshold": 2.0,
@@ -9,8 +8,7 @@
       "foot_z_offset": 0.05,
       "referee_pose_queue_length": 8,
       "minimum_number_poses_before_message": 5
-    }
-  },
+    },
   "feet_detection": {
     "vision_top": {
       "enable": true,

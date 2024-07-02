@@ -54,9 +54,9 @@ impl Overlay for PoseDetection {
                     path: "human_poses".to_string(),
                 },
             })),
-            keypoint_confidence_threshold: Some(nao.subscribe_parameter(
-                "object_detection.object_detection_top.keypoint_confidence_threshold",
-            )),
+            keypoint_confidence_threshold: Some(
+                nao.subscribe_parameter("pose_detection.keypoint_confidence_threshold"),
+            ),
         }
     }
 

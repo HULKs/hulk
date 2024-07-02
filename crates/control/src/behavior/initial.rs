@@ -36,11 +36,11 @@ fn look_at_referee(
     expected_referee_position: Option<Point2<Field>>,
     world_state: WorldState,
 ) -> Option<MotionCommand> {
-    let ground_to_field = world_state.robot.ground_to_field?;
-    let expected_referee_position = expected_referee_position?;
     if world_state.filtered_game_controller_state?.game_state != FilteredGameState::Standby {
         return None;
     }
+    let ground_to_field = world_state.robot.ground_to_field?;
+    let expected_referee_position = expected_referee_position?;
 
     let position = ground_to_field.as_pose().position();
 
