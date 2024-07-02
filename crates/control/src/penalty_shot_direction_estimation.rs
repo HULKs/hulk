@@ -14,6 +14,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct PenaltyShotDirectionEstimation {
     last_shot_direction: PenaltyShotDirection,
+    placed_ball_position: Option<Point2<Ground>>,
 }
 
 #[context]
@@ -31,7 +32,6 @@ pub struct CycleContext {
     filtered_game_controller_state:
         RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
-    whistle_in_set_ball_position: Input<Option<Point2<Ground>>, "whistle_in_set_ball_position?">,
 }
 
 #[context]
@@ -44,6 +44,7 @@ impl PenaltyShotDirectionEstimation {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_shot_direction: PenaltyShotDirection::NotMoving,
+            placed_ball_position: None,
         })
     }
 
@@ -57,15 +58,15 @@ impl PenaltyShotDirectionEstimation {
             (PrimaryState::Set, GamePhase::PenaltyShootout { .. }, ..)
             | (PrimaryState::Set, _, Some(SubState::PenaltyKick), Team::Opponent) => {
                 self.last_shot_direction = PenaltyShotDirection::NotMoving;
+                self.placed_ball_position = Some(context.ball_position.position);
                 Ok(MainOutputs::default())
             }
             (PrimaryState::Playing, GamePhase::PenaltyShootout { .. }, ..)
             | (PrimaryState::Playing, _, Some(SubState::PenaltyKick), Team::Opponent) => {
                 let penalty_marker_position =
                     point!(context.field_dimensions.penalty_marker_distance, 0.0);
-                let reference_position = *context
-                    .whistle_in_set_ball_position
-                    .unwrap_or(&penalty_marker_position);
+                let reference_position =
+                    self.placed_ball_position.unwrap_or(penalty_marker_position);
                 let side_jump_threshold = (context.moving_distance_threshold
                     * (context.minimum_robot_radius_at_foot_height
                         + context.field_dimensions.ball_radius))
@@ -89,7 +90,10 @@ impl PenaltyShotDirectionEstimation {
                     penalty_shot_direction: Some(self.last_shot_direction).into(),
                 })
             }
-            _ => Ok(MainOutputs::default()),
+            _ => {
+                self.placed_ball_position = None;
+                Ok(MainOutputs::default())
+            }
         }
     }
 }
