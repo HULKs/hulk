@@ -1,16 +1,17 @@
-use calibration::{lines::Lines, measurement::Measurement};
 use color_eyre::{
     eyre::{eyre, Ok},
     Result,
 };
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+
+use calibration::{lines::Lines, measurement::Measurement};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
 use geometry::line::{Line, Line2};
 use linear_algebra::point;
 use projection::{camera_matrix::CameraMatrix, Projection};
-use rand::Rng;
-use serde::{Deserialize, Serialize};
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
     camera_position::CameraPosition,

@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use coordinate_systems::{Ground, Pixel};
 use geometry::line::{Line, Line2};
 use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::{camera_matrix::CameraMatrix, Projection};
-use serde::{Deserialize, Serialize};
 
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect, PathDeserialize,

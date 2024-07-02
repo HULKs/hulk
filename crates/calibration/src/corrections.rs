@@ -1,6 +1,7 @@
 use nalgebra::{vector, Rotation3, SVector};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
+
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 pub const AMOUNT_OF_PARAMETERS: usize = 9;
 

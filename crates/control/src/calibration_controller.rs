@@ -1,12 +1,13 @@
 use std::{time::Duration, vec};
 
-use calibration::{corrections::Corrections, measurement::Measurement, solve};
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
+use calibration::{corrections::Corrections, measurement::Measurement, solve};
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use linear_algebra::{point, Point2};
-use serde::{Deserialize, Serialize};
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
     camera_position::CameraPosition,

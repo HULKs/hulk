@@ -1,9 +1,10 @@
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use linear_algebra::{Isometry2, Point2};
-use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,

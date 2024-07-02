@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use serde::{Deserialize, Serialize};
 
 use crate::{camera_position::CameraPosition, cycle_time::CycleTime};
 

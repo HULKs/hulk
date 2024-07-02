@@ -4,11 +4,12 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
+use serde::{Deserialize, Serialize};
+
 use linear_algebra::{
     center, distance, distance_squared, point, vector, Point, Point2, Rotation2, Transform, Vector2,
 };
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use serde::{Deserialize, Serialize};
 
 #[derive(
     Copy,
