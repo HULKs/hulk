@@ -18,7 +18,6 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationController {
-    pub current_primary_phase_is_calibration: bool,
     pub current_look_at_index: usize,
     pub current_calibration_command: CalibrationCommand,
     pub current_measurements: Vec<Measurement>,
@@ -69,38 +68,19 @@ impl CalibrationController {
             look_at_list: generate_look_at_list(),
             current_look_at_index: 0,
             current_measurements: vec![],
-            current_primary_phase_is_calibration: false,
             last_calibration_corrections: None,
             last_capture_retries: 0,
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let calibration_grame_state_active =
-            matches!(context.primary_state, PrimaryState::Calibration);
-        if !calibration_grame_state_active {
+        if *context.primary_state != PrimaryState::Calibration {
             self.current_calibration_command = CalibrationCommand::Inactive;
-            self.current_primary_phase_is_calibration = false;
             return Ok(MainOutputs::default());
         }
 
-        let primary_state_transitioned_to_calibration =
-            calibration_grame_state_active && !self.current_primary_phase_is_calibration;
-        self.current_primary_phase_is_calibration = calibration_grame_state_active;
-
-        if primary_state_transitioned_to_calibration {
-            self.current_measurements = vec![];
-        }
-
-        let current_cycle_time = context.cycle_time;
-        let changed_command: Option<CalibrationCommand> = self.get_next_command(
-            primary_state_transitioned_to_calibration,
-            current_cycle_time,
-            &context,
-        );
-
-        if let Some(new_phase) = changed_command {
-            self.current_calibration_command = new_phase;
+        if let Some(new_command) = self.get_next_command(&context) {
+            self.current_calibration_command = new_command;
         }
 
         context
@@ -114,41 +94,31 @@ impl CalibrationController {
         })
     }
 
-    fn get_next_command(
-        &mut self,
-        primary_state_transition_to_calibration: bool,
-        current_cycle_time: &CycleTime,
-        context: &CycleContext,
-    ) -> Option<CalibrationCommand> {
+    fn get_next_command(&mut self, context: &CycleContext) -> Option<CalibrationCommand> {
         let look_at_dispatch_waiting = *context.look_at_dispatch_wait_duration;
         let initial_stabilization_delay = *context.initial_to_calibration_stabilization_delay;
+        let current_cycle_time = context.cycle_time;
         match self.current_calibration_command {
             CalibrationCommand::Inactive => {
-                if primary_state_transition_to_calibration {
-                    Some(CalibrationCommand::Initialize {
-                        started_time: *current_cycle_time,
-                    })
+                self.current_measurements = vec![];
+                Some(CalibrationCommand::Initialize {
+                    started_time: *current_cycle_time,
+                })
+            }
+            CalibrationCommand::Initialize {
+                started_time: activated_time,
+            } => {
+                let waiting_duration = current_cycle_time
+                    .start_time
+                    .duration_since(activated_time.start_time)
+                    .unwrap_or_default();
+
+                if waiting_duration >= initial_stabilization_delay {
+                    Some(self.get_next_look_at_or_processing(*context.cycle_time))
                 } else {
                     None
                 }
             }
-            CalibrationCommand::Initialize {
-                started_time: activated_time,
-            } => match context.primary_state {
-                PrimaryState::Calibration => {
-                    let waiting_duration = current_cycle_time
-                        .start_time
-                        .duration_since(activated_time.start_time)
-                        .unwrap_or_default();
-
-                    if waiting_duration >= initial_stabilization_delay {
-                        Some(self.try_transition_to_look_at(*context.cycle_time))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            },
             CalibrationCommand::LookAt {
                 dispatch_time,
                 camera,
@@ -173,14 +143,13 @@ impl CalibrationController {
                 dispatch_time,
                 camera,
             } => {
-                let calibration_response = match camera {
-                    CameraPosition::Top => {
-                        collect_filtered_values(&context.measurement_top, &dispatch_time)
-                    }
-                    CameraPosition::Bottom => {
-                        collect_filtered_values(&context.measurement_bottom, &dispatch_time)
-                    }
-                };
+                let calibration_response = collect_filtered_values(
+                    match camera {
+                        CameraPosition::Top => &context.measurement_top,
+                        CameraPosition::Bottom => &context.measurement_bottom,
+                    },
+                    &dispatch_time,
+                );
 
                 calibration_response.and_then(|response| {
                     let goto_next_lookat = if let Some(measurement) = response.measurement {
@@ -191,7 +160,7 @@ impl CalibrationController {
                         self.last_capture_retries > *context.max_retries_per_capture
                     };
                     if goto_next_lookat {
-                        Some(self.try_transition_to_look_at(*context.cycle_time))
+                        Some(self.get_next_look_at_or_processing(*context.cycle_time))
                     } else {
                         None
                     }
@@ -213,15 +182,15 @@ impl CalibrationController {
         }
     }
 
-    fn try_transition_to_look_at(&mut self, dispatch_time: CycleTime) -> CalibrationCommand {
-        match self.get_next_look_at() {
-            Some((target, camera)) => CalibrationCommand::LookAt {
-                camera,
-                target,
-                dispatch_time,
-            },
-            None => CalibrationCommand::Process,
-        }
+    fn get_next_look_at_or_processing(&mut self, dispatch_time: CycleTime) -> CalibrationCommand {
+        self.get_next_look_at()
+            .map_or(CalibrationCommand::Process, |(target, camera)| {
+                CalibrationCommand::LookAt {
+                    camera,
+                    target,
+                    dispatch_time,
+                }
+            })
     }
 
     fn get_next_look_at(&mut self) -> Option<(Point2<Ground>, CameraPosition)> {
