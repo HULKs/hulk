@@ -2490,6 +2490,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "approx_derive",
+ "coordinate_systems",
  "linear_algebra",
  "nalgebra",
  "path_serde",

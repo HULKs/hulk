@@ -51,3 +51,33 @@ where
     }
     convex_hull
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use coordinate_systems::Ground;
+    use linear_algebra::point;
+
+    #[test]
+    fn test_convex_hull() {
+        let hexagon = vec![
+            point![-1.0, 0.0],
+            point![-0.5, -0.86],
+            point![0.5, -0.86],
+            point![1.0, 0.0],
+            point![0.5, 0.86],
+            point![-0.5, 0.86],
+        ];
+        let bottom_half_hexagon = vec![
+            point![-1.0, 0.0],
+            point![-0.5, -0.86],
+            point![0.5, -0.86],
+            point![1.0, 0.0],
+        ];
+        assert_eq!(hexagon, reduce_to_convex_hull::<Ground>(&hexagon, false));
+        assert_eq!(
+            bottom_half_hexagon,
+            reduce_to_convex_hull::<Ground>(&hexagon, true)
+        );
+    }
+}
