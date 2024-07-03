@@ -18,12 +18,12 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationController {
-    pub current_look_at_index: usize,
-    pub current_calibration_state: CalibrationState,
-    pub current_measurements: Vec<Measurement>,
-    pub last_calibration_corrections: Option<Corrections>,
-    pub look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
-    pub last_capture_retries: u32,
+    current_look_at_index: usize,
+    current_calibration_state: CalibrationState,
+    current_measurements: Vec<Measurement>,
+    last_calibration_corrections: Option<Corrections>,
+    look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
+    last_capture_retries: u32,
 }
 
 #[context]
@@ -82,7 +82,7 @@ enum CalibrationState {
 }
 
 impl CalibrationState {
-    fn get_calibration_command(&self) -> Option<CalibrationCommand> {
+    fn as_calibration_command(&self) -> Option<CalibrationCommand> {
         match *self {
             CalibrationState::LookAt {
                 target,
@@ -137,7 +137,7 @@ impl CalibrationController {
         Ok(MainOutputs {
             calibration_command: self
                 .current_calibration_state
-                .get_calibration_command()
+                .as_calibration_command()
                 .into(),
         })
     }
