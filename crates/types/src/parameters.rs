@@ -309,6 +309,7 @@ pub struct BallDetectionParameters {
     pub image_containment_merge_factor: f32,
     pub cluster_merge_radius_factor: f32,
     pub ball_radius_enlargement_factor: f32,
+    pub variance_of_detection: Vector2<Pixel>,
 }
 
 #[derive(

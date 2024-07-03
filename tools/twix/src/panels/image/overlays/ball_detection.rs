@@ -5,7 +5,7 @@ use communication::client::{Cycler, CyclerOutput};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use geometry::circle::Circle;
-use types::ball::{Ball, CandidateEvaluation};
+use types::ball::{BallDetection as BallMeasurement, CandidateEvaluation};
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -60,7 +60,7 @@ impl Overlay for BallDetection {
             );
         }
 
-        let balls: Vec<Ball> = self.balls.require_latest()?;
+        let balls: Vec<BallMeasurement> = self.balls.require_latest()?;
         for ball in balls.iter() {
             let circle = ball.image_location;
             painter.circle_stroke(

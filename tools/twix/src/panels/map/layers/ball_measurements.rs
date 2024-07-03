@@ -6,7 +6,7 @@ use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
-use types::{ball::BallMeasurement as BallDetection, field_dimensions::FieldDimensions};
+use types::{ball::BallDetection, field_dimensions::FieldDimensions};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
