@@ -42,7 +42,6 @@ impl FilteredGameControllerStateTimer {
             ),
         })
     }
-
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
 
@@ -56,14 +55,13 @@ impl FilteredGameControllerStateTimer {
                 *change_time = cycle_start_time;
             }
         }
-
+        
         update_state_change(
             context.filtered_game_controller_state.game_state,
             self.last_filtered_game_controller_state.game_state,
             &mut self.filtered_game_controller_state_changes.game_state,
             cycle_start_time,
         );
-
         update_state_change(
             context.filtered_game_controller_state.opponent_game_state,
             self.last_filtered_game_controller_state.opponent_game_state,
@@ -72,21 +70,18 @@ impl FilteredGameControllerStateTimer {
                 .opponent_game_state,
             cycle_start_time,
         );
-
         update_state_change(
             context.filtered_game_controller_state.game_phase,
             self.last_filtered_game_controller_state.game_phase,
             &mut self.filtered_game_controller_state_changes.game_phase,
             cycle_start_time,
         );
-
         update_state_change(
             context.filtered_game_controller_state.kicking_team,
             self.last_filtered_game_controller_state.kicking_team,
             &mut self.filtered_game_controller_state_changes.kicking_team,
             cycle_start_time,
         );
-
         if context.filtered_game_controller_state.penalties
             != self.last_filtered_game_controller_state.penalties
         {
@@ -101,7 +96,6 @@ impl FilteredGameControllerStateTimer {
                     current_penalty
                 }
             }
-
             self.filtered_game_controller_state_changes.penalties = Players {
                 one: update_player_penalty(
                     context.filtered_game_controller_state.penalties.one,
@@ -140,7 +134,6 @@ impl FilteredGameControllerStateTimer {
                 ),
             };
         }
-
         if context.filtered_game_controller_state.sub_state
             != self.last_filtered_game_controller_state.sub_state
         {

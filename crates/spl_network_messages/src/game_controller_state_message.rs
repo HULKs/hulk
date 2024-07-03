@@ -364,7 +364,6 @@ impl SubState {
     PathIntrospect,
     PartialEq,
 )]
-
 pub enum SubState {
     #[default]
     GoalKick,
@@ -483,7 +482,6 @@ impl TryFrom<RobotInfo> for Player {
     PathIntrospect,
     PartialEq,
 )]
-
 pub enum Penalty {
     IllegalBallContact { remaining: Duration },
     PlayerPushing { remaining: Duration },
