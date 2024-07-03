@@ -24,8 +24,8 @@ use types::{
 pub struct RefereePoseDetectionFilter {
     detection_times: Players<Option<SystemTime>>,
     detected_above_arm_poses_queue: VecDeque<bool>,
-    visual_referee_state: VisualRefereeState,
     motion_in_standby_count: usize,
+    visual_referee_state: VisualRefereeState,
 }
 
 #[context]
@@ -78,10 +78,10 @@ impl RefereePoseDetectionFilter {
         Ok(Self {
             visual_referee_state: VisualRefereeState::WaitingForDetections,
             detection_times: Default::default(),
+            motion_in_standby_count: 0,
             detected_above_arm_poses_queue: VecDeque::with_capacity(
                 *context.referee_pose_queue_length,
             ),
-            motion_in_standby_count: 0,
         })
     }
 
