@@ -39,10 +39,9 @@ pub struct CycleContext {
 
     player_number: Parameter<PlayerNumber, "player_number">,
     distance_to_referee_position_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.distance_to_referee_position_threshold">,
-    foot_z_offset: Parameter<f32, "object_detection.$cycler_instance.foot_z_offset">,
-    shoulder_angle_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.shoulder_angle_threshold">,
+        Parameter<f32, "pose_detection.distance_to_referee_position_threshold">,
+    foot_z_offset: Parameter<f32, "pose_detection.foot_z_offset">,
+    shoulder_angle_threshold: Parameter<f32, "pose_detection.shoulder_angle_threshold">,
 
     raw_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "raw_pose_kinds">,
     filtered_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "filtered_pose_kinds">,

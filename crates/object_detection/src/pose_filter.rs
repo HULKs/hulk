@@ -20,11 +20,9 @@ pub struct CycleContext {
     unfiltered_poses: Input<Vec<HumanPose>, "unfiltered_human_poses">,
 
     overall_keypoint_confidence_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.overall_keypoint_confidence_threshold">,
-    visual_referee_keypoint_confidence_threshold: Parameter<
-        f32,
-        "object_detection.$cycler_instance.visual_referee_keypoint_confidence_threshold",
-    >,
+        Parameter<f32, "pose_detection.overall_keypoint_confidence_threshold">,
+    visual_referee_keypoint_confidence_threshold:
+        Parameter<f32, "pose_detection.visual_referee_keypoint_confidence_threshold">,
 }
 
 #[context]

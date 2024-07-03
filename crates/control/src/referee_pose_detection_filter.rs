@@ -28,8 +28,7 @@ pub struct RefereePoseDetectionFilter {
 
 #[context]
 pub struct CreationContext {
-    referee_pose_queue_length:
-        Parameter<usize, "object_detection.object_detection_top.referee_pose_queue_length">,
+    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
 }
 
 #[context]
@@ -51,12 +50,9 @@ pub struct CycleContext {
     player_referee_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
 
-    referee_pose_queue_length:
-        Parameter<usize, "object_detection.object_detection_top.referee_pose_queue_length">,
-    minimum_number_poses_before_message: Parameter<
-        usize,
-        "object_detection.object_detection_top.minimum_number_poses_before_message",
-    >,
+    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
+    minimum_number_poses_before_message:
+        Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
 
     referee_pose_queue: AdditionalOutput<VecDeque<bool>, "referee_pose_queue">,
 }

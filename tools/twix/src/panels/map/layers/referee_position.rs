@@ -23,7 +23,7 @@ impl Layer<Field> for RefereePosition {
             CyclerOutput::from_str("Control.main.expected_referee_position").unwrap(),
         );
         let distance_to_referee_position_threshold = nao.subscribe_parameter(
-            "object_detection.object_detection_top.distance_to_referee_position_threshold",
+            "pose_detection.distance_to_referee_position_threshold",
         );
         Self {
             expected_referee_position,

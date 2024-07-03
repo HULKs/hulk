@@ -1,17 +1,15 @@
 {
-  "object_detection": {
-    "object_detection_top": {
-      "enable": true,
-      "intersection_over_union_threshold": 0.45,
-      "distance_to_referee_position_threshold": 2.0,
-      "bounding_box_confidence_threshold": 0.5,
-      "overall_keypoint_confidence_threshold": 0.7,
-      "visual_referee_keypoint_confidence_threshold": 0.9,
-      "shoulder_angle_threshold": 0.2,
-      "foot_z_offset": 0.05,
-      "referee_pose_queue_length": 8,
-      "minimum_number_poses_before_message": 5
-    }
+  "pose_detection": {
+    "enable": true,
+    "intersection_over_union_threshold": 0.45,
+    "distance_to_referee_position_threshold": 2.0,
+    "bounding_box_confidence_threshold": 0.5,
+    "overall_keypoint_confidence_threshold": 0.7,
+    "visual_referee_keypoint_confidence_threshold": 0.9,
+    "shoulder_angle_threshold": 0.2,
+    "foot_z_offset": 0.05,
+    "referee_pose_queue_length": 8,
+    "minimum_number_poses_before_message": 5
   },
   "feet_detection": {
     "vision_top": {
