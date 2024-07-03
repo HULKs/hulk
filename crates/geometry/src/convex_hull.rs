@@ -18,7 +18,6 @@ where
         .min_by(|a, b| a.x().total_cmp(&b.x()))
         .unwrap();
     let mut convex_hull = vec![];
-    let mut bottom_half_finished = false;
     loop {
         convex_hull.push(point_on_hull);
         let mut candidate_end_point = points[0];
@@ -36,12 +35,8 @@ where
             }
         }
         // begin of modification
-        let has_smaller_x = candidate_end_point.x() < point_on_hull.x();
-        if has_smaller_x && !bottom_half_finished {
-            if only_bottom_half {
-                break;
-            }
-            bottom_half_finished = true
+        if only_bottom_half && candidate_end_point.x() < point_on_hull.x() {
+            break;
         }
         // end of modification
         point_on_hull = candidate_end_point;
