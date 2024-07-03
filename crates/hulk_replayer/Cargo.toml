@@ -21,7 +21,7 @@ energy_optimization = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
-ittapi = {  workspace = true }
+ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 object_detection = { workspace = true }
@@ -44,4 +44,4 @@ hulk_manifest = { workspace = true }
 source_analyzer = { workspace = true }
 
 [features]
-with_detection = []
+with_object_detection = []
