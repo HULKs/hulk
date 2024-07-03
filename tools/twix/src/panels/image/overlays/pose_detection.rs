@@ -45,14 +45,14 @@ impl Overlay for PoseDetection {
         };
         Self {
             filtered_human_poses: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::Control,
-                output: Output::Additional {
+                cycler: Cycler::ObjectDetectionTop,
+                output: Output::Main {
                     path: "filtered_human_poses".to_string(),
                 },
             }),
             unfiltered_human_poses: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::Control,
-                output: Output::Additional {
+                cycler: Cycler::ObjectDetectionTop,
+                output: Output::Main {
                     path: "unfiltered_human_poses".to_string(),
                 },
             }),
