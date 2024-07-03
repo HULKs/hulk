@@ -81,9 +81,9 @@ enum CalibrationState {
     Finish,
 }
 
-impl From<CalibrationState> for Option<CalibrationCommand> {
-    fn from(value: CalibrationState) -> Self {
-        match value {
+impl CalibrationState {
+    fn get_calibration_command(&self) -> Option<CalibrationCommand> {
+        match *self {
             CalibrationState::LookAt {
                 target,
                 camera,
@@ -134,9 +134,11 @@ impl CalibrationController {
             .last_calibration_corrections
             .fill_if_subscribed(|| self.last_calibration_corrections);
 
-        let command: Option<CalibrationCommand> = self.current_calibration_state.clone().into();
         Ok(MainOutputs {
-            calibration_command: command.into(),
+            calibration_command: self
+                .current_calibration_state
+                .get_calibration_command()
+                .into(),
         })
     }
 
