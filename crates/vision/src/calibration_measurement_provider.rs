@@ -100,7 +100,7 @@ fn get_fake_measurement(
     position: CameraPosition,
     field_dimensions: &FieldDimensions,
 ) -> Result<Measurement> {
-    // Minimal length lines representing the 3 lines to make sure they are in the camera's fi
+    // Minimal length lines representing the 3 lines to make sure they are in the camera's FOV
     // otherwise occlusions/ trimmed lines have to be handled
     let border_line = Line(point![2.0, 0.0], point![3.0, 0.0]);
     let goal_box_line = {
