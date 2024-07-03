@@ -6,12 +6,8 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{camera_position::CameraPosition, cycle_time::CycleTime};
 
-#[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub enum CalibrationCommand {
-    #[default]
-    Inactive,
     LookAt {
         target: Point2<Ground>,
         camera: CameraPosition,
@@ -20,7 +16,7 @@ pub enum CalibrationCommand {
     Capture {
         camera: CameraPosition,
         dispatch_time: CycleTime,
-    }
+    },
 }
 
 #[derive(

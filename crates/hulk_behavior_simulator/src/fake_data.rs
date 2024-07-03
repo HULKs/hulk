@@ -67,7 +67,7 @@ pub struct MainOutputs {
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
-    pub calibration_command: MainOutput<CalibrationCommand>,
+    pub calibration_command: MainOutput<Option<CalibrationCommand>>,
 }
 
 impl FakeData {

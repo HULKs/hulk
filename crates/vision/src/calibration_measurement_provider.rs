@@ -29,7 +29,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     image: Input<YCbCr422Image, "image">,
-    calibration_command: Input<CalibrationCommand, "control", "calibration_command">,
+    calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
@@ -46,10 +46,10 @@ impl CalibrationMeasurementProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let calibration_measurement = if let CalibrationCommand::Capture {
+        let calibration_measurement = if let Some(CalibrationCommand::Capture {
             camera,
             dispatch_time,
-        } = context.calibration_command
+        }) = context.calibration_command
         {
             if camera == context.camera_position {
                 let measurement = get_measurement_from_image(

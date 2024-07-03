@@ -58,7 +58,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub calibration_command: MainOutput<CalibrationCommand>,
+    pub calibration_command: MainOutput<Option<CalibrationCommand>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -81,26 +81,26 @@ pub enum InternalCalibrationState {
     Finish,
 }
 
-impl From<InternalCalibrationState> for CalibrationCommand {
+impl From<InternalCalibrationState> for Option<CalibrationCommand> {
     fn from(value: InternalCalibrationState) -> Self {
         match value {
             InternalCalibrationState::LookAt {
                 target,
                 camera,
                 dispatch_time,
-            } => CalibrationCommand::LookAt {
+            } => Some(CalibrationCommand::LookAt {
                 target,
                 camera,
                 dispatch_time,
-            },
+            }),
             InternalCalibrationState::Capture {
                 camera,
                 dispatch_time,
-            } => CalibrationCommand::Capture {
+            } => Some(CalibrationCommand::Capture {
                 camera,
                 dispatch_time,
-            },
-            _ => CalibrationCommand::Inactive,
+            }),
+            _ => None,
         }
     }
 }
@@ -134,7 +134,7 @@ impl CalibrationController {
             .last_calibration_corrections
             .fill_if_subscribed(|| self.last_calibration_corrections);
 
-        let command: CalibrationCommand = self.current_calibration_state.clone().into();
+        let command: Option<CalibrationCommand> = self.current_calibration_state.clone().into();
         Ok(MainOutputs {
             calibration_command: command.into(),
         })

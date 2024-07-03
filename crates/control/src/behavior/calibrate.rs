@@ -9,7 +9,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Calibration => {
             let head_motion = match world_state.calibration_command {
-                CalibrationCommand::LookAt { target, camera, .. } => HeadMotion::LookAt {
+                Some(CalibrationCommand::LookAt { target, camera, .. }) => HeadMotion::LookAt {
                     target,
                     camera: Some(camera),
                     image_region_target: ImageRegion::Bottom,
