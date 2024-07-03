@@ -28,7 +28,7 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    is_referee_ready_pose_detected: Input<bool, "majority_vote_is_referee_ready_pose_detected">,
+    visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -62,7 +62,7 @@ impl GameControllerStateFilter {
             context.game_controller_state,
             context.filtered_whistle,
             context.cycle_time,
-            *context.is_referee_ready_pose_detected,
+            *context.visual_referee_proceed_to_ready,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -97,7 +97,7 @@ impl GameControllerStateFilter {
         game_controller_state: &GameControllerState,
         filtered_whistle: &FilteredWhistle,
         cycle_time: &CycleTime,
-        is_referee_ready_pose_detected: bool,
+        visual_referee_proceed_to_ready: bool,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
             ground_to_field,
@@ -112,7 +112,7 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             config,
             ball_detected_far_from_any_goal,
-            is_referee_ready_pose_detected,
+            visual_referee_proceed_to_ready,
         );
         self.opponent_state = next_filtered_state(
             self.opponent_state,
@@ -121,7 +121,7 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             config,
             ball_detected_far_from_any_goal,
-            is_referee_ready_pose_detected,
+            visual_referee_proceed_to_ready,
         );
 
         if let State::WhistleInSet { .. } = self.state {
@@ -148,7 +148,7 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             config,
-            is_referee_ready_pose_detected,
+            visual_referee_proceed_to_ready,
         );
 
         let filtered_opponent_game_state =
@@ -157,7 +157,7 @@ impl GameControllerStateFilter {
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
                 config,
-                is_referee_ready_pose_detected,
+                visual_referee_proceed_to_ready,
             );
 
         FilteredGameStates {
@@ -180,7 +180,7 @@ fn next_filtered_state(
     cycle_start_time: SystemTime,
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
-    is_referee_ready_pose_detected: bool,
+    visual_referee_proceed_to_ready: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
         (State::Finished, GameState::Initial) => State::Initial,
@@ -213,7 +213,7 @@ fn next_filtered_state(
             time_when_finished_clicked: cycle_start_time,
         },
         (State::Standby, GameState::Standby) => {
-            if is_referee_ready_pose_detected {
+            if visual_referee_proceed_to_ready {
                 State::Ready
             } else {
                 State::Standby
@@ -362,7 +362,7 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
-        is_referee_ready_pose_detected: bool,
+        visual_referee_proceed_to_ready: bool,
     ) -> FilteredGameState {
         let opponent_is_kicking_team = matches!(
             game_controller_state.kicking_team,
@@ -374,7 +374,7 @@ impl State {
             cycle_start_time,
             ball_detected_far_from_kick_off_point,
             config,
-            is_referee_ready_pose_detected,
+            visual_referee_proceed_to_ready,
         )
     }
 
@@ -384,7 +384,7 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
-        is_referee_ready_pose_detected: bool,
+        visual_referee_proceed_to_ready: bool,
     ) -> FilteredGameState {
         let hulks_is_kicking_team = matches!(game_controller_state.kicking_team, Team::Hulks);
         self.construct_filtered_game_state(
@@ -393,7 +393,7 @@ impl State {
             cycle_start_time,
             ball_detected_far_from_kick_off_point,
             config,
-            is_referee_ready_pose_detected,
+            visual_referee_proceed_to_ready,
         )
     }
 
@@ -404,14 +404,14 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
-        is_referee_ready_pose_detected: bool,
+        visual_referee_proceed_to_ready: bool,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
 
         match self {
             State::Initial => FilteredGameState::Initial,
             State::Standby => {
-                if is_referee_ready_pose_detected {
+                if visual_referee_proceed_to_ready {
                     FilteredGameState::Ready {
                         kicking_team: game_controller_state.kicking_team,
                     }

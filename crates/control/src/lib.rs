@@ -29,6 +29,7 @@ pub mod referee_pose_detection_filter;
 pub mod referee_position_provider;
 pub mod role_assignment;
 pub mod rule_obstacle_composer;
+pub mod sacrificial_lamb;
 pub mod search_suggestor;
 pub mod sensor_data_receiver;
 pub mod sole_pressure_filter;
