@@ -55,7 +55,7 @@ impl FilteredGameControllerStateTimer {
                 *change_time = cycle_start_time;
             }
         }
-        
+
         update_state_change(
             context.filtered_game_controller_state.game_state,
             self.last_filtered_game_controller_state.game_state,
