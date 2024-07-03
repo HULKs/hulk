@@ -68,7 +68,7 @@ function on_cycle()
                 },
             }
         };
-        set_robot_pose(2, { -3.2, 3 }, -1.5707963267948966);
+        set_robot_pose(2, { -3.1, 3 }, -1.5707963267948966);
     end
 
     if state.cycle_count == 3550 then
@@ -85,16 +85,10 @@ function on_cycle()
         }
     end
 
-    if state.cycle_count == 3500 then
-        unpenalize(2);
-        state.game_controller_state.penalties.two = nil;
-    end
-
     if state.cycle_count == 4500 then
         unpenalize(1);
         state.game_controller_state.penalties.one = nil;
     end
-
 
     if state.cycle_count == 8000 then
         state.finished = true
