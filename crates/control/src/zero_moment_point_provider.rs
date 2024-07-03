@@ -110,14 +110,14 @@ impl ZeroMomentPointProvider {
             point![-0.054657, 0.029814, 0.0],
         ];
 
-        let sole_in_ground = left_outline
+        let soles_in_ground = left_outline
             .into_iter()
             .map(|point| (left_sole_to_ground * point).xy())
             .chain(left_outline.into_iter().map(|point| {
                 (right_sole_to_ground * point![point.x(), -point.y(), point.z()]).xy()
             }))
             .collect::<Vec<_>>();
-        let convex_hull = reduce_to_convex_hull(&sole_in_ground, false);
+        let convex_hull = reduce_to_convex_hull(&soles_in_ground, false);
 
         if is_inside_polygon(&convex_hull, &zero_moment_point) {
             self.number_of_consecutive_cycles_zero_moment_point_outside_support_polygon = 0;
