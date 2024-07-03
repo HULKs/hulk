@@ -1,16 +1,22 @@
 use std::{
     collections::{BTreeMap, VecDeque},
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
 use color_eyre::Result;
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
+use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::PlayerNumber;
+use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
-    cycle_time::CycleTime, fall_state::FallState, messages::IncomingMessage, players::Players,
+    cycle_time::CycleTime,
+    messages::{IncomingMessage, OutgoingMessage},
+    players::Players,
+    pose_detection::VisualRefereeState,
     pose_kinds::PoseKind,
 };
 
@@ -18,6 +24,8 @@ use types::{
 pub struct RefereePoseDetectionFilter {
     detection_times: Players<Option<SystemTime>>,
     detected_above_arm_poses_queue: VecDeque<bool>,
+    motion_in_standby_count: usize,
+    visual_referee_state: VisualRefereeState,
 }
 
 #[context]
@@ -32,11 +40,11 @@ pub struct CycleContext {
 
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
-    network_message: PerceptionInput<IncomingMessage, "SplNetwork", "message">,
     detected_referee_pose_kind:
         PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "detected_referee_pose_kind?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
-    fall_state: Input<FallState, "fall_state">,
 
     initial_message_grace_period:
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
@@ -68,7 +76,9 @@ pub struct MainOutputs {
 impl RefereePoseDetectionFilter {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
+            visual_referee_state: VisualRefereeState::WaitingForDetections,
             detection_times: Default::default(),
+            motion_in_standby_count: 0,
             detected_above_arm_poses_queue: VecDeque::with_capacity(
                 *context.referee_pose_queue_length,
             ),
@@ -82,7 +92,7 @@ impl RefereePoseDetectionFilter {
         let cycle_start_time = context.cycle_time.start_time;
 
         let (is_referee_ready_pose_detected, did_detect_any_referee_this_cycle) =
-            self.update(&context);
+            self.update(&context)?;
 
         let majority_vote_is_referee_ready_pose_detected = decide(
             self.detection_times,
@@ -107,10 +117,17 @@ impl RefereePoseDetectionFilter {
         })
     }
 
-    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> (bool, bool) {
+    fn update(&mut self, context: &CycleContext<impl NetworkInterface>) -> Result<(bool, bool)> {
+        let time_tagged_persistent_messages =
+            unpack_message_tree(&context.network_message.persistent);
+
+        for (time, message) in time_tagged_persistent_messages {
+            if message.is_referee_ready_signal_detected {
+                self.detection_times[message.player_number] = Some(time);
+            }
+        }
         let own_detected_pose_times =
             unpack_own_detection_tree(&context.detected_referee_pose_kind.persistent);
-
         let mut did_detect_any_referee_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
@@ -132,12 +149,18 @@ impl RefereePoseDetectionFilter {
 
         if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
             self.detection_times[*context.player_number] = Some(context.cycle_time.start_time);
+
+            send_own_detection_message(
+                context.hardware_interface.clone(),
+                *context.player_number,
+                *context.time_to_reach_kick_position,
+            )?;
         }
 
-        (
+        Ok((
             detected_referee_pose_count >= *context.minimum_number_poses_before_message,
             did_detect_any_referee_this_cycle,
-        )
+        ))
     }
 }
 
@@ -172,6 +195,19 @@ fn is_in_grace_period(
         < grace_period
 }
 
+fn unpack_message_tree(
+    message_tree: &BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
+) -> BTreeMap<SystemTime, HulkMessage> {
+    message_tree
+        .iter()
+        .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
+        .filter_map(|(time, message)| match message {
+            Some(IncomingMessage::Spl(message)) => Some((time, *message)),
+            _ => None,
+        })
+        .collect()
+}
+
 fn unpack_own_detection_tree(
     pose_kind_tree: &BTreeMap<SystemTime, Vec<Option<&PoseKind>>>,
 ) -> BTreeMap<SystemTime, Option<PoseKind>> {
@@ -183,4 +219,18 @@ fn unpack_own_detection_tree(
                 .map(|&pose_kind| (*time, pose_kind.cloned()))
         })
         .collect()
+}
+
+fn send_own_detection_message<T: NetworkInterface>(
+    hardware_interface: Arc<T>,
+    player_number: PlayerNumber,
+    time_to_reach_kick_position: Duration,
+) -> Result<()> {
+    hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage {
+        player_number,
+        pose: Isometry2::<Ground, Field>::default().as_pose(),
+        is_referee_ready_signal_detected: true,
+        ball_position: None,
+        time_to_reach_kick_position: Some(time_to_reach_kick_position),
+    }))
 }

@@ -55,6 +55,7 @@ pub struct MainOutputs {
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
     pub majority_vote_is_referee_ready_pose_detected: MainOutput<bool>,
+    pub visual_referee_proceed_to_ready: MainOutput<bool>,
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
     pub is_localization_converged: MainOutput<bool>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
@@ -89,6 +90,7 @@ impl FakeData {
             majority_vote_is_referee_ready_pose_detected: last_database
                 .majority_vote_is_referee_ready_pose_detected
                 .into(),
+            visual_referee_proceed_to_ready: last_database.visual_referee_proceed_to_ready.into(),
             hypothetical_ball_positions: last_database.hypothetical_ball_positions.clone().into(),
             is_localization_converged: last_database.is_localization_converged.into(),
             obstacles: last_database.obstacles.clone().into(),
