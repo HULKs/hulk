@@ -4,16 +4,18 @@ use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
 use eframe::egui::{ComboBox, Response, SizeHint, TextureOptions, Ui, Widget};
 use geometry::rectangle::Rectangle;
+use linear_algebra::{point, vector};
 use log::error;
-use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 
 use communication::client::{Cycler, CyclerOutput, Output};
-use linear_algebra::{point, vector, IntoTransform};
 
 use crate::{
-    image_buffer::ImageBuffer, nao::Nao, panel::Panel, twix_painter::TwixPainter,
+    image_buffer::ImageBuffer,
+    nao::Nao,
+    panel::Panel,
+    twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
 
@@ -150,14 +152,18 @@ impl Widget for &mut ImagePanel {
             self.overlays
                 .combo_box(ui, self.cycler_selector.selected_cycler());
         });
-        let (response, painter) = TwixPainter::allocate_new(ui);
-        let mut painter = painter.with_camera(vector![640.0, 480.0], Similarity2::identity());
-        painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
+        let (response, mut painter) = TwixPainter::allocate(
+            ui,
+            vector![640.0, 480.0],
+            point![0.0, 0.0],
+            Orientation::LeftHanded,
+        );
+        self.zoom_and_pan.apply(ui, &mut painter, &response);
+
         let _ = self
             .show_image(&painter)
             .map_err(|error| ui.label(format!("{error:#?}")));
         let _ = self.overlays.paint(&painter);
-        self.zoom_and_pan.apply(ui, &mut painter, &response);
         response
     }
 }

@@ -4,13 +4,16 @@ use color_eyre::Result;
 use communication::client::CyclerOutput;
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
-use linear_algebra::{IntoTransform, Isometry2};
+use linear_algebra::{point, vector, Isometry2};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_value, json, Value};
 use types::{self, field_dimensions::FieldDimensions};
 
 use crate::{
-    nao::Nao, panel::Panel, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao,
+    panel::Panel,
+    twix_painter::{Orientation, TwixPainter},
+    value_buffer::ValueBuffer,
     zoom_and_pan::ZoomAndPanTransform,
 };
 
@@ -204,19 +207,31 @@ impl Widget for &mut MapPanel {
             self.ground_to_field.parse_latest().unwrap_or_default();
         let (response, mut painter) = match self.current_plot_type {
             PlotType::Field => {
-                let (response, painter) = TwixPainter::allocate_new(ui);
-                let mut painter = painter.with_map_transforms(&field_dimensions);
-                painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
-                (response, painter)
+                let width = field_dimensions.width;
+                let length = field_dimensions.length;
+                let border = field_dimensions.border_strip_width;
+
+                TwixPainter::allocate(
+                    ui,
+                    vector![2.0 * border + length, 2.0 * border + width],
+                    point![
+                        border + field_dimensions.length / 2.0,
+                        -border - field_dimensions.width / 2.0
+                    ],
+                    Orientation::RightHanded,
+                )
             }
             PlotType::Ground => {
-                let (response, painter) = TwixPainter::allocate_new(ui);
-                let mut painter = painter.with_ground_transforms();
-                painter.append_transform(self.zoom_and_pan.transformation.framed_transform());
-
+                let (response, painter) = TwixPainter::allocate(
+                    ui,
+                    vector![2.0, 2.0],
+                    point![-1.0, -1.0],
+                    Orientation::RightHanded,
+                );
                 (response, painter.transform_painter(ground_to_field))
             }
         };
+        self.zoom_and_pan.apply(ui, &mut painter, &response);
 
         // draw largest layers first so they don't obscure smaller ones
         let _ = self
@@ -274,7 +289,6 @@ impl Widget for &mut MapPanel {
             .walking
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
-        self.zoom_and_pan.apply(ui, &mut painter, &response);
         response
     }
 }
