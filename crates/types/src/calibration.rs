@@ -12,9 +12,6 @@ use crate::{camera_position::CameraPosition, cycle_time::CycleTime};
 pub enum CalibrationCommand {
     #[default]
     Inactive,
-    Initialize {
-        started_time: CycleTime,
-    },
     LookAt {
         target: Point2<Ground>,
         camera: CameraPosition,
@@ -23,9 +20,7 @@ pub enum CalibrationCommand {
     Capture {
         camera: CameraPosition,
         dispatch_time: CycleTime,
-    },
-    Process,
-    Finish,
+    }
 }
 
 #[derive(

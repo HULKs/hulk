@@ -19,7 +19,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationController {
     pub current_look_at_index: usize,
-    pub current_calibration_command: CalibrationCommand,
+    pub current_calibration_state: InternalCalibrationState,
     pub current_measurements: Vec<Measurement>,
     pub last_calibration_corrections: Option<Corrections>,
     pub look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
@@ -61,10 +61,54 @@ pub struct MainOutputs {
     pub calibration_command: MainOutput<CalibrationCommand>,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub enum InternalCalibrationState {
+    #[default]
+    Inactive,
+    Initialize {
+        started_time: CycleTime,
+    },
+    LookAt {
+        target: Point2<Ground>,
+        camera: CameraPosition,
+        dispatch_time: CycleTime,
+    },
+    Capture {
+        camera: CameraPosition,
+        dispatch_time: CycleTime,
+    },
+    Process,
+    Finish,
+}
+
+impl From<InternalCalibrationState> for CalibrationCommand {
+    fn from(value: InternalCalibrationState) -> Self {
+        match value {
+            InternalCalibrationState::LookAt {
+                target,
+                camera,
+                dispatch_time,
+            } => CalibrationCommand::LookAt {
+                target,
+                camera,
+                dispatch_time,
+            },
+            InternalCalibrationState::Capture {
+                camera,
+                dispatch_time,
+            } => CalibrationCommand::Capture {
+                camera,
+                dispatch_time,
+            },
+            _ => CalibrationCommand::Inactive,
+        }
+    }
+}
+
 impl CalibrationController {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            current_calibration_command: CalibrationCommand::default(),
+            current_calibration_state: InternalCalibrationState::default(),
             look_at_list: generate_look_at_list(),
             current_look_at_index: 0,
             current_measurements: vec![],
@@ -75,12 +119,12 @@ impl CalibrationController {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         if *context.primary_state != PrimaryState::Calibration {
-            self.current_calibration_command = CalibrationCommand::Inactive;
+            self.current_calibration_state = InternalCalibrationState::Inactive;
             return Ok(MainOutputs::default());
         }
 
-        if let Some(new_command) = self.get_next_command(&context) {
-            self.current_calibration_command = new_command;
+        if let Some(new_state) = self.get_next_state(&context) {
+            self.current_calibration_state = new_state;
         }
 
         context
@@ -89,23 +133,25 @@ impl CalibrationController {
         context
             .last_calibration_corrections
             .fill_if_subscribed(|| self.last_calibration_corrections);
+
+        let command: CalibrationCommand = self.current_calibration_state.clone().into();
         Ok(MainOutputs {
-            calibration_command: self.current_calibration_command.clone().into(),
+            calibration_command: command.into(),
         })
     }
 
-    fn get_next_command(&mut self, context: &CycleContext) -> Option<CalibrationCommand> {
+    fn get_next_state(&mut self, context: &CycleContext) -> Option<InternalCalibrationState> {
         let look_at_dispatch_waiting = *context.look_at_dispatch_wait_duration;
         let initial_stabilization_delay = *context.initial_to_calibration_stabilization_delay;
         let current_cycle_time = context.cycle_time;
-        match self.current_calibration_command {
-            CalibrationCommand::Inactive => {
+        match self.current_calibration_state {
+            InternalCalibrationState::Inactive => {
                 self.current_measurements = vec![];
-                Some(CalibrationCommand::Initialize {
+                Some(InternalCalibrationState::Initialize {
                     started_time: *current_cycle_time,
                 })
             }
-            CalibrationCommand::Initialize {
+            InternalCalibrationState::Initialize {
                 started_time: activated_time,
             } => {
                 let waiting_duration = current_cycle_time
@@ -119,7 +165,7 @@ impl CalibrationController {
                     None
                 }
             }
-            CalibrationCommand::LookAt {
+            InternalCalibrationState::LookAt {
                 dispatch_time,
                 camera,
                 ..
@@ -131,7 +177,7 @@ impl CalibrationController {
 
                 if time_diff > look_at_dispatch_waiting {
                     self.last_capture_retries = 0;
-                    Some(CalibrationCommand::Capture {
+                    Some(InternalCalibrationState::Capture {
                         camera,
                         dispatch_time: *current_cycle_time,
                     })
@@ -139,7 +185,7 @@ impl CalibrationController {
                     None
                 }
             }
-            CalibrationCommand::Capture {
+            InternalCalibrationState::Capture {
                 dispatch_time,
                 camera,
             } => {
@@ -166,7 +212,7 @@ impl CalibrationController {
                     }
                 })
             }
-            CalibrationCommand::Process => {
+            InternalCalibrationState::Process => {
                 // TODO Handle not enough measurements
 
                 let solved_result = solve(
@@ -176,16 +222,19 @@ impl CalibrationController {
                 );
 
                 self.last_calibration_corrections = Some(solved_result);
-                Some(CalibrationCommand::Finish)
+                Some(InternalCalibrationState::Finish)
             }
-            CalibrationCommand::Finish => None,
+            InternalCalibrationState::Finish => None,
         }
     }
 
-    fn get_next_look_at_or_processing(&mut self, dispatch_time: CycleTime) -> CalibrationCommand {
+    fn get_next_look_at_or_processing(
+        &mut self,
+        dispatch_time: CycleTime,
+    ) -> InternalCalibrationState {
         self.get_next_look_at()
-            .map_or(CalibrationCommand::Process, |(target, camera)| {
-                CalibrationCommand::LookAt {
+            .map_or(InternalCalibrationState::Process, |(target, camera)| {
+                InternalCalibrationState::LookAt {
                     camera,
                     target,
                     dispatch_time,
