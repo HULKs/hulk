@@ -17,6 +17,7 @@ pub trait Overlay {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self;
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()>;
+    fn config_ui(&mut self, _ui: &mut Ui) {}
 }
 
 pub struct EnabledOverlay<T>
@@ -64,6 +65,9 @@ where
                 (false, true) => self.overlay = None,
                 _ => {}
             }
+        }
+        if let Some(overlay) = self.overlay.as_mut() {
+            overlay.config_ui(ui);
         }
     }
 

@@ -34,6 +34,7 @@ const POSE_SKELETON: [(usize, usize); 16] = [
 pub struct PoseDetection {
     filtered_human_poses: ValueBuffer,
     unfiltered_human_poses: ValueBuffer,
+    paint_unfiltered_poses: bool,
 }
 
 impl Overlay for PoseDetection {
@@ -56,6 +57,7 @@ impl Overlay for PoseDetection {
                     path: "unfiltered_human_poses".to_string(),
                 },
             }),
+            paint_unfiltered_poses: false,
         }
     }
 
@@ -64,32 +66,47 @@ impl Overlay for PoseDetection {
             self.unfiltered_human_poses.require_latest()?;
         let filtered_human_poses: Vec<HumanPose> = self.filtered_human_poses.require_latest()?;
 
-        paint_poses(painter, unfiltered_human_poses, Color32::GRAY)?;
-        paint_poses(painter, filtered_human_poses, Color32::BLUE)?;
+        if self.paint_unfiltered_poses {
+            paint_poses(
+                painter,
+                unfiltered_human_poses,
+                Color32::LIGHT_RED,
+                Color32::RED,
+                Color32::WHITE,
+                Align2::RIGHT_BOTTOM,
+            )?;
+        } else {
+            paint_poses(
+                painter,
+                filtered_human_poses,
+                Color32::BLUE,
+                Color32::DARK_BLUE,
+                Color32::WHITE,
+                Align2::RIGHT_BOTTOM,
+            )?;
+        }
 
         Ok(())
+    }
+
+    fn config_ui(&mut self, ui: &mut eframe::egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+            ui.checkbox(&mut self.paint_unfiltered_poses, "Unfiltered Poses");
+        });
     }
 }
 
 fn paint_poses(
     painter: &crate::twix_painter::TwixPainter<Pixel>,
     poses: Vec<HumanPose>,
-    draw_color: Color32,
+    line_color: Color32,
+    point_color: Color32,
+    text_color: Color32,
+    align: Align2,
 ) -> Result<()> {
     for pose in poses {
         let keypoints: [Keypoint; 17] = pose.keypoints.into();
-        // draw keypoints
-        for keypoint in keypoints.iter() {
-            painter.circle_stroke(keypoint.point, 5.0, Stroke::new(2.0, Color32::BLUE));
-
-            painter.floating_text(
-                keypoint.point,
-                Align2::LEFT_TOP,
-                format!("{:.2}", keypoint.confidence),
-                FontId::default(),
-                Color32::WHITE,
-            );
-        }
 
         // draw skeleton
         for (idx1, idx2) in POSE_SKELETON {
@@ -98,8 +115,20 @@ fn paint_poses(
             painter.line_segment(
                 keypoint1.point,
                 keypoint2.point,
-                Stroke::new(2.0, draw_color),
+                Stroke::new(2.0, line_color),
             )
+        }
+
+        // draw keypoints
+        for keypoint in keypoints.iter() {
+            painter.floating_text(
+                keypoint.point,
+                align,
+                format!("{:.2}", keypoint.confidence),
+                FontId::default(),
+                text_color,
+            );
+            painter.circle_filled(keypoint.point, 2.0, point_color);
         }
 
         // draw bounding box
@@ -107,14 +136,14 @@ fn paint_poses(
         painter.rect_stroke(
             bounding_box.area.min,
             bounding_box.area.max,
-            Stroke::new(2.0, draw_color),
+            Stroke::new(2.0, line_color),
         );
         painter.floating_text(
             bounding_box.area.min,
-            Align2::RIGHT_TOP,
+            align,
             format!("{:.2}", bounding_box.confidence),
             FontId::default(),
-            Color32::WHITE,
+            text_color,
         );
     }
     Ok(())
