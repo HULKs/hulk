@@ -174,7 +174,7 @@ impl Localization {
             }
             (
                 _,
-                PrimaryState::Set,
+                PrimaryState::Set | PrimaryState::Playing,
                 Some(GamePhase::PenaltyShootout {
                     kicking_team: Team::Opponent,
                 }),
