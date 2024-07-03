@@ -1,10 +1,12 @@
 use linear_algebra::Point2;
 use nalgebra::Matrix2;
 
-pub fn reduce_to_convex_hull<Frame>(
-    points: &[Point2<Frame>],
-    only_bottom_half: bool,
-) -> Vec<Point2<Frame>>
+pub enum Range {
+    Full,
+    OnlyBottomHalf,
+}
+
+pub fn reduce_to_convex_hull<Frame>(points: &[Point2<Frame>], range: Range) -> Vec<Point2<Frame>>
 where
     Frame: Copy,
 {
@@ -35,7 +37,7 @@ where
             }
         }
         // begin of modification
-        if only_bottom_half && candidate_end_point.x() < point_on_hull.x() {
+        if matches!(range, Range::OnlyBottomHalf) && candidate_end_point.x() < point_on_hull.x() {
             break;
         }
         // end of modification
@@ -69,10 +71,13 @@ mod test {
             point![0.5, -0.86],
             point![1.0, 0.0],
         ];
-        assert_eq!(hexagon, reduce_to_convex_hull::<Ground>(&hexagon, false));
+        assert_eq!(
+            hexagon,
+            reduce_to_convex_hull::<Ground>(&hexagon, Range::Full)
+        );
         assert_eq!(
             bottom_half_hexagon,
-            reduce_to_convex_hull::<Ground>(&hexagon, true)
+            reduce_to_convex_hull::<Ground>(&hexagon, Range::OnlyBottomHalf)
         );
     }
 }
