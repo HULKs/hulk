@@ -117,14 +117,14 @@ impl ZeroMomentPointProvider {
                 (right_sole_to_ground * point![point.x(), -point.y(), point.z()]).xy()
             }))
             .collect::<Vec<_>>();
-        let convex_hull = reduce_to_convex_hull(&soles_in_ground, false);
+        let soles_in_ground_hull = reduce_to_convex_hull(&soles_in_ground, false);
 
-        if is_inside_polygon(&convex_hull, &zero_moment_point) {
+        if is_inside_polygon(&soles_in_ground_hull, &zero_moment_point) {
             self.number_of_consecutive_cycles_zero_moment_point_outside_support_polygon = 0;
         } else {
             self.number_of_consecutive_cycles_zero_moment_point_outside_support_polygon += 1;
         }
-        if is_inside_polygon(&convex_hull, &center_of_mass_in_ground.xy()) {
+        if is_inside_polygon(&soles_in_ground_hull, &center_of_mass_in_ground.xy()) {
             self.number_of_consecutive_cycles_center_of_mass_outside_support_polygon = 0;
         } else {
             self.number_of_consecutive_cycles_center_of_mass_outside_support_polygon += 1;
