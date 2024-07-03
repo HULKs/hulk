@@ -11,8 +11,8 @@ use types::{robot_kinematics::RobotKinematics, sensor_data::SensorData};
 #[derive(Deserialize, Serialize)]
 pub struct ZeroMomentPointProvider {
     linear_acceleration_filter: LowPassFilter<Vector3<Robot>>,
-    number_of_frames_zero_moment_point_has_been_outside_support_polygon: i32,
-    number_of_frames_center_of_mass_has_been_outside_support_polygon: i32,
+    number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: i32,
+    number_of_consecutive_cycles_center_of_mass_outside_support_polygon: i32,
 }
 #[context]
 pub struct CreationContext {
@@ -30,15 +30,17 @@ pub struct CycleContext {
 
     gravity_acceleration: Parameter<f32, "physical_constants.gravity_acceleration">,
 
-    number_of_frames_center_of_mass_has_been_outside_support_polygon:
-        AdditionalOutput<i32, "number_of_frames_center_of_mass_has_been_outside_support_polygon">,
+    number_of_consecutive_cycles_center_of_mass_outside_support_polygon: AdditionalOutput<
+        i32,
+        "number_of_consecutive_cycles_center_of_mass_outside_support_polygon",
+    >,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub zero_moment_point: MainOutput<Point2<Ground>>,
-    pub number_of_frames_zero_moment_point_has_been_outside_support_polygon: MainOutput<i32>,
+    pub number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: MainOutput<i32>,
 }
 
 impl ZeroMomentPointProvider {
@@ -48,8 +50,8 @@ impl ZeroMomentPointProvider {
                 Vector3::zeros(),
                 *context.linear_acceleration_low_pass_factor,
             ),
-            number_of_frames_zero_moment_point_has_been_outside_support_polygon: 0,
-            number_of_frames_center_of_mass_has_been_outside_support_polygon: 0,
+            number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: 0,
+            number_of_consecutive_cycles_center_of_mass_outside_support_polygon: 0,
         })
     }
 
@@ -118,26 +120,26 @@ impl ZeroMomentPointProvider {
         let convex_hull = reduce_to_convex_hull(&sole_in_ground, false);
 
         if is_inside_polygon(&convex_hull, &zero_moment_point) {
-            self.number_of_frames_zero_moment_point_has_been_outside_support_polygon = 0;
+            self.number_of_consecutive_cycles_zero_moment_point_outside_support_polygon = 0;
         } else {
-            self.number_of_frames_zero_moment_point_has_been_outside_support_polygon += 1;
+            self.number_of_consecutive_cycles_zero_moment_point_outside_support_polygon += 1;
         }
         if is_inside_polygon(&convex_hull, &center_of_mass_in_ground.xy()) {
-            self.number_of_frames_center_of_mass_has_been_outside_support_polygon = 0;
+            self.number_of_consecutive_cycles_center_of_mass_outside_support_polygon = 0;
         } else {
-            self.number_of_frames_center_of_mass_has_been_outside_support_polygon += 1;
+            self.number_of_consecutive_cycles_center_of_mass_outside_support_polygon += 1;
         }
 
         context
-            .number_of_frames_center_of_mass_has_been_outside_support_polygon
+            .number_of_consecutive_cycles_center_of_mass_outside_support_polygon
             .fill_if_subscribed(|| {
-                self.number_of_frames_center_of_mass_has_been_outside_support_polygon
+                self.number_of_consecutive_cycles_center_of_mass_outside_support_polygon
             });
 
         Ok(MainOutputs {
             zero_moment_point: zero_moment_point.into(),
-            number_of_frames_zero_moment_point_has_been_outside_support_polygon: self
-                .number_of_frames_zero_moment_point_has_been_outside_support_polygon
+            number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: self
+                .number_of_consecutive_cycles_zero_moment_point_outside_support_polygon
                 .into(),
         })
     }

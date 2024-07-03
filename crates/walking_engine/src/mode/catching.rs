@@ -71,7 +71,7 @@ impl Catching {
         if context.robot_to_ground.is_none() {
             return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
         }
-        if *context.number_of_frames_zero_moment_point_has_been_outside_support_polygon
+        if *context.number_of_consecutive_cycles_zero_moment_point_outside_support_polygon
             <= context
                 .parameters
                 .catching_steps

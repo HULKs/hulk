@@ -40,7 +40,7 @@ pub struct Context<'a> {
     pub cycle_time: &'a CycleTime,
     pub center_of_mass: &'a Point3<Robot>,
     pub zero_moment_point: &'a Point2<Ground>,
-    pub number_of_frames_zero_moment_point_has_been_outside_support_polygon: &'a i32,
+    pub number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: &'a i32,
     pub sensor_data: &'a SensorData,
     pub robot_to_ground: Option<&'a Isometry3<Robot, Ground>>,
     pub gyro: nalgebra::Vector3<f32>,
