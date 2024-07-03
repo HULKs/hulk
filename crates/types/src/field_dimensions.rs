@@ -96,7 +96,6 @@ impl FieldDimensions {
         let unsigned_y = self.goal_box_area_width / 2.0;
         point![unsigned_x * half.sign(), unsigned_y * side.sign()]
     }
-
     pub fn center(&self) -> Point2<Field> {
         Point2::origin()
     }

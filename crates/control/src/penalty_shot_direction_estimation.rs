@@ -1,9 +1,9 @@
 use ball_filter::BallPosition;
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Ground;
+use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
-use linear_algebra::{point, Point2};
+use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
@@ -32,6 +32,7 @@ pub struct CycleContext {
     filtered_game_controller_state:
         RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
+    ground_to_field: RequiredInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
 }
 
 #[context]
@@ -63,10 +64,14 @@ impl PenaltyShotDirectionEstimation {
             }
             (PrimaryState::Playing, GamePhase::PenaltyShootout { .. }, ..)
             | (PrimaryState::Playing, _, Some(SubState::PenaltyKick), Team::Opponent) => {
-                let penalty_marker_position =
-                    point!(context.field_dimensions.penalty_marker_distance, 0.0);
-                let reference_position =
-                    self.placed_ball_position.unwrap_or(penalty_marker_position);
+                let penalty_marker_position_in_ground = context.ground_to_field.inverse()
+                    * FieldDimensions::penalty_spot(
+                        context.field_dimensions,
+                        types::field_dimensions::Half::Own,
+                    );
+                let reference_position = self
+                    .placed_ball_position
+                    .unwrap_or(penalty_marker_position_in_ground);
                 let side_jump_threshold = (context.moving_distance_threshold
                     * (context.minimum_robot_radius_at_foot_height
                         + context.field_dimensions.ball_radius))
