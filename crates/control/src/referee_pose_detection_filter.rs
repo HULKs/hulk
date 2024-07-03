@@ -226,11 +226,11 @@ fn send_own_detection_message<T: NetworkInterface>(
     player_number: PlayerNumber,
     time_to_reach_kick_position: Duration,
 ) -> Result<()> {
-    hardware_interface.write_to_network(dbg!(OutgoingMessage::Spl(HulkMessage {
+    hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage {
         player_number,
         pose: Isometry2::<Ground, Field>::default().as_pose(),
         is_referee_ready_signal_detected: true,
         ball_position: None,
         time_to_reach_kick_position: Some(time_to_reach_kick_position),
-    })))
+    }))
 }
