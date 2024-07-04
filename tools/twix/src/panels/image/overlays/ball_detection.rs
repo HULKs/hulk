@@ -2,7 +2,7 @@ use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use geometry::circle::Circle;
-use types::ball::{BallPercept, CandidateEvaluation};
+use types::ball_detection::{BallPercept, CandidateEvaluation};
 
 use crate::{
     panels::image::{cycler_selector::VisionCycler, overlay::Overlay},

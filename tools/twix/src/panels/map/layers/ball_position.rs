@@ -13,7 +13,7 @@ use crate::{
 
 pub struct BallPosition {
     ground_to_field: BufferHandle<Option<Isometry2<Ground, Field>>>,
-    ball_position: BufferHandle<Option<ball_filter::BallPosition<Ground>>>,
+    ball_position: BufferHandle<Option<types::ball_position::BallPosition<Ground>>>,
 }
 
 impl Layer<Field> for BallPosition {

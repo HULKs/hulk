@@ -1,6 +1,5 @@
 use std::{net::SocketAddr, time::Duration};
 
-use ball_filter::BallPosition;
 use color_eyre::Result;
 use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
@@ -10,7 +9,7 @@ use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use spl_network_messages::HulkMessage;
 use types::{
-    ball_position::HypotheticalBallPosition,
+    ball_position::{BallPosition, HypotheticalBallPosition},
     calibration::CalibrationCommand,
     cycle_time::CycleTime,
     fall_state::FallState,

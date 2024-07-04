@@ -10,7 +10,7 @@ use hardware::PathsInterface;
 use linear_algebra::{point, vector, IntoFramed, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::{BallPercept, CandidateEvaluation},
+    ball_detection::{BallPercept, CandidateEvaluation},
     multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
