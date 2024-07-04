@@ -3,7 +3,7 @@
     "enable": true,
     "intersection_over_union_threshold": 0.45,
     "distance_to_referee_position_threshold": 2.0,
-    "bounding_box_confidence_threshold": 0.5,
+    "bounding_box_confidence_threshold": 0.8,
     "overall_keypoint_confidence_threshold": 0.7,
     "visual_referee_keypoint_confidence_threshold": 0.9,
     "shoulder_angle_threshold": 0.2,
