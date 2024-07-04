@@ -19,6 +19,8 @@ pub struct Arguments {
     pub target: String,
     #[arg(long)]
     pub no_sdk_installation: bool,
+    #[arg(long)]
+    pub features: Vec<String>,
     /// Pass through arguments to cargo ... -- PASSTHROUGH_ARGUMENTS
     #[arg(last = true, value_parser)]
     pub passthrough_arguments: Vec<String>,
@@ -61,6 +63,7 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
                 arguments.workspace,
                 &arguments.profile,
                 &arguments.target,
+                &arguments.features,
                 &arguments.passthrough_arguments,
             )
             .await
@@ -81,6 +84,7 @@ pub async fn cargo(arguments: Arguments, repository: &Repository, command: Comma
                 .run(
                     &arguments.profile,
                     &arguments.target,
+                    &arguments.features,
                     &arguments.passthrough_arguments,
                 )
                 .await
