@@ -87,7 +87,8 @@ pub struct RolePositionsParameters {
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub striker_distance_to_non_free_center_circle: f32,
-    pub striker_set_position: Point2<Field>,
+    pub striker_kickoff_position: Point2<Field>,
+    pub striker_kickoff_orientation: f32,
 }
 
 #[derive(
