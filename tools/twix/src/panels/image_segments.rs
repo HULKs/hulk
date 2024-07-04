@@ -4,12 +4,11 @@ use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},
 };
-use nalgebra::Similarity2;
+use linear_algebra::{point, vector};
 use serde::{Deserialize, Serialize};
 
 use communication::client::CyclerOutput;
 use coordinate_systems::Pixel;
-use linear_algebra::{point, vector};
 use serde_json::{json, Value};
 use types::{
     camera_position::CameraPosition,
@@ -20,8 +19,9 @@ use types::{
 use crate::{
     nao::Nao,
     panel::Panel,
-    twix_painter::{CoordinateSystem, TwixPainter},
+    twix_painter::{Orientation, TwixPainter},
     value_buffer::ValueBuffer,
+    zoom_and_pan::ZoomAndPanTransform,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -45,6 +45,7 @@ pub struct ImageSegmentsPanel {
     camera_position: CameraPosition,
     color_mode: ColorMode,
     use_filtered_segments: bool,
+    zoom_and_pan: ZoomAndPanTransform,
 }
 
 impl Panel for ImageSegmentsPanel {
@@ -73,6 +74,7 @@ impl Panel for ImageSegmentsPanel {
             camera_position,
             color_mode,
             use_filtered_segments,
+            zoom_and_pan: ZoomAndPanTransform::default(),
         }
     }
 
@@ -161,12 +163,14 @@ impl Widget for &mut ImageSegmentsPanel {
             Err(error) => return ui.label(format!("{error:?}")),
         };
 
-        let (mut response, painter) = TwixPainter::<Pixel>::allocate_new(ui);
-        let painter = painter.with_camera(
+        let (mut response, mut painter) = TwixPainter::<Pixel>::allocate(
+            ui,
             vector![640.0, 480.0],
-            Similarity2::identity(),
-            CoordinateSystem::LeftHand,
+            point![0.0, 0.0],
+            Orientation::LeftHanded,
         );
+        self.zoom_and_pan.apply(ui, &mut painter, &response);
+
         if let Some(hover_pos) = response.hover_pos() {
             let image_coords = painter.transform_pixel_to_world(hover_pos);
             let x = image_coords.x().round() as u16;
