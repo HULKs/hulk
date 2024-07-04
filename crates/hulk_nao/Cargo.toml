@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 alsa = { workspace = true }
+ball_filter = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }

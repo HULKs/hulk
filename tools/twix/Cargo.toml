@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 aliveness = { workspace = true }
 argument_parsers = { workspace = true }
+ball_filter = { workspace = true }
 bincode = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }

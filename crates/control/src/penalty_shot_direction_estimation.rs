@@ -1,3 +1,4 @@
+use ball_filter::BallPosition;
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
@@ -5,8 +6,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    ball_position::BallPosition, field_dimensions::FieldDimensions,
-    filtered_game_controller_state::FilteredGameControllerState,
+    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
 };
 

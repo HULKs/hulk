@@ -3,6 +3,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use ball_filter::BallPosition;
 use color_eyre::{eyre::WrapErr, Result};
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +16,6 @@ use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, SubState, Team,
 };
 use types::{
-    ball_position::BallPosition,
     cycle_time::CycleTime,
     fall_state::FallState,
     field_dimensions::FieldDimensions,

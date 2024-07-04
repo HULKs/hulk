@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+ball_filter = { workspace = true }
 chrono = { workspace = true }
 color-eyre = { workspace = true }
 ctrlc = { workspace = true }

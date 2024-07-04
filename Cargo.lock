@@ -654,6 +654,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ball_filter"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "filtering",
+ "linear_algebra",
+ "nalgebra",
+ "path_serde",
+ "serde",
+ "types",
+]
+
+[[package]]
 name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1415,6 +1428,7 @@ name = "control"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "ball_filter",
  "bincode",
  "color-eyre",
  "context_attribute",
@@ -2913,6 +2927,7 @@ name = "hulk"
 version = "0.1.0"
 dependencies = [
  "audio",
+ "ball_filter",
  "bincode",
  "buffered_watch",
  "code_generation",
@@ -2949,6 +2964,7 @@ dependencies = [
 name = "hulk_behavior_simulator"
 version = "0.1.0"
 dependencies = [
+ "ball_filter",
  "bincode",
  "buffered_watch",
  "chrono",
@@ -2989,6 +3005,7 @@ dependencies = [
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
+ "ball_filter",
  "bincode",
  "buffered_watch",
  "code_generation",
@@ -3022,6 +3039,7 @@ name = "hulk_nao"
 version = "0.1.0"
 dependencies = [
  "alsa",
+ "ball_filter",
  "chrono",
  "clap 4.5.4",
  "color-eyre",
@@ -3054,6 +3072,7 @@ name = "hulk_replayer"
 version = "0.1.0"
 dependencies = [
  "audio",
+ "ball_filter",
  "bincode",
  "buffered_watch",
  "chrono",
@@ -3092,6 +3111,7 @@ dependencies = [
 name = "hulk_webots"
 version = "0.1.0"
 dependencies = [
+ "ball_filter",
  "chrono",
  "color-eyre",
  "ctrlc",
@@ -5993,6 +6013,7 @@ version = "0.5.1"
 dependencies = [
  "aliveness",
  "argument_parsers",
+ "ball_filter",
  "bincode",
  "clap 4.5.4",
  "color-eyre",
