@@ -32,7 +32,7 @@ struct Parameters {
 #[derive(Clone, Default, Serialize, PathSerialize, PathIntrospect)]
 struct MainOutputs {
     frame_count: usize,
-    ball: Option<Ball>,
+    ball: Option<SimulatorBallState>,
     databases: Players<Option<Database>>,
 }
 

@@ -1,47 +1,53 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{IntoFramed, Isometry2, Point2};
-use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
+use types::{
+    ball_position::SimulatorBallState, field_dimensions::FieldDimensions,
+    motion_command::MotionCommand,
+};
 
-use crate::{nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{
+    nao::Nao, panels::map::layer::Layer, players_buffer_handle::PlayersBufferHandle,
+    twix_painter::TwixPainter, value_buffer::BufferHandle,
+};
 
 const TRANSPARENT_BLUE: Color32 = Color32::from_rgba_premultiplied(0, 0, 202, 150);
 const TRANSPARENT_LIGHT_BLUE: Color32 = Color32::from_rgba_premultiplied(136, 170, 182, 150);
 
 pub struct BehaviorSimulator {
-    ground_to_field: PlayersValueBuffer,
-    motion_command: PlayersValueBuffer,
-    head_yaw: PlayersValueBuffer,
-    ball: ValueBuffer,
+    ground_to_field: PlayersBufferHandle<Option<Isometry2<Ground, Field>>>,
+    motion_command: PlayersBufferHandle<MotionCommand>,
+    head_yaw: PlayersBufferHandle<f32>,
+    ball: BufferHandle<Option<SimulatorBallState>>,
 }
 
 impl Layer<Field> for BehaviorSimulator {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let ground_to_field = PlayersValueBuffer::try_new(
+        let ground_to_field = PlayersBufferHandle::try_new(
             nao.clone(),
-            "BehaviorSimulator.main.databases",
+            "BehaviorSimulator.main_outputs.databases",
             "main_outputs.ground_to_field",
         )
         .unwrap();
-        let motion_command = PlayersValueBuffer::try_new(
+        let motion_command = PlayersBufferHandle::try_new(
             nao.clone(),
-            "BehaviorSimulator.main.databases",
+            "BehaviorSimulator.main_outputs.databases",
             "main_outputs.motion_command",
         )
         .unwrap();
-        let sensor_data = PlayersValueBuffer::try_new(
+        let sensor_data = PlayersBufferHandle::try_new(
             nao.clone(),
-            "BehaviorSimulator.main.databases",
+            "BehaviorSimulator.main_outputs.databases",
             "main_outputs.sensor_data.positions.head.yaw",
         )
         .unwrap();
-        let ball = nao.subscribe_value("BehaviorSimulator.main_outputs.ball.position");
+        let ball = nao.subscribe_value("BehaviorSimulator.main_outputs.ball");
         Self {
             ground_to_field,
             motion_command,
@@ -55,8 +61,11 @@ impl Layer<Field> for BehaviorSimulator {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        for (player_number, value_buffer) in self.ground_to_field.0.iter() {
-            let Ok(ground_to_field): Result<Isometry2<Ground, Field>> = value_buffer.parse_latest()
+        for (player_number, player_handle) in self.ground_to_field.0.iter() {
+            let Some(ground_to_field) = player_handle
+                .get_last_value()
+                .wrap_err("ground_to_field")?
+                .flatten()
             else {
                 continue;
             };
@@ -67,14 +76,18 @@ impl Layer<Field> for BehaviorSimulator {
                 color: Color32::BLACK,
             };
 
-            if let Ok(MotionCommand::Walk { path, .. }) =
-                self.motion_command.0[player_number].parse_latest()
+            if let Some(MotionCommand::Walk { path, .. }) = self.motion_command.0[player_number]
+                .get_last_value()
+                .wrap_err("motion_command")?
             {
                 let ground_painter = painter.transform_painter(ground_to_field.inverse());
                 ground_painter.path(path, TRANSPARENT_BLUE, TRANSPARENT_LIGHT_BLUE, 0.025);
             }
 
-            if let Ok(head_yaw) = self.head_yaw.0[player_number].parse_latest::<f32>() {
+            if let Some(head_yaw) = self.head_yaw.0[player_number]
+                .get_last_value()
+                .wrap_err("head_yaw")?
+            {
                 let fov_stroke = Stroke {
                     width: 0.002,
                     color: Color32::YELLOW,
@@ -106,8 +119,8 @@ impl Layer<Field> for BehaviorSimulator {
             );
         }
 
-        if let Ok(ball_position) = self.ball.parse_latest::<Point2<Field>>() {
-            painter.ball(ball_position, 0.05);
+        if let Some(ball_state) = self.ball.get_last_value().wrap_err("ball state")?.flatten() {
+            painter.ball(ball_state.position, 0.05);
         }
 
         Ok(())

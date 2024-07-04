@@ -75,7 +75,7 @@ pub struct MapPanel {
     path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
     obstacles: EnabledLayer<layers::Obstacles, Ground>,
     path: EnabledLayer<layers::Path, Ground>,
-    //behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
+    behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     referee_position: EnabledLayer<layers::RefereePosition, Field>,
     pose_detection: EnabledLayer<layers::PoseDetection, Field>,
@@ -100,7 +100,7 @@ impl Panel for MapPanel {
         let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
         let obstacles = EnabledLayer::new(nao.clone(), value, false);
         let path = EnabledLayer::new(nao.clone(), value, false);
-        //let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
+        let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
         let referee_position = EnabledLayer::new(nao.clone(), value, true);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
         let ball_measurement = EnabledLayer::new(nao.clone(), value, false);
@@ -129,7 +129,7 @@ impl Panel for MapPanel {
             path_obstacles,
             obstacles,
             path,
-            //behavior_simulator,
+            behavior_simulator,
             robot_pose,
             pose_detection,
             referee_position,
@@ -154,7 +154,7 @@ impl Panel for MapPanel {
             "path_obstacles": self.path_obstacles.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
-            //"behavior_simulator": self.behavior_simulator.save(),
+            "behavior_simulator": self.behavior_simulator.save(),
             "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
             "referee_position": self.referee_position.save(),
@@ -181,7 +181,7 @@ impl Widget for &mut MapPanel {
                 self.path_obstacles.checkbox(ui);
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
-                //self.behavior_simulator.checkbox(ui);
+                self.behavior_simulator.checkbox(ui);
                 self.pose_detection.checkbox(ui);
                 self.robot_pose.checkbox(ui);
                 self.referee_position.checkbox(ui);
@@ -261,8 +261,8 @@ impl Widget for &mut MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.path
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        //self.behavior_simulator
-        //    .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.behavior_simulator
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.robot_pose
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.referee_position
