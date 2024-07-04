@@ -7,6 +7,7 @@ use eframe::{
     egui::{Align2, FontId},
     epaint::{Color32, Stroke},
 };
+use linear_algebra::point;
 use log::warn;
 use types::pose_detection::{HumanPose, Keypoint};
 
@@ -30,6 +31,11 @@ const POSE_SKELETON: [(usize, usize); 16] = [
     (13, 15),
     (14, 16),
 ];
+
+const DETECTION_IMAGE_WIDTH: f32 = 192.0;
+const DETECTION_IMAGE_HEIGHT: f32 = 480.0;
+const IMAGE_WIDTH: f32 = 640.0;
+const DETECTION_IMAGE_START_X: f32 = (IMAGE_WIDTH - DETECTION_IMAGE_WIDTH) / 2.0;
 
 pub struct PoseDetection {
     filtered_human_poses: ValueBuffer,
@@ -86,6 +92,8 @@ impl Overlay for PoseDetection {
             )?;
         }
 
+        paint_detection_dead_zone(painter);
+
         Ok(())
     }
 
@@ -95,6 +103,19 @@ impl Overlay for PoseDetection {
             ui.checkbox(&mut self.paint_unfiltered_poses, "Unfiltered Poses");
         });
     }
+}
+
+fn paint_detection_dead_zone(painter: &crate::twix_painter::TwixPainter<Pixel>) {
+    painter.rect_filled(
+        point![0.0, 0.0],
+        point![DETECTION_IMAGE_START_X, DETECTION_IMAGE_HEIGHT],
+        Color32::RED.gamma_multiply(0.3),
+    );
+    painter.rect_filled(
+        point![DETECTION_IMAGE_START_X + DETECTION_IMAGE_WIDTH, 0.0],
+        point![IMAGE_WIDTH, DETECTION_IMAGE_HEIGHT],
+        Color32::RED.gamma_multiply(0.3),
+    );
 }
 
 fn paint_poses(
@@ -121,6 +142,7 @@ fn paint_poses(
 
         // draw keypoints
         for keypoint in keypoints.iter() {
+            painter.circle_filled(keypoint.point, 2.0, point_color);
             painter.floating_text(
                 keypoint.point,
                 align,
@@ -128,7 +150,6 @@ fn paint_poses(
                 FontId::default(),
                 text_color,
             );
-            painter.circle_filled(keypoint.point, 2.0, point_color);
         }
 
         // draw bounding box
