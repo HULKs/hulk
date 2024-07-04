@@ -169,7 +169,7 @@ impl Widget for &mut ImageSegmentsPanel {
             point![0.0, 0.0],
             Orientation::LeftHanded,
         );
-        self.zoom_and_pan.apply(&ui, &mut painter, &response);
+        self.zoom_and_pan.apply(ui, &mut painter, &response);
 
         if let Some(hover_pos) = response.hover_pos() {
             let image_coords = painter.transform_pixel_to_world(hover_pos);
