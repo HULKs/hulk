@@ -9,6 +9,7 @@ homepage.workspace = true
 name = "hulk_behavior_simulator"
 
 [dependencies]
+ball_filter = { workspace = true }
 bincode = { workspace = true }
 buffered_watch = { workspace = true }
 chrono = { workspace = true }

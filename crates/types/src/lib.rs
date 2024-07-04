@@ -2,7 +2,6 @@
 pub mod action;
 pub mod audio;
 pub mod ball;
-pub mod ball_filter;
 pub mod ball_position;
 pub mod bounding_box;
 pub mod buttons;
