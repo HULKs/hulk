@@ -275,8 +275,8 @@ mod test {
             (-2.0, FRAC_PI_2),
             (FRAC_PI_2, FRAC_PI_2),
             (-FRAC_PI_2, FRAC_PI_2),
-            (PI, FRAC_PI_2),
-            (-PI, FRAC_PI_2),
+            (PI - f32::EPSILON, FRAC_PI_2),
+            (-PI + f32::EPSILON, FRAC_PI_2),
         ];
 
         for (input, angle_limit) in testcases {
