@@ -75,7 +75,6 @@ enum CalibrationState {
         camera: CameraPosition,
         dispatch_time: CycleTime,
     },
-    Process,
     Finish,
 }
 
@@ -121,7 +120,7 @@ impl CalibrationController {
             return Ok(MainOutputs::default());
         }
 
-        self.current_calibration_state = self.get_next_state(&context);
+        self.get_next_state(&context);
 
         context
             .calibration_measurements
@@ -138,12 +137,12 @@ impl CalibrationController {
         })
     }
 
-    fn get_next_state(&mut self, context: &CycleContext) -> CalibrationState {
+    fn get_next_state(&mut self, context: &CycleContext) {
         let current_cycle_time = context.cycle_time;
         match self.current_calibration_state {
             CalibrationState::Inactive => {
                 self.current_measurements = vec![];
-                return CalibrationState::Initialize {
+                self.current_calibration_state = CalibrationState::Initialize {
                     started_time: *current_cycle_time,
                 };
             }
@@ -156,7 +155,9 @@ impl CalibrationController {
                     .unwrap_or_default();
 
                 if waiting_duration >= *context.stabilization_delay {
-                    return self.get_next_look_at_or_processing(*context.cycle_time);
+                    self.current_calibration_state = self
+                        .get_next_look_at_or_processing(*context.cycle_time)
+                        .unwrap_or(CalibrationState::Finish);
                 }
             }
             CalibrationState::LookAt {
@@ -171,7 +172,7 @@ impl CalibrationController {
 
                 if time_diff > *context.look_at_dispatch_delay {
                     self.last_capture_retries = 0;
-                    return CalibrationState::Capture {
+                    self.current_calibration_state = CalibrationState::Capture {
                         camera,
                         dispatch_time: *current_cycle_time,
                     };
@@ -199,34 +200,36 @@ impl CalibrationController {
                     }
                 });
                 if goto_next_lookat {
-                    return self.get_next_look_at_or_processing(*context.cycle_time);
+                    self.current_calibration_state = self
+                        .get_next_look_at_or_processing(*context.cycle_time)
+                        .unwrap_or_else(|| self.calibrate(context));
                 }
-            }
-            CalibrationState::Process => {
-                // TODO Handle not enough measurements
-                let solved_result = solve(
-                    Corrections::default(),
-                    self.current_measurements.clone(),
-                    *context.field_dimensions,
-                );
-
-                self.last_calibration_corrections = Some(solved_result);
-                return CalibrationState::Finish;
             }
             CalibrationState::Finish => {}
         }
-
-        return self.current_calibration_state;
     }
 
-    fn get_next_look_at_or_processing(&mut self, dispatch_time: CycleTime) -> CalibrationState {
+    fn calibrate(&mut self, context: &CycleContext) -> CalibrationState {
+        // TODO Handle not enough measurements
+        let solved_result = solve(
+            Corrections::default(),
+            self.current_measurements.clone(),
+            *context.field_dimensions,
+        );
+
+        self.last_calibration_corrections = Some(solved_result);
+        CalibrationState::Finish
+    }
+
+    fn get_next_look_at_or_processing(
+        &mut self,
+        dispatch_time: CycleTime,
+    ) -> Option<CalibrationState> {
         self.get_next_look_at()
-            .map_or(CalibrationState::Process, |(target, camera)| {
-                CalibrationState::LookAt {
-                    camera,
-                    target,
-                    dispatch_time,
-                }
+            .map(|(target, camera)| CalibrationState::LookAt {
+                camera,
+                target,
+                dispatch_time,
             })
     }
 

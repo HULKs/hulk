@@ -6,7 +6,9 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{camera_position::CameraPosition, cycle_time::CycleTime};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Copy, Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum CalibrationCommand {
     LookAt {
         target: Point2<Ground>,

@@ -6,10 +6,12 @@ use types::{
 };
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
-    let (PrimaryState::Calibration, Some(CalibrationCommand::LookAt { target, camera, .. })) = (
-        world_state.robot.primary_state,
-        world_state.calibration_command.clone(),
-    ) else {
+    if PrimaryState::Calibration != world_state.robot.primary_state {
+        return None;
+    }
+
+    let Some(CalibrationCommand::LookAt { target, camera, .. }) = world_state.calibration_command
+    else {
         return None;
     };
     Some(MotionCommand::Stand {
