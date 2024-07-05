@@ -9,7 +9,7 @@ use color_eyre::{
     Report, Result,
 };
 use communication::{
-    client::{Client, ConnectionHandle, PathsEvent, Status},
+    client::{Client, ClientHandle, PathsEvent, Status},
     messages::{Path, TextOrBinary},
 };
 use log::{error, warn};
@@ -26,7 +26,7 @@ use crate::value_buffer::{Buffer, BufferHandle, Datum};
 
 pub struct Nao {
     runtime: Runtime,
-    connection: ConnectionHandle,
+    client: ClientHandle,
     repository: Option<Repository>,
 }
 
@@ -34,8 +34,8 @@ impl Nao {
     pub fn new(address: String) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
-        let (connection, handle) = Client::new(address);
-        runtime.spawn(connection.run());
+        let (client, handle) = Client::new(address);
+        runtime.spawn(client.run());
 
         let repository = match runtime.block_on(get_repository_root()) {
             Ok(root) => Some(Repository::new(root)),
@@ -47,37 +47,34 @@ impl Nao {
 
         Self {
             runtime,
-            connection: handle,
+            client: handle,
             repository,
         }
     }
 
     pub fn connect(&self) {
-        let connection = self.connection.clone();
-        self.runtime
-            .spawn(async move { connection.connect().await });
+        let client = self.client.clone();
+        self.runtime.spawn(async move { client.connect().await });
     }
 
     pub fn disconnect(&self) {
-        let connection = self.connection.clone();
-        self.runtime
-            .spawn(async move { connection.disconnect().await });
+        let client = self.client.clone();
+        self.runtime.spawn(async move { client.disconnect().await });
     }
 
     pub fn connection_status(&self) -> Status {
-        self.runtime
-            .block_on(async { self.connection.status().await })
+        self.runtime.block_on(async { self.client.status().await })
     }
 
     pub fn set_address(&self, address: String) {
-        let connection = self.connection.clone();
+        let client = self.client.clone();
         self.runtime.spawn(async move {
-            connection.set_address(address).await;
+            client.set_address(address).await;
         });
     }
 
     pub fn latest_paths(&self) -> PathsEvent {
-        self.connection.paths.borrow().clone()
+        self.client.paths.borrow().clone()
     }
 
     pub fn blocking_read<T>(
@@ -89,7 +86,7 @@ impl Nao {
     {
         let (timestamp, bytes) = self
             .runtime
-            .block_on(self.connection.read_binary(path.into()))?;
+            .block_on(self.client.read_binary(path.into()))?;
         let value = deserialize(&bytes)?;
         Ok((timestamp, value))
     }
@@ -106,9 +103,9 @@ impl Nao {
         let path = path.into();
         let _guard = self.runtime.enter();
         let (task, buffer) = Buffer::new(history);
-        let connection = self.connection.clone();
+        let client = self.client.clone();
         spawn(async move {
-            let subscription = connection.subscribe_text(path).await;
+            let subscription = client.subscribe_text(path).await;
             task.map(subscription, |datum| -> Result<_, Report> {
                 let datum = datum.map_err(|error| eyre!("{error:#}"))?;
                 Ok(Datum {
@@ -139,9 +136,9 @@ impl Nao {
         let path = path.into();
         let _guard = self.runtime.enter();
         let (task, buffer) = Buffer::new(history);
-        let connection = self.connection.clone();
+        let client = self.client.clone();
         spawn(async move {
-            let subscription = connection.subscribe_binary(path).await;
+            let subscription = client.subscribe_binary(path).await;
             task.map(subscription, |datum| -> Result<_, Report> {
                 let datum = datum.map_err(|error| eyre!("protocol: {error:#}"))?;
                 Ok(Datum {
@@ -155,10 +152,10 @@ impl Nao {
     }
 
     pub fn write(&self, path: impl Into<Path>, value: TextOrBinary) {
-        let connection = self.connection.clone();
+        let client = self.client.clone();
         let path = path.into();
         self.runtime.spawn(async move {
-            if let Err(error) = connection.write(path, value).await {
+            if let Err(error) = client.write(path, value).await {
                 error!("{error:#}")
             }
         });
@@ -166,18 +163,18 @@ impl Nao {
 
     pub fn on_change(&self, callback: impl Fn() + Send + Sync + 'static) {
         let _guard = self.runtime.enter();
-        self.connection.on_change(callback)
+        self.client.on_change(callback)
     }
 
     pub fn store_parameters(&self, path: &str, value: Value, scope: Scope) -> Result<()> {
-        let connection = self.connection.clone();
+        let client = self.client.clone();
         let root = self
             .repository
             .as_ref()
             .ok_or_eyre("repository not available, cannot store parameters")?
             .parameters_root();
         self.runtime.block_on(async {
-            if let Err(error) = store_parameters(&connection, path, value, scope, root).await {
+            if let Err(error) = store_parameters(&client, path, value, scope, root).await {
                 error!("{error:#}")
             }
         });
@@ -186,13 +183,13 @@ impl Nao {
 }
 
 async fn store_parameters(
-    connection: &ConnectionHandle,
+    client: &ClientHandle,
     path: &str,
     value: Value,
     scope: Scope,
     root: PathBuf,
 ) -> Result<()> {
-    let (_, bytes) = connection.read_binary("hardware_ids").await?;
+    let (_, bytes) = client.read_binary("hardware_ids").await?;
     let ids: Ids = bincode::deserialize(&bytes).wrap_err("bincode deserialization failed")?;
     let parameters = nest_value_at_path(path, value);
     parameters::directory::serialize(&parameters, scope, path, root, &ids)

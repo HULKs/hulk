@@ -1,5 +1,7 @@
 use clap::Parser;
 use color_eyre::Result;
+use communication::client::Client;
+use tokio::spawn;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -29,13 +31,20 @@ struct CommandlineArguments {
 async fn main() -> Result<()> {
     setup_logger()?;
 
-    //let arguments = CommandlineArguments::parse();
-    //
-    //let address = format!("ws://{}:1337", arguments.address);
-    //let (connection, handle) = Connection::new(address);
-    //let task = spawn(connection.run());
-    //
-    //drop(handle);
-    //task.await?;
+    let arguments = CommandlineArguments::parse();
+
+    let address = format!("ws://{}:1337", arguments.address);
+    let (client, handle) = Client::new(address);
+    let task = spawn(client.run());
+    handle.connect().await;
+
+    let mut subscription = handle.subscribe_text(arguments.path).await;
+
+    while let Ok(message) = subscription.receiver.recv().await {
+        println!("{message:#?}");
+    }
+
+    drop(handle);
+    task.await?;
     Ok(())
 }

@@ -106,13 +106,13 @@ enum State {
 pub type PathsEvent = Arc<Option<Result<Paths, protocol::Error>>>;
 
 #[derive(Clone, Debug)]
-pub struct ConnectionHandle {
+pub struct ClientHandle {
     sender: mpsc::Sender<Event>,
     change_watch: watch::Receiver<()>,
     pub paths: watch::Receiver<PathsEvent>,
 }
 
-impl ConnectionHandle {
+impl ClientHandle {
     pub async fn connect(&self) {
         self.sender.send(Event::Connect).await.unwrap();
     }
@@ -230,7 +230,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(peer_address: String) -> (Self, ConnectionHandle) {
+    pub fn new(peer_address: String) -> (Self, ClientHandle) {
         let (command_sender, command_receiver) = mpsc::channel(1);
         let (paths_sender, paths_receiver) = watch::channel(Arc::new(None));
         let (change_sender, change_receiver) = watch::channel(());
@@ -246,7 +246,7 @@ impl Client {
             binary_subscriptions: HashMap::new(),
             binary_unsubscriptions: JoinSet::new(),
         };
-        let handle = ConnectionHandle {
+        let handle = ClientHandle {
             sender: command_sender,
             paths: paths_receiver,
             change_watch: change_receiver,
