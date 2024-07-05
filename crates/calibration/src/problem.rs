@@ -13,19 +13,19 @@ use crate::{
     },
 };
 
-pub struct CalibrationProblem<MeasurementType, MeasurementResidualsType> {
+pub struct CalibrationProblem<Measurement, MeasurementResidualsType> {
     parameters: Corrections,
-    measurements: Vec<MeasurementType>,
+    measurements: Vec<Measurement>,
     field_dimensions: FieldDimensions,
     phantom: PhantomData<MeasurementResidualsType>,
 }
 
-impl<MeasurementType, MeasurementResidualsType>
-    CalibrationProblem<MeasurementType, MeasurementResidualsType>
+impl<Measurement, MeasurementResidualsType>
+    CalibrationProblem<Measurement, MeasurementResidualsType>
 {
     pub fn new(
         initial_corrections: Corrections,
-        measurements: Vec<MeasurementType>,
+        measurements: Vec<Measurement>,
         field_dimensions: FieldDimensions,
     ) -> Self {
         Self {
@@ -41,11 +41,11 @@ impl<MeasurementType, MeasurementResidualsType>
     }
 }
 
-impl<MeasurementType, MeasurementResidualsType>
+impl<Measurement, MeasurementResidualsType>
     LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>>
-    for CalibrationProblem<MeasurementType, MeasurementResidualsType>
+    for CalibrationProblem<Measurement, MeasurementResidualsType>
 where
-    MeasurementResidualsType: CalculateResiduals<MeasurementType>,
+    MeasurementResidualsType: CalculateResiduals<Measurement>,
     Vec<f32>: From<MeasurementResidualsType>,
 {
     type ResidualStorage = ResidualVectorStorage;
@@ -64,7 +64,7 @@ where
 
     fn residuals(&self) -> Option<ResidualVector> {
         println!("residuals()");
-        calculate_residuals_from_parameters::<MeasurementType, MeasurementResidualsType>(
+        calculate_residuals_from_parameters::<Measurement, MeasurementResidualsType>(
             &self.parameters,
             &self.measurements,
             &self.field_dimensions,
@@ -73,7 +73,7 @@ where
 
     fn jacobian(&self) -> Option<Jacobian> {
         println!("jacobian()");
-        calculate_jacobian_from_parameters::<MeasurementType, MeasurementResidualsType>(
+        calculate_jacobian_from_parameters::<Measurement, MeasurementResidualsType>(
             &self.parameters,
             &self.measurements,
             &self.field_dimensions,

@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct CenterCircleResiduals {
-    circumference_residual_values: Vec<f32>,
+    radial_residuals: Vec<f32>,
 }
 
 impl CalculateResiduals<Measurement> for CenterCircleResiduals {
@@ -48,13 +48,13 @@ impl CalculateResiduals<Measurement> for CenterCircleResiduals {
             .collect();
 
         Ok(CenterCircleResiduals {
-            circumference_residual_values: residual_values,
+            radial_residuals: residual_values,
         })
     }
 }
 
 impl From<CenterCircleResiduals> for Vec<f32> {
     fn from(residuals: CenterCircleResiduals) -> Self {
-        residuals.circumference_residual_values
+        residuals.radial_residuals
     }
 }

@@ -7,13 +7,13 @@ use crate::corrections::Corrections;
 pub type ResidualVector = Vector<f32, Dyn, ResidualVectorStorage>;
 pub type ResidualVectorStorage = Owned<f32, Dyn>;
 
-pub fn calculate_residuals_from_parameters<MeasurementType, ResidualsFromMeasurement>(
+pub fn calculate_residuals_from_parameters<Measurement, ResidualsFromMeasurement>(
     parameters: &Corrections,
-    measurements: &[MeasurementType],
+    measurements: &[Measurement],
     field_dimensions: &FieldDimensions,
 ) -> Option<ResidualVector>
 where
-    ResidualsFromMeasurement: CalculateResiduals<MeasurementType>,
+    ResidualsFromMeasurement: CalculateResiduals<Measurement>,
     Vec<f32>: From<ResidualsFromMeasurement>,
 {
     let mut residuals = Vec::new();
@@ -28,10 +28,10 @@ where
     Some(DVector::from_vec(residuals))
 }
 
-pub trait CalculateResiduals<MeasurementType> {
+pub trait CalculateResiduals<Measurement> {
     fn calculate_from(
         parameters: &Corrections,
-        measurement: &MeasurementType,
+        measurement: &Measurement,
         field_dimensions: &FieldDimensions,
     ) -> Result<Self>
     where
