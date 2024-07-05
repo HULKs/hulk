@@ -97,7 +97,6 @@ impl LedStatus {
             PrimaryState::Finished => Rgb::BLACK,
             PrimaryState::Calibration => Rgb::PURPLE,
             PrimaryState::Standby => Rgb::TURQUOISE,
-            PrimaryState::Animation => Rgb::TURQUOISE
         };
 
         let at_least_one_ball_top =
@@ -282,8 +281,7 @@ impl LedStatus {
         did_detect_any_referee_this_cycle: bool,
     ) -> (Eye, Eye) {
         match primary_state {
-            PrimaryState::Unstiff
-            | PrimaryState::Animation {..} => {
+            PrimaryState::Unstiff | PrimaryState::Animation { .. } => {
                 let rainbow_eye = Self::get_rainbow_eye(cycle_start_time);
                 (rainbow_eye, rainbow_eye)
             }
