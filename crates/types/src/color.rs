@@ -197,6 +197,59 @@ impl From<YCbCr444> for Rgb {
     }
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct Hsv {
+    pub h: u16,
+    pub s: u8,
+    pub v: u8,
+}
+
+impl From<Rgb> for Hsv {
+    fn from(value: Rgb) -> Self {
+        const HUE_DEGREE: i32 = 512;
+        let (r, g, b): (i32, i32, i32) = (value.r.into(), value.g.into(), value.b.into());
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let delta = max - min;
+
+        let (h, s) = if delta == 0 {
+            (0, 0)
+        } else {
+            let h = if r == max {
+                ((g - b) * 60 * HUE_DEGREE) / delta
+            } else if g == max {
+                ((b - r) * 60 * HUE_DEGREE) / delta + 120 * HUE_DEGREE
+            } else if b == max {
+                ((r - g) * 60 * HUE_DEGREE) / delta + 240 * HUE_DEGREE
+            } else {
+                0
+            };
+            let h = if h < 0 { h + 360 * HUE_DEGREE } else { h };
+            let s = (256 * delta - 8) / max;
+
+            (h / HUE_DEGREE, s)
+        };
+
+        Hsv {
+            h: h as u16,
+            s: s as u8,
+            v: max as u8,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -398,5 +451,59 @@ mod tests {
         };
         let chromaticity = rgb.get_chromaticity(RgbChannel::Red);
         assert_eq!(chromaticity, 0.1);
+    }
+
+    #[test]
+    fn rgb_hsv_conversion() {
+        for (rgb, hsv) in [
+            (Rgb { r: 0, g: 0, b: 0 }, Hsv { h: 0, s: 0, v: 0 }),
+            (
+                Rgb {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                },
+                Hsv { h: 0, s: 0, v: 255 },
+            ),
+            (
+                Rgb { r: 255, g: 0, b: 0 },
+                Hsv {
+                    h: 0,
+                    s: 255,
+                    v: 255,
+                },
+            ),
+            (
+                Rgb { r: 0, g: 255, b: 0 },
+                Hsv {
+                    h: 120,
+                    s: 255,
+                    v: 255,
+                },
+            ),
+            (
+                Rgb { r: 0, g: 0, b: 255 },
+                Hsv {
+                    h: 240,
+                    s: 255,
+                    v: 255,
+                },
+            ),
+            (
+                Rgb {
+                    r: 128,
+                    g: 0,
+                    b: 255,
+                },
+                Hsv {
+                    h: 270,
+                    s: 255,
+                    v: 255,
+                },
+            ),
+        ] {
+            let converted: Hsv = rgb.into();
+            assert_eq!(converted, hsv);
+        }
     }
 }
