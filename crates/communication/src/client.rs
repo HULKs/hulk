@@ -18,7 +18,14 @@ use tokio::{
     task::{JoinHandle, JoinSet},
     time::sleep,
 };
-use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{
+        protocol::{frame::coding::CloseCode, CloseFrame},
+        Message,
+    },
+    MaybeTlsStream, WebSocketStream,
+};
 
 use crate::{
     client::protocol::Protocol,
@@ -31,15 +38,7 @@ use self::protocol::{ProtocolHandle, SubscriptionEvent};
 pub mod protocol;
 
 #[derive(Debug, Error)]
-pub enum ReadError {
-    #[error(transparent)]
-    Protocol(#[from] protocol::Error),
-    #[error("not connected")]
-    NotConnected,
-}
-
-#[derive(Debug, Error)]
-pub enum WriteError {
+pub enum RequestError {
     #[error(transparent)]
     Protocol(#[from] protocol::Error),
     #[error("not connected")]
@@ -61,11 +60,11 @@ enum Event {
     SetAddress(String),
     ReadText {
         path: Path,
-        return_sender: oneshot::Sender<Result<(SystemTime, Value), ReadError>>,
+        return_sender: oneshot::Sender<Result<(SystemTime, Value), RequestError>>,
     },
     ReadBinary {
         path: Path,
-        return_sender: oneshot::Sender<Result<(SystemTime, Vec<u8>), ReadError>>,
+        return_sender: oneshot::Sender<Result<(SystemTime, Vec<u8>), RequestError>>,
     },
     SubscribeText {
         path: Path,
@@ -78,7 +77,7 @@ enum Event {
     Write {
         path: Path,
         value: TextOrBinary,
-        return_sender: oneshot::Sender<Result<(), WriteError>>,
+        return_sender: oneshot::Sender<Result<(), RequestError>>,
     },
     GetStatus {
         return_sender: oneshot::Sender<Status>,
@@ -126,7 +125,10 @@ impl ConnectionHandle {
         self.sender.send(Event::SetAddress(address)).await.unwrap();
     }
 
-    pub async fn read_text(&self, path: impl Into<Path>) -> Result<(SystemTime, Value), ReadError> {
+    pub async fn read_text(
+        &self,
+        path: impl Into<Path>,
+    ) -> Result<(SystemTime, Value), RequestError> {
         let (return_sender, return_receiver) = oneshot::channel();
         self.sender
             .send(Event::ReadText {
@@ -141,7 +143,7 @@ impl ConnectionHandle {
     pub async fn read_binary(
         &self,
         path: impl Into<Path>,
-    ) -> Result<(SystemTime, Vec<u8>), ReadError> {
+    ) -> Result<(SystemTime, Vec<u8>), RequestError> {
         let (return_sender, return_receiver) = oneshot::channel();
         self.sender
             .send(Event::ReadBinary {
@@ -177,7 +179,7 @@ impl ConnectionHandle {
         return_receiver.await.unwrap()
     }
 
-    pub async fn write(&self, path: Path, value: TextOrBinary) -> Result<(), WriteError> {
+    pub async fn write(&self, path: Path, value: TextOrBinary) -> Result<(), RequestError> {
         let (return_sender, return_receiver) = oneshot::channel();
         self.sender
             .send(Event::Write {
@@ -212,14 +214,14 @@ impl ConnectionHandle {
 struct Subscription<T> {
     sender: broadcast::Sender<Arc<SubscriptionEvent<T>>>,
     drop: mpsc::WeakSender<()>,
-    unsubscribe: Option<oneshot::Receiver<()>>,
+    protocol_unsubscribe: Option<oneshot::Receiver<()>>,
 }
 
-pub struct Connection {
+pub struct Client {
     command_receiver: mpsc::Receiver<Event>,
     change_watch: watch::Sender<()>,
-    state: State,
-    address: String,
+    connection_state: State,
+    peer_address: String,
     paths_sender: watch::Sender<PathsEvent>,
     text_subscriptions: HashMap<Path, Subscription<Value>>,
     text_unsubscriptions: JoinSet<Path>,
@@ -227,8 +229,8 @@ pub struct Connection {
     binary_unsubscriptions: JoinSet<Path>,
 }
 
-impl Connection {
-    pub fn new(address: String) -> (Self, ConnectionHandle) {
+impl Client {
+    pub fn new(peer_address: String) -> (Self, ConnectionHandle) {
         let (command_sender, command_receiver) = mpsc::channel(1);
         let (paths_sender, paths_receiver) = watch::channel(Arc::new(None));
         let (change_sender, change_receiver) = watch::channel(());
@@ -236,8 +238,8 @@ impl Connection {
         let task = Self {
             command_receiver,
             change_watch: change_sender,
-            state: State::Disconnected,
-            address,
+            connection_state: State::Disconnected,
+            peer_address,
             paths_sender,
             text_subscriptions: HashMap::new(),
             text_unsubscriptions: JoinSet::new(),
@@ -254,7 +256,7 @@ impl Connection {
 
     pub async fn run(mut self) {
         loop {
-            match &mut self.state {
+            match &mut self.connection_state {
                 State::Disconnected => {
                     select! {
                         maybe_command = self.command_receiver.recv() => {
@@ -311,8 +313,8 @@ impl Connection {
                         }
                         result = protocol_task => {
                             result.unwrap();
-                            self.state = State::Connecting {
-                                ongoing_connection: spawn(try_connect(self.address.clone()))
+                            self.connection_state = State::Connecting {
+                                ongoing_connection: spawn(try_connect(self.peer_address.clone()))
                             };
                         }
                         Some(path) = self.text_unsubscriptions.join_next() => {
@@ -334,38 +336,41 @@ impl Connection {
     async fn handle_command(&mut self, command: Event) {
         match command {
             Event::Connect => {
-                if matches!(&self.state, State::Disconnected) {
-                    self.state = State::Connecting {
-                        ongoing_connection: spawn(try_connect(self.address.clone())),
-                    };
+                if matches!(&self.connection_state, State::Disconnected) {
+                    let ongoing_connection = spawn(try_connect(self.peer_address.clone()));
+                    self.connection_state = State::Connecting { ongoing_connection };
                 }
             }
-            Event::Disconnect => match &mut self.state {
+            Event::Disconnect => match &mut self.connection_state {
                 State::Disconnected => {}
                 State::Connecting { ongoing_connection } => {
                     ongoing_connection.abort();
                     if let Ok(mut socket) = ongoing_connection.await {
-                        socket.send_or_log(Message::Close(None)).await;
+                        let message = Message::Close(Some(CloseFrame {
+                            code: CloseCode::Normal,
+                            reason: "connection no longer needed".into(),
+                        }));
+                        socket.send_or_log(message).await;
                     }
-                    self.state = State::Disconnected;
+                    self.connection_state = State::Disconnected;
                 }
                 State::Connected { .. } => {
-                    self.state = State::Disconnected;
+                    self.connection_state = State::Disconnected;
                 }
             },
             Event::SetAddress(address) => {
-                self.address = address;
-                match &mut self.state {
+                self.peer_address = address;
+                match &mut self.connection_state {
                     State::Disconnected => {}
                     State::Connecting { ongoing_connection } => {
                         ongoing_connection.abort();
-                        self.state = State::Connecting {
-                            ongoing_connection: spawn(try_connect(self.address.clone())),
+                        self.connection_state = State::Connecting {
+                            ongoing_connection: spawn(try_connect(self.peer_address.clone())),
                         };
                     }
                     State::Connected { .. } => {
-                        self.state = State::Connecting {
-                            ongoing_connection: spawn(try_connect(self.address.clone())),
+                        self.connection_state = State::Connecting {
+                            ongoing_connection: spawn(try_connect(self.peer_address.clone())),
                         };
                     }
                 }
@@ -374,9 +379,9 @@ impl Connection {
                 path,
                 return_sender,
             } => {
-                match &self.state {
+                match &self.connection_state {
                     State::Disconnected | State::Connecting { .. } => {
-                        let _ = return_sender.send(Err(ReadError::NotConnected));
+                        let _ = return_sender.send(Err(RequestError::NotConnected));
                     }
                     State::Connected {
                         protocol_handle, ..
@@ -384,7 +389,7 @@ impl Connection {
                         let protocol_handle = protocol_handle.clone();
                         spawn(async move {
                             let result = protocol_handle.read_text(path).await;
-                            let _ = return_sender.send(result.map_err(ReadError::from));
+                            let _ = return_sender.send(result.map_err(RequestError::from));
                         });
                     }
                 };
@@ -393,9 +398,9 @@ impl Connection {
                 path,
                 return_sender,
             } => {
-                match &self.state {
+                match &self.connection_state {
                     State::Disconnected | State::Connecting { .. } => {
-                        let _ = return_sender.send(Err(ReadError::NotConnected));
+                        let _ = return_sender.send(Err(RequestError::NotConnected));
                     }
                     State::Connected {
                         protocol_handle, ..
@@ -403,7 +408,7 @@ impl Connection {
                         let protocol_handle = protocol_handle.clone();
                         spawn(async move {
                             let result = protocol_handle.read_binary(path).await;
-                            let _ = return_sender.send(result.map_err(ReadError::from));
+                            let _ = return_sender.send(result.map_err(RequestError::from));
                         });
                     }
                 };
@@ -427,9 +432,9 @@ impl Connection {
                 value,
                 return_sender,
             } => {
-                match &self.state {
+                match &self.connection_state {
                     State::Disconnected | State::Connecting { .. } => {
-                        let _ = return_sender.send(Err(WriteError::NotConnected));
+                        let _ = return_sender.send(Err(RequestError::NotConnected));
                     }
                     State::Connected {
                         protocol_handle, ..
@@ -437,13 +442,13 @@ impl Connection {
                         let protocol_handle = protocol_handle.clone();
                         spawn(async move {
                             let result = protocol_handle.write(path, value).await;
-                            let _ = return_sender.send(result.map_err(WriteError::from));
+                            let _ = return_sender.send(result.map_err(RequestError::from));
                         });
                     }
                 };
             }
             Event::GetStatus { return_sender } => {
-                let status = match &self.state {
+                let status = match &self.connection_state {
                     State::Disconnected => Status::Disconnected,
                     State::Connecting { .. } => Status::Connecting,
                     State::Connected { .. } => Status::Connected,
@@ -454,12 +459,12 @@ impl Connection {
     }
 
     fn handle_successful_connection(&mut self, socket: WebSocketStream<MaybeTlsStream<TcpStream>>) {
-        info!("connected to {address}", address = self.address);
+        info!("connected to {address}", address = self.peer_address);
 
         let (protocol, handle) = Protocol::new(socket, self.change_watch.clone());
         let task = spawn(protocol.run());
 
-        self.state = State::Connected {
+        self.connection_state = State::Connected {
             protocol_handle: handle.clone(),
             protocol_task: task,
         };
@@ -486,7 +491,7 @@ impl Connection {
                     ));
                 }
             });
-            subscription.unsubscribe = Some(unsubscribe_receiver);
+            subscription.protocol_unsubscribe = Some(unsubscribe_receiver);
         }
 
         for (path, subscription) in &mut self.binary_subscriptions {
@@ -503,31 +508,25 @@ impl Connection {
                     ));
                 }
             });
-            subscription.unsubscribe = Some(unsubscribe_receiver);
+            subscription.protocol_unsubscribe = Some(unsubscribe_receiver);
         }
     }
 
     async fn subscribe_text(&mut self, path: Path) -> SubscriptionHandle<Value> {
-        info!("subscribing text to {path}...");
         match self.text_subscriptions.entry(path.clone()) {
             Occupied(mut entry) => {
-                info!("already subscribed to {path}");
                 let subscription = entry.get();
                 match subscription.drop.upgrade() {
-                    Some(drop) => {
-                        info!("still subscribed to {path}");
-                        SubscriptionHandle {
-                            receiver: subscription.sender.subscribe(),
-                            _drop: drop,
-                        }
-                    }
+                    Some(drop) => SubscriptionHandle {
+                        receiver: subscription.sender.subscribe(),
+                        _drop: drop,
+                    },
                     None => {
-                        info!("subscription is already dropped for {path}, resubscribing...");
                         let (update_sender, update_receiver) = broadcast::channel(10);
                         let (drop_sender, drop_receiver) = mpsc::channel(1);
                         let unsubscribe_receiver = if let State::Connected {
                             protocol_handle, ..
-                        } = &self.state
+                        } = &self.connection_state
                         {
                             protocol_handle
                                 .subscribe_text(path.clone())
@@ -551,7 +550,7 @@ impl Connection {
                         let subscription = Subscription {
                             sender: update_sender,
                             drop: drop_sender.downgrade(),
-                            unsubscribe: unsubscribe_receiver,
+                            protocol_unsubscribe: unsubscribe_receiver,
                         };
                         self.text_unsubscriptions
                             .spawn(wait_for_unsubscription(drop_receiver, path));
@@ -564,12 +563,11 @@ impl Connection {
                 }
             }
             Vacant(entry) => {
-                info!("not yet subscribed, subscribing to {path}");
                 let (update_sender, update_receiver) = broadcast::channel(10);
                 let (drop_sender, drop_receiver) = mpsc::channel(1);
                 let unsubscribe_receiver = if let State::Connected {
                     protocol_handle, ..
-                } = &self.state
+                } = &self.connection_state
                 {
                     protocol_handle
                         .subscribe_text(path.clone())
@@ -592,7 +590,7 @@ impl Connection {
                 let subscription = Subscription {
                     sender: update_sender,
                     drop: drop_sender.downgrade(),
-                    unsubscribe: unsubscribe_receiver,
+                    protocol_unsubscribe: unsubscribe_receiver,
                 };
                 self.text_unsubscriptions
                     .spawn(wait_for_unsubscription(drop_receiver, path));
@@ -606,25 +604,20 @@ impl Connection {
     }
 
     async fn subscribe_binary(&mut self, path: Path) -> SubscriptionHandle<Vec<u8>> {
-        info!("subscribing binary to {path}...");
         match self.binary_subscriptions.entry(path.clone()) {
             Occupied(mut entry) => {
                 let subscription = entry.get();
                 match subscription.drop.upgrade() {
-                    Some(drop) => {
-                        info!("still subscribed to {path}");
-                        SubscriptionHandle {
-                            receiver: subscription.sender.subscribe(),
-                            _drop: drop,
-                        }
-                    }
+                    Some(drop) => SubscriptionHandle {
+                        receiver: subscription.sender.subscribe(),
+                        _drop: drop,
+                    },
                     None => {
-                        info!("subscription is already dropped for {path}, resubscribing...");
                         let (update_sender, update_receiver) = broadcast::channel(10);
                         let (drop_sender, drop_receiver) = mpsc::channel(1);
                         let unsubscribe_receiver = if let State::Connected {
                             protocol_handle, ..
-                        } = &self.state
+                        } = &self.connection_state
                         {
                             protocol_handle
                                 .subscribe_binary(path.clone())
@@ -648,7 +641,7 @@ impl Connection {
                         let subscription = Subscription {
                             sender: update_sender,
                             drop: drop_sender.downgrade(),
-                            unsubscribe: unsubscribe_receiver,
+                            protocol_unsubscribe: unsubscribe_receiver,
                         };
                         self.binary_unsubscriptions
                             .spawn(wait_for_unsubscription(drop_receiver, path));
@@ -661,12 +654,11 @@ impl Connection {
                 }
             }
             Vacant(entry) => {
-                info!("not yet subscribed, subscribing to {path}");
                 let (update_sender, update_receiver) = broadcast::channel(10);
                 let (drop_sender, drop_receiver) = mpsc::channel(1);
                 let unsubscribe_receiver = if let State::Connected {
                     protocol_handle, ..
-                } = &self.state
+                } = &self.connection_state
                 {
                     protocol_handle
                         .subscribe_binary(path.clone())
@@ -689,7 +681,7 @@ impl Connection {
                 let subscription = Subscription {
                     sender: update_sender,
                     drop: drop_sender.downgrade(),
-                    unsubscribe: unsubscribe_receiver,
+                    protocol_unsubscribe: unsubscribe_receiver,
                 };
                 self.binary_unsubscriptions
                     .spawn(wait_for_unsubscription(drop_receiver, path));
@@ -704,7 +696,7 @@ impl Connection {
 }
 
 async fn try_connect(address: String) -> WebSocketStream<MaybeTlsStream<TcpStream>> {
-    info!("connecting to {address}...");
+    info!("connecting to {address} ...");
     loop {
         match connect_async(&address).await {
             Ok((socket, _)) => {

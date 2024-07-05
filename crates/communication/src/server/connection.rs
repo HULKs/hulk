@@ -42,27 +42,16 @@ enum ClosingError {
 
 impl ClosingError {
     fn into_close_frame(self) -> CloseFrame<'static> {
-        match self {
-            Self::JsonSerialization(error) => CloseFrame {
-                code: CloseCode::Error,
-                reason: error.to_string().into(),
-            },
-            Self::BincodeSerialization(error) => CloseFrame {
-                code: CloseCode::Error,
-                reason: error.to_string().into(),
-            },
-            Self::JsonDeserialization(error) => CloseFrame {
-                code: CloseCode::Invalid,
-                reason: error.to_string().into(),
-            },
-            Self::BincodeDeserialization(error) => CloseFrame {
-                code: CloseCode::Invalid,
-                reason: error.to_string().into(),
-            },
-            Self::Shutdown => CloseFrame {
-                code: CloseCode::Normal,
-                reason: "server shutting down".into(),
-            },
+        let code = match &self {
+            Self::JsonSerialization(_) => CloseCode::Error,
+            Self::BincodeSerialization(_) => CloseCode::Error,
+            Self::JsonDeserialization(_) => CloseCode::Invalid,
+            Self::BincodeDeserialization(_) => CloseCode::Invalid,
+            Self::Shutdown => CloseCode::Normal,
+        };
+        CloseFrame {
+            code,
+            reason: format!("{:#}", Report::from(self)).into(),
         }
     }
 }

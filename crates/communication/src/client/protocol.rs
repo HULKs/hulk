@@ -1,5 +1,6 @@
 use std::{collections::HashMap, time::SystemTime};
 
+use color_eyre::eyre;
 use futures_util::StreamExt;
 use log::{error, info, warn};
 use serde_json::Value;
@@ -202,11 +203,11 @@ impl ProtocolHandle {
 
 #[derive(Debug, Error)]
 enum ClosingError {
-    #[error("failed to serialize response")]
+    #[error("failed to serialize request")]
     JsonSerialization(#[source] serde_json::Error),
-    #[error("failed to deserialize request")]
+    #[error("failed to deserialize response")]
     JsonDeserialization(#[source] serde_json::Error),
-    #[error("failed to deserialize request")]
+    #[error("failed to deserialize response")]
     BincodeDeserialization(#[source] bincode::Error),
     #[error("connection no longer needed")]
     Finish,
@@ -214,23 +215,15 @@ enum ClosingError {
 
 impl ClosingError {
     fn into_close_frame(self) -> CloseFrame<'static> {
-        match self {
-            Self::JsonSerialization(error) => CloseFrame {
-                code: CloseCode::Error,
-                reason: error.to_string().into(),
-            },
-            Self::JsonDeserialization(error) => CloseFrame {
-                code: CloseCode::Invalid,
-                reason: error.to_string().into(),
-            },
-            Self::BincodeDeserialization(error) => CloseFrame {
-                code: CloseCode::Invalid,
-                reason: error.to_string().into(),
-            },
-            Self::Finish => CloseFrame {
-                code: CloseCode::Normal,
-                reason: "server shutting down".into(),
-            },
+        let code = match &self {
+            Self::JsonSerialization(_) => CloseCode::Error,
+            Self::JsonDeserialization(_) => CloseCode::Invalid,
+            Self::BincodeDeserialization(_) => CloseCode::Invalid,
+            Self::Finish => CloseCode::Normal,
+        };
+        CloseFrame {
+            code,
+            reason: format!("{:#}", eyre::Report::from(self)).into(),
         }
     }
 }
@@ -387,7 +380,13 @@ impl Protocol {
             Message::Binary(bytes) => {
                 bincode::deserialize(&bytes).map_err(ClosingError::BincodeDeserialization)?
             }
-            _ => return Ok(()),
+            Message::Close(maybe_frame) => {
+                warn!("server closed connection: {maybe_frame:#?}");
+                return Ok(());
+            }
+            _ => {
+                return Ok(());
+            }
         };
         if let Some(sender) = self.pending_requests.remove(&response.id) {
             let _ = sender.send(response);

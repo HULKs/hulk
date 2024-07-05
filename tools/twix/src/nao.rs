@@ -9,7 +9,7 @@ use color_eyre::{
     Report, Result,
 };
 use communication::{
-    client::{Connection, ConnectionHandle, PathsEvent, Status},
+    client::{Client, ConnectionHandle, PathsEvent, Status},
     messages::{Path, TextOrBinary},
 };
 use log::{error, warn};
@@ -34,7 +34,7 @@ impl Nao {
     pub fn new(address: String) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
-        let (connection, handle) = Connection::new(address);
+        let (connection, handle) = Client::new(address);
         runtime.spawn(connection.run());
 
         let repository = match runtime.block_on(get_repository_root()) {
