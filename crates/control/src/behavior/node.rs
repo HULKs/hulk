@@ -69,7 +69,6 @@ pub struct CycleContext {
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
-    striker_set_position: Parameter<Point2<Field>, "behavior.role_positions.striker_set_position">,
 }
 
 #[context]
@@ -355,7 +354,7 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles_output,
-                        *context.striker_set_position,
+                        context.parameters.role_positions.striker_kickoff_pose,
                     ),
                     Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
                         world_state,
