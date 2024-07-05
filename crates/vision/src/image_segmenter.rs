@@ -480,7 +480,7 @@ fn detect_edge(
 #[cfg(test)]
 mod tests {
     use itertools::iproduct;
-    use types::color::YCbCr422;
+    use types::{color::YCbCr422, field_color::FieldColorFunction};
 
     use super::*;
 
@@ -496,6 +496,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
         let vertical_stride = 2;
         let vertical_edge_threshold = 16;
@@ -531,6 +536,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
         let scan_line = new_vertical_scan_line(
             &image,
@@ -558,6 +568,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
         let scan_line = new_vertical_scan_line(
             &image,
@@ -594,6 +609,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         let scan_line = new_vertical_scan_line(
@@ -640,6 +660,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         let scan_line = new_vertical_scan_line(
@@ -691,6 +716,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -763,6 +793,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -838,6 +873,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         // y  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
@@ -917,6 +957,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         // y  y_median  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
@@ -1024,6 +1069,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -1176,6 +1226,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -1332,6 +1387,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         //  y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
@@ -1406,6 +1466,11 @@ mod tests {
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
             luminance_threshold: 25.0,
+            function: FieldColorFunction::GreenChromaticity,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 0.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 0.0,
         };
 
         //  y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
