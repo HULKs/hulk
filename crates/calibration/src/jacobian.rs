@@ -31,11 +31,11 @@ where
                     &upper_support_parameters,
                     measurements,
                     field_dimensions,
-                )? - calculate_residuals_from_parameters::<
-                    Measurement,
-                    MeasurementResidualsType,
-                >(&lower_support_parameters, measurements, field_dimensions)?)
-                    / (2.0 * EPSILON),
+                )? - calculate_residuals_from_parameters::<Measurement, MeasurementResidualsType>(
+                    &lower_support_parameters,
+                    measurements,
+                    field_dimensions,
+                )?) / (2.0 * EPSILON),
             )
         })
         .collect::<Option<Vec<_>>>()?;
