@@ -2,7 +2,7 @@ use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
 use coordinate_systems::{Field, Ground, NormalizedPixel};
-use linear_algebra::{Point2, Vector2};
+use linear_algebra::{Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -87,8 +87,7 @@ pub struct RolePositionsParameters {
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub striker_distance_to_non_free_center_circle: f32,
-    pub striker_kickoff_position: Point2<Field>,
-    pub striker_kickoff_orientation: f32,
+    pub striker_kickoff_pose: Pose2<Field>,
 }
 
 #[derive(

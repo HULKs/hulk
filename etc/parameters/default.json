@@ -1111,8 +1111,10 @@
       "striker_supporter_minimum_x": 2.0,
       "keeper_x_offset": 0.1,
       "striker_distance_to_non_free_center_circle": 0.4,
-      "striker_kickoff_position": [0.0, 0.3],
-      "striker_kickoff_orientation": -1.57
+      "striker_kickoff_pose": {
+        "translation": [0.0, 0.3],
+        "rotation": [0.0007962742820382118, -0.9999997019767761]
+      }
     },
     "dribbling": {
       "hybrid_align_distance": 0.5,
