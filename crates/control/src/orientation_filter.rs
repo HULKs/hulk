@@ -1,6 +1,5 @@
-use ahrs::{Ahrs, Madgwick};
-use color_eyre::{eyre::eyre, Result};
-use filtering::low_pass_filter::LowPassFilter;
+use color_eyre::Result;
+use filtering::{low_pass_filter::LowPassFilter, madgwick::Madgwick};
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +33,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
-    beta: Parameter<f32, "orientation_filter.beta">,
+    filter_gain: Parameter<f32, "orientation_filter.filter_gain">,
     calibration_steady_threshold: Parameter<f32, "orientation_filter.calibration_steady_threshold">,
     calibration_smoothing_factor: Parameter<f32, "orientation_filter.calibration_smoothing_factor">,
     num_calibration_cycles: Parameter<usize, "orientation_filter.num_calibration_cycles">,
@@ -85,26 +84,28 @@ impl OrientationFilter {
                     filtered_gravity.update(measured_acceleration);
                     *remaining_cycles -= 1;
                     if *remaining_cycles == 0 {
-                        self.state = State::Filtering {
-                            state: nalgebra::UnitQuaternion::look_at_rh(
-                                &-filtered_gravity.state().inner,
-                                &nalgebra::Vector3::y(),
-                            ),
-                        };
+                        let orientation = nalgebra::UnitQuaternion::look_at_rh(
+                            &-filtered_gravity.state().inner,
+                            &nalgebra::Vector3::y(),
+                        );
+                        self.state = State::Filtering { state: orientation };
                     }
                 } else {
                     self.state = State::WaitingForSteady;
                 }
             }
             State::Filtering { state } => {
-                let mut filter = Madgwick::new_with_quat(0.012, *context.beta, *state);
-                filter
-                    .update_imu(
+                if state
+                    .update_with_imu(
                         &measured_angular_velocity.inner,
                         &measured_acceleration.inner,
+                        *context.filter_gain,
+                        0.012,
                     )
-                    .map_err(|error| eyre!("failed to update orientation filter: {error}"))?;
-                *state = filter.quat;
+                    .is_err()
+                {
+                    state.update_with_gyro(&measured_angular_velocity.inner, *context.filter_gain);
+                }
             }
         }
 
