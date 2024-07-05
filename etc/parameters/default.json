@@ -1113,7 +1113,7 @@
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_pose": {
         "translation": [0.0, 0.3],
-        "rotation": [0.0007962742820382118, -0.9999997019767761]
+        "rotation": [0.0, -1.0]
       }
     },
     "dribbling": {
