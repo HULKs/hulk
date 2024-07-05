@@ -44,10 +44,8 @@ pub struct CycleContext {
         "calibration_measurement?",
     >,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    look_at_dispatch_wait_duration:
-        Parameter<Duration, "calibration_controller.look_at_dispatch_wait_duration">,
-    initial_to_calibration_stabilization_delay:
-        Parameter<Duration, "calibration_controller.initial_to_calibration_stabilization_delay">,
+    look_at_dispatch_delay: Parameter<Duration, "calibration_controller.look_at_dispatch_delay">,
+    stabilization_delay: Parameter<Duration, "calibration_controller.stabilization_delay">,
     max_retries_per_capture: Parameter<u32, "calibration_controller.max_retries_per_capture">,
 
     calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_measurements">,
@@ -123,9 +121,7 @@ impl CalibrationController {
             return Ok(MainOutputs::default());
         }
 
-        if let Some(new_state) = self.get_next_state(&context) {
-            self.current_calibration_state = new_state;
-        }
+        self.current_calibration_state = self.get_next_state(&context);
 
         context
             .calibration_measurements
@@ -142,16 +138,14 @@ impl CalibrationController {
         })
     }
 
-    fn get_next_state(&mut self, context: &CycleContext) -> Option<CalibrationState> {
-        let look_at_dispatch_waiting = *context.look_at_dispatch_wait_duration;
-        let initial_stabilization_delay = *context.initial_to_calibration_stabilization_delay;
+    fn get_next_state(&mut self, context: &CycleContext) -> CalibrationState {
         let current_cycle_time = context.cycle_time;
         match self.current_calibration_state {
             CalibrationState::Inactive => {
                 self.current_measurements = vec![];
-                Some(CalibrationState::Initialize {
+                return CalibrationState::Initialize {
                     started_time: *current_cycle_time,
-                })
+                };
             }
             CalibrationState::Initialize {
                 started_time: activated_time,
@@ -161,10 +155,8 @@ impl CalibrationController {
                     .duration_since(activated_time.start_time)
                     .unwrap_or_default();
 
-                if waiting_duration >= initial_stabilization_delay {
-                    Some(self.get_next_look_at_or_processing(*context.cycle_time))
-                } else {
-                    None
+                if waiting_duration >= *context.stabilization_delay {
+                    return self.get_next_look_at_or_processing(*context.cycle_time);
                 }
             }
             CalibrationState::LookAt {
@@ -177,14 +169,12 @@ impl CalibrationController {
                     .duration_since(dispatch_time.start_time)
                     .unwrap_or_default();
 
-                if time_diff > look_at_dispatch_waiting {
+                if time_diff > *context.look_at_dispatch_delay {
                     self.last_capture_retries = 0;
-                    Some(CalibrationState::Capture {
+                    return CalibrationState::Capture {
                         camera,
                         dispatch_time: *current_cycle_time,
-                    })
-                } else {
-                    None
+                    };
                 }
             }
             CalibrationState::Capture {
@@ -199,24 +189,21 @@ impl CalibrationController {
                     &dispatch_time,
                 );
 
-                calibration_response.and_then(|response| {
-                    let goto_next_lookat = if let Some(measurement) = response.measurement {
+                let goto_next_lookat = calibration_response.map_or(false, |response| {
+                    if let Some(measurement) = response.measurement {
                         self.current_measurements.push(measurement);
                         true
                     } else {
                         self.last_capture_retries += 1;
                         self.last_capture_retries > *context.max_retries_per_capture
-                    };
-                    if goto_next_lookat {
-                        Some(self.get_next_look_at_or_processing(*context.cycle_time))
-                    } else {
-                        None
                     }
-                })
+                });
+                if goto_next_lookat {
+                    return self.get_next_look_at_or_processing(*context.cycle_time);
+                }
             }
             CalibrationState::Process => {
                 // TODO Handle not enough measurements
-
                 let solved_result = solve(
                     Corrections::default(),
                     self.current_measurements.clone(),
@@ -224,10 +211,12 @@ impl CalibrationController {
                 );
 
                 self.last_calibration_corrections = Some(solved_result);
-                Some(CalibrationState::Finish)
+                return CalibrationState::Finish;
             }
-            CalibrationState::Finish => None,
+            CalibrationState::Finish => {}
         }
+
+        return self.current_calibration_state.clone();
     }
 
     fn get_next_look_at_or_processing(&mut self, dispatch_time: CycleTime) -> CalibrationState {

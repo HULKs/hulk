@@ -1505,11 +1505,11 @@
   },
   "calibration_controller": {
     "max_retries_per_capture": 10,
-    "initial_to_calibration_stabilization_delay": {
+    "stabilization_delay": {
       "nanos": 0,
       "secs": 5
     },
-    "look_at_dispatch_wait_duration": {
+    "look_at_dispatch_delay": {
       "nanos": 0,
       "secs": 1
     }
