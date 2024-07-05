@@ -69,6 +69,7 @@ pub struct CycleContext {
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
+    enable_pose_detection: Parameter<bool, "object_detection.object_detection_top.enable">,
 }
 
 #[context]
@@ -247,9 +248,11 @@ impl Behavior {
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
-                    Action::Initial => {
-                        initial::execute(world_state, context.expected_referee_position.cloned())
-                    }
+                    Action::Initial => initial::execute(
+                        world_state,
+                        context.expected_referee_position.cloned(),
+                        *context.enable_pose_detection,
+                    ),
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)
                     }

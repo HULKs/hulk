@@ -11,7 +11,7 @@ use context_attribute::context;
 use coordinate_systems::Pixel;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::rectangle::Rectangle;
-use hardware::{PathsInterface, TimeInterface};
+use hardware::PathsInterface;
 use itertools::Itertools;
 use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
@@ -48,8 +48,6 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    hardware_interface: HardwareInterface,
-
     preprocess_duration: AdditionalOutput<Duration, "preprocess_duration">,
     inference_duration: AdditionalOutput<Duration, "inference_duration">,
     postprocess_duration: AdditionalOutput<Duration, "postprocess_duration">,
@@ -61,7 +59,6 @@ pub struct CycleContext {
         Parameter<f32, "object_detection.$cycler_instance.intersection_over_union_threshold">,
     keypoint_confidence_threshold:
         Parameter<f32, "object_detection.$cycler_instance.keypoint_confidence_threshold">,
-    enable: Parameter<bool, "object_detection.$cycler_instance.enable">,
 }
 
 #[context]
@@ -111,19 +108,15 @@ impl PoseDetection {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
-        if !context.enable {
-            return Ok(MainOutputs::default());
-        }
-
-        let should_look_for_referee = matches!(
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let behavior_requests_pose_detection = matches!(
             context.motion_command,
             MotionCommand::Initial {
                 should_look_for_referee: true,
                 ..
             }
         );
-        if !should_look_for_referee {
+        if !behavior_requests_pose_detection {
             return Ok(MainOutputs::default());
         };
 
