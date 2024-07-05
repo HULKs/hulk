@@ -39,12 +39,6 @@ impl ButtonFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             chest_button_tap_detector: TapDetector::default(),
-            //head_buttons_touched: UNIX_EPOCH,
-            //last_head_buttons_touched: false,
-            //calibration_buttons_touched: UNIX_EPOCH,
-            //last_calibration_buttons_touched: false,
-            //animation_buttons_touched: UNIX_EPOCH,
-            //last_animation_button_touched: false,
             debounced_head_button:DebounceButton::default(),
             debounced_calibration_button: DebounceButton::default(),
             debounced_animation_button: DebounceButton::default(),
