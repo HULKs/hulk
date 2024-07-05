@@ -132,7 +132,7 @@ impl GameControllerStateFilter {
             }
         }
         if let State::Playing { .. } = self.state {
-            self.whistle_in_set_ball_position.take();
+            self.whistle_in_set_ball_position = None;
         }
 
         let ball_detected_far_from_kick_off_point = ball_position
