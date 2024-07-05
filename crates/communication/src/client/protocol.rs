@@ -12,7 +12,6 @@ use tokio::{
 };
 use tokio_tungstenite::{
     tungstenite::{
-        self,
         protocol::{frame::coding::CloseCode, CloseFrame},
         Message,
     },
@@ -30,16 +29,13 @@ use crate::{
 pub enum Error {
     #[error("connection closed")]
     Close,
-    #[error(transparent)]
-    Socket(#[from] tungstenite::Error),
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
-    #[error(transparent)]
-    Bincode(#[from] bincode::Error),
     #[error("server error: {0}")]
     Server(String),
-    #[error("protocol error: {0}")]
-    Protocol(String),
+    #[error("unexpected response: expected `{expected}`, got `{response}`")]
+    UnexpectedResponse {
+        expected: &'static str,
+        response: String,
+    },
 }
 
 #[derive(Debug)]
@@ -61,9 +57,10 @@ impl From<Response> for SubscriptionEvent<Value> {
                 value: TextOrBinary::Text(value),
             }) => Self::Update { timestamp, value },
             Ok(response) => Self::Failure {
-                error: Error::Protocol(format!(
-                    "unexpected response in text subscription: {response:#?}",
-                )),
+                error: Error::UnexpectedResponse {
+                    expected: "text subscription",
+                    response: format!("{response:#?}"),
+                },
             },
             Err(error) => Self::Failure {
                 error: Error::Server(error),
@@ -84,9 +81,10 @@ impl From<Response> for SubscriptionEvent<Vec<u8>> {
                 value: TextOrBinary::Binary(value),
             }) => Self::Update { timestamp, value },
             Ok(response) => Self::Failure {
-                error: Error::Protocol(format!(
-                    "unexpected response in binary subscription: {response:#?}",
-                )),
+                error: Error::UnexpectedResponse {
+                    expected: "binary subscription",
+                    response: format!("{response:#?}"),
+                },
             },
             Err(error) => Self::Failure {
                 error: Error::Server(error),
@@ -271,7 +269,7 @@ impl Protocol {
     pub async fn run(mut self) {
         let result = self.select_loop().await;
         if let Err(error) = result {
-            info!("closing connection...");
+            warn!("closing connection: {error}");
             let close_frame = error.into_close_frame();
             self.socket
                 .send_or_log(Message::Close(Some(close_frame)))
@@ -281,7 +279,6 @@ impl Protocol {
             }
         }
         info!("connection closed");
-        // TODO: properly shut down the socket by sending a close frame
     }
 
     async fn select_loop(&mut self) -> Result<(), ClosingError> {
@@ -302,9 +299,9 @@ impl Protocol {
                         None => return Ok(())
                     }
                 }
-                Some(maybe_unsubscription) = self.subscription_tasks.join_next() => {
-                    let id = maybe_unsubscription.unwrap();
-                    self.handle_unsubscription(id).await?;
+                Some(maybe_id) = self.subscription_tasks.join_next() => {
+                    let id = maybe_id.unwrap();
+                    self.unsubscribe(id).await?;
                 }
             };
             let _ = self.change_watch.send(());
@@ -358,34 +355,14 @@ impl Protocol {
                 path,
                 return_sender,
             } => {
-                let (response_sender, response_receiver) = mpsc::channel(1);
-                let (update_sender, update_receiver) = mpsc::channel(1);
-                info!("sending text subscription request for {path}");
-                let id = self
-                    .subscribe(path.clone(), Format::Text, response_sender)
-                    .await?;
-                self.subscription_tasks.spawn(serve_subscription(
-                    response_receiver,
-                    update_sender.clone(),
-                    id,
-                ));
+                let update_receiver = self.subscribe_text(path).await?;
                 let _ = return_sender.send(update_receiver);
             }
             Event::SubscribeBinary {
                 path,
                 return_sender,
             } => {
-                let (response_sender, response_receiver) = mpsc::channel(1);
-                let (update_sender, update_receiver) = mpsc::channel(1);
-                info!("sending binary subscription request for {path}...");
-                let id = self
-                    .subscribe(path.clone(), Format::Binary, response_sender)
-                    .await?;
-                self.subscription_tasks.spawn(serve_subscription(
-                    response_receiver,
-                    update_sender.clone(),
-                    id,
-                ));
+                let update_receiver = self.subscribe_binary(path).await?;
                 let _ = return_sender.send(update_receiver);
             }
             Event::Write {
@@ -420,17 +397,7 @@ impl Protocol {
             let _ = sender.send(response).await;
             return Ok(());
         }
-        warn!("unexpected response");
-        Ok(())
-    }
-
-    async fn handle_unsubscription(&mut self, id: RequestId) -> Result<(), ClosingError> {
-        info!("unsubscribing from {id}");
-        self.subscriptions.remove(&id).unwrap();
-        let (response_sender, response_receiver) = oneshot::channel();
-        self.request(RequestKind::Unsubscribe { id }, response_sender)
-            .await?;
-        spawn(wait_for_unsubscribe_response(response_receiver));
+        // all other responses are lagging subscriptions, we are safe to drop them
         Ok(())
     }
 
@@ -442,11 +409,10 @@ impl Protocol {
         let id = self.next_request_id;
         self.next_request_id += 1;
         let request = Request { id, kind: request };
-        self.socket
-            .send_or_log(Message::Text(
-                serde_json::to_string(&request).map_err(ClosingError::JsonSerialization)?,
-            ))
-            .await;
+        let message = Message::Text(
+            serde_json::to_string(&request).map_err(ClosingError::JsonSerialization)?,
+        );
+        self.socket.send_or_log(message).await;
         self.pending_requests.insert(id, response_sender);
         Ok(())
     }
@@ -455,21 +421,50 @@ impl Protocol {
         &mut self,
         path: Path,
         format: Format,
-        response_sender: mpsc::Sender<Response>,
-    ) -> Result<RequestId, ClosingError> {
+    ) -> Result<(mpsc::Receiver<Response>, RequestId), ClosingError> {
+        let (response_sender, response_receiver) = mpsc::channel(1);
         let id = self.next_request_id;
         self.next_request_id += 1;
         let request = Request {
             id,
             kind: RequestKind::Subscribe { path, format },
         };
-        self.socket
-            .send_or_log(Message::Text(
-                serde_json::to_string(&request).map_err(ClosingError::JsonSerialization)?,
-            ))
-            .await;
+        let message = Message::Text(
+            serde_json::to_string(&request).map_err(ClosingError::JsonSerialization)?,
+        );
+        self.socket.send_or_log(message).await;
         self.subscriptions.insert(id, response_sender);
-        Ok(id)
+        Ok((response_receiver, id))
+    }
+
+    async fn subscribe_text(
+        &mut self,
+        path: Path,
+    ) -> Result<mpsc::Receiver<SubscriptionEvent<Value>>, ClosingError> {
+        let (response_receiver, id) = self.subscribe(path, Format::Text).await?;
+        let (update_sender, update_receiver) = mpsc::channel(1);
+        self.subscription_tasks
+            .spawn(serve_subscription(response_receiver, update_sender, id));
+        Ok(update_receiver)
+    }
+
+    async fn subscribe_binary(
+        &mut self,
+        path: Path,
+    ) -> Result<mpsc::Receiver<SubscriptionEvent<Vec<u8>>>, ClosingError> {
+        let (response_receiver, id) = self.subscribe(path, Format::Binary).await?;
+        let (update_sender, update_receiver) = mpsc::channel(1);
+        self.subscription_tasks
+            .spawn(serve_subscription(response_receiver, update_sender, id));
+        Ok(update_receiver)
+    }
+
+    async fn unsubscribe(&mut self, id: RequestId) -> Result<(), ClosingError> {
+        let (response_sender, response_receiver) = oneshot::channel();
+        self.request(RequestKind::Unsubscribe { id }, response_sender)
+            .await?;
+        spawn(wait_for_unsubscribe_response(response_receiver));
+        Ok(())
     }
 }
 
@@ -485,9 +480,10 @@ async fn wait_for_paths_response(
             let _ = return_sender.send(Ok(paths));
         }
         Ok(response) => {
-            let _ = return_sender.send(Err(Error::Protocol(format!(
-                "unexpected response: {response:#?}"
-            ))));
+            let _ = return_sender.send(Err(Error::UnexpectedResponse {
+                expected: "paths",
+                response: format!("{response:#?}"),
+            }));
         }
         Err(error) => {
             let _ = return_sender.send(Err(Error::Server(error)));
@@ -510,9 +506,10 @@ async fn wait_for_read_text_response(
             let _ = return_sender.send(Ok((timestamp, value)));
         }
         Ok(response) => {
-            let _ = return_sender.send(Err(Error::Protocol(format!(
-                "unexpected response: {response:#?}"
-            ))));
+            let _ = return_sender.send(Err(Error::UnexpectedResponse {
+                expected: "read text",
+                response: format!("{response:#?}"),
+            }));
         }
         Err(error) => {
             let _ = return_sender.send(Err(Error::Server(error)));
@@ -535,9 +532,10 @@ async fn wait_for_read_binary_response(
             let _ = return_sender.send(Ok((timestamp, value)));
         }
         Ok(response) => {
-            let _ = return_sender.send(Err(Error::Protocol(format!(
-                "unexpected response: {response:#?}"
-            ))));
+            let _ = return_sender.send(Err(Error::UnexpectedResponse {
+                expected: "read binary",
+                response: format!("{response:#?}"),
+            }));
         }
         Err(error) => {
             let _ = return_sender.send(Err(Error::Server(error)));
@@ -561,6 +559,7 @@ async fn serve_subscription(
                 }
             }
             () = update_sender.closed() => {
+                // client has dropped the receiver, we no longer need to server this subscription
                 break
             }
         }
@@ -575,7 +574,7 @@ async fn wait_for_unsubscribe_response(response_receiver: oneshot::Receiver<Resp
     match response.kind {
         Ok(ResponseKind::Unsubscribe) => {}
         Ok(response) => {
-            error!("unexpected response: {response:?}");
+            error!("unexpected response: expected unsubscribe, got `{response:#?}`");
         }
         Err(error) => {
             error!("failed to unsubscribe: {error}");
@@ -595,9 +594,10 @@ async fn wait_for_write_response(
             let _ = return_sender.send(Ok(()));
         }
         Ok(response) => {
-            let _ = return_sender.send(Err(Error::Protocol(format!(
-                "unexpected response: {response:#?}"
-            ))));
+            let _ = return_sender.send(Err(Error::UnexpectedResponse {
+                expected: "write",
+                response: format!("{response:#?}"),
+            }));
         }
         Err(error) => {
             let _ = return_sender.send(Err(Error::Server(error)));
