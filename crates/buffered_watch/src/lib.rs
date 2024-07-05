@@ -101,21 +101,6 @@ struct Shared<T> {
     states: Mutex<Vec<State>>,
 }
 
-impl<T> Shared<T>
-where
-    T: Clone,
-{
-    fn append_buffer(&mut self) {
-        let mut states = self.states.lock();
-
-        let (index, age) = find_oldest_free_buffer(&states);
-        let buffer = unsafe { &*self.buffers[index].get() }.clone();
-
-        self.buffers.push(UnsafeCell::new(buffer));
-        states.push(State::Free { age: age + 1 });
-    }
-}
-
 #[derive(Clone, Copy)]
 enum State {
     Free {

@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::{cell::UnsafeCell, ops::Deref, sync::Arc};
 
 use parking_lot::{RwLock, RwLockReadGuard};
 use tokio::sync::watch;
@@ -86,7 +86,13 @@ where
 {
     fn clone(&self) -> Self {
         let shared = &mut *self.shared.write();
-        shared.append_buffer();
+        let mut states = shared.states.lock();
+
+        let (index, age) = find_oldest_free_buffer(&states);
+        let buffer = unsafe { &*shared.buffers[index].get() }.clone();
+
+        shared.buffers.push(UnsafeCell::new(buffer));
+        states.push(State::Free { age: age + 1 });
 
         Self {
             shared: self.shared.clone(),

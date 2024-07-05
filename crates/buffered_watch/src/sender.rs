@@ -7,8 +7,7 @@ use parking_lot::{RwLock, RwLockReadGuard};
 use tokio::sync::watch;
 
 use crate::{
-    find_oldest_free_buffer, receiver::lock_a_readable_buffer, Receiver, ReceiverGuard, Shared,
-    State,
+    find_oldest_free_buffer, receiver::lock_a_readable_buffer, ReceiverGuard, Shared, State,
 };
 
 /// Sends values to the associated Receivers
@@ -55,20 +54,6 @@ impl<T> Sender<T> {
             notifier: &self.notifier,
             buffer_index: index,
             buffer,
-        }
-    }
-
-    /// Creates a new Receiver connected to this sender
-    pub fn subscribe(&self) -> Receiver<T>
-    where
-        T: Clone,
-    {
-        let shared = &mut *self.shared.write();
-        shared.append_buffer();
-
-        Receiver {
-            shared: self.shared.clone(),
-            notifier: self.notifier.subscribe(),
         }
     }
 }
