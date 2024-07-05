@@ -120,7 +120,55 @@ impl CalibrationController {
             return Ok(MainOutputs::default());
         }
 
-        self.get_next_state(&context);
+        match self.current_calibration_state {
+            CalibrationState::Inactive => {
+                self.current_measurements = vec![];
+                self.current_calibration_state = CalibrationState::Initialize {
+                    started_time: *context.cycle_time,
+                };
+            }
+            CalibrationState::Initialize {
+                started_time: activated_time,
+            } => {
+                let waiting_duration = context
+                    .cycle_time
+                    .start_time
+                    .duration_since(activated_time.start_time)
+                    .unwrap_or_default();
+
+                if waiting_duration >= *context.stabilization_delay {
+                    self.current_calibration_state = self
+                        .get_next_look_at(*context.cycle_time)
+                        .unwrap_or(CalibrationState::Finish);
+                }
+            }
+            CalibrationState::LookAt {
+                dispatch_time,
+                camera,
+                ..
+            } => {
+                let time_diff = context
+                    .cycle_time
+                    .start_time
+                    .duration_since(dispatch_time.start_time)
+                    .unwrap_or_default();
+
+                if time_diff > *context.look_at_dispatch_delay {
+                    self.last_capture_retries = 0;
+                    self.current_calibration_state = CalibrationState::Capture {
+                        camera,
+                        dispatch_time: *context.cycle_time,
+                    };
+                }
+            }
+            CalibrationState::Capture {
+                dispatch_time,
+                camera,
+            } => {
+                self.process_capture(camera, &context, dispatch_time);
+            }
+            CalibrationState::Finish => {}
+        };
 
         context
             .calibration_measurements
@@ -137,75 +185,33 @@ impl CalibrationController {
         })
     }
 
-    fn get_next_state(&mut self, context: &CycleContext) {
-        let current_cycle_time = context.cycle_time;
-        match self.current_calibration_state {
-            CalibrationState::Inactive => {
-                self.current_measurements = vec![];
-                self.current_calibration_state = CalibrationState::Initialize {
-                    started_time: *current_cycle_time,
-                };
-            }
-            CalibrationState::Initialize {
-                started_time: activated_time,
-            } => {
-                let waiting_duration = current_cycle_time
-                    .start_time
-                    .duration_since(activated_time.start_time)
-                    .unwrap_or_default();
+    fn process_capture(
+        &mut self,
+        camera: CameraPosition,
+        context: &CycleContext,
+        dispatch_time: CycleTime,
+    ) {
+        let calibration_response = collect_filtered_values(
+            match camera {
+                CameraPosition::Top => &context.measurement_top,
+                CameraPosition::Bottom => &context.measurement_bottom,
+            },
+            &dispatch_time,
+        );
 
-                if waiting_duration >= *context.stabilization_delay {
-                    self.current_calibration_state = self
-                        .get_next_look_at_or_processing(*context.cycle_time)
-                        .unwrap_or(CalibrationState::Finish);
-                }
+        let goto_next_lookat = calibration_response.map_or(false, |response| {
+            if let Some(measurement) = response.measurement {
+                self.current_measurements.push(measurement);
+                true
+            } else {
+                self.last_capture_retries += 1;
+                self.last_capture_retries > *context.max_retries_per_capture
             }
-            CalibrationState::LookAt {
-                dispatch_time,
-                camera,
-                ..
-            } => {
-                let time_diff = current_cycle_time
-                    .start_time
-                    .duration_since(dispatch_time.start_time)
-                    .unwrap_or_default();
-
-                if time_diff > *context.look_at_dispatch_delay {
-                    self.last_capture_retries = 0;
-                    self.current_calibration_state = CalibrationState::Capture {
-                        camera,
-                        dispatch_time: *current_cycle_time,
-                    };
-                }
-            }
-            CalibrationState::Capture {
-                dispatch_time,
-                camera,
-            } => {
-                let calibration_response = collect_filtered_values(
-                    match camera {
-                        CameraPosition::Top => &context.measurement_top,
-                        CameraPosition::Bottom => &context.measurement_bottom,
-                    },
-                    &dispatch_time,
-                );
-
-                let goto_next_lookat = calibration_response.map_or(false, |response| {
-                    if let Some(measurement) = response.measurement {
-                        self.current_measurements.push(measurement);
-                        true
-                    } else {
-                        self.last_capture_retries += 1;
-                        self.last_capture_retries > *context.max_retries_per_capture
-                    }
-                });
-                if goto_next_lookat {
-                    self.current_calibration_state = self
-                        .get_next_look_at_or_processing(*context.cycle_time)
-                        .unwrap_or_else(|| self.calibrate(context));
-                }
-            }
-            CalibrationState::Finish => {}
+        });
+        if goto_next_lookat {
+            self.current_calibration_state = self
+                .get_next_look_at(*context.cycle_time)
+                .unwrap_or_else(|| self.calibrate(context));
         }
     }
 
@@ -221,22 +227,17 @@ impl CalibrationController {
         CalibrationState::Finish
     }
 
-    fn get_next_look_at_or_processing(
-        &mut self,
-        dispatch_time: CycleTime,
-    ) -> Option<CalibrationState> {
-        self.get_next_look_at()
+    fn get_next_look_at(&mut self, dispatch_time: CycleTime) -> Option<CalibrationState> {
+        let current_index = self.current_look_at_index;
+        self.current_look_at_index += 1;
+        self.look_at_list
+            .get(current_index)
+            .copied()
             .map(|(target, camera)| CalibrationState::LookAt {
                 camera,
                 target,
                 dispatch_time,
             })
-    }
-
-    fn get_next_look_at(&mut self) -> Option<(Point2<Ground>, CameraPosition)> {
-        let current_index = self.current_look_at_index;
-        self.current_look_at_index += 1;
-        self.look_at_list.get(current_index).copied()
     }
 }
 
