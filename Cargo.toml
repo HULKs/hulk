@@ -64,6 +64,7 @@ license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
 [workspace.dependencies]
+ahrs = { git = "https://github.com/jmagnuson/ahrs-rs" }
 aliveness = { path = "crates/aliveness" }
 alsa = "0.7.0"
 approx = "0.5.1"

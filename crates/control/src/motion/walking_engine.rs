@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Ground, Robot, Walk};
+use coordinate_systems::{Field, Ground, Robot, Walk};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use kinematics::forward;
@@ -47,6 +47,7 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     walk_command: Input<WalkCommand, "walk_command">,
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
+    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     obstacle_avoiding_arms: Input<ArmCommands, "obstacle_avoiding_arms">,
     zero_moment_point: Input<Point2<Ground>, "zero_moment_point">,
     number_of_consecutive_cycles_zero_moment_point_outside_support_polygon:
@@ -113,7 +114,8 @@ impl WalkingEngine {
             kick_steps: cycle_context.kick_steps,
             cycle_time: cycle_context.cycle_time,
             center_of_mass: cycle_context.center_of_mass,
-            sensor_data: cycle_context.sensor_data,
+            force_sensitive_resistors: &cycle_context.sensor_data.force_sensitive_resistors,
+            robot_orientation: cycle_context.robot_orientation,
             robot_to_ground: cycle_context.robot_to_ground,
             gyro: self.filtered_gyro.state(),
             current_joints: self.last_actuated_joints,

@@ -1,19 +1,29 @@
-use color_eyre::Result;
+use ahrs::{Ahrs, Madgwick};
+use color_eyre::{eyre::eyre, Result};
+use filtering::low_pass_filter::LowPassFilter;
+use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Field;
-use filtering::orientation_filtering::OrientationFiltering;
+use coordinate_systems::{Field, Robot};
 use framework::MainOutput;
-use linear_algebra::Orientation2;
-use types::{
-    cycle_time::CycleTime,
-    orientation_filter::{Parameters, State},
-    sensor_data::SensorData,
-    sole_pressure::SolePressure,
-};
+use linear_algebra::{IntoFramed, Orientation3, Vector3};
+use types::sensor_data::SensorData;
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default, Serialize, Deserialize)]
+enum State {
+    #[default]
+    WaitingForSteady,
+    CalibratingGravity {
+        filtered_gravity: LowPassFilter<Vector3<Robot>>,
+        remaining_cycles: usize,
+    },
+    Filtering {
+        state: UnitQuaternion<f32>,
+    },
+}
+
+#[derive(Default, Serialize, Deserialize)]
 pub struct OrientationFilter {
     state: State,
 }
@@ -24,16 +34,16 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
-    cycle_time: Input<CycleTime, "cycle_time">,
-    sole_pressure: Input<SolePressure, "sole_pressure">,
-
-    orientation_filter_parameters: Parameter<Parameters, "orientation_filter">,
+    beta: Parameter<f32, "orientation_filter.beta">,
+    calibration_steady_threshold: Parameter<f32, "orientation_filter.calibration_steady_threshold">,
+    calibration_smoothing_factor: Parameter<f32, "orientation_filter.calibration_smoothing_factor">,
+    num_calibration_cycles: Parameter<usize, "orientation_filter.num_calibration_cycles">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub robot_orientation: MainOutput<Orientation2<Field>>,
+    pub robot_orientation: MainOutput<Option<Orientation3<Field>>>,
 }
 
 impl OrientationFilter {
@@ -42,26 +52,69 @@ impl OrientationFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let measured_acceleration = context
-            .sensor_data
-            .inertial_measurement_unit
-            .linear_acceleration;
         let measured_angular_velocity = context
             .sensor_data
             .inertial_measurement_unit
             .angular_velocity;
-        let cycle_duration = context.cycle_time.last_cycle_duration;
-        self.state.update(
-            measured_acceleration.inner,
-            measured_angular_velocity.inner,
-            context.sole_pressure.left,
-            context.sole_pressure.right,
-            cycle_duration.as_secs_f32(),
-            context.orientation_filter_parameters,
-        );
+        let measured_acceleration = context
+            .sensor_data
+            .inertial_measurement_unit
+            .linear_acceleration;
+
+        match &mut self.state {
+            State::WaitingForSteady => {
+                if measured_angular_velocity.abs().inner.sum()
+                    < *context.calibration_steady_threshold
+                {
+                    self.state = State::CalibratingGravity {
+                        filtered_gravity: LowPassFilter::with_smoothing_factor(
+                            measured_acceleration,
+                            *context.calibration_smoothing_factor,
+                        ),
+                        remaining_cycles: *context.num_calibration_cycles,
+                    }
+                }
+            }
+            State::CalibratingGravity {
+                filtered_gravity,
+                remaining_cycles,
+            } => {
+                if measured_angular_velocity.abs().inner.sum()
+                    < *context.calibration_steady_threshold
+                {
+                    filtered_gravity.update(measured_acceleration);
+                    *remaining_cycles -= 1;
+                    if *remaining_cycles == 0 {
+                        self.state = State::Filtering {
+                            state: nalgebra::UnitQuaternion::look_at_rh(
+                                &-filtered_gravity.state().inner,
+                                &nalgebra::Vector3::y(),
+                            ),
+                        };
+                    }
+                } else {
+                    self.state = State::WaitingForSteady;
+                }
+            }
+            State::Filtering { state } => {
+                let mut filter = Madgwick::new_with_quat(0.012, *context.beta, *state);
+                filter
+                    .update_imu(
+                        &measured_angular_velocity.inner,
+                        &measured_acceleration.inner,
+                    )
+                    .map_err(|error| eyre!("failed to update orientation filter: {error}"))?;
+                *state = filter.quat;
+            }
+        }
+
+        let orientation = match &self.state {
+            State::Filtering { state } => Some((*state).framed()),
+            _ => None,
+        };
 
         Ok(MainOutputs {
-            robot_orientation: Orientation2::wrap(self.state.yaw()).into(),
+            robot_orientation: orientation.into(),
         })
     }
 }

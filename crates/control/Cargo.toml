@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+ahrs = { workspace = true }
 approx = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }

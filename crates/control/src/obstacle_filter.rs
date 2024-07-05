@@ -84,7 +84,8 @@ impl ObstacleFilter {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
-                .expect("current_odometry_to_last_odometry should not be None");
+                .copied()
+                .unwrap_or_default();
 
             self.predict_hypotheses_with_odometry(
                 current_odometry_to_last_odometry.inverse(),

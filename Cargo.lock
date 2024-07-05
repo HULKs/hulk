@@ -132,6 +132,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahrs"
+version = "0.6.0"
+source = "git+https://github.com/jmagnuson/ahrs-rs#bf7b41d09115b47ce8f6060624ed6a8a9bc445d4"
+dependencies = [
+ "nalgebra",
+ "num-traits",
+ "simba",
+]
+
+[[package]]
 name = "aliveness"
 version = "0.1.0"
 dependencies = [
@@ -1432,6 +1442,7 @@ dependencies = [
 name = "control"
 version = "0.1.0"
 dependencies = [
+ "ahrs",
  "approx",
  "ball_filter",
  "bincode",
@@ -5355,6 +5366,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "061507c94fc6ab4ba1c9a0305018408e312e17c041eb63bef8aa726fa33aceae"
 dependencies = [
  "approx",
+ "libm",
  "num-complex",
  "num-traits",
  "paste",

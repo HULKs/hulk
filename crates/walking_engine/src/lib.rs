@@ -1,7 +1,7 @@
 use arm::ArmOverrides as _;
-use coordinate_systems::{Ground, Robot, Walk};
+use coordinate_systems::{Field, Ground, Robot, Walk};
 use kick_steps::KickSteps;
-use linear_algebra::{Isometry3, Point2, Point3};
+use linear_algebra::{Isometry3, Orientation3, Point2, Point3};
 use mode::{
     catching::Catching, kicking::Kicking, standing::Standing, starting::Starting,
     stopping::Stopping, walking::Walking, Mode,
@@ -11,8 +11,8 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime, joints::body::BodyJoints, motion_command::KickVariant,
-    motor_commands::MotorCommands, obstacle_avoiding_arms::ArmCommands, sensor_data::SensorData,
-    step_plan::Step, support_foot::Side,
+    motor_commands::MotorCommands, obstacle_avoiding_arms::ArmCommands,
+    sensor_data::ForceSensitiveResistors, step_plan::Step, support_foot::Side,
 };
 
 mod anatomic_constraints;
@@ -41,7 +41,8 @@ pub struct Context<'a> {
     pub center_of_mass: &'a Point3<Robot>,
     pub zero_moment_point: &'a Point2<Ground>,
     pub number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: &'a i32,
-    pub sensor_data: &'a SensorData,
+    pub force_sensitive_resistors: &'a ForceSensitiveResistors,
+    pub robot_orientation: &'a Orientation3<Field>,
     pub robot_to_ground: Option<&'a Isometry3<Robot, Ground>>,
     pub gyro: nalgebra::Vector3<f32>,
     pub current_joints: BodyJoints,
