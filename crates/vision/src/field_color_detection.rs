@@ -5,7 +5,10 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use linear_algebra::Isometry2;
-use types::{field_color::FieldColor, interpolated::Interpolated};
+use types::{
+    field_color::{FieldColor, FieldColorFunction},
+    interpolated::Interpolated,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct FieldColorDetection {
@@ -17,6 +20,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    function: Parameter<FieldColorFunction, "field_color_detection.function">,
+    luminance_threshold:
+        Parameter<Interpolated, "field_color_detection.$cycler_instance.luminance_threshold">,
     blue_chromaticity_threshold: Parameter<
         Interpolated,
         "field_color_detection.$cycler_instance.blue_chromaticity_threshold",
@@ -31,8 +37,14 @@ pub struct CycleContext {
         Interpolated,
         "field_color_detection.$cycler_instance.green_chromaticity_threshold",
     >,
-    luminance_threshold:
-        Parameter<Interpolated, "field_color_detection.$cycler_instance.luminance_threshold">,
+    hue_low_threshold:
+        Parameter<Interpolated, "field_color_detection.$cycler_instance.hue_low_threshold">,
+    hue_high_threshold:
+        Parameter<Interpolated, "field_color_detection.$cycler_instance.hue_high_threshold">,
+    saturation_low_threshold:
+        Parameter<Interpolated, "field_color_detection.$cycler_instance.saturation_low_threshold">,
+    saturation_high_threshold:
+        Parameter<Interpolated, "field_color_detection.$cycler_instance.saturation_high_threshold">,
 
     ground_to_field_of_home_after_coin_toss_before_second_half: Input<
         Option<Isometry2<Ground, Field>>,
@@ -64,6 +76,10 @@ impl FieldColorDetection {
 
         Ok(MainOutputs {
             field_color: FieldColor {
+                function: *context.function,
+                luminance_threshold: context
+                    .luminance_threshold
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
                 red_chromaticity_threshold: context
                     .red_chromaticity_threshold
                     .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
@@ -76,8 +92,17 @@ impl FieldColorDetection {
                 green_luminance_threshold: context
                     .green_luminance_threshold
                     .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
-                luminance_threshold: context
-                    .luminance_threshold
+                hue_low_threshold: context
+                    .hue_low_threshold
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
+                hue_high_threshold: context
+                    .hue_high_threshold
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
+                saturation_low_threshold: context
+                    .saturation_low_threshold
+                    .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
+                saturation_high_threshold: context
+                    .saturation_high_threshold
                     .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half),
             }
             .into(),
@@ -99,11 +124,16 @@ mod test {
             cr: 0,
         };
         let field_color = FieldColor {
+            function: FieldColorFunction::GreenChromaticity,
+            luminance_threshold: 25.0,
             red_chromaticity_threshold: 0.37,
             blue_chromaticity_threshold: 0.38,
             green_chromaticity_threshold: 0.43,
             green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
+            hue_low_threshold: 0.0,
+            hue_high_threshold: 360.0,
+            saturation_low_threshold: 0.0,
+            saturation_high_threshold: 255.0,
         };
         let field_color_intensity = field_color.get_intensity(ycbcr);
         assert_eq!(field_color_intensity, Intensity::High);
