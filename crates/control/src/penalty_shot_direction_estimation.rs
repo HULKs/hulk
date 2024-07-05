@@ -7,8 +7,10 @@ use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
-    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
+    field_dimensions::{FieldDimensions, Half},
+    filtered_game_controller_state::FilteredGameControllerState,
+    penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -65,10 +67,7 @@ impl PenaltyShotDirectionEstimation {
             (PrimaryState::Playing, GamePhase::PenaltyShootout { .. }, ..)
             | (PrimaryState::Playing, _, Some(SubState::PenaltyKick), Team::Opponent) => {
                 let penalty_marker_position_in_ground = context.ground_to_field.inverse()
-                    * FieldDimensions::penalty_spot(
-                        context.field_dimensions,
-                        types::field_dimensions::Half::Own,
-                    );
+                    * FieldDimensions::penalty_spot(context.field_dimensions, Half::Own);
                 let reference_position = self
                     .placed_ball_position
                     .unwrap_or(penalty_marker_position_in_ground);
