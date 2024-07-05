@@ -1,7 +1,6 @@
-use color_eyre::Result;
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
-use projection::Error;
+use projection::Error as ProjectionError;
 use projection::Projection;
 use types::field_dimensions::FieldDimensions;
 
@@ -16,11 +15,13 @@ pub struct CenterCircleResiduals {
 }
 
 impl CalculateResiduals<Measurement> for CenterCircleResiduals {
+    type Error = ProjectionError;
+
     fn calculate_from(
         parameters: &Corrections,
         measurement: &Measurement,
         field_dimensions: &FieldDimensions,
-    ) -> Result<Self> {
+    ) -> Result<Self, Self::Error> {
         let corrected =
             get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
 
@@ -38,7 +39,7 @@ impl CalculateResiduals<Measurement> for CenterCircleResiduals {
         let has_projection_error =
             projected_points.len() != measurement.circle_and_points.points.len();
         if has_projection_error {
-            return Err(Error::NotOnProjectionPlane.into());
+            return Err(ProjectionError::NotOnProjectionPlane);
         }
         let residual_values = projected_points
             .into_iter()

@@ -1,4 +1,3 @@
-use color_eyre::Result;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
@@ -17,11 +16,13 @@ pub struct GoalBoxResiduals {
 }
 
 impl CalculateResiduals<Measurement> for GoalBoxResiduals {
+    type Error = ResidualsError;
+
     fn calculate_from(
         parameters: &Corrections,
         measurement: &Measurement,
         field_dimensions: &FieldDimensions,
-    ) -> Result<Self> {
+    ) -> Result<Self, Self::Error> {
         let corrected =
             get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
 

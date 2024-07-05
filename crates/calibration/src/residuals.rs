@@ -1,4 +1,3 @@
-use color_eyre::Result;
 use nalgebra::{DVector, Dyn, Owned, Vector};
 use types::field_dimensions::FieldDimensions;
 
@@ -29,11 +28,13 @@ where
 }
 
 pub trait CalculateResiduals<Measurement> {
+    type Error;
+
     fn calculate_from(
         parameters: &Corrections,
         measurement: &Measurement,
         field_dimensions: &FieldDimensions,
-    ) -> Result<Self>
+    ) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
