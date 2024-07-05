@@ -59,7 +59,7 @@ pub struct MainOutputs {
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 enum CalibrationState {
     #[default]
     Inactive,
@@ -216,7 +216,7 @@ impl CalibrationController {
             CalibrationState::Finish => {}
         }
 
-        return self.current_calibration_state.clone();
+        return self.current_calibration_state;
     }
 
     fn get_next_look_at_or_processing(&mut self, dispatch_time: CycleTime) -> CalibrationState {
