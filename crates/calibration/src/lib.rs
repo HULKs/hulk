@@ -11,16 +11,16 @@ pub mod jacobian;
 pub mod problem;
 pub mod residuals;
 
-pub fn solve<Measurement, StructuredResidual>(
+pub fn solve<Measurement, MeasurementResidualsType>(
     initial_corrections: Corrections,
     measurements: Vec<Measurement>,
     field_dimensions: FieldDimensions,
 ) -> Corrections
 where
-    StructuredResidual: CalculateResiduals<Measurement>,
-    Vec<f32>: From<StructuredResidual>,
+    MeasurementResidualsType: CalculateResiduals<Measurement>,
+    Vec<f32>: From<MeasurementResidualsType>,
 {
-    let problem = CalibrationProblem::<Measurement, StructuredResidual>::new(
+    let problem = CalibrationProblem::<Measurement, MeasurementResidualsType>::new(
         initial_corrections,
         measurements,
         field_dimensions,

@@ -4,7 +4,7 @@ use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
 use types::camera_position::CameraPosition;
 
-use super::circles::CenterOfCircleAndPoints;
+use super::circle_points::CenterCirclePoints;
 
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect, PathDeserialize,
@@ -12,5 +12,5 @@ use super::circles::CenterOfCircleAndPoints;
 pub struct Measurement {
     pub position: CameraPosition,
     pub matrix: CameraMatrix,
-    pub circles: CenterOfCircleAndPoints<Pixel>,
+    pub circle_and_points: CenterCirclePoints<Pixel>,
 }

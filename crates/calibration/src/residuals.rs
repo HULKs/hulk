@@ -4,22 +4,22 @@ use types::field_dimensions::FieldDimensions;
 
 use crate::corrections::Corrections;
 
-pub type Residual = Vector<f32, Dyn, ResidualStorage>;
-pub type ResidualStorage = Owned<f32, Dyn>;
+pub type ResidualVector = Vector<f32, Dyn, ResidualVectorStorage>;
+pub type ResidualVectorStorage = Owned<f32, Dyn>;
 
-pub fn calculate_residuals_from_parameters<MeasurementType, StructuredResidual>(
+pub fn calculate_residuals_from_parameters<MeasurementType, ResidualsFromMeasurement>(
     parameters: &Corrections,
     measurements: &[MeasurementType],
     field_dimensions: &FieldDimensions,
-) -> Option<Residual>
+) -> Option<ResidualVector>
 where
-    StructuredResidual: CalculateResiduals<MeasurementType>,
-    Vec<f32>: From<StructuredResidual>,
+    ResidualsFromMeasurement: CalculateResiduals<MeasurementType>,
+    Vec<f32>: From<ResidualsFromMeasurement>,
 {
     let mut residuals = Vec::new();
     for measurement in measurements {
         let residuals_part: Vec<f32> =
-            StructuredResidual::calculate_from(parameters, measurement, field_dimensions)
+            ResidualsFromMeasurement::calculate_from(parameters, measurement, field_dimensions)
                 .ok()?
                 .into();
         residuals.extend(residuals_part);

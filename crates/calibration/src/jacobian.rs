@@ -11,16 +11,14 @@ pub type JacobianStorage = Owned<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>>;
 
 const EPSILON: f32 = 0.000001;
 
-pub fn calculate_jacobian_from_parameters<
-    MeasurementType,
-    StructuredResidual: CalculateResiduals<MeasurementType>,
->(
+pub fn calculate_jacobian_from_parameters<MeasurementType, MeasurementResidualsType>(
     parameters: &Corrections,
     measurements: &[MeasurementType],
     field_dimensions: &FieldDimensions,
 ) -> Option<Jacobian>
 where
-    Vec<f32>: From<StructuredResidual>,
+    MeasurementResidualsType: CalculateResiduals<MeasurementType>,
+    Vec<f32>: From<MeasurementResidualsType>,
 {
     let columns = (0..AMOUNT_OF_PARAMETERS)
         .map(|index| {
@@ -29,15 +27,15 @@ where
                     parameters, index, EPSILON,
                 );
             Some(
-                (calculate_residuals_from_parameters::<MeasurementType, StructuredResidual>(
+                (calculate_residuals_from_parameters::<MeasurementType, MeasurementResidualsType>(
                     &upper_support_parameters,
                     measurements,
                     field_dimensions,
-                )? - calculate_residuals_from_parameters::<MeasurementType, StructuredResidual>(
-                    &lower_support_parameters,
-                    measurements,
-                    field_dimensions,
-                )?) / (2.0 * EPSILON),
+                )? - calculate_residuals_from_parameters::<
+                    MeasurementType,
+                    MeasurementResidualsType,
+                >(&lower_support_parameters, measurements, field_dimensions)?)
+                    / (2.0 * EPSILON),
             )
         })
         .collect::<Option<Vec<_>>>()?;

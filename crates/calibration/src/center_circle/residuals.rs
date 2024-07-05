@@ -1,7 +1,6 @@
 use color_eyre::Result;
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
-use nalgebra::{Dyn, Owned, Vector};
 use projection::Error;
 use projection::Projection;
 use types::field_dimensions::FieldDimensions;
@@ -12,15 +11,11 @@ use crate::{
     residuals::CalculateResiduals,
 };
 
-pub type Residual = Vector<f32, Dyn, ResidualStorage>;
-pub type ResidualStorage = Owned<f32, Dyn>;
-
-// TODO move above common parts
-pub struct Residuals {
-    residual_values: Vec<f32>,
+pub struct CenterCircleResiduals {
+    circumference_residual_values: Vec<f32>,
 }
 
-impl CalculateResiduals<Measurement> for Residuals {
+impl CalculateResiduals<Measurement> for CenterCircleResiduals {
     fn calculate_from(
         parameters: &Corrections,
         measurement: &Measurement,
@@ -31,16 +26,17 @@ impl CalculateResiduals<Measurement> for Residuals {
 
         let radius_squared = field_dimensions.center_circle_diameter / 2.0;
 
-        let projected_center = corrected.pixel_to_ground(measurement.circles.center)?;
+        let projected_center = corrected.pixel_to_ground(measurement.circle_and_points.center)?;
         let projected_points: Vec<Point2<Ground>> = measurement
-            .circles
+            .circle_and_points
             .points
             .iter()
             .filter_map(|&point| corrected.pixel_to_ground(point).ok())
             .collect();
 
         // TODO figure out a better way
-        let has_projection_error = projected_points.len() != measurement.circles.points.len();
+        let has_projection_error =
+            projected_points.len() != measurement.circle_and_points.points.len();
         if has_projection_error {
             return Err(Error::NotOnProjectionPlane.into());
         }
@@ -51,12 +47,14 @@ impl CalculateResiduals<Measurement> for Residuals {
             })
             .collect();
 
-        Ok(Residuals { residual_values })
+        Ok(CenterCircleResiduals {
+            circumference_residual_values: residual_values,
+        })
     }
 }
 
-impl From<Residuals> for Vec<f32> {
-    fn from(residuals: Residuals) -> Self {
-        residuals.residual_values
+impl From<CenterCircleResiduals> for Vec<f32> {
+    fn from(residuals: CenterCircleResiduals) -> Self {
+        residuals.circumference_residual_values
     }
 }
