@@ -4,7 +4,9 @@ use std::{
     sync::Arc,
 };
 
-use nalgebra::{ArrayStorage, Const, Matrix, Point, Scalar, U1};
+use nalgebra::{
+    ArrayStorage, Const, Matrix, Point, RealField, Scalar, SimdRealField, UnitQuaternion, U1,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
@@ -307,5 +309,65 @@ where
 {
     fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::extend_with_fields(fields, prefix)
+    }
+}
+
+impl<T> PathSerialize for UnitQuaternion<T>
+where
+    T: Serialize + PathSerialize + SimdRealField + RealField,
+    T::Element: SimdRealField,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match path {
+            "roll" => {
+                let (roll, _, _) = self.euler_angles();
+                roll.serialize(serializer)
+                    .map_err(serialize::Error::SerializationFailed)
+            }
+            "pitch" => {
+                let (_, pitch, _) = self.euler_angles();
+                pitch
+                    .serialize(serializer)
+                    .map_err(serialize::Error::SerializationFailed)
+            }
+            "yaw" => {
+                let (_, _, yaw) = self.euler_angles();
+                yaw.serialize(serializer)
+                    .map_err(serialize::Error::SerializationFailed)
+            }
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathDeserialize for UnitQuaternion<T> {
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        _deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        Err(deserialize::Error::PathDoesNotExist {
+            path: path.to_string(),
+        })
+    }
+}
+
+impl<T> PathIntrospect for UnitQuaternion<T> {
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}roll"));
+        fields.insert(format!("{prefix}pitch"));
+        fields.insert(format!("{prefix}yaw"));
     }
 }
