@@ -107,7 +107,7 @@ impl FakeData {
             stand_up_back_estimated_remaining_duration: last_database
                 .stand_up_back_estimated_remaining_duration
                 .into(),
-            calibration_command: last_database.calibration_command.clone().into(),
+            calibration_command: last_database.calibration_command.into(),
         })
     }
 }

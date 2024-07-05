@@ -83,7 +83,7 @@ impl WorldStateComposer {
             instant_kick_decisions: context.instant_kick_decisions.cloned(),
             filtered_game_controller_state: context.filtered_game_controller_state.copied(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
-            calibration_command: context.calibration_command.cloned(),
+            calibration_command: context.calibration_command.copied(),
         };
 
         Ok(MainOutputs {
