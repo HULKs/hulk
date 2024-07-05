@@ -10,13 +10,10 @@ use types::{buttons::Buttons, cycle_time::CycleTime, sensor_data::SensorData};
 #[derive(Deserialize, Serialize)]
 pub struct ButtonFilter {
     chest_button_tap_detector: TapDetector,
-    head_buttons_touched: SystemTime,
-    last_head_buttons_touched: bool,
-    calibration_buttons_touched: SystemTime,
-    last_calibration_buttons_touched: bool,
-    animation_button_touched: SystemTime,
+    debounced_head_button: DebounceButton,
+    debounced_calibration_button: DebounceButton,
+    debounced_animation_button: DebounceButton,
     animation_button_released: TapDetector,
-    last_animation_button_touched: bool,
 }
 
 #[context]
@@ -42,12 +39,15 @@ impl ButtonFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             chest_button_tap_detector: TapDetector::default(),
-            head_buttons_touched: UNIX_EPOCH,
-            last_head_buttons_touched: false,
-            calibration_buttons_touched: UNIX_EPOCH,
-            last_calibration_buttons_touched: false,
-            animation_button_touched: UNIX_EPOCH,
-            last_animation_button_touched: false,
+            //head_buttons_touched: UNIX_EPOCH,
+            //last_head_buttons_touched: false,
+            //calibration_buttons_touched: UNIX_EPOCH,
+            //last_calibration_buttons_touched: false,
+            //animation_buttons_touched: UNIX_EPOCH,
+            //last_animation_button_touched: false,
+            debounced_head_button:DebounceButton::default(),
+            debounced_calibration_button: DebounceButton::default(),
+            debounced_animation_button: DebounceButton::default(),
             animation_button_released: TapDetector::default(),
         })
     }
@@ -63,67 +63,67 @@ impl ButtonFilter {
 
         let head_buttons_touched =
             touch_sensors.head_front && touch_sensors.head_middle && touch_sensors.head_rear;
-
-        let head_buttons_touched_initially =
-            head_buttons_touched && !self.last_head_buttons_touched;
-        if head_buttons_touched_initially {
-            self.head_buttons_touched = context.cycle_time.start_time;
-        }
-        self.last_head_buttons_touched = head_buttons_touched;
-
-        let debounced_head_buttons_touched = head_buttons_touched
-            && context
-                .cycle_time
-                .start_time
-                .duration_since(self.head_buttons_touched)
-                .unwrap()
-                >= head_buttons_timeout;
+        let debounced_head_buttons_touched = self.debounced_head_button.debounce_button(
+            head_buttons_touched,
+            context.cycle_time.start_time,
+            head_buttons_timeout,
+        );
 
         let calibration_buttons_touched = touch_sensors.chest_button && touch_sensors.head_front;
+        let debounced_calibration_buttons_touched = self.debounced_calibration_button.debounce_button(
+            calibration_buttons_touched,
+            context.cycle_time.start_time,
+            calibration_buttons_timeout,
+        );
 
-        let calibration_buttons_touched_initially =
-            calibration_buttons_touched && !self.last_calibration_buttons_touched;
-        if calibration_buttons_touched_initially {
-            self.calibration_buttons_touched = context.cycle_time.start_time;
-        }
-        self.last_calibration_buttons_touched = calibration_buttons_touched;
+        let animation_buttons_touched = touch_sensors.head_rear;
 
-        let debounced_calibration_buttons_touched = calibration_buttons_touched
-            && context
-                .cycle_time
-                .start_time
-                .duration_since(self.calibration_buttons_touched)
-                .unwrap()
-                >= calibration_buttons_timeout;
-
-        let animation_button_touched = touch_sensors.head_rear;
-
-        let animation_button_touched_initially =
-            animation_button_touched && !self.last_animation_button_touched;
-        if animation_button_touched_initially {
-            self.animation_button_touched = context.cycle_time.start_time;
-        }
-        self.last_animation_button_touched = animation_button_touched;
-
-        let debounced_animation_button_touched = animation_button_touched
-            && context
-                .cycle_time
-                .start_time
-                .duration_since(self.animation_button_touched)
-                .unwrap()
-                >= animation_button_timeout;
+        let debounced_animation_buttons_touched = self.debounced_animation_button.debounce_button(
+            animation_buttons_touched,
+            context.cycle_time.start_time,
+            animation_button_timeout,
+        );
 
         Ok(MainOutputs {
             buttons: Buttons {
                 is_chest_button_pressed_once: self.chest_button_tap_detector.is_single_tapped,
                 head_buttons_touched: debounced_head_buttons_touched,
                 calibration_buttons_touched: debounced_calibration_buttons_touched,
-                animation_button_touched: debounced_animation_button_touched,
+                animation_buttons_touched: debounced_animation_buttons_touched,
             }
             .into(),
         })
     }
 }
 
-// I inserted this under MainOutputs Buttons
-//is_chest_button_pressed_twice: self.chest_button_tap_detector.is_double_tapped(),
+#[derive(Deserialize, Serialize)]
+struct DebounceButton{
+    last_button_touched:bool,
+    button_touched_time:SystemTime,
+}
+
+impl Default for DebounceButton {
+    fn default() -> Self {
+        Self { last_button_touched: Default::default(), button_touched_time: UNIX_EPOCH }
+    }
+}
+
+impl DebounceButton {
+
+   pub fn debounce_button(
+    &mut self,
+    button_touched: bool,
+    current_time: SystemTime,
+    timeout: Duration,
+) -> bool {
+    let button_touched_initially = button_touched && !self.last_button_touched;
+    if button_touched_initially {
+        self.button_touched_time = current_time;
+    }
+    self.last_button_touched = button_touched;
+
+    button_touched && current_time.duration_since(self.button_touched_time).unwrap() >= timeout
+} 
+}
+
+

@@ -283,8 +283,7 @@ impl LedStatus {
     ) -> (Eye, Eye) {
         match primary_state {
             PrimaryState::Unstiff
-            | PrimaryState::Animation { stiff: true }
-            | PrimaryState::Animation { stiff: false } => {
+            | PrimaryState::Animation {..} => {
                 let rainbow_eye = Self::get_rainbow_eye(cycle_start_time);
                 (rainbow_eye, rainbow_eye)
             }

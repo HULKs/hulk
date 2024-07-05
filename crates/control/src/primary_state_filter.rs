@@ -63,10 +63,9 @@ impl PrimaryStateFilter {
             context.buttons.head_buttons_touched,
             context.buttons.is_chest_button_pressed_once,
             context.buttons.calibration_buttons_touched,
-            context.filtered_game_controller_state, //these four lines translate to four positions down there (_,_,_,_)
-            context.buttons.animation_button_touched,
+            context.filtered_game_controller_state, 
+            context.buttons.animation_buttons_touched,
         ) {
-            // Animation transitions
 
             // Unstiff transitions (entering and exiting)
             (last_primary_state, true, _, _, _, _) => {
@@ -113,7 +112,7 @@ impl PrimaryStateFilter {
                 _,
                 None,
                 true,
-            ) => PrimaryState::Animation { stiff: false }, //here double tap = true & single tap = false => Animation mode
+            ) => PrimaryState::Animation { stiff: false }, 
             (PrimaryState::Animation { .. }, _, true, _, None, false) => {
                 PrimaryState::Animation { stiff: true }
             }

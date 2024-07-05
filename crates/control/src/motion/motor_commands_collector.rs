@@ -63,7 +63,6 @@ impl MotorCommandCollector {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let measured_positions = context.sensor_data.positions;
-        let _current_positions = context.sensor_data.positions;
         let animation = context.animation_commands;
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;
@@ -167,8 +166,7 @@ impl MotorCommandCollector {
             ),
         };
 
-        // The actuators use the raw sensor data (not corrected like current_positions) in their feedback loops,
-        // thus the compensation is required to make them reach the actual desired position.
+
         let compensated_positions = positions + *context.joint_calibration_offsets;
         let motor_commands = MotorCommands {
             positions: compensated_positions,

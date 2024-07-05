@@ -9,7 +9,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct Animation {
-    save_joints_value: Joints<f32>, //here we want to output joint values
+    save_joints_value: Joints<f32>,
 }
 
 #[context]
