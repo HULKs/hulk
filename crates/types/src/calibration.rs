@@ -9,16 +9,11 @@ use crate::{camera_position::CameraPosition, cycle_time::CycleTime};
 #[derive(
     Copy, Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub enum CalibrationCommand {
-    LookAt {
-        target: Point2<Ground>,
-        camera: CameraPosition,
-        dispatch_time: CycleTime,
-    },
-    Capture {
-        camera: CameraPosition,
-        dispatch_time: CycleTime,
-    },
+pub struct CalibrationCaptureCommand {
+    pub target: Point2<Ground>,
+    pub camera: CameraPosition,
+    pub dispatch_time: CycleTime,
+    pub capture: bool,
 }
 
 #[derive(

@@ -9,7 +9,7 @@ use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use linear_algebra::{point, Point2};
 use types::{
-    calibration::{CalibrationCaptureResponse, CalibrationCommand},
+    calibration::{CalibrationCaptureCommand, CalibrationCaptureResponse},
     camera_position::CameraPosition,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -53,7 +53,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub calibration_command: MainOutput<Option<CalibrationCommand>>,
+    pub calibration_command: MainOutput<Option<CalibrationCaptureCommand>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -77,6 +77,7 @@ enum CalibrationState {
         dispatch_time: CycleTime,
     },
     Capture {
+        target: Point2<Ground>,
         camera: CameraPosition,
         dispatch_time: CycleTime,
     },
@@ -84,23 +85,27 @@ enum CalibrationState {
 }
 
 impl CalibrationState {
-    fn as_calibration_command(&self) -> Option<CalibrationCommand> {
+    fn as_calibration_command(&self) -> Option<CalibrationCaptureCommand> {
         match *self {
             CalibrationState::LookAt {
                 target,
                 camera,
                 dispatch_time,
-            } => Some(CalibrationCommand::LookAt {
+            } => Some(CalibrationCaptureCommand {
                 target,
                 camera,
                 dispatch_time,
+                capture: false,
             }),
             CalibrationState::Capture {
+                target,
                 camera,
                 dispatch_time,
-            } => Some(CalibrationCommand::Capture {
+            } => Some(CalibrationCaptureCommand {
+                target,
                 camera,
                 dispatch_time,
+                capture: true,
             }),
             _ => None,
         }
@@ -147,7 +152,7 @@ impl CalibrationController {
             CalibrationState::LookAt {
                 dispatch_time,
                 camera,
-                ..
+                target,
             } => {
                 let time_diff = context
                     .cycle_time
@@ -158,6 +163,7 @@ impl CalibrationController {
                 if time_diff > *context.look_at_dispatch_delay {
                     self.inner_states.last_capture_retries = 0;
                     self.inner_states.calibration_state = CalibrationState::Capture {
+                        target,
                         camera,
                         dispatch_time: *context.cycle_time,
                     };
@@ -166,6 +172,7 @@ impl CalibrationController {
             CalibrationState::Capture {
                 dispatch_time,
                 camera,
+                ..
             } => {
                 self.process_capture(camera, &context, dispatch_time);
             }

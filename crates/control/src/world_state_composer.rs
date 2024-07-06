@@ -8,7 +8,7 @@ use linear_algebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,
-    calibration::CalibrationCommand,
+    calibration::CalibrationCaptureCommand,
     fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
@@ -47,7 +47,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
-    calibration_command: Input<Option<CalibrationCommand>, "calibration_command?">,
+    calibration_command: Input<Option<CalibrationCaptureCommand>, "calibration_command?">,
 }
 
 #[context]

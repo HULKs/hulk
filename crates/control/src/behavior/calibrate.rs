@@ -1,5 +1,5 @@
 use types::{
-    calibration::CalibrationCommand,
+    calibration::CalibrationCaptureCommand,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     primary_state::PrimaryState,
     world_state::WorldState,
@@ -10,7 +10,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         return None;
     }
 
-    let head = if let Some(CalibrationCommand::LookAt { target, camera, .. }) =
+    let head = if let Some(CalibrationCaptureCommand { target, camera, .. }) =
         world_state.calibration_command
     {
         HeadMotion::LookAt {
