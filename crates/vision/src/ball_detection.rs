@@ -10,7 +10,7 @@ use hardware::PathsInterface;
 use linear_algebra::{point, vector, IntoFramed, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::{BallDetection, CandidateEvaluation},
+    ball::{BallPercept, CandidateEvaluation},
     multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
@@ -35,7 +35,7 @@ struct BallCluster<'a> {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct BallDetector {
+pub struct BallDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
     neural_networks: NeuralNetworks,
 }
@@ -62,10 +62,10 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub balls: MainOutput<Option<Vec<BallDetection>>>,
+    pub balls: MainOutput<Option<Vec<BallPercept>>>,
 }
 
-impl BallDetector {
+impl BallDetection {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
         let paths = context.hardware_interface.get_paths();
 
@@ -339,7 +339,7 @@ fn project_balls_to_ground(
     camera_matrix: &CameraMatrix,
     measurement_noise: Vector2<Pixel>,
     ball_radius: f32,
-) -> Vec<BallDetection> {
+) -> Vec<BallPercept> {
     clusters
         .iter()
         .filter_map(|cluster| {
@@ -358,8 +358,8 @@ fn project_balls_to_ground(
             }
             .ok()?;
 
-            Some(BallDetection {
-                detection: MultivariateNormalDistribution {
+            Some(BallPercept {
+                percept_in_ground: MultivariateNormalDistribution {
                     mean: position.inner.coords,
                     covariance: projected_covariance,
                 },
@@ -377,7 +377,7 @@ mod tests {
     };
 
     use approx::assert_relative_eq;
-    use coordinate_systems::{Camera, Head};
+    use coordinate_systems::{Camera, Ground, Head};
     use linear_algebra::{IntoTransform, Isometry3, Vector3};
     use nalgebra::{Translation, UnitQuaternion};
 
@@ -562,14 +562,14 @@ mod tests {
             classifier,
             positioner,
         };
-        let mut node = BallDetector { neural_networks };
+        let mut node = BallDetection { neural_networks };
         let balls = node.cycle(context)?.balls;
         assert!(balls.value.is_some());
 
         assert_eq!(balls.value.as_ref().unwrap().len(), 1);
-        let ball = balls.value.unwrap()[0];
+        let ball = &balls.value.unwrap()[0];
         assert_relative_eq!(
-            ball.detection.mean.framed().as_point(),
+            ball.percept_in_ground.mean.framed::<Ground>().as_point(),
             point![1.53, 0.02],
             epsilon = 0.01,
         );

@@ -6,7 +6,7 @@ use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
-use types::{ball::BallDetection, field_dimensions::FieldDimensions};
+use types::{ball::BallPercept, field_dimensions::FieldDimensions};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
@@ -44,12 +44,12 @@ impl Layer<Ground> for BallMeasurement {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let balls_top: Vec<BallDetection> = self.detected_balls_top.parse_latest()?;
-        let balls_bottom: Vec<BallDetection> = self.detected_balls_bottom.parse_latest()?;
+        let balls_top: Vec<BallPercept> = self.detected_balls_top.parse_latest()?;
+        let balls_bottom: Vec<BallPercept> = self.detected_balls_bottom.parse_latest()?;
 
         for ball in balls_top.iter().chain(balls_bottom.iter()) {
-            let position = Point2::from(ball.detection.mean);
-            let covariance = ball.detection.covariance;
+            let position = Point2::from(ball.percept_in_ground.mean);
+            let covariance = ball.percept_in_ground.covariance;
 
             let stroke = Stroke::new(0.01, Color32::BLACK);
             painter.covariance(

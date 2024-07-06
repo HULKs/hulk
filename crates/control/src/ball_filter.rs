@@ -12,7 +12,7 @@ use geometry::circle::Circle;
 use linear_algebra::{distance, IntoFramed, IntoTransform, Isometry2, Point2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::BallDetection,
+    ball::BallPercept,
     ball_position::HypotheticalBallPosition,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -50,8 +50,8 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     ball_filter_configuration: Parameter<BallFilterParameters, "ball_filter">,
 
-    balls_bottom: PerceptionInput<Option<Vec<BallDetection>>, "VisionBottom", "balls?">,
-    balls_top: PerceptionInput<Option<Vec<BallDetection>>, "VisionTop", "balls?">,
+    balls_bottom: PerceptionInput<Option<Vec<BallPercept>>, "VisionBottom", "balls?">,
+    balls_top: PerceptionInput<Option<Vec<BallPercept>>, "VisionTop", "balls?">,
     projected_limbs: PerceptionInput<Option<ProjectedLimbs>, "VisionBottom", "projected_limbs?">,
 }
 
@@ -73,7 +73,7 @@ impl BallFilter {
     #[allow(clippy::too_many_arguments)]
     fn advance_all_hypotheses(
         &mut self,
-        measurements: BTreeMap<SystemTime, Vec<&BallDetection>>,
+        measurements: BTreeMap<SystemTime, Vec<&BallPercept>>,
         current_to_last_odometry: HistoricInput<Option<&nalgebra::Isometry2<f32>>>,
         camera_matrices: HistoricInput<Option<&CameraMatrices>>,
         had_ground_contact: HistoricInput<&bool>,
@@ -126,7 +126,7 @@ impl BallFilter {
             });
 
             for ball in balls {
-                let mean_position = ball.detection.mean.framed().as_point();
+                let mean_position = ball.percept_in_ground.mean.framed().as_point();
                 let is_hypothesis_detected = |hypothesis: &BallHypothesis| {
                     distance(
                         hypothesis
@@ -135,7 +135,7 @@ impl BallFilter {
                         mean_position,
                     ) < filter_parameters.measurement_matching_distance
                 };
-                let measurement_noise = ball.detection.covariance;
+                let measurement_noise = ball.percept_in_ground.covariance;
                 let is_any_hypothesis_updated = self.ball_filter.update(
                     detection_time,
                     mean_position,
@@ -283,10 +283,10 @@ impl BallFilter {
 }
 
 fn time_ordered_balls<'a>(
-    balls_top: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallDetection>>>>,
-    balls_bottom: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallDetection>>>>,
-) -> BTreeMap<SystemTime, Vec<&'a BallDetection>> {
-    let mut time_ordered_balls = BTreeMap::<SystemTime, Vec<&BallDetection>>::new();
+    balls_top: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallPercept>>>>,
+    balls_bottom: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallPercept>>>>,
+) -> BTreeMap<SystemTime, Vec<&'a BallPercept>> {
+    let mut time_ordered_balls = BTreeMap::<SystemTime, Vec<&BallPercept>>::new();
     for (detection_time, balls) in balls_top.into_iter().chain(balls_bottom) {
         let balls = balls.into_iter().flatten().flatten();
         time_ordered_balls

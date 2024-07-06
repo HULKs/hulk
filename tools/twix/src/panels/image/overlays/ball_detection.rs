@@ -5,7 +5,7 @@ use communication::client::{Cycler, CyclerOutput};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use geometry::circle::Circle;
-use types::ball::{BallDetection as BallMeasurement, CandidateEvaluation};
+use types::ball::{BallPercept as BallMeasurement, CandidateEvaluation};
 
 use crate::{
     panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,

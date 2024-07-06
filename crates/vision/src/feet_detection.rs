@@ -12,7 +12,7 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::BallDetection,
+    ball::BallPercept,
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},
@@ -40,7 +40,7 @@ pub struct CycleContext {
     minimum_samples_per_cluster:
         Parameter<usize, "feet_detection.$cycler_instance.minimum_samples_per_cluster">,
 
-    balls: RequiredInput<Option<Vec<BallDetection>>, "balls?">,
+    balls: RequiredInput<Option<Vec<BallPercept>>, "balls?">,
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
     line_data: RequiredInput<Option<LineData>, "line_data?">,
@@ -100,7 +100,7 @@ fn extract_segment_cluster_points(
     filtered_segments: &FilteredSegments,
     minimum_consecutive_segments: usize,
     minimum_luminance_standard_deviation: f32,
-    balls: &[BallDetection],
+    balls: &[BallPercept],
     line_data: &LineData,
     camera_matrix: &CameraMatrix,
 ) -> Vec<ClusterPoint> {
@@ -139,7 +139,7 @@ fn extract_segment_cluster_points(
 fn find_last_consecutive_cluster(
     scan_line: &ScanLine,
     line_data: &LineData,
-    balls: &[BallDetection],
+    balls: &[BallPercept],
     minimum_consecutive_segments: usize,
 ) -> Option<Vec<Segment>> {
     let filtered_segments = scan_line.segments.iter().filter(|segment| {

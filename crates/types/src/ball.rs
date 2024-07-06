@@ -16,7 +16,7 @@ pub struct CandidateEvaluation {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
-pub struct BallDetection {
-    pub detection: MultivariateNormalDistribution<2>,
+pub struct BallPercept {
+    pub percept_in_ground: MultivariateNormalDistribution<2>,
     pub image_location: Circle<Pixel>,
 }
