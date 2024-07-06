@@ -10,15 +10,16 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         return None;
     }
 
-    let Some(CalibrationCommand::LookAt { target, camera, .. }) = world_state.calibration_command
-    else {
-        return None;
-    };
-    Some(MotionCommand::Stand {
-        head: HeadMotion::LookAt {
+    let head = if let Some(CalibrationCommand::LookAt { target, camera, .. }) = world_state.calibration_command {
+        HeadMotion::Center
+    } else {
+        HeadMotion::LookAt {
             target,
             camera: Some(camera),
             image_region_target: ImageRegion::Bottom,
-        },
+        }
+    };
+    Some(MotionCommand::Stand {
+        head
     })
 }
