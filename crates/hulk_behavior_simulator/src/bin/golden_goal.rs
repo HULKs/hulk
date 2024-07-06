@@ -34,8 +34,12 @@ fn golden_goal(
         commands.spawn(Robot::try_new(PlayerNumber::Seven).unwrap());
     }
     if game_controller.state.hulks_team.score > 4 || time.ticks() >= 100_000 {
-        exit.send(AppExit);
         println!("Done");
+        exit.send(AppExit::Success);
+    }
+    if time.ticks() >= 100_000 {
+        println!("No goal was scored :(");
+        exit.send(AppExit::from_code(1));
     }
     if time.ticks() % 299 == 0 {
         println!("{}", time.ticks());
