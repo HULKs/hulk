@@ -138,7 +138,7 @@ impl BallDetection {
         let balls = project_balls_to_ground(
             &clusters,
             context.camera_matrix,
-            context.parameters.variance_of_detection,
+            context.parameters.detection_noise,
             *context.ball_radius,
         );
 
@@ -511,7 +511,7 @@ mod tests {
             image_containment_merge_factor: 1.0,
             cluster_merge_radius_factor: 1.5,
             ball_radius_enlargement_factor: 2.0,
-            variance_of_detection: vector![0.0, 0.0],
+            detection_noise: vector![0.0, 0.0],
         };
         let perspective_grid_candidates = PerspectiveGridCandidates {
             candidates: vec![Circle {
