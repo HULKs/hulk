@@ -5,10 +5,11 @@ use std::{
 };
 
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use serde::{Deserialize, Serialize};
 use spl_network_messages::{HulkMessage, PlayerNumber, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,

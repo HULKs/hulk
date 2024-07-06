@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use color_eyre::{eyre::Ok, Result};
-use communication::client::{Cycler, CyclerOutput, Output};
-use coordinate_systems::Pixel;
 use eframe::{
     egui::{Align2, FontId},
     epaint::{Color32, Stroke},
 };
-use linear_algebra::point;
 use log::warn;
+
+use communication::client::{Cycler, CyclerOutput, Output};
+use coordinate_systems::Pixel;
+use linear_algebra::point;
 use types::pose_detection::{HumanPose, Keypoint};
 
 use crate::{nao::Nao, panels::image::overlay::Overlay, value_buffer::ValueBuffer};

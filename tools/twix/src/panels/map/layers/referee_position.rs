@@ -1,9 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use color_eyre::Result;
+use eframe::epaint::{Color32, Stroke};
+
 use communication::client::CyclerOutput;
 use coordinate_systems::Field;
-use eframe::epaint::{Color32, Stroke};
 use linear_algebra::Point2;
 
 use crate::{

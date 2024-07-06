@@ -1,11 +1,13 @@
 use std::{ops::Index, time::SystemTime};
 
-use crate::bounding_box::BoundingBox;
 use color_eyre::Result;
-use coordinate_systems::Pixel;
-use linear_algebra::{point, Point2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
+
+use coordinate_systems::Pixel;
+use linear_algebra::{point, Point2};
+
+use crate::bounding_box::BoundingBox;
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,

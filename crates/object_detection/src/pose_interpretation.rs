@@ -1,14 +1,15 @@
 use std::time::Duration;
 
 use color_eyre::Result;
+use ordered_float::NotNan;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use hardware::{NetworkInterface, PathsInterface};
 use linear_algebra::{center, distance, Isometry2, Point2, Transform};
-use ordered_float::NotNan;
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
-use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     fall_state::FallState,

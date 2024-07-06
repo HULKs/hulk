@@ -1,8 +1,9 @@
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{NetworkInterface, PathsInterface};
-use serde::{Deserialize, Serialize};
 use types::pose_detection::{HumanPose, Keypoint};
 
 #[derive(Deserialize, Serialize)]

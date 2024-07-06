@@ -7,18 +7,19 @@ use color_eyre::{
     eyre::{bail, eyre, Context, ContextCompat},
     Result,
 };
-use context_attribute::context;
-use coordinate_systems::Pixel;
-use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
-use geometry::rectangle::Rectangle;
-use hardware::PathsInterface;
 use itertools::Itertools;
-use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
 use openvino::{
     CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, Tensor,
 };
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::Pixel;
+use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
+use geometry::rectangle::Rectangle;
+use hardware::PathsInterface;
+use linear_algebra::{point, vector};
 use types::{
     bounding_box::BoundingBox,
     color::Rgb,
