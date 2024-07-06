@@ -4,7 +4,7 @@ use bevy::{
     ecs::event::{Events, ManualEventReader},
     time::Time,
 };
-use color_eyre::Result;
+use color_eyre::{eyre::eyre, Result};
 
 use crate::{
     autoref::autoref_plugin,
@@ -59,22 +59,24 @@ pub trait AppExt {
 impl AppExt for App {
     fn run_to_completion(&mut self) -> Result<()> {
         let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
-        loop {
+        let exit = loop {
             self.update();
-            if self
-                .world
+            if let Some(exit) = self
+                .world_mut()
                 .get_resource_mut::<Events<AppExit>>()
                 .and_then(|events| app_exit_event_reader.read(&events).last().cloned())
-                .is_some()
             {
-                break;
+                break exit;
             }
-        }
-        if let Some(mut recording) = self.world.get_resource_mut::<Recording>() {
+        };
+        if let Some(mut recording) = self.world_mut().get_resource_mut::<Recording>() {
             println!("serving {} frames", recording.frames.len());
             recording.serve()?
         }
 
-        Ok(())
+        match exit {
+            AppExit::Success => Ok(()),
+            AppExit::Error(code) => Err(eyre!("Scenario exited with error code {code}")),
+        }
     }
 }
