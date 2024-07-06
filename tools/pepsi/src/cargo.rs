@@ -19,8 +19,8 @@ pub struct Arguments {
     pub target: String,
     #[arg(long)]
     pub no_sdk_installation: bool,
-    #[arg(long)]
-    pub features: Vec<String>,
+    #[arg(long, default_value = "")]
+    pub features: String,
     /// Pass through arguments to cargo ... -- PASSTHROUGH_ARGUMENTS
     #[arg(last = true, value_parser)]
     pub passthrough_arguments: Vec<String>,

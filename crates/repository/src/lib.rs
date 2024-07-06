@@ -137,17 +137,19 @@ impl Repository {
         workspace: bool,
         profile: &str,
         target: &str,
-        features: &[String],
+        features: &str,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         let use_docker = target == "nao" && OS_IS_NOT_LINUX;
 
         let cargo_command = format!("cargo {action} ")
             + format!("--profile {profile} ").as_str()
-            + {
-                let features_string = features.join(" ");
-                format!("--features {features_string} ").as_str()
+            + if !features.is_empty() {
+                format!("--features {features} ")
+            } else {
+                String::new()
             }
+            .as_str()
             + if workspace {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
@@ -209,7 +211,7 @@ impl Repository {
         workspace: bool,
         profile: &str,
         target: &str,
-        features: &[String],
+        features: &str,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         self.cargo(
@@ -224,34 +226,20 @@ impl Repository {
     }
 
     pub async fn check(&self, workspace: bool, profile: &str, target: &str) -> Result<()> {
-        self.cargo(
-            CargoAction::Check,
-            workspace,
-            profile,
-            target,
-            &["".to_string()],
-            &[],
-        )
-        .await
+        self.cargo(CargoAction::Check, workspace, profile, target, "", &[])
+            .await
     }
 
     pub async fn clippy(&self, workspace: bool, profile: &str, target: &str) -> Result<()> {
-        self.cargo(
-            CargoAction::Clippy,
-            workspace,
-            profile,
-            target,
-            &["".to_string()],
-            &[],
-        )
-        .await
+        self.cargo(CargoAction::Clippy, workspace, profile, target, "", &[])
+            .await
     }
 
     pub async fn run(
         &self,
         profile: &str,
         target: &str,
-        features: &[String],
+        features: &str,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         self.cargo(

@@ -97,7 +97,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
                 profile: arguments.profile.clone(),
                 target: "nao".to_string(),
                 no_sdk_installation: arguments.no_sdk_installation,
-                features: Vec::new(),
+                features: "".to_string(),
                 passthrough_arguments: Vec::new(),
                 remote: arguments.remote,
             },
