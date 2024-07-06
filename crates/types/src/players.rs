@@ -15,7 +15,9 @@ use spl_network_messages::{Penalty, PlayerNumber, TeamState};
     PathSerialize,
     PathIntrospect,
     PathDeserialize,
+    PartialEq,
 )]
+
 pub struct Players<T> {
     pub one: T,
     pub two: T,

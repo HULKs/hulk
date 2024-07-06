@@ -8,6 +8,7 @@ pub mod camera_matrix_calculator;
 pub mod center_of_mass_provider;
 pub mod dribble_path_planner;
 pub mod fall_state_estimation;
+pub mod filtered_game_controller_state_timer;
 pub mod foot_bumper_filter;
 pub mod game_controller_filter;
 pub mod game_controller_state_filter;
