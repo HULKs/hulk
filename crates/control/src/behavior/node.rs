@@ -70,7 +70,7 @@ pub struct CycleContext {
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
-    enable_pose_detection: Parameter<bool, "object_detection.object_detection_top.enable">,
+    enable_pose_detection: Parameter<bool, "pose_detection.enable">,
     wide_stance: Parameter<WideStanceParameters, "wide_stance">,
 }
 
