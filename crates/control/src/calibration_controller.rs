@@ -18,12 +18,9 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationController {
-    current_look_at_index: usize,
-    current_calibration_state: CalibrationState,
-    current_measurements: Vec<Measurement>,
-    last_calibration_corrections: Option<Corrections>,
+    inner_states: StateTracking,
+    corrections: Option<Corrections>,
     look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
-    last_capture_retries: u32,
 }
 
 #[context]
@@ -48,7 +45,7 @@ pub struct CycleContext {
     stabilization_delay: Parameter<Duration, "calibration_controller.stabilization_delay">,
     max_retries_per_capture: Parameter<u32, "calibration_controller.max_retries_per_capture">,
 
-    calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_measurements">,
+    calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_inner.measurements">,
     last_calibration_corrections:
         AdditionalOutput<Option<Corrections>, "last_calibration_corrections">,
 }
@@ -57,6 +54,14 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct StateTracking {
+    look_at_index: usize,
+    calibration_state: CalibrationState,
+    measurements: Vec<Measurement>,
+    last_capture_retries: u32,
 }
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
@@ -105,25 +110,22 @@ impl CalibrationState {
 impl CalibrationController {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            current_calibration_state: CalibrationState::default(),
+            inner_states: Default::default(),
             look_at_list: generate_look_at_list(),
-            current_look_at_index: 0,
-            current_measurements: vec![],
-            last_calibration_corrections: None,
-            last_capture_retries: 0,
+            corrections: None,
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         if *context.primary_state != PrimaryState::Calibration {
-            self.current_calibration_state = CalibrationState::Inactive;
+            self.inner_states.calibration_state = CalibrationState::Inactive;
             return Ok(MainOutputs::default());
         }
 
-        match self.current_calibration_state {
+        match self.inner_states.calibration_state {
             CalibrationState::Inactive => {
-                self.current_measurements = vec![];
-                self.current_calibration_state = CalibrationState::Initialize {
+                self.inner_states = Default::default();
+                self.inner_states.calibration_state = CalibrationState::Initialize {
                     started_time: *context.cycle_time,
                 };
             }
@@ -137,7 +139,7 @@ impl CalibrationController {
                     .unwrap_or_default();
 
                 if waiting_duration >= *context.stabilization_delay {
-                    self.current_calibration_state = self
+                    self.inner_states.calibration_state = self
                         .get_next_look_at(*context.cycle_time)
                         .unwrap_or(CalibrationState::Finish);
                 }
@@ -154,8 +156,8 @@ impl CalibrationController {
                     .unwrap_or_default();
 
                 if time_diff > *context.look_at_dispatch_delay {
-                    self.last_capture_retries = 0;
-                    self.current_calibration_state = CalibrationState::Capture {
+                    self.inner_states.last_capture_retries = 0;
+                    self.inner_states.calibration_state = CalibrationState::Capture {
                         camera,
                         dispatch_time: *context.cycle_time,
                     };
@@ -172,14 +174,15 @@ impl CalibrationController {
 
         context
             .calibration_measurements
-            .fill_if_subscribed(|| self.current_measurements.clone());
+            .fill_if_subscribed(|| self.inner_states.measurements.clone());
         context
             .last_calibration_corrections
-            .fill_if_subscribed(|| self.last_calibration_corrections);
+            .fill_if_subscribed(|| self.corrections);
 
         Ok(MainOutputs {
             calibration_command: self
-                .current_calibration_state
+                .inner_states
+                .calibration_state
                 .as_calibration_command()
                 .into(),
         })
@@ -201,37 +204,37 @@ impl CalibrationController {
 
         let goto_next_lookat = calibration_response.map_or(false, |response| {
             if let Some(measurement) = response.measurement {
-                self.current_measurements.push(measurement);
+                self.inner_states.measurements.push(measurement);
                 true
             } else {
-                self.last_capture_retries += 1;
-                self.last_capture_retries > *context.max_retries_per_capture
+                self.inner_states.last_capture_retries += 1;
+                self.inner_states.last_capture_retries > *context.max_retries_per_capture
             }
         });
         if goto_next_lookat {
-            self.current_calibration_state = self
+            self.inner_states.calibration_state = self
                 .get_next_look_at(*context.cycle_time)
                 .unwrap_or_else(|| self.calibrate(context));
         }
     }
 
     fn calibrate(&mut self, context: &CycleContext) -> CalibrationState {
-        // TODO Handle not enough measurements
+        // TODO Handle not enough inner.measurements
         let solved_result = solve(
             Corrections::default(),
-            self.current_measurements.clone(),
+            self.inner_states.measurements.clone(),
             *context.field_dimensions,
         );
 
-        self.last_calibration_corrections = Some(solved_result);
+        self.corrections = Some(solved_result);
         CalibrationState::Finish
     }
 
     fn get_next_look_at(&mut self, dispatch_time: CycleTime) -> Option<CalibrationState> {
-        let current_index = self.current_look_at_index;
-        self.current_look_at_index += 1;
+        let index = self.inner_states.look_at_index;
+        self.inner_states.look_at_index += 1;
         self.look_at_list
-            .get(current_index)
+            .get(index)
             .copied()
             .map(|(target, camera)| CalibrationState::LookAt {
                 camera,
