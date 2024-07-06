@@ -1,14 +1,26 @@
-use bevy::ecs::schedule::IntoSystemConfigs;
+use bevy::{
+    app::{App, Update},
+    ecs::schedule::IntoSystemConfigs,
+};
+use color_eyre::Result;
 
 use crate::simulator::{AppExt, SimulatorPlugin};
 
-pub fn run_scenario<M>(
-    system: impl IntoSystemConfigs<M>,
-    with_recording: bool,
-) -> color_eyre::Result<()> {
-    bevy::app::App::new()
-        .add_plugins(SimulatorPlugin::default().with_recording(with_recording))
-        .add_systems(bevy::app::Update, system)
+use clap::Parser;
+
+#[derive(Parser)]
+struct Arguments {
+    /// Just run the simulation, don't serve the result
+    #[arg(short, long)]
+    run: bool,
+}
+
+pub fn run_scenario<M>(system: impl IntoSystemConfigs<M>, with_recording: bool) -> Result<()> {
+    let args = Arguments::parse();
+
+    App::new()
+        .add_plugins(SimulatorPlugin::default().with_recording(!args.run && with_recording))
+        .add_systems(Update, system)
         .run_to_completion()
 }
 

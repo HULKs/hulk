@@ -3,6 +3,7 @@
 use hardware::{NetworkInterface, RecordingInterface, SpeakerInterface, TimeInterface};
 use interfake::FakeDataInterface;
 
+pub mod autoref;
 pub mod ball;
 pub mod fake_data;
 pub mod game_controller;
