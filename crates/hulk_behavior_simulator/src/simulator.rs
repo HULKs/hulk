@@ -7,6 +7,7 @@ use bevy::{
 use color_eyre::Result;
 
 use crate::{
+    autoref::autoref_plugin,
     ball::{move_ball, BallResource},
     game_controller::GameController,
     recorder::Recording,
@@ -34,6 +35,7 @@ impl Plugin for SimulatorPlugin {
             TypeRegistrationPlugin,
             FrameCountPlugin,
         ))
+        .add_plugins(autoref_plugin)
         .insert_resource(GameController::default())
         .insert_resource(BallResource::default())
         .insert_resource(Messages::default())
