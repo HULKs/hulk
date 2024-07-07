@@ -137,12 +137,20 @@ impl Repository {
         workspace: bool,
         profile: &str,
         target: &str,
+        features: Option<Vec<String>>,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         let use_docker = target == "nao" && OS_IS_NOT_LINUX;
 
         let cargo_command = format!("cargo {action} ")
             + format!("--profile {profile} ").as_str()
+            + if let Some(features) = features {
+                let features = features.join(",");
+                format!("--features {features} ")
+            } else {
+                String::new()
+            }
+            .as_str()
             + if workspace {
                 "--workspace --all-features --all-targets ".to_string()
             } else {
@@ -204,6 +212,7 @@ impl Repository {
         workspace: bool,
         profile: &str,
         target: &str,
+        features: Option<Vec<String>>,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         self.cargo(
@@ -211,18 +220,19 @@ impl Repository {
             workspace,
             profile,
             target,
+            features,
             passthrough_arguments,
         )
         .await
     }
 
     pub async fn check(&self, workspace: bool, profile: &str, target: &str) -> Result<()> {
-        self.cargo(CargoAction::Check, workspace, profile, target, &[])
+        self.cargo(CargoAction::Check, workspace, profile, target, None, &[])
             .await
     }
 
     pub async fn clippy(&self, workspace: bool, profile: &str, target: &str) -> Result<()> {
-        self.cargo(CargoAction::Clippy, workspace, profile, target, &[])
+        self.cargo(CargoAction::Clippy, workspace, profile, target, None, &[])
             .await
     }
 
@@ -230,6 +240,7 @@ impl Repository {
         &self,
         profile: &str,
         target: &str,
+        features: Option<Vec<String>>,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         self.cargo(
@@ -237,6 +248,7 @@ impl Repository {
             false,
             profile,
             target,
+            features,
             passthrough_arguments,
         )
         .await
