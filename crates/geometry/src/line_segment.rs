@@ -91,7 +91,7 @@ where
         (other_point - self.closest_point(other_point)).norm()
     }
 
-    /// Reference: https://algotree.org/algorithms/computational_geometry/line_segment_intersection/
+    /// Reference: <https://algotree.org/algorithms/computational_geometry/line_segment_intersection/>
     pub fn intersects_line_segment(&self, other: LineSegment<Frame>) -> bool {
         let orientation_other_points_to_self =
             (self.get_direction(other.0), self.get_direction(other.1));
