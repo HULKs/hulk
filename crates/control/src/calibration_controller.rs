@@ -3,7 +3,11 @@ use std::{time::Duration, vec};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use calibration::{corrections::Corrections, measurement::Measurement, solve};
+use calibration::{
+    corrections::Corrections,
+    goal_box::{measurement::Measurement, residuals::GoalBoxResiduals},
+    solve,
+};
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
@@ -227,7 +231,7 @@ impl CalibrationController {
 
     fn calibrate(&mut self, context: &CycleContext) -> CalibrationState {
         // TODO Handle not enough inner.measurements
-        let solved_result = solve(
+        let solved_result = solve::<Measurement, GoalBoxResiduals>(
             Corrections::default(),
             self.inner_states.measurements.clone(),
             *context.field_dimensions,

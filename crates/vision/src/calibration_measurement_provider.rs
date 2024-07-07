@@ -5,7 +5,7 @@ use color_eyre::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use calibration::{lines::Lines, measurement::Measurement};
+use calibration::goal_box::{lines::Lines, measurement::Measurement};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
