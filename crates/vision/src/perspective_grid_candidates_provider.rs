@@ -93,7 +93,7 @@ fn generate_rows(
             break;
         };
 
-        if radius < minimum_radius || row_vertical_center < 0.0 {
+        if radius < minimum_radius || row_vertical_center + radius < 0.0 {
             break;
         }
 
