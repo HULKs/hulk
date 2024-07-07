@@ -56,10 +56,10 @@ pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
     motion_command: Input<MotionCommand, "Control", "motion_command">,
 
-    intersection_over_union_threshold:
-        Parameter<f32, "pose_detection.intersection_over_union_threshold">,
-    bounding_box_confidence_threshold:
-        Parameter<f32, "pose_detection.bounding_box_confidence_threshold">,
+    maximum_intersection_over_union:
+        Parameter<f32, "pose_detection.maximum_intersection_over_union">,
+    minimum_bounding_box_confidence:
+        Parameter<f32, "pose_detection.minimum_bounding_box_confidence">,
 }
 
 #[context]
@@ -160,7 +160,7 @@ impl PoseDetection {
             .into_iter()
             .filter_map(|row| {
                 let confidence = row[4];
-                if confidence < *context.bounding_box_confidence_threshold {
+                if confidence < *context.minimum_bounding_box_confidence {
                     return None;
                 }
                 let bounding_box_slice = row.slice(s![0..4]);
@@ -189,7 +189,7 @@ impl PoseDetection {
             })
             .collect_vec();
 
-        let poses = non_maximum_suppression(poses, *context.intersection_over_union_threshold);
+        let poses = non_maximum_suppression(poses, *context.maximum_intersection_over_union);
 
         context.postprocess_duration.fill_if_subscribed(|| {
             SystemTime::now()
@@ -222,7 +222,7 @@ fn load_into_scratchpad(scratchpad: &mut [f32], image: &YCbCr422Image) {
 
 fn non_maximum_suppression(
     mut candidate_pose: Vec<HumanPose>,
-    intersection_over_union_threshold: f32,
+    maximum_intersection_over_union: f32,
 ) -> Vec<HumanPose> {
     let mut poses = Vec::new();
     candidate_pose.sort_unstable_by(|pose1, pose2| {
@@ -239,7 +239,7 @@ fn non_maximum_suppression(
                 detection
                     .bounding_box
                     .intersection_over_union(&detection_candidate.bounding_box)
-                    < intersection_over_union_threshold
+                    < maximum_intersection_over_union
             })
             .collect_vec();
 

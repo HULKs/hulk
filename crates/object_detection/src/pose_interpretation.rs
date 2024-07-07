@@ -39,12 +39,12 @@ pub struct CycleContext {
     fall_state: Input<FallState, "Control", "fall_state">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
-    distance_to_referee_position_threshold:
-        Parameter<f32, "pose_detection.distance_to_referee_position_threshold">,
+    maximum_distance_to_referee_position:
+        Parameter<f32, "pose_detection.maximum_distance_to_referee_position">,
     foot_z_offset: Parameter<f32, "pose_detection.foot_z_offset">,
-    shoulder_angle_threshold: Parameter<f32, "pose_detection.shoulder_angle_threshold">,
+    minimum_shoulder_angle: Parameter<f32, "pose_detection.minimum_shoulder_angle">,
 
-    raw_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "raw_pose_kinds">,
+    unfiltered_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "unfiltered_pose_kinds">,
     filtered_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "filtered_pose_kinds">,
 }
 
@@ -66,7 +66,7 @@ impl PoseInterpretation {
         let (Some(ground_to_field), Some(expected_referee_position)) =
             (context.ground_to_field, context.expected_referee_position)
         else {
-            context.raw_pose_kinds.fill_if_subscribed(Vec::new);
+            context.unfiltered_pose_kinds.fill_if_subscribed(Vec::new);
             context.filtered_pose_kinds.fill_if_subscribed(Vec::new);
             return Ok(MainOutputs {
                 detected_referee_pose_kind: None.into(),
@@ -76,20 +76,20 @@ impl PoseInterpretation {
         let referee_pose = get_referee_pose(
             context.filtered_human_poses.clone(),
             context.camera_matrices.top.clone(),
-            *context.distance_to_referee_position_threshold,
+            *context.maximum_distance_to_referee_position,
             ground_to_field.inverse() * expected_referee_position,
             *context.foot_z_offset,
         );
 
-        let pose_kind = interpret_pose(referee_pose, *context.shoulder_angle_threshold);
+        let pose_kind = interpret_pose(referee_pose, *context.minimum_shoulder_angle);
 
-        context.raw_pose_kinds.fill_if_subscribed(|| {
+        context.unfiltered_pose_kinds.fill_if_subscribed(|| {
             get_all_pose_kind_positions(
                 context.unfiltered_human_poses,
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
-                *context.shoulder_angle_threshold,
+                *context.minimum_shoulder_angle,
             )
         });
 
@@ -99,7 +99,7 @@ impl PoseInterpretation {
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
-                *context.shoulder_angle_threshold,
+                *context.minimum_shoulder_angle,
             )
         });
 
@@ -112,7 +112,7 @@ impl PoseInterpretation {
 fn get_referee_pose(
     filtered_poses: Vec<HumanPose>,
     camera_matrix_top: CameraMatrix,
-    distance_to_referee_position_threshold: f32,
+    maximum_distance_to_referee_position: f32,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
 ) -> Option<HumanPose> {
@@ -123,8 +123,7 @@ fn get_referee_pose(
         foot_z_offset,
     )?;
 
-    if located_pose_candidate.distance_to_referee_position < distance_to_referee_position_threshold
-    {
+    if located_pose_candidate.distance_to_referee_position < maximum_distance_to_referee_position {
         Some(located_pose_candidate.pose)
     } else {
         None
@@ -160,30 +159,27 @@ fn get_closest_referee_pose(
         })
 }
 
-fn interpret_pose(
-    human_pose: Option<HumanPose>,
-    shoulder_angle_threshold: f32,
-) -> Option<PoseKind> {
-    if is_above_head_arms_pose(human_pose?.keypoints, shoulder_angle_threshold) {
+fn interpret_pose(human_pose: Option<HumanPose>, minimum_shoulder_angle: f32) -> Option<PoseKind> {
+    if is_above_head_arms_pose(human_pose?.keypoints, minimum_shoulder_angle) {
         Some(PoseKind::AboveHeadArms)
     } else {
         None
     }
 }
 
-fn is_above_head_arms_pose(keypoints: Keypoints, shoulder_angle_threshold: f32) -> bool {
+fn is_above_head_arms_pose(keypoints: Keypoints, minimum_shoulder_angle: f32) -> bool {
     are_hands_above_shoulder(&keypoints)
         && is_shoulder_angled_up(
             &keypoints,
             keypoints.right_shoulder.point,
             keypoints.right_elbow.point,
-            shoulder_angle_threshold,
+            minimum_shoulder_angle,
         )
         && is_shoulder_angled_up(
             &keypoints,
             keypoints.left_shoulder.point,
             keypoints.left_elbow.point,
-            shoulder_angle_threshold,
+            minimum_shoulder_angle,
         )
 }
 
@@ -196,7 +192,7 @@ fn is_shoulder_angled_up(
     keypoints: &Keypoints,
     shoulder_point: Point2<Pixel>,
     elbow_point: Point2<Pixel>,
-    shoulder_angle_threshold: f32,
+    minimum_shoulder_angle: f32,
 ) -> bool {
     struct RotatedPixel;
 
@@ -211,7 +207,7 @@ fn is_shoulder_angled_up(
 
     let shoulder_to_elbow = elbow.coords() - shoulder.coords();
 
-    f32::atan2(shoulder_to_elbow.y(), shoulder_to_elbow.x()) > shoulder_angle_threshold
+    f32::atan2(shoulder_to_elbow.y(), shoulder_to_elbow.x()) > minimum_shoulder_angle
 }
 
 fn get_all_pose_kind_positions(
@@ -219,7 +215,7 @@ fn get_all_pose_kind_positions(
     camera_matrix_top: CameraMatrix,
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
-    shoulder_angle_threshold: f32,
+    minimum_shoulder_angle: f32,
 ) -> Vec<PoseKindPosition<Field>> {
     let Some(ground_to_field) = ground_to_field else {
         return Vec::new();
@@ -234,7 +230,7 @@ fn get_all_pose_kind_positions(
             let right_foot_ground_position = camera_matrix_top
                 .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
                 .ok()?;
-            let interpreted_pose_kind = interpret_pose(Some(*pose), shoulder_angle_threshold)?;
+            let interpreted_pose_kind = interpret_pose(Some(*pose), minimum_shoulder_angle)?;
             Some(PoseKindPosition {
                 pose_kind: interpreted_pose_kind,
                 position: center(

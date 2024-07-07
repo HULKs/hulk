@@ -13,7 +13,7 @@ use crate::{
 
 pub struct RefereePosition {
     expected_referee_position: ValueBuffer,
-    distance_to_referee_position_threshold: ValueBuffer,
+    maximum_distance_to_referee_position: ValueBuffer,
 }
 
 impl Layer<Field> for RefereePosition {
@@ -23,11 +23,11 @@ impl Layer<Field> for RefereePosition {
         let expected_referee_position = nao.subscribe_output(
             CyclerOutput::from_str("Control.main.expected_referee_position").unwrap(),
         );
-        let distance_to_referee_position_threshold =
-            nao.subscribe_parameter("pose_detection.distance_to_referee_position_threshold");
+        let maximum_distance_to_referee_position =
+            nao.subscribe_parameter("pose_detection.maximum_distance_to_referee_position");
         Self {
             expected_referee_position,
-            distance_to_referee_position_threshold,
+            maximum_distance_to_referee_position,
         }
     }
 
@@ -54,12 +54,11 @@ impl Layer<Field> for RefereePosition {
             position_stroke,
         );
 
-        let distance_to_referee_position_threshold: f32 = self
-            .distance_to_referee_position_threshold
-            .require_latest()?;
+        let maximum_distance_to_referee_position: f32 =
+            self.maximum_distance_to_referee_position.require_latest()?;
         painter.circle(
             expected_referee_position_ground,
-            distance_to_referee_position_threshold,
+            maximum_distance_to_referee_position,
             Color32::TRANSPARENT,
             position_stroke,
         );

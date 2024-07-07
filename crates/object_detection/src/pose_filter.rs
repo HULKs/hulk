@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::{NetworkInterface, PathsInterface};
-use types::pose_detection::{HumanPose, Keypoint};
+use hardware::PathsInterface;
+use types::pose_detection::HumanPose;
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseFilter {}
@@ -16,14 +16,12 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    hardware_interface: HardwareInterface,
-
     unfiltered_poses: Input<Vec<HumanPose>, "unfiltered_human_poses">,
 
-    overall_keypoint_confidence_threshold:
-        Parameter<f32, "pose_detection.overall_keypoint_confidence_threshold">,
-    visual_referee_keypoint_confidence_threshold:
-        Parameter<f32, "pose_detection.visual_referee_keypoint_confidence_threshold">,
+    minimum_overall_keypoint_confidence:
+        Parameter<f32, "pose_detection.minimum_overall_keypoint_confidence">,
+    minimum_visual_referee_keypoint_confidence:
+        Parameter<f32, "pose_detection.minimum_visual_referee_keypoint_confidence">,
 }
 
 #[context]
@@ -37,54 +35,43 @@ impl PoseFilter {
         Ok(PoseFilter {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
-        let overall_confidences_filtered_poses = filter_poses_by_overall_confidence(
-            context.unfiltered_poses.clone(),
-            *context.overall_keypoint_confidence_threshold,
-        );
-
-        let visual_referee_confidences_filtered_poses = filter_poses_by_visual_referee_confidence(
-            overall_confidences_filtered_poses,
-            *context.visual_referee_keypoint_confidence_threshold,
-        );
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let filtered_human_poses: Vec<_> = context
+            .unfiltered_poses
+            .iter()
+            .copied()
+            .filter(|pose| {
+                filter_poses_by_overall_confidence(
+                    pose,
+                    *context.minimum_overall_keypoint_confidence,
+                ) && filter_poses_by_visual_referee_confidence(
+                    pose,
+                    *context.minimum_visual_referee_keypoint_confidence,
+                )
+            })
+            .collect();
 
         Ok(MainOutputs {
-            filtered_human_poses: visual_referee_confidences_filtered_poses.into(),
+            filtered_human_poses: filtered_human_poses.into(),
         })
     }
 }
 
 fn filter_poses_by_overall_confidence(
-    pose_candidates: Vec<HumanPose>,
-    overall_keypoint_confidence_threshold: f32,
-) -> Vec<HumanPose> {
-    pose_candidates
+    pose: &HumanPose,
+    minimum_overall_keypoint_confidence: f32,
+) -> bool {
+    pose.keypoints
         .iter()
-        .filter(|pose| {
-            pose.keypoints
-                .iter()
-                .all(|keypoint| keypoint.confidence > overall_keypoint_confidence_threshold)
-        })
-        .copied()
-        .collect()
+        .all(|keypoint| keypoint.confidence > minimum_overall_keypoint_confidence)
 }
 
 fn filter_poses_by_visual_referee_confidence(
-    pose_candidates: Vec<HumanPose>,
-    visual_referee_keypoint_confidence_threshold: f32,
-) -> Vec<HumanPose> {
-    pose_candidates
-        .iter()
-        .filter(|pose| {
-            let visual_referee_keypoint_indices = [0, 1, 5, 6, 7, 8, 9, 10, 15, 16];
-            let visual_referee_keypoints: Vec<Keypoint> = visual_referee_keypoint_indices
-                .iter()
-                .map(|&i| pose.keypoints[i])
-                .collect();
-            visual_referee_keypoints
-                .iter()
-                .all(|keypoint| keypoint.confidence > visual_referee_keypoint_confidence_threshold)
-        })
-        .copied()
-        .collect()
+    pose: &HumanPose,
+    minimum_visual_referee_keypoint_confidence: f32,
+) -> bool {
+    let visual_referee_keypoint_indices = [0, 1, 5, 6, 7, 8, 9, 10, 15, 16];
+    visual_referee_keypoint_indices
+        .into_iter()
+        .all(|index| pose.keypoints[index].confidence > minimum_visual_referee_keypoint_confidence)
 }

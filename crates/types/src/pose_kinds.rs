@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum PoseKind {
     AboveHeadArms,
-    ArmsBySide,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
