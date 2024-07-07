@@ -6,7 +6,6 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 geometry = { workspace = true }
 levenberg-marquardt = { workspace = true }
