@@ -1,24 +1,33 @@
 use levenberg_marquardt::LeastSquaresProblem;
 use nalgebra::{Const, Dyn, Owned, SVector};
+
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},
     jacobian::{calculate_jacobian_from_parameters, Jacobian, JacobianStorage},
-    measurement::Measurement,
-    residuals::{calculate_residuals_from_parameters, Residual, ResidualStorage},
+    residuals::{
+        calculate_residuals_from_parameters, CalculateResiduals, ResidualVector,
+        ResidualVectorStorage,
+    },
 };
 
-pub struct CalibrationProblem {
+pub struct CalibrationProblem<MeasurementResidualsType>
+where
+    MeasurementResidualsType: CalculateResiduals,
+{
     parameters: Corrections,
-    measurements: Vec<Measurement>,
+    measurements: Vec<MeasurementResidualsType::Measurement>,
     field_dimensions: FieldDimensions,
 }
 
-impl CalibrationProblem {
+impl<MeasurementResidualsType> CalibrationProblem<MeasurementResidualsType>
+where
+    MeasurementResidualsType: CalculateResiduals,
+{
     pub fn new(
         initial_corrections: Corrections,
-        measurements: Vec<Measurement>,
+        measurements: Vec<MeasurementResidualsType::Measurement>,
         field_dimensions: FieldDimensions,
     ) -> Self {
         Self {
@@ -33,8 +42,13 @@ impl CalibrationProblem {
     }
 }
 
-impl LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>> for CalibrationProblem {
-    type ResidualStorage = ResidualStorage;
+impl<MeasurementResidualsType> LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>>
+    for CalibrationProblem<MeasurementResidualsType>
+where
+    MeasurementResidualsType: CalculateResiduals,
+    Vec<f32>: From<MeasurementResidualsType>,
+{
+    type ResidualStorage = ResidualVectorStorage;
     type JacobianStorage = JacobianStorage;
     type ParameterStorage = Owned<f32, Const<AMOUNT_OF_PARAMETERS>>;
 
@@ -48,9 +62,9 @@ impl LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>> for CalibrationP
         (&self.parameters).into()
     }
 
-    fn residuals(&self) -> Option<Residual> {
+    fn residuals(&self) -> Option<ResidualVector> {
         println!("residuals()");
-        calculate_residuals_from_parameters(
+        calculate_residuals_from_parameters::<MeasurementResidualsType>(
             &self.parameters,
             &self.measurements,
             &self.field_dimensions,
@@ -59,7 +73,7 @@ impl LeastSquaresProblem<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>> for CalibrationP
 
     fn jacobian(&self) -> Option<Jacobian> {
         println!("jacobian()");
-        calculate_jacobian_from_parameters(
+        calculate_jacobian_from_parameters::<MeasurementResidualsType>(
             &self.parameters,
             &self.measurements,
             &self.field_dimensions,

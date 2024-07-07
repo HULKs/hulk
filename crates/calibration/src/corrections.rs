@@ -1,7 +1,10 @@
-use nalgebra::{vector, Rotation3, SVector};
+use nalgebra::{vector, Rotation3, SVector, UnitQuaternion};
 use serde::{Deserialize, Serialize};
 
+use linear_algebra::IntoTransform;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use projection::camera_matrix::CameraMatrix;
+use types::camera_position::CameraPosition;
 
 pub const AMOUNT_OF_PARAMETERS: usize = 9;
 
@@ -63,4 +66,24 @@ impl From<&Corrections> for SVector<f32, AMOUNT_OF_PARAMETERS> {
             camera_bottom_yaw
         ]
     }
+}
+
+pub(crate) fn get_corrected_camera_matrix(
+    input_matrix: &CameraMatrix,
+    position: CameraPosition,
+    parameters: &Corrections,
+) -> CameraMatrix {
+    input_matrix.to_corrected(
+        UnitQuaternion::from_rotation_matrix(&parameters.correction_in_robot).framed_transform(),
+        match position {
+            CameraPosition::Top => {
+                UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_top)
+                    .framed_transform()
+            }
+            CameraPosition::Bottom => {
+                UnitQuaternion::from_rotation_matrix(&parameters.correction_in_camera_bottom)
+                    .framed_transform()
+            }
+        },
+    )
 }

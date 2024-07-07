@@ -5,7 +5,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::camera_matrix::CameraMatrix;
 use types::camera_position::CameraPosition;
 
-use crate::lines::Lines;
+use super::lines::Lines;
 
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect, PathDeserialize,
