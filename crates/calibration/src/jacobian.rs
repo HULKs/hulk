@@ -11,13 +11,13 @@ pub type JacobianStorage = Owned<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>>;
 
 const EPSILON: f32 = 0.000001;
 
-pub fn calculate_jacobian_from_parameters<Measurement, MeasurementResidualsType>(
+pub fn calculate_jacobian_from_parameters<MeasurementResidualsType>(
     parameters: &Corrections,
-    measurements: &[Measurement],
+    measurements: &[MeasurementResidualsType::Measurement],
     field_dimensions: &FieldDimensions,
 ) -> Option<Jacobian>
 where
-    MeasurementResidualsType: CalculateResiduals<Measurement>,
+    MeasurementResidualsType: CalculateResiduals,
     Vec<f32>: From<MeasurementResidualsType>,
 {
     let columns = (0..AMOUNT_OF_PARAMETERS)
@@ -27,11 +27,11 @@ where
                     parameters, index, EPSILON,
                 );
             Some(
-                (calculate_residuals_from_parameters::<Measurement, MeasurementResidualsType>(
+                (calculate_residuals_from_parameters::<MeasurementResidualsType>(
                     &upper_support_parameters,
                     measurements,
                     field_dimensions,
-                )? - calculate_residuals_from_parameters::<Measurement, MeasurementResidualsType>(
+                )? - calculate_residuals_from_parameters::<MeasurementResidualsType>(
                     &lower_support_parameters,
                     measurements,
                     field_dimensions,

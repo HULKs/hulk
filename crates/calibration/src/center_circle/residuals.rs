@@ -14,8 +14,9 @@ pub struct CenterCircleResiduals {
     radial_residuals: Vec<f32>,
 }
 
-impl CalculateResiduals<Measurement> for CenterCircleResiduals {
+impl CalculateResiduals for CenterCircleResiduals {
     type Error = ProjectionError;
+    type Measurement = Measurement;
 
     fn calculate_from(
         parameters: &Corrections,

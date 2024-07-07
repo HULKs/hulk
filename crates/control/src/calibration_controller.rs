@@ -231,7 +231,7 @@ impl CalibrationController {
 
     fn calibrate(&mut self, context: &CycleContext) -> CalibrationState {
         // TODO Handle not enough inner.measurements
-        let solved_result = solve::<Measurement, GoalBoxResiduals>(
+        let solved_result = solve::<GoalBoxResiduals>(
             Corrections::default(),
             self.inner_states.measurements.clone(),
             *context.field_dimensions,

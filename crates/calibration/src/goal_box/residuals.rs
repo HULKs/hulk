@@ -15,8 +15,9 @@ pub struct GoalBoxResiduals {
     pub distance_between_parallel_line_end_points: f32,
 }
 
-impl CalculateResiduals<Measurement> for GoalBoxResiduals {
+impl CalculateResiduals for GoalBoxResiduals {
     type Error = ResidualsError;
+    type Measurement = Measurement;
 
     fn calculate_from(
         parameters: &Corrections,
