@@ -4,12 +4,24 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
+use serde::{Deserialize, Serialize};
+
 use linear_algebra::{
     center, distance, distance_squared, point, vector, Point, Point2, Rotation2, Transform, Vector2,
 };
-use serde::{Deserialize, Serialize};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathIntrospect,
+    PathDeserialize,
+)]
 pub struct Line<Frame, const DIMENSION: usize>(
     pub Point<Frame, DIMENSION>,
     pub Point<Frame, DIMENSION>,

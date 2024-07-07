@@ -8,10 +8,10 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::PlayerNumber;
 
 use crate::{
-    ball_position::HypotheticalBallPosition, fall_state::FallState,
-    filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
-    obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
-    roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
+    ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
+    fall_state::FallState, filtered_game_controller_state::FilteredGameControllerState,
+    kick_decision::KickDecision, obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect)]
@@ -27,6 +27,7 @@ pub struct WorldState {
     pub kick_decisions: Option<Vec<KickDecision>>,
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
+    pub calibration_command: Option<CalibrationCommand>,
 }
 
 #[derive(

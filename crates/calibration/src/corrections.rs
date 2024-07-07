@@ -1,8 +1,21 @@
 use nalgebra::{vector, Rotation3, SVector};
+use serde::{Deserialize, Serialize};
+
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 pub const AMOUNT_OF_PARAMETERS: usize = 9;
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathDeserialize,
+    PathSerialize,
+    PathIntrospect,
+)]
 pub struct Corrections {
     pub correction_in_robot: Rotation3<f32>,
     pub correction_in_camera_top: Rotation3<f32>,
