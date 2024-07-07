@@ -1,10 +1,10 @@
 use nalgebra::{Const, Dyn, Matrix, Owned, SVector};
+
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
     corrections::{Corrections, AMOUNT_OF_PARAMETERS},
-    measurement::Measurement,
-    residuals::calculate_residuals_from_parameters,
+    residuals::{calculate_residuals_from_parameters, CalculateResiduals},
 };
 
 pub type Jacobian = Matrix<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>, JacobianStorage>;
@@ -12,11 +12,15 @@ pub type JacobianStorage = Owned<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>>;
 
 const EPSILON: f32 = 0.000001;
 
-pub fn calculate_jacobian_from_parameters(
+pub fn calculate_jacobian_from_parameters<MeasurementResidualsType>(
     parameters: &Corrections,
-    measurements: &[Measurement],
+    measurements: &[MeasurementResidualsType::Measurement],
     field_dimensions: &FieldDimensions,
-) -> Option<Jacobian> {
+) -> Option<Jacobian>
+where
+    MeasurementResidualsType: CalculateResiduals,
+    Vec<f32>: From<MeasurementResidualsType>,
+{
     let columns = (0..AMOUNT_OF_PARAMETERS)
         .map(|index| {
             let (upper_support_parameters, lower_support_parameters) =
@@ -24,11 +28,11 @@ pub fn calculate_jacobian_from_parameters(
                     parameters, index, EPSILON,
                 );
             Some(
-                (calculate_residuals_from_parameters(
+                (calculate_residuals_from_parameters::<MeasurementResidualsType>(
                     &upper_support_parameters,
                     measurements,
                     field_dimensions,
-                )? - calculate_residuals_from_parameters(
+                )? - calculate_residuals_from_parameters::<MeasurementResidualsType>(
                     &lower_support_parameters,
                     measurements,
                     field_dimensions,
