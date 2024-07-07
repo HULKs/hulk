@@ -13,7 +13,7 @@ use geometry::line::{Line, Line2};
 use linear_algebra::point;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    calibration::{CalibrationCaptureCommand, CalibrationCaptureResponse},
+    calibration::{CalibrationCaptureResponse, CalibrationCommand},
     camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
     ycbcr422_image::YCbCr422Image,
@@ -29,8 +29,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     image: Input<YCbCr422Image, "image">,
-    calibration_command:
-        Input<Option<CalibrationCaptureCommand>, "control", "calibration_command?">,
+    calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
@@ -47,7 +46,7 @@ impl CalibrationMeasurementProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let calibration_measurement = if let Some(CalibrationCaptureCommand {
+        let calibration_measurement = if let Some(CalibrationCommand {
             camera,
             dispatch_time,
             capture,

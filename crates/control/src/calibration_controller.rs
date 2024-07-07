@@ -9,7 +9,7 @@ use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use linear_algebra::{point, Point2};
 use types::{
-    calibration::{CalibrationCaptureCommand, CalibrationCaptureResponse},
+    calibration::{CalibrationCaptureResponse, CalibrationCommand},
     camera_position::CameraPosition,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -53,7 +53,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub calibration_command: MainOutput<Option<CalibrationCaptureCommand>>,
+    pub calibration_command: MainOutput<Option<CalibrationCommand>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -85,13 +85,13 @@ enum CalibrationState {
 }
 
 impl CalibrationState {
-    fn as_calibration_command(&self) -> Option<CalibrationCaptureCommand> {
+    fn as_calibration_command(&self) -> Option<CalibrationCommand> {
         match *self {
             CalibrationState::LookAt {
                 target,
                 camera,
                 dispatch_time,
-            } => Some(CalibrationCaptureCommand {
+            } => Some(CalibrationCommand {
                 target,
                 camera,
                 dispatch_time,
@@ -101,7 +101,7 @@ impl CalibrationState {
                 target,
                 camera,
                 dispatch_time,
-            } => Some(CalibrationCaptureCommand {
+            } => Some(CalibrationCommand {
                 target,
                 camera,
                 dispatch_time,

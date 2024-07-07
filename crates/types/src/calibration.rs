@@ -9,7 +9,7 @@ use crate::{camera_position::CameraPosition, cycle_time::CycleTime};
 #[derive(
     Copy, Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct CalibrationCaptureCommand {
+pub struct CalibrationCommand {
     pub target: Point2<Ground>,
     pub camera: CameraPosition,
     pub dispatch_time: CycleTime,
