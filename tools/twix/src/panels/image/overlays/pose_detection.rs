@@ -59,7 +59,7 @@ impl Overlay for PoseDetection {
             }),
             rejected_human_poses: nao.subscribe_output(CyclerOutput {
                 cycler: Cycler::ObjectDetectionTop,
-                output: Output::Additional {
+                output: Output::Main {
                     path: "rejected_human_poses".to_string(),
                 },
             }),
@@ -75,14 +75,12 @@ impl Overlay for PoseDetection {
             rejected_human_poses,
             Color32::LIGHT_RED,
             Color32::RED,
-            Color32::WHITE,
         )?;
         paint_poses(
             painter,
             accepted_human_poses,
             Color32::BLUE,
             Color32::DARK_BLUE,
-            Color32::WHITE,
         )?;
 
         paint_detection_dead_zone(painter);
@@ -115,31 +113,28 @@ fn paint_poses(
     poses: Vec<HumanPose>,
     line_color: Color32,
     point_color: Color32,
-    text_color: Color32,
 ) -> Result<()> {
     for pose in poses {
         let keypoints: [Keypoint; 17] = pose.keypoints.into();
 
         // draw skeleton
         for (idx1, idx2) in POSE_SKELETON {
-            let keypoint1 = &keypoints[idx1];
-            let keypoint2 = &keypoints[idx2];
             painter.line_segment(
-                keypoint1.point,
-                keypoint2.point,
+                keypoints[idx1].point,
+                keypoints[idx2].point,
                 Stroke::new(2.0, line_color),
             )
         }
 
         // draw keypoints
-        for (index, keypoint) in keypoints.iter().enumerate() {
+        for keypoint in keypoints {
             painter.circle_filled(keypoint.point, 2.0, point_color);
             painter.floating_text(
                 keypoint.point,
                 Align2::RIGHT_BOTTOM,
                 format!("{:.2}", keypoint.confidence),
                 FontId::default(),
-                text_color,
+                Color32::WHITE,
             );
         }
 
@@ -155,7 +150,7 @@ fn paint_poses(
             Align2::RIGHT_BOTTOM,
             format!("{:.2}", bounding_box.confidence),
             FontId::default(),
-            text_color,
+            Color32::WHITE,
         );
     }
     Ok(())

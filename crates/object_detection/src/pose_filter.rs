@@ -2,17 +2,14 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput};
-use hardware::PathsInterface;
+use framework::MainOutput;
 use types::pose_detection::HumanPose;
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseFilter {}
 
 #[context]
-pub struct CreationContext {
-    hardware_interface: HardwareInterface,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -22,22 +19,21 @@ pub struct CycleContext {
         Parameter<f32, "pose_detection.minimum_overall_keypoint_confidence">,
     minimum_visual_referee_keypoint_confidence:
         Parameter<f32, "pose_detection.minimum_visual_referee_keypoint_confidence">,
-
-    rejected_human_poses: AdditionalOutput<Vec<HumanPose>, "rejected_human_poses">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub accepted_human_poses: MainOutput<Vec<HumanPose>>,
+    pub rejected_human_poses: MainOutput<Vec<HumanPose>>,
 }
 
 impl PoseFilter {
-    pub fn new(_creation_context: CreationContext<impl PathsInterface>) -> Result<Self> {
+    pub fn new(_creation_context: CreationContext) -> Result<Self> {
         Ok(PoseFilter {})
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let (accepted_human_poses, rejected_human_poses): (Vec<HumanPose>, Vec<HumanPose>) =
             context.unfiltered_poses.iter().copied().partition(|pose| {
                 filter_poses_by_overall_confidence(
@@ -49,12 +45,9 @@ impl PoseFilter {
                 )
             });
 
-        context
-            .rejected_human_poses
-            .fill_if_subscribed(|| rejected_human_poses);
-
         Ok(MainOutputs {
             accepted_human_poses: accepted_human_poses.into(),
+            rejected_human_poses: rejected_human_poses.into(),
         })
     }
 }

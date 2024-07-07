@@ -14,7 +14,9 @@ use crate::{
 };
 
 pub struct PoseDetection {
-    detected_pose_kinds: ValueBuffer,
+    rejected_pose_kind_positions: ValueBuffer,
+    accepted_pose_kind_positions: ValueBuffer,
+    referee_pose_kind_position: ValueBuffer,
 }
 
 impl Layer<Field> for PoseDetection {
@@ -22,10 +24,22 @@ impl Layer<Field> for PoseDetection {
 
     fn new(nao: Arc<Nao>) -> Self {
         Self {
-            detected_pose_kinds: nao.subscribe_output(CyclerOutput {
+            rejected_pose_kind_positions: nao.subscribe_output(CyclerOutput {
                 cycler: Cycler::ObjectDetectionTop,
                 output: Output::Additional {
-                    path: "detected_pose_kinds".to_string(),
+                    path: "rejected_pose_kind_positions".to_string(),
+                },
+            }),
+            accepted_pose_kind_positions: nao.subscribe_output(CyclerOutput {
+                cycler: Cycler::ObjectDetectionTop,
+                output: Output::Additional {
+                    path: "accepted_pose_kind_positions".to_string(),
+                },
+            }),
+            referee_pose_kind_position: nao.subscribe_output(CyclerOutput {
+                cycler: Cycler::ObjectDetectionTop,
+                output: Output::Additional {
+                    path: "referee_pose_kind_position".to_string(),
                 },
             }),
         }
@@ -36,29 +50,46 @@ impl Layer<Field> for PoseDetection {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let position_stroke = Stroke {
-            width: 0.10,
-            color: Color32::BLACK,
-        };
-        let detected_pose_kinds: Vec<PoseKindPosition<Field>> =
-            self.detected_pose_kinds.require_latest()?;
+        let rejected_pose_kind_positions: Vec<PoseKindPosition<Field>> =
+            self.rejected_pose_kind_positions.parse_latest()?;
+        let accepted_pose_kind_positions: Vec<PoseKindPosition<Field>> =
+            self.accepted_pose_kind_positions.parse_latest()?;
+        let referee_pose_kind_position: Option<PoseKindPosition<Field>> =
+            self.referee_pose_kind_position.parse_latest()?;
 
-        for pose_kind_position in detected_pose_kinds {
-            painter.circle(
-                pose_kind_position.position,
-                0.15,
-                Color32::RED,
-                position_stroke,
-            );
-            painter.floating_text(
-                pose_kind_position.position,
-                Align2::CENTER_BOTTOM,
-                format!("{:?}", pose_kind_position.pose_kind),
-                FontId::default(),
-                Color32::WHITE,
-            );
+        for pose_kind_position in rejected_pose_kind_positions {
+            draw_pose_kind_position(painter, pose_kind_position, Color32::RED)?;
+        }
+        for pose_kind_position in accepted_pose_kind_positions {
+            draw_pose_kind_position(painter, pose_kind_position, Color32::BLUE)?;
+        }
+
+        if let Some(referee_pose_kind_position) = referee_pose_kind_position {
+            draw_pose_kind_position(painter, referee_pose_kind_position, Color32::YELLOW)?;
         }
 
         Ok(())
     }
+}
+
+fn draw_pose_kind_position(
+    painter: &TwixPainter<Field>,
+    pose_kind_position: PoseKindPosition<Field>,
+    circle_color: Color32,
+) -> Result<()> {
+    painter.circle(
+        pose_kind_position.position,
+        0.15,
+        circle_color,
+        Stroke::new(0.10, Color32::BLACK),
+    );
+    painter.floating_text(
+        pose_kind_position.position,
+        Align2::CENTER_BOTTOM,
+        format!("{:?}", pose_kind_position.pose_kind),
+        FontId::default(),
+        Color32::WHITE,
+    );
+
+    Ok(())
 }

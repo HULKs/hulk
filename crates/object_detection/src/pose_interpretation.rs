@@ -31,7 +31,7 @@ pub struct CycleContext {
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    unfiltered_human_poses: Input<Vec<HumanPose>, "unfiltered_human_poses">,
+    rejected_human_poses: Input<Vec<HumanPose>, "rejected_human_poses">,
     accepted_human_poses: Input<Vec<HumanPose>, "accepted_human_poses">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position:
@@ -44,14 +44,18 @@ pub struct CycleContext {
     foot_z_offset: Parameter<f32, "pose_detection.foot_z_offset">,
     minimum_shoulder_angle: Parameter<f32, "pose_detection.minimum_shoulder_angle">,
 
-    unfiltered_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "unfiltered_pose_kinds">,
-    filtered_pose_kinds: AdditionalOutput<Vec<PoseKindPosition<Field>>, "filtered_pose_kinds">,
+    rejected_pose_kind_positions:
+        AdditionalOutput<Vec<PoseKindPosition<Field>>, "rejected_pose_kind_positions">,
+    accepted_pose_kind_positions:
+        AdditionalOutput<Vec<PoseKindPosition<Field>>, "accepted_pose_kind_positions">,
+    referee_pose_kind_position:
+        AdditionalOutput<Option<PoseKindPosition<Field>>, "referee_pose_kind_position">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_referee_pose_kind: MainOutput<Option<PoseKind>>,
+    pub referee_pose_kind: MainOutput<Option<PoseKind>>,
 }
 
 impl PoseInterpretation {
@@ -66,14 +70,21 @@ impl PoseInterpretation {
         let (Some(ground_to_field), Some(expected_referee_position)) =
             (context.ground_to_field, context.expected_referee_position)
         else {
-            context.unfiltered_pose_kinds.fill_if_subscribed(Vec::new);
-            context.filtered_pose_kinds.fill_if_subscribed(Vec::new);
+            context
+                .rejected_pose_kind_positions
+                .fill_if_subscribed(Vec::new);
+            context
+                .accepted_pose_kind_positions
+                .fill_if_subscribed(Vec::new);
+            context
+                .referee_pose_kind_position
+                .fill_if_subscribed(|| None);
             return Ok(MainOutputs {
-                detected_referee_pose_kind: None.into(),
+                referee_pose_kind: None.into(),
             });
         };
 
-        let referee_pose = get_referee_pose(
+        let referee_pose = get_position_filtered_pose(
             context.accepted_human_poses.clone(),
             context.camera_matrices.top.clone(),
             *context.maximum_distance_to_referee_position,
@@ -81,11 +92,12 @@ impl PoseInterpretation {
             *context.foot_z_offset,
         );
 
-        let pose_kind = interpret_pose(referee_pose, *context.minimum_shoulder_angle);
+        let referee_pose_kind =
+            referee_pose.map(|pose| interpret_pose(pose, *context.minimum_shoulder_angle));
 
-        context.unfiltered_pose_kinds.fill_if_subscribed(|| {
+        context.rejected_pose_kind_positions.fill_if_subscribed(|| {
             get_all_pose_kind_positions(
-                context.unfiltered_human_poses,
+                context.rejected_human_poses,
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
@@ -93,7 +105,7 @@ impl PoseInterpretation {
             )
         });
 
-        context.filtered_pose_kinds.fill_if_subscribed(|| {
+        context.accepted_pose_kind_positions.fill_if_subscribed(|| {
             get_all_pose_kind_positions(
                 context.accepted_human_poses,
                 context.camera_matrices.top.clone(),
@@ -103,13 +115,23 @@ impl PoseInterpretation {
             )
         });
 
+        context.referee_pose_kind_position.fill_if_subscribed(|| {
+            get_pose_kind_position(
+                referee_pose,
+                &context.camera_matrices.top,
+                context.ground_to_field,
+                *context.foot_z_offset,
+                *context.minimum_shoulder_angle,
+            )
+        });
+
         Ok(MainOutputs {
-            detected_referee_pose_kind: pose_kind.into(),
+            referee_pose_kind: referee_pose_kind.into(),
         })
     }
 }
 
-fn get_referee_pose(
+fn get_position_filtered_pose(
     filtered_poses: Vec<HumanPose>,
     camera_matrix_top: CameraMatrix,
     maximum_distance_to_referee_position: f32,
@@ -159,11 +181,11 @@ fn get_closest_referee_pose(
         })
 }
 
-fn interpret_pose(human_pose: Option<HumanPose>, minimum_shoulder_angle: f32) -> Option<PoseKind> {
-    if is_above_head_arms_pose(human_pose?.keypoints, minimum_shoulder_angle) {
-        Some(PoseKind::AboveHeadArms)
+fn interpret_pose(human_pose: HumanPose, minimum_shoulder_angle: f32) -> PoseKind {
+    if is_above_head_arms_pose(human_pose.keypoints, minimum_shoulder_angle) {
+        PoseKind::AboveHeadArms
     } else {
-        None
+        PoseKind::UndefinedPose
     }
 }
 
@@ -211,33 +233,49 @@ fn is_shoulder_angled_up(
 }
 
 fn get_all_pose_kind_positions(
-    filtered_poses: &[HumanPose],
+    poses: &[HumanPose],
     camera_matrix_top: CameraMatrix,
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
     minimum_shoulder_angle: f32,
 ) -> Vec<PoseKindPosition<Field>> {
-    let Some(ground_to_field) = ground_to_field else {
-        return Vec::new();
-    };
-
-    filtered_poses
+    poses
         .iter()
-        .filter_map(|pose| {
-            let left_foot_ground_position = camera_matrix_top
-                .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
-                .ok()?;
-            let right_foot_ground_position = camera_matrix_top
-                .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
-                .ok()?;
-            let interpreted_pose_kind = interpret_pose(Some(*pose), minimum_shoulder_angle)?;
-            Some(PoseKindPosition {
-                pose_kind: interpreted_pose_kind,
-                position: center(
-                    ground_to_field * left_foot_ground_position,
-                    ground_to_field * right_foot_ground_position,
-                ),
-            })
+        .filter_map(|pose: &HumanPose| {
+            get_pose_kind_position(
+                Some(*pose),
+                &camera_matrix_top,
+                ground_to_field,
+                foot_z_offset,
+                minimum_shoulder_angle,
+            )
         })
         .collect()
+}
+
+fn get_pose_kind_position(
+    pose: Option<HumanPose>,
+    camera_matrix_top: &CameraMatrix,
+    ground_to_field: Option<&Isometry2<Ground, Field>>,
+    foot_z_offset: f32,
+    minimum_shoulder_angle: f32,
+) -> Option<PoseKindPosition<Field>> {
+    let (Some(ground_to_field), Some(pose)) = (ground_to_field, pose) else {
+        return None;
+    };
+
+    let left_foot_ground_position = camera_matrix_top
+        .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
+        .ok()?;
+    let right_foot_ground_position = camera_matrix_top
+        .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
+        .ok()?;
+    let interpreted_pose_kind = interpret_pose(pose, minimum_shoulder_angle);
+    Some(PoseKindPosition {
+        pose_kind: interpreted_pose_kind,
+        position: center(
+            ground_to_field * left_foot_ground_position,
+            ground_to_field * right_foot_ground_position,
+        ),
+    })
 }

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(
     Debug,
+    Default,
     Clone,
     Serialize,
     Deserialize,
@@ -15,6 +16,8 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum PoseKind {
     AboveHeadArms,
+    #[default]
+    UndefinedPose,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
