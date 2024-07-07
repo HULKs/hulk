@@ -137,14 +137,15 @@ impl Repository {
         workspace: bool,
         profile: &str,
         target: &str,
-        features: &str,
+        features: Option<Vec<String>>,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         let use_docker = target == "nao" && OS_IS_NOT_LINUX;
 
         let cargo_command = format!("cargo {action} ")
             + format!("--profile {profile} ").as_str()
-            + if !features.is_empty() {
+            + if let Some(features) = features {
+                let features = features.join(",");
                 format!("--features {features} ")
             } else {
                 String::new()
@@ -211,7 +212,7 @@ impl Repository {
         workspace: bool,
         profile: &str,
         target: &str,
-        features: &str,
+        features: Option<Vec<String>>,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         self.cargo(
@@ -226,12 +227,12 @@ impl Repository {
     }
 
     pub async fn check(&self, workspace: bool, profile: &str, target: &str) -> Result<()> {
-        self.cargo(CargoAction::Check, workspace, profile, target, "", &[])
+        self.cargo(CargoAction::Check, workspace, profile, target, None, &[])
             .await
     }
 
     pub async fn clippy(&self, workspace: bool, profile: &str, target: &str) -> Result<()> {
-        self.cargo(CargoAction::Clippy, workspace, profile, target, "", &[])
+        self.cargo(CargoAction::Clippy, workspace, profile, target, None, &[])
             .await
     }
 
@@ -239,7 +240,7 @@ impl Repository {
         &self,
         profile: &str,
         target: &str,
-        features: &str,
+        features: Option<Vec<String>>,
         passthrough_arguments: &[String],
     ) -> Result<()> {
         self.cargo(
