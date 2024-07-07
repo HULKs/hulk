@@ -1,7 +1,6 @@
-use std::marker::PhantomData;
-
 use levenberg_marquardt::LeastSquaresProblem;
 use nalgebra::{Const, Dyn, Owned, SVector};
+
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
@@ -20,7 +19,6 @@ where
     parameters: Corrections,
     measurements: Vec<MeasurementResidualsType::Measurement>,
     field_dimensions: FieldDimensions,
-    phantom: PhantomData<MeasurementResidualsType>,
 }
 
 impl<MeasurementResidualsType> CalibrationProblem<MeasurementResidualsType>
@@ -36,7 +34,6 @@ where
             parameters: initial_corrections,
             measurements,
             field_dimensions,
-            phantom: PhantomData,
         }
     }
 

@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use serde::{Deserialize, Serialize};
 
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect, PathDeserialize,

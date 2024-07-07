@@ -1,8 +1,10 @@
-use corrections::Corrections;
 use levenberg_marquardt::LevenbergMarquardt;
+
+use types::field_dimensions::FieldDimensions;
+
+use corrections::Corrections;
 use problem::CalibrationProblem;
 use residuals::CalculateResiduals;
-use types::field_dimensions::FieldDimensions;
 
 pub mod center_circle;
 pub mod corrections;
