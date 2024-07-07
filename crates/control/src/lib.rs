@@ -4,6 +4,7 @@ pub mod ball_filter;
 pub mod ball_state_composer;
 pub mod behavior;
 pub mod button_filter;
+pub mod calibration_controller;
 pub mod camera_matrix_calculator;
 pub mod center_of_mass_provider;
 pub mod dribble_path_planner;

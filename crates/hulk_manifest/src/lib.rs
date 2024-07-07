@@ -14,6 +14,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 setup_nodes: vec!["vision::image_receiver"],
                 nodes: vec![
                     "vision::ball_detection",
+                    "vision::calibration_measurement_provider",
                     "vision::camera_matrix_extractor",
                     "vision::feet_detection",
                     "vision::field_border_detection",
@@ -46,6 +47,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::ball_state_composer",
                     "control::behavior::node",
                     "control::button_filter",
+                    "control::calibration_controller",
                     "control::camera_matrix_calculator",
                     "control::center_of_mass_provider",
                     "control::fall_state_estimation",

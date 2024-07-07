@@ -11,6 +11,7 @@ use framework::MainOutput;
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::HypotheticalBallPosition,
+    calibration::CalibrationCommand,
     cycle_time::CycleTime,
     fall_state::FallState,
     filtered_whistle::FilteredWhistle,
@@ -66,6 +67,7 @@ pub struct MainOutputs {
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
+    pub calibration_command: MainOutput<Option<CalibrationCommand>>,
 }
 
 impl FakeData {
@@ -105,6 +107,7 @@ impl FakeData {
             stand_up_back_estimated_remaining_duration: last_database
                 .stand_up_back_estimated_remaining_duration
                 .into(),
+            calibration_command: last_database.calibration_command.into(),
         })
     }
 }

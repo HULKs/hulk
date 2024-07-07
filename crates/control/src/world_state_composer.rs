@@ -1,12 +1,14 @@
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use linear_algebra::{Isometry2, Point2};
-use serde::{Deserialize, Serialize};
 use spl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,
+    calibration::CalibrationCommand,
     fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
@@ -45,6 +47,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
+    calibration_command: Input<Option<CalibrationCommand>, "calibration_command?">,
 }
 
 #[context]
@@ -80,6 +83,7 @@ impl WorldStateComposer {
             instant_kick_decisions: context.instant_kick_decisions.cloned(),
             filtered_game_controller_state: context.filtered_game_controller_state.copied(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
+            calibration_command: context.calibration_command.copied(),
         };
 
         Ok(MainOutputs {
