@@ -32,7 +32,7 @@ pub struct CycleContext {
 
     camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
     unfiltered_human_poses: Input<Vec<HumanPose>, "unfiltered_human_poses">,
-    filtered_human_poses: Input<Vec<HumanPose>, "filtered_human_poses">,
+    accepted_human_poses: Input<Vec<HumanPose>, "accepted_human_poses">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position:
         Input<Option<Point2<Field>>, "Control", "expected_referee_position?">,
@@ -74,7 +74,7 @@ impl PoseInterpretation {
         };
 
         let referee_pose = get_referee_pose(
-            context.filtered_human_poses.clone(),
+            context.accepted_human_poses.clone(),
             context.camera_matrices.top.clone(),
             *context.maximum_distance_to_referee_position,
             ground_to_field.inverse() * expected_referee_position,
@@ -95,7 +95,7 @@ impl PoseInterpretation {
 
         context.filtered_pose_kinds.fill_if_subscribed(|| {
             get_all_pose_kind_positions(
-                context.filtered_human_poses,
+                context.accepted_human_poses,
                 context.camera_matrices.top.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,

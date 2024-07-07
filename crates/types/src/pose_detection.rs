@@ -28,10 +28,10 @@ pub struct Keypoints {
     pub right_ear: Keypoint,
     pub left_shoulder: Keypoint,
     pub right_shoulder: Keypoint,
-    pub left_hand: Keypoint,
-    pub right_hand: Keypoint,
     pub left_elbow: Keypoint,
     pub right_elbow: Keypoint,
+    pub left_hand: Keypoint,
+    pub right_hand: Keypoint,
     pub left_hip: Keypoint,
     pub right_hip: Keypoint,
     pub left_knee: Keypoint,
@@ -42,10 +42,12 @@ pub struct Keypoints {
 
 impl Keypoints {
     pub fn try_new(keypoints_slice: &[f32], x_offset: f32, y_offset: f32) -> Option<Self> {
-        let mut keypoints_iter = keypoints_slice.chunks(3).map(|keypoint_chunk| Keypoint {
-            point: point![keypoint_chunk[0] + x_offset, keypoint_chunk[1] + y_offset],
-            confidence: keypoint_chunk[2],
-        });
+        let mut keypoints_iter = keypoints_slice
+            .chunks_exact(3)
+            .map(|keypoint_chunk| Keypoint {
+                point: point![keypoint_chunk[0] + x_offset, keypoint_chunk[1] + y_offset],
+                confidence: keypoint_chunk[2],
+            });
 
         Some(Self {
             left_eye: keypoints_iter.next()?,
@@ -55,10 +57,10 @@ impl Keypoints {
             right_ear: keypoints_iter.next()?,
             left_shoulder: keypoints_iter.next()?,
             right_shoulder: keypoints_iter.next()?,
-            left_hand: keypoints_iter.next()?,
-            right_hand: keypoints_iter.next()?,
             left_elbow: keypoints_iter.next()?,
             right_elbow: keypoints_iter.next()?,
+            left_hand: keypoints_iter.next()?,
+            right_hand: keypoints_iter.next()?,
             left_hip: keypoints_iter.next()?,
             right_hip: keypoints_iter.next()?,
             left_knee: keypoints_iter.next()?,
@@ -68,14 +70,13 @@ impl Keypoints {
         })
     }
 
-    pub fn iter(&self) -> KeypointsIterator {
-        KeypointsIterator::new(self)
+    pub fn as_array(self) -> [Keypoint; 17] {
+        Into::<[Keypoint; 17]>::into(self)
     }
 }
 
 impl Index<usize> for Keypoints {
     fn index(&self, index: usize) -> &Keypoint {
-        assert!((0..=16).contains(&index));
         match index {
             0 => &self.left_eye,
             1 => &self.right_eye,
@@ -84,17 +85,17 @@ impl Index<usize> for Keypoints {
             4 => &self.right_ear,
             5 => &self.left_shoulder,
             6 => &self.right_shoulder,
+            7 => &self.left_elbow,
+            8 => &self.right_elbow,
             9 => &self.left_hand,
             10 => &self.right_hand,
-            7 => &self.left_hand,
-            8 => &self.right_hand,
             11 => &self.left_hip,
             12 => &self.right_hip,
             13 => &self.left_knee,
             14 => &self.right_knee,
             15 => &self.left_foot,
             16 => &self.right_foot,
-            _ => panic!("out of bounds"),
+            _ => panic!("out of bounds: {index}"),
         }
     }
     type Output = Keypoint;
@@ -110,10 +111,10 @@ impl From<Keypoints> for [Keypoint; 17] {
             keypoints.right_ear,
             keypoints.left_shoulder,
             keypoints.right_shoulder,
-            keypoints.left_hand,
-            keypoints.right_hand,
             keypoints.left_elbow,
             keypoints.right_elbow,
+            keypoints.left_hand,
+            keypoints.right_hand,
             keypoints.left_hip,
             keypoints.right_hip,
             keypoints.left_knee,
@@ -121,32 +122,6 @@ impl From<Keypoints> for [Keypoint; 17] {
             keypoints.left_foot,
             keypoints.right_foot,
         ]
-    }
-}
-
-pub struct KeypointsIterator<'a> {
-    data: &'a Keypoints,
-    current_index: usize,
-}
-
-impl<'a> KeypointsIterator<'a> {
-    fn new(data: &'a Keypoints) -> Self {
-        Self {
-            data,
-            current_index: 0,
-        }
-    }
-}
-
-impl<'a> Iterator for KeypointsIterator<'a> {
-    type Item = &'a Keypoint;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.current_index >= 17 {
-            return None;
-        }
-        let keypoint = self.data.index(self.current_index);
-        self.current_index += 1;
-        Some(keypoint)
     }
 }
 

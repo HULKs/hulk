@@ -2,7 +2,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use hardware::PathsInterface;
 use types::pose_detection::HumanPose;
 
@@ -22,12 +22,14 @@ pub struct CycleContext {
         Parameter<f32, "pose_detection.minimum_overall_keypoint_confidence">,
     minimum_visual_referee_keypoint_confidence:
         Parameter<f32, "pose_detection.minimum_visual_referee_keypoint_confidence">,
+
+    rejected_human_poses: AdditionalOutput<Vec<HumanPose>, "rejected_human_poses">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub filtered_human_poses: MainOutput<Vec<HumanPose>>,
+    pub accepted_human_poses: MainOutput<Vec<HumanPose>>,
 }
 
 impl PoseFilter {
@@ -35,12 +37,9 @@ impl PoseFilter {
         Ok(PoseFilter {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let filtered_human_poses: Vec<_> = context
-            .unfiltered_poses
-            .iter()
-            .copied()
-            .filter(|pose| {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let (accepted_human_poses, rejected_human_poses): (Vec<HumanPose>, Vec<HumanPose>) =
+            context.unfiltered_poses.iter().copied().partition(|pose| {
                 filter_poses_by_overall_confidence(
                     pose,
                     *context.minimum_overall_keypoint_confidence,
@@ -48,11 +47,14 @@ impl PoseFilter {
                     pose,
                     *context.minimum_visual_referee_keypoint_confidence,
                 )
-            })
-            .collect();
+            });
+
+        context
+            .rejected_human_poses
+            .fill_if_subscribed(|| rejected_human_poses);
 
         Ok(MainOutputs {
-            filtered_human_poses: filtered_human_poses.into(),
+            accepted_human_poses: accepted_human_poses.into(),
         })
     }
 }
@@ -62,7 +64,8 @@ fn filter_poses_by_overall_confidence(
     minimum_overall_keypoint_confidence: f32,
 ) -> bool {
     pose.keypoints
-        .iter()
+        .as_array()
+        .into_iter()
         .all(|keypoint| keypoint.confidence > minimum_overall_keypoint_confidence)
 }
 

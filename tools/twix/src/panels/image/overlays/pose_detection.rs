@@ -39,9 +39,8 @@ const IMAGE_WIDTH: f32 = 640.0;
 const DETECTION_IMAGE_START_X: f32 = (IMAGE_WIDTH - DETECTION_IMAGE_WIDTH) / 2.0;
 
 pub struct PoseDetection {
-    filtered_human_poses: ValueBuffer,
-    unfiltered_human_poses: ValueBuffer,
-    paint_unfiltered_poses: bool,
+    accepted_human_poses: ValueBuffer,
+    rejected_human_poses: ValueBuffer,
 }
 
 impl Overlay for PoseDetection {
@@ -52,46 +51,39 @@ impl Overlay for PoseDetection {
             warn!("PoseDetection only works with the vision top cycler instance!");
         };
         Self {
-            filtered_human_poses: nao.subscribe_output(CyclerOutput {
+            accepted_human_poses: nao.subscribe_output(CyclerOutput {
                 cycler: Cycler::ObjectDetectionTop,
                 output: Output::Main {
-                    path: "filtered_human_poses".to_string(),
+                    path: "accepted_human_poses".to_string(),
                 },
             }),
-            unfiltered_human_poses: nao.subscribe_output(CyclerOutput {
+            rejected_human_poses: nao.subscribe_output(CyclerOutput {
                 cycler: Cycler::ObjectDetectionTop,
-                output: Output::Main {
-                    path: "unfiltered_human_poses".to_string(),
+                output: Output::Additional {
+                    path: "rejected_human_poses".to_string(),
                 },
             }),
-            paint_unfiltered_poses: false,
         }
     }
 
     fn paint(&self, painter: &crate::twix_painter::TwixPainter<Pixel>) -> Result<()> {
-        let unfiltered_human_poses: Vec<HumanPose> =
-            self.unfiltered_human_poses.require_latest()?;
-        let filtered_human_poses: Vec<HumanPose> = self.filtered_human_poses.require_latest()?;
+        let rejected_human_poses: Vec<HumanPose> = self.rejected_human_poses.require_latest()?;
+        let accepted_human_poses: Vec<HumanPose> = self.accepted_human_poses.require_latest()?;
 
-        if self.paint_unfiltered_poses {
-            paint_poses(
-                painter,
-                unfiltered_human_poses,
-                Color32::LIGHT_RED,
-                Color32::RED,
-                Color32::WHITE,
-                Align2::RIGHT_BOTTOM,
-            )?;
-        } else {
-            paint_poses(
-                painter,
-                filtered_human_poses,
-                Color32::BLUE,
-                Color32::DARK_BLUE,
-                Color32::WHITE,
-                Align2::RIGHT_BOTTOM,
-            )?;
-        }
+        paint_poses(
+            painter,
+            rejected_human_poses,
+            Color32::LIGHT_RED,
+            Color32::RED,
+            Color32::WHITE,
+        )?;
+        paint_poses(
+            painter,
+            accepted_human_poses,
+            Color32::BLUE,
+            Color32::DARK_BLUE,
+            Color32::WHITE,
+        )?;
 
         paint_detection_dead_zone(painter);
 
@@ -101,7 +93,6 @@ impl Overlay for PoseDetection {
     fn config_ui(&mut self, ui: &mut eframe::egui::Ui) {
         ui.horizontal(|ui| {
             ui.add_space(10.0);
-            ui.checkbox(&mut self.paint_unfiltered_poses, "Unfiltered Poses");
         });
     }
 }
@@ -125,7 +116,6 @@ fn paint_poses(
     line_color: Color32,
     point_color: Color32,
     text_color: Color32,
-    align: Align2,
 ) -> Result<()> {
     for pose in poses {
         let keypoints: [Keypoint; 17] = pose.keypoints.into();
@@ -142,11 +132,11 @@ fn paint_poses(
         }
 
         // draw keypoints
-        for keypoint in keypoints.iter() {
+        for (index, keypoint) in keypoints.iter().enumerate() {
             painter.circle_filled(keypoint.point, 2.0, point_color);
             painter.floating_text(
                 keypoint.point,
-                align,
+                Align2::RIGHT_BOTTOM,
                 format!("{:.2}", keypoint.confidence),
                 FontId::default(),
                 text_color,
@@ -162,7 +152,7 @@ fn paint_poses(
         );
         painter.floating_text(
             bounding_box.area.min,
-            align,
+            Align2::RIGHT_BOTTOM,
             format!("{:.2}", bounding_box.confidence),
             FontId::default(),
             text_color,
