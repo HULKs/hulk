@@ -39,7 +39,7 @@ impl ButtonFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             chest_button_tap_detector: TapDetector::default(),
-            debounced_head_button:DebounceButton::default(),
+            debounced_head_button: DebounceButton::default(),
             debounced_calibration_button: DebounceButton::default(),
             debounced_animation_button: DebounceButton::default(),
             animation_button_released: TapDetector::default(),
@@ -64,11 +64,12 @@ impl ButtonFilter {
         );
 
         let calibration_buttons_touched = touch_sensors.chest_button && touch_sensors.head_front;
-        let debounced_calibration_buttons_touched = self.debounced_calibration_button.debounce_button(
-            calibration_buttons_touched,
-            context.cycle_time.start_time,
-            calibration_buttons_timeout,
-        );
+        let debounced_calibration_buttons_touched =
+            self.debounced_calibration_button.debounce_button(
+                calibration_buttons_touched,
+                context.cycle_time.start_time,
+                calibration_buttons_timeout,
+            );
 
         let animation_buttons_touched = touch_sensors.head_rear;
 
@@ -91,33 +92,37 @@ impl ButtonFilter {
 }
 
 #[derive(Deserialize, Serialize)]
-struct DebounceButton{
-    last_button_touched:bool,
-    button_touched_time:SystemTime,
+struct DebounceButton {
+    last_button_touched: bool,
+    button_touched_time: SystemTime,
 }
 
 impl Default for DebounceButton {
     fn default() -> Self {
-        Self { last_button_touched: Default::default(), button_touched_time: UNIX_EPOCH }
+        Self {
+            last_button_touched: Default::default(),
+            button_touched_time: UNIX_EPOCH,
+        }
     }
 }
 
 impl DebounceButton {
+    pub fn debounce_button(
+        &mut self,
+        button_touched: bool,
+        current_time: SystemTime,
+        timeout: Duration,
+    ) -> bool {
+        let button_touched_initially = button_touched && !self.last_button_touched;
+        if button_touched_initially {
+            self.button_touched_time = current_time;
+        }
+        self.last_button_touched = button_touched;
 
-   pub fn debounce_button(
-    &mut self,
-    button_touched: bool,
-    current_time: SystemTime,
-    timeout: Duration,
-) -> bool {
-    let button_touched_initially = button_touched && !self.last_button_touched;
-    if button_touched_initially {
-        self.button_touched_time = current_time;
+        button_touched
+            && current_time
+                .duration_since(self.button_touched_time)
+                .unwrap()
+                >= timeout
     }
-    self.last_button_touched = button_touched;
-
-    button_touched && current_time.duration_since(self.button_touched_time).unwrap() >= timeout
-} 
 }
-
-

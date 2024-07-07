@@ -166,7 +166,6 @@ impl MotorCommandCollector {
             ),
         };
 
-
         let compensated_positions = positions + *context.joint_calibration_offsets;
         let motor_commands = MotorCommands {
             positions: compensated_positions,

@@ -63,10 +63,9 @@ impl PrimaryStateFilter {
             context.buttons.head_buttons_touched,
             context.buttons.is_chest_button_pressed_once,
             context.buttons.calibration_buttons_touched,
-            context.filtered_game_controller_state, 
+            context.filtered_game_controller_state,
             context.buttons.animation_buttons_touched,
         ) {
-
             // Unstiff transitions (entering and exiting)
             (last_primary_state, true, _, _, _, _) => {
                 if last_primary_state != PrimaryState::Unstiff {
@@ -112,7 +111,7 @@ impl PrimaryStateFilter {
                 _,
                 None,
                 true,
-            ) => PrimaryState::Animation { stiff: false }, 
+            ) => PrimaryState::Animation { stiff: false },
             (PrimaryState::Animation { .. }, _, true, _, None, false) => {
                 PrimaryState::Animation { stiff: true }
             }

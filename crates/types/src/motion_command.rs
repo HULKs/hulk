@@ -74,7 +74,7 @@ impl MotionCommand {
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
             MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
-            MotionCommand::Animation { stiff} => Some(HeadMotion::Animation {stiff: *stiff}),
+            MotionCommand::Animation { stiff } => Some(HeadMotion::Animation { stiff: *stiff }),
             MotionCommand::ArmsUpSquat
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
