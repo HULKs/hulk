@@ -519,6 +519,8 @@ impl<T> PathIntrospect for Isometry2<T> {
     fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}translation"));
         fields.insert(format!("{prefix}rotation"));
+        Vector2::<T>::extend_with_fields(fields, &format!("{prefix}translation."));
+        UnitComplex::<T>::extend_with_fields(fields, &format!("{prefix}rotation."));
     }
 }
 
@@ -597,5 +599,7 @@ impl<T> PathIntrospect for Isometry3<T> {
     fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}translation"));
         fields.insert(format!("{prefix}rotation"));
+        Vector3::<T>::extend_with_fields(fields, &format!("{prefix}translation."));
+        UnitQuaternion::<T>::extend_with_fields(fields, &format!("{prefix}rotation."));
     }
 }
