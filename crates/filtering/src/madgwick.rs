@@ -69,7 +69,7 @@ where
 
         // Compute rate of change of quaternion
         let q_dot = (q * Quaternion::from_parts(zero, *gyroscope)) * half
-            - Quaternion::new(step.x, step.y, step.z, step.w) * filter_gain;
+            - Quaternion::from_vector(step) * filter_gain;
 
         // Integrate to yield quaternion
         *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period);
