@@ -4,10 +4,14 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use calibration::{
+    center_circle::{
+        circle_points::CenterCirclePoints, measurement::Measurement,
+        residuals::CenterCircleResiduals,
+    },
     corrections::Corrections,
-    goal_box::{measurement::Measurement, residuals::GoalBoxResiduals},
     solve,
 };
+
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
@@ -237,7 +241,7 @@ impl CalibrationController {
 
     fn calibrate(&mut self, context: &CycleContext) -> CalibrationState {
         // TODO Handle not enough inner.measurements
-        let solved_result = solve::<GoalBoxResiduals>(
+        let solved_result = solve::<CenterCircleResiduals>(
             Corrections::default(),
             self.inner_states.measurements.clone(),
             *context.field_dimensions,
