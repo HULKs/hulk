@@ -15,7 +15,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 nodes: vec![
                     "vision::ball_detection",
                     "vision::calibration_measurement_provider",
-                    "vision::calibration_circle_detection",
+                    "vision::calibration_center_circle_detection",
                     "vision::camera_matrix_extractor",
                     "vision::feet_detection",
                     "vision::field_border_detection",
