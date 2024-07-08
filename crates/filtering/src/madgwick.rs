@@ -1,6 +1,4 @@
-use nalgebra::{
-    Matrix4, Quaternion, RealField, Scalar, SimdValue, UnitQuaternion, Vector3, Vector4,
-};
+use nalgebra::{matrix, vector, Quaternion, RealField, Scalar, SimdValue, UnitQuaternion, Vector3};
 use num_traits::{One, Zero};
 
 #[derive(Debug)]
@@ -19,7 +17,7 @@ pub trait Madgwick<T> {
         sample_period: T,
     ) -> Result<(), AccelerometerNormZero>;
 
-    fn update_with_gyro(&mut self, gyroscope: &Vector3<T>, sample_period: T);
+    fn update_with_gyroscope(&mut self, gyroscope: &Vector3<T>, sample_period: T);
 }
 
 impl<T> Madgwick<T> for UnitQuaternion<T>
@@ -48,30 +46,30 @@ where
 
         // Gradient descent algorithm corrective step
         #[rustfmt::skip]
-        let F = Vector4::new(
-            two*(       q[0]*q[2] - q[3]*q[1]) - accel[0],
-            two*(       q[3]*q[0] + q[1]*q[2]) - accel[1],
-            two*(half - q[0]*q[0] - q[1]*q[1]) - accel[2],
+        let F = vector![
+            two * (       q.i * q.k - q.w * q.j) - accel.x,
+            two * (       q.w * q.i + q.j * q.k) - accel.y,
+            two * (half - q.i * q.i - q.j * q.j) - accel.z,
             zero
-        );
+        ];
 
         #[rustfmt::skip]
-        let J_t = Matrix4::new(
-            -two*q[1], two*q[0],       zero, zero,
-             two*q[2], two*q[3], -four*q[0], zero,
-            -two*q[3], two*q[2], -four*q[1], zero,
-             two*q[0], two*q[1],       zero, zero
-        );
+        let J_t = matrix![
+            -two * q.j, two * q.i,        zero, zero;
+             two * q.k, two * q.w, -four * q.i, zero;
+            -two * q.w, two * q.k, -four * q.j, zero;
+             two * q.i, two * q.j,        zero, zero
+        ];
 
         // Try to normalize step, falling back to gyro update if not possible
         let Some(step) = (J_t * F).try_normalize(zero) else {
-            self.update_with_gyro(gyroscope, sample_period);
+            self.update_with_gyroscope(gyroscope, sample_period);
             return Ok(());
         };
 
         // Compute rate of change of quaternion
         let q_dot = (q * Quaternion::from_parts(zero, *gyroscope)) * half
-            - Quaternion::new(step[0], step[1], step[2], step[3]) * filter_gain;
+            - Quaternion::new(step.x, step.y, step.z, step.w) * filter_gain;
 
         // Integrate to yield quaternion
         *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period);
@@ -79,7 +77,7 @@ where
         Ok(())
     }
 
-    fn update_with_gyro(&mut self, gyroscope: &Vector3<T>, sample_period: T) {
+    fn update_with_gyroscope(&mut self, gyroscope: &Vector3<T>, sample_period: T) {
         let q = self.as_ref();
 
         let zero: T = nalgebra::zero();

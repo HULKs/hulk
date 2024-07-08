@@ -105,7 +105,10 @@ impl OrientationFilter {
                     )
                     .is_err()
                 {
-                    state.update_with_gyro(&measured_angular_velocity.inner, *context.filter_gain);
+                    state.update_with_gyroscope(
+                        &measured_angular_velocity.inner,
+                        *context.filter_gain,
+                    );
                 }
             }
         }
