@@ -1,5 +1,5 @@
 mod ball_detection;
-mod calibration_lines;
+mod calibration_center_circle_detection;
 mod feet_detection;
 mod field_border;
 mod horizon;
@@ -10,7 +10,7 @@ mod perspective_grid;
 mod pose_detection;
 
 pub use ball_detection::BallDetection;
-pub use calibration_lines::CalibrationMeasurementDetection;
+pub use calibration_center_circle_detection::CalibrationMeasurementDetection;
 pub use feet_detection::FeetDetection;
 pub use field_border::FieldBorder;
 pub use horizon::Horizon;
