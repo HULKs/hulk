@@ -5,8 +5,10 @@ use std::{
 };
 
 use nalgebra::{
-    ArrayStorage, Const, Matrix, Point, RealField, Scalar, SimdRealField, UnitQuaternion, U1,
+    ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, RealField, Scalar, SimdRealField,
+    UnitComplex, UnitQuaternion, Vector2, Vector3, U1,
 };
+use num_traits::real::Real;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
@@ -234,7 +236,6 @@ where
 
 impl<T, const N: usize> PathDeserialize for Matrix<T, Const<N>, U1, ArrayStorage<T, N, 1>>
 where
-    T: PathDeserialize,
     for<'de> T: Deserialize<'de>,
 {
     fn deserialize_path<'de, D>(
@@ -250,7 +251,7 @@ where
             .position(|name| name == &path);
         match index {
             Some(index) => {
-                let deserialized = <T as Deserialize>::deserialize(deserializer)
+                let deserialized = T::deserialize(deserializer)
                     .map_err(deserialize::Error::DeserializationFailed)?;
                 self[index] = deserialized;
                 Ok(())
@@ -369,5 +370,232 @@ impl<T> PathIntrospect for UnitQuaternion<T> {
         fields.insert(format!("{prefix}roll"));
         fields.insert(format!("{prefix}pitch"));
         fields.insert(format!("{prefix}yaw"));
+    }
+}
+
+impl<T> PathSerialize for UnitComplex<T>
+where
+    T: Serialize + PathSerialize + SimdRealField + RealField + Real,
+    T::Element: SimdRealField,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match path {
+            "rad" => self
+                .angle()
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            "deg" => self
+                .angle()
+                .to_degrees()
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathDeserialize for UnitComplex<T>
+where
+    for<'de> T: Deserialize<'de> + SimdRealField + Real,
+    T::Element: SimdRealField,
+{
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        match path {
+            "rad" => {
+                let angle = T::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                *self = UnitComplex::new(angle);
+                Ok(())
+            }
+            "deg" => {
+                let angle = T::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                *self = UnitComplex::new(angle.to_radians());
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathIntrospect for UnitComplex<T> {
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}rad"));
+        fields.insert(format!("{prefix}deg"));
+    }
+}
+
+impl<T> PathSerialize for Isometry2<T>
+where
+    T: Serialize + PathSerialize + SimdRealField + RealField + Real,
+    T::Element: SimdRealField,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("translation", suffix))) => {
+                self.translation.vector.serialize_path(suffix, serializer)
+            }
+            (_, Some(("rotation", suffix))) => self.rotation.serialize_path(suffix, serializer),
+            ("translation", None) => self
+                .translation
+                .vector
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("rotation", None) => self
+                .rotation
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathDeserialize for Isometry2<T>
+where
+    for<'de> T: Deserialize<'de> + SimdRealField + Real,
+    T::Element: SimdRealField,
+{
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("translation", suffix))) => self
+                .translation
+                .vector
+                .deserialize_path(suffix, deserializer),
+            (_, Some(("rotation", suffix))) => self.rotation.deserialize_path(suffix, deserializer),
+            ("translation", None) => {
+                self.translation.vector = Vector2::<T>::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("rotation", None) => {
+                self.rotation = UnitComplex::<T>::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathIntrospect for Isometry2<T> {
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}translation"));
+        fields.insert(format!("{prefix}rotation"));
+    }
+}
+
+impl<T> PathSerialize for Isometry3<T>
+where
+    T: Serialize + PathSerialize + SimdRealField + RealField,
+    T::Element: SimdRealField,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("translation", suffix))) => {
+                self.translation.vector.serialize_path(suffix, serializer)
+            }
+            (_, Some(("rotation", suffix))) => self.rotation.serialize_path(suffix, serializer),
+            ("translation", None) => self
+                .translation
+                .vector
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("rotation", None) => self
+                .rotation
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathDeserialize for Isometry3<T>
+where
+    for<'de> T: Deserialize<'de> + Scalar,
+{
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("translation", suffix))) => self
+                .translation
+                .vector
+                .deserialize_path(suffix, deserializer),
+            (_, Some(("rotation", suffix))) => self.rotation.deserialize_path(suffix, deserializer),
+            ("translation", None) => {
+                self.translation.vector = Vector3::<T>::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("rotation", None) => {
+                self.rotation = UnitQuaternion::<T>::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathIntrospect for Isometry3<T> {
+    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}translation"));
+        fields.insert(format!("{prefix}rotation"));
     }
 }
