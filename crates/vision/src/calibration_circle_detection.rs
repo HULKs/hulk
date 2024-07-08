@@ -74,7 +74,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_calibration_circles: MainOutput<Vec<(Point2<Pixel>, Vec<Point2<Pixel>>)>>,
+    pub detected_calibration_circles: MainOutput<Option<Vec<(Point2<Pixel>, Vec<Point2<Pixel>>)>>>,
 }
 
 impl CalibrationMeasurementDetection {
@@ -90,7 +90,7 @@ impl CalibrationMeasurementDetection {
                 < Duration::from_millis(*context.run_next_cycle_after_ms))
         {
             return Ok(MainOutputs {
-                detected_calibration_circles: vec![].into(),
+                detected_calibration_circles: None.into(),
             });
         }
 
@@ -159,19 +159,21 @@ impl CalibrationMeasurementDetection {
         self.last_processed_instance = Instant::now();
 
         Ok(MainOutputs {
-            detected_calibration_circles: filtered_calibration_circles_ground
-                .into_iter()
-                .map(|ransac_result| {
-                    (
-                        context
-                            .camera_matrix
-                            .ground_to_pixel(ransac_result.circle.center)
-                            .expect("ground -> pixel failed"),
-                        ransac_result.used_points,
-                    )
-                })
-                .collect_vec()
-                .into(),
+            detected_calibration_circles: Some(
+                filtered_calibration_circles_ground
+                    .into_iter()
+                    .map(|ransac_result| {
+                        (
+                            context
+                                .camera_matrix
+                                .ground_to_pixel(ransac_result.circle.center)
+                                .expect("ground -> pixel failed"),
+                            ransac_result.used_points,
+                        )
+                    })
+                    .collect_vec(),
+            )
+            .into(),
         })
     }
 }

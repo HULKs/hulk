@@ -5,12 +5,11 @@ use color_eyre::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use calibration::goal_box::{lines::Lines, measurement::Measurement};
+use calibration::center_circle::{circle_points::CenterCirclePoints, measurement::Measurement};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
-use geometry::line_segment::LineSegment;
-use linear_algebra::point;
+use linear_algebra::{point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
@@ -32,6 +31,9 @@ pub struct CycleContext {
     calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+
+    detected_circles:
+        Input<Option<Vec<(Point2<Pixel>, Vec<Point2<Pixel>>)>>, "detected_calibration_circles?">,
 }
 
 #[context]
@@ -54,16 +56,20 @@ impl CalibrationMeasurementProvider {
         }) = context.calibration_command
         {
             if *capture && camera == context.camera_position {
-                let measurement = get_measurement_from_image(
-                    context.image,
-                    context.camera_matrix,
-                    *context.camera_position,
-                    context.field_dimensions,
-                );
+                let measurement = context.detected_circles.and_then(|circles| {
+                    circles.first().map(|(center, points)| Measurement {
+                        circle_and_points: CenterCirclePoints {
+                            center: center.clone(),
+                            points: points.clone(),
+                        },
+                        position: *context.camera_position,
+                        matrix: context.camera_matrix.clone(),
+                    })
+                });
 
                 Some(CalibrationCaptureResponse {
                     dispatch_time: *dispatch_time,
-                    measurement: measurement.ok(),
+                    measurement: measurement,
                 })
             } else {
                 None
@@ -75,61 +81,5 @@ impl CalibrationMeasurementProvider {
         Ok(MainOutputs {
             calibration_measurement: calibration_measurement.into(),
         })
-    }
-}
-
-fn get_measurement_from_image(
-    image: &YCbCr422Image,
-    matrix: &CameraMatrix,
-    position: CameraPosition,
-    field_dimensions: &FieldDimensions,
-) -> Result<Measurement> {
-    // TODO replace with a real implementation
-
-    get_fake_measurement(image, matrix, position, field_dimensions)
-}
-
-fn project_line_to_camera(
-    matrix: &CameraMatrix,
-    line: LineSegment<Ground>,
-) -> Result<LineSegment<Pixel>> {
-    Ok(LineSegment(
-        matrix.ground_to_pixel(line.0)?,
-        matrix.ground_to_pixel(line.1)?,
-    ))
-}
-
-fn get_fake_measurement(
-    _image: &YCbCr422Image,
-    matrix: &CameraMatrix,
-    position: CameraPosition,
-    field_dimensions: &FieldDimensions,
-) -> Result<Measurement> {
-    // Minimal length lines representing the 3 lines to make sure they are in the camera's FOV
-    // otherwise occlusions/ trimmed lines have to be handled
-    let border_line = LineSegment(point![2.0, 0.0], point![3.0, 0.0]);
-    let goal_box_line = {
-        let y = field_dimensions.goal_box_area_length + border_line.0.y();
-        let bottom_x = border_line.0.x() + 0.5;
-        LineSegment(point![bottom_x, y], point![bottom_x + 1.0, y])
-    };
-    let connecting_line = LineSegment(
-        goal_box_line.0,
-        point![goal_box_line.0.x(), border_line.0.y()],
-    );
-
-    let mut rng = rand::thread_rng();
-    if rng.gen_range(0..10) > 5 {
-        Ok(Measurement {
-            matrix: matrix.clone(),
-            position,
-            lines: Lines {
-                border_line: project_line_to_camera(matrix, border_line)?,
-                connecting_line: project_line_to_camera(matrix, connecting_line)?,
-                goal_box_line: project_line_to_camera(matrix, goal_box_line)?,
-            },
-        })
-    } else {
-        Err(eyre!("don't have a measurement for you!"))
     }
 }

@@ -121,8 +121,8 @@ hula-types = { path = "tools/hula/types" }
 hulk = { path = "crates/hulk" }
 hulk_manifest = { path = "crates/hulk_manifest" }
 i2cdev = "0.5.1"
-image = "0.25.1"
-imageproc = "0.25.0"
+image = "0.24.8"
+imageproc = "0.23.0"
 edge_detection = { path = "crates/edge_detection" }
 indicatif = "0.17.2"
 itertools = "0.11.0"
