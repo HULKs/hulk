@@ -36,7 +36,8 @@ pub struct CycleContext {
     filter_gain: Parameter<f32, "orientation_filter.filter_gain">,
     calibration_steady_threshold: Parameter<f32, "orientation_filter.calibration_steady_threshold">,
     calibration_smoothing_factor: Parameter<f32, "orientation_filter.calibration_smoothing_factor">,
-    num_calibration_cycles: Parameter<usize, "orientation_filter.num_calibration_cycles">,
+    number_of_calibration_cycles:
+        Parameter<usize, "orientation_filter.number_of_calibration_cycles">,
 }
 
 #[context]
@@ -70,7 +71,7 @@ impl OrientationFilter {
                             measured_acceleration,
                             *context.calibration_smoothing_factor,
                         ),
-                        remaining_cycles: *context.num_calibration_cycles,
+                        remaining_cycles: *context.number_of_calibration_cycles,
                     }
                 }
             }
