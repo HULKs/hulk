@@ -1,5 +1,5 @@
 pub mod ball_detection;
-pub mod calibration_circle_detection;
+pub mod calibration_center_circle_detection;
 pub mod calibration_measurement_provider;
 pub mod camera_matrix_extractor;
 pub mod feet_detection;
