@@ -1,6 +1,8 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
+use serde::{Deserialize, Serialize};
+
 use coordinate_systems::{Field, Ground, NormalizedPixel, Pixel};
 use linear_algebra::{Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
