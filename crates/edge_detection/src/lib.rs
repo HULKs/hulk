@@ -4,8 +4,8 @@ use imageproc::{edges::canny, filter::gaussian_blur_f32, map::map_colors};
 use types::ycbcr422_image::YCbCr422Image;
 
 pub enum EdgeSourceType {
-    DifferenceOfLumaAndRgbRange,
-    LuminanceOfYuv,
+    DifferenceOfGrayAndRgbRange,
+    LumaOfYCbCr,
     // TODO Add HSV based approaches - https://github.com/HULKs/hulk/pull/1078, https://github.com/HULKs/hulk/pull/1081
 }
 
@@ -18,13 +18,12 @@ pub fn get_edge_image_canny(
 ) -> GrayImage {
     let edges_source = get_edge_source_image(image, source_channel);
     let blurred = gaussian_blur_f32(&edges_source, gaussian_sigma);
-    let edges = canny(&blurred, canny_low_threshold, canny_high_threshold);
-    edges
+    canny(&blurred, canny_low_threshold, canny_high_threshold)
 }
 
 pub fn get_edge_source_image(image: &YCbCr422Image, source_type: EdgeSourceType) -> GrayImage {
     match source_type {
-        EdgeSourceType::DifferenceOfLumaAndRgbRange => {
+        EdgeSourceType::DifferenceOfGrayAndRgbRange => {
             let rgb = RgbImage::from(image);
 
             let difference = rgb_image_to_difference(&rgb);
@@ -36,7 +35,7 @@ pub fn get_edge_source_image(image: &YCbCr422Image, source_type: EdgeSourceType)
             )
             .expect("GrayImage construction after resize failed")
         }
-        EdgeSourceType::LuminanceOfYuv => {
+        EdgeSourceType::LumaOfYCbCr => {
             generate_luminance_image(image).expect("Generating luma image failed")
         }
     }

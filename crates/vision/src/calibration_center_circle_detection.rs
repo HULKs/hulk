@@ -7,18 +7,20 @@ use color_eyre::Result;
 use itertools::Itertools;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
-use ransac::circles::circle::{
-    RansacCircleWithTransformation, RansacResultCircleWithTransformation,
-};
 use serde::{Deserialize, Serialize};
 
+use calibration::center_circle::circle_points::CenterCirclePoints;
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use edge_detection::{get_edge_image_canny, EdgeSourceType};
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
-use linear_algebra::{distance, point, Point2};
+use linear_algebra::{point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
+use ransac::circles::circle::{
+    RansacCircleWithTransformation, RansacResultCircleWithTransformation,
+};
 use types::{
+    calibration::CalibrationCommand, camera_position::CameraPosition,
     field_dimensions::FieldDimensions, filtered_segments::FilteredSegments,
     ycbcr422_image::YCbCr422Image,
 };
@@ -33,48 +35,56 @@ pub struct CalibrationMeasurementDetection {
 pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
-    enable: Parameter<bool, "calibration_circle_detection.$cycler_instance.enable">,
+    tuning_mode:
+        Parameter<bool, "calibration_center_circle_detection.$cycler_instance.tuning_mode">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
-    // Preprocessing
-    skip_rgb_based_difference_image:
-        Parameter<bool, "calibration_circle_detection.skip_rgb_based_difference_image">,
-    gaussian_sigma: Parameter<f32, "calibration_circle_detection.gaussian_sigma">,
-    canny_low_threshold: Parameter<f32, "calibration_circle_detection.canny_low_threshold">,
-    canny_high_threshold: Parameter<f32, "calibration_circle_detection.canny_high_threshold">,
-    // RANSAC parameters
-    maximum_number_of_circles:
-        Parameter<usize, "calibration_circle_detection.maximum_number_of_circles">,
-    ransac_iterations: Parameter<usize, "calibration_circle_detection.ransac_iterations">,
+    preprocessing_luma_without_difference:
+        Parameter<bool, "calibration_center_circle_detection.skip_rgb_based_difference_image">,
+    preprocessing_gaussian_sigma:
+        Parameter<f32, "calibration_center_circle_detection.gaussian_sigma">,
+    canny_low_threshold: Parameter<f32, "calibration_center_circle_detection.canny_low_threshold">,
+    canny_high_threshold:
+        Parameter<f32, "calibration_center_circle_detection.canny_high_threshold">,
+    preprocessing_get_edges_from_segments:
+        Parameter<bool, "calibration_center_circle_detection.get_edges_from_segments">,
+
+    ransac_maximum_number_of_circles:
+        Parameter<usize, "calibration_center_circle_detection.maximum_number_of_circles">,
+    ransac_iterations: Parameter<usize, "calibration_center_circle_detection.ransac_iterations">,
     ransac_circle_inlier_threshold:
-        Parameter<f32, "calibration_circle_detection.ransac_circle_inlier_threshold">,
+        Parameter<f32, "calibration_center_circle_detection.ransac_circle_inlier_threshold">,
     ransac_circle_minimum_circumference_percentage: Parameter<
         f32,
-        "calibration_circle_detection.ransac_circle_minimum_circumference_percentage",
+        "calibration_center_circle_detection.ransac_circle_minimum_circumference_percentage",
     >,
-    // Cycle runtime optimisations
-    run_next_cycle_after_ms: Parameter<u64, "calibration_circle_detection.run_next_cycle_after_ms">,
-    get_edges_from_segments:
-        Parameter<bool, "calibration_circle_detection.get_edges_from_segments">,
+    run_next_cycle_after_ms:
+        Parameter<u64, "calibration_center_circle_detection.run_next_cycle_after_ms">,
+    calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
 
-    // Inputs
     image: Input<YCbCr422Image, "image">,
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
 
-    // Additional outputs
-    detected_edge_points:
-        AdditionalOutput<Vec<Point2<Pixel>>, "calibration_circle_detection.detected_edge_points">,
-    timings_for_steps_ms:
-        AdditionalOutput<Vec<(String, u128)>, "calibration_circle_detection.timings_for_steps">,
-    circles_points_pixel_scores:
-        AdditionalOutput<Vec<f32>, "calibration_circle_detection.circles_points_pixel_scores">,
+    detected_edge_points: AdditionalOutput<
+        Vec<Point2<Pixel>>,
+        "calibration_center_circle_detection.detected_edge_points",
+    >,
+    timings_for_steps_ms: AdditionalOutput<
+        Vec<(String, u128)>,
+        "calibration_center_circle_detection.timings_for_steps",
+    >,
+    circles_points_pixel_scores: AdditionalOutput<
+        Vec<f32>,
+        "calibration_center_circle_detection.circles_points_pixel_scores",
+    >,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_calibration_circles: MainOutput<Option<Vec<(Point2<Pixel>, Vec<Point2<Pixel>>)>>>,
+    pub calibration_center_circles: MainOutput<Option<Vec<CenterCirclePoints<Pixel>>>>,
 }
 
 impl CalibrationMeasurementDetection {
@@ -85,18 +95,22 @@ impl CalibrationMeasurementDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        if !context.enable
-            || (self.last_processed_instance.elapsed()
-                < Duration::from_millis(*context.run_next_cycle_after_ms))
-        {
+        let capture_command_received = context.calibration_command.map_or(false, |command| {
+            command.capture && command.camera == *context.camera_position
+        });
+        let tuning_mode_and_wait_complete = *context.tuning_mode
+            && self.last_processed_instance.elapsed()
+                >= Duration::from_millis(*context.run_next_cycle_after_ms);
+
+        if !capture_command_received && !tuning_mode_and_wait_complete {
             return Ok(MainOutputs {
-                detected_calibration_circles: None.into(),
+                calibration_center_circles: None.into(),
             });
         }
 
         let processing_start = Instant::now();
 
-        let filtered_points = if *context.get_edges_from_segments {
+        let filtered_points = if *context.preprocessing_get_edges_from_segments {
             get_edges_from_segments(
                 context.filtered_segments,
                 context
@@ -109,21 +123,15 @@ impl CalibrationMeasurementDetection {
         };
 
         let elapsed_time_after_getting_edges = processing_start.elapsed();
-        let detected_circles_and_results = detect_circles(
+        let filtered_calibration_circles_ground = detect_and_filter_circles(
             &filtered_points,
             context.camera_matrix,
-            *context.maximum_number_of_circles,
+            *context.ransac_maximum_number_of_circles,
             *context.ransac_iterations,
             *context.ransac_circle_inlier_threshold,
             context.field_dimensions.center_circle_diameter / 2.0,
-            context
-                .field_dimensions
-                .length
-                .max(context.field_dimensions.width)
-                / 2.0,
+            *context.ransac_circle_minimum_circumference_percentage,
         );
-        let filtered_calibration_circles_ground =
-            filter_circles(detected_circles_and_results, &context);
 
         let elapsed_time_after_all_processing = processing_start.elapsed();
 
@@ -159,48 +167,21 @@ impl CalibrationMeasurementDetection {
         self.last_processed_instance = Instant::now();
 
         Ok(MainOutputs {
-            detected_calibration_circles: Some(
+            calibration_center_circles: Some(
                 filtered_calibration_circles_ground
                     .into_iter()
-                    .map(|ransac_result| {
-                        (
-                            context
-                                .camera_matrix
-                                .ground_to_pixel(ransac_result.circle.center)
-                                .expect("ground -> pixel failed"),
-                            ransac_result.used_points,
-                        )
+                    .map(|ransac_result| CenterCirclePoints {
+                        center: context
+                            .camera_matrix
+                            .ground_to_pixel(ransac_result.circle.center)
+                            .expect("ground -> pixel failed"),
+                        points: ransac_result.used_points_original.clone(),
                     })
                     .collect_vec(),
             )
             .into(),
         })
     }
-}
-
-fn filter_circles(
-    detected_circles_and_results: Vec<RansacResultCircleWithTransformation<Pixel, Ground>>,
-    context: &CycleContext,
-) -> Vec<RansacResultCircleWithTransformation<Pixel, Ground>> {
-    detected_circles_and_results
-        .into_iter()
-        .filter(|result| {
-            let circle = result.circle;
-            let used_points_transformed = &result.used_points_transformed;
-            let max_y = context.camera_matrix.image_size.y();
-            context
-                .camera_matrix
-                .ground_to_pixel(circle.center)
-                .is_ok_and(|center| {
-                    center.y() <= max_y
-                        && circle_circumference_percentage_filter(
-                            circle.center,
-                            used_points_transformed,
-                            *context.ransac_circle_minimum_circumference_percentage,
-                        )
-                })
-        })
-        .collect_vec()
 }
 
 fn circle_circumference_percentage_filter(
@@ -214,16 +195,14 @@ fn circle_circumference_percentage_filter(
     } else {
         DEFAULT_BIN_COUNT
     };
-    // Locations 0 to 100, also could be angle in degree or whatever
-    // atan() -> [-PI/2, PI/2]
-    let angle_to_slice_indice_factor = PI * 2.0 / (bin_bount as f32);
+    let angle_to_bin_indice_factor = PI * 2.0 / (bin_bount as f32);
 
     let filled_bin_count = circle_points
         .iter()
         .map(|point| {
             let angle = (circle_center.y() - point.y()).atan2(circle_center.x() - point.x());
 
-            (angle / angle_to_slice_indice_factor).ceil() as i32
+            (angle / angle_to_bin_indice_factor).ceil() as i32
         })
         .unique()
         .count();
@@ -234,43 +213,45 @@ fn circle_circumference_percentage_filter(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn detect_circles(
+fn detect_and_filter_circles(
     edge_points: &[Point2<Pixel>],
     camera_matrix: &CameraMatrix,
     maximum_number_of_circles: usize,
     ransac_iterations: usize,
     ransac_circle_inlier_threshold: f32,
     target_circle_radius: f32,
-    center_distance_penalty_threshold: f32,
+    ransac_circle_minimum_circumference_percentage: f32,
 ) -> Vec<RansacResultCircleWithTransformation<Pixel, Ground>> {
-    let transformer = |pixel_points: &[Point2<Pixel>]| {
-        pixel_points
-            .iter()
-            .filter_map(|pixel_coordinates| {
-                let point = camera_matrix.pixel_to_ground(*pixel_coordinates);
-                point.ok().and_then(|point| {
-                    if distance(point, Point2::origin()) <= center_distance_penalty_threshold {
-                        Some(point)
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect_vec()
-    };
+    let transformer =
+        |pixel_coordinates: &Point2<Pixel>| camera_matrix.pixel_to_ground(*pixel_coordinates).ok();
     let mut rng = ChaChaRng::from_entropy();
     let mut ransac = RansacCircleWithTransformation::<Pixel, Ground>::new(
         target_circle_radius,
         ransac_circle_inlier_threshold,
         edge_points.to_vec(),
         transformer,
-        &mut rng,
     );
     let input_point_count = edge_points.len();
+
     (0..maximum_number_of_circles)
         .filter_map(|_| ransac.next_candidate(&mut rng, ransac_iterations))
-        .sorted_by_key(|value| input_point_count - value.used_points.len())
-        .collect_vec()
+        .filter(|result| {
+            let circle = result.circle;
+            let used_points_transformed = &result.used_points_transformed;
+            let max_y = camera_matrix.image_size.y();
+            camera_matrix
+                .ground_to_pixel(circle.center)
+                .is_ok_and(|center| {
+                    center.y() <= max_y
+                        && circle_circumference_percentage_filter(
+                            circle.center,
+                            used_points_transformed,
+                            ransac_circle_minimum_circumference_percentage,
+                        )
+                })
+        })
+        .sorted_by_key(|value| input_point_count - value.used_points_original.len())
+        .collect()
 }
 
 fn get_edges_from_segments(
@@ -305,13 +286,13 @@ fn get_edges_from_segments(
 }
 
 fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pixel>> {
-    let canny_source_type = if *context.skip_rgb_based_difference_image {
-        EdgeSourceType::LuminanceOfYuv
+    let canny_source_type = if *context.preprocessing_luma_without_difference {
+        EdgeSourceType::LumaOfYCbCr
     } else {
-        EdgeSourceType::DifferenceOfLumaAndRgbRange
+        EdgeSourceType::DifferenceOfGrayAndRgbRange
     };
-    let edges = get_edge_image_canny(
-        *context.gaussian_sigma,
+    let edge_image = get_edge_image_canny(
+        *context.preprocessing_gaussian_sigma,
         *context.canny_low_threshold,
         *context.canny_high_threshold,
         context.image,
@@ -323,7 +304,7 @@ fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pix
         .horizon
         .map_or(0, |h| h.horizon_y_minimum() as u32);
 
-    let filtered_points = edges
+    let filtered_points = edge_image
         .enumerate_pixels()
         .filter_map(|(x, y, color)| {
             if color[0] > 127 && y > y_exclusion_threshold {
