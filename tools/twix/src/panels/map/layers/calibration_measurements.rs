@@ -22,13 +22,13 @@ impl Layer<Ground> for CalibrationMeasurementDetection {
         Self {
             circle_used_points_robot: nao.subscribe_output(
                 CyclerOutput::from_str(&format!(
-                    "VisionTop.additional.calibration_circle_detection.circle_used_points_robot"
+                    "VisionTop.additional.calibration_center_circle_detection.circle_used_points_robot"
                 ))
                 .unwrap(),
             ),
             circle_robot: nao.subscribe_output(
                 CyclerOutput::from_str(&format!(
-                    "VisionTop.additional.calibration_circle_detection.circle_robot"
+                    "VisionTop.additional.calibration_center_circle_detection.circle_robot"
                 ))
                 .unwrap(),
             ),
