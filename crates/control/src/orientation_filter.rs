@@ -87,10 +87,9 @@ impl OrientationFilter {
                     filtered_gravity.update(measured_acceleration);
                     *remaining_cycles -= 1;
                     if *remaining_cycles == 0 {
-                        let orientation = nalgebra::UnitQuaternion::look_at_rh(
-                            &-filtered_gravity.state().inner,
-                            &nalgebra::Vector3::y(),
-                        );
+                        let gravity = -filtered_gravity.state().inner;
+                        let up = nalgebra::Vector3::y();
+                        let orientation = UnitQuaternion::look_at_rh(&gravity, &up);
                         self.state = State::Filtering { state: orientation };
                     }
                 } else {

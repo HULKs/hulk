@@ -64,7 +64,8 @@ impl Madgwick for UnitQuaternion<f32> {
             - Quaternion::from_vector(step) * filter_gain;
 
         // Integrate to yield quaternion
-        *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period.as_secs_f32());
+        let dt = sample_period.as_secs_f32();
+        *self = UnitQuaternion::from_quaternion(q + q_dot * dt);
 
         Ok(())
     }
@@ -76,6 +77,7 @@ impl Madgwick for UnitQuaternion<f32> {
         let q_dot = q * Quaternion::from_parts(0.0, gyroscope) * 0.5;
 
         // Integrate to yield quaternion
-        *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period.as_secs_f32());
+        let dt = sample_period.as_secs_f32();
+        *self = UnitQuaternion::from_quaternion(q + q_dot * dt);
     }
 }
