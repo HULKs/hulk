@@ -1,5 +1,6 @@
-use nalgebra::{matrix, vector, Quaternion, RealField, Scalar, SimdValue, UnitQuaternion, Vector3};
-use num_traits::{One, Zero};
+use std::time::Duration;
+
+use nalgebra::{matrix, vector, Quaternion, UnitQuaternion, Vector3};
 
 #[derive(Debug)]
 pub struct AccelerometerNormZero;
@@ -7,86 +8,74 @@ pub struct AccelerometerNormZero;
 /// Madgwick's filter for orientation estimation.
 ///
 /// This implementation is based on the following:
-/// https://github.com/jmagnuson/ahrs-rs
-pub trait Madgwick<T> {
+/// <https://github.com/jmagnuson/ahrs-rs>
+pub trait Madgwick {
     fn update_with_imu(
         &mut self,
-        gyroscope: &Vector3<T>,
-        accelerometer: &Vector3<T>,
-        filter_gain: T,
-        sample_period: T,
+        gyroscope: Vector3<f32>,
+        accelerometer: Vector3<f32>,
+        filter_gain: f32,
+        sample_period: Duration,
     ) -> Result<(), AccelerometerNormZero>;
 
-    fn update_with_gyroscope(&mut self, gyroscope: &Vector3<T>, sample_period: T);
+    fn update_with_gyroscope(&mut self, gyroscope: Vector3<f32>, sample_period: Duration);
 }
 
-impl<T> Madgwick<T> for UnitQuaternion<T>
-where
-    T: Scalar + SimdValue + RealField + One + Zero + Copy,
-{
+impl Madgwick for UnitQuaternion<f32> {
     #[allow(non_snake_case)]
     fn update_with_imu(
         &mut self,
-        gyroscope: &Vector3<T>,
-        accelerometer: &Vector3<T>,
-        filter_gain: T,
-        sample_period: T,
+        gyroscope: Vector3<f32>,
+        accelerometer: Vector3<f32>,
+        filter_gain: f32,
+        sample_period: Duration,
     ) -> Result<(), AccelerometerNormZero> {
         let q = self.as_ref();
 
-        let zero: T = nalgebra::zero();
-        let two: T = nalgebra::convert(2.0);
-        let four: T = nalgebra::convert(4.0);
-        let half: T = nalgebra::convert(0.5);
-
         // Normalize accelerometer measurement
-        let Some(accel) = accelerometer.try_normalize(zero) else {
+        let Some(accel) = accelerometer.try_normalize(0.0) else {
             return Err(AccelerometerNormZero);
         };
 
         // Gradient descent algorithm corrective step
         #[rustfmt::skip]
         let F = vector![
-            two * (       q.i * q.k - q.w * q.j) - accel.x,
-            two * (       q.w * q.i + q.j * q.k) - accel.y,
-            two * (half - q.i * q.i - q.j * q.j) - accel.z,
-            zero
+            2.0 * (      q.i * q.k - q.w * q.j) - accel.x,
+            2.0 * (      q.w * q.i + q.j * q.k) - accel.y,
+            2.0 * (0.5 - q.i * q.i - q.j * q.j) - accel.z,
+            0.0
         ];
 
-        #[rustfmt::skip]
         let J_t = matrix![
-            -two * q.j, two * q.i,        zero, zero;
-             two * q.k, two * q.w, -four * q.i, zero;
-            -two * q.w, two * q.k, -four * q.j, zero;
-             two * q.i, two * q.j,        zero, zero
+            -2.0 * q.j, 2.0 * q.i,        0.0, 0.0;
+             2.0 * q.k, 2.0 * q.w, -4.0 * q.i, 0.0;
+            -2.0 * q.w, 2.0 * q.k, -4.0 * q.j, 0.0;
+             2.0 * q.i, 2.0 * q.j,        0.0, 0.0
         ];
 
         // Try to normalize step, falling back to gyro update if not possible
-        let Some(step) = (J_t * F).try_normalize(zero) else {
+        let Some(step) = (J_t * F).try_normalize(0.0) else {
             self.update_with_gyroscope(gyroscope, sample_period);
             return Ok(());
         };
 
         // Compute rate of change of quaternion
-        let q_dot = (q * Quaternion::from_parts(zero, *gyroscope)) * half
+        let q_dot = (q * Quaternion::from_parts(0.0, gyroscope)) * 0.5
             - Quaternion::from_vector(step) * filter_gain;
 
         // Integrate to yield quaternion
-        *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period);
+        *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period.as_secs_f32());
 
         Ok(())
     }
 
-    fn update_with_gyroscope(&mut self, gyroscope: &Vector3<T>, sample_period: T) {
+    fn update_with_gyroscope(&mut self, gyroscope: Vector3<f32>, sample_period: Duration) {
         let q = self.as_ref();
 
-        let zero: T = nalgebra::zero();
-        let half: T = nalgebra::convert(0.5);
-
         // Compute rate of change for quaternion
-        let q_dot = q * Quaternion::from_parts(zero, *gyroscope) * half;
+        let q_dot = q * Quaternion::from_parts(0.0, gyroscope) * 0.5;
 
         // Integrate to yield quaternion
-        *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period);
+        *self = UnitQuaternion::from_quaternion(q + q_dot * sample_period.as_secs_f32());
     }
 }

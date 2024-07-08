@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use color_eyre::Result;
 use filtering::{low_pass_filter::LowPassFilter, madgwick::Madgwick};
 use nalgebra::UnitQuaternion;
@@ -98,16 +100,16 @@ impl OrientationFilter {
             State::Filtering { state } => {
                 if state
                     .update_with_imu(
-                        &measured_angular_velocity.inner,
-                        &measured_acceleration.inner,
+                        measured_angular_velocity.inner,
+                        measured_acceleration.inner,
                         *context.filter_gain,
-                        0.012,
+                        Duration::from_millis(12),
                     )
                     .is_err()
                 {
                     state.update_with_gyroscope(
-                        &measured_angular_velocity.inner,
-                        *context.filter_gain,
+                        measured_angular_velocity.inner,
+                        Duration::from_millis(12),
                     );
                 }
             }
