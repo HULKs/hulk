@@ -8,13 +8,11 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GameControllerStateMessage, Penalty, PlayerNumber};
-use types::{
-    cycle_time::CycleTime, messages::IncomingMessage, players::Players,
-    pose_detection::VisualRefereeState,
-};
+use types::{cycle_time::CycleTime, messages::IncomingMessage, pose_detection::VisualRefereeState};
+
 #[derive(Deserialize, Serialize)]
 pub struct SacrificialLamb {
-    detection_times: Players<Option<SystemTime>>,
+    last_majority_vote: bool,
     visual_referee_state: VisualRefereeState,
     motion_in_standby_count: usize,
 }
@@ -49,8 +47,8 @@ pub struct MainOutputs {
 impl SacrificialLamb {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
+            last_majority_vote: false,
             visual_referee_state: VisualRefereeState::WaitingForDetections,
-            detection_times: Default::default(),
             motion_in_standby_count: 0,
         })
     }
@@ -83,6 +81,10 @@ impl SacrificialLamb {
             })
             .max();
 
+        let majority_vote_detected_now =
+            !self.last_majority_vote && *context.majority_vote_is_referee_ready_pose_detected;
+        self.last_majority_vote = *context.majority_vote_is_referee_ready_pose_detected;
+
         let motion_in_standby =
             new_motion_in_standby_count.map_or(false, |new_motion_in_standby_count| {
                 let motion_in_standby = new_motion_in_standby_count > self.motion_in_standby_count;
@@ -92,12 +94,11 @@ impl SacrificialLamb {
 
         self.visual_referee_state = match (
             self.visual_referee_state,
-            context.majority_vote_is_referee_ready_pose_detected,
+            majority_vote_detected_now,
             motion_in_standby,
         ) {
             (VisualRefereeState::WaitingForDetections, true, motion_in_standby) => {
                 if motion_in_standby {
-                    self.detection_times = Default::default();
                     VisualRefereeState::WaitingForDetections
                 } else {
                     VisualRefereeState::WaitingForOpponentPenalties {
@@ -106,7 +107,6 @@ impl SacrificialLamb {
                 }
             }
             (VisualRefereeState::WaitingForOpponentPenalties { .. }, _, true) => {
-                self.detection_times = Default::default();
                 VisualRefereeState::WaitingForDetections
             }
             (VisualRefereeState::WaitingForOpponentPenalties { active_since }, _, false) => {
@@ -127,7 +127,6 @@ impl SacrificialLamb {
                 }
             }
             (VisualRefereeState::WaitingForOwnPenalties { .. }, _, true) => {
-                self.detection_times = Default::default();
                 VisualRefereeState::WaitingForDetections
             }
             (VisualRefereeState::WaitingForOwnPenalties { active_since }, _, false) => {
