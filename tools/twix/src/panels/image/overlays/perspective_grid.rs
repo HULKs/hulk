@@ -1,34 +1,38 @@
+use std::sync::Arc;
+
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use linear_algebra::point;
 use types::perspective_grid_candidates::Row;
 
 use crate::{
-    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao,
+    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
+    twix_painter::TwixPainter,
+    value_buffer::BufferHandle,
 };
 
 pub struct PerspectiveGrid {
-    perspective_grid: ValueBuffer,
+    perspective_grid: BufferHandle<Option<Vec<Row>>>,
 }
 
 impl Overlay for PerspectiveGrid {
     const NAME: &'static str = "Perspective Grid";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
+    fn new(nao: Arc<Nao>, selected_cycler: VisionCycler) -> Self {
+        let cycler_path = selected_cycler.as_path();
         Self {
-            perspective_grid: nao.subscribe_output(CyclerOutput {
-                cycler: selected_cycler,
-                output: Output::Additional {
-                    path: "perspective_grid_ball_sizes".to_string(),
-                },
-            }),
+            perspective_grid: nao.subscribe_value(format!(
+                "{cycler_path}.additional_outputs.perspective_grid_ball_sizes"
+            )),
         }
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        let perspective_grid: Vec<Row> = self.perspective_grid.parse_latest()?;
+        let Some(perspective_grid) = self.perspective_grid.get_last_value()?.flatten() else {
+            return Ok(());
+        };
 
         for row in perspective_grid {
             painter.circle_stroke(

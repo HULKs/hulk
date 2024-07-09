@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Ground;
 use linear_algebra::{vector, IntoFramed, Isometry2, Point2, Vector2};
 
-use types::multivariate_normal_distribution::MultivariateNormalDistribution;
-
-use crate::ball_position::BallPosition;
+use types::{
+    ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
+};
 
 pub mod moving;
 pub mod resting;

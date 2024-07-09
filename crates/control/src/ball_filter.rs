@@ -7,7 +7,7 @@ use color_eyre::Result;
 use nalgebra::{Matrix2, Matrix4};
 use serde::{Deserialize, Serialize};
 
-use ball_filter::{BallFilter as BallFiltering, BallHypothesis, BallPosition};
+use ball_filter::{BallFilter as BallFiltering, BallHypothesis};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
@@ -15,8 +15,8 @@ use geometry::circle::Circle;
 use linear_algebra::{distance, IntoTransform, Isometry2, Point2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::Ball,
-    ball_position::HypotheticalBallPosition,
+    ball_detection::Ball,
+    ball_position::{BallPosition, HypotheticalBallPosition},
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},

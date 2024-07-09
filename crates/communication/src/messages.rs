@@ -1,184 +1,77 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{collections::BTreeMap, time::SystemTime};
 
-use parameters::directory::Scope;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
-pub type CyclerInstance = String;
+#[derive(Default, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[non_exhaustive]
+pub struct Entry {
+    pub is_readable: bool,
+    pub is_writable: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[non_exhaustive]
+pub enum TextOrBinary {
+    Text(Value),
+    Binary(Vec<u8>),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Hash)]
+#[non_exhaustive]
+pub enum Format {
+    Text,
+    Binary,
+}
+
 pub type Path = String;
-pub type Reason = String;
-pub type Type = String;
-pub type Fields = BTreeMap<CyclerInstance, BTreeSet<Path>>;
+pub type Error = String;
+pub type RequestId = usize;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum Request {
-    Injections(InjectionsRequest),
-    Outputs(OutputsRequest),
-    Parameters(ParametersRequest),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Response {
-    Textual(TextualResponse),
-    Binary(BinaryResponse),
-    Close { code: CloseCode, reason: Reason },
+#[non_exhaustive]
+pub struct Request {
+    pub id: RequestId,
+    pub kind: RequestKind,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum TextualResponse {
-    Injections(InjectionsResponse),
-    Outputs(TextualOutputsResponse),
-    Parameters(ParametersResponse),
+#[non_exhaustive]
+pub enum RequestKind {
+    GetPaths,
+    Read { path: Path, format: Format },
+    Subscribe { path: Path, format: Format },
+    Unsubscribe { id: RequestId },
+    Write { path: Path, value: TextOrBinary },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum BinaryResponse {
-    Outputs(BinaryOutputsResponse),
+#[non_exhaustive]
+pub struct Response {
+    pub id: RequestId,
+    pub kind: Result<ResponseKind, Error>,
 }
 
+pub type Paths = BTreeMap<Path, Entry>;
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum InjectionsRequest {
-    Set {
-        id: usize,
-        cycler_instance: CyclerInstance,
-        path: Path,
-        data: Value,
+#[non_exhaustive]
+pub enum ResponseKind {
+    Paths {
+        paths: Paths,
     },
-    Unset {
-        id: usize,
-        cycler_instance: CyclerInstance,
-        path: Path,
-    },
-    UnsetEverything,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum InjectionsResponse {
-    Set {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-    Unset {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum OutputsRequest {
-    GetFields {
-        id: usize,
-    },
-    GetNext {
-        id: usize,
-        cycler_instance: CyclerInstance,
-        path: Path,
-        format: Format,
+    Read {
+        timestamp: SystemTime,
+        value: TextOrBinary,
     },
     Subscribe {
-        id: usize,
-        cycler_instance: CyclerInstance,
-        path: Path,
-        format: Format,
-    },
-    Unsubscribe {
-        id: usize,
-        subscription_id: usize,
-    },
-    UnsubscribeEverything,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum TextualOutputsResponse {
-    GetFields {
-        id: usize,
-        fields: Fields,
-    },
-    GetNext {
-        id: usize,
-        result: Result<TextualDataOrBinaryReference, Reason>,
-    },
-    Subscribe {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-    Unsubscribe {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-    SubscribedData {
-        items: HashMap<usize, TextualDataOrBinaryReference>,
-    },
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum TextualDataOrBinaryReference {
-    TextualData { data: Value },
-    BinaryReference { reference_id: usize },
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum BinaryOutputsResponse {
-    GetNext {
-        reference_id: usize,
-        data: Vec<u8>,
-    },
-    SubscribedData {
-        referenced_items: HashMap<usize, Vec<u8>>,
-    },
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum ParametersRequest {
-    GetFields { id: usize },
-    GetCurrent { id: usize, path: Path },
-    Subscribe { id: usize, path: Path },
-    Unsubscribe { id: usize, subscription_id: usize },
-    UnsubscribeEverything,
-    Update { id: usize, path: Path, data: Value },
-    LoadFromDisk { id: usize },
-    StoreToDisk { id: usize, scope: Scope, path: Path },
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum ParametersResponse {
-    GetFields {
-        id: usize,
-        fields: BTreeSet<Path>,
-    },
-    GetCurrent {
-        id: usize,
-        result: Result<Value, Reason>,
-    },
-    Subscribe {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-    Unsubscribe {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-    SubscribedData {
-        subscription_id: usize,
-        data: Value,
+        timestamp: SystemTime,
+        value: TextOrBinary,
     },
     Update {
-        id: usize,
-        result: Result<(), Reason>,
+        timestamp: SystemTime,
+        value: TextOrBinary,
     },
-    LoadFromDisk {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-    StoreToDisk {
-        id: usize,
-        result: Result<(), Reason>,
-    },
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub enum Format {
-    Textual,
-    Binary,
+    Unsubscribe,
+    Write,
 }

@@ -1,19 +1,17 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use color_eyre::Result;
-use communication::client::CyclerOutput;
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
 use linear_algebra::{point, vector, Isometry2};
 use serde::{Deserialize, Serialize};
-use serde_json::{from_value, json, Value};
-use types::{self, field_dimensions::FieldDimensions};
+use serde_json::{json, Value};
+use types::field_dimensions::FieldDimensions;
 
 use crate::{
     nao::Nao,
     panel::Panel,
     twix_painter::{Orientation, TwixPainter},
-    value_buffer::ValueBuffer,
+    value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
 };
 
@@ -34,7 +32,7 @@ trait GenericLayer {
         painter: &TwixPainter<Field>,
         ground_to_field: Isometry2<Ground, Field>,
         field_dimensions: &FieldDimensions,
-    ) -> Result<()>;
+    );
 }
 
 impl<T: Layer<Field>> GenericLayer for EnabledLayer<T, Field> {
@@ -43,8 +41,8 @@ impl<T: Layer<Field>> GenericLayer for EnabledLayer<T, Field> {
         painter: &TwixPainter<Field>,
         _ground_to_field: Isometry2<Ground, Field>,
         field_dimensions: &FieldDimensions,
-    ) -> Result<()> {
-        self.paint(painter, field_dimensions)
+    ) {
+        self.paint_or_disable(painter, field_dimensions)
     }
 }
 
@@ -54,8 +52,8 @@ impl<T: Layer<Ground>> GenericLayer for EnabledLayer<T, Ground> {
         painter: &TwixPainter<Field>,
         ground_to_field: Isometry2<Ground, Field>,
         field_dimensions: &FieldDimensions,
-    ) -> Result<()> {
-        self.paint(
+    ) {
+        self.paint_or_disable(
             &painter.transform_painter(ground_to_field.inverse()),
             field_dimensions,
         )
@@ -65,8 +63,8 @@ impl<T: Layer<Ground>> GenericLayer for EnabledLayer<T, Ground> {
 pub struct MapPanel {
     current_plot_type: PlotType,
 
-    field_dimensions: ValueBuffer,
-    ground_to_field: ValueBuffer,
+    field_dimensions: BufferHandle<FieldDimensions>,
+    ground_to_field: BufferHandle<Option<Isometry2<Ground, Field>>>,
     zoom_and_pan: ZoomAndPanTransform,
 
     field: EnabledLayer<layers::Field, Field>,
@@ -104,7 +102,7 @@ impl Panel for MapPanel {
         let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
         let referee_position = EnabledLayer::new(nao.clone(), value, true);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
-        let pose_detection = EnabledLayer::new(nao.clone(), value, true);
+        let pose_detection = EnabledLayer::new(nao.clone(), value, false);
         let ball_position = EnabledLayer::new(nao.clone(), value, true);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
         let feet_detection = EnabledLayer::new(nao.clone(), value, false);
@@ -112,10 +110,10 @@ impl Panel for MapPanel {
         let obstacle_filter = EnabledLayer::new(nao.clone(), value, false);
         let walking = EnabledLayer::new(nao.clone(), value, false);
 
-        let field_dimensions = nao.subscribe_parameter("field_dimensions");
-        let ground_to_field =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.ground_to_field").unwrap());
+        let field_dimensions = nao.subscribe_value("parameters.field_dimensions");
+        let ground_to_field = nao.subscribe_value("Control.main_outputs.ground_to_field");
         let zoom_and_pan = ZoomAndPanTransform::default();
+
         Self {
             current_plot_type: PlotType::Field,
             field_dimensions,
@@ -198,13 +196,19 @@ impl Widget for &mut MapPanel {
                 });
         });
 
-        let field_dimensions: FieldDimensions = match self.field_dimensions.get_latest() {
-            Ok(value) => from_value(value).unwrap(),
-            Err(error) => return ui.label(format!("{error:?}")),
+        let field_dimensions: FieldDimensions = match self.field_dimensions.get_last_value() {
+            Ok(Some(value)) => value,
+            Ok(None) => return ui.label("no response for field dimensions yet"),
+            Err(error) => return ui.label(format!("{error:#}")),
         };
 
-        let ground_to_field: Isometry2<Ground, Field> =
-            self.ground_to_field.parse_latest().unwrap_or_default();
+        let ground_to_field = self
+            .ground_to_field
+            .get_last_value()
+            .ok()
+            .flatten()
+            .flatten()
+            .unwrap_or_default();
         let (response, mut painter) = match self.current_plot_type {
             PlotType::Field => {
                 let width = field_dimensions.width;
@@ -234,59 +238,43 @@ impl Widget for &mut MapPanel {
         self.zoom_and_pan.apply(ui, &mut painter, &response);
 
         // draw largest layers first so they don't obscure smaller ones
-        let _ = self
-            .field
+        self.field
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .image_segments
+        self.image_segments
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ =
-            self.line_correspondences
-                .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .lines
+
+        self.line_correspondences
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ =
-            self.ball_search_heatmap
-                .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .path_obstacles
+        self.lines
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .obstacles
+
+        self.ball_search_heatmap
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .path
+        self.path_obstacles
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .behavior_simulator
+        self.obstacles
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .robot_pose
+        self.path
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .referee_position
+        self.behavior_simulator
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .pose_detection
+        self.robot_pose
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .ball_position
+        self.referee_position
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .kick_decisions
+        self.pose_detection
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .feet_detection
+        self.ball_position
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .ball_filter
+        self.kick_decisions
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .obstacle_filter
+        self.feet_detection
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        let _ = self
-            .walking
+        self.ball_filter
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.obstacle_filter
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.walking
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
         response

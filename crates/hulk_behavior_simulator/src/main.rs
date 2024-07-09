@@ -82,7 +82,7 @@ fn serve(arguments: ServeArguments) -> Result<()> {
     }
 
     server::run(
-        Some(arguments.listen_address),
+        arguments.listen_address,
         keep_running,
         arguments.scenario_file,
     )

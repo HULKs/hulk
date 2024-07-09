@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Field;
 use eframe::{
     emath::Align2,
@@ -10,24 +9,21 @@ use eframe::{
 use types::{field_dimensions::FieldDimensions, pose_kinds::PoseKindPosition};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct PoseDetection {
-    detected_pose_kinds: ValueBuffer,
+    detected_pose_kinds: BufferHandle<Option<Vec<PoseKindPosition<Field>>>>,
 }
 
 impl Layer<Field> for PoseDetection {
     const NAME: &'static str = "Pose Positions";
 
     fn new(nao: Arc<Nao>) -> Self {
+        let detected_pose_kinds =
+            nao.subscribe_value("ObjectDetectionTop.additional_outputs.detected_pose_kinds");
         Self {
-            detected_pose_kinds: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::ObjectDetectionTop,
-                output: Output::Additional {
-                    path: "detected_pose_kinds".to_string(),
-                },
-            }),
+            detected_pose_kinds,
         }
     }
 
@@ -40,8 +36,9 @@ impl Layer<Field> for PoseDetection {
             width: 0.10,
             color: Color32::BLACK,
         };
-        let detected_pose_kinds: Vec<PoseKindPosition<Field>> =
-            self.detected_pose_kinds.require_latest()?;
+        let Some(detected_pose_kinds) = self.detected_pose_kinds.get_last_value()?.flatten() else {
+            return Ok(());
+        };
 
         for pose_kind_position in detected_pose_kinds {
             painter.circle(

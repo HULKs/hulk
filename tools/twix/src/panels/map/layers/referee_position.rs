@@ -1,29 +1,27 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use coordinate_systems::Field;
 use eframe::epaint::{Color32, Stroke};
 use linear_algebra::Point2;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct RefereePosition {
-    expected_referee_position: ValueBuffer,
-    distance_to_referee_position_threshold: ValueBuffer,
+    expected_referee_position: BufferHandle<Option<Point2<Field>>>,
+    distance_to_referee_position_threshold: BufferHandle<f32>,
 }
 
 impl Layer<Field> for RefereePosition {
     const NAME: &'static str = "Referee Position";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let expected_referee_position = nao.subscribe_output(
-            CyclerOutput::from_str("Control.main.expected_referee_position").unwrap(),
-        );
-        let distance_to_referee_position_threshold = nao.subscribe_parameter(
-            "object_detection.object_detection_top.distance_to_referee_position_threshold",
+        let expected_referee_position =
+            nao.subscribe_value("Control.main_outputs.expected_referee_position");
+        let distance_to_referee_position_threshold = nao.subscribe_value(
+            "parameters.object_detection.object_detection_top.distance_to_referee_position_threshold",
         );
         Self {
             expected_referee_position,
@@ -40,29 +38,28 @@ impl Layer<Field> for RefereePosition {
             width: 0.05,
             color: Color32::BLACK,
         };
-        let expected_referee_position_ground: Option<Point2<Field>> =
-            self.expected_referee_position.require_latest()?;
+        if let Some(expected_referee_position_ground) =
+            self.expected_referee_position.get_last_value()?.flatten()
+        {
+            painter.circle(
+                expected_referee_position_ground,
+                0.15,
+                Color32::BLUE,
+                position_stroke,
+            );
 
-        let Some(expected_referee_position_ground) = expected_referee_position_ground else {
-            return Ok(());
+            if let Some(distance_to_referee_position_threshold) = self
+                .distance_to_referee_position_threshold
+                .get_last_value()?
+            {
+                painter.circle(
+                    expected_referee_position_ground,
+                    distance_to_referee_position_threshold,
+                    Color32::TRANSPARENT,
+                    position_stroke,
+                );
+            }
         };
-
-        painter.circle(
-            expected_referee_position_ground,
-            0.15,
-            Color32::BLUE,
-            position_stroke,
-        );
-
-        let distance_to_referee_position_threshold: f32 = self
-            .distance_to_referee_position_threshold
-            .require_latest()?;
-        painter.circle(
-            expected_referee_position_ground,
-            distance_to_referee_position_threshold,
-            Color32::TRANSPARENT,
-            position_stroke,
-        );
         Ok(())
     }
 }

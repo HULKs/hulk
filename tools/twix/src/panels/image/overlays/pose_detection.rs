@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{Align2, FontId},
     epaint::{Color32, Stroke},
 };
-use log::warn;
 use types::pose_detection::{HumanPose, Keypoint};
 
-use crate::{nao::Nao, panels::image::overlay::Overlay, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao,
+    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
+    value_buffer::BufferHandle,
+};
 
 const POSE_SKELETON: [(usize, usize); 16] = [
     (0, 1),
@@ -32,43 +34,41 @@ const POSE_SKELETON: [(usize, usize); 16] = [
 ];
 
 pub struct PoseDetection {
-    human_poses: Option<ValueBuffer>,
-    keypoint_confidence_threshold: Option<ValueBuffer>,
+    human_poses: BufferHandle<Vec<HumanPose>>,
+    keypoint_confidence_threshold: BufferHandle<f32>,
 }
 
 impl Overlay for PoseDetection {
     const NAME: &'static str = "Pose Detection";
 
-    fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self {
-        if selected_cycler != Cycler::VisionTop {
-            warn!("PoseDetection only works with the vision top cycler instance!");
-            return Self {
-                human_poses: None,
-                keypoint_confidence_threshold: None,
-            };
+    fn new(nao: Arc<Nao>, selected_cycler: VisionCycler) -> Self {
+        let cycler = match selected_cycler {
+            VisionCycler::Top => "ObjectDetectionTop",
+            VisionCycler::Bottom => "ObjectDetectionBottom",
         };
+        let cycler_path = match selected_cycler {
+            VisionCycler::Top => "object_detection_top",
+            VisionCycler::Bottom => "object_detection_bottom",
+        };
+        let human_poses = nao.subscribe_value(format!("{cycler}.main_outputs.human_poses"));
+        let keypoint_confidence_threshold = nao.subscribe_value(format!(
+            "parameters.object_detection.{cycler_path}.keypoint_confidence_threshold"
+        ));
         Self {
-            human_poses: Some(nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::ObjectDetectionTop,
-                output: Output::Main {
-                    path: "human_poses".to_string(),
-                },
-            })),
-            keypoint_confidence_threshold: Some(nao.subscribe_parameter(
-                "object_detection.object_detection_top.keypoint_confidence_threshold",
-            )),
+            human_poses,
+            keypoint_confidence_threshold,
         }
     }
 
     fn paint(&self, painter: &crate::twix_painter::TwixPainter<Pixel>) -> Result<()> {
-        let (Some(human_poses), Some(keypoint_confidence_threshold)) = (
-            self.human_poses.as_ref(),
-            self.keypoint_confidence_threshold.as_ref(),
-        ) else {
+        let Some(human_poses) = self.human_poses.get_last_value()? else {
             return Ok(());
         };
-        let human_poses: Vec<HumanPose> = human_poses.require_latest()?;
-        let keypoint_confidence_threshold: f32 = keypoint_confidence_threshold.require_latest()?;
+        let Some(keypoint_confidence_threshold) =
+            self.keypoint_confidence_threshold.get_last_value()?
+        else {
+            return Ok(());
+        };
 
         for pose in human_poses {
             let keypoints: [Keypoint; 17] = pose.keypoints.into();

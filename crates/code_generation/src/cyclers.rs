@@ -127,9 +127,9 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
         pub(crate) struct Cycler<HardwareInterface>  {
             instance: CyclerInstance,
             hardware_interface: std::sync::Arc<HardwareInterface>,
-            own_sender: buffered_watch::Sender<Database>,
+            own_sender: buffered_watch::Sender<(std::time::SystemTime, Database)>,
             own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
-            parameters_receiver: buffered_watch::Receiver<crate::structs::Parameters>,
+            parameters_receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)>,
             pub cycler_state: crate::structs::#module_name::CyclerState,
             #realtime_inputs
             #input_output_fields
@@ -165,7 +165,7 @@ fn generate_receiver_fields(cyclers: &Cyclers) -> TokenStream {
             let cycler_module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
 
             quote! {
-                #field_name: buffered_watch::Receiver<crate::cyclers::#cycler_module_name::Database>,
+                #field_name: buffered_watch::Receiver<(std::time::SystemTime, crate::cyclers::#cycler_module_name::Database)>,
             }
         })
         .collect()
@@ -251,14 +251,14 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> 
         pub(crate) fn new(
             instance: CyclerInstance,
             hardware_interface: std::sync::Arc<HardwareInterface>,
-            own_sender: buffered_watch::Sender<Database>,
+            own_sender: buffered_watch::Sender<(std::time::SystemTime, Database)>,
             own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
-            mut parameters_receiver: buffered_watch::Receiver<crate::structs::Parameters>,
+            mut parameters_receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)>,
             #input_output_fields
             #recording_parameter_fields
         ) -> color_eyre::Result<Self> {
             let parameters_guard = parameters_receiver.borrow_and_mark_as_seen();
-            let parameters = &* parameters_guard;
+            let (_, parameters) = &* parameters_guard;
             let mut cycler_state = crate::structs::#cycler_module_name::CyclerState::default();
             #node_initializers
             drop(parameters_guard);
@@ -468,8 +468,11 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
         CyclerMode::Run => quote! {
             let now = <HardwareInterface as hardware::TimeInterface>::get_now(&*self.hardware_interface);
             let recording_timestamp = std::time::SystemTime::now();
+            *own_database_timestamp = recording_timestamp;
         },
-        CyclerMode::Replay => Default::default(),
+        CyclerMode::Replay => quote! {
+            *own_database_timestamp = now;
+        },
     };
     let post_setup = match cycler.kind {
         CyclerKind::Perception => quote! {
@@ -494,7 +497,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
                 let receiver = format_ident!("{}_receiver", instance.to_case(Case::Snake));
                 let database = format_ident!("{}_database", instance.to_case(Case::Snake));
                 quote! {
-                    let #database = self.#receiver.borrow_and_mark_as_seen();
+                    let (_, #database) = &*self.#receiver.borrow_and_mark_as_seen();
                 }
             })
             .collect(),
@@ -547,13 +550,14 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
             let instance_name = format!("{instance:?}");
             let itt_domain = ittapi::Domain::new(&instance_name);
 
-            let own_database = &mut *self.own_sender.borrow_mut();
+            let (own_database_timestamp, own_database) = &mut *self.own_sender.borrow_mut();
 
             #pre_setup
 
             {
                 let own_subscribed_outputs = self.own_subscribed_outputs_receiver.borrow_and_mark_as_seen();
-                let parameters = self.parameters_receiver.borrow_and_mark_as_seen();
+                let parameters_guard = self.parameters_receiver.borrow_and_mark_as_seen();
+                let (_, parameters) = &* parameters_guard;
                 #(#setup_node_executions)*
             }
 
@@ -561,7 +565,8 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
 
             {
                 let own_subscribed_outputs = self.own_subscribed_outputs_receiver.borrow_and_mark_as_seen();
-                let parameters = self.parameters_receiver.borrow_and_mark_as_seen();
+                let parameters_guard = self.parameters_receiver.borrow_and_mark_as_seen();
+                let (_, parameters) = &* parameters_guard;
                 #borrow_receivers
                 #cross_inputs
                 #(#cycle_node_executions)*

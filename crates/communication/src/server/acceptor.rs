@@ -1,76 +1,90 @@
-use std::{
-    io,
-    sync::atomic::{AtomicUsize, Ordering},
-};
-
-use log::error;
+use log::{error, info};
 use tokio::{
-    net::{TcpListener, ToSocketAddrs},
-    select, spawn,
-    sync::mpsc::{unbounded_channel, Sender},
-    task::JoinHandle,
+    net::{TcpListener, TcpStream},
+    select,
+    task::JoinSet,
 };
+use tokio_tungstenite::accept_async;
 use tokio_util::sync::CancellationToken;
 
-use crate::messages::ParametersRequest;
+use super::{connection::Connection, router::RouterHandle};
 
-use super::{
-    client_request::ClientRequest,
-    connection::{connection, ConnectionError},
-    outputs,
-};
+pub type ClientId = usize;
 
-#[derive(Debug, thiserror::Error)]
-pub enum AcceptError {
-    #[error("failed to bind TCP listener")]
-    TcpListenerNotBound(io::Error),
-    #[error("failed to accept")]
-    NotAccepted(io::Error),
-    #[error("one or more connections encountered an error")]
-    ConnectionsErrored(Vec<ConnectionError>),
+pub struct Acceptor {
+    listener: TcpListener,
+    cancellation_token: CancellationToken,
+    router: RouterHandle,
+    next_client_id: usize,
+    connection_tasks: JoinSet<()>,
 }
 
-pub fn acceptor(
-    addresses: impl ToSocketAddrs + Send + Sync + 'static,
-    keep_running: CancellationToken,
-    outputs_sender: Sender<outputs::Request>,
-    parameters_sender: Sender<ClientRequest<ParametersRequest>>,
-) -> JoinHandle<Result<(), AcceptError>> {
-    let next_client_id = AtomicUsize::default();
-    spawn(async move {
-        let (error_sender, mut error_receiver) = unbounded_channel();
+impl Acceptor {
+    pub fn new(
+        listener: TcpListener,
+        router: RouterHandle,
+        cancellation_token: CancellationToken,
+    ) -> Self {
+        Self {
+            listener,
+            cancellation_token,
+            router,
+            next_client_id: 0,
+            connection_tasks: JoinSet::new(),
+        }
+    }
 
-        let listener = TcpListener::bind(addresses)
-            .await
-            .map_err(AcceptError::TcpListenerNotBound)?;
-
+    pub async fn run(mut self) {
+        info!(
+            "Serving websocket connections on {}",
+            self.listener.local_addr().unwrap()
+        );
         loop {
-            let (stream, _) = select! {
-                result = listener.accept() => result.map_err(AcceptError::NotAccepted)?,
-                _ = keep_running.cancelled() => break,
-            };
-
-            let client_id = next_client_id.fetch_add(1, Ordering::SeqCst);
-            connection(
-                stream,
-                keep_running.clone(),
-                error_sender.clone(),
-                outputs_sender.clone(),
-                parameters_sender.clone(),
-                client_id,
-            );
+            select! {
+                result = self.listener.accept() => {
+                    match result {
+                        Ok((socket, _)) => {
+                            self.accept(socket).await;
+                        }
+                        Err(error) => {
+                            error!("failed to accept incoming connection: {error}");
+                        }
+                    };
+                },
+                Some(result) = self.connection_tasks.join_next() => {
+                    if let Err(error) = result {
+                        error!("connection task failed: {error}");
+                    }
+                }
+                () = self.cancellation_token.cancelled() => {
+                    break
+                },
+            }
         }
-
-        drop(error_sender);
-        let mut connection_errors = vec![];
-        while let Some(error) = error_receiver.recv().await {
-            connection_errors.push(error);
+        info!("stop accepting new clients, waiting for connections to finish...");
+        while let Some(result) = self.connection_tasks.join_next().await {
+            if let Err(error) = result {
+                error!("connection task failed: {error}");
+            }
         }
+    }
 
-        if connection_errors.is_empty() {
-            Ok(())
-        } else {
-            Err(AcceptError::ConnectionsErrored(connection_errors))
-        }
-    })
+    async fn accept(&mut self, socket: TcpStream) {
+        let stream = match accept_async(socket).await {
+            Ok(stream) => stream,
+            Err(error) => {
+                error!("failed to accept websocket connection: {error}");
+                return;
+            }
+        };
+        // TODO: keep the handle to shutdown the clients
+        let (connection, _) = Connection::new(
+            stream,
+            self.next_client_id,
+            self.router.clone(),
+            self.cancellation_token.clone(),
+        );
+        self.next_client_id += 1;
+        self.connection_tasks.spawn(connection.run());
+    }
 }

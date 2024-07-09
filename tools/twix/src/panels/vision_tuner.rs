@@ -9,9 +9,7 @@ use serde_json::{to_value, Value};
 use communication::client::Cycler;
 use types::{field_color::FieldColorFunction, interpolated::Interpolated};
 
-use crate::{
-    nao::Nao, panel::Panel, repository_parameters::RepositoryParameters, value_buffer::ValueBuffer,
-};
+use super::image::cycler_selector::VisionCycler;
 
 pub struct VisionTunerPanel {
     nao: Arc<Nao>,

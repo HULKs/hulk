@@ -1,12 +1,12 @@
-use std::{ops::RangeInclusive, str::FromStr, sync::Arc};
+use std::{ops::RangeInclusive, sync::Arc};
 
+use communication::messages::TextOrBinary;
 use eframe::{
     egui::{Response, Slider, TextFormat, Ui, Widget},
     epaint::{text::LayoutJob, Color32, FontId},
 };
 use serde_json::Value;
 
-use communication::client::CyclerOutput;
 use coordinate_systems::Ground;
 use linear_algebra::{point, Point2};
 use types::{
@@ -15,7 +15,7 @@ use types::{
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
 };
 
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 #[derive(PartialEq)]
 enum LookAtType {
@@ -29,11 +29,11 @@ pub struct LookAtPanel {
     look_at_target: Point2<Ground, f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
-    field_dimensions_buffer: ValueBuffer,
-    motion_command_buffer: ValueBuffer,
+    field_dimensions_buffer: BufferHandle<FieldDimensions>,
+    motion_command_buffer: BufferHandle<MotionCommand>,
 }
 
-const INJECTED_MOTION_COMMAND: &str = "behavior.injected_motion_command";
+const INJECTED_MOTION_COMMAND: &str = "parameters.behavior.injected_motion_command";
 const DEFAULT_TARGET: Point2<Ground, f32> = point![1.0, 0.0];
 const FALLBACK_MAX_FIELD_DIMENSION: f32 = 10.0;
 
@@ -41,12 +41,8 @@ impl Panel for LookAtPanel {
     const NAME: &'static str = "Look At";
 
     fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
-        let field_dimensions_buffer = nao.subscribe_parameter("field_dimensions");
-        let motion_command_buffer = nao.subscribe_output(
-            CyclerOutput::from_str("Control.main_outputs.motion_command")
-                .expect("Failed to subscribe to main_outputs.motion_command"),
-        );
-
+        let field_dimensions_buffer = nao.subscribe_value("parameters.field_dimensions");
+        let motion_command_buffer = nao.subscribe_value("Control.main_outputs.motion_command");
         Self {
             nao,
             camera_position: Some(CameraPosition::Top),
@@ -69,11 +65,8 @@ impl Widget for &mut LookAtPanel {
             let mut status_text_job = LayoutJob::default();
             let leading_space = 10.0f32;
 
-            let current_motion_command: Option<MotionCommand> = match self
-                .motion_command_buffer
-                .parse_latest()
-            {
-                Ok(value) => {
+            let current_motion_command = match self.motion_command_buffer.get_last_value() {
+                Ok(Some(value)) => {
                     status_text_job.append(
                         format!("Current Motion: {:?}.", value).as_str(),
                         0.0,
@@ -83,6 +76,14 @@ impl Widget for &mut LookAtPanel {
                         },
                     );
                     Some(value)
+                }
+                Ok(None) => {
+                    status_text_job.append(
+                        "Motion command is not available.",
+                        0.0,
+                        error_format.clone(),
+                    );
+                    None
                 }
                 Err(error) => {
                     status_text_job.append(error.to_string().as_str(), 0.0, error_format.clone());
@@ -122,23 +123,30 @@ impl Widget for &mut LookAtPanel {
                         );
                     } else {
                         self.nao
-                            .update_parameter_value(INJECTED_MOTION_COMMAND, Value::Null);
+                            .write(INJECTED_MOTION_COMMAND, TextOrBinary::Text(Value::Null));
                     }
                 }
             });
 
-            let current_field_dimensions: Option<FieldDimensions> =
-                match self.field_dimensions_buffer.parse_latest() {
-                    Ok(value) => Some(value),
-                    Err(error) => {
-                        status_text_job.append(
-                            format!("Field dimensions are not available: {}", error).as_str(),
-                            leading_space,
-                            error_format,
-                        );
-                        None
-                    }
-                };
+            let current_field_dimensions = match self.field_dimensions_buffer.get_last_value() {
+                Ok(Some(value)) => Some(value),
+                Ok(None) => {
+                    status_text_job.append(
+                        "Field dimensions are not available.",
+                        leading_space,
+                        error_format,
+                    );
+                    None
+                }
+                Err(error) => {
+                    status_text_job.append(
+                        format!("Field dimensions are not available: {}", error).as_str(),
+                        leading_space,
+                        error_format,
+                    );
+                    None
+                }
+            };
 
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
@@ -237,8 +245,8 @@ fn send_standing_look_at(
             camera: camera_option,
         },
     });
-    nao.update_parameter_value(
+    nao.write(
         INJECTED_MOTION_COMMAND,
-        serde_json::to_value(motion_command).unwrap(),
+        TextOrBinary::Text(serde_json::to_value(motion_command).unwrap()),
     );
 }
