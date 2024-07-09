@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
-use nalgebra::{DMatrix, Isometry2, Isometry3, Rotation3, SMatrix, UnitComplex};
+use nalgebra::{DMatrix, Rotation3, SMatrix};
 use serde::{Deserializer, Serializer};
 
 macro_rules! implement_as_not_supported {
@@ -94,12 +94,9 @@ implement_as_not_supported!(u64);
 implement_as_not_supported!(usize);
 // nalgebra
 implement_as_not_supported!(DMatrix<f32>);
-implement_as_not_supported!(Isometry2<f32>);
-implement_as_not_supported!(Isometry3<f32>);
 implement_as_not_supported!(Rotation3<f32>);
 implement_as_not_supported!(SMatrix<f32, 3, 3>);
 implement_as_not_supported!(SMatrix<f32, 3, 4>);
-implement_as_not_supported!(UnitComplex<f32>);
 // stdlib
 implement_as_not_supported!(Duration);
 implement_as_not_supported!(HashMap<K, V>, K, V);
