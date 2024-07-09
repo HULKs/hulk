@@ -377,7 +377,7 @@ impl Axis {
         match self {
             Axis::RedChromaticity => chromaticiy.red,
             Axis::GreenChromaticity => chromaticiy.green,
-            Axis::BlueChromaticity => chromaticiy.blue,
+            Axis::BlueChromaticity => 1.0 - chromaticiy.red - chromaticiy.green,
             Axis::GreenLuminance => color.green as f32 / 255.0,
             Axis::Luminance => color.get_luminance() as f32 / 255.0,
         }

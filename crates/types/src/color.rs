@@ -147,16 +147,14 @@ impl Rgb {
     }
 
     pub fn convert_to_rgchromaticity(&self) -> RgChromaticity {
-        let sum = self.red as f32 + self.green as f32 + self.blue as f32;
+        let sum = (self.red + self.green + self.blue) as f32;
         let mut chromaticity = RgChromaticity {
             red: 0.0,
             green: 0.0,
-            blue: 0.0,
         };
         if sum != 0.0 {
             chromaticity.red = (self.red as f32) / sum;
             chromaticity.green = (self.green as f32) / sum;
-            chromaticity.blue = (self.blue as f32) / sum;
         }
         chromaticity
     }
@@ -197,7 +195,6 @@ impl From<YCbCr444> for Rgb {
 pub struct RgChromaticity {
     pub red: f32,
     pub green: f32,
-    pub blue: f32,
 }
 
 #[derive(
@@ -489,7 +486,14 @@ mod tests {
     #[test]
     fn rgb_hsv_conversion() {
         for (rgb, hsv) in [
-            (Rgb { red: 0, green: 0, blue: 0 }, Hsv { h: 0, s: 0, v: 0 }),
+            (
+                Rgb {
+                    red: 0,
+                    green: 0,
+                    blue: 0,
+                },
+                Hsv { h: 0, s: 0, v: 0 },
+            ),
             (
                 Rgb {
                     red: 255,
@@ -499,7 +503,11 @@ mod tests {
                 Hsv { h: 0, s: 0, v: 255 },
             ),
             (
-                Rgb { red: 255, green: 0, blue: 0 },
+                Rgb {
+                    red: 255,
+                    green: 0,
+                    blue: 0,
+                },
                 Hsv {
                     h: 0,
                     s: 255,
@@ -507,7 +515,11 @@ mod tests {
                 },
             ),
             (
-                Rgb { red: 0, green: 255, blue: 0 },
+                Rgb {
+                    red: 0,
+                    green: 255,
+                    blue: 0,
+                },
                 Hsv {
                     h: 120,
                     s: 255,
@@ -515,7 +527,11 @@ mod tests {
                 },
             ),
             (
-                Rgb { red: 0, green: 0, blue: 255 },
+                Rgb {
+                    red: 0,
+                    green: 0,
+                    blue: 255,
+                },
                 Hsv {
                     h: 240,
                     s: 255,

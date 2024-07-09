@@ -54,7 +54,8 @@ impl FieldColor {
             FieldColorFunction::GreenChromaticity => {
                 let chromaticity = rgb.convert_to_rgchromaticity();
                 if (chromaticity.red > self.red_chromaticity_threshold
-                    || chromaticity.blue > self.blue_chromaticity_threshold
+                    || (1.0 - chromaticity.red - chromaticity.green)
+                        > self.blue_chromaticity_threshold
                     || chromaticity.green < self.green_chromaticity_threshold
                     || (rgb.green as f32) < self.green_luminance_threshold)
                     && (rgb.get_luminance() as f32) > self.luminance_threshold

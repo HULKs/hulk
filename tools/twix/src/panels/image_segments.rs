@@ -194,7 +194,7 @@ impl Widget for &mut ImageSegmentsPanel {
                     let chromaticity = rgb_color.convert_to_rgchromaticity();
                     let red_chromaticity = chromaticity.red;
                     let green_chromaticity = chromaticity.green;
-                    let blue_chromaticity = chromaticity.blue;
+                    let blue_chromaticity = 1.0 - chromaticity.red - chromaticity.green;
                     let hsv: Hsv = rgb_color.into();
                     let h = hsv.h;
                     let s = hsv.s;
@@ -234,9 +234,9 @@ impl Widget for &mut ImageSegmentsPanel {
                     ColorMode::GreenChromaticity => {
                         Color32::from_gray((chromaticity.green * 255.0) as u8)
                     }
-                    ColorMode::BlueChromaticity => {
-                        Color32::from_gray((chromaticity.blue * 255.0) as u8)
-                    }
+                    ColorMode::BlueChromaticity => Color32::from_gray(
+                        ((1.0 - chromaticity.red - chromaticity.green) * 255.0) as u8,
+                    ),
                 };
                 painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
                 painter.line_segment(
