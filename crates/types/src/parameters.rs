@@ -381,3 +381,11 @@ pub struct SearchSuggestorParameters {
     pub heatmap_decay_factor: f32,
     pub minimum_validity: f32,
 }
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct WideStanceParameters {
+    pub action_radius: f32,
+    pub minimum_velocity: f32,
+}
