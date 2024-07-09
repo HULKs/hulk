@@ -2,7 +2,7 @@ use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::PlayerNumber;
+use spl_network_messages::{HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
 use types::messages::IncomingMessage;
 
 #[derive(Deserialize, Serialize)]
@@ -32,9 +32,10 @@ impl MessageFilter {
             IncomingMessage::GameController(source_address, message) => Some(
                 IncomingMessage::GameController(*source_address, message.clone()),
             ),
-            IncomingMessage::Spl(message) if message.player_number != *context.player_number => {
-                Some(IncomingMessage::Spl(*message))
-            }
+            IncomingMessage::Spl(
+                message @ HulkMessage::Striker(StrikerMessage { player_number, .. })
+                | message @ HulkMessage::VisualReferee(VisualRefereeMessage { player_number, .. }),
+            ) if player_number != context.player_number => Some(IncomingMessage::Spl(*message)),
             _ => None,
         };
         Ok(MainOutputs {

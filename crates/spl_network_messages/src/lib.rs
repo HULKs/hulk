@@ -18,15 +18,32 @@ pub use game_controller_state_message::{
     GameControllerStateMessage, GamePhase, GameState, Half, Penalty, PenaltyShoot, Player,
     SubState, Team, TeamColor, TeamState,
 };
-pub use visual_referee_message::{VisualRefereeDecision, VisualRefereeMessage};
+pub use visual_referee_message::{GestureVisualRefereeDecision, GestureVisualRefereeMessage};
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub enum HulkMessage {
+    Striker(StrikerMessage),
+    VisualReferee(VisualRefereeMessage),
+}
+
+impl Default for HulkMessage {
+    fn default() -> Self {
+        HulkMessage::Striker(StrikerMessage::default())
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-pub struct HulkMessage {
+pub struct StrikerMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
-    pub is_referee_ready_signal_detected: bool,
     pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub struct VisualRefereeMessage {
+    pub player_number: PlayerNumber,
+    pub is_referee_ready_signal_detected: bool,
 }
 
 #[derive(
@@ -96,20 +113,28 @@ mod tests {
 
     use linear_algebra::{Point, Pose2};
 
-    use crate::{BallPosition, HulkMessage, PlayerNumber};
+    use crate::{BallPosition, HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
 
     #[test]
-    fn maximum_hulk_message_size() {
-        let test_message = HulkMessage {
+    fn hulk_striker_message_size() {
+        let test_message = HulkMessage::Striker(StrikerMessage {
             player_number: PlayerNumber::Seven,
             pose: Pose2::default(),
-            is_referee_ready_signal_detected: false,
             ball_position: Some(BallPosition {
                 position: Point::origin(),
                 age: Duration::MAX,
             }),
             time_to_reach_kick_position: Some(Duration::MAX),
-        };
+        });
+        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
+    }
+
+    #[test]
+    fn hulk_visual_referee_message_size() {
+        let test_message = HulkMessage::VisualReferee(VisualRefereeMessage {
+            player_number: PlayerNumber::Four,
+            is_referee_ready_signal_detected: true,
+        });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }
 }
