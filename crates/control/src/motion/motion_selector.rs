@@ -104,6 +104,7 @@ fn transition_motion(
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,
         (MotionType::StandUpFront, _, MotionType::FallProtection, _) => MotionType::StandUpFront,
         (MotionType::StandUpBack, _, MotionType::FallProtection, _) => MotionType::StandUpBack,
+        (MotionType::WideStance, _, MotionType::FallProtection, _) => MotionType::WideStance,
         (MotionType::StandUpSitting, _, MotionType::FallProtection, _) => {
             MotionType::StandUpSitting
         }
@@ -113,6 +114,7 @@ fn transition_motion(
             MotionType::Dispatching
         }
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
+        (_, _, MotionType::WideStance, _) => MotionType::WideStance,
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
         (MotionType::Walk, _, MotionType::Stand, _) => MotionType::Stand,

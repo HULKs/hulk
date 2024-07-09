@@ -57,14 +57,14 @@ impl<'cycle> Defend<'cycle> {
         let position = ball.ball_in_ground;
         let velocity = ball.ball_in_ground_velocity;
 
-        if velocity.x() >= 0.0 {
+        if velocity.x() >= -0.5 {
             return None;
         }
 
         let horizontal_distance_to_intersection =
             position.y() - position.x() / velocity.x() * velocity.y();
 
-        if horizontal_distance_to_intersection.abs() < 0.2 {
+        if horizontal_distance_to_intersection.abs() < 0.3 {
             Some(MotionCommand::WideStance)
         } else {
             None

@@ -7,7 +7,7 @@ use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
-use spl_network_messages::{GamePhase, SubState, Team};
+use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
@@ -133,8 +133,6 @@ impl Behavior {
             Action::StandUp,
             Action::NoGroundContact,
             Action::Stand,
-            Action::InterceptBall,
-            Action::WideStance,
             Action::Calibrate,
         ];
 
@@ -146,6 +144,11 @@ impl Behavior {
                 actions.push(Action::LookAround);
             }
         }
+
+        if matches!(world_state.robot.player_number, PlayerNumber::One) {
+            actions.push(Action::WideStance);
+        }
+        actions.push(Action::InterceptBall);
 
         let filtered_game_state = world_state
             .filtered_game_controller_state
@@ -169,7 +172,6 @@ impl Behavior {
                     actions.push(Action::PrepareJump);
                 }
                 _ => {
-                    actions.push(Action::WideStance);
                     actions.push(Action::DefendGoal);
                 }
             },
@@ -263,6 +265,7 @@ impl Behavior {
                     Action::StandUp => stand_up::execute(world_state),
                     Action::NoGroundContact => no_ground_contact::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
+                    Action::WideStance => defend.wide_stance(),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
@@ -270,7 +273,6 @@ impl Behavior {
                     ),
                     Action::Calibrate => calibrate::execute(world_state),
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles_output),
-                    Action::WideStance => defend.wide_stance(),
                     Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles_output),
                     Action::DefendLeft => defend.left(&mut context.path_obstacles_output),
                     Action::DefendRight => defend.right(&mut context.path_obstacles_output),
