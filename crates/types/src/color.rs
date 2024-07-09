@@ -147,7 +147,7 @@ impl Rgb {
     }
 
     pub fn convert_to_rgchromaticity(&self) -> RgChromaticity {
-        let sum = (self.red + self.green + self.blue) as f32;
+        let sum = self.red as f32 + self.green as f32 + self.blue as f32;
         let mut chromaticity = RgChromaticity {
             red: 0.0,
             green: 0.0,
