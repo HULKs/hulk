@@ -4538,6 +4538,7 @@ name = "path_serde"
 version = "0.1.0"
 dependencies = [
  "nalgebra",
+ "num-traits",
  "path_serde_derive",
  "serde",
  "thiserror",
