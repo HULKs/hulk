@@ -13,8 +13,9 @@ use eframe::{
 };
 
 use egui_plot::{HLine, Points, VLine};
+use geometry::rectangle::Rectangle;
 use itertools::iproduct;
-use linear_algebra::{vector, Point2};
+use linear_algebra::{point, vector, Point2};
 use log::error;
 use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
@@ -311,7 +312,13 @@ impl Widget for &mut ImageColorSelectPanel {
                         TextureOptions::default(),
                     )
                     .id();
-                painter.image(colored_handle, response.rect);
+                painter.image(
+                    colored_handle,
+                    Rectangle {
+                        min: point!(0.0, 0.0),
+                        max: point!(640.0, 480.0),
+                    },
+                );
                 response
             })
             .response
