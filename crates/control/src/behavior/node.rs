@@ -7,7 +7,7 @@ use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
-use spl_network_messages::{GamePhase, SubState, Team};
+use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
@@ -17,6 +17,7 @@ use types::{
     motion_command::MotionCommand,
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
+        WideStanceParameters,
     },
     path_obstacles::PathObstacle,
     planned_path::PathSegment,
@@ -70,6 +71,7 @@ pub struct CycleContext {
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     enable_pose_detection: Parameter<bool, "object_detection.object_detection_top.enable">,
+    wide_stance: Parameter<WideStanceParameters, "wide_stance">,
 }
 
 #[context]
@@ -133,7 +135,6 @@ impl Behavior {
             Action::StandUp,
             Action::NoGroundContact,
             Action::Stand,
-            Action::InterceptBall,
             Action::Calibrate,
         ];
 
@@ -145,6 +146,11 @@ impl Behavior {
                 actions.push(Action::LookAround);
             }
         }
+
+        if matches!(world_state.robot.player_number, PlayerNumber::One) {
+            actions.push(Action::WideStance);
+        }
+        actions.push(Action::InterceptBall);
 
         let filtered_game_state = world_state
             .filtered_game_controller_state
@@ -259,6 +265,7 @@ impl Behavior {
                     Action::StandUp => stand_up::execute(world_state),
                     Action::NoGroundContact => no_ground_contact::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
+                    Action::WideStance => defend.wide_stance(context.wide_stance.clone()),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,

@@ -38,6 +38,7 @@ pub enum MotionType {
     StandUpSitting,
     Unstiff,
     Walk,
+    WideStance,
 }
 
 impl Default for MotionType {
@@ -62,6 +63,7 @@ pub struct MotionSafeExits {
     stand: bool,
     unstiff: bool,
     walk: bool,
+    wide_stance: bool,
 }
 
 impl MotionSafeExits {
@@ -81,6 +83,7 @@ impl MotionSafeExits {
             stand: value,
             unstiff: value,
             walk: value,
+            wide_stance: value,
         }
     }
 }
@@ -102,6 +105,7 @@ impl Default for MotionSafeExits {
             stand: true,
             unstiff: true,
             walk: false,
+            wide_stance: false,
         }
     }
 }
@@ -125,6 +129,7 @@ impl Index<MotionType> for MotionSafeExits {
             MotionType::StandUpSitting => &self.stand_up_sitting,
             MotionType::Unstiff => &self.unstiff,
             MotionType::Walk => &self.walk,
+            MotionType::WideStance => &self.wide_stance,
         }
     }
 }
@@ -146,6 +151,7 @@ impl IndexMut<MotionType> for MotionSafeExits {
             MotionType::StandUpSitting => &mut self.stand_up_sitting,
             MotionType::Unstiff => &mut self.unstiff,
             MotionType::Walk => &mut self.walk,
+            MotionType::WideStance => &mut self.wide_stance,
         }
     }
 }
