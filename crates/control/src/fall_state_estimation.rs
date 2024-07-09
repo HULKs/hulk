@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use color_eyre::Result;
-use coordinate_systems::Robot;
-use linear_algebra::{vector, Vector2, Vector3};
+use coordinate_systems::{Field, Robot};
+use linear_algebra::{vector, Orientation3, Vector2, Vector3};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -64,6 +64,7 @@ pub struct CycleContext {
     sitting_pose: Parameter<Joints<f32>, "fall_state_estimation.sitting_pose">,
     use_catching_steps: Parameter<bool, "walking_engine.catching_steps.use_catching_steps">,
 
+    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
     has_ground_contact: Input<bool, "has_ground_contact">,
@@ -97,8 +98,8 @@ impl FallStateEstimation {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let cycle_start = context.cycle_time.start_time;
         let inertial_measurement_unit = context.sensor_data.inertial_measurement_unit;
-        self.roll_pitch_filter
-            .update(inertial_measurement_unit.roll_pitch);
+        let (roll, pitch, _) = context.robot_orientation.inner.euler_angles();
+        self.roll_pitch_filter.update(vector![roll, pitch]);
         self.angular_velocity_filter
             .update(inertial_measurement_unit.angular_velocity);
         self.linear_acceleration_filter

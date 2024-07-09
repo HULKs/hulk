@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Robot};
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{Orientation2, Vector2};
+use linear_algebra::{Orientation2, Orientation3, Vector2};
 use nalgebra::{Isometry2, Translation2};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -25,7 +25,7 @@ pub struct CycleContext {
     accumulated_odometry: AdditionalOutput<Isometry2<f32>, "accumulated_odometry">,
 
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    robot_orientation: Input<Orientation2<Field>, "robot_orientation">,
+    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     support_foot: Input<SupportFoot, "support_foot">,
 
     odometry_scale_factor: Parameter<Vector2<Robot>, "odometry.odometry_scale_factor">,
@@ -67,10 +67,10 @@ impl Odometry {
         let corrected_offset_to_last_position =
             offset_to_last_position.component_mul(*context.odometry_scale_factor);
 
-        let orientation_offset = self
-            .last_orientation
-            .rotation_to(*context.robot_orientation);
-        self.last_orientation = *context.robot_orientation;
+        let (_, _, yaw) = context.robot_orientation.inner.euler_angles();
+        let orientation = Orientation2::new(yaw);
+        let orientation_offset = self.last_orientation.rotation_to(orientation);
+        self.last_orientation = orientation;
 
         let current_odometry_to_last_odometry = Isometry2::from_parts(
             Translation2::from(corrected_offset_to_last_position.inner),
