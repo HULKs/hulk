@@ -1,6 +1,6 @@
 [package]
 name = "pepsi"
-version = "3.13.0"
+version = "3.13.1"
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
