@@ -61,7 +61,7 @@ impl Madgwick for UnitQuaternion<f32> {
 
         // Compute rate of change of quaternion
         let q_dot = (q * Quaternion::from_parts(0.0, gyroscope)) * 0.5
-            - Quaternion::from_vector(step) * filter_gain;
+            - Quaternion::new(step.x, step.y, step.z, step.w) * filter_gain;
 
         // Integrate to yield quaternion
         let dt = sample_period.as_secs_f32();
