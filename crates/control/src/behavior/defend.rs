@@ -51,6 +51,26 @@ impl<'cycle> Defend<'cycle> {
             .execute(pose, self.look_action.execute(), path_obstacles_output)
     }
 
+    pub fn wide_stance(&self) -> Option<MotionCommand> {
+        let ball = self.world_state.ball?;
+
+        let position = ball.ball_in_ground;
+        let velocity = ball.ball_in_ground_velocity;
+
+        if velocity.x() >= -0.5 {
+            return None;
+        }
+
+        let horizontal_distance_to_intersection =
+            position.y() - position.x() / velocity.x() * velocity.y();
+
+        if horizontal_distance_to_intersection.abs() < 0.3 {
+            Some(MotionCommand::WideStance)
+        } else {
+            None
+        }
+    }
+
     pub fn left(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
