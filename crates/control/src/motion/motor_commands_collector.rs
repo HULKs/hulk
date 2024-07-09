@@ -33,6 +33,7 @@ pub struct CycleContext {
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     stand_up_sitting_positions: Input<Joints<f32>, "stand_up_sitting_positions">,
+    wide_stance_positions: Input<Joints<f32>, "wide_stance_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
@@ -74,6 +75,7 @@ impl MotorCommandCollector {
         let stand_up_back_positions = context.stand_up_back_positions;
         let stand_up_front_positions = context.stand_up_front_positions;
         let stand_up_sitting_positions = context.stand_up_sitting_positions;
+        let wide_stance_positions = context.wide_stance_positions;
         let walk = context.walk_motor_commands;
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
@@ -145,6 +147,18 @@ impl MotorCommandCollector {
             ),
             MotionType::StandUpSitting => (
                 *stand_up_sitting_positions,
+                Joints::from_head_and_body(
+                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
+                    BodyJoints {
+                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
+                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
+                        left_leg: LegJoints::fill(1.0),
+                        right_leg: LegJoints::fill(1.0),
+                    },
+                ),
+            ),
+            MotionType::WideStance => (
+                *wide_stance_positions,
                 Joints::from_head_and_body(
                     HeadJoints::fill(*context.stand_up_stiffness_upper_body),
                     BodyJoints {
