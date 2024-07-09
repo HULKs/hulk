@@ -34,6 +34,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             {
                 let keep_running = keep_running.clone();
                 std::panic::set_hook(Box::new(move |panic_info| {
+                    eprintln!("Full backtrace: {:#?}", std::backtrace::Backtrace::capture());
                     keep_running.cancel();
                     eprintln!("{panic_info}");
                 }));
