@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::Cycler;
 use convert_case::Casing;
-use coordinate_systems::Pixel;
 use eframe::egui::Ui;
 use serde_json::{json, Value};
+
+use communication::client::Cycler;
+use coordinate_systems::Pixel;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
@@ -13,10 +14,12 @@ use super::overlays::{
     BallDetection, FeetDetection, FieldBorder, Horizon, LimbProjector, LineDetection, PenaltyBoxes,
     PerspectiveGrid, PoseDetection,
 };
+
 pub trait Overlay {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self;
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()>;
+    fn config_ui(&mut self, _ui: &mut Ui) {}
 }
 
 pub struct EnabledOverlay<T>
@@ -64,6 +67,9 @@ where
                 (false, true) => self.overlay = None,
                 _ => {}
             }
+        }
+        if let Some(overlay) = self.overlay.as_mut() {
+            overlay.config_ui(ui);
         }
     }
 
