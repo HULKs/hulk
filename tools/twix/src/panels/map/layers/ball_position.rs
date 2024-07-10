@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::Result;
 use eframe::epaint::Color32;
 
-use ball_filter::BallPosition;
+use ball_filter::BallPosition as FilteredPosition;
 use communication::client::CyclerOutput;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::Isometry2;
@@ -13,12 +13,12 @@ use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
 };
 
-pub struct BallPositionLayer {
+pub struct BallPosition {
     ground_to_field: ValueBuffer,
     ball_position: ValueBuffer,
 }
 
-impl Layer<Field> for BallPositionLayer {
+impl Layer<Field> for BallPosition {
     const NAME: &'static str = "Ball Position";
 
     fn new(nao: Arc<Nao>) -> Self {
@@ -41,7 +41,7 @@ impl Layer<Field> for BallPositionLayer {
     ) -> Result<()> {
         let ground_to_fields: Vec<Option<Isometry2<Ground, Field>>> =
             self.ground_to_field.parse_buffered()?;
-        let ball_positions: Vec<Option<BallPosition<Ground>>> =
+        let ball_positions: Vec<Option<FilteredPosition<Ground>>> =
             self.ball_position.parse_buffered()?;
 
         for (ball, ground_to_field) in ball_positions

@@ -7,10 +7,11 @@ use coordinate_systems::Pixel;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, rectangle::Rectangle};
 use hardware::PathsInterface;
-use linear_algebra::{point, vector, Vector2};
+use linear_algebra::{point, vector, IntoFramed, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::{Ball, CandidateEvaluation},
+    ball::{BallPercept, CandidateEvaluation},
+    multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
     ycbcr422_image::YCbCr422Image,
@@ -61,7 +62,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub balls: MainOutput<Option<Vec<Ball>>>,
+    pub balls: MainOutput<Option<Vec<BallPercept>>>,
 }
 
 impl BallDetection {
@@ -134,7 +135,12 @@ impl BallDetection {
             context.parameters.cluster_merge_radius_factor,
         );
 
-        let balls = project_balls_to_ground(&clusters, context.camera_matrix, *context.ball_radius);
+        let balls = project_balls_to_ground(
+            &clusters,
+            context.camera_matrix,
+            context.parameters.detection_noise,
+            *context.ball_radius,
+        );
 
         Ok(MainOutputs {
             balls: Some(balls).into(),
@@ -331,19 +337,34 @@ fn cluster_balls(balls: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec
 fn project_balls_to_ground(
     clusters: &[BallCluster],
     camera_matrix: &CameraMatrix,
+    measurement_noise: Vector2<Pixel>,
     ball_radius: f32,
-) -> Vec<Ball> {
+) -> Vec<BallPercept> {
     clusters
         .iter()
         .filter_map(|cluster| {
-            let position = point![cluster.circle.center.x(), cluster.circle.center.y()];
-            match camera_matrix.pixel_to_ground_with_z(position, ball_radius) {
-                Ok(position) => Some(Ball {
-                    position,
-                    image_location: cluster.circle,
-                }),
-                Err(_) => None,
+            let position = camera_matrix
+                .pixel_to_ground_with_z(
+                    point![cluster.circle.center.x(), cluster.circle.center.y()],
+                    ball_radius,
+                )
+                .ok()?;
+            let projected_covariance = {
+                let scaled_noise = measurement_noise
+                    .inner
+                    .map(|x| (cluster.circle.radius * x).powi(2))
+                    .framed();
+                camera_matrix.project_noise_to_ground(position, scaled_noise)
             }
+            .ok()?;
+
+            Some(BallPercept {
+                percept_in_ground: MultivariateNormalDistribution {
+                    mean: position.inner.coords,
+                    covariance: projected_covariance,
+                },
+                image_location: cluster.circle,
+            })
         })
         .collect()
 }
@@ -356,7 +377,7 @@ mod tests {
     };
 
     use approx::assert_relative_eq;
-    use coordinate_systems::{Camera, Head};
+    use coordinate_systems::{Camera, Ground, Head};
     use linear_algebra::{IntoTransform, Isometry3, Vector3};
     use nalgebra::{Translation, UnitQuaternion};
 
@@ -490,6 +511,7 @@ mod tests {
             image_containment_merge_factor: 1.0,
             cluster_merge_radius_factor: 1.5,
             ball_radius_enlargement_factor: 2.0,
+            detection_noise: vector![0.0, 0.0],
         };
         let perspective_grid_candidates = PerspectiveGridCandidates {
             candidates: vec![Circle {
@@ -545,17 +567,21 @@ mod tests {
         assert!(balls.value.is_some());
 
         assert_eq!(balls.value.as_ref().unwrap().len(), 1);
+        let ball = &balls.value.unwrap()[0];
         assert_relative_eq!(
-            balls.value.unwrap()[0],
-            Ball {
-                position: point![1.53, 0.02],
-                image_location: Circle {
-                    center: point![308.93, 176.42],
-                    radius: 42.92,
-                }
+            ball.percept_in_ground.mean.framed::<Ground>().as_point(),
+            point![1.53, 0.02],
+            epsilon = 0.01,
+        );
+        assert_relative_eq!(
+            ball.image_location,
+            Circle {
+                center: point![308.93, 176.42],
+                radius: 42.92,
             },
             epsilon = 0.01,
         );
+
         Ok(())
     }
 }

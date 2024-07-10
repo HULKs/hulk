@@ -67,8 +67,7 @@ impl BallFilter {
     pub fn update(
         &mut self,
         detection_time: SystemTime,
-        measurement: Point2<Ground>,
-        noise: Matrix2<f32>,
+        measurement: MultivariateNormalDistribution<2>,
         matching_criterion: impl Fn(&BallHypothesis) -> bool,
     ) -> bool {
         let mut number_of_matching_hypotheses = 0;
@@ -79,7 +78,7 @@ impl BallFilter {
             .filter(|hypothesis| matching_criterion(hypothesis))
         {
             number_of_matching_hypotheses += 1;
-            hypothesis.update(detection_time, measurement, noise)
+            hypothesis.update(detection_time, measurement)
         }
 
         number_of_matching_hypotheses > 0

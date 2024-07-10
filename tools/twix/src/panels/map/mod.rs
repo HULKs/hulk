@@ -81,6 +81,7 @@ pub struct MapPanel {
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     referee_position: EnabledLayer<layers::RefereePosition, Field>,
     pose_detection: EnabledLayer<layers::PoseDetection, Field>,
+    ball_measurement: EnabledLayer<layers::BallMeasurement, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     kick_decisions: EnabledLayer<layers::KickDecisions, Ground>,
     feet_detection: EnabledLayer<layers::FeetDetection, Ground>,
@@ -105,6 +106,7 @@ impl Panel for MapPanel {
         let referee_position = EnabledLayer::new(nao.clone(), value, true);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
         let pose_detection = EnabledLayer::new(nao.clone(), value, true);
+        let ball_measurement = EnabledLayer::new(nao.clone(), value, false);
         let ball_position = EnabledLayer::new(nao.clone(), value, true);
         let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
         let feet_detection = EnabledLayer::new(nao.clone(), value, false);
@@ -133,6 +135,7 @@ impl Panel for MapPanel {
             robot_pose,
             pose_detection,
             referee_position,
+            ball_measurement,
             ball_position,
             kick_decisions,
             feet_detection,
@@ -157,6 +160,7 @@ impl Panel for MapPanel {
             "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
             "referee_position": self.referee_position.save(),
+            "ball_measurement": self.ball_measurement.save(),
             "ball_position": self.ball_position.save(),
             "kick_decisions": self.kick_decisions.save(),
             "feet_detection": self.feet_detection.save(),
@@ -183,6 +187,7 @@ impl Widget for &mut MapPanel {
                 self.pose_detection.checkbox(ui);
                 self.robot_pose.checkbox(ui);
                 self.referee_position.checkbox(ui);
+                self.ball_measurement.checkbox(ui);
                 self.ball_position.checkbox(ui);
                 self.kick_decisions.checkbox(ui);
                 self.feet_detection.checkbox(ui);
@@ -269,6 +274,9 @@ impl Widget for &mut MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         let _ = self
             .pose_detection
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        let _ = self
+            .ball_measurement
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         let _ = self
             .ball_position

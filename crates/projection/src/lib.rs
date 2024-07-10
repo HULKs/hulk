@@ -4,11 +4,12 @@ pub mod camera_projection;
 pub mod horizon;
 pub mod intrinsic;
 
+use nalgebra::{matrix, Matrix2};
 use thiserror::Error;
 
 use crate::camera_matrix::CameraMatrix;
 use coordinate_systems::{Camera, Ground, Pixel, Robot};
-use linear_algebra::{point, vector, Isometry3, Point2, Point3, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point2, Point3, Vector2, Vector3};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -25,25 +26,30 @@ pub enum Error {
 pub trait Projection {
     fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera>;
     fn camera_to_pixel(&self, camera_ray: Vector3<Camera>) -> Result<Point2<Pixel>, Error>;
-    fn pixel_to_ground(&self, pixel_coordinates: Point2<Pixel>) -> Result<Point2<Ground>, Error>;
-    fn pixel_to_ground_with_z(
+    fn get_pixel_radius(
         &self,
+        radius_in_ground_coordinates: f32,
         pixel_coordinates: Point2<Pixel>,
-        z: f32,
-    ) -> Result<Point2<Ground>, Error>;
+    ) -> Result<f32, Error>;
     fn ground_to_pixel(&self, ground_coordinates: Point2<Ground>) -> Result<Point2<Pixel>, Error>;
     fn ground_with_z_to_pixel(
         &self,
         ground_coordinates: Point2<Ground>,
         z: f32,
     ) -> Result<Point2<Pixel>, Error>;
-    fn robot_to_pixel(&self, robot_coordinates: Point3<Robot>) -> Result<Point2<Pixel>, Error>;
-    fn get_pixel_radius(
-        &self,
-        radius_in_ground_coordinates: f32,
-        pixel_coordinates: Point2<Pixel>,
-    ) -> Result<f32, Error>;
     fn is_above_horizon(&self, pixel: Point2<Pixel>, plane_height: f32) -> bool;
+    fn pixel_to_ground(&self, pixel_coordinates: Point2<Pixel>) -> Result<Point2<Ground>, Error>;
+    fn pixel_to_ground_with_z(
+        &self,
+        pixel_coordinates: Point2<Pixel>,
+        z: f32,
+    ) -> Result<Point2<Ground>, Error>;
+    fn project_noise_to_ground(
+        &self,
+        ground_coordinates: Point2<Ground>,
+        noise: Vector2<Pixel>,
+    ) -> Result<Matrix2<f32>, Error>;
+    fn robot_to_pixel(&self, robot_coordinates: Point3<Robot>) -> Result<Point2<Pixel>, Error>;
 }
 
 impl Projection for CameraMatrix {
@@ -138,6 +144,30 @@ impl Projection for CameraMatrix {
         );
 
         Ok(self.image_size.y() * angle / self.field_of_view.y)
+    }
+
+    /// Projection based on <https://arxiv.org/abs/2312.08952>
+    fn project_noise_to_ground(
+        &self,
+        ground_coordinates: Point2<Ground>,
+        noise: Vector2<Pixel>,
+    ) -> Result<Matrix2<f32>, Error> {
+        let gamma = self
+            .ground_to_pixel
+            .transform(point![ground_coordinates.x(), ground_coordinates.y(), 0.0])
+            .z();
+        let inverse = self.pixel_to_ground.as_matrix();
+
+        let x = ground_coordinates.x();
+        let y = ground_coordinates.y();
+
+        let noise_projection = gamma
+            * matrix![
+                inverse.m11 - inverse.m31 * x, inverse.m12 - inverse.m32 * x;
+                inverse.m21 - inverse.m31 * y, inverse.m22 - inverse.m32 * y;
+            ];
+
+        Ok(noise_projection * Matrix2::from_diagonal(&noise.inner) * noise_projection.transpose())
     }
 
     fn bearing(&self, pixel_coordinates: Point2<Pixel>) -> Vector3<Camera> {
