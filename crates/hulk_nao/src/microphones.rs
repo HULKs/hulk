@@ -26,7 +26,7 @@ impl Microphones {
     }
 
     pub fn retrying_read(&mut self) -> Result<Samples> {
-        let number_of_retries = 5;
+        let number_of_retries = self.parameters.number_of_retries;
         for _ in 0..number_of_retries {
             match self.read() {
                 Ok(samples) => return Ok(samples),
