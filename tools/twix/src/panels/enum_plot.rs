@@ -7,7 +7,7 @@ use std::{
 
 use eframe::{
     egui::{
-        pos2, show_tooltip_at_pointer, Button, ComboBox, Response, RichText, Sense, TextStyle, Ui,
+        show_tooltip_at_pointer, Button, ComboBox, Response, RichText, Sense, TextStyle, Ui,
         Widget, WidgetText,
     },
     emath::{remap, Rangef, RectTransform},
