@@ -441,9 +441,19 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.06,
-      "left": 0.13,
+      "forward": 0.055,
+      "left": 0.1,
       "turn": 1.0
+    },
+    "step_size_delta_slow": {
+      "forward": -0.01,
+      "left": 0.0,
+      "turn": 0.0
+    },
+    "step_size_delta_fast": {
+      "forward": 0.01,
+      "left": 0.04,
+      "turn": 0.0
     },
     "max_step_size_backwards": 0.04,
     "translation_exponent": 1.5,

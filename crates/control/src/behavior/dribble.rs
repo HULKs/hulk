@@ -2,7 +2,7 @@ use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
 use linear_algebra::{Point, Pose2};
 use types::{
-    motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode},
+    motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
     world_state::WorldState,
@@ -64,9 +64,12 @@ pub fn execute(
         orientation_mode => orientation_mode,
     };
     match dribble_path {
-        Some(path) => {
-            Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
-        }
+        Some(path) => Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
+            head,
+            orientation_mode,
+            path,
+            WalkSpeed::Fast,
+        )),
         None => Some(MotionCommand::Stand { head }),
     }
 }

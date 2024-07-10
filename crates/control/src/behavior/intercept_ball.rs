@@ -6,7 +6,7 @@ use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::InterceptBallParameters,
     planned_path::PathSegment,
     step_plan::Step,
@@ -87,6 +87,7 @@ pub fn execute(
                 left_arm: types::motion_command::ArmMotion::Swing,
                 right_arm: types::motion_command::ArmMotion::Swing,
                 orientation_mode: OrientationMode::Override(Orientation2::identity()),
+                speed: WalkSpeed::Fast,
             })
         }
         _ => None,

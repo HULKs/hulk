@@ -3,7 +3,7 @@ use framework::AdditionalOutput;
 use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
 use types::{
     field_dimensions::FieldDimensions,
-    motion_command::{HeadMotion, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::SearchParameters,
     path_obstacles::PathObstacle,
     roles::Role,
@@ -117,7 +117,12 @@ pub fn execute(
         } else {
             OrientationMode::AlignWithPath
         };
-        Some(walk_path_planner.walk_with_obstacle_avoiding_arms(head, orientation_mode, path))
+        Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
+            head,
+            orientation_mode,
+            path,
+            WalkSpeed::Normal,
+        ))
     }
 }
 

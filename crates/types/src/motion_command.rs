@@ -12,6 +12,13 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum WalkSpeed {
+    Slow,
+    Normal,
+    Fast,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum OrientationMode {
     AlignWithPath,
     Override(Orientation2<Ground>),
@@ -54,6 +61,7 @@ pub enum MotionCommand {
         left_arm: ArmMotion,
         right_arm: ArmMotion,
         orientation_mode: OrientationMode,
+        speed: WalkSpeed,
     },
     InWalkKick {
         head: HeadMotion,
