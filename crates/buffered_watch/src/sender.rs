@@ -90,6 +90,6 @@ impl<'lock, T> Drop for SenderGuard<'lock, T> {
                 }
             }
         }
-        self.notifier.send(()).unwrap();
+        let _ = self.notifier.send(());
     }
 }
