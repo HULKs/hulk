@@ -87,6 +87,8 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         },
         MotionCommand::WideStance => MotionType::WideStance,
         MotionCommand::Unstiff => MotionType::Unstiff,
+        MotionCommand::Animation { stiff: false } => MotionType::Animation,
+        MotionCommand::Animation { stiff: true } => MotionType::AnimationStiff,
         MotionCommand::Walk { .. } => MotionType::Walk,
         MotionCommand::InWalkKick { .. } => MotionType::Walk,
     }
@@ -118,6 +120,10 @@ fn transition_motion(
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
         (MotionType::Walk, _, MotionType::Stand, _) => MotionType::Stand,
+        (MotionType::Unstiff | MotionType::AnimationStiff, true, MotionType::Animation, _) => {
+            MotionType::Animation
+        }
+        (MotionType::Animation, true, MotionType::AnimationStiff, _) => MotionType::AnimationStiff,
         (from, true, to, _) if from != to => MotionType::Dispatching,
         _ => from,
     }
