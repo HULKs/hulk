@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use coordinate_systems::Ground;
 use filtering::kalman_filter::KalmanFilter;
-use linear_algebra::{Isometry2, Point2};
-use nalgebra::{matrix, Matrix2, Matrix2x4, Matrix4, Matrix4x2};
+use linear_algebra::Isometry2;
+use nalgebra::{matrix, Matrix2x4, Matrix4, Matrix4x2};
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 pub(super) trait MovingPredict {
@@ -17,7 +17,7 @@ pub(super) trait MovingPredict {
 }
 
 pub(super) trait MovingUpdate {
-    fn update(&mut self, measurement: Point2<Ground>, noise: Matrix2<f32>);
+    fn update(&mut self, measurement: MultivariateNormalDistribution<2>);
 }
 
 impl MovingPredict for MultivariateNormalDistribution<4> {
@@ -59,7 +59,12 @@ impl MovingPredict for MultivariateNormalDistribution<4> {
 }
 
 impl MovingUpdate for MultivariateNormalDistribution<4> {
-    fn update(&mut self, measurement: Point2<Ground>, noise: Matrix2<f32>) {
-        KalmanFilter::update(self, Matrix2x4::identity(), measurement.inner.coords, noise)
+    fn update(&mut self, measurement: MultivariateNormalDistribution<2>) {
+        KalmanFilter::update(
+            self,
+            Matrix2x4::identity(),
+            measurement.mean,
+            measurement.covariance,
+        )
     }
 }

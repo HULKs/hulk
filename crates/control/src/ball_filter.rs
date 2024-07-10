@@ -135,11 +135,9 @@ impl BallFilter {
                         mean_position,
                     ) < filter_parameters.measurement_matching_distance
                 };
-                let measurement_noise = ball.percept_in_ground.covariance;
                 let is_any_hypothesis_updated = self.ball_filter.update(
                     detection_time,
-                    mean_position,
-                    measurement_noise,
+                    ball.percept_in_ground,
                     is_hypothesis_detected,
                 );
                 if !is_any_hypothesis_updated {
