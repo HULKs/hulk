@@ -7,6 +7,7 @@ use framework::MainOutput;
 use geometry::{circle::Circle, line_segment::LineSegment, two_line_segments::TwoLineSegments};
 use linear_algebra::{distance, point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
+use spl_network_messages::GamePhase;
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -135,8 +136,11 @@ fn collect_kick_targets(
     let field_to_ground = ground_to_field.inverse();
 
     let is_own_kick_off = matches!(
-        filtered_game_controller_state.map(|x| x.game_state),
-        Some(FilteredGameState::Playing { kick_off: true, .. })
+        filtered_game_controller_state.map(|x| (x.game_state, x.game_phase)),
+        Some((
+            FilteredGameState::Playing { kick_off: true, .. },
+            GamePhase::Normal
+        ))
     );
     let is_not_free_for_opponent = matches!(
         filtered_game_controller_state.map(|x| x.opponent_game_state),
