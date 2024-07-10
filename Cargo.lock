@@ -2936,6 +2936,7 @@ dependencies = [
  "ittapi",
  "libc",
  "linear_algebra",
+ "log",
  "nalgebra",
  "object_detection",
  "path_serde",

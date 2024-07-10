@@ -22,6 +22,7 @@ hardware = { workspace = true }
 ittapi = { workspace = true }
 libc = { workspace = true, optional = true }
 linear_algebra = { workspace = true }
+log = { workspace = true }
 nalgebra = { workspace = true }
 object_detection = { workspace = true }
 path_serde = { workspace = true }
