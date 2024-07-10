@@ -1,7 +1,6 @@
 mod bindings;
 mod game_controller_return_message;
 mod game_controller_state_message;
-mod visual_referee_message;
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -18,7 +17,6 @@ pub use game_controller_state_message::{
     GameControllerStateMessage, GamePhase, GameState, Half, Penalty, PenaltyShoot, Player,
     SubState, Team, TeamColor, TeamState,
 };
-pub use visual_referee_message::{GestureVisualRefereeDecision, GestureVisualRefereeMessage};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum HulkMessage {
