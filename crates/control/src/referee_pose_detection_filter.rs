@@ -118,9 +118,7 @@ impl RefereePoseDetectionFilter {
             unpack_message_tree(&context.network_message.persistent);
 
         for (time, message) in time_tagged_persistent_messages {
-            if message.is_referee_ready_signal_detected {
-                self.detection_times[message.player_number] = Some(time);
-            }
+            self.detection_times[message.player_number] = Some(time);
         }
         let own_detected_pose_times =
             unpack_own_detection_tree(&context.detected_referee_pose_kind.persistent);
@@ -220,9 +218,6 @@ fn send_own_detection_message<T: NetworkInterface>(
     player_number: PlayerNumber,
 ) -> Result<()> {
     hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
-        VisualRefereeMessage {
-            player_number,
-            is_referee_ready_signal_detected: true,
-        },
+        VisualRefereeMessage { player_number },
     )))
 }

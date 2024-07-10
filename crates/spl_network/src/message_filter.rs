@@ -33,8 +33,10 @@ impl MessageFilter {
                 IncomingMessage::GameController(*source_address, message.clone()),
             ),
             IncomingMessage::Spl(
-                message @ HulkMessage::Striker(StrikerMessage { player_number, .. })
-                | message @ HulkMessage::VisualReferee(VisualRefereeMessage { player_number, .. }),
+                message @ (HulkMessage::Striker(StrikerMessage { player_number, .. })
+                | HulkMessage::VisualReferee(VisualRefereeMessage {
+                    player_number, ..
+                })),
             ) if player_number != context.player_number => Some(IncomingMessage::Spl(*message)),
             _ => None,
         };
