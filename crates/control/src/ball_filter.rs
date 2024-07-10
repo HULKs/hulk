@@ -44,6 +44,7 @@ pub struct CycleContext {
     current_odometry_to_last_odometry:
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
+    had_ground_contact: HistoricInput<bool, "has_ground_contact">,
 
     camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -77,6 +78,7 @@ impl BallFilter {
         measurements: BTreeMap<SystemTime, Vec<&Ball>>,
         current_to_last_odometry: HistoricInput<Option<&nalgebra::Isometry2<f32>>>,
         camera_matrices: HistoricInput<Option<&CameraMatrices>>,
+        had_ground_contact: HistoricInput<&bool>,
         projected_limbs: PerceptionInput<Vec<Option<&ProjectedLimbs>>>,
         filter_parameters: &BallFilterParameters,
         field_dimensions: &FieldDimensions,
@@ -100,6 +102,12 @@ impl BallFilter {
             );
 
             let camera_matrices = camera_matrices.get(&detection_time);
+
+            if !had_ground_contact.get(&detection_time) {
+                self.ball_filter.reset();
+                continue;
+            }
+
             let projected_limbs_bottom = projected_limbs
                 .persistent
                 .get(&detection_time)
@@ -181,6 +189,7 @@ impl BallFilter {
             persistent_updates,
             context.current_odometry_to_last_odometry,
             context.historic_camera_matrices,
+            context.had_ground_contact,
             context.projected_limbs,
             filter_parameters,
             context.field_dimensions,
