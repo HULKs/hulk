@@ -99,7 +99,6 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::search_suggestor",
                     "control::support_foot_estimation",
                     "control::time_to_reach_kick_position",
-                    "control::visual_referee_filter",
                     "control::whistle_filter",
                     "control::world_state_composer",
                     "control::zero_moment_point_provider",
