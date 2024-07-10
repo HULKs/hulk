@@ -1,36 +1,165 @@
-use std::{f32::consts::PI, sync::Arc};
+use std::{f32::consts::PI, fmt::Display, sync::Arc};
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{eyre::eyre, Result};
+use communication::messages::TextOrBinary;
 use eframe::egui::{ComboBox, Response, Slider, Ui, Widget};
 use log::error;
 use nalgebra::{Isometry2, Rotation2, Translation2};
 use serde_json::{to_value, Value};
 
-use communication::client::Cycler;
 use types::{field_color::FieldColorFunction, interpolated::Interpolated};
 
-use super::image::cycler_selector::VisionCycler;
+use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+
+use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
+
+trait SelectPerspective {
+    fn as_seen_from(&self, perspective: Perspective) -> f32;
+}
+
+impl SelectPerspective for Interpolated {
+    fn as_seen_from(&self, perspective: Perspective) -> f32 {
+        match perspective {
+            Perspective::FirstHalfOwnHalfTowardsOwnGoal => {
+                self.first_half_own_half_towards_own_goal
+            }
+            Perspective::FirstHalfOwnHalfAwayOwnGoal => self.first_half_own_half_away_own_goal,
+            Perspective::FirstHalfOpponentHalfTowardsOwnGoal => {
+                self.first_half_opponent_half_towards_own_goal
+            }
+            Perspective::FirstHalfOpponentHalfAwayOwnGoal => {
+                self.first_half_opponent_half_away_own_goal
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(clippy::enum_variant_names)]
+enum Perspective {
+    FirstHalfOwnHalfTowardsOwnGoal,
+    FirstHalfOwnHalfAwayOwnGoal,
+    FirstHalfOpponentHalfTowardsOwnGoal,
+    FirstHalfOpponentHalfAwayOwnGoal,
+}
+
+impl Display for Perspective {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Perspective::FirstHalfOwnHalfTowardsOwnGoal => {
+                write!(f, "first_half_own_half_towards_own_goal")
+            }
+            Perspective::FirstHalfOwnHalfAwayOwnGoal => {
+                write!(f, "first_half_own_half_away_own_goal")
+            }
+            Perspective::FirstHalfOpponentHalfTowardsOwnGoal => {
+                write!(f, "first_half_opponent_half_towards_own_goal")
+            }
+            Perspective::FirstHalfOpponentHalfAwayOwnGoal => {
+                write!(f, "first_half_opponent_half_away_own_goal")
+            }
+        }
+    }
+}
+
+struct Parameters<T> {
+    vertical_edge: T,
+    red_chromaticity: T,
+    green_chromaticity: T,
+    blue_chromaticity: T,
+    green_luminance: T,
+    hue_low: T,
+    hue_high: T,
+    saturation_low: T,
+    saturation_high: T,
+}
+
+impl Parameters<BufferHandle<Interpolated>> {
+    fn as_seen_from(&self, perspective: Perspective) -> Result<Parameters<f32>> {
+        let vertical_edge = self
+            .vertical_edge
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get vertical edge threshold from buffer"))?
+            .as_seen_from(perspective);
+        let red_chromaticity = self
+            .red_chromaticity
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get red chromaticity threshold from buffer"))?
+            .as_seen_from(perspective);
+        let green_chromaticity = self
+            .green_chromaticity
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get green chromaticity threshold from buffer"))?
+            .as_seen_from(perspective);
+        let blue_chromaticity = self
+            .blue_chromaticity
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get blue chromaticity threshold from buffer"))?
+            .as_seen_from(perspective);
+        let green_luminance = self
+            .green_luminance
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get green luminance threshold from buffer"))?
+            .as_seen_from(perspective);
+        let hue_low = self
+            .hue_low
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get hue low threshold from buffer"))?
+            .as_seen_from(perspective);
+        let hue_high = self
+            .hue_high
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get hue high threshold from buffer"))?
+            .as_seen_from(perspective);
+        let saturation_low = self
+            .saturation_low
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get saturation low threshold from buffer"))?
+            .as_seen_from(perspective);
+        let saturation_high = self
+            .saturation_high
+            .get_last_value()?
+            .ok_or_else(|| eyre!("failed to get saturation high threshold from buffer"))?
+            .as_seen_from(perspective);
+
+        let parameters = Parameters {
+            vertical_edge,
+            red_chromaticity,
+            green_chromaticity,
+            blue_chromaticity,
+            green_luminance,
+            hue_low,
+            hue_high,
+            saturation_low,
+            saturation_high,
+        };
+        Ok(parameters)
+    }
+}
 
 pub struct VisionTunerPanel {
     nao: Arc<Nao>,
-    repository_parameters: Result<RepositoryParameters>,
-    cycler: Cycler,
-    position: Option<Position>,
-    parameters: Parameters<ValueBuffer, ValueBuffer>,
+    cycler: VisionCycler,
+    perspective: Option<Perspective>,
+    field_color_function: BufferHandle<FieldColorFunction>,
+    parameters: Parameters<BufferHandle<Interpolated>>,
 }
 
 impl Panel for VisionTunerPanel {
     const NAME: &'static str = "Vision Tuner";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let cycler = Cycler::VisionTop;
-        let parameters = Parameters::from(&nao, cycler);
+        let cycler = VisionCycler::Top;
+        let perspective = None;
+
+        let field_color_function = nao.subscribe_value("parameters.field_color_detection.function");
+        let parameters = resubscribe(&nao, cycler);
 
         Self {
             nao,
-            repository_parameters: RepositoryParameters::try_new(),
             cycler,
-            position: None,
+            perspective,
+            field_color_function,
             parameters,
         }
     }
@@ -38,684 +167,302 @@ impl Panel for VisionTunerPanel {
 
 impl Widget for &mut VisionTunerPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        let mut parameters = match self.parameters.parse_latest() {
-            Ok(parameters) => parameters,
-            Err(error) => return ui.label(format!("{error:#?}")),
-        };
-
         ui.style_mut().spacing.slider_width = ui.available_size().x - 250.0;
-        ui.vertical(|ui| {
-            add_selector_row(
-                ui,
-                &self.nao,
-                &self.repository_parameters,
-                &mut self.cycler,
-                &mut self.position,
-                &mut parameters.function,
-                &mut self.parameters,
-            );
-
-            if let Some(position) = self.position {
-                let value =
-                    get_value_from_interpolated(position, &mut parameters.vertical_edge_threshold);
-                if ui
-                    .add(
-                        Slider::new(value, 0.0..=255.0)
-                            .text("vertical_edge_threshold")
-                            .smart_aim(false),
-                    )
-                    .changed()
-                {
-                    self.parameters
-                        .vertical_edge_threshold
-                        .update_parameter_value(
-                            to_value(parameters.vertical_edge_threshold).unwrap(),
-                        );
+        let layout= ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
+                if cycler_selector.ui(ui).changed() {
+                    self.parameters = resubscribe(&self.nao, self.cycler);
                 }
-
-                match parameters.function {
-                    FieldColorFunction::GreenChromaticity => {
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.red_chromaticity_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=1.0)
-                                    .text("red_chromaticity_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters
-                                .red_chromaticity_threshold
-                                .update_parameter_value(
-                                    to_value(parameters.red_chromaticity_threshold).unwrap(),
-                                );
+                let mut perspective_selector = PerspectiveSelector::new(&mut self.perspective);
+                if perspective_selector.ui(ui).changed() {
+                    let injected_ground_to_field = match self.perspective {
+                        None => None,
+                        Some(position) => {
+                            let injected_ground_to_field_translation = match position {
+                                Perspective::FirstHalfOwnHalfTowardsOwnGoal
+                                | Perspective::FirstHalfOwnHalfAwayOwnGoal => {
+                                    Translation2::new(-3.0, 0.0)
+                                }
+                                Perspective::FirstHalfOpponentHalfTowardsOwnGoal
+                                | Perspective::FirstHalfOpponentHalfAwayOwnGoal => {
+                                    Translation2::new(3.0, 0.0)
+                                }
+                            };
+                            let injected_ground_to_field_rotation = match position {
+                                Perspective::FirstHalfOwnHalfTowardsOwnGoal
+                                | Perspective::FirstHalfOpponentHalfTowardsOwnGoal => {
+                                    Rotation2::new(PI)
+                                }
+                                Perspective::FirstHalfOwnHalfAwayOwnGoal
+                                | Perspective::FirstHalfOpponentHalfAwayOwnGoal => {
+                                    Rotation2::new(0.0)
+                                }
+                            };
+                            Some(Isometry2::from_parts(
+                                injected_ground_to_field_translation,
+                                injected_ground_to_field_rotation.into(),
+                            ))
                         }
-
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.blue_chromaticity_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=1.0)
-                                    .text("blue_chromaticity_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters
-                                .blue_chromaticity_threshold
-                                .update_parameter_value(
-                                    to_value(parameters.blue_chromaticity_threshold).unwrap(),
-                                );
-                        }
-
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.green_chromaticity_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=1.0)
-                                    .text("green_chromaticity_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters
-                                .green_chromaticity_threshold
-                                .update_parameter_value(
-                                    to_value(parameters.green_chromaticity_threshold).unwrap(),
-                                );
-                        }
-
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.green_luminance_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=255.0)
-                                    .text("green_luminance_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters
-                                .green_luminance_threshold
-                                .update_parameter_value(
-                                    to_value(parameters.green_luminance_threshold).unwrap(),
-                                );
-                        }
-                    }
-                    FieldColorFunction::Hsv => {
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.hue_low_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=360.0)
-                                    .text("hue_low_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters.hue_low_threshold.update_parameter_value(
-                                to_value(parameters.hue_low_threshold).unwrap(),
-                            );
-                        }
-
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.hue_high_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=360.0)
-                                    .text("hue_high_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters.hue_high_threshold.update_parameter_value(
-                                to_value(parameters.hue_high_threshold).unwrap(),
-                            );
-                        }
-
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.saturation_low_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=255.0)
-                                    .text("saturation_low_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters
-                                .saturation_low_threshold
-                                .update_parameter_value(
-                                    to_value(parameters.saturation_low_threshold).unwrap(),
-                                );
-                        }
-
-                        let value = get_value_from_interpolated(
-                            position,
-                            &mut parameters.saturation_high_threshold,
-                        );
-                        if ui
-                            .add(
-                                Slider::new(value, 0.0..=255.0)
-                                    .text("saturation_high_threshold")
-                                    .smart_aim(false),
-                            )
-                            .changed()
-                        {
-                            self.parameters
-                                .saturation_high_threshold
-                                .update_parameter_value(
-                                    to_value(parameters.saturation_high_threshold).unwrap(),
-                                );
-                        }
-                    }
+                    };
+                    let value = to_value(injected_ground_to_field).unwrap();
+                    self.nao.write(
+                        "parameters.injected_ground_to_field_of_home_after_coin_toss_before_second_half",
+                        TextOrBinary::Text(value),
+                    );
                 }
-
-                let value =
-                    get_value_from_interpolated(position, &mut parameters.luminance_threshold);
-                if ui
-                    .add(
-                        Slider::new(value, 0.0..=255.0)
-                            .text("luminance_threshold")
-                            .smart_aim(false),
-                    )
-                    .changed()
-                {
-                    self.parameters
-                        .luminance_threshold
-                        .update_parameter_value(to_value(parameters.luminance_threshold).unwrap());
+            });
+            ui.separator();
+            if let Some(mut function) = self.field_color_function.get_last_value()? {
+                let mut function_selector = FieldColorFunctionSelector::new(&mut function);
+                if function_selector.ui(ui).changed() {
+                    self.nao.write(
+                        "parameters.field_color_detection.function",
+                        TextOrBinary::Text(to_value(function).unwrap()),
+                    );
                 }
             }
-        })
-        .response
-    }
-}
-
-struct Parameters<FunctionType, InterpolatedType> {
-    function: FunctionType,
-    luminance_threshold: InterpolatedType,
-    vertical_edge_threshold: InterpolatedType,
-    red_chromaticity_threshold: InterpolatedType,
-    blue_chromaticity_threshold: InterpolatedType,
-    green_chromaticity_threshold: InterpolatedType,
-    green_luminance_threshold: InterpolatedType,
-    hue_low_threshold: InterpolatedType,
-    hue_high_threshold: InterpolatedType,
-    saturation_low_threshold: InterpolatedType,
-    saturation_high_threshold: InterpolatedType,
-}
-
-impl Parameters<ValueBuffer, ValueBuffer> {
-    fn from(nao: &Nao, cycler: Cycler) -> Self {
-        let function = nao.subscribe_parameter("field_color_detection.function");
-        let luminance_threshold = nao.subscribe_parameter(get_luminance_threshold_path(cycler));
-        let vertical_edge_threshold =
-            nao.subscribe_parameter(get_vertical_edge_threshold_path(cycler));
-        let red_chromaticity_threshold =
-            nao.subscribe_parameter(get_red_chromaticity_threshold_path(cycler));
-        let blue_chromaticity_threshold =
-            nao.subscribe_parameter(get_blue_chromaticity_threshold_path(cycler));
-        let green_chromaticity_threshold =
-            nao.subscribe_parameter(get_green_chromaticity_threshold_path(cycler));
-        let green_luminance_threshold =
-            nao.subscribe_parameter(get_green_luminance_threshold_path(cycler));
-        let hue_low_threshold = nao.subscribe_parameter(get_hue_low_threshold_path(cycler));
-        let hue_high_threshold = nao.subscribe_parameter(get_hue_high_threshold_path(cycler));
-        let saturation_low_threshold =
-            nao.subscribe_parameter(get_saturation_low_threshold_path(cycler));
-        let saturation_high_threshold =
-            nao.subscribe_parameter(get_saturation_high_threshold_path(cycler));
-
-        Self {
-            function,
-            luminance_threshold,
-            vertical_edge_threshold,
-            red_chromaticity_threshold,
-            blue_chromaticity_threshold,
-            green_chromaticity_threshold,
-            green_luminance_threshold,
-            hue_low_threshold,
-            hue_high_threshold,
-            saturation_low_threshold,
-            saturation_high_threshold,
-        }
-    }
-
-    fn parse_latest(&self) -> Result<Parameters<FieldColorFunction, Interpolated>> {
-        Ok(Parameters {
-            function: self
-                .function
-                .parse_latest()
-                .wrap_err("failed to parse latest function")?,
-            luminance_threshold: self
-                .luminance_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest luminance_threshold")?,
-            vertical_edge_threshold: self
-                .vertical_edge_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest vertical_edge_threshold")?,
-            red_chromaticity_threshold: self
-                .red_chromaticity_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest red_chromaticity_threshold")?,
-            blue_chromaticity_threshold: self
-                .blue_chromaticity_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest blue_chromaticity_threshold")?,
-            green_chromaticity_threshold: self
-                .green_chromaticity_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest green_chromaticity_threshold")?,
-            green_luminance_threshold: self
-                .green_luminance_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest green_luminance_threshold")?,
-            hue_low_threshold: self
-                .hue_low_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest hue_low_threshold")?,
-            hue_high_threshold: self
-                .hue_high_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest hue_high_threshold")?,
-            saturation_low_threshold: self
-                .saturation_low_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest saturation_low_threshold")?,
-            saturation_high_threshold: self
-                .saturation_high_threshold
-                .parse_latest()
-                .wrap_err("failed to parse latest saturation_high_threshold")?,
-        })
-    }
-}
-
-impl Parameters<FieldColorFunction, Interpolated> {
-    fn write_to(
-        &self,
-        repository_parameters: &RepositoryParameters,
-        address: &str,
-        cycler: Cycler,
-    ) -> Result<()> {
-        repository_parameters.write(
-            address,
-            "field_color_detection.function".to_string(),
-            to_value(self.function).wrap_err("failed to serialize function")?,
-        );
-        repository_parameters.write(
-            address,
-            get_luminance_threshold_path(cycler).to_string(),
-            to_value(self.luminance_threshold)
-                .wrap_err("failed to serialize luminance_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_vertical_edge_threshold_path(cycler).to_string(),
-            to_value(self.vertical_edge_threshold)
-                .wrap_err("failed to serialize vertical_edge_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_red_chromaticity_threshold_path(cycler).to_string(),
-            to_value(self.red_chromaticity_threshold)
-                .wrap_err("failed to serialize red_chromaticity_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_blue_chromaticity_threshold_path(cycler).to_string(),
-            to_value(self.blue_chromaticity_threshold)
-                .wrap_err("failed to serialize blue_chromaticity_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_green_chromaticity_threshold_path(cycler).to_string(),
-            to_value(self.green_chromaticity_threshold)
-                .wrap_err("failed to serialize green_chromaticity_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_green_luminance_threshold_path(cycler).to_string(),
-            to_value(self.green_luminance_threshold)
-                .wrap_err("failed to serialize green_luminance_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_hue_low_threshold_path(cycler).to_string(),
-            to_value(self.hue_low_threshold).wrap_err("failed to serialize hue_low_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_hue_high_threshold_path(cycler).to_string(),
-            to_value(self.hue_high_threshold).wrap_err("failed to serialize hue_high_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_saturation_low_threshold_path(cycler).to_string(),
-            to_value(self.saturation_low_threshold)
-                .wrap_err("failed to serialize saturation_low_threshold")?,
-        );
-        repository_parameters.write(
-            address,
-            get_saturation_high_threshold_path(cycler).to_string(),
-            to_value(self.saturation_high_threshold)
-                .wrap_err("failed to serialize saturation_high_threshold")?,
-        );
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(clippy::enum_variant_names)]
-enum Position {
-    FirstHalfOwnHalfTowardsOwnGoal,
-    FirstHalfOwnHalfAwayOwnGoal,
-    FirstHalfOpponentHalfTowardsOwnGoal,
-    FirstHalfOpponentHalfAwayOwnGoal,
-}
-
-fn add_selector_row(
-    ui: &mut Ui,
-    nao: &Nao,
-    repository_parameters: &Result<RepositoryParameters>,
-    cycler: &mut Cycler,
-    position: &mut Option<Position>,
-    function: &mut FieldColorFunction,
-    parameters: &mut Parameters<ValueBuffer, ValueBuffer>,
-) -> Response {
-    ui.horizontal(|ui| {
-        add_vision_cycler_selector(ui, nao, cycler, parameters);
-        let response = add_position_selector(ui, position);
-        if response.changed() {
-            let injected_ground_to_field = match position {
-                None => None,
-                Some(position) => {
-                    let injected_ground_to_field_translation = match position {
-                        Position::FirstHalfOwnHalfTowardsOwnGoal
-                        | Position::FirstHalfOwnHalfAwayOwnGoal => Translation2::new(-3.0, 0.0),
-                        Position::FirstHalfOpponentHalfTowardsOwnGoal
-                        | Position::FirstHalfOpponentHalfAwayOwnGoal => Translation2::new(3.0, 0.0),
-                    };
-                    let injected_ground_to_field_rotation = match position {
-                        Position::FirstHalfOwnHalfTowardsOwnGoal
-                        | Position::FirstHalfOpponentHalfTowardsOwnGoal => Rotation2::new(PI),
-                        Position::FirstHalfOwnHalfAwayOwnGoal
-                        | Position::FirstHalfOpponentHalfAwayOwnGoal => Rotation2::new(0.0),
-                    };
-                    Some(Isometry2::from_parts(
-                        injected_ground_to_field_translation,
-                        injected_ground_to_field_rotation.into(),
-                    ))
+            if let Some(perspective) = self.perspective{
+                let cycler=self.cycler.as_snake_case_path();
+                let mut parameters = self.parameters.as_seen_from(perspective)?;
+                let slider = ui.add(Slider::new(&mut parameters.vertical_edge, 0.0..=255.0).text("vertical_edge_threshold"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.image_segmenter.{cycler}.vertical_edge_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.vertical_edge).unwrap()),
+                    );
                 }
-            };
-            let value = to_value(injected_ground_to_field).unwrap();
-            nao.update_parameter_value(
-                "injected_ground_to_field_of_home_after_coin_toss_before_second_half",
-                value,
-            );
-        }
+                let slider = ui.add(Slider::new(&mut parameters.red_chromaticity, 0.0..=1.0).text("red_chromaticity"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.red_chromaticity_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.red_chromaticity).unwrap()),
+                    );
+                }
+                let slider = ui.add(Slider::new(&mut parameters.green_chromaticity, 0.0..=1.0).text("green_chromaticity"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.green_chromaticity_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.green_chromaticity).unwrap()),
+                    );
+                }
+                let slider = ui.add(Slider::new(&mut parameters.blue_chromaticity, 0.0..=1.0).text("blue_chromaticity"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.blue_chromaticity_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.blue_chromaticity).unwrap()),
+                    );
+                }
+                let slider = ui.add(Slider::new(&mut parameters.green_luminance, 0.0..=255.0).text("green_luminance"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.green_luminance_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.green_luminance).unwrap()),
+                    );
+                }
+                let slider = ui.add(Slider::new(&mut parameters.hue_low, 0.0..=360.0).text("hue_low"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.hue_low_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.hue_low).unwrap()),
+                    );
+                }
+                let slider = ui.add(Slider::new(&mut parameters.hue_high, 0.0..=360.0).text("hue_high"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.hue_high_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.hue_high).unwrap()),
+                    );
+                }
+                let slider = ui.add(Slider::new(&mut parameters.saturation_low, 0.0..=255.0).text("saturation_low"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.saturation_low_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.saturation_low).unwrap()),
+                    );
+                }
+                let slider = ui.add(Slider::new(&mut parameters.saturation_high, 0.0..=255.0).text("saturation_high"));
+                if slider.changed(){
+                    self.nao.write(
+                        format!("parameters.field_color_detection.{cycler}.saturation_high_threshold.{perspective}"),
+                        TextOrBinary::Text(to_value(parameters.saturation_high).unwrap()),
+                    );
+                }
 
-        let response = add_function_selector(ui, function);
-        if response.changed() {
-            let value = to_value(function).unwrap();
-            nao.update_parameter_value("field_color_detection.function", value);
+            }
+            Ok::<(), color_eyre::Report>(())
+        });
+        if let Err(error) = layout.inner {
+            error!("failed to render vision tuner panel: {error}");
         }
+        layout.response
+    }
+}
 
-        match repository_parameters {
-            Ok(repository_parameters) => {
+fn resubscribe(nao: &Nao, cycler: VisionCycler) -> Parameters<BufferHandle<Interpolated>> {
+    let camera = cycler.as_snake_case_path();
+    let vertical_edge = nao.subscribe_value(format!(
+        "parameters.image_segmenter.{camera}.vertical_edge_threshold"
+    ));
+    let red_chromaticity = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.red_chromaticity_threshold"
+    ));
+    let green_chromaticity = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.green_chromaticity_threshold"
+    ));
+    let blue_chromaticity = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.blue_chromaticity_threshold"
+    ));
+    let green_luminance = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.green_luminance_threshold"
+    ));
+    let hue_low = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.hue_low_threshold"
+    ));
+    let hue_high = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.hue_high_threshold"
+    ));
+    let saturation_low = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.saturation_low_threshold"
+    ));
+    let saturation_high = nao.subscribe_value(format!(
+        "parameters.field_color_detection.{camera}.saturation_high_threshold"
+    ));
+
+    Parameters {
+        vertical_edge,
+        red_chromaticity,
+        green_chromaticity,
+        blue_chromaticity,
+        green_luminance,
+        hue_low,
+        hue_high,
+        saturation_low,
+        saturation_high,
+    }
+}
+
+#[derive(Debug)]
+pub struct PerspectiveSelector<'a> {
+    perspective: &'a mut Option<Perspective>,
+}
+
+impl<'a> PerspectiveSelector<'a> {
+    fn new(perspective: &'a mut Option<Perspective>) -> Self {
+        Self { perspective }
+    }
+}
+
+impl<'a> Widget for &mut PerspectiveSelector<'a> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let mut selection_changed = false;
+        let mut combo_box = ComboBox::from_label("Perspective")
+            .selected_text(match self.perspective {
+                None => "No Injection",
+                Some(Perspective::FirstHalfOwnHalfTowardsOwnGoal) => "Own Half Towards Own Goal",
+                Some(Perspective::FirstHalfOwnHalfAwayOwnGoal) => "Own Half Away Own Goal",
+                Some(Perspective::FirstHalfOpponentHalfTowardsOwnGoal) => {
+                    "Opponent Half Towards Own Goal"
+                }
+                Some(Perspective::FirstHalfOpponentHalfAwayOwnGoal) => {
+                    "Opponent Half Away Own Goal"
+                }
+            })
+            .show_ui(ui, |ui| {
                 if ui
-                    .button("Save all interpolated parameters of this cycler to disk")
+                    .selectable_value(self.perspective, None, "No Injection")
                     .clicked()
                 {
-                    if let Some(address) = nao.get_address() {
-                        if let Err(error) = parameters.parse_latest().and_then(|parameters| {
-                            parameters.write_to(repository_parameters, &address, *cycler)
-                        }) {
-                            error!("Failed to parse parameters: {error:#?}");
-                        }
-                    }
+                    selection_changed = true;
                 }
-            }
-            Err(error) => {
-                ui.label(format!("{error:?}"));
-            }
+                if ui
+                    .selectable_value(
+                        self.perspective,
+                        Some(Perspective::FirstHalfOwnHalfTowardsOwnGoal),
+                        "Own Half Towards Own Goal",
+                    )
+                    .clicked()
+                {
+                    selection_changed = true;
+                }
+                if ui
+                    .selectable_value(
+                        self.perspective,
+                        Some(Perspective::FirstHalfOwnHalfAwayOwnGoal),
+                        "Own Half Away Own Goal",
+                    )
+                    .clicked()
+                {
+                    selection_changed = true;
+                }
+                if ui
+                    .selectable_value(
+                        self.perspective,
+                        Some(Perspective::FirstHalfOpponentHalfTowardsOwnGoal),
+                        "Opponent Half Towards Own Goal",
+                    )
+                    .clicked()
+                {
+                    selection_changed = true;
+                }
+                if ui
+                    .selectable_value(
+                        self.perspective,
+                        Some(Perspective::FirstHalfOpponentHalfAwayOwnGoal),
+                        "Opponent Half Away Own Goal",
+                    )
+                    .clicked()
+                {
+                    selection_changed = true;
+                }
+            });
+        if selection_changed {
+            combo_box.response.mark_changed()
         }
-    })
-    .response
-}
-
-fn add_vision_cycler_selector(
-    ui: &mut Ui,
-    nao: &Nao,
-    cycler: &mut Cycler,
-    parameters: &mut Parameters<ValueBuffer, ValueBuffer>,
-) -> Response {
-    let mut changed = false;
-    let response = ComboBox::from_label("Cycler")
-        .selected_text(format!("{:?}", cycler))
-        .show_ui(ui, |ui| {
-            if ui
-                .selectable_value(cycler, Cycler::VisionTop, "VisionTop")
-                .clicked()
-            {
-                *cycler = Cycler::VisionTop;
-                changed = true;
-            };
-            if ui
-                .selectable_value(cycler, Cycler::VisionBottom, "VisionBottom")
-                .clicked()
-            {
-                *cycler = Cycler::VisionBottom;
-                changed = true;
-            };
-        })
-        .response;
-    if changed {
-        *parameters = Parameters::from(nao, *cycler);
-    }
-    response
-}
-
-fn add_position_selector(ui: &mut Ui, position: &mut Option<Position>) -> Response {
-    let mut position_selection_changed = false;
-    let mut combo_box = ComboBox::from_label("Position")
-        .selected_text(match position {
-            None => "No Injection",
-            Some(Position::FirstHalfOwnHalfTowardsOwnGoal) => "Own Half Towards Own Goal",
-            Some(Position::FirstHalfOwnHalfAwayOwnGoal) => "Own Half Away Own Goal",
-            Some(Position::FirstHalfOpponentHalfTowardsOwnGoal) => "Opponent Half Towards Own Goal",
-            Some(Position::FirstHalfOpponentHalfAwayOwnGoal) => "Opponent Half Away Own Goal",
-        })
-        .show_ui(ui, |ui| {
-            if ui
-                .selectable_value(position, None, "No Injection")
-                .clicked()
-            {
-                position_selection_changed = true;
-            }
-            if ui
-                .selectable_value(
-                    position,
-                    Some(Position::FirstHalfOwnHalfTowardsOwnGoal),
-                    "Own Half Towards Own Goal",
-                )
-                .clicked()
-            {
-                position_selection_changed = true;
-            }
-            if ui
-                .selectable_value(
-                    position,
-                    Some(Position::FirstHalfOwnHalfAwayOwnGoal),
-                    "Own Half Away Own Goal",
-                )
-                .clicked()
-            {
-                position_selection_changed = true;
-            }
-            if ui
-                .selectable_value(
-                    position,
-                    Some(Position::FirstHalfOpponentHalfTowardsOwnGoal),
-                    "Opponent Half Towards Own Goal",
-                )
-                .clicked()
-            {
-                position_selection_changed = true;
-            }
-            if ui
-                .selectable_value(
-                    position,
-                    Some(Position::FirstHalfOpponentHalfAwayOwnGoal),
-                    "Opponent Half Away Own Goal",
-                )
-                .clicked()
-            {
-                position_selection_changed = true;
-            }
-        });
-    if position_selection_changed {
-        combo_box.response.mark_changed()
-    }
-    combo_box.response
-}
-
-fn add_function_selector(ui: &mut Ui, function: &mut FieldColorFunction) -> Response {
-    let mut function_selection_changed = false;
-    let mut combo_box = ComboBox::from_label("Function")
-        .selected_text(format!("{:?}", function))
-        .show_ui(ui, |ui| {
-            if ui
-                .selectable_value(
-                    function,
-                    FieldColorFunction::GreenChromaticity,
-                    "Green Chromaticity",
-                )
-                .clicked()
-            {
-                function_selection_changed = true;
-            }
-            if ui
-                .selectable_value(function, FieldColorFunction::Hsv, "HSV")
-                .clicked()
-            {
-                function_selection_changed = true;
-            }
-        });
-    if function_selection_changed {
-        combo_box.response.mark_changed()
-    }
-    combo_box.response
-}
-
-fn get_luminance_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.luminance_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.luminance_threshold",
-        _ => panic!("not implemented"),
+        combo_box.response
     }
 }
 
-fn get_vertical_edge_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "image_segmenter.vision_top.vertical_edge_threshold",
-        Cycler::VisionBottom => "image_segmenter.vision_bottom.vertical_edge_threshold",
-        _ => panic!("not implemented"),
+#[derive(Debug)]
+pub struct FieldColorFunctionSelector<'a> {
+    function: &'a mut FieldColorFunction,
+}
+
+impl<'a> FieldColorFunctionSelector<'a> {
+    pub fn new(function: &'a mut FieldColorFunction) -> Self {
+        Self { function }
     }
 }
 
-fn get_red_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.red_chromaticity_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.red_chromaticity_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_blue_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.blue_chromaticity_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.blue_chromaticity_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_green_chromaticity_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.green_chromaticity_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.green_chromaticity_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_green_luminance_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.green_luminance_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.green_luminance_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_hue_low_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.hue_low_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.hue_low_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_hue_high_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.hue_high_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.hue_high_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_saturation_low_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.saturation_low_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.saturation_low_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_saturation_high_threshold_path(cycler: Cycler) -> &'static str {
-    match cycler {
-        Cycler::VisionTop => "field_color_detection.vision_top.saturation_high_threshold",
-        Cycler::VisionBottom => "field_color_detection.vision_bottom.saturation_high_threshold",
-        _ => panic!("not implemented"),
-    }
-}
-
-fn get_value_from_interpolated(position: Position, interpolated: &mut Interpolated) -> &mut f32 {
-    match position {
-        Position::FirstHalfOwnHalfTowardsOwnGoal => {
-            &mut interpolated.first_half_own_half_towards_own_goal
+impl<'a> Widget for &mut FieldColorFunctionSelector<'a> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let mut selection_changed = false;
+        let mut combo_box = ComboBox::from_label("Field Color Function")
+            .selected_text(match self.function {
+                FieldColorFunction::GreenChromaticity => "GreenChromaticity",
+                FieldColorFunction::Hsv => "Hsv",
+            })
+            .show_ui(ui, |ui| {
+                if ui
+                    .selectable_value(
+                        self.function,
+                        FieldColorFunction::GreenChromaticity,
+                        "GreenChromaticity",
+                    )
+                    .clicked()
+                {
+                    selection_changed = true;
+                }
+                if ui
+                    .selectable_value(self.function, FieldColorFunction::Hsv, "Hsv")
+                    .clicked()
+                {
+                    selection_changed = true;
+                }
+            });
+        if selection_changed {
+            combo_box.response.mark_changed()
         }
-        Position::FirstHalfOwnHalfAwayOwnGoal => {
-            &mut interpolated.first_half_own_half_away_own_goal
-        }
-        Position::FirstHalfOpponentHalfTowardsOwnGoal => {
-            &mut interpolated.first_half_opponent_half_towards_own_goal
-        }
-        Position::FirstHalfOpponentHalfAwayOwnGoal => {
-            &mut interpolated.first_half_opponent_half_away_own_goal
-        }
+        combo_box.response
     }
 }

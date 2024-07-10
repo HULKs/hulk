@@ -10,7 +10,7 @@ mod parameter;
 mod plot;
 mod remote;
 mod text;
-//mod vision_tuner;
+mod vision_tuner;
 
 pub use self::behavior_simulator::BehaviorSimulatorPanel;
 pub use self::image::ImagePanel;
@@ -24,4 +24,4 @@ pub use parameter::ParameterPanel;
 pub use plot::PlotPanel;
 pub use remote::RemotePanel;
 pub use text::TextPanel;
-//pub use vision_tuner::VisionTunerPanel;
+pub use vision_tuner::VisionTunerPanel;

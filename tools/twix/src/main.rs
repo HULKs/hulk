@@ -35,7 +35,7 @@ use panel::Panel;
 use panels::{
     BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel,
     LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel, RemotePanel,
-    TextPanel,
+    TextPanel, VisionTunerPanel,
 };
 
 use repository::{get_repository_root, Repository};
@@ -165,7 +165,7 @@ impl_selectable_panel!(
     EnumPlotPanel,
     RemotePanel,
     TextPanel,
-    //VisionTunerPanel,
+    VisionTunerPanel,
     ImageColorSelectPanel,
 );
 struct TwixApp {
