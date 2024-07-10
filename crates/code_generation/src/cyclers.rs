@@ -530,6 +530,14 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
                 #after_remaining_nodes
                 let recording_duration = recording_timestamp.elapsed().expect("time ran backwards");
 
+                if recording_duration.as_secs_f32() > 0.4 {
+                    self
+                        .hardware_interface
+                        .write_to_speakers(types::audio::SpeakerRequest::PlaySound {
+                            sound: types::audio::Sound::Donk,
+                        });
+                }
+
                 if enable_recording {
                     self.recording_sender.try_send(match instance {
                         #(#recording_variants)*
