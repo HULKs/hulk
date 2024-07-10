@@ -1,7 +1,7 @@
 use std::ops::{Index, Range};
 use std::{path::PathBuf, time::Duration};
 
-use coordinate_systems::{Field, Ground, NormalizedPixel};
+use coordinate_systems::{Field, Ground, NormalizedPixel, Pixel};
 use linear_algebra::{Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -309,6 +309,7 @@ pub struct BallDetectionParameters {
     pub image_containment_merge_factor: f32,
     pub cluster_merge_radius_factor: f32,
     pub ball_radius_enlargement_factor: f32,
+    pub detection_noise: Vector2<Pixel>,
 }
 
 #[derive(

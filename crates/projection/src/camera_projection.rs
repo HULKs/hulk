@@ -1,5 +1,5 @@
-use coordinate_systems::{Camera, Pixel};
-use linear_algebra::{point, Isometry3, Point2, Point3, Transform};
+use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
+use linear_algebra::{point, Isometry3, Point2, Point3, Transform, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -32,6 +32,11 @@ impl<From> CameraProjection<From> {
     pub fn project(&self, point: Point3<From>) -> Point2<Pixel> {
         let point_in_camera = self.extrinsic * point;
         self.intrinsic.project(point_in_camera.coords())
+    }
+
+    pub fn transform(&self, point: Point3<From>) -> Vector3<NormalizedDeviceCoordinates> {
+        let point_in_camera = self.extrinsic * point;
+        self.intrinsic.transform(point_in_camera.coords())
     }
 
     pub fn inverse(&self, z: f32) -> InverseCameraProjection<From> {
@@ -78,6 +83,10 @@ impl<To> InverseCameraProjection<To> {
     pub fn back_project_unchecked(&self, point: Point2<Pixel>) -> Point3<To> {
         let point_to = self.back_project.inner * point.inner.to_homogeneous();
         point![point_to.x / point_to.z, point_to.y / point_to.z, self.z]
+    }
+
+    pub fn as_matrix(&self) -> nalgebra::Matrix3<f32> {
+        self.back_project.inner
     }
 }
 

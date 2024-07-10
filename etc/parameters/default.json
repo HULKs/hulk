@@ -49,7 +49,8 @@
       "correction_proximity_merge_factor": 1.0,
       "image_containment_merge_factor": 1.0,
       "cluster_merge_radius_factor": 1.5,
-      "ball_radius_enlargement_factor": 2.0
+      "ball_radius_enlargement_factor": 2.0,
+      "detection_noise": [4.0, 4.0]
     },
     "vision_bottom": {
       "minimal_radius": 42.0,
@@ -63,7 +64,8 @@
       "correction_proximity_merge_factor": 1.0,
       "image_containment_merge_factor": 1.0,
       "cluster_merge_radius_factor": 1.5,
-      "ball_radius_enlargement_factor": 2.0
+      "ball_radius_enlargement_factor": 2.0,
+      "detection_noise": [4.0, 4.0]
     }
   },
   "camera_matrix_parameters": {

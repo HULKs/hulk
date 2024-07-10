@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use approx_derive::{AbsDiffEq, RelativeEq};
-use coordinate_systems::{Ground, Pixel};
+use coordinate_systems::Pixel;
 use geometry::circle::Circle;
-use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+
+use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, PathSerialize, PathIntrospect)]
 pub struct CandidateEvaluation {
@@ -15,20 +15,8 @@ pub struct CandidateEvaluation {
     pub merge_weight: Option<f32>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    AbsDiffEq,
-    RelativeEq,
-    PartialEq,
-)]
-#[abs_diff_eq(epsilon_type = f32)]
-pub struct Ball {
-    pub position: Point2<Ground>,
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
+pub struct BallPercept {
+    pub percept_in_ground: MultivariateNormalDistribution<2>,
     pub image_location: Circle<Pixel>,
 }

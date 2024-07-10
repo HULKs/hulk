@@ -8,7 +8,7 @@ use resting::{RestingPredict, RestingUpdate};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
-use linear_algebra::{vector, IntoFramed, Isometry2, Point2, Vector2};
+use linear_algebra::{vector, IntoFramed, Isometry2, Vector2};
 
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
@@ -19,9 +19,9 @@ pub mod resting;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct BallHypothesis {
-    moving: MultivariateNormalDistribution<4>,
-    resting: MultivariateNormalDistribution<2>,
-    last_seen: SystemTime,
+    pub moving: MultivariateNormalDistribution<4>,
+    pub resting: MultivariateNormalDistribution<2>,
+    pub last_seen: SystemTime,
     pub validity: f32,
 }
 
@@ -95,12 +95,11 @@ impl BallHypothesis {
     pub fn update(
         &mut self,
         detection_time: SystemTime,
-        measurement: Point2<Ground>,
-        noise: Matrix2<f32>,
+        measurement: MultivariateNormalDistribution<2>,
     ) {
         self.last_seen = detection_time;
-        MovingUpdate::update(&mut self.moving, measurement, noise);
-        RestingUpdate::update(&mut self.resting, measurement, noise);
+        MovingUpdate::update(&mut self.moving, measurement);
+        RestingUpdate::update(&mut self.resting, measurement);
         self.validity += 1.0;
     }
 
