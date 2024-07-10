@@ -19,7 +19,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
         #[allow(clippy::too_many_arguments)]
         pub fn run(
             hardware_interface: std::sync::Arc<impl crate::HardwareInterface + Send + Sync + 'static>,
-            addresses: impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static,
+            addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
             parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
             log_path: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
             hardware_ids: types::hardware::Ids,
@@ -58,7 +58,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             // otherwise the recording thread waits forever
             drop(recording_sender);
 
-            let communication_thread = {
+            let communication_thread = addresses.map(|addresses| {
                 let keep_running = keep_running.clone();
                 std::thread::Builder::new()
                     .name("Communication".to_string())
@@ -78,8 +78,8 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                             Ok(())
                         })
                     })
-                    .wrap_err("failed to spawn communication thread")?
-            };
+                    .expect("failed to spawn communication thread")
+            });
 
             #start_cyclers
 
@@ -100,16 +100,18 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                 },
                 _ => {},
             }
-            match communication_thread.join() {
-                Ok(Err(error)) => {
-                    encountered_error = true;
-                    eprintln!("communication thread returned error: {error:?}");
-                },
-                Err(error) => {
-                    encountered_error = true;
-                    eprintln!("failed to join communication thread: {error:?}");
-                },
-                _ => {},
+            if let Some(thread) = communication_thread {
+                match thread.join() {
+                    Ok(Err(error)) => {
+                        encountered_error = true;
+                        eprintln!("communication thread returned error: {error:?}");
+                    },
+                    Err(error) => {
+                        encountered_error = true;
+                        eprintln!("failed to join communication thread: {error:?}");
+                    },
+                    _ => {},
+                }
             }
 
             if encountered_error {
@@ -133,13 +135,13 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
     let (replayer_arguments, communication_thread) = if with_communication {
         (
             quote! {
-                addresses: impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static,
+                addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
                 keep_running: tokio_util::sync::CancellationToken,
             },
             {
                 let communication_registrations = generate_communication_registrations(cyclers);
                 quote! {
-                    let communication_thread = {
+                    let _communication_thread = addresses.map(|addresses| {
                         let keep_running = keep_running.clone();
                         let parameters_receiver = parameters_receiver.clone();
                         std::thread::Builder::new()
@@ -157,8 +159,8 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                                     Ok(())
                                 })
                             })
-                            .wrap_err("failed to spawn communication thread")?
-                    };
+                            .expect("failed to spawn communication thread")
+                    });
                 }
             },
         )
@@ -277,11 +279,9 @@ fn generate_replayer_token_streams(
         ReplayerTokenStreams {
             fields: quote! {
                 parameters_receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)>,
-                communication_thread: std::thread::JoinHandle<color_eyre::Result<()>>,
             },
             parameters: quote! {
                 parameters_receiver,
-                communication_thread,
             },
             accessors: quote! {
                 pub fn get_parameters_receiver(&self) -> buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)> {
