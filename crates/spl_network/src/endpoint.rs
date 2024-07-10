@@ -103,11 +103,6 @@ impl Endpoint {
                     warn!("Failed to serialize Hulk Message: {error:?}")
                 }
             },
-            OutgoingMessage::VisualReferee(destination, message) => {
-                let message: Vec<u8> = message.into();
-                self.send_game_controller_visual_referee_message(destination, message)
-                    .await;
-            }
         };
     }
 
