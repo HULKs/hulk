@@ -146,6 +146,7 @@ impl Projection for CameraMatrix {
         Ok(self.image_size.y() * angle / self.field_of_view.y)
     }
 
+    /// Projection based on <https://arxiv.org/abs/2312.08952>
     fn project_noise_to_ground(
         &self,
         ground_coordinates: Point2<Ground>,
