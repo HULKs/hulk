@@ -2281,6 +2281,7 @@ dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
+ "num-traits",
  "rand",
  "rand_distr",
  "serde",

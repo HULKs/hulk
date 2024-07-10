@@ -2,10 +2,10 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Ground, Robot};
+use coordinate_systems::{Field, Ground, Robot};
 use framework::MainOutput;
 use linear_algebra::{vector, Isometry3, Orientation3};
-use types::{robot_kinematics::RobotKinematics, sensor_data::SensorData, support_foot::Side};
+use types::{robot_kinematics::RobotKinematics, support_foot::Side};
 
 #[derive(Deserialize, Serialize)]
 pub struct GroundProvider {}
@@ -16,7 +16,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    sensor_data: Input<SensorData, "sensor_data">,
+    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     support_side: RequiredInput<Option<Side>, "support_foot.support_side?">,
 }
 
@@ -36,9 +36,8 @@ impl GroundProvider {
         struct LeftSoleHorizontal;
         struct RightSoleHorizontal;
 
-        let imu_roll_pitch = context.sensor_data.inertial_measurement_unit.roll_pitch;
-        let imu_orientation =
-            Orientation3::from_euler_angles(imu_roll_pitch.x(), imu_roll_pitch.y(), 0.0).mirror();
+        let (roll, pitch, _) = context.robot_orientation.inner.euler_angles();
+        let imu_orientation = Orientation3::from_euler_angles(roll, pitch, 0.0).mirror();
 
         let left_sole_horizontal_to_robot = Isometry3::from_parts(
             context

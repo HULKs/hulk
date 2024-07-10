@@ -719,12 +719,10 @@
     "odometry_scale_factor": [1.075, 1.125]
   },
   "orientation_filter": {
-    "acceleration_threshold": 0.2,
-    "delta_angular_velocity_threshold": 0.1,
-    "angular_velocity_bias_weight": 0.01,
-    "acceleration_weight": 0.01,
-    "falling_threshold": 1.0,
-    "force_sensitive_resistor_threshold": 5.0
+    "filter_gain": 0.01,
+    "calibration_steady_threshold": 0.02,
+    "calibration_smoothing_factor": 0.1,
+    "number_of_calibration_cycles": 10
   },
   "fall_state_estimation": {
     "linear_acceleration_low_pass_factor": 0.05,

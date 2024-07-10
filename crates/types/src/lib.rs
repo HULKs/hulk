@@ -49,7 +49,6 @@ pub mod multivariate_normal_distribution;
 pub mod obstacle_avoiding_arms;
 pub mod obstacle_filter;
 pub mod obstacles;
-pub mod orientation_filter;
 pub mod parameters;
 pub mod path_obstacles;
 pub mod penalty_shot_direction;

@@ -52,9 +52,9 @@ impl StepState {
     }
 
     pub fn is_support_switched(&self, context: &Context) -> bool {
-        let pressure_left = context.sensor_data.force_sensitive_resistors.left.sum()
+        let pressure_left = context.force_sensitive_resistors.left.sum()
             > context.parameters.sole_pressure_threshold;
-        let pressure_right = context.sensor_data.force_sensitive_resistors.right.sum()
+        let pressure_right = context.force_sensitive_resistors.right.sum()
             > context.parameters.sole_pressure_threshold;
 
         let minimal_time = self.time_since_start > context.parameters.min_step_duration;
