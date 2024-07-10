@@ -45,7 +45,7 @@ pub struct CycleContext {
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
 
-    camera_matrices: RequiredInput<Option<CameraMatrices>, "camera_matrices?">,
+    camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -218,12 +218,16 @@ impl BallFilter {
 
         let ball_radius = context.field_dimensions.ball_radius;
         context.filtered_balls_in_image_top.fill_if_subscribed(|| {
-            project_to_image(&output_balls, &context.camera_matrices.top, ball_radius)
+            context.camera_matrices.map_or(vec![], |camera_matrices| {
+                project_to_image(&output_balls, &camera_matrices.top, ball_radius)
+            })
         });
         context
             .filtered_balls_in_image_bottom
             .fill_if_subscribed(|| {
-                project_to_image(&output_balls, &context.camera_matrices.bottom, ball_radius)
+                context.camera_matrices.map_or(vec![], |camera_matrices| {
+                    project_to_image(&output_balls, &camera_matrices.bottom, ball_radius)
+                })
             });
 
         let removed_ball_positions = removed_hypotheses
