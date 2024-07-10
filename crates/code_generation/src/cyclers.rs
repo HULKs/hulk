@@ -530,7 +530,8 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
                 #after_remaining_nodes
                 let recording_duration = recording_timestamp.elapsed().expect("time ran backwards");
 
-                if recording_duration.as_secs_f32() > 0.4 {
+                const EXECUTION_TIME_UPPER_BOUND: f32 = 0.4;
+                if recording_duration.as_secs_f32() > EXECUTION_TIME_UPPER_BOUND {
                     self
                         .hardware_interface
                         .write_to_speakers(types::audio::SpeakerRequest::PlaySound {
