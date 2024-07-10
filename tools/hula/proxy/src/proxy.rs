@@ -224,6 +224,7 @@ fn handle_connection_event(
             };
             let lola_message = control_frame.into_lola(skull);
             write_named(writer, &lola_message).wrap_err("failed to serialize control message")?;
+            writer.flush().wrap_err("failed to flush control message")?;
             connection.is_sending_control_frames = true;
         }
         None => warn!(
