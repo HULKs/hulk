@@ -8,7 +8,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use hardware::{NetworkInterface, PathsInterface};
-use linear_algebra::{center, distance, Isometry2, Point2, Transform};
+use linear_algebra::{center, distance, Isometry2, Point2, Rotation2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use spl_network_messages::PlayerNumber;
 use types::{
@@ -191,13 +191,13 @@ fn interpret_pose(human_pose: HumanPose, minimum_shoulder_angle: f32) -> PoseKin
 
 fn is_above_head_arms_pose(keypoints: Keypoints, minimum_shoulder_angle: f32) -> bool {
     are_hands_above_shoulder(&keypoints)
-        && is_shoulder_angled_up(
+        && is_right_shoulder_angled_up(
             &keypoints,
             keypoints.right_shoulder.point,
             keypoints.right_elbow.point,
             minimum_shoulder_angle,
         )
-        && is_shoulder_angled_up(
+        && is_left_shoulder_angled_up(
             &keypoints,
             keypoints.left_shoulder.point,
             keypoints.left_elbow.point,
@@ -210,26 +210,30 @@ fn are_hands_above_shoulder(keypoints: &Keypoints) -> bool {
         && keypoints.right_shoulder.point.y() > keypoints.right_hand.point.y()
 }
 
-fn is_shoulder_angled_up(
+fn is_right_shoulder_angled_up(
     keypoints: &Keypoints,
     shoulder_point: Point2<Pixel>,
     elbow_point: Point2<Pixel>,
     minimum_shoulder_angle: f32,
 ) -> bool {
-    struct RotatedPixel;
-
     let left_to_right_shoulder =
         keypoints.right_shoulder.point.coords() - keypoints.left_shoulder.point.coords();
-    let shoulder_line_angle = f32::atan2(left_to_right_shoulder.y(), left_to_right_shoulder.x());
-    let shoulder_rotation =
-        Transform::<Pixel, RotatedPixel, nalgebra::Isometry2<_>>::rotation(shoulder_line_angle);
 
-    let shoulder = shoulder_rotation * shoulder_point;
-    let elbow = shoulder_rotation * elbow_point;
+    Rotation2::rotation_between(left_to_right_shoulder, elbow_point - shoulder_point).angle()
+        > minimum_shoulder_angle
+}
 
-    let shoulder_to_elbow = elbow.coords() - shoulder.coords();
+fn is_left_shoulder_angled_up(
+    keypoints: &Keypoints,
+    shoulder_point: Point2<Pixel>,
+    elbow_point: Point2<Pixel>,
+    minimum_shoulder_angle: f32,
+) -> bool {
+    let right_to_left_shoulder =
+        keypoints.left_shoulder.point.coords() - keypoints.right_shoulder.point.coords();
 
-    f32::atan2(shoulder_to_elbow.y(), shoulder_to_elbow.x()) > minimum_shoulder_angle
+    Rotation2::rotation_between(elbow_point - shoulder_point, right_to_left_shoulder).angle()
+        > minimum_shoulder_angle
 }
 
 fn get_all_pose_kind_positions(
@@ -260,22 +264,18 @@ fn get_pose_kind_position(
     foot_z_offset: f32,
     minimum_shoulder_angle: f32,
 ) -> Option<PoseKindPosition<Field>> {
-    let (Some(ground_to_field), Some(pose)) = (ground_to_field, pose) else {
-        return None;
-    };
-
     let left_foot_ground_position = camera_matrix_top
-        .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
+        .pixel_to_ground_with_z(pose?.keypoints.left_foot.point, foot_z_offset)
         .ok()?;
     let right_foot_ground_position = camera_matrix_top
-        .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
+        .pixel_to_ground_with_z(pose?.keypoints.right_foot.point, foot_z_offset)
         .ok()?;
-    let interpreted_pose_kind = interpret_pose(pose, minimum_shoulder_angle);
+    let interpreted_pose_kind = interpret_pose(pose?, minimum_shoulder_angle);
     Some(PoseKindPosition {
         pose_kind: interpreted_pose_kind,
         position: center(
-            ground_to_field * left_foot_ground_position,
-            ground_to_field * right_foot_ground_position,
+            ground_to_field? * left_foot_ground_position,
+            ground_to_field? * right_foot_ground_position,
         ),
     })
 }
