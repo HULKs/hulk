@@ -1,9 +1,7 @@
-use std::{
-    collections::BTreeMap,
-    time::{Duration, SystemTime},
-};
+use std::{collections::BTreeMap, time::SystemTime};
 
 use color_eyre::Result;
+use hardware::TimeInterface;
 use nalgebra::{Matrix2, Matrix4};
 use serde::{Deserialize, Serialize};
 
@@ -25,11 +23,14 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
+    last_predict_time: SystemTime,
     ball_filter: BallFiltering,
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    hardware_interface: HardwareInterface,
+}
 
 #[context]
 pub struct CycleContext {
@@ -66,9 +67,10 @@ pub struct MainOutputs {
 }
 
 impl BallFilter {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext<impl TimeInterface>) -> Result<Self> {
         Ok(Self {
             ball_filter: Default::default(),
+            last_predict_time: context.hardware_interface.get_now(),
         })
     }
 
@@ -84,9 +86,12 @@ impl BallFilter {
         field_dimensions: &FieldDimensions,
         cycle_time: &CycleTime,
     ) -> Vec<BallHypothesis> {
-        let delta_time = Duration::from_secs_f32(0.012);
-
         for (detection_time, balls) in measurements {
+            let delta_time = detection_time
+                .duration_since(self.last_predict_time)
+                .expect("time ran backwards");
+            self.last_predict_time = detection_time;
+
             let current_to_last_odometry: Isometry2<Ground, Ground> = current_to_last_odometry
                 .get(&detection_time)
                 .copied()
