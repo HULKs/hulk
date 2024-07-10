@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Deserialize, Serialize)]
+/// Detects a falling edge of two state sensor readings
 pub struct TapDetector {
     last_reading: bool,
-    pub is_single_tapped: bool,
+    is_single_tapped: bool,
 }
 
 impl TapDetector {

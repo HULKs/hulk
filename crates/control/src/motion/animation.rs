@@ -9,7 +9,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct Animation {
-    save_joints_value: Joints<f32>,
+    saved_joint_values: Joints<f32>,
 }
 
 #[context]
@@ -30,7 +30,7 @@ pub struct MainOutputs {
 impl Animation {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            save_joints_value: Joints::default(),
+            saved_joint_values: Joints::default(),
         })
     }
 
@@ -40,13 +40,13 @@ impl Animation {
             stiffnesses: Joints::fill(0.0),
         };
         let animation_stiff_command = MotorCommands {
-            positions: self.save_joints_value,
+            positions: self.saved_joint_values,
             stiffnesses: Joints::fill(1.0),
         };
         let output = match context.motion_command {
             MotionCommand::Animation { stiff: true } => animation_stiff_command,
             MotionCommand::Animation { stiff: false } => {
-                self.save_joints_value = context.sensor_data.positions;
+                self.saved_joint_values = context.sensor_data.positions;
                 animation_unstiff_command
             }
             _ => Default::default(),
