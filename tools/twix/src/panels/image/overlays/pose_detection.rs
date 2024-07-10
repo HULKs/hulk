@@ -1,18 +1,16 @@
 use std::sync::Arc;
 
-use color_eyre::{eyre::Ok, Result};
-use eframe::{
-    egui::{Align2, FontId},
-    epaint::{Color32, Stroke},
-};
-use log::warn;
-
-use communication::client::{Cycler, CyclerOutput, Output};
+use color_eyre::Result;
 use coordinate_systems::Pixel;
+use eframe::egui::{Align2, Color32, FontId, Stroke};
 use linear_algebra::point;
 use types::pose_detection::{HumanPose, Keypoint};
 
-use crate::{nao::Nao, panels::image::overlay::Overlay, value_buffer::ValueBuffer};
+use crate::{
+    nao::Nao,
+    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
+    value_buffer::BufferHandle,
+};
 
 const POSE_SKELETON: [(usize, usize); 16] = [
     (0, 1),
@@ -39,36 +37,35 @@ const IMAGE_WIDTH: f32 = 640.0;
 const DETECTION_IMAGE_START_X: f32 = (IMAGE_WIDTH - DETECTION_IMAGE_WIDTH) / 2.0;
 
 pub struct PoseDetection {
-    accepted_human_poses: ValueBuffer,
-    rejected_human_poses: ValueBuffer,
+    accepted_human_poses: BufferHandle<Vec<HumanPose>>,
+    rejected_human_poses: BufferHandle<Vec<HumanPose>>,
 }
 
 impl Overlay for PoseDetection {
     const NAME: &'static str = "Pose Detection";
 
-    fn new(nao: Arc<Nao>, selected_cycler: Cycler) -> Self {
-        if selected_cycler != Cycler::VisionTop {
-            warn!("PoseDetection only works with the vision top cycler instance!");
+    fn new(nao: Arc<Nao>, selected_cycler: VisionCycler) -> Self {
+        let cycler = match selected_cycler {
+            VisionCycler::Top => "ObjectDetectionTop",
+            VisionCycler::Bottom => "ObjectDetectionBottom",
         };
+        let accepted_human_poses =
+            nao.subscribe_value(format!("{cycler}.main_outputs.accepted_human_poses"));
+        let rejected_human_poses =
+            nao.subscribe_value(format!("{cycler}.main_outputs.rejected_human_poses"));
         Self {
-            accepted_human_poses: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::ObjectDetectionTop,
-                output: Output::Main {
-                    path: "accepted_human_poses".to_string(),
-                },
-            }),
-            rejected_human_poses: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::ObjectDetectionTop,
-                output: Output::Main {
-                    path: "rejected_human_poses".to_string(),
-                },
-            }),
+            accepted_human_poses,
+            rejected_human_poses,
         }
     }
 
     fn paint(&self, painter: &crate::twix_painter::TwixPainter<Pixel>) -> Result<()> {
-        let rejected_human_poses: Vec<HumanPose> = self.rejected_human_poses.require_latest()?;
-        let accepted_human_poses: Vec<HumanPose> = self.accepted_human_poses.require_latest()?;
+        let Some(accepted_human_poses) = self.accepted_human_poses.get_last_value()? else {
+            return Ok(());
+        };
+        let Some(rejected_human_poses) = self.rejected_human_poses.get_last_value()? else {
+            return Ok(());
+        };
 
         paint_poses(
             painter,

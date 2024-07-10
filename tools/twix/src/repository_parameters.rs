@@ -7,15 +7,15 @@ use parameters::{
     directory::{serialize, Id, Location, Scope},
     json::nest_value_at_path,
 };
-use repository::{get_repository_root, HardwareIds, Repository};
+use repository::{get_repository_root, Repository};
 use serde_json::Value;
 use std::{collections::HashMap, net::Ipv4Addr};
 use tokio::runtime::Runtime;
+use types::hardware::Ids;
 
 pub struct RepositoryParameters {
     repository: Repository,
-    runtime: Runtime,
-    ids: HashMap<u8, HardwareIds>,
+    ids: HashMap<u8, Ids>,
 }
 
 impl RepositoryParameters {
@@ -25,11 +25,7 @@ impl RepositoryParameters {
         let repository = Repository::new(repository_root);
         let ids = runtime.block_on(repository.get_hardware_ids())?;
 
-        Ok(Self {
-            repository,
-            runtime,
-            ids,
-        })
+        Ok(Self { repository, ids })
     }
 
     pub fn write(&self, address: &str, path: String, value: Value) {
@@ -39,26 +35,22 @@ impl RepositoryParameters {
             return;
         };
         let parameters = nest_value_at_path(&path, value);
-        self.runtime.spawn(async move {
-            serialize(
-                &parameters,
-                Scope {
-                    location: Location::All,
-                    id: Id::Head,
-                },
-                &path,
-                repository.parameters_root(),
-                &hardware_ids.body_id,
-                &hardware_ids.head_id,
-            )
-            .await
-            .unwrap();
-        });
+        serialize(
+            &parameters,
+            Scope {
+                location: Location::All,
+                id: Id::Head,
+            },
+            &path,
+            repository.parameters_root(),
+            &hardware_ids,
+        )
+        .unwrap();
     }
 
-    fn hardware_ids_from_address(&self, address: &str) -> Result<HardwareIds> {
+    fn hardware_ids_from_address(&self, address: &str) -> Result<Ids> {
         if address == "localhost" {
-            return Ok(HardwareIds {
+            return Ok(Ids {
                 body_id: "webots".to_string(),
                 head_id: "webots".to_string(),
             });
@@ -70,7 +62,7 @@ impl RepositoryParameters {
             .cloned()
     }
 
-    fn hardware_ids_from_nao_number(&self, nao_number: u8) -> Result<&HardwareIds> {
+    fn hardware_ids_from_nao_number(&self, nao_number: u8) -> Result<&Ids> {
         self.ids
             .get(&nao_number)
             .ok_or_else(|| eyre!("no IDs known for NAO number {nao_number}"))

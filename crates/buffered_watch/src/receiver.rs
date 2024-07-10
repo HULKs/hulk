@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
 use parking_lot::{RwLock, RwLockReadGuard};
 use tokio::sync::watch;
@@ -56,7 +56,7 @@ impl<T> Receiver<T> {
     }
 }
 
-fn lock_a_readable_buffer(states: &mut [State]) -> usize {
+pub(crate) fn lock_a_readable_buffer(states: &mut [State]) -> usize {
     let index = find_newest_readable_buffer(states);
 
     match states[index] {
@@ -86,13 +86,7 @@ where
 {
     fn clone(&self) -> Self {
         let shared = &mut *self.shared.write();
-        let mut states = shared.states.lock();
-
-        let (index, age) = find_oldest_free_buffer(&states);
-        let buffer = unsafe { &*shared.buffers[index].get() }.clone();
-
-        shared.buffers.push(UnsafeCell::new(buffer));
-        states.push(State::Free { age: age + 1 });
+        shared.append_buffer();
 
         Self {
             shared: self.shared.clone(),
@@ -115,9 +109,9 @@ impl<T> Drop for Receiver<T> {
 
 /// RAII guard for reading from a buffer
 pub struct ReceiverGuard<'lock, T> {
-    shared: RwLockReadGuard<'lock, Shared<T>>,
-    buffer_index: usize,
-    buffer: &'lock T,
+    pub(crate) shared: RwLockReadGuard<'lock, Shared<T>>,
+    pub(crate) buffer_index: usize,
+    pub(crate) buffer: &'lock T,
 }
 
 impl<T> Deref for ReceiverGuard<'_, T> {

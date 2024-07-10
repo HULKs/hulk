@@ -3,15 +3,11 @@ use std::{str::FromStr, sync::Arc};
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
-use communication::client::CyclerOutput;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{IntoFramed, Isometry2, Point2};
 use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
 
-use crate::{
-    nao::Nao, panels::map::layer::Layer, players_value_buffer::PlayersValueBuffer,
-    twix_painter::TwixPainter, value_buffer::ValueBuffer,
-};
+use crate::{nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter};
 
 const TRANSPARENT_BLUE: Color32 = Color32::from_rgba_premultiplied(0, 0, 202, 150);
 const TRANSPARENT_LIGHT_BLUE: Color32 = Color32::from_rgba_premultiplied(136, 170, 182, 150);
@@ -45,9 +41,7 @@ impl Layer<Field> for BehaviorSimulator {
             "main_outputs.sensor_data.positions.head.yaw",
         )
         .unwrap();
-        let ball = nao.subscribe_output(
-            CyclerOutput::from_str("BehaviorSimulator.main_outputs.ball.position").unwrap(),
-        );
+        let ball = nao.subscribe_value("BehaviorSimulator.main_outputs.ball.position");
         Self {
             ground_to_field,
             motion_command,

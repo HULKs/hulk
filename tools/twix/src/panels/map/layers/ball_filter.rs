@@ -4,29 +4,23 @@ use ball_filter::BallHypothesis;
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
-use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Ground;
-use linear_algebra::IntoFramed;
+use linear_algebra::Point;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct BallFilter {
-    ball_state: ValueBuffer,
+    ball_state: BufferHandle<Option<Option<BallHypothesis>>>,
 }
 
 impl Layer<Ground> for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let ball_state = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::Control,
-            output: Output::Additional {
-                path: "best_ball_hypothesis".to_string(),
-            },
-        });
+        let ball_state = nao.subscribe_value("Control.additional_outputs.best_ball_hypothesis");
         Self { ball_state }
     }
 
@@ -35,27 +29,13 @@ impl Layer<Ground> for BallFilter {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ball_state: BallHypothesis = self.ball_state.require_latest()?;
-
-        let stroke = Stroke::new(0.01, Color32::BLACK);
-        let resting_color = Color32::GRAY.gamma_multiply(0.5);
-        let moving_color = Color32::YELLOW.gamma_multiply(0.5);
-
-        let resting = ball_state.resting;
-        painter.covariance(
-            resting.mean.framed::<Ground>().as_point(),
-            resting.covariance,
-            stroke,
-            resting_color,
-        );
-
-        let moving = ball_state.moving;
-        painter.covariance(
-            moving.mean.xy().framed::<Ground>().as_point(),
-            moving.covariance.fixed_view::<2, 2>(0, 0).into_owned(),
-            stroke,
-            moving_color,
-        );
+        if let Some(state) = self.ball_state.get_last_value()?.flatten().flatten() {
+            let position = Point::from(state.mean.xy());
+            let covariance = state.covariance.fixed_view::<2, 2>(0, 0).into_owned();
+            let stroke = Stroke::new(0.01, Color32::BLACK);
+            let fill_color = Color32::from_rgba_unmultiplied(255, 255, 0, 100);
+            painter.covariance(position, covariance, stroke, fill_color);
+        }
 
         Ok(())
     }

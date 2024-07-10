@@ -6,7 +6,6 @@ use eframe::{
 };
 use serde_json::Value;
 
-use communication::client::CyclerOutput;
 use coordinate_systems::Ground;
 use linear_algebra::{point, Point2};
 use types::{
@@ -15,7 +14,7 @@ use types::{
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
 };
 
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 #[derive(PartialEq)]
 enum LookAtType {
@@ -29,8 +28,8 @@ pub struct LookAtPanel {
     look_at_target: Point2<Ground, f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
-    field_dimensions_buffer: ValueBuffer,
-    motion_command_buffer: ValueBuffer,
+    field_dimensions_buffer: BufferHandle<FieldDimensions>,
+    motion_command_buffer: BufferHandle<MotionCommand>,
 }
 
 const INJECTED_MOTION_COMMAND: &str = "behavior.injected_motion_command";
@@ -41,12 +40,8 @@ impl Panel for LookAtPanel {
     const NAME: &'static str = "Look At";
 
     fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
-        let field_dimensions_buffer = nao.subscribe_parameter("field_dimensions");
-        let motion_command_buffer = nao.subscribe_output(
-            CyclerOutput::from_str("Control.main_outputs.motion_command")
-                .expect("Failed to subscribe to main_outputs.motion_command"),
-        );
-
+        let field_dimensions_buffer = nao.subscribe_value("parameters.field_dimensions");
+        let motion_command_buffer = nao.subscribe_value("Control.main_outputs.motion_command");
         Self {
             nao,
             camera_position: Some(CameraPosition::Top),
@@ -71,7 +66,7 @@ impl Widget for &mut LookAtPanel {
 
             let current_motion_command: Option<MotionCommand> = match self
                 .motion_command_buffer
-                .parse_latest()
+                .get_last_value()?
             {
                 Ok(value) => {
                     status_text_job.append(

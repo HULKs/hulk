@@ -52,8 +52,9 @@ pub struct MainOutputs {
     pub cycle_time: MainOutput<CycleTime>,
     pub fall_state: MainOutput<FallState>,
     pub filtered_whistle: MainOutput<FilteredWhistle>,
-    pub game_controller_state: MainOutput<Option<GameControllerState>>,
     pub game_controller_address: MainOutput<Option<SocketAddr>>,
+    pub game_controller_state: MainOutput<Option<GameControllerState>>,
+    pub ground_to_field: MainOutput<Option<Isometry2<Ground, Field>>>,
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
     pub majority_vote_is_referee_ready_pose_detected: MainOutput<bool>,
@@ -63,11 +64,10 @@ pub struct MainOutputs {
     pub obstacles: MainOutput<Vec<Obstacle>>,
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub primary_state: MainOutput<PrimaryState>,
-    pub ground_to_field: MainOutput<Option<Isometry2<Ground, Field>>>,
     pub sensor_data: MainOutput<SensorData>,
-    pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
+    pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
 }
 
 impl FakeData {

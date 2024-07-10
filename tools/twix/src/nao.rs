@@ -1,121 +1,201 @@
-use std::{collections::BTreeSet, sync::Mutex};
-
-use communication::{
-    client::{Communication, ConnectionStatus, CyclerOutput},
-    messages::{Fields, Path},
+use std::{
+    path::PathBuf,
+    time::{Duration, SystemTime},
 };
 
+use bincode::deserialize;
+use color_eyre::{
+    eyre::{eyre, Context, OptionExt},
+    Report, Result,
+};
+use communication::{
+    client::{Connection, ConnectionHandle, PathsEvent, Status},
+    messages::{Path, TextOrBinary},
+};
+use log::{error, warn};
+use parameters::{directory::Scope, json::nest_value_at_path};
+use repository::{get_repository_root, Repository};
 use serde_json::Value;
 use tokio::{
     runtime::{Builder, Runtime},
     spawn,
-    sync::{broadcast::error::RecvError, watch},
 };
+use types::hardware::Ids;
 
-use crate::{change_buffer::ChangeBuffer, image_buffer::ImageBuffer, value_buffer::ValueBuffer};
+use crate::value_buffer::{Buffer, BufferHandle, Datum};
 
 pub struct Nao {
-    communication: Communication,
     runtime: Runtime,
-    address: Mutex<Option<String>>,
-    connection_status_receiver: watch::Receiver<ConnectionStatus>,
+    connection: ConnectionHandle,
+    repository: Option<Repository>,
 }
 
 impl Nao {
-    pub fn new(address: Option<String>, connect: bool) -> Self {
+    pub fn new(address: String) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
-        let _guard = runtime.enter();
-        let communication = Communication::new(
-            address
-                .as_ref()
-                .map(|ip_address| ip_address_to_communication_url(ip_address)),
-            connect,
-        );
-        let connection_status_receiver = communication.subscribe_connection_status_updates();
+
+        let (connection, handle) = Connection::new(address);
+        runtime.spawn(connection.run());
+
+        let repository = match runtime.block_on(get_repository_root()) {
+            Ok(root) => Some(Repository::new(root)),
+            Err(error) => {
+                warn!("{error:#}");
+                None
+            }
+        };
 
         Self {
-            communication,
             runtime,
-            address: Mutex::new(address),
-            connection_status_receiver,
+            connection: handle,
+            repository,
         }
     }
 
-    pub fn set_connect(&self, connect: bool) {
+    pub fn connect(&self) {
+        let connection = self.connection.clone();
         self.runtime
-            .block_on(self.communication.set_connect(connect))
+            .spawn(async move { connection.connect().await });
     }
 
-    pub fn set_address(&self, address: &str) {
-        {
-            let mut current_address = self.address.lock().unwrap();
-            *current_address = Some(address.to_string());
-        }
-        self.runtime.block_on(
-            self.communication
-                .set_address(ip_address_to_communication_url(address)),
-        );
-    }
-
-    pub fn subscribe_output(&self, output: CyclerOutput) -> ValueBuffer {
-        let _guard = self.runtime.enter();
-        ValueBuffer::output(self.communication.clone(), output)
-    }
-
-    pub fn subscribe_image(&self, output: CyclerOutput) -> ImageBuffer {
-        let _guard = self.runtime.enter();
-        ImageBuffer::new(self.communication.clone(), output)
-    }
-
-    pub fn subscribe_parameter(&self, path: &str) -> ValueBuffer {
-        let _guard = self.runtime.enter();
-        ValueBuffer::parameter(self.communication.clone(), path.to_string())
-    }
-
-    pub fn subscribe_changes(&self, output: CyclerOutput) -> ChangeBuffer {
-        let _guard = self.runtime.enter();
-        ChangeBuffer::output(self.communication.clone(), output)
-    }
-
-    pub fn get_address(&self) -> Option<String> {
-        self.address.lock().unwrap().clone()
-    }
-
-    pub fn get_output_fields(&self) -> Option<Fields> {
+    pub fn disconnect(&self) {
+        let connection = self.connection.clone();
         self.runtime
-            .block_on(self.communication.get_output_fields())
+            .spawn(async move { connection.disconnect().await });
     }
 
-    pub fn get_parameter_fields(&self) -> Option<BTreeSet<Path>> {
+    pub fn connection_status(&self) -> Status {
         self.runtime
-            .block_on(self.communication.get_parameter_fields())
+            .block_on(async { self.connection.status().await })
     }
 
-    pub fn update_parameter_value(&self, path: &str, value: Value) {
-        self.runtime
-            .block_on(self.communication.update_parameter_value(path, value));
+    pub fn set_address(&self, address: String) {
+        let connection = self.connection.clone();
+        self.runtime.spawn(async move {
+            connection.set_address(address).await;
+        });
     }
 
-    pub fn connection_status(&self) -> ConnectionStatus {
-        self.connection_status_receiver.borrow().clone()
+    pub fn latest_paths(&self) -> PathsEvent {
+        self.connection.paths.borrow().clone()
     }
 
-    pub fn on_update<F>(&self, callback: F)
+    pub fn blocking_read<T>(
+        &self,
+        path: impl Into<Path>,
+    ) -> Result<(SystemTime, T), color_eyre::eyre::Error>
     where
-        F: Fn() + Sync + Send + 'static,
+        for<'de> T: serde::Deserialize<'de> + Send + Sync + 'static,
     {
-        let _guard = self.runtime.enter();
+        let (timestamp, bytes) = self
+            .runtime
+            .block_on(self.connection.read_binary(path.into()))?;
+        let value = deserialize(&bytes)?;
+        Ok((timestamp, value))
+    }
 
-        let communication = self.communication.clone();
+    pub fn subscribe_json(&self, path: impl Into<Path>) -> BufferHandle<Value> {
+        self.subscribe_buffered_json(path, Duration::ZERO)
+    }
+
+    pub fn subscribe_buffered_json(
+        &self,
+        path: impl Into<Path>,
+        history: Duration,
+    ) -> BufferHandle<Value> {
+        let path = path.into();
+        let _guard = self.runtime.enter();
+        let (task, buffer) = Buffer::new(history);
+        let connection = self.connection.clone();
         spawn(async move {
-            let mut receiver = communication.subscribe_updates();
-            while !matches!(receiver.recv().await, Err(RecvError::Closed)) {
-                callback();
+            let subscription = connection.subscribe_text(path).await;
+            task.map(subscription, |datum| -> Result<_, Report> {
+                let datum = datum.map_err(|error| eyre!("{error:#}"))?;
+                Ok(Datum {
+                    timestamp: datum.timestamp,
+                    value: datum.value.clone(),
+                })
+            })
+            .await;
+        });
+        buffer
+    }
+
+    pub fn subscribe_value<T>(&self, path: impl Into<Path>) -> BufferHandle<T>
+    where
+        for<'de> T: serde::Deserialize<'de> + Send + Sync + 'static,
+    {
+        self.subscribe_buffered_value(path, Duration::ZERO)
+    }
+
+    pub fn subscribe_buffered_value<T>(
+        &self,
+        path: impl Into<Path>,
+        history: Duration,
+    ) -> BufferHandle<T>
+    where
+        for<'de> T: serde::Deserialize<'de> + Send + Sync + 'static,
+    {
+        let path = path.into();
+        let _guard = self.runtime.enter();
+        let (task, buffer) = Buffer::new(history);
+        let connection = self.connection.clone();
+        spawn(async move {
+            let subscription = connection.subscribe_binary(path).await;
+            task.map(subscription, |datum| -> Result<_, Report> {
+                let datum = datum.map_err(|error| eyre!("protocol: {error:#}"))?;
+                Ok(Datum {
+                    timestamp: datum.timestamp,
+                    value: deserialize(datum.value).wrap_err("bincode deserialization failed")?,
+                })
+            })
+            .await;
+        });
+        buffer
+    }
+
+    pub fn write(&self, path: impl Into<Path>, value: TextOrBinary) {
+        let connection = self.connection.clone();
+        let path = path.into();
+        self.runtime.spawn(async move {
+            if let Err(error) = connection.write(path, value).await {
+                error!("{error:#}")
             }
         });
     }
+
+    pub fn on_change(&self, callback: impl Fn() + Send + Sync + 'static) {
+        let _guard = self.runtime.enter();
+        self.connection.on_change(callback)
+    }
+
+    pub fn store_parameters(&self, path: &str, value: Value, scope: Scope) -> Result<()> {
+        let connection = self.connection.clone();
+        let root = self
+            .repository
+            .as_ref()
+            .ok_or_eyre("repository not available, cannot store parameters")?
+            .parameters_root();
+        self.runtime.block_on(async {
+            if let Err(error) = store_parameters(&connection, path, value, scope, root).await {
+                error!("{error:#}")
+            }
+        });
+        Ok(())
+    }
 }
 
-fn ip_address_to_communication_url(ip_address: &str) -> String {
-    format!("ws://{ip_address}:1337")
+async fn store_parameters(
+    connection: &ConnectionHandle,
+    path: &str,
+    value: Value,
+    scope: Scope,
+    root: PathBuf,
+) -> Result<()> {
+    let (_, bytes) = connection.read_binary("hardware_ids").await?;
+    let ids: Ids = bincode::deserialize(&bytes).wrap_err("bincode deserialization failed")?;
+    let parameters = nest_value_at_path(path, value);
+    parameters::directory::serialize(&parameters, scope, path, root, &ids)
+        .wrap_err("serialization failed")?;
+    Ok(())
 }

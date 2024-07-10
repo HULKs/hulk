@@ -1,41 +1,37 @@
-use std::str::FromStr;
-
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput};
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
 use linear_algebra::point;
 
 use crate::{
-    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
+    twix_painter::TwixPainter,
+    value_buffer::BufferHandle,
 };
 
 pub struct Horizon {
-    horizon: ValueBuffer,
+    horizon: BufferHandle<Option<projection::horizon::Horizon>>,
 }
 
 impl Overlay for Horizon {
     const NAME: &'static str = "Horizon";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: Cycler) -> Self {
+    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
         let camera_position = match selected_cycler {
-            Cycler::VisionTop => "top",
-            Cycler::VisionBottom => "bottom",
-            cycler => panic!("Invalid vision cycler: {cycler}"),
+            VisionCycler::Top => "top",
+            VisionCycler::Bottom => "bottom",
         };
         Self {
-            horizon: nao.subscribe_output(
-                CyclerOutput::from_str(&format!(
-                    "Control.main.camera_matrices.{}.horizon",
-                    camera_position,
-                ))
-                .unwrap(),
-            ),
+            horizon: nao.subscribe_value(format!(
+                "Control.main_outputs.camera_matrices.{camera_position}.horizon",
+            )),
         }
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        let horizon: projection::horizon::Horizon = self.horizon.require_latest()?;
+        let Some(horizon) = self.horizon.get_last_value()?.flatten() else {
+            return Ok(());
+        };
 
         let left_horizon_height = horizon.y_at_x(0.0);
         let right_horizon_height = horizon.y_at_x(640.0);

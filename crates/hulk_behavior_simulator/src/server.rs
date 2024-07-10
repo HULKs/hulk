@@ -1,6 +1,6 @@
 use std::{
     path::Path,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
@@ -9,12 +9,16 @@ use crate::{
     simulator::{Frame, Simulator},
     state::Ball,
 };
-use color_eyre::{eyre::bail, owo_colors::OwoColorize, Result};
+use color_eyre::{
+    eyre::{Context, Error},
+    owo_colors::OwoColorize,
+    Result,
+};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use tokio::{net::ToSocketAddrs, select, time::interval};
 use tokio_util::sync::CancellationToken;
-use types::{field_dimensions::FieldDimensions, players::Players};
+use types::{field_dimensions::FieldDimensions, hardware::Ids, players::Players};
 
 #[derive(Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 struct Parameters {
@@ -37,9 +41,9 @@ struct BehaviorSimulatorDatabase {
 
 async fn timeline_server(
     keep_running: CancellationToken,
-    mut parameters_reader: buffered_watch::Receiver<Parameters>,
-    mut outputs_writer: buffered_watch::Sender<BehaviorSimulatorDatabase>,
-    mut control_writer: buffered_watch::Sender<Database>,
+    mut parameters_reader: buffered_watch::Receiver<(SystemTime, Parameters)>,
+    mut outputs_writer: buffered_watch::Sender<(SystemTime, BehaviorSimulatorDatabase)>,
+    mut control_writer: buffered_watch::Sender<(SystemTime, Database)>,
     frames: Vec<Frame>,
 ) {
     // Hack to provide frame count to clients initially.
@@ -56,10 +60,10 @@ async fn timeline_server(
             }
         }
 
-        let parameters = parameters_reader.borrow_and_mark_as_seen();
+        let (_, parameters) = &*parameters_reader.borrow_and_mark_as_seen();
 
         {
-            let mut outputs = outputs_writer.borrow_mut();
+            let (_, outputs) = &mut *outputs_writer.borrow_mut();
             outputs.main_outputs.frame_count = frames.len();
             let frame = &frames[parameters.selected_frame];
             outputs.main_outputs.ball.clone_from(&frame.ball);
@@ -67,7 +71,7 @@ async fn timeline_server(
         }
 
         {
-            let mut control = control_writer.borrow_mut();
+            let (_, control) = &mut *control_writer.borrow_mut();
             *control = to_player_number(parameters.selected_robot)
                 .ok()
                 .and_then(|player_number| {
@@ -79,38 +83,32 @@ async fn timeline_server(
 }
 
 pub fn run(
-    addresses: Option<impl ToSocketAddrs + Send + Sync + 'static>,
+    addresses: impl ToSocketAddrs + Send + Sync + 'static,
     keep_running: CancellationToken,
     scenario_file: impl AsRef<Path>,
 ) -> Result<()> {
-    let communication_server = communication::server::Runtime::<Parameters>::start(
-        addresses,
-        "crates/hulk_behavior_simulator",
-        "behavior_simulator".to_string(),
-        "behavior_simulator".to_string(),
-        keep_running.clone(),
-    )?;
+    let ids = Ids {
+        body_id: "behavior_simulator".to_string(),
+        head_id: "behavior_simulator".to_string(),
+    };
+    let parameters_from_disk: Parameters =
+        parameters::directory::deserialize("crates/hulk_behavior_simulator", &ids)
+            .wrap_err("failed to parse initial parameters")?;
+    let initial_parameters = parameters_from_disk;
+    let (parameters_sender, parameters_receiver) =
+        buffered_watch::channel((std::time::SystemTime::now(), initial_parameters));
 
-    let (outputs_writer, outputs_reader) = buffered_watch::channel(Default::default());
+    let (outputs_sender, outputs_receiver) =
+        buffered_watch::channel((UNIX_EPOCH, Default::default()));
 
-    let (subscribed_outputs_writer, _subscribed_outputs_reader) =
+    let (subscribed_outputs_sender, _subscribed_outputs_receiver) =
         buffered_watch::channel(Default::default());
 
-    communication_server.register_cycler_instance(
-        "BehaviorSimulator",
-        outputs_reader,
-        subscribed_outputs_writer,
-    );
-
-    let (control_writer, control_reader) = buffered_watch::channel(Default::default());
+    let (control_writer, control_reader) =
+        buffered_watch::channel((UNIX_EPOCH, Default::default()));
 
     let (subscribed_control_writer, _subscribed_control_reader) =
         buffered_watch::channel(Default::default());
-    communication_server.register_cycler_instance(
-        "Control",
-        control_reader,
-        subscribed_control_writer,
-    );
 
     let mut simulator = Simulator::try_new()?;
     simulator.execute_script(scenario_file)?;
@@ -125,13 +123,40 @@ pub fn run(
     let frames = simulator.frames;
 
     let runtime = tokio::runtime::Runtime::new()?;
+    let communication_server = {
+        let parameters_receiver = parameters_receiver.clone();
+        runtime.block_on(async {
+            let mut communication_server = communication::server::Server::default();
+            let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
+            communication_server.expose_source(
+                "BehaviorSimulator",
+                outputs_receiver,
+                subscribed_outputs_sender,
+            )?;
+            communication_server.expose_source(
+                "Control",
+                control_reader,
+                subscribed_control_writer,
+            )?;
+            communication_server.expose_source(
+                "parameters",
+                parameters_receiver,
+                parameters_subscriptions,
+            )?;
+            communication_server.expose_sink("parameters", parameters_sender)?;
+            Ok::<_, Error>(communication_server)
+        })?
+    };
+    let communication_task = {
+        let keep_running = keep_running.clone();
+        runtime.spawn(async { communication_server.serve(addresses, keep_running).await })
+    };
     {
-        let parameters_reader = communication_server.get_parameters_receiver();
         runtime.spawn(async {
             timeline_server(
                 keep_running,
-                parameters_reader,
-                outputs_writer,
+                parameters_receiver,
+                outputs_sender,
                 control_writer,
                 frames,
             )
@@ -139,21 +164,6 @@ pub fn run(
         });
     }
 
-    let mut encountered_error = false;
-    match communication_server.join() {
-        Ok(Err(error)) => {
-            encountered_error = true;
-            println!("{error:?}");
-        }
-        Err(error) => {
-            encountered_error = true;
-            println!("{error:?}");
-        }
-        _ => {}
-    }
-
-    if encountered_error {
-        bail!("at least one cycler exited with error");
-    }
+    runtime.block_on(communication_task)??;
     Ok(())
 }

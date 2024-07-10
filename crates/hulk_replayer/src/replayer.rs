@@ -36,11 +36,8 @@ pub fn replayer() -> Result<()> {
 
     let file =
         File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
-    let mut framework_parameters: FrameworkParameters =
+    let framework_parameters: FrameworkParameters =
         from_reader(file).wrap_err("failed to parse framework parameters")?;
-    if framework_parameters.communication_addresses.is_none() {
-        framework_parameters.communication_addresses = Some("[::1]:1337".to_string());
-    }
 
     let hardware_interface = ReplayerHardwareInterface {
         ids: Ids {
@@ -54,8 +51,7 @@ pub fn replayer() -> Result<()> {
     let replayer = Replayer::new(
         Arc::new(hardware_interface),
         replay_path.clone(),
-        ids.body_id,
-        ids.head_id,
+        ids,
         replay_path,
         framework_parameters.communication_addresses,
         keep_running,

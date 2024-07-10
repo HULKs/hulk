@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Field;
 use eframe::{
     emath::Align2,
@@ -10,38 +9,29 @@ use eframe::{
 use types::{field_dimensions::FieldDimensions, pose_kinds::PoseKindPosition};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct PoseDetection {
-    rejected_pose_kind_positions: ValueBuffer,
-    accepted_pose_kind_positions: ValueBuffer,
-    referee_pose_kind_position: ValueBuffer,
+    accepted_pose_kind_positions: BufferHandle<Option<Vec<PoseKindPosition<Field>>>>,
+    rejected_pose_kind_positions: BufferHandle<Option<Vec<PoseKindPosition<Field>>>>,
+    referee_pose_kind_position: BufferHandle<Option<Option<PoseKindPosition<Field>>>>,
 }
 
 impl Layer<Field> for PoseDetection {
     const NAME: &'static str = "Pose Positions";
 
     fn new(nao: Arc<Nao>) -> Self {
+        let accepted_pose_kind_positions = nao
+            .subscribe_value("ObjectDetectionTop.additional_outputs.accepted_pose_kind_positions");
+        let rejected_pose_kind_positions = nao
+            .subscribe_value("ObjectDetectionTop.additional_outputs.rejected_pose_kind_positions");
+        let referee_pose_kind_position =
+            nao.subscribe_value("ObjectDetectionTop.additional_outputs.referee_pose_kind_position");
         Self {
-            rejected_pose_kind_positions: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::ObjectDetectionTop,
-                output: Output::Additional {
-                    path: "rejected_pose_kind_positions".to_string(),
-                },
-            }),
-            accepted_pose_kind_positions: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::ObjectDetectionTop,
-                output: Output::Additional {
-                    path: "accepted_pose_kind_positions".to_string(),
-                },
-            }),
-            referee_pose_kind_position: nao.subscribe_output(CyclerOutput {
-                cycler: Cycler::ObjectDetectionTop,
-                output: Output::Additional {
-                    path: "referee_pose_kind_position".to_string(),
-                },
-            }),
+            accepted_pose_kind_positions,
+            rejected_pose_kind_positions,
+            referee_pose_kind_position,
         }
     }
 
@@ -50,12 +40,25 @@ impl Layer<Field> for PoseDetection {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let rejected_pose_kind_positions: Vec<PoseKindPosition<Field>> =
-            self.rejected_pose_kind_positions.parse_latest()?;
-        let accepted_pose_kind_positions: Vec<PoseKindPosition<Field>> =
-            self.accepted_pose_kind_positions.parse_latest()?;
-        let referee_pose_kind_position: Option<PoseKindPosition<Field>> =
-            self.referee_pose_kind_position.parse_latest()?;
+        let Some(accepted_pose_kind_positions) = self
+            .accepted_pose_kind_positions
+            .get_last_value()?
+            .flatten()
+        else {
+            return Ok(());
+        };
+        let Some(rejected_pose_kind_positions) = self
+            .rejected_pose_kind_positions
+            .get_last_value()?
+            .flatten()
+        else {
+            return Ok(());
+        };
+        let Some(referee_pose_kind_position) =
+            self.referee_pose_kind_position.get_last_value()?.flatten()
+        else {
+            return Ok(());
+        };
 
         for pose_kind_position in rejected_pose_kind_positions {
             draw_pose_kind_position(painter, pose_kind_position, Color32::RED)?;

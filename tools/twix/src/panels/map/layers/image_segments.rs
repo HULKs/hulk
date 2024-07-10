@@ -1,40 +1,33 @@
-use std::str::FromStr;
-
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
-use communication::client::CyclerOutput;
 use coordinate_systems::Ground;
 use linear_algebra::{center, point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{color::Rgb, field_dimensions::FieldDimensions};
 
-use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer};
+use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle};
 
 pub struct ImageSegments {
-    image_segments_bottom: ValueBuffer,
-    camera_matrix_bottom: ValueBuffer,
-    image_segments_top: ValueBuffer,
-    camera_matrix_top: ValueBuffer,
+    camera_matrix_bottom: BufferHandle<Option<CameraMatrix>>,
+    image_segments_bottom: BufferHandle<types::image_segments::ImageSegments>,
+    camera_matrix_top: BufferHandle<Option<CameraMatrix>>,
+    image_segments_top: BufferHandle<types::image_segments::ImageSegments>,
 }
 
 impl Layer<Ground> for ImageSegments {
     const NAME: &'static str = "Image Segments";
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
-        let image_segments_bottom = nao
-            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.image_segments").unwrap());
-        let camera_matrix_bottom = nao
-            .subscribe_output(CyclerOutput::from_str("VisionBottom.main.camera_matrix").unwrap());
-        let image_segments_top =
-            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.image_segments").unwrap());
-        let camera_matrix_top =
-            nao.subscribe_output(CyclerOutput::from_str("VisionTop.main.camera_matrix").unwrap());
+        let camera_matrix_bottom = nao.subscribe_value("VisionBottom.main_outputs.camera_matrix");
+        let image_segments_bottom = nao.subscribe_value("VisionBottom.main_outputs.image_segments");
+        let camera_matrix_top = nao.subscribe_value("VisionTop.main_outputs.camera_matrix");
+        let image_segments_top = nao.subscribe_value("VisionTop.main_outputs.image_segments");
         Self {
-            image_segments_bottom,
             camera_matrix_bottom,
-            image_segments_top,
+            image_segments_bottom,
             camera_matrix_top,
+            image_segments_top,
         }
     }
 
@@ -43,16 +36,22 @@ impl Layer<Ground> for ImageSegments {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        paint_segments(
-            painter,
-            &self.camera_matrix_bottom.require_latest()?,
-            &self.image_segments_bottom.require_latest()?,
-        )?;
-        paint_segments(
-            painter,
-            &self.camera_matrix_top.require_latest()?,
-            &self.image_segments_top.require_latest()?,
-        )?;
+        let Some(camera_matrix_bottom) = self.camera_matrix_bottom.get_last_value()?.flatten()
+        else {
+            return Ok(());
+        };
+        let Some(image_segments_bottom) = self.image_segments_bottom.get_last_value()? else {
+            return Ok(());
+        };
+        let Some(camera_matrix_top) = self.camera_matrix_top.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        let Some(image_segments_top) = self.image_segments_top.get_last_value()? else {
+            return Ok(());
+        };
+
+        paint_segments(painter, &camera_matrix_bottom, &image_segments_bottom)?;
+        paint_segments(painter, &camera_matrix_top, &image_segments_top)?;
         Ok(())
     }
 }
