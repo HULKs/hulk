@@ -82,9 +82,13 @@ async fn upload_with_progress(
 
     if !arguments.no_restart {
         progress.set_message("Restarting HULK...");
-        nao.execute_systemctl(SystemctlAction::Start, "hulk")
-            .await
-            .wrap_err_with(|| format!("failed to start HULK service on {nao_address}"))?;
+        if let Err(error) = nao.execute_systemctl(SystemctlAction::Start, "hulk").await {
+            let logs = nao
+                .retrieve_logs()
+                .await
+                .wrap_err("failed to retrieve logs")?;
+            bail!("failed to restart hulk: {error:#?}\nLogs:\n{logs}")
+        };
     }
     Ok(())
 }
