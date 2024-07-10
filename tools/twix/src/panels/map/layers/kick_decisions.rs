@@ -14,8 +14,8 @@ use crate::{
 };
 
 pub struct KickDecisions {
-    kick_decisions: BufferHandle<Vec<KickDecision>>,
-    instant_kick_decisions: BufferHandle<Vec<KickDecision>>,
+    kick_decisions: BufferHandle<Option<Vec<KickDecision>>>,
+    instant_kick_decisions: BufferHandle<Option<Vec<KickDecision>>>,
     kick_opportunities: BufferHandle<Vec<KickTargetWithKickVariants>>,
     instant_kick_targets: BufferHandle<Option<Vec<Point2<Ground>>>>,
 }
@@ -54,7 +54,7 @@ impl Layer<Ground> for KickDecisions {
 
 impl KickDecisions {
     fn draw_kick_decisions(&self, painter: &TwixPainter<Ground>) -> Result<()> {
-        let Some(kick_decisions) = self.kick_decisions.get_last_value()? else {
+        let Some(kick_decisions) = self.kick_decisions.get_last_value()?.flatten() else {
             return Ok(());
         };
         let best_kick_decision = kick_decisions.first();
@@ -78,7 +78,8 @@ impl KickDecisions {
     }
 
     fn draw_instant_kick_decisions(&self, painter: &TwixPainter<Ground>) -> Result<()> {
-        let Some(instant_kick_decisions) = self.instant_kick_decisions.get_last_value()? else {
+        let Some(instant_kick_decisions) = self.instant_kick_decisions.get_last_value()?.flatten()
+        else {
             return Ok(());
         };
         draw_kick_pose(
