@@ -8,8 +8,11 @@ use parking_lot::Mutex;
 
 use buffered_watch::{Receiver, Sender};
 use color_eyre::Result;
-use hardware::{NetworkInterface, RecordingInterface, TimeInterface};
-use types::messages::{IncomingMessage, OutgoingMessage};
+use hardware::{NetworkInterface, RecordingInterface, SpeakerInterface, TimeInterface};
+use types::{
+    audio::SpeakerRequest,
+    messages::{IncomingMessage, OutgoingMessage},
+};
 
 use crate::{cyclers::control::Database, HardwareInterface};
 
@@ -56,6 +59,10 @@ impl TimeInterface for Interfake {
     fn get_now(&self) -> SystemTime {
         self.time
     }
+}
+
+impl SpeakerInterface for Interfake {
+    fn write_to_speakers(&self, _request: SpeakerRequest) {}
 }
 
 pub trait FakeDataInterface {
