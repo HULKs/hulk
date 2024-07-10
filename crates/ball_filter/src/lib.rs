@@ -60,6 +60,10 @@ impl BallFilter {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.hypotheses.clear()
+    }
+
     pub fn update(
         &mut self,
         detection_time: SystemTime,
