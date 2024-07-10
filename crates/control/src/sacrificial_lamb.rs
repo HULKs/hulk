@@ -12,7 +12,7 @@ use types::{cycle_time::CycleTime, messages::IncomingMessage, pose_detection::Vi
 
 #[derive(Deserialize, Serialize)]
 pub struct SacrificialLamb {
-    last_majority_vote: bool,
+    last_majority_vote_verdict: bool,
     visual_referee_state: VisualRefereeState,
     motion_in_standby_count: usize,
 }
@@ -47,7 +47,7 @@ pub struct MainOutputs {
 impl SacrificialLamb {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_majority_vote: false,
+            last_majority_vote_verdict: false,
             visual_referee_state: VisualRefereeState::WaitingForDetections,
             motion_in_standby_count: 0,
         })
@@ -81,9 +81,9 @@ impl SacrificialLamb {
             })
             .max();
 
-        let majority_vote_detected_now =
-            !self.last_majority_vote && *context.majority_vote_is_referee_ready_pose_detected;
-        self.last_majority_vote = *context.majority_vote_is_referee_ready_pose_detected;
+        let current_majority_vote_verdict = !self.last_majority_vote_verdict
+            && *context.majority_vote_is_referee_ready_pose_detected;
+        self.last_majority_vote_verdict = *context.majority_vote_is_referee_ready_pose_detected;
 
         let motion_in_standby =
             new_motion_in_standby_count.map_or(false, |new_motion_in_standby_count| {
@@ -94,7 +94,7 @@ impl SacrificialLamb {
 
         self.visual_referee_state = match (
             self.visual_referee_state,
-            majority_vote_detected_now,
+            current_majority_vote_verdict,
             motion_in_standby,
         ) {
             (VisualRefereeState::WaitingForDetections, true, motion_in_standby) => {
