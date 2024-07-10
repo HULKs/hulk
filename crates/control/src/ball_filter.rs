@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, time::SystemTime};
 
 use color_eyre::Result;
-use hardware::TimeInterface;
 use nalgebra::{Matrix2, Matrix4};
 use serde::{Deserialize, Serialize};
 
@@ -23,14 +22,11 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
-    last_predict_time: SystemTime,
     ball_filter: BallFiltering,
 }
 
 #[context]
-pub struct CreationContext {
-    hardware_interface: HardwareInterface,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -46,6 +42,7 @@ pub struct CycleContext {
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
     had_ground_contact: HistoricInput<bool, "has_ground_contact">,
+    historic_cycle_times: HistoricInput<CycleTime, "cycle_time">,
 
     camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -67,10 +64,9 @@ pub struct MainOutputs {
 }
 
 impl BallFilter {
-    pub fn new(context: CreationContext<impl TimeInterface>) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             ball_filter: Default::default(),
-            last_predict_time: context.hardware_interface.get_now(),
         })
     }
 
@@ -81,17 +77,16 @@ impl BallFilter {
         current_to_last_odometry: HistoricInput<Option<&nalgebra::Isometry2<f32>>>,
         camera_matrices: HistoricInput<Option<&CameraMatrices>>,
         had_ground_contact: HistoricInput<&bool>,
+        historic_cycle_times: HistoricInput<&CycleTime>,
         projected_limbs: PerceptionInput<Vec<Option<&ProjectedLimbs>>>,
         filter_parameters: &BallFilterParameters,
         field_dimensions: &FieldDimensions,
         cycle_time: &CycleTime,
     ) -> Vec<BallHypothesis> {
         for (detection_time, balls) in measurements {
-            let delta_time = detection_time
-                .duration_since(self.last_predict_time)
-                .expect("time ran backwards");
-            self.last_predict_time = detection_time;
-
+            let delta_time = historic_cycle_times
+                .get(&detection_time)
+                .last_cycle_duration;
             let current_to_last_odometry: Isometry2<Ground, Ground> = current_to_last_odometry
                 .get(&detection_time)
                 .copied()
@@ -196,6 +191,7 @@ impl BallFilter {
             context.current_odometry_to_last_odometry,
             context.historic_camera_matrices,
             context.had_ground_contact,
+            context.historic_cycle_times,
             context.projected_limbs,
             filter_parameters,
             context.field_dimensions,
