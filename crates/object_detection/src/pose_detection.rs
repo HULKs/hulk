@@ -7,18 +7,19 @@ use color_eyre::{
     eyre::{bail, eyre, Context, ContextCompat},
     Result,
 };
-use context_attribute::context;
-use coordinate_systems::Pixel;
-use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
-use geometry::rectangle::Rectangle;
-use hardware::PathsInterface;
 use itertools::Itertools;
-use linear_algebra::{point, vector};
 use ndarray::{s, ArrayView};
 use openvino::{
     CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, Tensor,
 };
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::Pixel;
+use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
+use geometry::rectangle::Rectangle;
+use hardware::PathsInterface;
+use linear_algebra::{point, vector};
 use types::{
     bounding_box::BoundingBox,
     color::Rgb,
@@ -55,16 +56,16 @@ pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
     motion_command: Input<MotionCommand, "Control", "motion_command">,
 
-    intersection_over_union_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.intersection_over_union_threshold">,
-    keypoint_confidence_threshold:
-        Parameter<f32, "object_detection.$cycler_instance.keypoint_confidence_threshold">,
+    maximum_intersection_over_union:
+        Parameter<f32, "pose_detection.maximum_intersection_over_union">,
+    minimum_bounding_box_confidence:
+        Parameter<f32, "pose_detection.minimum_bounding_box_confidence">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub human_poses: MainOutput<Vec<HumanPose>>,
+    pub unfiltered_human_poses: MainOutput<Vec<HumanPose>>,
 }
 
 impl PoseDetection {
@@ -159,7 +160,7 @@ impl PoseDetection {
             .into_iter()
             .filter_map(|row| {
                 let confidence = row[4];
-                if confidence < *context.keypoint_confidence_threshold {
+                if confidence < *context.minimum_bounding_box_confidence {
                     return None;
                 }
                 let bounding_box_slice = row.slice(s![0..4]);
@@ -175,7 +176,7 @@ impl PoseDetection {
 
                 let bounding_box = BoundingBox {
                     area: Rectangle::<Pixel>::new_with_center_and_size(center, size),
-                    score: confidence,
+                    confidence,
                 };
 
                 let keypoints_slice = row.slice(s![5..]);
@@ -188,7 +189,7 @@ impl PoseDetection {
             })
             .collect_vec();
 
-        let poses = non_maximum_suppression(poses, *context.intersection_over_union_threshold);
+        let poses = non_maximum_suppression(poses, *context.maximum_intersection_over_union);
 
         context.postprocess_duration.fill_if_subscribed(|| {
             SystemTime::now()
@@ -197,7 +198,7 @@ impl PoseDetection {
         });
 
         Ok(MainOutputs {
-            human_poses: poses.into(),
+            unfiltered_human_poses: poses.into(),
         })
     }
 }
@@ -221,14 +222,14 @@ fn load_into_scratchpad(scratchpad: &mut [f32], image: &YCbCr422Image) {
 
 fn non_maximum_suppression(
     mut candidate_pose: Vec<HumanPose>,
-    intersection_over_union_threshold: f32,
+    maximum_intersection_over_union: f32,
 ) -> Vec<HumanPose> {
     let mut poses = Vec::new();
     candidate_pose.sort_unstable_by(|pose1, pose2| {
         pose1
             .bounding_box
-            .score
-            .total_cmp(&pose2.bounding_box.score)
+            .confidence
+            .total_cmp(&pose2.bounding_box.confidence)
     });
 
     while let Some(detection) = candidate_pose.pop() {
@@ -238,7 +239,7 @@ fn non_maximum_suppression(
                 detection
                     .bounding_box
                     .intersection_over_union(&detection_candidate.bounding_box)
-                    < intersection_over_union_threshold
+                    < maximum_intersection_over_union
             })
             .collect_vec();
 

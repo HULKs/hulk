@@ -5,10 +5,11 @@ use std::{
 };
 
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use serde::{Deserialize, Serialize};
 use spl_network_messages::{HulkMessage, PlayerNumber, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
@@ -28,16 +29,15 @@ pub struct RefereePoseDetectionFilter {
 
 #[context]
 pub struct CreationContext {
-    referee_pose_queue_length:
-        Parameter<usize, "object_detection.object_detection_top.referee_pose_queue_length">,
+    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
 }
 
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
-    detected_referee_pose_kind:
-        PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "detected_referee_pose_kind?">,
+    referee_pose_kind:
+        PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "referee_pose_kind?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -47,17 +47,12 @@ pub struct CycleContext {
     minimum_above_head_arms_detections:
         Parameter<usize, "referee_pose_detection_filter.minimum_above_head_arms_detections">,
     player_number: Parameter<PlayerNumber, "player_number">,
+    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
+    minimum_number_poses_before_message:
+        Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
 
     player_referee_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
-
-    referee_pose_queue_length:
-        Parameter<usize, "object_detection.object_detection_top.referee_pose_queue_length">,
-    minimum_number_poses_before_message: Parameter<
-        usize,
-        "object_detection.object_detection_top.minimum_number_poses_before_message",
-    >,
-
     referee_pose_queue: AdditionalOutput<VecDeque<bool>, "referee_pose_queue">,
 }
 
@@ -121,7 +116,7 @@ impl RefereePoseDetectionFilter {
             self.detection_times[message.player_number] = Some(time);
         }
         let own_detected_pose_times =
-            unpack_own_detection_tree(&context.detected_referee_pose_kind.persistent);
+            unpack_own_detection_tree(&context.referee_pose_kind.persistent);
         let mut did_detect_any_referee_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
