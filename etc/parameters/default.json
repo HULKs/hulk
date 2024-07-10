@@ -1167,8 +1167,8 @@
       "keeper_x_offset": 0.1,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_pose": {
-        "translation": [0.0, 0.3],
-        "rotation": [0.0, -1.0]
+        "translation": [-0.1, 0.1],
+        "rotation": [0.707, -0.707]
       }
     },
     "dribbling": {
