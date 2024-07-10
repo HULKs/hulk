@@ -73,3 +73,10 @@ fn dynamic_number_of_readers() {
         assert_eq!(*slot, 42);
     }
 }
+
+#[test]
+fn sender_guard_dropped_without_receivers() {
+    let (mut writer, reader) = channel(0);
+    drop(reader);
+    writer.borrow_mut();
+}
