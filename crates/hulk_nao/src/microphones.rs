@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, thread::sleep, time::Duration};
 
 use alsa::{
     pcm::{Access, Format, HwParams},
@@ -32,8 +32,14 @@ impl Microphones {
                 Ok(samples) => return Ok(samples),
                 Err(error) => {
                     warn!("failed to read from microphones: {error:#?}");
-                    self.device =
-                        create_device(&self.parameters).wrap_err("failed to create device")?;
+                    sleep(self.parameters.retry_sleep_duration);
+                    self.device = match create_device(&self.parameters) {
+                        Ok(device) => device,
+                        Err(error) => {
+                            warn!("failed to create device: {error:#?}");
+                            continue;
+                        }
+                    };
                 }
             }
         }
@@ -102,6 +108,7 @@ pub struct Parameters {
     number_of_channels: usize,
     number_of_samples: usize,
     number_of_retries: usize,
+    retry_sleep_duration: Duration,
 
     #[serde(deserialize_with = "deserialize_access")]
     access: Access,
