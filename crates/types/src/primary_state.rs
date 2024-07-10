@@ -18,6 +18,9 @@ use serde::{Deserialize, Serialize};
 pub enum PrimaryState {
     #[default]
     Unstiff,
+    Animation {
+        stiff: bool,
+    },
     Initial,
     Ready,
     Set,

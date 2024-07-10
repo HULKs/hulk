@@ -1,3 +1,4 @@
+mod animation;
 mod calibrate;
 mod defend;
 mod dribble;

@@ -31,7 +31,7 @@ use types::{
 use crate::dribble_path_planner;
 
 use super::{
-    calibrate,
+    animation, calibrate,
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
@@ -128,6 +128,7 @@ impl Behavior {
 
         let mut actions = vec![
             Action::Unstiff,
+            Action::Animation,
             Action::SitDown,
             Action::Penalize,
             Action::Initial,
@@ -251,6 +252,7 @@ impl Behavior {
             .iter()
             .find_map(|action| {
                 let motion_command = match action {
+                    Action::Animation => animation::execute(world_state),
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),

@@ -1,3 +1,4 @@
+pub mod animation;
 pub mod arms_up_squat;
 pub mod command_sender;
 pub mod condition_input_provider;

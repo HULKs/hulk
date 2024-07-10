@@ -21,6 +21,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    animation_commands: Input<MotorCommands<Joints<f32>>, "animation_commands">,
     arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
     dispatching_command: Input<MotorCommands<Joints<f32>>, "dispatching_command">,
     fall_protection_command: Input<MotorCommands<Joints<f32>>, "fall_protection_command">,
@@ -63,6 +64,7 @@ impl MotorCommandCollector {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let measured_positions = context.sensor_data.positions;
+        let animation = context.animation_commands;
         let dispatching_command = context.dispatching_command;
         let fall_protection_positions = context.fall_protection_command.positions;
         let fall_protection_stiffnesses = context.fall_protection_command.stiffnesses;
@@ -79,6 +81,8 @@ impl MotorCommandCollector {
         let walk = context.walk_motor_commands;
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
+            MotionType::Animation => (animation.positions, animation.stiffnesses),
+            MotionType::AnimationStiff => (animation.positions, animation.stiffnesses),
             MotionType::ArmsUpSquat => (arms_up_squat.positions, arms_up_squat.stiffnesses),
             MotionType::Dispatching => {
                 self.current_minimizer.reset();
@@ -176,8 +180,6 @@ impl MotorCommandCollector {
             ),
         };
 
-        // The actuators use the raw sensor data (not corrected like current_positions) in their feedback loops,
-        // thus the compensation is required to make them reach the actual desired position.
         let compensated_positions = positions + *context.joint_calibration_offsets;
         let motor_commands = MotorCommands {
             positions: compensated_positions,

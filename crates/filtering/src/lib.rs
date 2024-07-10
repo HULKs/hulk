@@ -1,3 +1,4 @@
+pub mod debounce_button;
 pub mod hysteresis;
 pub mod kalman_filter;
 pub mod low_pass_filter;
