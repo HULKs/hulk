@@ -385,6 +385,8 @@ impl App for TwixApp {
                     if address_input.changed() || address_input.lost_focus() {
                         let address = &self.address;
                         self.nao.set_address(format!("ws://{address}:1337"));
+                        self.connection_intent = true;
+                        self.nao.connect();
                     }
                     let (connect_text, color) = match self.nao.connection_status() {
                         Status::Disconnected => ("Disconnected", Color32::RED),
