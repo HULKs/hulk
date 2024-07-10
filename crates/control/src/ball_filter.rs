@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    time::{Duration, SystemTime},
-};
+use std::{collections::BTreeMap, time::SystemTime};
 
 use color_eyre::Result;
 use nalgebra::{Matrix2, Matrix4};
@@ -45,6 +42,7 @@ pub struct CycleContext {
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
     had_ground_contact: HistoricInput<bool, "has_ground_contact">,
+    historic_cycle_times: HistoricInput<CycleTime, "cycle_time">,
 
     camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -79,14 +77,16 @@ impl BallFilter {
         current_to_last_odometry: HistoricInput<Option<&nalgebra::Isometry2<f32>>>,
         camera_matrices: HistoricInput<Option<&CameraMatrices>>,
         had_ground_contact: HistoricInput<&bool>,
+        historic_cycle_times: HistoricInput<&CycleTime>,
         projected_limbs: PerceptionInput<Vec<Option<&ProjectedLimbs>>>,
         filter_parameters: &BallFilterParameters,
         field_dimensions: &FieldDimensions,
         cycle_time: &CycleTime,
     ) -> Vec<BallHypothesis> {
-        let delta_time = Duration::from_secs_f32(0.012);
-
         for (detection_time, balls) in measurements {
+            let delta_time = historic_cycle_times
+                .get(&detection_time)
+                .last_cycle_duration;
             let current_to_last_odometry: Isometry2<Ground, Ground> = current_to_last_odometry
                 .get(&detection_time)
                 .copied()
@@ -191,6 +191,7 @@ impl BallFilter {
             context.current_odometry_to_last_odometry,
             context.historic_camera_matrices,
             context.had_ground_contact,
+            context.historic_cycle_times,
             context.projected_limbs,
             filter_parameters,
             context.field_dimensions,
