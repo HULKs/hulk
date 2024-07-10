@@ -69,7 +69,7 @@ fn paint_lines(
     for line in lines_in_image? {
         let start = camera_matrix.pixel_to_ground(line.0);
         let end = camera_matrix.pixel_to_ground(line.1);
-        painter.line_segment(start.ok()?, end.ok()?, Stroke::new(0.04, Color32::RED));
+        painter.line_segment(start.ok()?, end.ok()?, Stroke::new(0.04, Color32::BLUE));
     }
     Some(())
 }
