@@ -87,10 +87,11 @@ impl BallFilter {
         let delta_time = Duration::from_secs_f32(0.012);
 
         for (detection_time, balls) in measurements {
-            let current_to_last_odometry: Isometry2<Ground, Ground> = (*current_to_last_odometry
+            let current_to_last_odometry: Isometry2<Ground, Ground> = current_to_last_odometry
                 .get(&detection_time)
-                .expect("current_odometry_to_last_odometry should not be None"))
-            .framed_transform();
+                .copied()
+                .unwrap_or_default()
+                .framed_transform();
 
             self.ball_filter.predict(
                 delta_time,
