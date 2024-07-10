@@ -10,7 +10,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 
 use types::{
-    fall_state::FallState, foot_bumper_obstacle::FootBumperObstacle,
+    cycle_time::CycleTime, fall_state::FallState, foot_bumper_obstacle::FootBumperObstacle,
     foot_bumper_values::FootBumperValues, sensor_data::SensorData,
 };
 
@@ -49,6 +49,7 @@ pub struct CycleContext {
 
     fall_state: Input<FallState, "fall_state">,
     sensor_data: Input<SensorData, "sensor_data">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 
     foot_bumper_values: AdditionalOutput<FootBumperValues, "foot_bumper_values">,
 }
@@ -82,7 +83,7 @@ impl FootBumperFilter {
             if !self.left_pressed_last_cycle {
                 self.left_count += 1;
                 self.left_pressed_last_cycle = true;
-                self.last_left_time = Some(SystemTime::now());
+                self.last_left_time = Some(context.cycle_time.start_time);
             }
         } else {
             self.left_pressed_last_cycle = false;
@@ -92,7 +93,7 @@ impl FootBumperFilter {
             if !self.right_pressed_last_cycle {
                 self.right_count += 1;
                 self.right_pressed_last_cycle = true;
-                self.last_right_time = Some(SystemTime::now());
+                self.last_right_time = Some(context.cycle_time.start_time);
             }
         } else {
             self.right_pressed_last_cycle = false;
