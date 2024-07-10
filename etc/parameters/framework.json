@@ -4,8 +4,7 @@
   "parameters_directory": "etc/parameters",
   "recording_intervals": {
     "Control": 1,
-    "SplNetwork": 1,
-    "VisionBottom": 30,
-    "VisionTop": 30
+    "VisionBottom": 5,
+    "VisionTop": 5
   }
 }
