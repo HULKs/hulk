@@ -6,7 +6,7 @@ use thiserror::Error;
 pub mod keybind_plugin;
 pub mod keys;
 
-const DEFAULT_CONFIG: &str = include_str!("../default.toml");
+const DEFAULT_CONFIG: &str = include_str!("../config_default.toml");
 
 #[derive(Debug, Error)]
 pub enum Error {
