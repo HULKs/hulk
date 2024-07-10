@@ -76,6 +76,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Jump { direction } => match direction {
             JumpDirection::Left => MotionType::JumpLeft,
             JumpDirection::Right => MotionType::JumpRight,
+            JumpDirection::Center => MotionType::CenterJump,
         },
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,

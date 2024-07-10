@@ -35,6 +35,7 @@ pub struct CycleContext {
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     stand_up_sitting_positions: Input<Joints<f32>, "stand_up_sitting_positions">,
     wide_stance_positions: Input<Joints<f32>, "wide_stance_positions">,
+    center_jump_positions: Input<Joints<f32>, "center_jump_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
@@ -73,6 +74,7 @@ impl MotorCommandCollector {
         let arms_up_squat = context.arms_up_squat_joints_command;
         let jump_left = context.jump_left_joints_command;
         let jump_right = context.jump_right_joints_command;
+        let center_jump_positions = context.center_jump_positions;
         let sit_down = context.sit_down_joints_command;
         let stand_up_back_positions = context.stand_up_back_positions;
         let stand_up_front_positions = context.stand_up_front_positions;
@@ -106,6 +108,19 @@ impl MotorCommandCollector {
             ),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
+            MotionType::CenterJump => (
+                *center_jump_positions,
+                Joints::from_head_and_body(
+                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
+                    BodyJoints {
+                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
+                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
+                        left_leg: LegJoints::fill(1.0),
+                        right_leg: LegJoints::fill(1.0),
+                    },
+                ),
+            ),
+
             MotionType::Penalized => (
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,

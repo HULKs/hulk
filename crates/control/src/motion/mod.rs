@@ -1,5 +1,6 @@
 pub mod animation;
 pub mod arms_up_squat;
+pub mod center_jump;
 pub mod command_sender;
 pub mod condition_input_provider;
 pub mod dispatching_interpolator;

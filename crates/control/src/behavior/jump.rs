@@ -14,6 +14,9 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             Some(PenaltyShotDirection::Right) => Some(MotionCommand::Jump {
                 direction: JumpDirection::Right,
             }),
+            Some(PenaltyShotDirection::Center) => Some(MotionCommand::Jump {
+                direction: JumpDirection::Center,
+            }),
             Some(PenaltyShotDirection::NotMoving) | None => None,
         })
 }

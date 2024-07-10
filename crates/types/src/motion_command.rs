@@ -232,6 +232,7 @@ pub enum KickVariant {
 pub enum JumpDirection {
     Left,
     Right,
+    Center,
 }
 
 #[derive(

@@ -87,6 +87,8 @@ impl PenaltyShotDirectionEstimation {
                             < -side_jump_threshold
                         {
                             self.last_shot_direction = PenaltyShotDirection::Right
+                        } else {
+                            self.last_shot_direction = PenaltyShotDirection::Center
                         }
                     }
                 }
