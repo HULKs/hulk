@@ -532,6 +532,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
 
                 const EXECUTION_TIME_UPPER_BOUND: f32 = 0.4;
                 if recording_duration.as_secs_f32() > EXECUTION_TIME_UPPER_BOUND {
+                    log::warn!("Cycle took {}s!", recording_duration.as_secs_f32());
                     self
                         .hardware_interface
                         .write_to_speakers(types::audio::SpeakerRequest::PlaySound {
