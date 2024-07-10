@@ -137,7 +137,7 @@ impl IdInterface for HardwareInterface {
 
 impl MicrophoneInterface for HardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        self.microphones.lock().read_from_microphones()
+        self.microphones.lock().retrying_read()
     }
 }
 
