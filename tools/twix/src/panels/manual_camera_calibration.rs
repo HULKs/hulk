@@ -1,164 +1,118 @@
-use std::{ops::RangeInclusive, sync::Arc};
+use std::sync::Arc;
 
-use color_eyre::eyre::Context;
-use eframe::egui::{Response, Slider, Ui, Widget};
-use log::{error, info};
+use communication::messages::TextOrBinary;
+use eframe::egui::{Response, Slider, Ui, Widget, WidgetText};
+use log::error;
 use nalgebra::Vector3;
+use parameters::directory::Scope;
 use serde_json::Value;
-use tokio::sync::mpsc;
 
-use crate::{
-    nao::Nao, panel::Panel, repository_parameters::RepositoryParameters, value_buffer::ValueBuffer,
-};
-
-use super::parameter::{add_save_button, subscribe};
-
-type SubscribedType = Vector3<f64>;
-
-struct CameraParameterSubscriptions<DeserializedValueType> {
-    human_friendly_label: String,
-    path: String,
-    value_buffer: ValueBuffer,
-    value: DeserializedValueType,
-    update_notify_receiver: mpsc::Receiver<()>,
-}
+use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 pub struct ManualCalibrationPanel {
     nao: Arc<Nao>,
-    repository_parameters: RepositoryParameters,
-    extrinsic_rotation_subscriptions: [CameraParameterSubscriptions<Option<SubscribedType>>; 2],
+    top_camera: BufferHandle<Vector3<f32>>,
+    bottom_camera: BufferHandle<Vector3<f32>>,
 }
-
-const CAMERA_KEY_BASE: &str = "camera_matrix_parameters.vision_";
-const ROTATIONS: &str = ".extrinsic_rotations";
 
 impl Panel for ManualCalibrationPanel {
     const NAME: &'static str = "Manual Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let extrinsic_rotation_subscriptions = ["Top", "Bottom"].map(|name| {
-            let path = CAMERA_KEY_BASE.to_owned() + name.to_lowercase().as_str() + ROTATIONS;
-
-            let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
-            let value_buffer = subscribe(nao.clone(), &path, update_notify_sender).unwrap();
-
-            info!("Subscribing to path {}", path);
-
-            CameraParameterSubscriptions {
-                human_friendly_label: name.to_string(),
-                path,
-                value_buffer,
-                value: None,
-                update_notify_receiver,
-            }
-        });
+        let top_camera = nao.subscribe_value(
+            "parameters.camera_matrix_parameters.vision_top.extrinsic_rotations".to_string(),
+        );
+        let bottom_camera = nao.subscribe_value(
+            "parameters.camera_matrix_parameters.vision_bottom.extrinsic_rotations".to_string(),
+        );
 
         Self {
             nao,
-            repository_parameters: RepositoryParameters::try_new().unwrap(),
-            extrinsic_rotation_subscriptions,
-        }
-    }
-}
-
-fn add_extrinsic_calibration_ui_components(
-    ui: &mut Ui,
-    nao: Arc<Nao>,
-    repository_parameters: &RepositoryParameters,
-    extrinsic_rotations_subscription: &mut CameraParameterSubscriptions<Option<SubscribedType>>,
-) {
-    let extrinsic_rotations_buffer = &extrinsic_rotations_subscription.value_buffer;
-    let mut extrinsic_rotations_option = &mut extrinsic_rotations_subscription.value;
-    let label = &extrinsic_rotations_subscription.human_friendly_label;
-    let extrinsic_rotations_subscription_path = &extrinsic_rotations_subscription.path;
-    let extrinsic_rotations_update_notify_receiver =
-        &mut extrinsic_rotations_subscription.update_notify_receiver;
-
-    let extrinsic_maximum_degrees = 15.0;
-
-    ui.horizontal(|ui| {
-        match extrinsic_rotations_buffer.get_latest() {
-            Ok(value) => {
-                if extrinsic_rotations_update_notify_receiver
-                    .try_recv()
-                    .is_ok()
-                {
-                    *extrinsic_rotations_option =
-                        serde_json::from_value::<SubscribedType>(value).ok();
-                }
-            }
-            Err(error) => {
-                ui.label(format!("{error:#?}"));
-            }
-        }
-
-        ui.label(format!("{label:#} Camera"));
-
-        add_save_button(
-            ui,
-            extrinsic_rotations_subscription_path,
-            || {
-                serde_json::to_value(&extrinsic_rotations_option)
-                    .wrap_err("Converting CameraMatrixParameters to serde_json::Value failed.")
-            },
-            nao.clone(),
-            repository_parameters,
-        );
-    });
-
-    ui.style_mut().spacing.slider_width = ui.available_size().x - 100.0;
-    let mut changed = false;
-    ui.label(format!(
-        "Extrinsic Rotations [{}°, {}°]",
-        -extrinsic_maximum_degrees, extrinsic_maximum_degrees
-    ));
-    match &mut extrinsic_rotations_option {
-        Some(camera_parameter_value) => {
-            for (axis_value, axis_name) in camera_parameter_value
-                .iter_mut()
-                .zip(["Roll", "Pitch", "Yaw"])
-            {
-                let slider = Slider::new(
-                    axis_value,
-                    RangeInclusive::new(-extrinsic_maximum_degrees, extrinsic_maximum_degrees),
-                )
-                .text(axis_name)
-                .smart_aim(false);
-                if ui.add(slider).changed() {
-                    changed = true
-                };
-            }
-        }
-        _ => {
-            ui.label("Extrinsic parameters not recieved.");
-        }
-    };
-    if changed {
-        if let Some(camera_parameter_value) = extrinsic_rotations_option {
-            match serde_json::value::to_value(camera_parameter_value) {
-                Ok(value) => {
-                    extrinsic_rotations_buffer.update_parameter_value(value);
-                }
-                Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
-            }
+            top_camera,
+            bottom_camera,
         }
     }
 }
 
 impl Widget for &mut ManualCalibrationPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        ui.style_mut().spacing.slider_width = ui.available_size().x - 250.0;
         ui.vertical(|ui| {
-            for extrinsic_rotation_subscription in &mut self.extrinsic_rotation_subscriptions {
-                add_extrinsic_calibration_ui_components(
+            if let Ok(Some(value)) = self.top_camera.get_last_value() {
+                draw_calibration_ui(
                     ui,
-                    self.nao.clone(),
-                    &self.repository_parameters,
-                    extrinsic_rotation_subscription,
+                    "Top Camera",
+                    value,
+                    &self.nao,
+                    "parameters.camera_matrix_parameters.vision_top.extrinsic_rotations",
                 );
-
-                ui.separator();
+            }
+            ui.separator();
+            if let Ok(Some(value)) = self.bottom_camera.get_last_value() {
+                draw_calibration_ui(
+                    ui,
+                    "Bottom Camera",
+                    value,
+                    &self.nao,
+                    "parameters.camera_matrix_parameters.vision_bottom.extrinsic_rotations",
+                );
             }
         })
         .response
+    }
+}
+
+fn draw_calibration_ui(
+    ui: &mut Ui,
+    label: impl Into<WidgetText>,
+    rotations: Vector3<f32>,
+    nao: &Nao,
+    path: &str,
+) {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        if ui.button("Save to Head").clicked() {
+            let serialized = serde_json::to_value(rotations);
+            match serialized {
+                Ok(value) => {
+                    nao.store_parameters(path, value, Scope::current_head())
+                        .log_err();
+                }
+                Err(error) => error!("failed to serialize parameter value: {error:#?}"),
+            }
+        }
+    });
+    let range = -15.0..=15.0;
+    let mut roll = rotations.x;
+    let response = ui.add(
+        Slider::new(&mut roll, range.clone())
+            .text("Roll")
+            .smart_aim(false),
+    );
+    if response.changed() {
+        nao.write(
+            format!("{path}.x"),
+            TextOrBinary::Text(serde_json::to_value(roll).unwrap()),
+        );
+    }
+    let mut pitch = rotations.y;
+    let response = ui.add(
+        Slider::new(&mut pitch, range.clone())
+            .text("Pitch")
+            .smart_aim(false),
+    );
+    if response.changed() {
+        nao.write(
+            format!("{path}.y"),
+            TextOrBinary::Text(serde_json::to_value(pitch).unwrap()),
+        );
+    }
+    let mut yaw = rotations.z;
+    let response = ui.add(Slider::new(&mut yaw, range).text("Yaw").smart_aim(false));
+    if response.changed() {
+        nao.write(
+            format!("{path}.z"),
+            TextOrBinary::Text(serde_json::to_value(yaw).unwrap()),
+        );
     }
 }

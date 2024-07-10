@@ -3,55 +3,38 @@ use std::sync::Arc;
 use color_eyre::Result;
 use eframe::epaint::Color32;
 
-use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
 use types::{detected_feet::ClusterPoint, field_dimensions::FieldDimensions};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct FeetDetection {
-    cluster_bottom: ValueBuffer,
-    cluster_top: ValueBuffer,
-    segments_bottom: ValueBuffer,
-    segments_top: ValueBuffer,
+    cluster_bottom: BufferHandle<Option<Vec<Point2<Ground>>>>,
+    cluster_top: BufferHandle<Option<Vec<Point2<Ground>>>>,
+    cluster_points_bottom: BufferHandle<Option<Vec<ClusterPoint>>>,
+    cluster_points_top: BufferHandle<Option<Vec<ClusterPoint>>>,
 }
 
 impl Layer<Ground> for FeetDetection {
     const NAME: &'static str = "FeetDetection";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let cluster_bottom = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionBottom,
-            output: Output::Additional {
-                path: "feet_detection.clusters_in_ground".to_string(),
-            },
-        });
-        let cluster_top = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionTop,
-            output: Output::Additional {
-                path: "feet_detection.clusters_in_ground".to_string(),
-            },
-        });
-        let segments_bottom = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionBottom,
-            output: Output::Additional {
-                path: "feet_detection.cluster_points".to_string(),
-            },
-        });
-        let segments_top = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::VisionTop,
-            output: Output::Additional {
-                path: "feet_detection.cluster_points".to_string(),
-            },
-        });
+        let cluster_bottom = nao
+            .subscribe_value("VisionBottom.additional_outputs.feet_detection.clusters_in_ground");
+        let cluster_top =
+            nao.subscribe_value("VisionTop.additional_outputs.feet_detection.clusters_in_ground");
+        let cluster_points_bottom =
+            nao.subscribe_value("VisionBottom.additional_outputs.feet_detection.cluster_points");
+        let cluster_points_top =
+            nao.subscribe_value("VisionTop.additional_outputs.feet_detection.cluster_points");
         Self {
             cluster_bottom,
             cluster_top,
-            segments_bottom,
-            segments_top,
+            cluster_points_bottom,
+            cluster_points_top,
         }
     }
 
@@ -60,23 +43,30 @@ impl Layer<Ground> for FeetDetection {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let cluster_points: Vec<Point2<Ground>> = [&self.cluster_bottom, &self.cluster_top]
-            .iter()
-            .filter_map(|buffer| buffer.parse_latest::<Vec<_>>().ok())
-            .flatten()
-            .collect();
-        for point in cluster_points {
-            painter.circle_filled(point, 0.1, Color32::YELLOW);
+        if let Some(cluster) = self.cluster_bottom.get_last_value()?.flatten() {
+            for point in cluster {
+                let radius = 0.1;
+                painter.circle_filled(point, radius, Color32::YELLOW);
+            }
+        }
+        if let Some(cluster) = self.cluster_top.get_last_value()?.flatten() {
+            for point in cluster {
+                let radius = 0.1;
+                painter.circle_filled(point, radius, Color32::YELLOW);
+            }
         }
 
-        let cluster_points: Vec<ClusterPoint> = [&self.segments_bottom, &self.segments_top]
-            .iter()
-            .filter_map(|buffer| buffer.parse_latest::<Vec<_>>().ok())
-            .flatten()
-            .collect();
-        for point in cluster_points {
-            let radius = 0.02;
-            painter.circle_filled(point.position_in_ground, radius, Color32::RED);
+        if let Some(points) = self.cluster_points_bottom.get_last_value()?.flatten() {
+            for point in points {
+                let radius = 0.02;
+                painter.circle_filled(point.position_in_ground, radius, Color32::RED);
+            }
+        }
+        if let Some(points) = self.cluster_points_top.get_last_value()?.flatten() {
+            for point in points {
+                let radius = 0.02;
+                painter.circle_filled(point.position_in_ground, radius, Color32::RED);
+            }
         }
         Ok(())
     }

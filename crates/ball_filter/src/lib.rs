@@ -6,10 +6,8 @@ use nalgebra::{Matrix2, Matrix4};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-mod ball_position;
 mod hypothesis;
 
-pub use ball_position::BallPosition;
 pub use hypothesis::BallHypothesis;
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 

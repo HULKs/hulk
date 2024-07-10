@@ -12,3 +12,4 @@ communication = { workspace = true }
 fern = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }

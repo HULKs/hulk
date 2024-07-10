@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
@@ -41,8 +42,10 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 
 impl RemotePanel {
     fn update_step(&self, step: Value) {
-        self.nao
-            .update_parameter_value("step_planner.injected_step", step);
+        self.nao.write(
+            "parameters.step_planner.injected_step",
+            TextOrBinary::Text(step),
+        )
     }
 }
 

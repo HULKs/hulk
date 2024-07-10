@@ -8,7 +8,6 @@ use crate::{accessor::ReferenceKind, CyclerMode};
 pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     let construct_buffered_watch_channels = generate_buffered_watch_channels(cyclers);
     let construct_future_queues = generate_future_queues(cyclers);
-    let parameters_receiver = generate_parameters_receiver(true);
     let recording_thread = generate_recording_thread(cyclers);
     let construct_cyclers = generate_cycler_constructors(cyclers, CyclerMode::Run);
     let communication_registrations = generate_communication_registrations(cyclers);
@@ -23,8 +22,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
             parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
             log_path: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
-            body_id: String,
-            head_id: String,
+            hardware_ids: types::hardware::Ids,
             keep_running: tokio_util::sync::CancellationToken,
             recording_intervals: std::collections::HashMap<String, usize>,
         ) -> color_eyre::Result<()>
@@ -43,16 +41,45 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             #construct_buffered_watch_channels
             #construct_future_queues
 
-            #parameters_receiver
+            let parameters_from_disk: crate::structs::Parameters =
+                parameters::directory::deserialize(
+                    parameters_directory,
+                    &hardware_ids,
+                ).wrap_err("failed to parse initial parameters")?;
+            let initial_parameters = parameters_from_disk;
+            let (parameters_sender, parameters_receiver) =
+                buffered_watch::channel((std::time::SystemTime::now(), initial_parameters));
 
             let (recording_sender, recording_receiver) = std::sync::mpsc::sync_channel(420);
             let recording_thread = #recording_thread;
 
             #construct_cyclers
-            #communication_registrations
             // Drop sender to cause channel to close once all cyclers exit,
             // otherwise the recording thread waits forever
             drop(recording_sender);
+
+            let communication_thread = addresses.map(|addresses| {
+                let keep_running = keep_running.clone();
+                std::thread::Builder::new()
+                    .name("Communication".to_string())
+                    .spawn(move || -> color_eyre::Result<()> {
+                        let async_runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()
+                            .wrap_err("failed to create async runtime")?;
+                        async_runtime.block_on(async move {
+                            let mut communication_server = communication::server::Server::default();
+                            #communication_registrations
+                            let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
+                            communication_server.expose_source("parameters", parameters_receiver, parameters_subscriptions)?;
+                            communication_server.expose_sink("parameters", parameters_sender)?;
+                            let (_, ids_receiver) = buffered_watch::channel((std::time::SystemTime::now(), hardware_ids));
+                            let (ids_subscriptions, _) = buffered_watch::channel(Default::default());
+                            communication_server.expose_source("hardware_ids", ids_receiver, ids_subscriptions)?;
+                            communication_server.serve(addresses, keep_running).await?;
+                            Ok(())
+                        })
+                    })
+                    .expect("failed to spawn communication thread")
+            });
 
             #start_cyclers
 
@@ -73,16 +100,18 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                 },
                 _ => {},
             }
-            match communication_server.join() {
-                Ok(Err(error)) => {
-                    encountered_error = true;
-                    eprintln!("communication thread returned error: {error:?}");
-                },
-                Err(error) => {
-                    encountered_error = true;
-                    eprintln!("failed to join communication thread: {error:?}");
-                },
-                _ => {},
+            if let Some(thread) = communication_thread {
+                match thread.join() {
+                    Ok(Err(error)) => {
+                        encountered_error = true;
+                        eprintln!("communication thread returned error: {error:?}");
+                    },
+                    Err(error) => {
+                        encountered_error = true;
+                        eprintln!("failed to join communication thread: {error:?}");
+                    },
+                    _ => {},
+                }
             }
 
             if encountered_error {
@@ -103,14 +132,37 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
         parameters: identifiers,
         accessors,
     } = generate_replayer_token_streams(cyclers, with_communication);
-    let parameters_receiver = generate_parameters_receiver(with_communication);
-    let (replayer_arguments, communication_registrations) = if with_communication {
+    let (replayer_arguments, communication_thread) = if with_communication {
         (
             quote! {
                 addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
                 keep_running: tokio_util::sync::CancellationToken,
             },
-            generate_communication_registrations(cyclers),
+            {
+                let communication_registrations = generate_communication_registrations(cyclers);
+                quote! {
+                    let _communication_thread = addresses.map(|addresses| {
+                        let keep_running = keep_running.clone();
+                        let parameters_receiver = parameters_receiver.clone();
+                        std::thread::Builder::new()
+                            .name("Communication".to_string())
+                            .spawn(move || -> color_eyre::Result<()> {
+                                let async_runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()
+                                    .wrap_err("failed to create async runtime")?;
+                                async_runtime.block_on(async move {
+                                    let mut communication_server = communication::server::Server::default();
+                                    #communication_registrations
+                                    let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
+                                    communication_server.expose_source("parameters", parameters_receiver, parameters_subscriptions)?;
+                                    communication_server.expose_sink("parameters", parameters_sender)?;
+                                    communication_server.serve(addresses, keep_running).await?;
+                                    Ok(())
+                                })
+                            })
+                            .expect("failed to spawn communication thread")
+                    });
+                }
+            },
         )
     } else {
         (Default::default(), Default::default())
@@ -133,8 +185,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
             pub fn new(
                 hardware_interface: std::sync::Arc<Hardware>,
                 parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
-                body_id: String,
-                head_id: String,
+                hardware_ids: types::hardware::Ids,
                 recordings_file_path: impl std::convert::AsRef<std::path::Path>,
                 #replayer_arguments
             ) -> color_eyre::Result<Self>
@@ -144,10 +195,18 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                 #construct_buffered_watch_channels
                 #construct_future_queues
 
-                #parameters_receiver
+                let parameters_from_disk: crate::structs::Parameters =
+                    parameters::directory::deserialize(
+                        parameters_directory,
+                        &hardware_ids,
+                    ).wrap_err("failed to parse initial parameters")?;
+                let initial_parameters = parameters_from_disk;
+                let (parameters_sender, parameters_receiver) =
+                    buffered_watch::channel((std::time::SystemTime::now(), initial_parameters));
 
                 #construct_cyclers
-                #communication_registrations
+
+                #communication_thread
 
                 Ok(Self {
                     #identifiers
@@ -219,14 +278,14 @@ fn generate_replayer_token_streams(
     if with_communication {
         ReplayerTokenStreams {
             fields: quote! {
-                communication_server: communication::server::Runtime<crate::structs::Parameters>,
+                parameters_receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)>,
             },
             parameters: quote! {
-                communication_server,
+                parameters_receiver,
             },
             accessors: quote! {
-                pub fn get_parameters_receiver(&self) -> buffered_watch::Receiver<crate::structs::Parameters> {
-                    self.communication_server.get_parameters_receiver()
+                pub fn get_parameters_receiver(&self) -> buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)> {
+                    self.parameters_receiver.clone()
                 }
             },
         }
@@ -244,13 +303,13 @@ fn generate_replayer_token_streams(
         let receiver_identifiers = receiver_tokens.iter().map(|(receiver, _cycler)| receiver);
         let receiver_fields = receiver_tokens.iter().map(|(receiver, cycler)| {
             quote! {
-                #receiver: buffered_watch::Receiver<crate::cyclers::#cycler::Database>,
+                #receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::cyclers::#cycler::Database)>,
             }
         });
         let receiver_accessors = receiver_tokens.iter().map(|(receiver, cycler)| {
             quote! {
                 #[allow(unused)]
-                pub(crate) fn #receiver(&self) -> buffered_watch::Receiver<crate::cyclers::#cycler::Database> {
+                pub(crate) fn #receiver(&self) -> buffered_watch::Receiver<(std::time::SystemTime, crate::cyclers::#cycler::Database)> {
                     self.#receiver.clone()
                 }
             }
@@ -258,37 +317,14 @@ fn generate_replayer_token_streams(
 
         ReplayerTokenStreams {
             fields: quote! {
-                _parameters_sender: buffered_watch::Sender<crate::structs::Parameters>,
                 #(#receiver_fields)*
             },
             parameters: quote! {
-                _parameters_sender: parameters_sender,
                 #(#receiver_identifiers,)*
             },
             accessors: quote! {
                 #(#receiver_accessors)*
             },
-        }
-    }
-}
-
-fn generate_parameters_receiver(with_communication: bool) -> TokenStream {
-    if with_communication {
-        quote! {
-            let communication_server = communication::server::Runtime::start(addresses, parameters_directory, body_id, head_id, keep_running.clone())
-                .wrap_err("failed to start communication server")?;
-            let parameters_receiver = communication_server.get_parameters_receiver();
-        }
-    } else {
-        quote! {
-            let runtime = tokio::runtime::Runtime::new().wrap_err("failed to create runtime")?;
-            let initial_parameters: crate::structs::Parameters = runtime.block_on(
-                parameters::directory::deserialize(parameters_directory, &body_id, &head_id)
-            )
-            .wrap_err("failed to parse initial parameters")?;
-
-            let (parameters_sender, parameters_receiver) =
-                buffered_watch::channel(initial_parameters);
         }
     }
 }
@@ -316,9 +352,10 @@ fn generate_buffered_watch_channels(cyclers: &Cyclers) -> TokenStream {
             let sender_identifier = format_ident!("{}_sender", instance.to_case(Case::Snake));
             let receiver_identifier = format_ident!("{}_receiver", instance.to_case(Case::Snake));
             quote! {
-                let (#sender_identifier, #receiver_identifier) = buffered_watch::channel(
+                let (#sender_identifier, #receiver_identifier) = buffered_watch::channel((
+                    std::time::UNIX_EPOCH,
                     Default::default()
-                );
+                 ));
             }
         })
         .collect()
@@ -373,13 +410,19 @@ fn generate_recording_thread(cyclers: &Cyclers) -> TokenStream {
     quote! {
         {
             let keep_running = keep_running.clone();
-            let mut parameters_receiver = communication_server.get_parameters_receiver();
+            let mut parameters_receiver = parameters_receiver.clone();
             std::thread::Builder::new()
                 .name("Recording".to_string())
                 .spawn(move || -> color_eyre::Result<()> {
                     let result = (|| {
                         use std::io::Write;
-                        std::fs::write(log_path.as_ref().join("default.json"), serde_json::to_string_pretty(&*parameters_receiver.borrow_and_mark_as_seen())?)?;
+                        {
+                            let (_, parameters) = &*parameters_receiver.borrow_and_mark_as_seen();
+                            std::fs::write(
+                                log_path.as_ref().join("default.json"),
+                                serde_json::to_string_pretty(parameters)?,
+                            )?;
+                        }
                         #(#file_creations)*
                         for recording_frame in recording_receiver {
                             match recording_frame {
@@ -406,8 +449,8 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStr
         let cycler_instance_name = &instance;
         let cycler_instance_name_identifier = format_ident!("{cycler_instance_name}");
         let own_sender_identifier = format_ident!("{instance_name_snake_case}_sender");
-        let own_subscribed_outputs_sender_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_sender");
-        let own_subscribed_outputs_receiver_identifier = format_ident!("{instance_name_snake_case}_subscribed_outputs_receiver");
+        let own_subscriptions_sender_identifier = format_ident!("{instance_name_snake_case}_subscriptions_sender");
+        let own_subscriptions_receiver_identifier = format_ident!("{instance_name_snake_case}_subscriptions_receiver");
         let recording_trigger = if mode == CyclerMode::Run {
             quote! {
                 let recording_trigger = framework::RecordingTrigger::new(
@@ -460,14 +503,14 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStr
 
         quote! {
             #[allow(unused)]
-            let (#own_subscribed_outputs_sender_identifier, #own_subscribed_outputs_receiver_identifier) = buffered_watch::channel(Default::default());
             #recording_trigger
             #recording_index
+            let (#own_subscriptions_sender_identifier, #own_subscriptions_receiver_identifier) = buffered_watch::channel(Default::default());
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
                 hardware_interface.clone(),
                 #own_sender_identifier,
-                #own_subscribed_outputs_receiver_identifier,
+                #own_subscriptions_receiver_identifier,
                 parameters_receiver.clone(),
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
@@ -484,16 +527,15 @@ fn generate_communication_registrations(cyclers: &Cyclers) -> TokenStream {
         .instances()
         .map(|(_cycler, instance)| {
             let instance_name_snake_case = instance.to_case(Case::Snake);
-            let cycler_instance_name = &instance;
             let own_receiver_identifier = format_ident!("{instance_name_snake_case}_receiver");
-            let own_subscribed_outputs_sender_identifier =
-                format_ident!("{instance_name_snake_case}_subscribed_outputs_sender");
+            let own_subscriptions_sender_identifier =
+                format_ident!("{instance_name_snake_case}_subscriptions_sender");
             quote! {
-                communication_server.register_cycler_instance(
-                    #cycler_instance_name,
-                    #own_receiver_identifier.clone(),
-                    #own_subscribed_outputs_sender_identifier,
-                );
+                communication_server.expose_source(
+                    #instance,
+                    #own_receiver_identifier,
+                    #own_subscriptions_sender_identifier,
+                ).wrap_err("failed to expose source in communication")?;
             }
         })
         .collect()

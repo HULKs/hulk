@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JpegImage {
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 impl TryFrom<&GrayscaleImage> for JpegImage {

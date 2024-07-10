@@ -3,33 +3,25 @@ use std::sync::Arc;
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
-use communication::client::{Cycler, CyclerOutput, Output};
+use ball_filter::BallFilter as BallFiltering;
 use coordinate_systems::Ground;
-use linear_algebra::Point;
-use types::{
-    field_dimensions::FieldDimensions,
-    multivariate_normal_distribution::MultivariateNormalDistribution,
-};
+use linear_algebra::{vector, Point};
+use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct BallFilter {
-    ball_state: ValueBuffer,
+    filter: BufferHandle<Option<BallFiltering>>,
 }
 
 impl Layer<Ground> for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let ball_state = nao.subscribe_output(CyclerOutput {
-            cycler: Cycler::Control,
-            output: Output::Additional {
-                path: "best_ball_state".to_string(),
-            },
-        });
-        Self { ball_state }
+        let filter = nao.subscribe_value("Control.additional_outputs.ball_filter_state");
+        Self { filter }
     }
 
     fn paint(
@@ -37,15 +29,27 @@ impl Layer<Ground> for BallFilter {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ball_state: Option<MultivariateNormalDistribution<4>> =
-            self.ball_state.parse_latest()?;
+        if let Some(filter) = self.filter.get_last_value()?.flatten() {
+            for hypothesis in filter.hypotheses() {
+                let stroke = Stroke::new(0.01, Color32::BLACK);
 
-        if let Some(state) = ball_state {
-            let position = Point::from(state.mean.xy());
-            let covariance = state.covariance.fixed_view::<2, 2>(0, 0).into_owned();
-            let stroke = Stroke::new(0.01, Color32::BLACK);
-            let fill_color = Color32::from_rgba_unmultiplied(255, 255, 0, 100);
-            painter.covariance(position, covariance, stroke, fill_color);
+                let state = hypothesis.resting;
+                let position = Point::from(state.mean.xy());
+                let covariance = state.covariance.fixed_view::<2, 2>(0, 0).into_owned();
+                let yellow = Color32::from_rgba_unmultiplied(255, 255, 0, 100);
+                painter.covariance(position, covariance, stroke, yellow);
+                painter.target(position, 0.02, stroke, yellow);
+
+                let state = hypothesis.moving;
+                let position = Point::from(state.mean.xy());
+                let covariance = state.covariance.fixed_view::<2, 2>(0, 0).into_owned();
+                let pink = Color32::from_rgba_unmultiplied(255, 102, 204, 100);
+                painter.covariance(position, covariance, stroke, pink);
+                painter.target(position, 0.02, stroke, pink);
+                let velocity = vector![state.mean.z, state.mean.w];
+                let velocity_target = position + velocity;
+                painter.line_segment(position, velocity_target, stroke)
+            }
         }
 
         Ok(())

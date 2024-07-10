@@ -13,4 +13,4 @@ framework = { workspace = true }
 hulk = { workspace = true }
 parameters = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
+types = { workspace = true }

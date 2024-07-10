@@ -1,6 +1,5 @@
 use std::ops::{Index, IndexMut};
 
-use ball_filter::BallPosition;
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
@@ -10,7 +9,7 @@ use nalgebra::{clamp, DMatrix};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
-    ball_position::HypotheticalBallPosition,
+    ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::{FieldDimensions, Half, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     parameters::SearchSuggestorParameters,

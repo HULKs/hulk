@@ -10,7 +10,7 @@ use hardware::PathsInterface;
 use linear_algebra::{point, vector, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::{Ball, CandidateEvaluation},
+    ball_detection::{Ball, CandidateEvaluation},
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
     ycbcr422_image::YCbCr422Image,

@@ -1,263 +1,147 @@
-use std::collections::VecDeque;
+use std::{
+    fmt::{Debug, Display},
+    iter::once,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
-use color_eyre::{
-    eyre::{eyre, WrapErr},
-    Result,
+use color_eyre::eyre::{self, eyre};
+use color_eyre::Result;
+use communication::client::{
+    protocol::{self, SubscriptionEvent},
+    SubscriptionHandle,
 };
-use communication::{
-    client::{Communication, CyclerOutput, SubscriberMessage},
-    messages::Format,
-};
-use log::error;
-use serde::Deserialize;
-use serde_json::{from_value, Value, Value::Array};
 use tokio::{
-    select, spawn,
-    sync::{
-        mpsc::{self, error::TrySendError},
-        oneshot,
-    },
+    select,
+    sync::{watch, Mutex},
 };
 
-#[derive(Debug)]
-enum Message {
-    GetLatest {
-        response_sender: oneshot::Sender<Result<Value, String>>,
-    },
-    GetBuffered {
-        response_sender: oneshot::Sender<Result<Vec<Value>, String>>,
-    },
-    GetSize {
-        response_sender: oneshot::Sender<Result<usize, String>>,
-    },
-    SetCapacity {
-        buffer_capacity: usize,
-    },
-    ListenToUpdates {
-        response_sender: mpsc::Sender<()>,
-    },
-    UpdateParameterValue {
-        value: Value,
-    },
+#[derive(Clone, Debug)]
+pub struct Datum<T> {
+    pub timestamp: SystemTime,
+    pub value: T,
 }
 
-pub struct ValueBuffer {
-    command_sender: mpsc::Sender<Message>,
+type TimeSeries<T> = Vec<Datum<T>>;
+
+pub struct BufferHandle<T, E = eyre::Report> {
+    receiver: watch::Receiver<Result<TimeSeries<T>, E>>,
+    history: Arc<Mutex<Duration>>,
 }
 
-impl ValueBuffer {
-    pub fn output(communication: Communication, output: CyclerOutput) -> Self {
-        let (command_sender, command_receiver) = mpsc::channel(10);
-        spawn(async move {
-            let (uuid, receiver) = communication
-                .subscribe_output(output.clone(), Format::Textual)
-                .await;
-            value_buffer(receiver, command_receiver, communication.clone(), None).await;
-            communication.unsubscribe_output(uuid).await;
-        });
-        Self { command_sender }
+impl<T, E> BufferHandle<T, E>
+where
+    T: Clone,
+    E: Display,
+{
+    pub fn get(&self) -> Result<TimeSeries<T>> {
+        let guard = self.receiver.borrow();
+        guard.as_ref().map_err(|error| eyre!("{error:#}")).cloned()
     }
 
-    pub fn parameter(communication: Communication, path: String) -> Self {
-        let (command_sender, command_receiver) = mpsc::channel(10);
-        spawn(async move {
-            let (uuid, receiver) = communication.subscribe_parameter(path.clone()).await;
-            value_buffer(
-                receiver,
-                command_receiver,
-                communication.clone(),
-                Some(path),
-            )
-            .await;
-            communication.unsubscribe_parameter(uuid).await;
-        });
-        Self { command_sender }
+    pub fn get_last(&self) -> Result<Option<Datum<T>>> {
+        let guard = self.receiver.borrow();
+        match guard.as_ref() {
+            Ok(series) => Ok(series.last().cloned()),
+            Err(error) => Err(eyre!("{error:#}")),
+        }
     }
 
-    pub fn listen_to_updates(&self, response_sender: mpsc::Sender<()>) {
-        self.command_sender
-            .blocking_send(Message::ListenToUpdates { response_sender })
-            .unwrap()
+    pub fn has_changed(&self) -> bool {
+        self.receiver.has_changed().unwrap()
     }
 
-    pub fn get_latest(&self) -> Result<Value, String> {
-        let (sender, receiver) = oneshot::channel();
-        self.command_sender
-            .blocking_send(Message::GetLatest {
-                response_sender: sender,
-            })
-            .unwrap();
-        receiver.blocking_recv().unwrap()
+    pub fn mark_as_seen(&mut self) {
+        self.receiver.mark_unchanged();
     }
 
-    pub fn get_buffered(&self) -> Result<Vec<Value>, String> {
-        let (sender, receiver) = oneshot::channel();
-        self.command_sender
-            .blocking_send(Message::GetBuffered {
-                response_sender: sender,
-            })
-            .unwrap();
-        receiver.blocking_recv().unwrap()
+    pub fn get_last_timestamp(&self) -> Result<Option<SystemTime>> {
+        let guard = self.receiver.borrow();
+        match guard.as_ref() {
+            Ok(series) => Ok(series.last().map(|datum| datum.timestamp)),
+            Err(error) => Err(eyre!("{error:#}")),
+        }
     }
 
-    pub fn reserve(&self, buffer_size: usize) {
-        self.command_sender
-            .blocking_send(Message::SetCapacity {
-                buffer_capacity: buffer_size,
-            })
-            .unwrap();
+    pub fn get_last_value(&self) -> Result<Option<T>> {
+        Ok(self.get_last()?.map(|datum| datum.value))
     }
 
-    pub fn size(&self) -> Result<usize, String> {
-        let (sender, receiver) = oneshot::channel();
-        self.command_sender
-            .blocking_send(Message::GetSize {
-                response_sender: sender,
-            })
-            .unwrap();
-        receiver.blocking_recv().unwrap()
-    }
-
-    pub fn update_parameter_value(&self, value: Value) {
-        self.command_sender
-            .blocking_send(Message::UpdateParameterValue { value })
-            .unwrap();
-    }
-
-    pub fn parse_latest<Output>(&self) -> Result<Output>
-    where
-        for<'de> Output: Deserialize<'de>,
-    {
-        let latest_value = self.get_latest().map_err(|error| eyre!(error))?;
-        from_value(latest_value).wrap_err("Failed to parse json value")
-    }
-
-    pub fn require_latest<Output>(&self) -> Result<Output>
-    where
-        for<'de> Output: Deserialize<'de>,
-    {
-        let parsed_value: Option<Output> = self.parse_latest()?;
-        parsed_value.ok_or_else(|| eyre!("Value was none"))
-    }
-
-    pub fn parse_buffered<Output>(&self) -> Result<Vec<Output>>
-    where
-        for<'de> Output: Deserialize<'de>,
-    {
-        let buffered_values = self.get_buffered().map_err(|error| eyre!(error))?;
-        from_value(Array(buffered_values)).wrap_err("Failed to parse json value")
+    pub fn set_history(&self, history: Duration) {
+        *self.history.blocking_lock() = history;
     }
 }
 
-async fn value_buffer(
-    mut subscriber_receiver: mpsc::Receiver<SubscriberMessage>,
-    mut command_receiver: mpsc::Receiver<Message>,
-    communication: Communication,
-    parameter_path: Option<String>,
-) {
-    let mut values: Option<Result<VecDeque<Value>, String>> = None;
-    let mut update_listeners: Vec<mpsc::Sender<()>> = Vec::new();
-    let mut buffer_capacity = 1;
-    let mut skip_updates = 0;
+pub struct Buffer<T, E> {
+    sender: watch::Sender<Result<TimeSeries<T>, E>>,
+    history: Arc<Mutex<Duration>>,
+}
 
-    loop {
-        select! {
-            maybe_message = subscriber_receiver.recv() => {
-                match maybe_message {
-                    Some(message) => {
-                        match message {
-                            SubscriberMessage::Update{value} => {
-                                if skip_updates > 0 {
-                                    skip_updates -= 1;
-                                    continue;
+impl<T, E> Buffer<T, E> {
+    pub fn new(history: Duration) -> (Buffer<T, E>, BufferHandle<T, E>) {
+        let (sender, receiver) = watch::channel(Ok(TimeSeries::new()));
+        let history = Arc::new(Mutex::new(history));
+        let buffer = Buffer {
+            sender,
+            history: history.clone(),
+        };
+        let handle = BufferHandle { receiver, history };
+        (buffer, handle)
+    }
+
+    pub async fn map<U: Debug>(
+        self,
+        mut subscription: SubscriptionHandle<U>,
+        op: impl Fn(Result<Datum<&U>, &protocol::Error>) -> Result<Datum<T>, E> + Send + Sync + 'static,
+    ) {
+        loop {
+            select! {
+                maybe_event = subscription.receiver.recv() => {
+                    match maybe_event {
+                        Ok(event) => {
+                            let maybe_datum = match event.as_ref() {
+                                SubscriptionEvent::Successful { timestamp, value } => Ok(Datum {
+                                    timestamp: *timestamp,
+                                    value,
+                                }),
+                                SubscriptionEvent::Update { timestamp, value } => Ok(Datum {
+                                    timestamp: *timestamp,
+                                    value,
+                                }),
+                                SubscriptionEvent::Failure { error } => Err(error),
+                            };
+                            let maybe_datum = op(maybe_datum);
+                            match maybe_datum {
+                                Ok(datum) => {
+                                    let history = *self.history.lock().await;
+                                    self.sender.send_modify(|value| handle_update(value, datum, history))
                                 }
-                                add_element(&mut values, buffer_capacity, value);
-                                update_listeners.retain(|listener| {
-                                    if let Err(TrySendError::Closed(_)) = listener.try_send(()) {
-                                            return false;
-                                    }
-                                    true
-                                });
-                            },
-                            SubscriberMessage::SubscriptionSuccess => (),
-                            SubscriberMessage::SubscriptionFailure{info} => values = Some(Err(info)),
-                            SubscriberMessage::UpdateBinary{..} => {
-                                error!("Got UpdateBinary message in value buffer");
-                                break;
-                            }
-                        }
-                    },
-                    None => continue,
-                }
-            }
-            maybe_command = command_receiver.recv() => {
-                match maybe_command {
-                    Some(command) => match command {
-                        Message::GetLatest{response_sender} => {
-                            let response = match &values {
-                                Some(Ok(values)) => Ok(values.front().unwrap().clone()),
-                                Some(Err(error)) => Err(error.clone()),
-                                None => Err("No response yet".to_string()),
-                            };
-                            response_sender.send(response).unwrap();
-                        },
-                        Message::GetBuffered{response_sender} => {
-                            let response = match &values {
-                                Some(Ok(values)) => Ok(values.iter().cloned().collect()),
-                                Some(Err(error)) => Err(error.clone()),
-                                None => Err("No response yet".to_string()),
-                            };
-                            response_sender.send(response).unwrap();
-                        },
-                        Message::GetSize{response_sender} => {
-                            let response = match &values {
-                                Some(Ok(values)) => Ok(values.len()),
-                                Some(Err(error)) => Err(error.clone()),
-                                None => Err("No response yet".to_string())
-                            };
-                            response_sender.send(response).unwrap();
-                        }
-                        Message::SetCapacity{buffer_capacity:new_buffer_capacity} => {
-                            buffer_capacity = new_buffer_capacity;
-                            if let Some(Ok(values)) = &mut values {
-                                values.truncate(buffer_capacity);
+                                Err(error) => {
+                                    let _ = self.sender.send(Err(error));
+                                }
                             }
                         },
-                        Message::ListenToUpdates{response_sender} => {
-                            update_listeners.push(response_sender)
-                        },
-                        Message::UpdateParameterValue{value} => {
-                            skip_updates += 1;
-                            add_element(&mut values, buffer_capacity, value.clone());
-                            communication.update_parameter_value(
-                                parameter_path.as_ref().expect(
-                                    "tried updating parameter on output value buffer"
-                                ),
-                                value,
-                            ).await;
-                        },
-                    },
-                    None => break,
+                        Err(_) => break,
+                    }
+                },
+                _ = self.sender.closed() => {
+                    break
                 }
-            }
+            };
         }
     }
 }
 
-fn add_element(
-    values: &mut Option<Result<VecDeque<Value>, String>>,
-    capacity: usize,
-    value: Value,
-) {
-    match values {
-        Some(Ok(values)) => {
-            values.push_front(value);
-            values.truncate(capacity);
+fn handle_update<T, E>(value: &mut Result<Vec<Datum<T>>, E>, datum: Datum<T>, history: Duration) {
+    match value {
+        Ok(ref mut buffer) => {
+            let right = buffer.partition_point(|sample| sample.timestamp < datum.timestamp);
+            let left =
+                buffer.partition_point(|sample| sample.timestamp < datum.timestamp - history);
+            *value = Ok(buffer.drain(left..right).chain(once(datum)).collect());
         }
-        _ => {
-            let mut new_buffer = VecDeque::with_capacity(capacity);
-            new_buffer.push_back(value);
-            *values = Some(Ok(new_buffer));
+        Err(_) => {
+            *value = Ok(TimeSeries::from([datum]));
         }
     }
 }

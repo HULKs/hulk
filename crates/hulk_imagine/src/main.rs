@@ -8,6 +8,7 @@ use color_eyre::{
     install,
 };
 use hardware::{CameraInterface, PathsInterface, TimeInterface};
+use types::hardware::Ids;
 use types::{camera_position::CameraPosition, hardware::Paths, ycbcr422_image::YCbCr422Image};
 
 use crate::execution::Replayer;
@@ -56,13 +57,15 @@ fn main() -> Result<()> {
     );
 
     let parameters_directory = args().nth(3).unwrap_or(replay_path.clone());
-    let id = "replayer".to_string();
+    let ids = Ids {
+        body_id: "replayer".into(),
+        head_id: "replayer".into(),
+    };
 
     let mut replayer = Replayer::new(
         Arc::new(ImageExtractorHardwareInterface),
         parameters_directory,
-        id.clone(),
-        id,
+        ids,
         replay_path,
     )
     .wrap_err("failed to create image extractor")?;
@@ -102,7 +105,7 @@ fn main() -> Result<()> {
                     .replay(instance_name, frame.timing.timestamp, &frame.data)
                     .expect("failed to replay frame");
 
-                let database = &*receiver.borrow_and_mark_as_seen();
+                let (_, database) = &*receiver.borrow_and_mark_as_seen();
                 let output_file = output_folder.join(format!(
                     "{}.png",
                     frame

@@ -1,55 +1,43 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
-use eframe::egui::{ComboBox, Response, SizeHint, TextureOptions, Ui, Widget};
+use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, Widget};
 use geometry::rectangle::Rectangle;
+use image::RgbImage;
 use linear_algebra::{point, vector};
-use log::error;
-use serde::{Deserialize, Serialize};
-use serde_json::{from_value, json, Value};
+use serde_json::{json, Value};
 
-use communication::client::{Cycler, CyclerOutput, Output};
+use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
 
 use crate::{
-    image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
     twix_painter::{Orientation, TwixPainter},
+    value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
 };
 
-use self::{cycler_selector::VisionCyclerSelector, overlay::Overlays};
+use self::{
+    cycler_selector::{VisionCycler, VisionCyclerSelector},
+    overlay::Overlays,
+};
 
 pub mod cycler_selector;
 pub mod overlay;
 mod overlays;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
-enum ImageKind {
-    YCbCr422,
-    Luminance,
-}
-
-impl ImageKind {
-    fn as_output(&self) -> Output {
-        match self {
-            ImageKind::YCbCr422 => Output::Main {
-                path: "image.jpeg".to_string(),
-            },
-            ImageKind::Luminance => Output::Additional {
-                path: "robot_detection.luminance_image.jpeg".to_string(),
-            },
-        }
-    }
+enum RawOrJpeg {
+    Raw(BufferHandle<YCbCr422Image>),
+    Jpeg(BufferHandle<JpegImage>),
 }
 
 pub struct ImagePanel {
     nao: Arc<Nao>,
-    image_buffer: ImageBuffer,
-    cycler_selector: VisionCyclerSelector,
+    image_buffer: RawOrJpeg,
+    cycler: VisionCycler,
     overlays: Overlays,
-    image_kind: ImageKind,
     zoom_and_pan: ZoomAndPanTransform,
 }
 
@@ -58,55 +46,47 @@ impl Panel for ImagePanel {
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let cycler = value
-            .and_then(|value| value.get("cycler"))
-            .and_then(|value| value.as_str())
-            .map(Cycler::from_str)
-            .and_then(|cycler| match cycler {
-                Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
-                Ok(cycler) => {
-                    error!("Invalid vision cycler: {cycler}");
-                    None
-                }
-                Err(error) => {
-                    error!("{error}");
-                    None
-                }
+            .and_then(|value| {
+                let string = value.get("cycler")?.as_str()?;
+                VisionCycler::try_from(string).ok()
             })
-            .unwrap_or(Cycler::VisionTop);
-        let image_kind = value
-            .and_then(|value| value.get("image_kind"))
-            .and_then(|value| from_value(value.clone()).ok())
-            .unwrap_or(ImageKind::YCbCr422);
-        let output = CyclerOutput {
-            cycler,
-            output: image_kind.as_output(),
+            .unwrap_or(VisionCycler::Top);
+        let cycler_path = cycler.as_path();
+
+        let is_jpeg = value
+            .and_then(|value| value.get("is_jpeg"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+
+        let image_buffer = if is_jpeg {
+            let path = format!("{cycler_path}.main_outputs.image.jpeg");
+            RawOrJpeg::Jpeg(nao.subscribe_value(path))
+        } else {
+            let path = format!("{cycler_path}.main_outputs.image");
+            RawOrJpeg::Raw(nao.subscribe_value(path))
         };
-        let image_buffer = nao.subscribe_image(output);
-        let cycler_selector = VisionCyclerSelector::new(cycler);
+
         let overlays = Overlays::new(
             nao.clone(),
             value.and_then(|value| value.get("overlays")),
-            cycler_selector.selected_cycler(),
+            cycler,
         );
         Self {
             nao,
             image_buffer,
-            cycler_selector,
+            cycler,
             overlays,
-            image_kind,
             zoom_and_pan: ZoomAndPanTransform::default(),
         }
     }
 
     fn save(&self) -> Value {
-        let cycler = self.cycler_selector.selected_cycler();
         let overlays = self.overlays.save();
-        let image_kind = format!("{:?}", self.image_kind);
 
         json!({
-            "cycler": cycler.to_string(),
+            "is_jpeg": matches!(self.image_buffer, RawOrJpeg::Jpeg(_)),
+            "cycler": self.cycler.as_path(),
             "overlays": overlays,
-            "image_kind": image_kind,
         })
     }
 }
@@ -114,43 +94,24 @@ impl Panel for ImagePanel {
 impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
-            if self.cycler_selector.ui(ui).changed() {
-                let output = CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: self.image_kind.as_output(),
-                };
-                self.image_buffer = self.nao.subscribe_image(output);
-                self.overlays
-                    .update_cycler(self.cycler_selector.selected_cycler());
+            let mut jpeg = matches!(self.image_buffer, RawOrJpeg::Jpeg(_));
+            let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
+            if cycler_selector.ui(ui).changed() {
+                self.resubscribe(jpeg);
+                self.overlays.update_cycler(self.cycler);
             }
-            let mut image_selection_changed = false;
-            ComboBox::from_label("Image")
-                .selected_text(format!("{:?}", self.image_kind))
-                .show_ui(ui, |ui| {
-                    if ui
-                        .selectable_value(&mut self.image_kind, ImageKind::YCbCr422, "YCbCr422")
-                        .changed()
-                    {
-                        image_selection_changed = true;
-                    };
-                    if ui
-                        .selectable_value(&mut self.image_kind, ImageKind::Luminance, "Luminance")
-                        .changed()
-                    {
-                        image_selection_changed = true;
-                    }
-                });
-            if image_selection_changed {
-                let output = CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: self.image_kind.as_output(),
-                };
-                self.image_buffer = self.nao.subscribe_image(output);
-                self.overlays
-                    .update_cycler(self.cycler_selector.selected_cycler());
+            self.overlays.combo_box(ui, self.cycler);
+            if ui.checkbox(&mut jpeg, "JPEG").changed() {
+                self.resubscribe(jpeg);
             }
-            self.overlays
-                .combo_box(ui, self.cycler_selector.selected_cycler());
+            let maybe_timestamp = match &self.image_buffer {
+                RawOrJpeg::Raw(buffer) => buffer.get_last_timestamp(),
+                RawOrJpeg::Jpeg(buffer) => buffer.get_last_timestamp(),
+            };
+            if let Ok(Some(timestamp)) = maybe_timestamp {
+                let date: DateTime<Utc> = timestamp.into();
+                ui.label(date.format("%T%.3f").to_string());
+            }
         });
         let (response, mut painter) = TwixPainter::allocate(
             ui,
@@ -160,41 +121,73 @@ impl Widget for &mut ImagePanel {
         );
         self.zoom_and_pan.apply(ui, &mut painter, &response);
 
-        let _ = self
-            .show_image(&painter)
-            .map_err(|error| ui.label(format!("{error:#?}")));
-        let _ = self.overlays.paint(&painter);
+        if let Err(error) = self.show_image(&painter) {
+            ui.label(format!("{error:#?}"));
+        };
+
+        self.overlays.paint(&painter);
+
         response
     }
 }
 
 impl ImagePanel {
+    fn resubscribe(&mut self, jpeg: bool) {
+        let cycler_path = self.cycler.as_path();
+        self.image_buffer = if jpeg {
+            RawOrJpeg::Jpeg(
+                self.nao
+                    .subscribe_value(format!("{cycler_path}.main_outputs.image.jpeg")),
+            )
+        } else {
+            RawOrJpeg::Raw(
+                self.nao
+                    .subscribe_value(format!("{cycler_path}.main_outputs.image")),
+            )
+        };
+    }
+
     fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        let image_data = self
-            .image_buffer
-            .get_latest()
-            .map_err(|error| eyre!("{error}"))?;
-        let image_raw = bincode::deserialize::<Vec<u8>>(&image_data)?;
         let context = painter.context();
 
-        let image_identifier = format!("bytes://image-{:?}", self.cycler_selector);
-        context.forget_image(&image_identifier);
-        context.include_bytes(image_identifier.clone(), image_raw);
-        let result = context.try_load_texture(
-            &image_identifier,
-            TextureOptions::NEAREST,
-            SizeHint::Size(640, 480),
-        )?;
+        let image_identifier = format!("bytes://image-{:?}", self.cycler);
+        let image = match &self.image_buffer {
+            RawOrJpeg::Raw(buffer) => {
+                let ycbcr = buffer
+                    .get_last_value()?
+                    .ok_or_else(|| eyre!("no image available"))?;
+                let image = ColorImage::from_rgb(
+                    [ycbcr.width() as usize, ycbcr.height() as usize],
+                    RgbImage::from(ycbcr).as_raw(),
+                );
+                context
+                    .load_texture(&image_identifier, image, TextureOptions::NEAREST)
+                    .id()
+            }
+            RawOrJpeg::Jpeg(buffer) => {
+                let jpeg = buffer
+                    .get_last_value()?
+                    .ok_or_else(|| eyre!("no image available"))?;
+                context.forget_image(&image_identifier);
+                context.include_bytes(image_identifier.clone(), jpeg.data);
+                context
+                    .try_load_texture(
+                        &image_identifier,
+                        TextureOptions::NEAREST,
+                        SizeHint::Size(640, 480),
+                    )?
+                    .texture_id()
+                    .unwrap()
+            }
+        };
 
-        if let Some(id) = result.texture_id() {
-            painter.image(
-                id,
-                Rectangle {
-                    min: point!(0.0, 0.0),
-                    max: point!(640.0, 480.0),
-                },
-            );
-        }
+        painter.image(
+            image,
+            Rectangle {
+                min: point!(0.0, 0.0),
+                max: point!(640.0, 480.0),
+            },
+        );
         Ok(())
     }
 }

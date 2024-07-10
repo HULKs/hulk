@@ -1,7 +1,7 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use color_eyre::{eyre::eyre, Result};
-use communication::client::{Cycler, CyclerOutput, Output};
+use chrono::{DateTime, Utc};
+use color_eyre::{eyre::ContextCompat, Result};
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{
@@ -13,7 +13,6 @@ use eframe::{
 
 use itertools::iproduct;
 use linear_algebra::{vector, Point2};
-use log::error;
 
 use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
@@ -24,13 +23,13 @@ use types::{
 };
 
 use crate::{
-    image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
     twix_painter::{Orientation, TwixPainter},
+    value_buffer::BufferHandle,
 };
 
-use super::image::cycler_selector::VisionCyclerSelector;
+use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 
@@ -105,8 +104,8 @@ impl Statistics {
 
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
-    image_buffer: ImageBuffer,
-    cycler_selector: VisionCyclerSelector,
+    image_buffer: BufferHandle<YCbCr422Image>,
+    cycler: VisionCycler,
     brush_size: f32,
 }
 
@@ -115,43 +114,27 @@ impl Panel for ImageColorSelectPanel {
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let cycler = value
-            .and_then(|value| value.get("cycler"))
-            .and_then(|value| value.as_str())
-            .map(Cycler::from_str)
-            .and_then(|cycler| match cycler {
-                Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
-                Ok(cycler) => {
-                    error!("Invalid vision cycler: {cycler}");
-                    None
-                }
-                Err(error) => {
-                    error!("{error}");
-                    None
-                }
+            .and_then(|value| {
+                let string = value.get("cycler")?.as_str()?;
+                VisionCycler::try_from(string).ok()
             })
-            .unwrap_or(Cycler::VisionTop);
-        let output = CyclerOutput {
-            cycler,
-            output: Output::Main {
-                path: "image".to_string(),
-            },
-        };
-        let image_buffer = nao.subscribe_image(output);
-        let cycler_selector = VisionCyclerSelector::new(cycler);
+            .unwrap_or(VisionCycler::Top);
+        let cycler_path = cycler.as_path();
+        let path = format!("{cycler_path}.main_outputs.image");
+        let image_buffer = nao.subscribe_value(path);
 
         let brush_size = 50.0;
         Self {
             nao,
             image_buffer,
-            cycler_selector,
+            cycler,
             brush_size,
         }
     }
 
     fn save(&self) -> Value {
-        let cycler = self.cycler_selector.selected_cycler();
         json!({
-            "cycler": cycler.to_string(),
+            "cycler": self.cycler.as_path(),
         })
     }
 }
@@ -159,16 +142,18 @@ impl Panel for ImageColorSelectPanel {
 impl Widget for &mut ImageColorSelectPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
-            if self.cycler_selector.ui(ui).changed() {
-                let output = CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: Output::Main {
-                        path: "image".to_string(),
-                    },
-                };
-                self.image_buffer = self.nao.subscribe_image(output);
+            let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
+            if cycler_selector.ui(ui).changed() {
+                let cycler_path = self.cycler.as_path();
+                self.image_buffer = self
+                    .nao
+                    .subscribe_value(format!("{cycler_path}.main_outputs.image"));
             }
             ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
+            if let Ok(Some(timestamp)) = self.image_buffer.get_last_timestamp() {
+                let date: DateTime<Utc> = timestamp.into();
+                ui.label(date.format("%T%.3f").to_string());
+            }
         });
 
         ui.separator();
@@ -287,11 +272,10 @@ impl<'a> ImageColorSelectPanel {
     }
 
     fn get_image(&self) -> Result<ColorImage> {
-        let buffer = self
+        let image_ycbcr = self
             .image_buffer
-            .get_latest()
-            .map_err(|error| eyre!("{error}"))?;
-        let image_ycbcr = bincode::deserialize::<YCbCr422Image>(&buffer)?;
+            .get_last_value()?
+            .wrap_err("No image available")?;
 
         let rgb_bytes = image_ycbcr
             .buffer()

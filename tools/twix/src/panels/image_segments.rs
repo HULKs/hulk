@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
@@ -7,7 +7,6 @@ use eframe::{
 use linear_algebra::{point, vector};
 use serde::{Deserialize, Serialize};
 
-use communication::client::CyclerOutput;
 use coordinate_systems::Pixel;
 use serde_json::{json, Value};
 use types::{
@@ -20,7 +19,7 @@ use crate::{
     nao::Nao,
     panel::Panel,
     twix_painter::{Orientation, TwixPainter},
-    value_buffer::ValueBuffer,
+    value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
 };
 
@@ -41,7 +40,7 @@ enum ColorMode {
 
 pub struct ImageSegmentsPanel {
     nao: Arc<Nao>,
-    value_buffer: ValueBuffer,
+    buffer: BufferHandle<ImageSegments>,
     camera_position: CameraPosition,
     color_mode: ColorMode,
     use_filtered_segments: bool,
@@ -56,10 +55,9 @@ impl Panel for ImageSegmentsPanel {
             Some(Value::String(string)) if string == "Bottom" => CameraPosition::Bottom,
             _ => CameraPosition::Top,
         };
-        let value_buffer = nao.subscribe_output(
-            CyclerOutput::from_str(&format!("Vision{camera_position:?}.main.image_segments"))
-                .unwrap(),
-        );
+        let value_buffer = nao.subscribe_value(format!(
+            "Vision{camera_position:?}.main_outputs.image_segments"
+        ));
         let color_mode = match value.and_then(|value| value.get("color_mode")) {
             Some(Value::String(string)) => serde_json::from_str(&format!("\"{string}\"")).unwrap(),
             _ => ColorMode::Original,
@@ -70,7 +68,7 @@ impl Panel for ImageSegmentsPanel {
             .unwrap_or_default();
         Self {
             nao,
-            value_buffer,
+            buffer: value_buffer,
             camera_position,
             color_mode,
             use_filtered_segments,
@@ -116,19 +114,19 @@ impl Widget for &mut ImageSegmentsPanel {
             if camera_selection_changed || filtered_segments_checkbox.changed() {
                 let output = match (self.camera_position, self.use_filtered_segments) {
                     (CameraPosition::Top, false) => {
-                        CyclerOutput::from_str("VisionTop.main.image_segments").unwrap()
+                        "VisionTop.main_outputs.image_segments".to_string()
                     }
                     (CameraPosition::Top, true) => {
-                        CyclerOutput::from_str("VisionTop.main.filtered_segments").unwrap()
+                        "VisionTop.main_outputs.filtered_segments".to_string()
                     }
                     (CameraPosition::Bottom, false) => {
-                        CyclerOutput::from_str("VisionBottom.main.image_segments").unwrap()
+                        "VisionBottom.main_outputs.image_segments".to_string()
                     }
                     (CameraPosition::Bottom, true) => {
-                        CyclerOutput::from_str("VisionBottom.main.filtered_segments").unwrap()
+                        "VisionBottom.main_outputs.filtered_segments".to_string()
                     }
                 };
-                self.value_buffer = self.nao.subscribe_output(output);
+                self.buffer = self.nao.subscribe_value(output);
             }
             ComboBox::from_label("ColorMode")
                 .selected_text(format!("{:?}", self.color_mode))
@@ -158,9 +156,10 @@ impl Widget for &mut ImageSegmentsPanel {
                     );
                 });
         });
-        let image_segments: ImageSegments = match self.value_buffer.require_latest() {
-            Ok(value) => value,
-            Err(error) => return ui.label(format!("{error:?}")),
+        let image_segments: ImageSegments = match self.buffer.get_last_value() {
+            Ok(Some(value)) => value,
+            Ok(None) => return ui.label("No data"),
+            Err(error) => return ui.label(format!("{error:#}")),
         };
 
         let (mut response, mut painter) = TwixPainter::<Pixel>::allocate(

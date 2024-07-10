@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
 use types::{
-    ball::Ball,
+    ball_detection::Ball,
     color::Rgb,
     cycle_time::CycleTime,
     filtered_whistle::FilteredWhistle,

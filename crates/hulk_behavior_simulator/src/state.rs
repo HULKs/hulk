@@ -8,13 +8,12 @@ use std::{
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use ball_filter::BallPosition;
-use coordinate_systems::{Field, Head};
+use coordinate_systems::Head;
 use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::{GamePhase, GameState, HulkMessage, PlayerNumber, Team};
 use types::{
+    ball_position::{BallPosition, SimulatorBallState},
     game_controller_state::GameControllerState,
     messages::OutgoingMessage,
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
@@ -31,19 +30,11 @@ pub enum Event {
     Goal,
 }
 
-#[derive(
-    Default, Clone, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct Ball {
-    pub position: Point2<Field>,
-    pub velocity: Vector2<Field>,
-}
-
 pub struct State {
     pub time_elapsed: Duration,
     pub cycle_count: usize,
     pub robots: HashMap<PlayerNumber, Robot>,
-    pub ball: Option<Ball>,
+    pub ball: Option<SimulatorBallState>,
     pub messages: Vec<(PlayerNumber, HulkMessage)>,
     pub finished: bool,
     pub game_controller_state: GameControllerState,
@@ -257,7 +248,7 @@ impl State {
             // TODO: Expose robot data to lua again
             // robots: self.robots.iter().map(LuaRobot::new).collect(),
             robots: Default::default(),
-            ball: self.ball.clone(),
+            ball: self.ball,
             messages: self.messages.clone(),
 
             finished: self.finished,
@@ -324,7 +315,7 @@ pub struct LuaState {
     pub time_elapsed: f32,
     pub cycle_count: usize,
     pub robots: Vec<LuaRobot>,
-    pub ball: Option<Ball>,
+    pub ball: Option<SimulatorBallState>,
     pub messages: Vec<(PlayerNumber, HulkMessage)>,
     pub finished: bool,
     pub game_controller_state: GameControllerState,

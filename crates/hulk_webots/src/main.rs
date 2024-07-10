@@ -72,8 +72,7 @@ fn main() -> Result<()> {
         framework_parameters.communication_addresses,
         framework_parameters.parameters_directory,
         "logs",
-        ids.body_id,
-        ids.head_id,
+        ids,
         keep_running,
         framework_parameters.recording_intervals,
     )
