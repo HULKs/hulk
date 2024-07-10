@@ -40,7 +40,7 @@ use crate::{
     PathIntrospect,
 )]
 #[repr(u8)]
-pub enum VisualRefereeDecision {
+pub enum GestureVisualRefereeDecision {
     #[default]
     KickInBlueTeam = GAMECONTROLLER_RETURN_STRUCT_VRC_GESTURE_KICK_IN_BLUE_TEAM,
     KickInRedTeam = GAMECONTROLLER_RETURN_STRUCT_VRC_GESTURE_KICK_IN_RED_TEAM,
@@ -58,14 +58,14 @@ pub enum VisualRefereeDecision {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-pub struct VisualRefereeMessage {
+pub struct GestureVisualRefereeMessage {
     pub player_number: PlayerNumber,
-    pub gesture: VisualRefereeDecision,
+    pub gesture: GestureVisualRefereeDecision,
     pub whistle_age: Duration,
 }
 
-impl From<VisualRefereeMessage> for Vec<u8> {
-    fn from(message: VisualRefereeMessage) -> Self {
+impl From<GestureVisualRefereeMessage> for Vec<u8> {
+    fn from(message: GestureVisualRefereeMessage) -> Self {
         let message = message.into();
         unsafe {
             from_raw_parts(
@@ -77,8 +77,8 @@ impl From<VisualRefereeMessage> for Vec<u8> {
     }
 }
 
-impl From<VisualRefereeMessage> for RoboCupGameControlReturnData {
-    fn from(message: VisualRefereeMessage) -> Self {
+impl From<GestureVisualRefereeMessage> for RoboCupGameControlReturnData {
+    fn from(message: GestureVisualRefereeMessage) -> Self {
         let (ball_position, ball_age) = ([0.0; 2], message.whistle_age.as_secs_f32());
         RoboCupGameControlReturnData {
             header: [

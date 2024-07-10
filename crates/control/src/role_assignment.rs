@@ -13,7 +13,8 @@ use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use linear_algebra::{Isometry2, Point2, Vector};
 use spl_network_messages::{
-    GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, SubState, Team,
+    GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, StrikerMessage,
+    SubState, Team,
 };
 use types::{
     cycle_time::CycleTime,
@@ -238,8 +239,8 @@ impl RoleAssignment {
             .into_values()
             .flatten()
             .filter_map(|message| match message {
-                Some(IncomingMessage::GameController(..)) | None => None,
-                Some(IncomingMessage::Spl(message)) => Some(message),
+                Some(IncomingMessage::Spl(HulkMessage::Striker(message))) => Some(message),
+                _ => None,
             })
             .peekable();
         if spl_messages.peek().is_none() {
@@ -327,15 +328,14 @@ impl RoleAssignment {
                             cycle_start_time,
                         )
                     };
-                    context
-                        .hardware
-                        .write_to_network(OutgoingMessage::Spl(HulkMessage {
+                    context.hardware.write_to_network(OutgoingMessage::Spl(
+                        HulkMessage::Striker(StrikerMessage {
                             player_number: *context.player_number,
                             pose: ground_to_field.as_pose(),
-                            is_referee_ready_signal_detected: false,
                             ball_position,
                             time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
-                        }))?;
+                        }),
+                    ))?;
                 }
             }
         }
@@ -374,7 +374,7 @@ fn process_role_state_machine(
     current_pose: Isometry2<Ground, Field>,
     detected_own_ball: Option<&BallPosition<Ground>>,
     primary_state: PrimaryState,
-    incoming_message: Option<&HulkMessage>,
+    incoming_message: Option<&StrikerMessage>,
     time_to_reach_kick_position: Option<Duration>,
     send_spl_striker_message: bool,
     team_ball: Option<BallPosition<Field>>,
@@ -409,12 +409,6 @@ fn process_role_state_machine(
                     team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
                 )
             }
-        }
-    }
-
-    if let Some(message) = incoming_message {
-        if message.player_number == player_number {
-            return (current_role, false, team_ball);
         }
     }
 
@@ -624,7 +618,7 @@ fn process_role_state_machine(
 }
 
 fn decide_if_claiming_striker_or_other_role(
-    spl_message: &HulkMessage,
+    spl_message: &StrikerMessage,
     time_to_reach_kick_position: Option<Duration>,
     player_number: PlayerNumber,
     cycle_start_time: SystemTime,
@@ -686,7 +680,7 @@ fn team_ball_to_network_ball_position(
 
 fn team_ball_from_spl_message(
     cycle_start_time: SystemTime,
-    spl_message: &HulkMessage,
+    spl_message: &StrikerMessage,
 ) -> Option<BallPosition<Field>> {
     spl_message
         .ball_position
