@@ -10,7 +10,9 @@ use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use hardware::NetworkInterface;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{PlayerNumber, SubState, VisualRefereeDecision, VisualRefereeMessage};
+use spl_network_messages::{
+    GestureVisualRefereeDecision, GestureVisualRefereeMessage, PlayerNumber, SubState,
+};
 use types::{
     cycle_time::CycleTime, filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState, messages::OutgoingMessage,
@@ -97,12 +99,13 @@ impl VisualRefereeFilter {
 
             // Initially a random visual referee decision
             let gesture =
-                VisualRefereeDecision::from_u32(self.random_state.gen_range(1..=13)).unwrap();
+                GestureVisualRefereeDecision::from_u32(self.random_state.gen_range(1..=13))
+                    .unwrap();
 
             if let Some(address) = context.game_controller_address {
                 let message = OutgoingMessage::VisualReferee(
                     *address,
-                    VisualRefereeMessage {
+                    GestureVisualRefereeMessage {
                         player_number: *context.player_number,
                         gesture,
                         whistle_age: duration_since_last_whistle,

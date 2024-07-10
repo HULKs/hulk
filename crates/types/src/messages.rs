@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::{
-    GameControllerReturnMessage, GameControllerStateMessage, HulkMessage, VisualRefereeMessage,
+    GameControllerReturnMessage, GameControllerStateMessage, GestureVisualRefereeMessage,
+    HulkMessage,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
@@ -23,7 +24,7 @@ impl Default for IncomingMessage {
 pub enum OutgoingMessage {
     GameController(SocketAddr, GameControllerReturnMessage),
     Spl(HulkMessage),
-    VisualReferee(SocketAddr, VisualRefereeMessage),
+    VisualReferee(SocketAddr, GestureVisualRefereeMessage),
 }
 
 impl Default for OutgoingMessage {
