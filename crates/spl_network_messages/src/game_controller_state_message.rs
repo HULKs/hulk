@@ -123,7 +123,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 message.teams[hulks_team_index].players[player_index as usize].try_into()
             })
             .collect::<Result<Vec<_>>>()?;
-        let opponent_players = (0..message.playersPerTeam)
+        let opponent_players = (0..MAX_NUM_PLAYERS)
             .map(|player_index| {
                 message.teams[opponent_team_index].players[player_index as usize].try_into()
             })
