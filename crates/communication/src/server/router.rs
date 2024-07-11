@@ -265,7 +265,7 @@ fn find_mount<'a, T>(
             path.strip_prefix(mount_point).map(|stripped| Match {
                 mount,
                 mount_point,
-                path: stripped.strip_prefix(".").unwrap_or(""),
+                path: stripped.strip_prefix('.').unwrap_or(""),
             })
         })
         .ok_or_else(|| Error::NoSuchPath(path.clone()))
