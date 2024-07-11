@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use linear_algebra::{Orientation2, Pose2};
 use types::{
-    motion_command::{MotionCommand, OrientationMode},
+    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     planned_path::PathSegment,
     step_plan::Step,
 };
@@ -22,6 +22,8 @@ pub struct CycleContext {
 
     injected_step: Parameter<Option<Step>, "step_planner.injected_step?">,
     max_step_size: Parameter<Step, "step_planner.max_step_size">,
+    step_size_delta_slow: Parameter<Step, "step_planner.step_size_delta_slow">,
+    step_size_delta_fast: Parameter<Step, "step_planner.step_size_delta_fast">,
     max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
     rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
@@ -41,12 +43,13 @@ impl StepPlanner {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let (path, orientation_mode) = match context.motion_command {
+        let (path, orientation_mode, speed) = match context.motion_command {
             MotionCommand::Walk {
                 path,
                 orientation_mode,
+                speed,
                 ..
-            } => (path, orientation_mode),
+            } => (path, orientation_mode, speed),
             _ => {
                 return Ok(MainOutputs {
                     step_plan: Step {
@@ -109,10 +112,15 @@ impl StepPlanner {
             step = *injected_step;
         }
 
+        let max_step_size = match speed {
+            WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
+            WalkSpeed::Normal => *context.max_step_size,
+            WalkSpeed::Fast => *context.max_step_size + *context.step_size_delta_fast,
+        };
         let step = compensate_with_return_offset(step, *context.walk_return_offset);
         let step = clamp_step_to_walk_volume(
             step,
-            context.max_step_size,
+            &max_step_size,
             *context.max_step_size_backwards,
             *context.translation_exponent,
             *context.rotation_exponent,
