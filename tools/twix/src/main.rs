@@ -46,6 +46,7 @@ use tokio::{
 };
 use visuals::Visuals;
 
+mod change_buffer;
 mod completion_edit;
 mod configuration;
 mod log_error;

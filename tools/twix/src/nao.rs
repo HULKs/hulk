@@ -22,7 +22,10 @@ use tokio::{
 };
 use types::hardware::Ids;
 
-use crate::value_buffer::{Buffer, BufferHandle, Datum};
+use crate::{
+    change_buffer::{Change, ChangeBuffer, ChangeBufferHandle},
+    value_buffer::{Buffer, BufferHandle, Datum},
+};
 
 pub struct Nao {
     runtime: Runtime,
@@ -109,6 +112,25 @@ impl Nao {
             task.map(subscription, |datum| -> Result<_, Report> {
                 let datum = datum.map_err(|error| eyre!("{error:#}"))?;
                 Ok(Datum {
+                    timestamp: datum.timestamp,
+                    value: datum.value.clone(),
+                })
+            })
+            .await;
+        });
+        buffer
+    }
+
+    pub fn subscribe_changes_json(&self, path: impl Into<Path>) -> ChangeBufferHandle<Value> {
+        let path = path.into();
+        let _guard = self.runtime.enter();
+        let (task, buffer) = ChangeBuffer::new();
+        let client = self.client.clone();
+        spawn(async move {
+            let subscription = client.subscribe_text(path).await;
+            task.map(subscription, |datum| -> Result<_, Report> {
+                let datum = datum.map_err(|error| eyre!("{error:#}"))?;
+                Ok(Change {
                     timestamp: datum.timestamp,
                     value: datum.value.clone(),
                 })

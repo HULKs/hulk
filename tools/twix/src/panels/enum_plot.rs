@@ -1,21 +1,29 @@
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
+    iter::once,
+    ops::Range,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use eframe::{
     egui::{
-        show_tooltip_at_pointer, Button, ComboBox, Response, RichText, Sense, TextStyle, Ui,
-        Widget, WidgetText,
+        show_tooltip_at_pointer, Align2, Button, ComboBox, FontId, Response, RichText, Sense,
+        TextStyle, Ui, Widget, WidgetText,
     },
     emath::{remap, Rangef, RectTransform},
     epaint::{Color32, Rect, Rounding, Shape, Stroke, TextShape, Vec2},
 };
+use itertools::Itertools;
 use serde_json::{json, Value};
 
-use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    change_buffer::{Change, ChangeBufferHandle},
+    completion_edit::CompletionEdit,
+    nao::Nao,
+    panel::Panel,
+};
 
 fn color_hash(value: impl Hash) -> Color32 {
     let mut hasher = DefaultHasher::new();
@@ -30,8 +38,8 @@ fn color_hash(value: impl Hash) -> Color32 {
 
 #[derive(Debug, Clone)]
 struct Segment {
-    start: SystemTime,
-    end: Option<SystemTime>,
+    start: f32,
+    end: f32,
     value: Value,
 }
 
@@ -70,25 +78,13 @@ impl Segment {
         }
     }
 
-    fn render(
-        &self,
-        ui: &mut Ui,
-        index: usize,
-        viewport_transform: &RectTransform,
-        latest_timestamp: SystemTime,
-    ) {
+    fn render(&self, ui: &mut Ui, index: usize, viewport_transform: &RectTransform) {
         let stroke_color = color_hash(self.name());
         let fill_color = stroke_color.gamma_multiply(0.5);
         let stroke_width = 2.0;
 
-        let x_min = -latest_timestamp
-            .duration_since(self.start)
-            .unwrap_or_default()
-            .as_secs_f32();
-        let x_max = -latest_timestamp
-            .duration_since(self.end.unwrap_or(latest_timestamp))
-            .unwrap_or_default()
-            .as_secs_f32();
+        let x_min = self.start;
+        let x_max = self.end;
         let y_min = index as f32;
         let y_max = (index + 1) as f32;
         let rect = Rect::from_x_y_ranges(x_min..=x_max, y_min..=y_max);
@@ -147,12 +143,12 @@ enum ViewportMode {
 #[derive(Default)]
 struct SegmentRow {
     path: String,
-    buffer: Option<BufferHandle<Value>>,
+    buffer: Option<ChangeBufferHandle<Value>>,
 }
 
 impl SegmentRow {
     fn subscribe(&mut self, nao: Arc<Nao>) {
-        self.buffer = Some(nao.subscribe_buffered_json(&self.path, Duration::from_secs(3)));
+        self.buffer = Some(nao.subscribe_changes_json(&self.path));
     }
 
     fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>) {
@@ -164,32 +160,32 @@ impl SegmentRow {
         }
     }
 
-    fn segments(&self) -> Option<Vec<Segment>> {
+    fn segments(&self, timestamp_range: &Range<SystemTime>) -> Option<Vec<Segment>> {
         let buffer = self.buffer.as_ref()?;
         let series = buffer.get().ok()?;
 
         let segments = series
-            .into_iter()
-            .fold(Vec::new(), |mut segments, element| {
-                let Some(last_value) = segments.last_mut() else {
-                    return vec![Segment {
-                        start: element.timestamp,
-                        end: None,
-                        value: element.value,
-                    }];
-                };
-                if last_value.value == element.value {
-                    last_value.end = Some(element.timestamp);
-                    return segments;
-                }
-                last_value.end = Some(element.timestamp);
-                segments.push(Segment {
-                    start: element.timestamp,
-                    end: None,
-                    value: element.value,
-                });
-                segments
-            });
+            .changes()
+            .chain(once(&Change {
+                timestamp: series.last_update()?,
+                value: Value::Null,
+            }))
+            .tuple_windows()
+            .map(|(start, end)| Segment {
+                start: start
+                    .timestamp
+                    .duration_since(timestamp_range.start)
+                    .unwrap_or_default()
+                    .as_secs_f32(),
+                end: end
+                    .timestamp
+                    .duration_since(timestamp_range.start)
+                    .unwrap_or_default()
+                    .as_secs_f32(),
+                value: start.value.clone(),
+            })
+            .collect();
+
         Some(segments)
     }
 }
@@ -245,7 +241,7 @@ impl Panel for EnumPlotPanel {
 }
 
 impl EnumPlotPanel {
-    fn interact(&mut self, response: &Response, ui: &mut Ui, max_message_count: usize) {
+    fn interact(&mut self, response: &Response, ui: &mut Ui, timestamp_range: &Range<SystemTime>) {
         const SCROLL_THRESHOLD: f32 = 1.0;
 
         let (scroll_position, viewport_width) = if response.contains_pointer() {
@@ -310,13 +306,23 @@ impl EnumPlotPanel {
 
         match self.viewport_mode {
             ViewportMode::Full => {
-                self.x_range = Rangef::new(0.0, max_message_count as f32);
+                self.x_range = Rangef::new(
+                    0.0,
+                    timestamp_range
+                        .end
+                        .duration_since(timestamp_range.start)
+                        .unwrap_or_default()
+                        .as_secs_f32(),
+                );
             }
             ViewportMode::Follow => {
-                self.x_range = Rangef::new(
-                    max_message_count as f32 - viewport_width,
-                    max_message_count as f32,
-                );
+                let timestamps_span = timestamp_range
+                    .end
+                    .duration_since(timestamp_range.start)
+                    .unwrap_or_default()
+                    .as_secs_f32();
+
+                self.x_range = Rangef::new(timestamps_span - viewport_width, timestamps_span);
             }
             ViewportMode::Free => {
                 self.x_range = Rangef::new(scroll_position, scroll_position + viewport_width);
@@ -332,42 +338,58 @@ impl EnumPlotPanel {
             self.segment_rows.len().max(1) as f32 * LINE_HEIGHT,
         );
 
-        let lines: Vec<_> = self
+        let start = self
             .segment_rows
             .iter()
-            .map(|segment_data| segment_data.segments().unwrap_or_default())
-            .collect();
+            .filter_map(|row| row.buffer.as_ref()?.get().ok()?.first_update())
+            .min();
+        let end = self
+            .segment_rows
+            .iter()
+            .filter_map(|row| row.buffer.as_ref()?.get().ok()?.last_update())
+            .max();
 
         let (frame, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
-
-        //self.interact(&response, ui);
-
-        let viewport_rect = Rect::from_x_y_ranges(
-            self.x_range,
-            Rangef::new(0.0, self.segment_rows.len() as f32),
-        );
-
-        let viewport_transform = RectTransform::from_to(viewport_rect, response.rect);
-
-        let latest_timestamp = lines
-            .iter()
-            .filter_map(|segments| {
-                let last = segments.last()?;
-                Some(last.end.unwrap_or(last.start))
-            })
-            .max();
 
         ui.scope(|ui| {
             ui.set_clip_rect(frame);
             ui.painter()
                 .rect_filled(frame, Rounding::ZERO, Color32::BLACK);
 
-            for (index, segments) in lines.iter().enumerate() {
-                for segment in segments {
-                    segment.render(ui, index, &viewport_transform, latest_timestamp.unwrap());
+            if let (Some(start), Some(end)) = (start, end) {
+                let timestamp_range = Range { start, end };
+
+                let lines: Vec<_> = self
+                    .segment_rows
+                    .iter()
+                    .map(|segment_row| segment_row.segments(&timestamp_range).unwrap_or_default())
+                    .collect();
+
+                self.interact(&response, ui, &timestamp_range);
+
+                let viewport_rect = Rect::from_x_y_ranges(
+                    self.x_range,
+                    Rangef::new(0.0, self.segment_rows.len() as f32),
+                );
+
+                let viewport_transform = RectTransform::from_to(viewport_rect, response.rect);
+
+                for (index, segments) in lines.iter().enumerate() {
+                    for segment in segments {
+                        segment.render(ui, index, &viewport_transform);
+                    }
                 }
+            } else {
+                ui.painter().text(
+                    frame.center(),
+                    Align2::CENTER_CENTER,
+                    "(nothing to show)",
+                    FontId::default(),
+                    Color32::GRAY,
+                );
             }
         });
+
         response
     }
 }
