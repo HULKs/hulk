@@ -3,8 +3,7 @@ use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
 use linear_algebra::Point2;
 use types::{
-    motion_command::HeadMotion,
-    motion_command::{MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::LostBallParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -39,5 +38,6 @@ pub fn execute(
         HeadMotion::SearchForLostBall,
         OrientationMode::Override(orientation),
         path,
+        WalkSpeed::Normal,
     ))
 }
