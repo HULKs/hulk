@@ -8,7 +8,7 @@ use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
 use linear_algebra::{point, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{SubState, Team};
+use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -82,10 +82,18 @@ impl BallStateComposer {
             context.filtered_game_controller_state,
         ) {
             (
-                PrimaryState::Ready,
+                PrimaryState::Ready | PrimaryState::Set,
                 Some(ground_to_field),
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
+                    kicking_team,
+                    ..
+                })
+                | Some(FilteredGameControllerState {
+                    game_phase:
+                        GamePhase::PenaltyShootout {
+                            kicking_team: Team::Hulks,
+                        },
                     kicking_team,
                     ..
                 }),
