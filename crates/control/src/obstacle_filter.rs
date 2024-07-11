@@ -289,7 +289,7 @@ impl ObstacleFilter {
             hypothesis.state.update(
                 Matrix2::identity(),
                 detected_position.inner.coords,
-                measurement_noise * detected_position.coords().norm_squared(),
+                measurement_noise * (detected_position.coords().norm_squared() + f32::EPSILON),
             );
             hypothesis.obstacle_kind = match hypothesis.obstacle_kind {
                 ObstacleKind::Robot => hypothesis.obstacle_kind,
