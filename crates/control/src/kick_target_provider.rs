@@ -136,16 +136,20 @@ fn collect_kick_targets(
     let field_to_ground = ground_to_field.inverse();
 
     let is_own_kick_off = matches!(
-        filtered_game_controller_state.map(|x| (x.game_state, x.game_phase)),
-        Some((
-            FilteredGameState::Playing { kick_off: true, .. },
-            GamePhase::Normal
-        ))
+        filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            game_state: FilteredGameState::Playing { kick_off: true, .. },
+            game_phase: GamePhase::Normal,
+            ..
+        })
     );
     let is_not_free_for_opponent = matches!(
-        filtered_game_controller_state.map(|x| x.opponent_game_state),
-        Some(FilteredGameState::Playing {
-            ball_is_free: false,
+        filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            opponent_game_state: FilteredGameState::Playing {
+                ball_is_free: false,
+                ..
+            },
             ..
         })
     );
