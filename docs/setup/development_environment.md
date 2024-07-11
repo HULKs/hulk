@@ -1,6 +1,5 @@
 # Setup Development Environment
 
-
 This section will guide you through the setup of your development environment to build software for the NAO robot and test your algorithms using our various tools.
 
 ## Installing Rust
@@ -15,14 +14,14 @@ Most of these dependencies are needed for the compilation of local tools.
 All dependencies needed for a cross-compilation for the NAO are included in the NAO SDK.
 Use your distribution's package manager to install the following dependencies:
 
-- [Git](https://git-scm.com/), [Git LFS](https://git-lfs.com/)
-- [clang](https://clang.llvm.org/)
-- [python3](https://www.python.org/)
-- [which](https://carlowood.github.io/which/)
-- [zstd](http://www.zstd.net/)
-- [xz](https://tukaani.org/xz/)
-- [file](https://darwinsys.com/file/)
-- [rsync](https://rsync.samba.org/)
+-   [Git](https://git-scm.com/), [Git LFS](https://git-lfs.com/)
+-   [clang](https://clang.llvm.org/)
+-   [python3](https://www.python.org/)
+-   [which](https://carlowood.github.io/which/)
+-   [zstd](http://www.zstd.net/)
+-   [xz](https://tukaani.org/xz/)
+-   [file](https://darwinsys.com/file/)
+-   [rsync](https://rsync.samba.org/)
 
 === "Arch Linux"
 
@@ -33,7 +32,7 @@ Use your distribution's package manager to install the following dependencies:
 === "Fedora"
 
     ```sh
-    sudo dnf install git git-lfs clang python3 which zstd xz file rsync
+    sudo dnf install git git-lfs clang python3 which zstd xz file rsync alsa-lib-devel
     ```
 
 === "Ubuntu"
@@ -41,10 +40,12 @@ Use your distribution's package manager to install the following dependencies:
     ```sh
     sudo apt install git git-lfs clang python3 zstd xz-utils file rsync
     ```
+
 ### OpenVino:tm: runtime for Neural Networks
 
 You will also need to install the OpenVino:tm: runtime for Webots. The HULKs SDK already contains the runtime for use with the NAOs.
-- [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
+
+-   [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
 
 If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
 
