@@ -5,9 +5,17 @@ use types::{
     world_state::WorldState,
 };
 
-pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
+pub fn execute(
+    world_state: &WorldState,
+    use_stand_head_unstiff_calibration: bool,
+) -> Option<MotionCommand> {
     if PrimaryState::Calibration != world_state.robot.primary_state {
         return None;
+    }
+    if use_stand_head_unstiff_calibration {
+        return Some(MotionCommand::Stand {
+            head: HeadMotion::Unstiff,
+        });
     }
 
     let head =
