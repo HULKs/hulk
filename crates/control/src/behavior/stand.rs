@@ -1,7 +1,6 @@
-use linear_algebra::point;
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, Half},
     filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{HeadMotion, MotionCommand},
     primary_state::PrimaryState,
@@ -24,15 +23,26 @@ pub fn execute(
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team,
                     ..
+                })
+                | Some(FilteredGameControllerState {
+                    game_phase: GamePhase::PenaltyShootout { .. },
+                    kicking_team,
+                    ..
                 }) => {
-                    let side_factor = match kicking_team {
-                        Team::Opponent => -1.0,
-                        _ => 1.0,
+                    let half = match kicking_team {
+                        Team::Hulks => Half::Opponent,
+                        Team::Opponent => Half::Own,
+                        Team::Uncertain => {
+                            eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
+                            Half::Opponent
+                        }
                     };
-                    let penalty_spot_x =
-                        field_dimensions.length / 2.0 - field_dimensions.penalty_marker_distance;
-                    let penalty_spot_location = point![side_factor * penalty_spot_x, 0.0];
-                    ground_to_field.inverse() * penalty_spot_location
+                    world_state
+                        .rule_ball
+                        .map(|rule_ball| rule_ball.ball_in_ground)
+                        .unwrap_or({
+                            ground_to_field.inverse() * field_dimensions.penalty_spot(half)
+                        })
                 }
                 _ => ground_to_field.inverse().as_pose().position(),
             };
