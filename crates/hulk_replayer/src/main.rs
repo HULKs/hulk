@@ -8,12 +8,10 @@ mod timeline;
 mod window;
 mod worker_thread;
 
-use std::time::SystemTime;
-
 use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface, TimeInterface,
+    PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface,
 };
 use replayer::replayer;
 use types::{
@@ -38,7 +36,6 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SensorInterface
     + SpeakerInterface
-    + TimeInterface
 {
 }
 
@@ -113,12 +110,6 @@ impl SensorInterface for ReplayerHardwareInterface {
 
 impl SpeakerInterface for ReplayerHardwareInterface {
     fn write_to_speakers(&self, _request: SpeakerRequest) {}
-}
-
-impl TimeInterface for ReplayerHardwareInterface {
-    fn get_now(&self) -> SystemTime {
-        SystemTime::now()
-    }
 }
 
 impl HardwareInterface for ReplayerHardwareInterface {}
