@@ -1,25 +1,28 @@
-use std::{str::FromStr, sync::Arc};
+use std::{cmp::Ordering, str::FromStr, sync::Arc};
 
 use color_eyre::{eyre::eyre, Result};
 use communication::client::{Cycler, CyclerOutput, Output};
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{
-        self, load::SizedTexture, Color32, ColorImage, Response, RichText, Stroke, TextureOptions,
+        self, load::SizedTexture, panel::TopBottomSide, CentralPanel, Color32, ColorImage,
+        ComboBox, Image, PointerButton, Response, Sense, Stroke, TextureOptions, TopBottomPanel,
         Ui, Widget,
     },
     epaint::Vec2,
 };
 
+use egui_plot::{HLine, Points, VLine};
+use geometry::rectangle::Rectangle;
 use itertools::iproduct;
-use linear_algebra::{vector, Point2};
+use linear_algebra::{point, vector, Point2};
 use log::error;
-
 use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use types::{
-    color::{Rgb, YCbCr444},
+    color::{Rgb, RgbChannel, YCbCr444},
+    field_color::FieldColor,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -28,86 +31,24 @@ use crate::{
     nao::Nao,
     panel::Panel,
     twix_painter::{Orientation, TwixPainter},
+    value_buffer::ValueBuffer,
 };
 
 use super::image::cycler_selector::VisionCyclerSelector;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
-
-enum ImageKind {
-    YCbCr422,
-}
-
-struct PixelColor {
-    red: f32,
-    green: f32,
-    blue: f32,
-}
-
-impl PixelColor {
-    pub const BLACK: Self = Self {
-        red: 0.0,
-        green: 0.0,
-        blue: 0.0,
-    };
-    pub const WHITE: Self = Self {
-        red: 1.0,
-        green: 1.0,
-        blue: 1.0,
-    };
-}
-
-struct Statistics {
-    max: PixelColor,
-    min: PixelColor,
-    average: PixelColor,
-    pixel_count: usize,
-}
-
-impl Default for Statistics {
-    fn default() -> Self {
-        Self {
-            max: PixelColor::BLACK,
-            min: PixelColor::WHITE,
-            average: PixelColor::BLACK,
-            pixel_count: 0,
-        }
-    }
-}
-
-impl Statistics {
-    fn sample(mut self, pixel: Color32) -> Self {
-        let sum = pixel.r() as f32 + pixel.g() as f32 + pixel.b() as f32;
-        let mut pixel_color = PixelColor {
-            red: 0.0,
-            green: 0.0,
-            blue: 0.0,
-        };
-        if sum != 0.0 {
-            pixel_color.red = (pixel.r() as f32) / sum;
-            pixel_color.green = (pixel.g() as f32) / sum;
-            pixel_color.blue = (pixel.b() as f32) / sum;
-        }
-
-        self.max.red = self.max.red.max(pixel_color.red);
-        self.max.green = self.max.green.max(pixel_color.green);
-        self.max.blue = self.max.blue.max(pixel_color.blue);
-        self.min.red = self.min.red.min(pixel_color.red);
-        self.min.green = self.min.green.min(pixel_color.green);
-        self.min.blue = self.min.blue.min(pixel_color.blue);
-        self.average.red += pixel_color.red;
-        self.average.green += pixel_color.green;
-        self.average.blue += pixel_color.blue;
-        self.pixel_count += 1;
-        self
-    }
-}
+const FIELD_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(255, 0, 0, 50);
+const OTHER_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 255, 50);
 
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
     image_buffer: ImageBuffer,
+    field_color: ValueBuffer,
     cycler_selector: VisionCyclerSelector,
     brush_size: f32,
+    selection_mask: ColorImage,
+    x_axis: Axis,
+    y_axis: Axis,
+    filter_by_other_axes: bool,
 }
 
 impl Panel for ImageColorSelectPanel {
@@ -115,36 +56,60 @@ impl Panel for ImageColorSelectPanel {
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let cycler = value
-            .and_then(|value| value.get("cycler"))
-            .and_then(|value| value.as_str())
-            .map(Cycler::from_str)
-            .and_then(|cycler| match cycler {
-                Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
-                Ok(cycler) => {
-                    error!("Invalid vision cycler: {cycler}");
-                    None
-                }
-                Err(error) => {
-                    error!("{error}");
-                    None
-                }
-            })
+            .and_then(
+                |value| match Cycler::from_str(value.get("cycler")?.as_str()?) {
+                    Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
+                    Ok(cycler) => {
+                        error!("Invalid vision cycler: {cycler}");
+                        None
+                    }
+                    Err(error) => {
+                        error!("{error}");
+                        None
+                    }
+                },
+            )
             .unwrap_or(Cycler::VisionTop);
-        let output = CyclerOutput {
+        let image_buffer = nao.subscribe_image(CyclerOutput {
             cycler,
             output: Output::Main {
                 path: "image".to_string(),
             },
-        };
-        let image_buffer = nao.subscribe_image(output);
+        });
         let cycler_selector = VisionCyclerSelector::new(cycler);
 
         let brush_size = 50.0;
+
+        let selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
+
+        let field_color = nao.subscribe_output(CyclerOutput {
+            cycler,
+            output: Output::Main {
+                path: "field_color".to_string(),
+            },
+        });
+
+        let x_axis = value
+            .and_then(|value| serde_json::from_value::<Axis>(value.get("x_axis")?.clone()).ok())
+            .unwrap_or(Axis::GreenChromaticity);
+        let y_axis = value
+            .and_then(|value| serde_json::from_value::<Axis>(value.get("y_axis")?.clone()).ok())
+            .unwrap_or(Axis::Luminance);
+
+        let filter_by_other_axes = value
+            .and_then(|value| value.get("filter_by_other_axes")?.as_bool())
+            .unwrap_or(true);
+
         Self {
             nao,
             image_buffer,
+            field_color,
             cycler_selector,
             brush_size,
+            selection_mask,
+            x_axis,
+            y_axis,
+            filter_by_other_axes,
         }
     }
 
@@ -152,148 +117,262 @@ impl Panel for ImageColorSelectPanel {
         let cycler = self.cycler_selector.selected_cycler();
         json!({
             "cycler": cycler.to_string(),
+            "x_axis": self.x_axis,
+            "y_axis": self.y_axis,
+            "filter_by_other_axes": self.filter_by_other_axes,
         })
     }
 }
 
 impl Widget for &mut ImageColorSelectPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.horizontal(|ui| {
-            if self.cycler_selector.ui(ui).changed() {
-                let output = CyclerOutput {
-                    cycler: self.cycler_selector.selected_cycler(),
-                    output: Output::Main {
-                        path: "image".to_string(),
-                    },
-                };
-                self.image_buffer = self.nao.subscribe_image(output);
-            }
-            ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"));
-        });
-
-        ui.separator();
-
-        let image = match self.get_image() {
-            Ok(image) => image,
-            Err(error) => {
-                return ui.label(format!("{error:#?}"));
-            }
-        };
-
-        let handle = ui
-            .ctx()
-            .load_texture("image", image.clone(), TextureOptions::default())
-            .id();
-        let texture = SizedTexture {
-            id: handle,
-            size: Vec2::new(image.width() as f32, image.height() as f32),
-        };
-        let response = ui.image(texture);
-
-        ui.separator();
-
-        let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
-            vector![image.width() as f32, image.height() as f32],
-            Similarity2::identity(),
-            Orientation::LeftHanded,
-        );
-
-        if let Some(hover_position) = response.hover_pos() {
-            let pixel_pos = painter.transform_pixel_to_world(hover_position);
-            if pixel_pos.x() < image.width() as f32 && pixel_pos.y() < image.height() as f32 {
-                let scroll_delta = ui.input(|input| input.raw_scroll_delta);
-                self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
-                let mut statistics = self
-                    .pixels_in_brush(pixel_pos, &image)
-                    .fold(Statistics::default(), Statistics::sample);
-
-                if statistics.pixel_count != 0 {
-                    statistics.average.red /= statistics.pixel_count as f32;
-                    statistics.average.green /= statistics.pixel_count as f32;
-                    statistics.average.blue /= statistics.pixel_count as f32;
-                }
-                ui.label(format!(
-                    "x: {}\t\ty: {}\t\tpixels: {}\n",
-                    pixel_pos.x() as usize,
-                    pixel_pos.y() as usize,
-                    statistics.pixel_count,
-                ));
-
-                let grid = egui::Grid::new("colors").num_columns(4).striped(true);
-                grid.show(ui, |ui| {
-                    ui.label(RichText::new("max:").strong());
-                    ui.colored_label(Color32::RED, format!("r: {:.3}", statistics.max.red));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.max.green));
-                    ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", statistics.max.blue),
-                    );
-                    ui.end_row();
-
-                    ui.label(RichText::new("min:").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.min.red));
-                    ui.colored_label(Color32::GREEN, format!("g: {:.3}", statistics.min.green));
-                    ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", statistics.min.blue),
-                    );
-                    ui.end_row();
-
-                    ui.label(RichText::new("average:").strong());
-                    ui.colored_label(Color32::RED, format!(" r: {:.3}", statistics.average.red));
-                    ui.colored_label(
-                        Color32::GREEN,
-                        format!("g: {:.3}", statistics.average.green),
-                    );
-                    ui.colored_label(
-                        Color32::from_rgb(50, 150, 255),
-                        format!("b: {:.3}", statistics.average.blue),
-                    );
-                    ui.end_row();
+        let image = self.get_image();
+        TopBottomPanel::new(TopBottomSide::Bottom, "Franz Josef von Panellington")
+            .resizable(true)
+            .show_inside(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("x:");
+                    ComboBox::from_id_source("x_axis")
+                        .selected_text(format!("{:?}", self.x_axis))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::RedChromaticity,
+                                "Red Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::GreenChromaticity,
+                                "Green Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::BlueChromaticity,
+                                "Blue Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.x_axis,
+                                Axis::GreenLuminance,
+                                "Green Luminance",
+                            );
+                            ui.selectable_value(&mut self.x_axis, Axis::Luminance, "Luminance");
+                        });
+                    ui.label("y:");
+                    ComboBox::from_id_source("y_axis")
+                        .selected_text(format!("{:?}", self.y_axis))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::RedChromaticity,
+                                "Red Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::GreenChromaticity,
+                                "Green Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::BlueChromaticity,
+                                "Blue Chromaticity",
+                            );
+                            ui.selectable_value(
+                                &mut self.y_axis,
+                                Axis::GreenLuminance,
+                                "Green Luminance",
+                            );
+                            ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
+                        });
+                    ui.checkbox(&mut self.filter_by_other_axes, "Filter")
                 });
 
-                painter.circle(
-                    pixel_pos,
-                    self.brush_size,
-                    Color32::TRANSPARENT,
-                    Stroke::new(1.0, Color32::BLACK),
+                egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
+                    let field_color = self.field_color.parse_latest::<FieldColor>().ok();
+                    if let Ok(image) = &image {
+                        plot_ui.points(
+                            generate_points(
+                                image,
+                                &self.selection_mask,
+                                FIELD_SELECTION_COLOR,
+                                self.x_axis,
+                                self.y_axis,
+                                self.filter_by_other_axes,
+                                field_color,
+                            )
+                            .color(Color32::RED),
+                        );
+                        plot_ui.points(
+                            generate_points(
+                                image,
+                                &self.selection_mask,
+                                OTHER_SELECTION_COLOR,
+                                self.x_axis,
+                                self.y_axis,
+                                self.filter_by_other_axes,
+                                field_color,
+                            )
+                            .color(Color32::BLUE),
+                        );
+                    }
+                    if let Some(field_color) = field_color {
+                        plot_ui
+                            .vline(VLine::new(self.x_axis.get_threshold(field_color).1).width(5.0));
+                        plot_ui
+                            .hline(HLine::new(self.y_axis.get_threshold(field_color).1).width(5.0));
+                    }
+                })
+            });
+        CentralPanel::default()
+            .show_inside(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if self.cycler_selector.ui(ui).changed() {
+                        self.image_buffer = self.nao.subscribe_image(CyclerOutput {
+                            cycler: self.cycler_selector.selected_cycler(),
+                            output: Output::Main {
+                                path: "image".to_string(),
+                            },
+                        });
+                        self.field_color = self.nao.subscribe_output(CyclerOutput {
+                            cycler: self.cycler_selector.selected_cycler(),
+                            output: Output::Main {
+                                path: "field_color".to_string(),
+                            },
+                        });
+                    }
+
+                    if ui.button("reset").clicked() {
+                        self.selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
+                    };
+                    ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"))
+                });
+                let image = match image {
+                    Ok(image) => image,
+                    Err(error) => {
+                        return ui.label(format!("{error:#?}"));
+                    }
+                };
+                let handle = ui
+                    .ctx()
+                    .load_texture("image", image.clone(), TextureOptions::default())
+                    .id();
+                let texture = SizedTexture {
+                    id: handle,
+                    size: Vec2::new(image.width() as f32, image.height() as f32),
+                };
+                let image_widget = Image::new(texture)
+                    .shrink_to_fit()
+                    .sense(Sense::click_and_drag());
+                let mut response = ui.add(image_widget);
+                response.rect.set_width(response.rect.width().max(1.0));
+                response.rect.set_height(response.rect.height().max(1.0));
+                let painter = TwixPainter::<Pixel>::paint_at(ui, response.rect).with_camera(
+                    vector![
+                        self.selection_mask.width() as f32,
+                        self.selection_mask.height() as f32
+                    ],
+                    Similarity2::identity(),
+                    Orientation::LeftHanded,
                 );
-            }
-        }
-        response
+
+                if let Some(hover_position) = response.hover_pos() {
+                    let pixel_pos = painter.transform_pixel_to_world(hover_position);
+                    if pixel_pos.x() < self.selection_mask.width() as f32
+                        && pixel_pos.y() < self.selection_mask.height() as f32
+                    {
+                        let scroll_delta = ui.input(|input| input.raw_scroll_delta);
+                        self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
+                        if response.is_pointer_button_down_on() {
+                            self.pixels_in_brush(pixel_pos, &self.selection_mask)
+                                .for_each(|position| {
+                                    ui.input(|i| {
+                                        if i.pointer.button_down(PointerButton::Primary) {
+                                            self.add_to_selection(position, i.modifiers.shift)
+                                        }
+                                        if i.pointer.button_down(PointerButton::Secondary) {
+                                            self.remove_from_selection(position)
+                                        }
+                                    })
+                                });
+                        }
+
+                        painter.circle(
+                            pixel_pos,
+                            self.brush_size,
+                            Color32::TRANSPARENT,
+                            Stroke::new(1.0, Color32::BLACK),
+                        );
+                    }
+                }
+
+                let colored_handle = ui
+                    .ctx()
+                    .load_texture(
+                        "image",
+                        self.selection_mask.clone(),
+                        TextureOptions::default(),
+                    )
+                    .id();
+                painter.image(
+                    colored_handle,
+                    Rectangle {
+                        min: point!(0.0, 0.0),
+                        max: point!(640.0, 480.0),
+                    },
+                );
+                response
+            })
+            .response
     }
 }
 
-impl<'a> ImageColorSelectPanel {
+impl ImageColorSelectPanel {
     fn pixels_in_brush(
-        &'a self,
+        &self,
         brush_position: Point2<Pixel>,
-        image: &'a ColorImage,
-    ) -> impl Iterator<Item = Color32> + 'a {
+        image: &ColorImage,
+    ) -> impl Iterator<Item = (isize, isize)> {
+        let brush_size = self.brush_size;
+        let width = image.width();
+        let height = image.height();
         iproduct!(
-            (brush_position.x() as isize - self.brush_size as isize)
-                ..(brush_position.x() as isize + self.brush_size as isize + 1),
-            (brush_position.y() as isize - self.brush_size as isize)
-                ..(brush_position.y() as isize + self.brush_size as isize + 1)
+            (brush_position.x() as isize - brush_size as isize)
+                ..(brush_position.x() as isize + brush_size as isize + 1),
+            (brush_position.y() as isize - brush_size as isize)
+                ..(brush_position.y() as isize + brush_size as isize + 1)
         )
         .filter(move |(i, j)| {
             ((*i as f32 - brush_position.x()).powi(2) + (*j as f32 - brush_position.y()).powi(2))
                 .sqrt()
-                <= self.brush_size
-                && (0..image.width() as isize).contains(i)
-                && (0..image.height() as isize).contains(j)
+                <= brush_size
+                && (0..width as isize).contains(i)
+                && (0..height as isize).contains(j)
         })
-        .map(|(i, j)| image.pixels[j as usize * image.width() + i as usize])
+    }
+
+    fn add_to_selection(&mut self, position: (isize, isize), other: bool) {
+        let color = if other {
+            OTHER_SELECTION_COLOR
+        } else {
+            FIELD_SELECTION_COLOR
+        };
+        let width = self.selection_mask.width();
+        self.selection_mask.pixels[position.1 as usize * width + position.0 as usize] = color;
+    }
+
+    fn remove_from_selection(&mut self, position: (isize, isize)) {
+        let width = self.selection_mask.width();
+        self.selection_mask.pixels[position.1 as usize * width + position.0 as usize] =
+            Color32::TRANSPARENT;
     }
 
     fn get_image(&self) -> Result<ColorImage> {
-        let buffer = self
+        let image_data = self
             .image_buffer
             .get_latest()
             .map_err(|error| eyre!("{error}"))?;
-        let image_ycbcr = bincode::deserialize::<YCbCr422Image>(&buffer)?;
+        let image_ycbcr = bincode::deserialize::<YCbCr422Image>(&image_data)?;
 
-        let rgb_bytes = image_ycbcr
+        let buffer = image_ycbcr
             .buffer()
             .iter()
             .flat_map(|&ycbcr422| {
@@ -307,8 +386,103 @@ impl<'a> ImageColorSelectPanel {
             .collect::<Vec<_>>();
         let image = ColorImage::from_rgba_unmultiplied(
             [image_ycbcr.width() as usize, image_ycbcr.height() as usize],
-            &rgb_bytes,
+            &buffer,
         );
         Ok(image)
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+enum Axis {
+    RedChromaticity,
+    GreenChromaticity,
+    BlueChromaticity,
+    GreenLuminance,
+    Luminance,
+}
+
+impl Axis {
+    fn get_value(self, color: Rgb) -> f32 {
+        match self {
+            Axis::RedChromaticity => color.get_chromaticity(RgbChannel::Red),
+            Axis::GreenChromaticity => color.get_chromaticity(RgbChannel::Green),
+            Axis::BlueChromaticity => color.get_chromaticity(RgbChannel::Blue),
+            Axis::GreenLuminance => color.g as f32 / 255.0,
+            Axis::Luminance => color.get_luminance() as f32 / 255.0,
+        }
+    }
+
+    fn get_threshold(self, field_color: FieldColor) -> (Ordering, f32) {
+        match self {
+            Axis::RedChromaticity => (Ordering::Greater, field_color.red_chromaticity_threshold),
+            Axis::GreenChromaticity => (Ordering::Less, field_color.green_chromaticity_threshold),
+            Axis::BlueChromaticity => (Ordering::Greater, field_color.blue_chromaticity_threshold),
+            Axis::GreenLuminance => (
+                Ordering::Less,
+                field_color.green_luminance_threshold / 255.0,
+            ),
+            Axis::Luminance => (Ordering::Greater, field_color.luminance_threshold / 255.0),
+        }
+    }
+
+    fn passes_threshold(self, color: Rgb, field_color: FieldColor) -> bool {
+        let value = self.get_value(color);
+        let (ordering, threshold) = self.get_threshold(field_color);
+
+        value.total_cmp(&threshold) == ordering
+    }
+}
+
+fn generate_points(
+    image: &ColorImage,
+    mask: &ColorImage,
+    mask_color: Color32,
+    x_axis: Axis,
+    y_axis: Axis,
+    filter_by_other_axes: bool,
+    field_color: Option<FieldColor>,
+) -> Points {
+    Points::new(
+        image
+            .pixels
+            .iter()
+            .zip(&mask.pixels)
+            .filter_map(|(color, mask)| {
+                if *mask != mask_color {
+                    return None;
+                }
+                let rgb = Rgb::new(color.r(), color.g(), color.b());
+
+                if let Some(field_color) = field_color {
+                    let skip = [x_axis, y_axis];
+                    let [
+                        red_chromaticity,
+                        green_chromaticity,
+                        blue_chromaticity,
+                        green_luminance,
+                        luminance,
+                    ] = [
+                        Axis::RedChromaticity,
+                        Axis::GreenChromaticity,
+                        Axis::BlueChromaticity,
+                        Axis::GreenLuminance,
+                        Axis::Luminance,
+                    ]
+                    .map(|axis| !skip.contains(&axis) && axis.passes_threshold(rgb, field_color));
+
+                    if filter_by_other_axes
+                        && (red_chromaticity
+                            || green_chromaticity
+                            || blue_chromaticity
+                            || green_luminance)
+                        && luminance
+                    {
+                        return None;
+                    }
+                }
+
+                Some([x_axis.get_value(rgb) as f64, y_axis.get_value(rgb) as f64])
+            })
+            .collect::<Vec<_>>(),
+    )
 }
