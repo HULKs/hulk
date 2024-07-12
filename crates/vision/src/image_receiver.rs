@@ -32,9 +32,9 @@ pub struct MainOutputs {
 }
 
 impl ImageReceiver {
-    pub fn new(context: CreationContext<impl TimeInterface>) -> Result<Self> {
+    pub fn new(_context: CreationContext<impl TimeInterface>) -> Result<Self> {
         Ok(Self {
-            last_cycle_start: context.hardware_interface.get_now(),
+            last_cycle_start: SystemTime::UNIX_EPOCH,
         })
     }
 
