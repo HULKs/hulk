@@ -117,7 +117,7 @@ impl SpeakerInterface for ReplayerHardwareInterface {
 
 impl TimeInterface for ReplayerHardwareInterface {
     fn get_now(&self) -> SystemTime {
-        SystemTime::now()
+        panic!("replayer should not use replay host system time")
     }
 }
 
