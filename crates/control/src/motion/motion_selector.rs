@@ -71,6 +71,7 @@ impl MotionSelector {
 fn motion_type_from_command(command: &MotionCommand) -> MotionType {
     match command {
         MotionCommand::ArmsUpSquat => MotionType::ArmsUpSquat,
+        MotionCommand::ArmsUpStand { .. } => MotionType::ArmsUpStand,
         MotionCommand::FallProtection { .. } => MotionType::FallProtection,
         MotionCommand::Initial { .. } => MotionType::Initial,
         MotionCommand::Jump { direction } => match direction {

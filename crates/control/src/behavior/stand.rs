@@ -11,6 +11,7 @@ use types::{
 pub fn execute(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
+    role: &Role,
 ) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Initial => Some(MotionCommand::Stand {
@@ -50,13 +51,22 @@ pub fn execute(
                 .ball
                 .map(|state| state.ball_in_ground)
                 .unwrap_or(fallback_target);
-            Some(MotionCommand::Stand {
-                head: HeadMotion::LookAt {
-                    target,
-                    image_region_target: Default::default(),
-                    camera: None,
-                },
-            })
+            match role {
+                Role::Keeper => Some(MotionCommand::ArmsUpStand {
+                    head: HeadMotion::LookAt {
+                        target,
+                        image_region_target: Default::default(),
+                        camera: None,
+                    },
+                }),
+                _ => Some(MotionCommand::Stand {
+                    head: HeadMotion::LookAt {
+                        target,
+                        image_region_target: Default::default(),
+                        camera: None,
+                    },
+                }),
+            }
         }
         PrimaryState::Playing => {
             match (
