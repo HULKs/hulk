@@ -1042,7 +1042,9 @@
     }
   },
   "penalty_shot_direction_estimation": {
-    "moving_distance_threshold": 0.2
+    "moving_distance_threshold": 0.2,
+    "minimum_velocity": -0.5,
+    "center_jump_trigger_radius": 0.15
   },
   "head_motion": {
     "maximum_velocity": {

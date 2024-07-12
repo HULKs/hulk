@@ -9,6 +9,7 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Half},
     filtered_game_controller_state::FilteredGameControllerState,
+    parameters::PenaltyShotDirectionParameters,
     penalty_shot_direction::PenaltyShotDirection,
     primary_state::PrimaryState,
 };
@@ -25,8 +26,8 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    moving_distance_threshold:
-        Parameter<f32, "penalty_shot_direction_estimation.moving_distance_threshold">,
+    penalty_shot_paramters:
+        Parameter<PenaltyShotDirectionParameters, "penalty_shot_direction_estimation">,
     minimum_robot_radius_at_foot_height:
         Parameter<f32, "behavior.path_planning.minimum_robot_radius_at_foot_height">,
 
@@ -71,16 +72,15 @@ impl PenaltyShotDirectionEstimation {
                 let reference_position = self
                     .placed_ball_position
                     .unwrap_or(penalty_marker_position_in_ground);
-                let side_jump_threshold = (context.moving_distance_threshold
-                    * (context.minimum_robot_radius_at_foot_height
-                        + context.field_dimensions.ball_radius * 3.0))
-                    / context.field_dimensions.penalty_marker_distance;
+                let side_jump_threshold =
+                    (context.penalty_shot_paramters.moving_distance_threshold
+                        * (context.minimum_robot_radius_at_foot_height
+                            + context.penalty_shot_paramters.center_jump_trigger_radius))
+                        / context.field_dimensions.penalty_marker_distance;
                 if let PenaltyShotDirection::NotMoving = self.last_shot_direction {
-                    if
-                    //(context.ball_position.position.x() - reference_position.x()).abs()
-                    //  > *context.moving_distance_threshold
-                    //&&
-                    context.ball_position.velocity.x() <= -0.5 {
+                    if context.ball_position.velocity.x()
+                        <= context.penalty_shot_paramters.minimum_velocity
+                    {
                         if context.ball_position.position.y() - reference_position.y()
                             > side_jump_threshold
                         {

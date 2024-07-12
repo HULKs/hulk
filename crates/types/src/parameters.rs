@@ -390,3 +390,12 @@ pub struct WideStanceParameters {
     pub action_radius: f32,
     pub minimum_velocity: f32,
 }
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct PenaltyShotDirectionParameters {
+    pub moving_distance_threshold: f32,
+    pub minimum_velocity: f32,
+    pub center_jump_trigger_radius: f32,
+}
