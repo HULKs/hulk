@@ -26,7 +26,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    penalty_shot_paramters:
+    penalty_shot_parameters:
         Parameter<PenaltyShotDirectionParameters, "penalty_shot_direction_estimation">,
     minimum_robot_radius_at_foot_height:
         Parameter<f32, "behavior.path_planning.minimum_robot_radius_at_foot_height">,
@@ -73,13 +73,13 @@ impl PenaltyShotDirectionEstimation {
                     .placed_ball_position
                     .unwrap_or(penalty_marker_position_in_ground);
                 let side_jump_threshold =
-                    (context.penalty_shot_paramters.moving_distance_threshold
+                    (context.penalty_shot_parameters.moving_distance_threshold
                         * (context.minimum_robot_radius_at_foot_height
-                            + context.penalty_shot_paramters.center_jump_trigger_radius))
+                            + context.penalty_shot_parameters.center_jump_trigger_radius))
                         / context.field_dimensions.penalty_marker_distance;
                 if let PenaltyShotDirection::NotMoving = self.last_shot_direction {
                     if context.ball_position.velocity.x()
-                        <= context.penalty_shot_paramters.minimum_velocity
+                        <= context.penalty_shot_parameters.minimum_velocity
                     {
                         if context.ball_position.position.y() - reference_position.y()
                             > side_jump_threshold
