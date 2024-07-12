@@ -639,12 +639,6 @@ fn generate_cross_inputs_recording(
                 }
             }
             Field::HistoricInput { path, .. } => {
-                let now_accessor = path_to_accessor_token_stream(
-                    quote!{ own_database.main_outputs },
-                    &path,
-                    ReferenceKind::Immutable,
-                    cycler,
-                );
                 let historic_accessor = path_to_accessor_token_stream(
                     quote!{ database },
                     &path,
@@ -652,18 +646,14 @@ fn generate_cross_inputs_recording(
                     cycler,
                 );
                 quote! {
-                    &[(now, #now_accessor)]
-                        .into_iter()
-                        .chain(
-                            self
-                                .historic_databases
-                                .databases
-                                .iter()
-                                .map(|(system_time, database)| (
-                                    *system_time,
-                                    #historic_accessor,
-                                ))
-                        )
+                    &self
+                        .historic_databases
+                        .databases
+                        .iter()
+                        .map(|(system_time, database)| (
+                            *system_time,
+                            #historic_accessor,
+                        ))
                         .collect::<std::collections::BTreeMap<_, _>>()
                 }
             }
@@ -1153,13 +1143,29 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
                                 }) => segments.last().is_some_and(|segment| segment.ident == "Option"),
                                 _ => false,
                             };
+
+                            let now_accessor = path_to_accessor_token_stream(
+                                quote!{ own_database.main_outputs },
+                                path,
+                                ReferenceKind::Immutable,
+                                cycler,
+                            );
+
                             if is_option {
                                 quote! {
-                                    #name.iter().map(|(key, option_value)| (*key, option_value.as_ref())).collect::<std::collections::BTreeMap<_, _>>().into()
+                                    [(own_database.main_outputs.cycle_time.start_time, #now_accessor)]
+                                        .into_iter()
+                                        .chain(
+                                            #name.iter().map(|(key, option_value)| (*key, option_value.as_ref()))
+                                        ).collect::<std::collections::BTreeMap<_, _>>().into()
                                 }
                             } else {
                                 quote! {
-                                    #name.iter().map(|(key, option_value)| (*key, option_value)).collect::<std::collections::BTreeMap<_, _>>().into()
+                                    [(own_database.main_outputs.cycle_time.start_time, #now_accessor)]
+                                        .into_iter()
+                                        .chain(
+                                            #name.iter().map(|(key, option_value)| (*key, option_value))
+                                        ).collect::<std::collections::BTreeMap<_, _>>().into()
                                 }
                             }
                         },
