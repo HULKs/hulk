@@ -72,6 +72,8 @@ pub struct CycleContext {
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     enable_pose_detection: Parameter<bool, "pose_detection.enable">,
     wide_stance: Parameter<WideStanceParameters, "wide_stance">,
+    use_stand_head_unstiff_calibration:
+        Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
 }
 
 #[context]
@@ -273,7 +275,9 @@ impl Behavior {
                         *context.intercept_ball_parameters,
                         *context.maximum_step_size,
                     ),
-                    Action::Calibrate => calibrate::execute(world_state),
+                    Action::Calibrate => {
+                        calibrate::execute(world_state, *context.use_stand_head_unstiff_calibration)
+                    }
                     Action::DefendGoal => defend.goal(&mut context.path_obstacles_output),
                     Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles_output),
                     Action::DefendLeft => defend.left(&mut context.path_obstacles_output),
