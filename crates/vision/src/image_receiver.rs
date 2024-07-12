@@ -15,9 +15,7 @@ pub struct ImageReceiver {
 }
 
 #[context]
-pub struct CreationContext {
-    hardware_interface: HardwareInterface,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -32,9 +30,9 @@ pub struct MainOutputs {
 }
 
 impl ImageReceiver {
-    pub fn new(context: CreationContext<impl TimeInterface>) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_cycle_start: context.hardware_interface.get_now(),
+            last_cycle_start: SystemTime::UNIX_EPOCH,
         })
     }
 
