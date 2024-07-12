@@ -19,6 +19,7 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let ground_to_field = world_state.robot.ground_to_field?;
+            let mut kicking_team_in_set = Team::Uncertain;
             let fallback_target = match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
@@ -30,6 +31,7 @@ pub fn execute(
                     kicking_team,
                     ..
                 }) => {
+                    kicking_team_in_set = kicking_team;
                     let half = match kicking_team {
                         Team::Hulks => Half::Opponent,
                         Team::Opponent => Half::Own,
@@ -51,14 +53,16 @@ pub fn execute(
                 .ball
                 .map(|state| state.ball_in_ground)
                 .unwrap_or(fallback_target);
-            match role {
-                Role::Keeper => Some(MotionCommand::ArmsUpStand {
-                    head: HeadMotion::LookAt {
-                        target,
-                        image_region_target: Default::default(),
-                        camera: None,
-                    },
-                }),
+            match (role, kicking_team_in_set) {
+                (Role::Keeper, Team::Opponent | Team::Uncertain) => {
+                    Some(MotionCommand::ArmsUpStand {
+                        head: HeadMotion::LookAt {
+                            target,
+                            image_region_target: Default::default(),
+                            camera: None,
+                        },
+                    })
+                }
                 _ => Some(MotionCommand::Stand {
                     head: HeadMotion::LookAt {
                         target,
