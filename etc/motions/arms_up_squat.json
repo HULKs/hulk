@@ -41,11 +41,11 @@
     {
       "keyframes": [
         {
-          "duration": 0.3,
+          "duration": 1.0,
           "positions": {
             "head": {
-              "pitch": 0.5429940223693848,
-              "yaw": -0.11816000938415527
+              "pitch": -0.2,
+              "yaw": 0
             },
             "left_arm": {
               "elbow_roll": -1.325334072113037,
@@ -82,11 +82,11 @@
           }
         },
         {
-          "duration": 0.2,
+          "duration": 1.0,
           "positions": {
             "head": {
-              "pitch": 0.5353240966796875,
-              "yaw": -0.023051977157592773
+              "pitch": -0.2,
+              "yaw": 0
             },
             "left_arm": {
               "elbow_roll": -0.009161949157714844,
@@ -123,11 +123,11 @@
           }
         },
         {
-          "duration": 0.2,
+          "duration": 1.0,
           "positions": {
             "head": {
               "yaw": 0,
-              "pitch": 0
+              "pitch": -0.2
             },
             "left_arm": {
               "shoulder_pitch": -1.581595897674561,
