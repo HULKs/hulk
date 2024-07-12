@@ -26,8 +26,16 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+<<<<<<< HEAD
     penalty_shot_parameters:
         Parameter<PenaltyShotDirectionParameters, "penalty_shot_direction_estimation">,
+||||||| parent of 7cb99f43 (cleaned up parameters)
+    moving_distance_threshold:
+        Parameter<f32, "penalty_shot_direction_estimation.moving_distance_threshold">,
+=======
+    penalty_shot_paramters:
+        Parameter<PenaltyShotDirectionParameters, "penalty_shot_direction_estimation">,
+>>>>>>> 7cb99f43 (cleaned up parameters)
     minimum_robot_radius_at_foot_height:
         Parameter<f32, "behavior.path_planning.minimum_robot_radius_at_foot_height">,
 
