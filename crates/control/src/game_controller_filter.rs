@@ -7,7 +7,7 @@ use std::{
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use hardware::{SpeakerInterface, TimeInterface};
+use hardware::SpeakerInterface;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::GameControllerStateMessage;
 use types::{
@@ -63,7 +63,7 @@ impl GameControllerFilter {
 
     pub fn cycle(
         &mut self,
-        mut context: CycleContext<impl TimeInterface + SpeakerInterface>,
+        mut context: CycleContext<impl SpeakerInterface>,
     ) -> Result<MainOutputs> {
         for (time, source_address, message) in context
             .network_message
@@ -123,7 +123,7 @@ impl GameControllerFilter {
 
     fn alert_if_multiple_game_controllers(
         &mut self,
-        context: &CycleContext<impl TimeInterface + SpeakerInterface>,
+        context: &CycleContext<impl SpeakerInterface>,
         source_address: SocketAddr,
         time: SystemTime,
     ) {
