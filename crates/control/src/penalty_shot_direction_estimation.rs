@@ -73,12 +73,14 @@ impl PenaltyShotDirectionEstimation {
                     .unwrap_or(penalty_marker_position_in_ground);
                 let side_jump_threshold = (context.moving_distance_threshold
                     * (context.minimum_robot_radius_at_foot_height
-                        + context.field_dimensions.ball_radius))
+                        + context.field_dimensions.ball_radius * 3.0))
                     / context.field_dimensions.penalty_marker_distance;
                 if let PenaltyShotDirection::NotMoving = self.last_shot_direction {
-                    if (context.ball_position.position.x() - reference_position.x()).abs()
-                        > *context.moving_distance_threshold
-                    {
+                    if
+                    //(context.ball_position.position.x() - reference_position.x()).abs()
+                    //  > *context.moving_distance_threshold
+                    //&&
+                    context.ball_position.velocity.x() <= -0.5 {
                         if context.ball_position.position.y() - reference_position.y()
                             > side_jump_threshold
                         {
