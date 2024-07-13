@@ -23,6 +23,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     animation_commands: Input<MotorCommands<Joints<f32>>, "animation_commands">,
     arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
+    arms_up_stand_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_stand_joints_command">,
     dispatching_command: Input<MotorCommands<Joints<f32>>, "dispatching_command">,
     fall_protection_command: Input<MotorCommands<Joints<f32>>, "fall_protection_command">,
     head_joints_command: Input<MotorCommands<HeadJoints<f32>>, "head_joints_command">,
@@ -72,6 +73,7 @@ impl MotorCommandCollector {
         let head_joints_command = context.head_joints_command;
         let motion_selection = context.motion_selection;
         let arms_up_squat = context.arms_up_squat_joints_command;
+        let arms_up_stand = context.arms_up_stand_joints_command;
         let jump_left = context.jump_left_joints_command;
         let jump_right = context.jump_right_joints_command;
         let center_jump_positions = context.center_jump_positions;
@@ -86,6 +88,7 @@ impl MotorCommandCollector {
             MotionType::Animation => (animation.positions, animation.stiffnesses),
             MotionType::AnimationStiff => (animation.positions, animation.stiffnesses),
             MotionType::ArmsUpSquat => (arms_up_squat.positions, arms_up_squat.stiffnesses),
+            MotionType::ArmsUpStand => (arms_up_stand.positions, arms_up_stand.stiffnesses),
             MotionType::Dispatching => {
                 self.current_minimizer.reset();
                 (

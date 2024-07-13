@@ -11,6 +11,7 @@ use types::{
 pub fn execute(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
+    role: &Role,
 ) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Initial => Some(MotionCommand::Stand {
@@ -18,7 +19,9 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let ground_to_field = world_state.robot.ground_to_field?;
-            let fallback_target = match world_state.filtered_game_controller_state {
+            let (fallback_target, is_opponent_penalty_kick) = match world_state
+                .filtered_game_controller_state
+            {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team,
@@ -29,34 +32,46 @@ pub fn execute(
                     kicking_team,
                     ..
                 }) => {
-                    let half = match kicking_team {
-                        Team::Hulks => Half::Opponent,
-                        Team::Opponent => Half::Own,
+                    let (half, is_opponent_penalty_kick) = match kicking_team {
+                        Team::Hulks => (Half::Opponent, false),
+                        Team::Opponent => (Half::Own, true),
                         Team::Uncertain => {
                             eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
-                            Half::Opponent
+                            (Half::Opponent, true)
                         }
                     };
-                    world_state
-                        .rule_ball
-                        .map(|rule_ball| rule_ball.ball_in_ground)
-                        .unwrap_or({
-                            ground_to_field.inverse() * field_dimensions.penalty_spot(half)
-                        })
+                    (
+                        world_state
+                            .rule_ball
+                            .map(|rule_ball| rule_ball.ball_in_ground)
+                            .unwrap_or({
+                                ground_to_field.inverse() * field_dimensions.penalty_spot(half)
+                            }),
+                        is_opponent_penalty_kick,
+                    )
                 }
-                _ => ground_to_field.inverse().as_pose().position(),
+                _ => (ground_to_field.inverse().as_pose().position(), false),
             };
             let target = world_state
                 .ball
                 .map(|state| state.ball_in_ground)
                 .unwrap_or(fallback_target);
-            Some(MotionCommand::Stand {
-                head: HeadMotion::LookAt {
-                    target,
-                    image_region_target: Default::default(),
-                    camera: None,
-                },
-            })
+            match (role, is_opponent_penalty_kick) {
+                (Role::Keeper, true) => Some(MotionCommand::ArmsUpStand {
+                    head: HeadMotion::LookAt {
+                        target,
+                        image_region_target: Default::default(),
+                        camera: None,
+                    },
+                }),
+                _ => Some(MotionCommand::Stand {
+                    head: HeadMotion::LookAt {
+                        target,
+                        image_region_target: Default::default(),
+                        camera: None,
+                    },
+                }),
+            }
         }
         PrimaryState::Playing => {
             match (
