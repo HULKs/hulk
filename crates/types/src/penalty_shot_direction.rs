@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 pub enum PenaltyShotDirection {
     #[default]
     NotMoving,
+    Center,
     Left,
     Right,
 }

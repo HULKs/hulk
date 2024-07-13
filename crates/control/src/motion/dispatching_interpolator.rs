@@ -29,6 +29,7 @@ pub struct CycleContext {
     arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
     jump_left_joints_command: Input<MotorCommands<Joints<f32>>, "jump_left_joints_command">,
     jump_right_joints_command: Input<MotorCommands<Joints<f32>>, "jump_right_joints_command">,
+    center_jump_positions: Input<Joints<f32>, "center_jump_positions">,
     motion_selection: Input<MotionSelection, "motion_selection">,
     cycle_time: Input<CycleTime, "cycle_time">,
     sit_down_joints_command: Input<MotorCommands<Joints<f32>>, "sit_down_joints_command">,
@@ -91,6 +92,7 @@ impl DispatchingInterpolator {
                 MotionType::Initial => *context.initial_pose,
                 MotionType::JumpLeft => context.jump_left_joints_command.positions,
                 MotionType::JumpRight => context.jump_right_joints_command.positions,
+
                 MotionType::Penalized => *context.penalized_pose,
                 MotionType::SitDown => context.sit_down_joints_command.positions,
                 MotionType::Stand => Joints::from_head_and_body(
@@ -101,6 +103,7 @@ impl DispatchingInterpolator {
                 MotionType::StandUpFront => *context.stand_up_front_positions,
                 MotionType::StandUpSitting => *context.stand_up_sitting_positions,
                 MotionType::WideStance => *context.wide_stance_positions,
+                MotionType::CenterJump => *context.center_jump_positions,
                 MotionType::Unstiff => panic!("Dispatching Unstiff doesn't make sense"),
                 MotionType::Animation => context.animation_commands.positions,
                 MotionType::AnimationStiff => context.animation_commands.positions,
