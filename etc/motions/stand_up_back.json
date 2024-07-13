@@ -10,7 +10,7 @@
       "elbow_yaw": 0.20244598388671875,
       "hand": 0,
       "shoulder_pitch": 1.918992042541504,
-      "shoulder_roll": 0.12421202659606934,
+      "shoulder_roll": 0.82421202659606934,
       "wrist_yaw": -0.052197933197021484
     },
     "right_arm": {
@@ -18,7 +18,7 @@
       "elbow_yaw": -0.14883995056152344,
       "hand": 0,
       "shoulder_pitch": 1.9620280265808105,
-      "shoulder_roll": -0.26695799827575684,
+      "shoulder_roll": -0.86695799827575684,
       "wrist_yaw": 0.056715965270996094
     },
     "left_leg": {
