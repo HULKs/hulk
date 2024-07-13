@@ -106,13 +106,13 @@ pub fn greater_than_with_hysteresis(
     )
 }
 
-/// For a relative hysteresis with relative lower and upper values
-///
-/// ```text
-/// ------true-----[-------old-value---------------------------]-----false-----
-///               ⏞                   ⏞                   ⏞
-///    threshold - hysteresis / 2.0   threshold    threshold + hysteresis / 2.0
-///```
+#[doc = r"For a relative hysteresis with relative lower and upper values
+
+```text
+------true-----[-------old-value---------------------------]-----false-----
+              ⏞                   ⏞                   ⏞
+   threshold - hysteresis / 2.0   threshold    threshold + hysteresis / 2.0
+```"]
 pub fn less_than_with_hysteresis(
     last_evaluation: bool,
     value: f32,
@@ -304,5 +304,31 @@ mod test {
             1.0,
             -0.25..=0.25
         ));
+    }
+}
+
+pub fn greater_than_with_hysteresis_from_tresholds(
+    last_evaluation: bool,
+    value: f32,
+    lower_threshold: f32,
+    upper_threshold: f32,
+) -> bool {
+    if last_evaluation {
+        value > lower_threshold
+    } else {
+        value > upper_threshold
+    }
+}
+
+pub fn less_than_with_hysteresis_from_thresholds(
+    last_evaluation: bool,
+    value: f32,
+    lower_threshold: f32,
+    upper_threshold: f32,
+) -> bool {
+    if last_evaluation {
+        value < upper_threshold
+    } else {
+        value < lower_threshold
     }
 }
