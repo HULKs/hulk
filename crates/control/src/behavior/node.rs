@@ -285,7 +285,11 @@ impl Behavior {
                     Action::DefendPenaltyKick => {
                         defend.penalty_kick(&mut context.path_obstacles_output)
                     }
-                    Action::Stand => stand::execute(world_state, context.field_dimensions),
+                    Action::Stand => stand::execute(
+                        world_state,
+                        context.field_dimensions,
+                        &context.world_state.robot.role,
+                    ),
                     Action::Dribble => dribble::execute(
                         world_state,
                         &walk_path_planner,

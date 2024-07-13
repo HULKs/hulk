@@ -29,6 +29,9 @@ pub enum OrientationMode {
 )]
 pub enum MotionCommand {
     ArmsUpSquat,
+    ArmsUpStand {
+        head: HeadMotion,
+    },
     FallProtection {
         direction: Direction,
     },
@@ -76,7 +79,8 @@ pub enum MotionCommand {
 impl MotionCommand {
     pub fn head_motion(&self) -> Option<HeadMotion> {
         match self {
-            MotionCommand::SitDown { head }
+            MotionCommand::ArmsUpStand { head }
+            | MotionCommand::SitDown { head }
             | MotionCommand::Initial { head, .. }
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }

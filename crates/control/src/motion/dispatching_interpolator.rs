@@ -27,6 +27,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     animation_commands: Input<MotorCommands<Joints<f32>>, "animation_commands">,
     arms_up_squat_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_squat_joints_command">,
+    arms_up_stand_joints_command: Input<MotorCommands<Joints<f32>>, "arms_up_stand_joints_command">,
     jump_left_joints_command: Input<MotorCommands<Joints<f32>>, "jump_left_joints_command">,
     jump_right_joints_command: Input<MotorCommands<Joints<f32>>, "jump_right_joints_command">,
     center_jump_positions: Input<Joints<f32>, "center_jump_positions">,
@@ -87,6 +88,7 @@ impl DispatchingInterpolator {
         if interpolator_reset_required {
             let target_position = match dispatching_motion {
                 MotionType::ArmsUpSquat => context.arms_up_squat_joints_command.positions,
+                MotionType::ArmsUpStand => context.arms_up_stand_joints_command.positions,
                 MotionType::Dispatching => panic!("Dispatching cannot dispatch itself"),
                 MotionType::FallProtection => panic!("Is executed immediately"),
                 MotionType::Initial => *context.initial_pose,

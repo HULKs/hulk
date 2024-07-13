@@ -71,6 +71,7 @@ impl MotionSelector {
 fn motion_type_from_command(command: &MotionCommand) -> MotionType {
     match command {
         MotionCommand::ArmsUpSquat => MotionType::ArmsUpSquat,
+        MotionCommand::ArmsUpStand { .. } => MotionType::ArmsUpStand,
         MotionCommand::FallProtection { .. } => MotionType::FallProtection,
         MotionCommand::Initial { .. } => MotionType::Initial,
         MotionCommand::Jump { direction } => match direction {
@@ -114,6 +115,7 @@ fn transition_motion(
         (MotionType::StandUpSitting, _, MotionType::FallProtection, _) => {
             MotionType::StandUpSitting
         }
+        (MotionType::ArmsUpStand, _, MotionType::FallProtection, _) => MotionType::ArmsUpStand,
         (MotionType::StandUpFront, true, MotionType::StandUpFront, _) => MotionType::Dispatching,
         (MotionType::StandUpBack, true, MotionType::StandUpBack, _) => MotionType::Dispatching,
         (MotionType::StandUpSitting, true, MotionType::StandUpSitting, _) => {
@@ -122,6 +124,7 @@ fn transition_motion(
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
         (_, _, MotionType::WideStance, _) => MotionType::WideStance,
         (_, _, MotionType::CenterJump, _) => MotionType::CenterJump,
+        (MotionType::ArmsUpStand, _, _, false) => MotionType::ArmsUpStand,
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
         (MotionType::Walk, _, MotionType::Stand, _) => MotionType::Stand,
