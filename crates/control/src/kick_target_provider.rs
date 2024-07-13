@@ -76,19 +76,15 @@ impl KickTargetProvider {
     pub fn cycle(&self, context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
 
-        let obstacle_circles = if matches!(
-            context.filtered_game_controller_state,
+        let obstacle_circles = match context.filtered_game_controller_state {
             Some(FilteredGameControllerState {
                 game_phase: GamePhase::PenaltyShootout { .. },
                 ..
-            })
-        ) {
-            vec![]
-        } else {
-            generate_obstacle_circles(
+            }) => vec![],
+            _ => generate_obstacle_circles(
                 context.obstacles,
                 *context.ball_radius_for_kick_target_selection,
-            )
+            ),
         };
 
         let collect_kick_targets_parameters = CollectKickTargetsParameter {
