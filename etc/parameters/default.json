@@ -320,7 +320,7 @@
   },
   "current_minimizer_parameters": {
     "allowed_current": 0.1,
-    "minimum_reached_hysteresis": 0.05,
+    "allowed_current_upper_threshold": 0.13,
     "optimization_speed": 0.0000012,
     "position_difference_threshold": 0.0,
     "reset_base_offset": 0.0002,

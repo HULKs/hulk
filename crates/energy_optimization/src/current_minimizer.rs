@@ -1,4 +1,4 @@
-use filtering::hysteresis::less_than_with_hysteresis;
+use filtering::hysteresis::less_than_with_hysteresis_from_thresholds;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, joints::Joints};
@@ -68,11 +68,11 @@ impl CurrentMinimizer {
                     .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
                     .expect("currents must not be empty.");
 
-                self.minimum_reached = less_than_with_hysteresis(
+                self.minimum_reached = less_than_with_hysteresis_from_thresholds(
                     self.minimum_reached,
                     maximal_current,
                     self.parameters.allowed_current,
-                    self.parameters.minimum_reached_hysteresis,
+                    self.parameters.allowed_current_upper_threshold,
                 );
                 if !self.minimum_reached {
                     self.position_offset[joint] += self.parameters.optimization_sign[joint]
