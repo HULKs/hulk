@@ -72,6 +72,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::motion::head_motion",
                     "control::motion::jump_left",
                     "control::motion::jump_right",
+                    "control::motion::center_jump",
                     "control::motion::look_around",
                     "control::motion::look_at",
                     "control::motion::motion_selector",
