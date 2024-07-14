@@ -7,6 +7,7 @@ use std::{
 };
 
 use aliveness::query_aliveness;
+use argument_parsers::NaoAddress;
 use clap::Parser;
 use color_eyre::{
     eyre::{bail, eyre},
@@ -188,6 +189,11 @@ impl TwixApp {
     ) -> Self {
         let address = arguments
             .address
+            .map(|address| {
+                NaoAddress::from_str(&address)
+                    .map(|nao| nao.to_string())
+                    .unwrap_or(address)
+            })
             .or_else(|| creation_context.storage?.get_string("address"))
             .unwrap_or_else(|| "localhost".to_string());
 
