@@ -7,7 +7,7 @@ use framework::MainOutput;
 use geometry::{circle::Circle, line_segment::LineSegment, two_line_segments::TwoLineSegments};
 use linear_algebra::{distance, point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::GamePhase;
+use spl_network_messages::{GamePhase, SubState};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -76,10 +76,20 @@ impl KickTargetProvider {
     pub fn cycle(&self, context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
 
-        let obstacle_circles = generate_obstacle_circles(
-            context.obstacles,
-            *context.ball_radius_for_kick_target_selection,
-        );
+        let obstacle_circles = match context.filtered_game_controller_state {
+            Some(FilteredGameControllerState {
+                game_phase: GamePhase::PenaltyShootout { .. },
+                ..
+            }) => vec![],
+            Some(FilteredGameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                ..
+            }) => vec![],
+            _ => generate_obstacle_circles(
+                context.obstacles,
+                *context.ball_radius_for_kick_target_selection,
+            ),
+        };
 
         let collect_kick_targets_parameters = CollectKickTargetsParameter {
             find_kick_targets_parameter: context.find_kick_targets_parameters,
