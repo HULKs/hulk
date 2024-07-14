@@ -105,14 +105,11 @@ impl KickSelector {
             .flatten()
             .collect();
 
-        kick_decisions = kick_decisions
-            .into_iter()
-            .filter(|target| match target.variant {
-                KickVariant::Forward => context.in_walk_kicks.forward.enabled,
-                KickVariant::Turn => context.in_walk_kicks.turn.enabled,
-                KickVariant::Side => context.in_walk_kicks.side.enabled,
-            })
-            .collect();
+        kick_decisions.retain(|target| match target.variant {
+            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
+            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
+            KickVariant::Side => context.in_walk_kicks.side.enabled,
+        });
 
         kick_decisions.sort_by(|left, right| {
             let left_in_obstacle = is_inside_any_obstacle(
