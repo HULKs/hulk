@@ -1,0 +1,2 @@
+cad/**/*.* filter=lfs diff=lfs merge=lfs -text
+pcb/**/*.* filter=lfs diff=lfs merge=lfs -text
