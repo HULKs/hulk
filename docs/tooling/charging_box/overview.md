@@ -1,4 +1,4 @@
-## Overview
+# Overview
 
 To easily charge and deploy our NAOs during events, we have built a custom charging box able to provide power and a network connection to up to 14 NAOs at the same time.
 This page describes how the charging box works and how you can build your own.
