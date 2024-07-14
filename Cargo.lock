@@ -3096,6 +3096,7 @@ dependencies = [
  "hulk_manifest",
  "ittapi",
  "linear_algebra",
+ "log",
  "nalgebra",
  "object_detection",
  "parameters",
