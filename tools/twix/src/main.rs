@@ -55,7 +55,6 @@ mod nao;
 mod panel;
 mod panels;
 mod players_buffer_handle;
-mod repository_parameters;
 mod selectable_panel_macro;
 mod twix_painter;
 mod value_buffer;
