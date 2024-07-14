@@ -62,181 +62,141 @@ mod test {
 
     #[test]
     fn greater_than_with_hysteresis_from_tresholds() {
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(false, 0.0, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(false, 1.0, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(false, 1.5, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(false, 2.0, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(false, 3.0, 1.0, 2.0),
-            true
-        );
+        assert!(!super::greater_than_with_hysteresis_from_tresholds(
+            false, 0.0, 1.0, 2.0
+        ));
+        assert!(!super::greater_than_with_hysteresis_from_tresholds(
+            false, 1.0, 1.0, 2.0
+        ));
+        assert!(!super::greater_than_with_hysteresis_from_tresholds(
+            false, 1.5, 1.0, 2.0
+        ));
+        assert!(!super::greater_than_with_hysteresis_from_tresholds(
+            false, 2.0, 1.0, 2.0
+        ));
+        assert!(super::greater_than_with_hysteresis_from_tresholds(
+            false, 3.0, 1.0, 2.0
+        ));
 
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(true, 0.0, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(true, 1.0, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(true, 1.5, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(true, 2.0, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_tresholds(true, 3.0, 1.0, 2.0),
-            true
-        );
+        assert!(!super::greater_than_with_hysteresis_from_tresholds(
+            true, 0.0, 1.0, 2.0
+        ));
+        assert!(super::greater_than_with_hysteresis_from_tresholds(
+            true, 1.0, 1.0, 2.0
+        ));
+        assert!(super::greater_than_with_hysteresis_from_tresholds(
+            true, 1.5, 1.0, 2.0
+        ));
+        assert!(super::greater_than_with_hysteresis_from_tresholds(
+            true, 2.0, 1.0, 2.0
+        ));
+        assert!(super::greater_than_with_hysteresis_from_tresholds(
+            true, 3.0, 1.0, 2.0
+        ));
     }
 
     #[test]
     fn less_than_with_hysteresis_from_thresholds() {
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(false, 0.0, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(false, 1.0, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(false, 1.5, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(false, 2.0, 1.0, 2.0),
-            false
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(false, 3.0, 1.0, 2.0),
-            false
-        );
+        assert!(super::less_than_with_hysteresis_from_thresholds(
+            false, 0.0, 1.0, 2.0
+        ));
+        assert!(!super::less_than_with_hysteresis_from_thresholds(
+            false, 1.0, 1.0, 2.0
+        ));
+        assert!(!super::less_than_with_hysteresis_from_thresholds(
+            false, 1.5, 1.0, 2.0
+        ));
+        assert!(!super::less_than_with_hysteresis_from_thresholds(
+            false, 2.0, 1.0, 2.0
+        ));
+        assert!(!super::less_than_with_hysteresis_from_thresholds(
+            false, 3.0, 1.0, 2.0
+        ));
 
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(true, 0.0, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(true, 1.0, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(true, 1.5, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(true, 2.0, 1.0, 2.0),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_thresholds(true, 3.0, 1.0, 2.0),
-            false
-        );
+        assert!(super::less_than_with_hysteresis_from_thresholds(
+            true, 0.0, 1.0, 2.0
+        ));
+        assert!(super::less_than_with_hysteresis_from_thresholds(
+            true, 1.0, 1.0, 2.0
+        ));
+        assert!(super::less_than_with_hysteresis_from_thresholds(
+            true, 1.5, 1.0, 2.0
+        ));
+        assert!(super::less_than_with_hysteresis_from_thresholds(
+            true, 2.0, 1.0, 2.0
+        ));
+        assert!(!super::less_than_with_hysteresis_from_thresholds(
+            true, 3.0, 1.0, 2.0
+        ));
     }
 
     #[test]
     fn greater_than_with_hysteresis_from_delta() {
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(false, 0.0, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(false, 1.0, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(false, 1.5, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(false, 2.0, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(false, 2.5, 1.0, 0.5),
-            true
-        );
+        assert!(!super::greater_than_with_hysteresis_from_delta(
+            false, 0.0, 1.0, 0.5
+        ));
+        assert!(!super::greater_than_with_hysteresis_from_delta(
+            false, 1.0, 1.0, 0.5
+        ));
+        assert!(!super::greater_than_with_hysteresis_from_delta(
+            false, 1.5, 1.0, 0.5
+        ));
+        assert!(super::greater_than_with_hysteresis_from_delta(
+            false, 2.0, 1.0, 0.5
+        ));
+        assert!(super::greater_than_with_hysteresis_from_delta(
+            false, 2.5, 1.0, 0.5
+        ));
 
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(true, 0.0, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(true, 1.0, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(true, 1.5, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(true, 2.0, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::greater_than_with_hysteresis_from_delta(true, 2.5, 1.0, 0.5),
-            true
-        );
+        assert!(!super::greater_than_with_hysteresis_from_delta(
+            true, 0.0, 1.0, 0.5
+        ));
+        assert!(super::greater_than_with_hysteresis_from_delta(
+            true, 1.0, 1.0, 0.5
+        ));
+        assert!(super::greater_than_with_hysteresis_from_delta(
+            true, 1.5, 1.0, 0.5
+        ));
+        assert!(super::greater_than_with_hysteresis_from_delta(
+            true, 2.0, 1.0, 0.5
+        ));
+        assert!(super::greater_than_with_hysteresis_from_delta(
+            true, 2.5, 1.0, 0.5
+        ));
     }
 
     #[test]
     fn less_than_with_hysteresis_from_delta() {
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(false, 0.0, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(false, 1.0, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(false, 1.5, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(false, 2.0, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(false, 2.5, 1.0, 0.5),
-            false
-        );
+        assert!(super::less_than_with_hysteresis_from_delta(
+            false, 0.0, 1.0, 0.5
+        ));
+        assert!(!super::less_than_with_hysteresis_from_delta(
+            false, 1.0, 1.0, 0.5
+        ));
+        assert!(!super::less_than_with_hysteresis_from_delta(
+            false, 1.5, 1.0, 0.5
+        ));
+        assert!(!super::less_than_with_hysteresis_from_delta(
+            false, 2.0, 1.0, 0.5
+        ));
+        assert!(!super::less_than_with_hysteresis_from_delta(
+            false, 2.5, 1.0, 0.5
+        ));
 
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(true, 0.0, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(true, 1.0, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(true, 1.5, 1.0, 0.5),
-            true
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(true, 2.0, 1.0, 0.5),
-            false
-        );
-        assert_eq!(
-            super::less_than_with_hysteresis_from_delta(true, 2.5, 1.0, 0.5),
-            false
-        );
+        assert!(super::less_than_with_hysteresis_from_delta(
+            true, 0.0, 1.0, 0.5
+        ));
+        assert!(super::less_than_with_hysteresis_from_delta(
+            true, 1.0, 1.0, 0.5
+        ));
+        assert!(super::less_than_with_hysteresis_from_delta(
+            true, 1.5, 1.0, 0.5
+        ));
+        assert!(!super::less_than_with_hysteresis_from_delta(
+            true, 2.0, 1.0, 0.5
+        ));
+        assert!(!super::less_than_with_hysteresis_from_delta(
+            true, 2.5, 1.0, 0.5
+        ));
     }
 }
