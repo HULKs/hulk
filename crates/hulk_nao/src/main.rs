@@ -12,6 +12,7 @@ use color_eyre::{
     install,
 };
 use ctrlc::set_handler;
+use fern::Dispatch;
 use framework::Parameters as FrameworkParameters;
 use hardware::IdInterface;
 use hardware_interface::{HardwareInterface, Parameters as HardwareParameters};
@@ -29,7 +30,9 @@ mod microphones;
 mod speakers;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
-    fern::Dispatch::new()
+    let base_config = Dispatch::new();
+
+    let common_config = Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{}  {:<18}  {:>5}  {}",
@@ -40,7 +43,27 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
             ))
         })
         .level(log::LevelFilter::Debug)
-        .chain(stdout())
+        .chain(stdout());
+
+    // a log config for logs coming from specific crates
+    let live_log_config = Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{}  {:<18}  {:>5}  {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                record.target(),
+                record.level(),
+                message
+            ))
+        })
+        // only apply for logs from the specific crate
+        .level_for("control", log::LevelFilter::Debug)
+        .level_for("hulk", log::LevelFilter::Debug)
+        .chain(fern::log_file("control-program.log")?);
+
+    base_config
+        .chain(common_config)
+        .chain(live_log_config)
         .apply()?;
     Ok(())
 }
