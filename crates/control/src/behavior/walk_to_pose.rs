@@ -159,6 +159,7 @@ impl<'cycle> WalkAndStand<'cycle> {
         target_pose: Pose2<Ground>,
         head: HeadMotion,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
         let ground_to_field = self.world_state.robot.ground_to_field?;
         let distance_to_walk = target_pose.position().coords().norm();
@@ -198,7 +199,7 @@ impl<'cycle> WalkAndStand<'cycle> {
                 head,
                 orientation_mode,
                 path,
-                WalkSpeed::Normal,
+                walk_speed,
             ))
         }
     }
