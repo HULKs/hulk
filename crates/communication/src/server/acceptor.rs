@@ -77,7 +77,6 @@ impl Acceptor {
                 return;
             }
         };
-        // TODO: keep the handle to shutdown the clients
         let (connection, _) = Connection::new(
             stream,
             self.next_client_id,
