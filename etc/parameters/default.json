@@ -1156,6 +1156,16 @@
     "forced_role": null,
     "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 }
   },
+  "walk_speed": {
+    "defend": "Normal",
+    "dribble": "Fast",
+    "intercept_ball": "Fast",
+    "lost_ball": "Normal",
+    "search": "Normal",
+    "support": "Normal",
+    "walk_to_kickoff": "Normal",
+    "walk_to_penalty_kick": "Normal"
+  },
   "behavior": {
     "optional_roles": [
       "DefenderLeft",

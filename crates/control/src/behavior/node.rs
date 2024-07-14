@@ -14,7 +14,7 @@ use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::MotionCommand,
+    motion_command::{MotionCommand, WalkSpeed},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
         WideStanceParameters,
@@ -74,6 +74,15 @@ pub struct CycleContext {
     wide_stance: Parameter<WideStanceParameters, "wide_stance">,
     use_stand_head_unstiff_calibration:
         Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
+
+    defend_walk_speed: Parameter<WalkSpeed, "walk_speed.defend">,
+    dribble_walk_speed: Parameter<WalkSpeed, "walk_speed.dribble">,
+    intercept_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.intercept_ball">,
+    lost_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.lost_ball">,
+    search_walk_speed: Parameter<WalkSpeed, "walk_speed.search">,
+    support_walk_speed: Parameter<WalkSpeed, "walk_speed.support">,
+    walk_to_kickoff_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_kickoff">,
+    walk_to_penalty_kick_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_penalty_kick">,
 }
 
 #[context]
@@ -274,17 +283,31 @@ impl Behavior {
                         world_state,
                         *context.intercept_ball_parameters,
                         *context.maximum_step_size,
+                        *context.intercept_ball_walk_speed,
                     ),
                     Action::Calibrate => {
                         calibrate::execute(world_state, *context.use_stand_head_unstiff_calibration)
                     }
-                    Action::DefendGoal => defend.goal(&mut context.path_obstacles_output),
-                    Action::DefendKickOff => defend.kick_off(&mut context.path_obstacles_output),
-                    Action::DefendLeft => defend.left(&mut context.path_obstacles_output),
-                    Action::DefendRight => defend.right(&mut context.path_obstacles_output),
-                    Action::DefendPenaltyKick => {
-                        defend.penalty_kick(&mut context.path_obstacles_output)
-                    }
+                    Action::DefendGoal => defend.goal(
+                        &mut context.path_obstacles_output,
+                        *context.defend_walk_speed,
+                    ),
+                    Action::DefendKickOff => defend.kick_off(
+                        &mut context.path_obstacles_output,
+                        *context.defend_walk_speed,
+                    ),
+                    Action::DefendLeft => defend.left(
+                        &mut context.path_obstacles_output,
+                        *context.defend_walk_speed,
+                    ),
+                    Action::DefendRight => defend.right(
+                        &mut context.path_obstacles_output,
+                        *context.defend_walk_speed,
+                    ),
+                    Action::DefendPenaltyKick => defend.penalty_kick(
+                        &mut context.path_obstacles_output,
+                        *context.defend_walk_speed,
+                    ),
                     Action::Stand => stand::execute(
                         world_state,
                         context.field_dimensions,
@@ -296,6 +319,7 @@ impl Behavior {
                         context.in_walk_kicks,
                         &context.parameters.dribbling,
                         dribble_path.clone(),
+                        *context.dribble_walk_speed,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),
@@ -307,6 +331,7 @@ impl Behavior {
                         &context.parameters.search,
                         &mut context.path_obstacles_output,
                         self.previous_role,
+                        *context.search_walk_speed,
                     ),
                     Action::SearchForLostBall => lost_ball::execute(
                         world_state,
@@ -314,6 +339,7 @@ impl Behavior {
                         &walk_path_planner,
                         context.lost_ball_parameters,
                         &mut context.path_obstacles_output,
+                        *context.lost_ball_walk_speed,
                     ),
                     Action::SupportLeft => support::execute(
                         world_state,
@@ -331,6 +357,7 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles_output,
+                        *context.support_walk_speed,
                     ),
                     Action::SupportRight => support::execute(
                         world_state,
@@ -348,6 +375,7 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles_output,
+                        *context.support_walk_speed,
                     ),
                     Action::SupportStriker => support::execute(
                         world_state,
@@ -368,6 +396,7 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles_output,
+                        *context.support_walk_speed,
                     ),
                     Action::WalkToKickOff => walk_to_kick_off::execute(
                         world_state,
@@ -375,6 +404,7 @@ impl Behavior {
                         &look_action,
                         &mut context.path_obstacles_output,
                         context.parameters.role_positions.striker_kickoff_pose,
+                        *context.walk_to_kickoff_walk_speed,
                     ),
                     Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
                         world_state,
@@ -382,6 +412,7 @@ impl Behavior {
                         &look_action,
                         &mut context.path_obstacles_output,
                         context.field_dimensions,
+                        *context.walk_to_penalty_kick_walk_speed,
                     ),
                 }?;
                 Some((action, motion_command))
