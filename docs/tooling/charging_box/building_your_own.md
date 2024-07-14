@@ -14,10 +14,10 @@ The following materials are required for building the charging box:
 | [DIN rail](https://www.reichelt.de/norm-tragschiene-fuer-verteilergehaeuse-hut-35x7-250-p62001.html)                                   | 1      |
 | [C20 mains inlet with switch](https://www.reichelt.de/kaltgeraetestecker-mit-schalter-16-a-c20-kes-16-5-p53033.html)                   | 1      |
 | [C19 Mains cable](https://www.reichelt.de/netzkabel-schutzkontakt-stecker-typ-e-f-90-gew-0-5m-km-sk0190-s005-p336494.html)             | 1      |
-| [Insulated wire 1.0mm^2 red 50m](https://www.reichelt.de/schaltlitze-h05v-k-1-0-mm-50-m-rot-h05vk-1-0-50rt-p69493.html)                | 1      |
-| [Insulated wire 1.0mm^2 black 50m](https://www.reichelt.de/schaltlitze-h05v-k-1-0-mm-50-m-schwarz-h05vk-1-0-50sw-p69494.html)          | 1      |
-| [Ferrule 1.0mm^2 (100 pack)](https://www.reichelt.de/100er-pack-aderendhuelsen-isoliert-1-0mm--aehi-1-0-100-p24718.html)               | 1      |
-| [Ferrule 1.5mm^2 (100 pack)](https://www.reichelt.de/100er-pack-aderendhuelsen-isoliert-1-5mm--aehi-1-5-100-p24719.html)               | 1      |
+| [Insulated wire 1.0mm² red 50m](https://www.reichelt.de/schaltlitze-h05v-k-1-0-mm-50-m-rot-h05vk-1-0-50rt-p69493.html)                | 1      |
+| [Insulated wire 1.0mm² black 50m](https://www.reichelt.de/schaltlitze-h05v-k-1-0-mm-50-m-schwarz-h05vk-1-0-50sw-p69494.html)          | 1      |
+| [Ferrule 1.0mm² (100 pack)](https://www.reichelt.de/100er-pack-aderendhuelsen-isoliert-1-0mm--aehi-1-0-100-p24718.html)               | 1      |
+| [Ferrule 1.5mm² (100 pack)](https://www.reichelt.de/100er-pack-aderendhuelsen-isoliert-1-5mm--aehi-1-5-100-p24719.html)               | 1      |
 | [Fan 40mm x 40mm x 10mm](https://www.reichelt.de/axialluefter-40x40x10mm-12v-13-9m-h-28-2dba-sun-ee40101s1-1-p260552.html)             | 4      |
 | [Cable lug M3](https://www.reichelt.de/gabel-kerbschuhe-fuer-m3-rot-vt-gk-r-3-p231363.html)                                            | 3      |
 | [Cable lug M4](https://www.reichelt.de/gabel-kerbschuhe-fuer-m4-rot-vt-gk-r-4-p231364.html)                                            | 6      |
@@ -42,7 +42,7 @@ The following materials are required for building the charging box:
 | M4 washer                                                                                                                              | 4      |
 | M4x20 countersunk screws                                                                                                               | 16     |
 
-Furthermore, a small amount of appropriately colored 1.5mm^2 wire is required for the mains voltage wiring.
+Furthermore, a small amount of appropriately colored 1.5mm² wire is required for the mains voltage wiring.
 
 ## 3D printed parts and laser cut covers
 
