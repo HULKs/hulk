@@ -201,6 +201,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                         &hardware_ids,
                     ).wrap_err("failed to parse initial parameters")?;
                 let initial_parameters = parameters_from_disk;
+                #[allow(unused)]
                 let (parameters_sender, parameters_receiver) =
                     buffered_watch::channel((std::time::SystemTime::now(), initial_parameters));
 
@@ -505,6 +506,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStr
             #[allow(unused)]
             #recording_trigger
             #recording_index
+            #[allow(unused)]
             let (#own_subscriptions_sender_identifier, #own_subscriptions_receiver_identifier) = buffered_watch::channel(Default::default());
             let #cycler_variable_identifier = crate::cyclers::#cycler_module_name::Cycler::new(
                 crate::cyclers::#cycler_module_name::CyclerInstance::#cycler_instance_name_identifier,
