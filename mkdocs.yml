@@ -51,6 +51,9 @@ nav:
   - Tooling:
       - Overview: tooling/overview.md
       - Aliveness: tooling/aliveness.md
+      - Charging box:
+          - Overview: tooling/charging_box/overview.md
+          - Building your own: tooling/charging_box/building_your_own.md
       - Pepsi: tooling/pepsi.md
       - Twix: tooling/twix.md
       - Depp: tooling/depp.md
