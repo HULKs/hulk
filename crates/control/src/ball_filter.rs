@@ -1,7 +1,14 @@
-use std::{collections::BTreeMap, time::SystemTime};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::SystemTime,
+};
 
 use color_eyre::Result;
+use hungarian_algorithm::AssignmentProblem;
+use itertools::Itertools;
 use nalgebra::{Matrix2, Matrix4};
+use ndarray::Array2;
+use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use ball_filter::{BallFilter as BallFiltering, BallHypothesis};
@@ -105,12 +112,11 @@ impl BallFilter {
                 filter_parameters.resting_ball_velocity_threshold,
             );
 
-            let camera_matrices = camera_matrices.get(&detection_time);
-
             if !had_ground_contact.get(&detection_time) {
                 self.ball_filter.reset();
                 continue;
             }
+            let camera_matrices = camera_matrices.get(&detection_time);
 
             let projected_limbs_bottom = projected_limbs
                 .persistent
@@ -128,29 +134,48 @@ impl BallFilter {
                 )
             });
 
-            for ball in balls {
-                let mean_position = ball.percept_in_ground.mean.framed().as_point();
-                let is_hypothesis_detected = |hypothesis: &BallHypothesis| {
-                    distance(
-                        hypothesis
-                            .choose_ball(filter_parameters.resting_ball_velocity_threshold)
-                            .position,
-                        mean_position,
-                    ) < filter_parameters.measurement_matching_distance
-                };
-                let is_any_hypothesis_updated = self.ball_filter.update(
-                    detection_time,
-                    ball.percept_in_ground,
-                    is_hypothesis_detected,
-                );
-                if !is_any_hypothesis_updated {
-                    self.ball_filter.spawn(
-                        detection_time,
-                        mean_position,
-                        Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
-                        Matrix2::from_diagonal(&filter_parameters.noise.initial_covariance.xy()),
-                    )
+            let match_matrix = mahalanobis_matrix_of_hypotheses_and_percepts(
+                &self.ball_filter.hypotheses,
+                &balls,
+                filter_parameters.resting_ball_velocity_threshold,
+            );
+            eprintln!(
+                "Hypotheses: {}, Percepts: {}",
+                self.ball_filter.hypotheses.len(),
+                balls.len()
+            );
+            eprintln!("{match_matrix:#}");
+            let assignment = AssignmentProblem::from_costs(match_matrix).solve();
+            dbg!(&assignment);
+
+            for (hypothesis, percept_index) in self
+                .ball_filter
+                .hypotheses
+                .iter_mut()
+                .zip_eq(assignment.iter())
+            {
+                if let Some(percept_index) = percept_index {
+                    let percept = balls[*percept_index];
+                    hypothesis.update(detection_time, percept.percept_in_ground);
                 }
+            }
+
+            let unused_percepts = {
+                let indices: BTreeSet<_> = assignment.into_iter().flatten().collect();
+                let mut all_percepts = balls.clone();
+                for index in indices.into_iter().rev() {
+                    all_percepts.remove(index);
+                }
+                all_percepts
+            };
+
+            for percept in unused_percepts {
+                self.ball_filter.spawn(
+                    detection_time,
+                    percept.percept_in_ground.mean.framed().as_point(),
+                    Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
+                    Matrix2::from_diagonal(&filter_parameters.noise.initial_covariance.xy()),
+                );
             }
         }
 
@@ -171,13 +196,14 @@ impl BallFilter {
 
         let should_merge_hypotheses =
             |hypothesis1: &BallHypothesis, hypothesis2: &BallHypothesis| {
-                let ball1 =
-                    hypothesis1.choose_ball(filter_parameters.resting_ball_velocity_threshold);
-                let ball2 =
-                    hypothesis2.choose_ball(filter_parameters.resting_ball_velocity_threshold);
+                false
+                // let ball1 =
+                //     hypothesis1.choose_ball(filter_parameters.resting_ball_velocity_threshold);
+                // let ball2 =
+                //     hypothesis2.choose_ball(filter_parameters.resting_ball_velocity_threshold);
 
-                distance(ball1.position, ball2.position)
-                    < filter_parameters.hypothesis_merge_distance
+                // distance(ball1.position, ball2.position)
+                //     < filter_parameters.hypothesis_merge_distance
             };
 
         self.ball_filter
@@ -222,7 +248,7 @@ impl BallFilter {
 
         let output_balls: Vec<_> = self
             .ball_filter
-            .hypotheses()
+            .hypotheses
             .iter()
             .filter_map(|hypothesis| {
                 if hypothesis.validity >= filter_parameters.validity_output_threshold {
@@ -273,7 +299,7 @@ impl BallFilter {
         validity_limit: f32,
     ) -> Vec<HypotheticalBallPosition<Ground>> {
         self.ball_filter
-            .hypotheses()
+            .hypotheses
             .iter()
             .filter_map(|hypothesis| {
                 if hypothesis.validity < validity_limit {
@@ -287,6 +313,30 @@ impl BallFilter {
             })
             .collect()
     }
+}
+
+fn mahalanobis_matrix_of_hypotheses_and_percepts(
+    hypotheses: &[BallHypothesis],
+    percepts: &[&BallPercept],
+    velocity_threshold: f32,
+) -> Array2<NotNan<f32>> {
+    Array2::from_shape_fn((hypotheses.len(), percepts.len()), |(i, j)| {
+        let hypothesis = &hypotheses[i];
+        let percept = &percepts[j];
+        let ball = hypothesis.choose_ball(velocity_threshold);
+
+        let residual = percept.percept_in_ground.mean - ball.position.inner.coords;
+        let covariance = hypothesis.position_covariance(velocity_threshold);
+
+        let mahalanobis_distance = residual.dot(
+            &covariance
+                .cholesky()
+                .expect("covariance not invertible")
+                .solve(&residual),
+        );
+
+        NotNan::new(-mahalanobis_distance).expect("mahalanobis distance is NaN")
+    })
 }
 
 fn time_ordered_balls<'a>(

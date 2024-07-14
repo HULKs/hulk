@@ -63,6 +63,14 @@ impl BallHypothesis {
         moving
     }
 
+    pub fn position_covariance(&self, velocity_threshold: f32) -> Matrix2<f32> {
+        let moving = self.moving();
+        if moving.velocity.norm() > velocity_threshold {
+            return self.moving.covariance.fixed_view::<2, 2>(0, 0).into_owned();
+        };
+        self.resting.covariance
+    }
+
     pub fn predict(
         &mut self,
         delta_time: Duration,

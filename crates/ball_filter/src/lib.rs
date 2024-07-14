@@ -15,7 +15,7 @@ use types::multivariate_normal_distribution::MultivariateNormalDistribution;
     Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct BallFilter {
-    hypotheses: Vec<BallHypothesis>,
+    pub hypotheses: Vec<BallHypothesis>,
 }
 
 impl BallFilter {
@@ -24,10 +24,6 @@ impl BallFilter {
             .iter()
             .filter(|hypothesis| hypothesis.validity >= validity_threshold)
             .max_by(|a, b| a.validity.partial_cmp(&b.validity).unwrap())
-    }
-
-    pub fn hypotheses(&self) -> &Vec<BallHypothesis> {
-        &self.hypotheses
     }
 
     pub fn decay_hypotheses(&mut self, decay_factor_criterion: impl Fn(&BallHypothesis) -> f32) {
@@ -66,14 +62,15 @@ impl BallFilter {
         &mut self,
         detection_time: SystemTime,
         measurement: MultivariateNormalDistribution<2>,
-        matching_criterion: impl Fn(&BallHypothesis) -> bool,
+        matching_criterion: impl Fn(usize, &BallHypothesis) -> bool,
     ) -> bool {
         let mut number_of_matching_hypotheses = 0;
 
-        for hypothesis in self
+        for (_, hypothesis) in self
             .hypotheses
             .iter_mut()
-            .filter(|hypothesis| matching_criterion(hypothesis))
+            .enumerate()
+            .filter(|(index, hypothesis)| matching_criterion(*index, hypothesis))
         {
             number_of_matching_hypotheses += 1;
             hypothesis.update(detection_time, measurement)
