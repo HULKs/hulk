@@ -5,6 +5,11 @@ members = [
   "proxy",
 ]
 
+[workspace.package]
+edition = "2021"
+license = "GPL-3.0-only"
+homepage = "https://github.com/hulks/hulk"
+
 [workspace.dependencies]
 chrono = "0.4.23"
 clap = { version = "4.0.29", features = ["derive"] }
