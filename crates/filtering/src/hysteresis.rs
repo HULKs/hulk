@@ -5,14 +5,15 @@ pub fn greater_than_with_hysteresis_from_tresholds(
     upper_threshold: f32,
 ) -> bool {
     if value > upper_threshold {
-        return true;
+        true
     } else if value < lower_threshold {
-        return false;
+        false
     } else {
-        return last_evaluation;
+        last_evaluation
     }
 }
 
+#[allow(clippy::if_same_then_else)]
 pub fn less_than_with_hysteresis_from_thresholds(
     last_evaluation: bool,
     value: f32,
@@ -20,11 +21,11 @@ pub fn less_than_with_hysteresis_from_thresholds(
     upper_threshold: f32,
 ) -> bool {
     if value < lower_threshold {
-        return true;
+        true
     } else if value > upper_threshold {
-        return true;
+        true
     } else {
-        return last_evaluation;
+        last_evaluation
     }
 }
 
@@ -34,12 +35,12 @@ pub fn greater_than_with_hysteresis_from_delta(
     threshold: f32,
     hysteresis: f32,
 ) -> bool {
-    return greater_than_with_hysteresis_from_tresholds(
+    greater_than_with_hysteresis_from_tresholds(
         last_evaluation,
         value,
         threshold - hysteresis,
         threshold + hysteresis,
-    );
+    )
 }
 
 pub fn less_than_with_hysteresis_from_delta(
@@ -48,10 +49,10 @@ pub fn less_than_with_hysteresis_from_delta(
     threshold: f32,
     hysteresis: f32,
 ) -> bool {
-    return less_than_with_hysteresis_from_thresholds(
+    less_than_with_hysteresis_from_thresholds(
         last_evaluation,
         value,
         threshold - hysteresis,
         threshold + hysteresis,
-    );
+    )
 }
