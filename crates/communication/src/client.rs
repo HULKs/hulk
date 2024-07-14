@@ -517,10 +517,28 @@ impl Client {
             Occupied(mut entry) => {
                 let subscription = entry.get();
                 match subscription.drop.upgrade() {
-                    Some(drop) => SubscriptionHandle {
-                        receiver: subscription.sender.subscribe(),
-                        _drop: drop,
-                    },
+                    Some(drop) => {
+                        if let State::Connected {
+                            protocol_handle, ..
+                        } = &self.connection_state
+                        {
+                            let sender = subscription.sender.clone();
+                            let protocol = protocol_handle.clone();
+                            spawn(async move {
+                                let result = protocol.read_text(path).await;
+                                let _ = sender.send(match result {
+                                    Ok((timestamp, value)) => {
+                                        Arc::new(SubscriptionEvent::Update { timestamp, value })
+                                    }
+                                    Err(error) => Arc::new(SubscriptionEvent::Failure { error }),
+                                });
+                            });
+                        }
+                        SubscriptionHandle {
+                            receiver: subscription.sender.subscribe(),
+                            _drop: drop,
+                        }
+                    }
                     None => {
                         let (update_sender, update_receiver) = broadcast::channel(10);
                         let (drop_sender, drop_receiver) = mpsc::channel(1);
@@ -608,10 +626,28 @@ impl Client {
             Occupied(mut entry) => {
                 let subscription = entry.get();
                 match subscription.drop.upgrade() {
-                    Some(drop) => SubscriptionHandle {
-                        receiver: subscription.sender.subscribe(),
-                        _drop: drop,
-                    },
+                    Some(drop) => {
+                        if let State::Connected {
+                            protocol_handle, ..
+                        } = &self.connection_state
+                        {
+                            let sender = subscription.sender.clone();
+                            let protocol = protocol_handle.clone();
+                            spawn(async move {
+                                let result = protocol.read_binary(path).await;
+                                let _ = sender.send(match result {
+                                    Ok((timestamp, value)) => {
+                                        Arc::new(SubscriptionEvent::Update { timestamp, value })
+                                    }
+                                    Err(error) => Arc::new(SubscriptionEvent::Failure { error }),
+                                });
+                            });
+                        }
+                        SubscriptionHandle {
+                            receiver: subscription.sender.subscribe(),
+                            _drop: drop,
+                        }
+                    }
                     None => {
                         let (update_sender, update_receiver) = broadcast::channel(10);
                         let (drop_sender, drop_receiver) = mpsc::channel(1);
