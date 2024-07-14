@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use communication::messages::TextOrBinary;
-use eframe::egui::{Response, Slider, Ui, Widget};
+use eframe::egui::{Color32, Response, Slider, Ui, Widget};
 use serde_json::{json, Value};
 
 use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
@@ -68,10 +68,17 @@ impl Widget for &mut BehaviorSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         if self.selected_frame_updater.has_changed() {
             self.selected_frame_updater.mark_as_seen();
-            if let Some(selected_frame) = self.selected_frame_updater.get_last_value().unwrap() {
+            if let Some(selected_frame) =
+                self.selected_frame_updater.get_last_value().ok().flatten()
+            {
                 self.selected_frame = selected_frame
             }
         }
+        let frame_count = match self.frame_count.get_last_value() {
+            Ok(Some(frame_count)) => frame_count,
+            Ok(None) => return ui.label("no frame data yet"),
+            Err(error) => return ui.colored_label(Color32::RED, format!("Error: {error}")),
+        };
         let mut new_frame = None;
         let response = ui
             .vertical(|ui| {
@@ -81,12 +88,9 @@ impl Widget for &mut BehaviorSimulatorPanel {
                     if ui
                         .add_sized(
                             ui.available_size(),
-                            Slider::new(
-                                &mut frame,
-                                0..=self.frame_count.get_last_value().unwrap().unwrap_or(1) - 1,
-                            )
-                            .smart_aim(false)
-                            .text("Frame"),
+                            Slider::new(&mut frame, 0..=frame_count - 1)
+                                .smart_aim(false)
+                                .text("Frame"),
                         )
                         .changed()
                     {
@@ -125,8 +129,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
             new_frame = Some(new_frame.unwrap_or(self.selected_frame) + 10);
         }
         if let Some(new_frame) = new_frame {
-            self.selected_frame =
-                new_frame % self.frame_count.get_last_value().unwrap().unwrap_or(1);
+            self.selected_frame = new_frame % frame_count;
             self.nao.write(
                 "parameters.selected_frame",
                 TextOrBinary::Text(self.selected_frame.into()),
