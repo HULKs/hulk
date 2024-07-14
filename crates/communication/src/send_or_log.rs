@@ -8,7 +8,7 @@ use log::error;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// socket.send_or_log(Message::Close(None)).await;
 /// ```
 pub trait SendOrLogExt<Item> {
