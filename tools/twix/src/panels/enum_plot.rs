@@ -4,7 +4,7 @@ use std::{
     iter::once,
     ops::Range,
     sync::Arc,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use eframe::{
@@ -243,6 +243,7 @@ impl Panel for EnumPlotPanel {
 impl EnumPlotPanel {
     fn interact(&mut self, response: &Response, ui: &mut Ui, timestamp_range: &Range<SystemTime>) {
         const SCROLL_THRESHOLD: f32 = 1.0;
+        const MINIMUM_VISIBLE_DURATION: Duration = Duration::from_millis(10);
 
         let (scroll_position, viewport_width) = if response.contains_pointer() {
             let drag_delta = response.drag_delta();
@@ -267,8 +268,8 @@ impl EnumPlotPanel {
 
             let scroll_offset = -previous_viewport_width * scroll_delta.x / 400.0;
 
-            let new_viewport_width =
-                (previous_viewport_width * 0.99f32.powf(scroll_delta.y)).max(1.0);
+            let new_viewport_width = (previous_viewport_width * 0.99f32.powf(scroll_delta.y))
+                .max(MINIMUM_VISIBLE_DURATION.as_secs_f32());
 
             let zoom_difference = new_viewport_width - previous_viewport_width;
             let zoom_scroll_compensation = -zoom_difference * normalized_cursor_position;
