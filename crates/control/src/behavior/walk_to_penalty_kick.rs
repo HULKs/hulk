@@ -1,7 +1,9 @@
 use framework::AdditionalOutput;
 use linear_algebra::{point, Pose2};
 use types::{
-    field_dimensions::FieldDimensions, motion_command::MotionCommand, path_obstacles::PathObstacle,
+    field_dimensions::FieldDimensions,
+    motion_command::{MotionCommand, WalkSpeed},
+    path_obstacles::PathObstacle,
     world_state::WorldState,
 };
 
@@ -13,6 +15,7 @@ pub fn execute(
     look_action: &LookAction,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     field_dimensions: &FieldDimensions,
+    walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let kick_off_pose = Pose2::from(point![
@@ -25,5 +28,6 @@ pub fn execute(
         ground_to_field.inverse() * kick_off_pose,
         look_action.execute(),
         path_obstacles_output,
+        walk_speed,
     )
 }

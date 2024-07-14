@@ -17,6 +17,7 @@ pub fn execute(
     walk_path_planner: &WalkPathPlanner,
     lost_ball_parameters: &LostBallParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let walk_target = ground_to_field.inverse()
@@ -38,6 +39,6 @@ pub fn execute(
         HeadMotion::SearchForLostBall,
         OrientationMode::Override(orientation),
         path,
-        WalkSpeed::Normal,
+        walk_speed,
     ))
 }

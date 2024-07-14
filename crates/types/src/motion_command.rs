@@ -11,9 +11,20 @@ use crate::{
     support_foot::Side,
 };
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum WalkSpeed {
     Slow,
+    #[default]
     Normal,
     Fast,
 }

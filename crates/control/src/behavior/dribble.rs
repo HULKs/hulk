@@ -17,6 +17,7 @@ pub fn execute(
     in_walk_kicks: &InWalkKicksParameters,
     parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
+    walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let head = HeadMotion::LookLeftAndRightOf {
@@ -68,7 +69,7 @@ pub fn execute(
             head,
             orientation_mode,
             path,
-            WalkSpeed::Fast,
+            walk_speed,
         )),
         None => Some(MotionCommand::Stand { head }),
     }

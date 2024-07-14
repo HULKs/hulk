@@ -7,7 +7,7 @@ use linear_algebra::{point, Pose2, Rotation2, Vector2};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_state::FilteredGameState,
-    motion_command::MotionCommand,
+    motion_command::{MotionCommand, WalkSpeed},
     path_obstacles::PathObstacle,
     support_foot::Side,
     world_state::{BallState, WorldState},
@@ -26,6 +26,7 @@ pub fn execute(
     walk_and_stand: &WalkAndStand,
     look_action: &LookAction,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let pose = support_pose(
         world_state,
@@ -35,7 +36,12 @@ pub fn execute(
         maximum_x_in_ready_and_when_ball_is_not_free,
         minimum_x,
     )?;
-    walk_and_stand.execute(pose, look_action.execute(), path_obstacles_output)
+    walk_and_stand.execute(
+        pose,
+        look_action.execute(),
+        path_obstacles_output,
+        walk_speed,
+    )
 }
 
 fn support_pose(

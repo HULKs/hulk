@@ -17,6 +17,7 @@ pub fn execute(
     world_state: &WorldState,
     parameters: InterceptBallParameters,
     maximum_step_size: Step,
+    walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     if let Some(
         FilteredGameControllerState {
@@ -87,7 +88,7 @@ pub fn execute(
                 left_arm: types::motion_command::ArmMotion::Swing,
                 right_arm: types::motion_command::ArmMotion::Swing,
                 orientation_mode: OrientationMode::Override(Orientation2::identity()),
-                speed: WalkSpeed::Fast,
+                speed: walk_speed,
             })
         }
         _ => None,

@@ -8,7 +8,7 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::MotionCommand,
+    motion_command::{MotionCommand, WalkSpeed},
     parameters::{RolePositionsParameters, WideStanceParameters},
     path_obstacles::PathObstacle,
     support_foot::Side,
@@ -46,9 +46,14 @@ impl<'cycle> Defend<'cycle> {
         &self,
         pose: Pose2<Ground>,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
-        self.walk_and_stand
-            .execute(pose, self.look_action.execute(), path_obstacles_output)
+        self.walk_and_stand.execute(
+            pose,
+            self.look_action.execute(),
+            path_obstacles_output,
+            walk_speed,
+        )
     }
 
     pub fn wide_stance(
@@ -77,43 +82,48 @@ impl<'cycle> Defend<'cycle> {
     pub fn left(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
         let pose = defend_left_pose(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output)
+        self.with_pose(pose, path_obstacles_output, walk_speed)
     }
 
     pub fn right(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
         let pose = defend_right_pose(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output)
+        self.with_pose(pose, path_obstacles_output, walk_speed)
     }
 
     pub fn penalty_kick(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
         let pose =
             defend_penalty_kick(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output)
+        self.with_pose(pose, path_obstacles_output, walk_speed)
     }
 
     pub fn goal(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
         let pose = defend_goal_pose(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output)
+        self.with_pose(pose, path_obstacles_output, walk_speed)
     }
 
     pub fn kick_off(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
         let pose =
             defend_kick_off_pose(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output)
+        self.with_pose(pose, path_obstacles_output, walk_speed)
     }
 }
 
