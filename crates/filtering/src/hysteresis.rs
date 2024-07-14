@@ -23,7 +23,7 @@ pub fn less_than_with_hysteresis_from_thresholds(
     if value < lower_threshold {
         true
     } else if value > upper_threshold {
-        true
+        false
     } else {
         last_evaluation
     }
