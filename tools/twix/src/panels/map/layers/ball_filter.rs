@@ -8,7 +8,6 @@ use coordinate_systems::Ground;
 use linear_algebra::{vector, Point};
 use types::field_dimensions::FieldDimensions;
 
-
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
