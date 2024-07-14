@@ -1,43 +1,15 @@
-pub fn greater_than_with_hysteresis_from_delta(
-    last_evaluation: bool,
-    value: f32,
-    threshold: f32,
-    hysteresis: f32,
-) -> bool {
-    value
-        > threshold
-            + if last_evaluation {
-                -hysteresis
-            } else {
-                hysteresis
-            }
-}
-
-pub fn less_than_with_hysteresis_from_delta(
-    last_evaluation: bool,
-    value: f32,
-    threshold: f32,
-    hysteresis: f32,
-) -> bool {
-    value
-        < threshold
-            + if last_evaluation {
-                hysteresis
-            } else {
-                -hysteresis
-            }
-}
-
 pub fn greater_than_with_hysteresis_from_tresholds(
     last_evaluation: bool,
     value: f32,
     lower_threshold: f32,
     upper_threshold: f32,
 ) -> bool {
-    if last_evaluation {
-        value > lower_threshold
+    if value > upper_threshold {
+        return true;
+    } else if value < lower_threshold {
+        return false;
     } else {
-        value > upper_threshold
+        return last_evaluation;
     }
 }
 
@@ -47,9 +19,39 @@ pub fn less_than_with_hysteresis_from_thresholds(
     lower_threshold: f32,
     upper_threshold: f32,
 ) -> bool {
-    if last_evaluation {
-        value < upper_threshold
+    if value < lower_threshold {
+        return true;
+    } else if value > upper_threshold {
+        return true;
     } else {
-        value < lower_threshold
+        return last_evaluation;
     }
+}
+
+pub fn greater_than_with_hysteresis_from_delta(
+    last_evaluation: bool,
+    value: f32,
+    threshold: f32,
+    hysteresis: f32,
+) -> bool {
+    return greater_than_with_hysteresis_from_tresholds(
+        last_evaluation,
+        value,
+        threshold - hysteresis,
+        threshold + hysteresis,
+    );
+}
+
+pub fn less_than_with_hysteresis_from_delta(
+    last_evaluation: bool,
+    value: f32,
+    threshold: f32,
+    hysteresis: f32,
+) -> bool {
+    return less_than_with_hysteresis_from_thresholds(
+        last_evaluation,
+        value,
+        threshold - hysteresis,
+        threshold + hysteresis,
+    );
 }
