@@ -12,9 +12,11 @@ use crate::{
     value_buffer::BufferHandle,
 };
 
+type DiscardedLines = Vec<(Line2<Pixel>, LineDiscardReason)>;
+
 pub struct LineDetection {
     lines_in_image: BufferHandle<Option<Vec<Line2<Pixel>>>>,
-    discarded_lines: BufferHandle<Option<Vec<(Line2<Pixel>, LineDiscardReason)>>>,
+    discarded_lines: BufferHandle<Option<DiscardedLines>>,
     ransac_input: BufferHandle<Option<Vec<Point2<Pixel>>>>,
 }
 
