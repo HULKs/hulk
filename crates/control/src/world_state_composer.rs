@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
-use linear_algebra::{Isometry2, Point2};
+use linear_algebra::{vector, Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,
@@ -16,6 +16,7 @@ use types::{
     primary_state::PrimaryState,
     roles::Role,
     rule_obstacles::RuleObstacle,
+    step_plan::Step,
     world_state::{BallState, RobotState, WorldState},
 };
 
@@ -37,6 +38,7 @@ pub struct CycleContext {
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
+    walk_return_offset: CyclerState<Step, "walk_return_offset">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -69,6 +71,13 @@ impl WorldStateComposer {
             fall_state: *context.fall_state,
             has_ground_contact: *context.has_ground_contact,
             player_number: *context.player_number,
+            walk_return_offset: Isometry2::from_parts(
+                vector![
+                    context.walk_return_offset.forward,
+                    context.walk_return_offset.left
+                ],
+                context.walk_return_offset.turn,
+            ),
         };
 
         let world_state = WorldState {

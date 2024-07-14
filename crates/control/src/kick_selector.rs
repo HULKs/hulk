@@ -20,6 +20,7 @@ use types::{
     motion_command::KickVariant,
     obstacles::Obstacle,
     parameters::{InWalkKickInfoParameters, InWalkKicksParameters},
+    step_plan::Step,
     support_foot::Side,
     world_state::BallState,
 };
@@ -40,6 +41,7 @@ pub struct CycleContext {
     allow_instant_kicks: Input<bool, "allow_instant_kicks">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    walk_return_offset: CyclerState<Step, "walk_return_offset">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -81,7 +83,7 @@ impl KickSelector {
             kick_variants.push(KickVariant::Side)
         }
 
-        let instant_kick_decisions = if *context.allow_instant_kicks {
+        let mut instant_kick_decisions = if *context.allow_instant_kicks {
             generate_decisions_for_instant_kicks(
                 &sides,
                 &kick_variants,
@@ -117,32 +119,54 @@ impl KickSelector {
             .flatten()
             .collect();
 
-        kick_decisions.sort_by(|left, right| {
-            let left_in_obstacle = is_inside_any_obstacle(
-                left.kick_pose,
-                context.obstacles,
-                *context.kick_pose_obstacle_radius,
-            );
-            let right_in_obstacle = is_inside_any_obstacle(
-                right.kick_pose,
-                context.obstacles,
-                *context.kick_pose_obstacle_radius,
-            );
-            let distance_to_left =
-                distance_to_kick_pose(left.kick_pose, *context.angle_distance_weight);
-            let distance_to_right =
-                distance_to_kick_pose(right.kick_pose, *context.angle_distance_weight);
-            match (left_in_obstacle, right_in_obstacle) {
-                (true, false) => Ordering::Less,
-                (false, true) => Ordering::Greater,
-                _ => distance_to_left.total_cmp(&distance_to_right),
-            }
-        });
+        let walk_return_offset = Isometry2::from_parts(
+            vector![
+                context.walk_return_offset.forward,
+                context.walk_return_offset.left
+            ],
+            context.walk_return_offset.turn,
+        );
+
+        kick_decisions
+            .sort_by(|left, right| compare_decisions(left, right, &context, walk_return_offset));
+        instant_kick_decisions
+            .sort_by(|left, right| compare_decisions(left, right, &context, walk_return_offset));
 
         Ok(MainOutputs {
             kick_decisions: Some(kick_decisions).into(),
             instant_kick_decisions: Some(instant_kick_decisions).into(),
         })
+    }
+}
+
+fn compare_decisions(
+    left: &KickDecision,
+    right: &KickDecision,
+    context: &CycleContext,
+    walk_return_offset: Isometry2<Ground, Ground>,
+) -> Ordering {
+    let left_in_obstacle = is_inside_any_obstacle(
+        left.kick_pose,
+        context.obstacles,
+        *context.kick_pose_obstacle_radius,
+    );
+    let right_in_obstacle = is_inside_any_obstacle(
+        right.kick_pose,
+        context.obstacles,
+        *context.kick_pose_obstacle_radius,
+    );
+    let distance_to_left = distance_to_kick_pose(
+        walk_return_offset.inverse() * left.kick_pose,
+        *context.angle_distance_weight,
+    );
+    let distance_to_right = distance_to_kick_pose(
+        walk_return_offset.inverse() * right.kick_pose,
+        *context.angle_distance_weight,
+    );
+    match (left_in_obstacle, right_in_obstacle) {
+        (false, true) => Ordering::Less,
+        (true, false) => Ordering::Greater,
+        _ => distance_to_left.total_cmp(&distance_to_right),
     }
 }
 

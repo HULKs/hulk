@@ -78,4 +78,5 @@ pub struct RobotState {
     pub fall_state: FallState,
     pub has_ground_contact: bool,
     pub player_number: PlayerNumber,
+    pub walk_return_offset: Isometry2<Ground, Ground>,
 }
