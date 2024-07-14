@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    ops::{Add, Range},
+    time::{Duration, Instant},
+};
 
 use color_eyre::Result;
 use projection::{camera_matrix::CameraMatrix, horizon::Horizon};
@@ -236,10 +239,8 @@ fn new_vertical_scan_line(
                 fix_previous_edge_type(&mut segments);
                 break;
             }
-            segments.push(set_color_in_vertical_segment(
-                segment,
-                image,
-                position,
+            segments.push(set_field_color_in_vertical_segment(
+                set_color_in_vertical_segment(segment, image, position),
                 field_color,
             ));
         }
@@ -254,10 +255,8 @@ fn new_vertical_scan_line(
         field_color: Intensity::Low,
     };
     if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
-        segments.push(set_color_in_vertical_segment(
-            last_segment,
-            image,
-            position,
+        segments.push(set_field_color_in_vertical_segment(
+            set_color_in_vertical_segment(last_segment, image, position),
             field_color,
         ));
     }
@@ -312,92 +311,76 @@ fn pixel_to_edge_detection_value(
     }
 }
 
-fn set_color_in_vertical_segment(
+fn set_color_in_vertical_segment(mut segment: Segment, image: &YCbCr422Image, x: u32) -> Segment {
+    let length = segment.length();
+    let stride = match length {
+        20.. => 4,   // results in 5.. or more sample pixels
+        7..=19 => 2, // results in 4..=10 or more sample pixels
+        1..=6 => 1,  // results in 1..=6 or more sample pixels
+        0 => {
+            segment.color = image.at(x, segment.start as u32);
+            return segment;
+        }
+    };
+    segment.color = average_image_pixels_vertically(
+        image,
+        x,
+        (segment.start as u32)..(segment.end as u32),
+        stride,
+    );
+    segment
+}
+
+fn set_field_color_in_vertical_segment(
     mut segment: Segment,
-    image: &YCbCr422Image,
-    x: u32,
     field_color: &FieldColorParameters,
 ) -> Segment {
-    segment.color = match segment.length() {
-        6.. => {
-            let length = segment.length();
-            let first_position = segment.start + (length / 6);
-            let second_position = segment.start + ((length * 2) / 6);
-            let third_position = segment.start + ((length * 3) / 6);
-            let fourth_position = segment.start + ((length * 4) / 6);
-            let fifth_position = segment.start + ((length * 5) / 6);
-
-            let first_pixel = image.at(x, first_position as u32);
-            let second_pixel = image.at(x, second_position as u32);
-            let third_pixel = image.at(x, third_position as u32);
-            let fourth_pixel = image.at(x, fourth_position as u32);
-            let fifth_pixel = image.at(x, fifth_position as u32);
-
-            let y = median_of_five([
-                first_pixel.y,
-                second_pixel.y,
-                third_pixel.y,
-                fourth_pixel.y,
-                fifth_pixel.y,
-            ]);
-            let cb = median_of_five([
-                first_pixel.cb,
-                second_pixel.cb,
-                third_pixel.cb,
-                fourth_pixel.cb,
-                fifth_pixel.cb,
-            ]);
-            let cr = median_of_five([
-                first_pixel.cr,
-                second_pixel.cr,
-                third_pixel.cr,
-                fourth_pixel.cr,
-                fifth_pixel.cr,
-            ]);
-
-            YCbCr444::new(y, cb, cr)
-        }
-        4..=5 => {
-            let length = segment.length();
-            let first_position = segment.start + (length / 4);
-            let second_position = segment.start + ((length * 2) / 4);
-            let third_position = segment.start + ((length * 3) / 4);
-
-            let first_pixel = image.at(x, first_position as u32);
-            let second_pixel = image.at(x, second_position as u32);
-            let third_pixel = image.at(x, third_position as u32);
-
-            let y = median_of_three([first_pixel.y, second_pixel.y, third_pixel.y]);
-            let cb = median_of_three([first_pixel.cb, second_pixel.cb, third_pixel.cb]);
-            let cr = median_of_three([first_pixel.cr, second_pixel.cr, third_pixel.cr]);
-
-            YCbCr444::new(y, cb, cr)
-        }
-        0..=3 => {
-            let position = segment.start + segment.length() / 2;
-            image.at(x, position as u32)
-        }
-    };
-    segment.color = if segment.length() >= 4 {
-        let spacing = segment.length() / 4;
-        let first_position = segment.start + spacing;
-        let second_position = segment.start + 2 * spacing;
-        let third_position = segment.start + 3 * spacing;
-
-        let first_pixel = image.at(x, first_position as u32);
-        let second_pixel = image.at(x, second_position as u32);
-        let third_pixel = image.at(x, third_position as u32);
-
-        let y = median_of_three([first_pixel.y, second_pixel.y, third_pixel.y]);
-        let cb = median_of_three([first_pixel.cb, second_pixel.cb, third_pixel.cb]);
-        let cr = median_of_three([first_pixel.cr, second_pixel.cr, third_pixel.cr]);
-        YCbCr444::new(y, cb, cr)
-    } else {
-        let position = segment.start + segment.length() / 2;
-        image.at(x, position as u32)
-    };
     segment.field_color = field_color.get_intensity(segment.color);
     segment
+}
+
+#[derive(Default)]
+struct YCbCr444Sum {
+    // 640 pixels each with range 256 requires a 18 bit integer
+    y: u32,
+    cb: u32,
+    cr: u32,
+    number_of_summands: u32,
+}
+
+impl Add<YCbCr444> for YCbCr444Sum {
+    type Output = YCbCr444Sum;
+
+    fn add(self, other: YCbCr444) -> Self::Output {
+        Self {
+            y: self.y + other.y as u32,
+            cb: self.cb + other.cb as u32,
+            cr: self.cr + other.cr as u32,
+            number_of_summands: self.number_of_summands + 1,
+        }
+    }
+}
+
+impl YCbCr444Sum {
+    fn average(&self) -> YCbCr444 {
+        YCbCr444 {
+            y: (self.y / self.number_of_summands) as u8,
+            cb: (self.cb / self.number_of_summands) as u8,
+            cr: (self.cr / self.number_of_summands) as u8,
+        }
+    }
+}
+
+fn average_image_pixels_vertically(
+    image: &YCbCr422Image,
+    x: u32,
+    y: Range<u32>,
+    stride: usize,
+) -> YCbCr444 {
+    let sum = y
+        .step_by(stride)
+        .fold(YCbCr444Sum::default(), |sum, y| sum + image.at(x, y));
+    sum.average()
 }
 
 fn segment_is_below_limbs(
@@ -614,8 +597,8 @@ mod tests {
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
-        assert_eq!(scan_line.segments[0].color.cb, 15);
-        assert_eq!(scan_line.segments[0].color.cr, 13);
+        assert_eq!(scan_line.segments[0].color.cb, 11);
+        assert_eq!(scan_line.segments[0].color.cr, 11);
     }
 
     #[test]
@@ -653,8 +636,8 @@ mod tests {
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
-        assert_eq!(scan_line.segments[0].color.cb, 1);
-        assert_eq!(scan_line.segments[0].color.cr, 1);
+        assert_eq!(scan_line.segments[0].color.cb, 8);
+        assert_eq!(scan_line.segments[0].color.cr, 8);
     }
 
     #[test]
