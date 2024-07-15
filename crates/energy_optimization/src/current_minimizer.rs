@@ -72,7 +72,7 @@ impl CurrentMinimizer {
                     self.minimum_reached,
                     maximal_current,
                     self.parameters.allowed_current
-                        ..self.parameters.allowed_current_upper_threshold,
+                        ..=self.parameters.allowed_current_upper_threshold,
                 );
                 if !self.minimum_reached {
                     self.position_offset[joint] += self.parameters.optimization_sign[joint]

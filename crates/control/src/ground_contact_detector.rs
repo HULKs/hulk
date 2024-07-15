@@ -47,7 +47,7 @@ impl GroundContactDetector {
             self.last_has_pressure,
             context.sole_pressure.total(),
             *context.pressure_threshold,
-            -*context.hysteresis / 2.0..*context.hysteresis / 2.0,
+            -*context.hysteresis / 2.0..=*context.hysteresis / 2.0,
         );
         if self.last_has_pressure != has_pressure {
             self.last_time_switched = context.cycle_time.start_time;

@@ -146,7 +146,7 @@ fn create_ball_state(
         was_in_left_half,
         ball_in_field.y(),
         0.0,
-        -0.05..0.05,
+        -0.05..=0.05,
     );
     let side = if is_in_left_half {
         Side::Left
