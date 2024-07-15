@@ -58,14 +58,14 @@ impl<'cycle> Defend<'cycle> {
 
     pub fn wide_stance(
         &self,
-        wide_stance_paramters: WideStanceParameters,
+        wide_stance_parameters: WideStanceParameters,
     ) -> Option<MotionCommand> {
         let ball = self.world_state.ball?;
 
         let position = ball.ball_in_ground;
         let velocity = ball.ball_in_ground_velocity;
 
-        if velocity.x() >= wide_stance_paramters.minimum_velocity {
+        if velocity.x() >= wide_stance_parameters.minimum_velocity {
             return None;
         }
 
@@ -73,11 +73,11 @@ impl<'cycle> Defend<'cycle> {
             position.y() - position.x() / velocity.x() * velocity.y();
 
         match (
-            (-wide_stance_paramters.action_radius..=wide_stance_paramters.action_radius)
+            (-wide_stance_parameters.action_radius..=wide_stance_parameters.action_radius)
                 .contains(&horizontal_distance_to_intersection),
-            (wide_stance_paramters.action_radius..wide_stance_paramters.action_radius_left)
+            (wide_stance_parameters.action_radius..wide_stance_parameters.action_radius_left)
                 .contains(&horizontal_distance_to_intersection),
-            (-wide_stance_paramters.action_radius_left..-wide_stance_paramters.action_radius)
+            (-wide_stance_parameters.action_radius_left..-wide_stance_parameters.action_radius)
                 .contains(&horizontal_distance_to_intersection),
         ) {
             (true, _, _) => Some(MotionCommand::WideStance {
