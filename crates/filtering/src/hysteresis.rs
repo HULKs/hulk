@@ -21,7 +21,7 @@ pub fn less_than_with_absolute_hysteresis(
     if hysteresis.contains(&value) {
         last_evaluation
     } else {
-        value <= hysteresis.start
+        value < hysteresis.start
     }
 }
 
