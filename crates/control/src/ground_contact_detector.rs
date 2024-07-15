@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::hysteresis::greater_than_with_relative_hysteresis;
+use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, sole_pressure::SolePressure};
@@ -43,7 +43,7 @@ impl GroundContactDetector {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let has_pressure = greater_than_with_relative_hysteresis(
+        let has_pressure = greater_than_with_hysteresis(
             self.last_has_pressure,
             context.sole_pressure.total(),
             *context.pressure_threshold,

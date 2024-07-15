@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use filtering::hysteresis::greater_than_with_relative_hysteresis;
+use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::MainOutput;
 use linear_algebra::{point, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
@@ -143,7 +143,7 @@ fn create_ball_state(
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
     let is_in_left_half =
-        greater_than_with_relative_hysteresis(was_in_left_half, ball_in_field.y(), 0.0, 0.2);
+        greater_than_with_hysteresis(was_in_left_half, ball_in_field.y(), 0.0, 0.2);
     let side = if is_in_left_half {
         Side::Left
     } else {
