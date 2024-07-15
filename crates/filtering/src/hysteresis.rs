@@ -29,12 +29,12 @@ pub fn greater_than_with_relative_hysteresis(
     last_evaluation: bool,
     value: f32,
     threshold: f32,
-    hysteresis: f32,
+    hysteresis: Range<f32>,
 ) -> bool {
     greater_than_with_absolute_hysteresis(
         last_evaluation,
         value,
-        threshold - hysteresis..threshold + hysteresis,
+        threshold + hysteresis.start..threshold + hysteresis.end,
     )
 }
 
@@ -42,12 +42,12 @@ pub fn less_than_with_relative_hysteresis(
     last_evaluation: bool,
     value: f32,
     threshold: f32,
-    hysteresis: f32,
+    hysteresis: Range<f32>,
 ) -> bool {
     less_than_with_absolute_hysteresis(
         last_evaluation,
         value,
-        threshold - hysteresis..threshold + hysteresis,
+        threshold + hysteresis.start..threshold + hysteresis.end,
     )
 }
 
@@ -87,31 +87,131 @@ mod test {
 
     #[test]
     fn greater_than_with_hysteresis_from_delta() {
-        assert!(!greater_than_with_relative_hysteresis(false, 0.0, 1.0, 0.5));
-        assert!(!greater_than_with_relative_hysteresis(false, 1.0, 1.0, 0.5));
-        assert!(greater_than_with_relative_hysteresis(false, 1.5, 1.0, 0.5));
-        assert!(greater_than_with_relative_hysteresis(false, 2.0, 1.0, 0.5));
-        assert!(greater_than_with_relative_hysteresis(false, 2.5, 1.0, 0.5));
+        assert!(!greater_than_with_relative_hysteresis(
+            false,
+            0.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!greater_than_with_relative_hysteresis(
+            false,
+            1.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(greater_than_with_relative_hysteresis(
+            false,
+            1.5,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(greater_than_with_relative_hysteresis(
+            false,
+            2.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(greater_than_with_relative_hysteresis(
+            false,
+            2.5,
+            1.0,
+            -0.25..0.25
+        ));
 
-        assert!(!greater_than_with_relative_hysteresis(true, 0.0, 1.0, 0.5));
-        assert!(greater_than_with_relative_hysteresis(true, 1.0, 1.0, 0.5));
-        assert!(greater_than_with_relative_hysteresis(true, 1.5, 1.0, 0.5));
-        assert!(greater_than_with_relative_hysteresis(true, 2.0, 1.0, 0.5));
-        assert!(greater_than_with_relative_hysteresis(true, 2.5, 1.0, 0.5));
+        assert!(!greater_than_with_relative_hysteresis(
+            true,
+            0.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(greater_than_with_relative_hysteresis(
+            true,
+            1.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(greater_than_with_relative_hysteresis(
+            true,
+            1.5,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(greater_than_with_relative_hysteresis(
+            true,
+            2.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(greater_than_with_relative_hysteresis(
+            true,
+            2.5,
+            1.0,
+            -0.25..0.25
+        ));
     }
 
     #[test]
     fn less_than_with_hysteresis_from_delta() {
-        assert!(less_than_with_relative_hysteresis(false, 0.0, 1.0, 0.5));
-        assert!(!less_than_with_relative_hysteresis(false, 1.0, 1.0, 0.5));
-        assert!(!less_than_with_relative_hysteresis(false, 1.5, 1.0, 0.5));
-        assert!(!less_than_with_relative_hysteresis(false, 2.0, 1.0, 0.5));
-        assert!(!less_than_with_relative_hysteresis(false, 2.5, 1.0, 0.5));
+        assert!(less_than_with_relative_hysteresis(
+            false,
+            0.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!less_than_with_relative_hysteresis(
+            false,
+            1.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!less_than_with_relative_hysteresis(
+            false,
+            1.5,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!less_than_with_relative_hysteresis(
+            false,
+            2.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!less_than_with_relative_hysteresis(
+            false,
+            2.5,
+            1.0,
+            -0.25..0.25
+        ));
 
-        assert!(less_than_with_relative_hysteresis(true, 0.0, 1.0, 0.5));
-        assert!(less_than_with_relative_hysteresis(true, 1.0, 1.0, 0.5));
-        assert!(!less_than_with_relative_hysteresis(true, 1.5, 1.0, 0.5));
-        assert!(!less_than_with_relative_hysteresis(true, 2.0, 1.0, 0.5));
-        assert!(!less_than_with_relative_hysteresis(true, 2.5, 1.0, 0.5));
+        assert!(less_than_with_relative_hysteresis(
+            true,
+            0.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(less_than_with_relative_hysteresis(
+            true,
+            1.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!less_than_with_relative_hysteresis(
+            true,
+            1.5,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!less_than_with_relative_hysteresis(
+            true,
+            2.0,
+            1.0,
+            -0.25..0.25
+        ));
+        assert!(!less_than_with_relative_hysteresis(
+            true,
+            2.5,
+            1.0,
+            -0.25..0.25
+        ));
     }
 }
