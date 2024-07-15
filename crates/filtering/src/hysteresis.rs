@@ -1,4 +1,4 @@
-use std::ops::{RangeBounds, RangeInclusive};
+use std::ops::RangeInclusive;
 
 pub fn greater_than_with_absolute_hysteresis(
     last_evaluation: bool,
