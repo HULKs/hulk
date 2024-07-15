@@ -188,7 +188,7 @@ impl Localization {
                 _,
             )
             | (_, _, _, Some(SubState::PenaltyKick)) => {
-                if !matches!(kicking_team, Some(Team::Hulks)) {
+                if matches!(kicking_team, Some(Team::Opponent)) {
                     let penalty_shoot_out_keeper_pose =
                         Pose2::from(point![-context.field_dimensions.length / 2.0, 0.0]);
                     self.hypotheses = vec![ScoredPose::from_isometry(
