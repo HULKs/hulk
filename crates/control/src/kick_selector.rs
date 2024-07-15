@@ -71,22 +71,10 @@ impl KickSelector {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
         let sides = [Side::Left, Side::Right];
-        let mut kick_variants = Vec::new();
-
-        if context.in_walk_kicks.forward.enabled {
-            kick_variants.push(KickVariant::Forward)
-        }
-        if context.in_walk_kicks.turn.enabled {
-            kick_variants.push(KickVariant::Turn)
-        }
-        if context.in_walk_kicks.side.enabled {
-            kick_variants.push(KickVariant::Side)
-        }
 
         let mut instant_kick_decisions = if *context.allow_instant_kicks {
             generate_decisions_for_instant_kicks(
                 &sides,
-                &kick_variants,
                 context.in_walk_kicks,
                 ball_position,
                 context.obstacle_circles,
@@ -118,6 +106,12 @@ impl KickSelector {
             })
             .flatten()
             .collect();
+
+        kick_decisions.retain(|target| match target.variant {
+            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
+            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
+            KickVariant::Side => context.in_walk_kicks.side.enabled,
+        });
 
         kick_decisions.sort_by(|left, right| {
             compare_decisions(left, right, &context, *context.ground_to_upcoming_support)
@@ -167,7 +161,6 @@ fn compare_decisions(
 #[allow(clippy::too_many_arguments)]
 fn generate_decisions_for_instant_kicks(
     sides: &[Side; 2],
-    kick_variants: &[KickVariant],
     in_walk_kicks: &InWalkKicksParameters,
     ball_position: Point2<Ground>,
     obstacle_circles: &[Circle<Ground>],
@@ -181,8 +174,11 @@ fn generate_decisions_for_instant_kicks(
 ) -> Vec<KickDecision> {
     let field_to_ground = ground_to_field.inverse();
     instant_kick_targets.fill_if_subscribed(Default::default);
+
+    let kick_variants = vec![KickVariant::Forward, KickVariant::Turn, KickVariant::Side];
+
     iproduct!(sides, kick_variants)
-        .filter_map(|(&kicking_side, &variant)| {
+        .filter_map(|(&kicking_side, variant)| {
             let kick_info = &in_walk_kicks[variant];
 
             struct TargetAlignedBall;
