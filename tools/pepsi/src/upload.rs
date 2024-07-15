@@ -40,6 +40,9 @@ pub struct Arguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
+    /// Prepare everything for the upload without performing the actual one
+    #[arg(long)]
+    pub prepare: bool,
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
@@ -129,24 +132,29 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
 
     let multi_progress = ProgressIndicator::new();
 
-    arguments
-        .naos
-        .iter()
-        .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
-        .map(|(nao_address, progress)| {
-            let arguments = &arguments;
-            let hulk_directory = hulk_directory.clone();
+    if arguments.prepare {
+        println!("WARNING: This upload was only prepared, no actual upload was performed!")
+    } else {
+        arguments
+            .naos
+            .iter()
+            .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
+            .map(|(nao_address, progress)| {
+                let arguments = &arguments;
+                let hulk_directory = hulk_directory.clone();
 
-            progress.enable_steady_tick();
-            async move {
-                progress.finish_with(
-                    upload_with_progress(nao_address, hulk_directory, arguments, &progress).await,
-                )
-            }
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect::<Vec<_>>()
-        .await;
+                progress.enable_steady_tick();
+                async move {
+                    progress.finish_with(
+                        upload_with_progress(nao_address, hulk_directory, arguments, &progress)
+                            .await,
+                    )
+                }
+            })
+            .collect::<FuturesUnordered<_>>()
+            .collect::<Vec<_>>()
+            .await;
+    }
 
     Ok(())
 }
