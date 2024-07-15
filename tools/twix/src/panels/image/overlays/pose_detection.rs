@@ -4,7 +4,9 @@ use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, FontId, Stroke};
 use linear_algebra::point;
-use types::pose_detection::{HumanPose, Keypoint};
+use types::pose_detection::{
+    HumanPose, Keypoint, OVERALL_KEYPOINT_INDEX_MASK, VISUAL_REFEREE_KEYPOINT_INDEX_MASK,
+};
 
 use crate::{
     nao::Nao,
@@ -71,13 +73,15 @@ impl Overlay for PoseDetection {
             painter,
             rejected_human_poses,
             Color32::LIGHT_RED,
-            Color32::RED,
+            Color32::DARK_RED,
+            Color32::from_rgb(255, 100, 100),
         )?;
         paint_poses(
             painter,
             accepted_human_poses,
             Color32::BLUE,
             Color32::DARK_BLUE,
+            Color32::from_rgb(100, 100, 255),
         )?;
 
         paint_detection_dead_zone(painter);
@@ -109,7 +113,8 @@ fn paint_poses(
     painter: &crate::twix_painter::TwixPainter<Pixel>,
     poses: Vec<HumanPose>,
     line_color: Color32,
-    point_color: Color32,
+    visual_referee_point_color: Color32,
+    overall_point_color: Color32,
 ) -> Result<()> {
     for pose in poses {
         let keypoints: [Keypoint; 17] = pose.keypoints.into();
@@ -124,15 +129,35 @@ fn paint_poses(
         }
 
         // draw keypoints
-        for keypoint in keypoints {
-            painter.circle_filled(keypoint.point, 2.0, point_color);
-            painter.floating_text(
-                keypoint.point,
-                Align2::RIGHT_BOTTOM,
-                format!("{:.2}", keypoint.confidence),
-                FontId::default(),
-                Color32::WHITE,
-            );
+        for (index, keypoint) in keypoints.iter().enumerate() {
+            if VISUAL_REFEREE_KEYPOINT_INDEX_MASK.contains(&index) {
+                painter.circle_filled(keypoint.point, 2.0, visual_referee_point_color);
+                painter.floating_text(
+                    keypoint.point,
+                    Align2::RIGHT_BOTTOM,
+                    format!("{:.2}", keypoint.confidence),
+                    FontId::default(),
+                    Color32::WHITE,
+                );
+            } else if OVERALL_KEYPOINT_INDEX_MASK.contains(&index) {
+                painter.circle_filled(keypoint.point, 2.0, overall_point_color);
+                painter.floating_text(
+                    keypoint.point,
+                    Align2::RIGHT_BOTTOM,
+                    format!("{:.2}", keypoint.confidence),
+                    FontId::default(),
+                    Color32::WHITE.gamma_multiply(0.8),
+                );
+            } else {
+                painter.circle_filled(keypoint.point, 2.0, Color32::GRAY);
+                painter.floating_text(
+                    keypoint.point,
+                    Align2::RIGHT_BOTTOM,
+                    format!("{:.2}", keypoint.confidence),
+                    FontId::default(),
+                    Color32::GRAY.gamma_multiply(0.8),
+                );
+            }
         }
 
         // draw bounding box
