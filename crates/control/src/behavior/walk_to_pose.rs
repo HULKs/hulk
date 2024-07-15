@@ -175,7 +175,7 @@ impl<'cycle> WalkAndStand<'cycle> {
             was_standing_last_cycle,
             angle_to_walk.abs(),
             self.parameters.target_reached_thresholds.y + self.parameters.hysteresis.y,
-            self.parameters.hysteresis.y / 2.0..=self.parameters.hysteresis.y / 2.0,
+            -self.parameters.hysteresis.y / 2.0..=self.parameters.hysteresis.y / 2.0,
         );
         let orientation_mode = hybrid_alignment(
             target_pose,
