@@ -5,7 +5,7 @@ use itertools::iproduct;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, line_segment::LineSegment, look_at::LookAt};
 use linear_algebra::{
@@ -40,6 +40,8 @@ pub struct CycleContext {
     allow_instant_kicks: Input<bool, "allow_instant_kicks">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    ground_to_upcoming_support:
+        CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -69,22 +71,10 @@ impl KickSelector {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball_position = context.ball_state.ball_in_ground;
         let sides = [Side::Left, Side::Right];
-        let mut kick_variants = Vec::new();
 
-        if context.in_walk_kicks.forward.enabled {
-            kick_variants.push(KickVariant::Forward)
-        }
-        if context.in_walk_kicks.turn.enabled {
-            kick_variants.push(KickVariant::Turn)
-        }
-        if context.in_walk_kicks.side.enabled {
-            kick_variants.push(KickVariant::Side)
-        }
-
-        let instant_kick_decisions = if *context.allow_instant_kicks {
+        let mut instant_kick_decisions = if *context.allow_instant_kicks {
             generate_decisions_for_instant_kicks(
                 &sides,
-                &kick_variants,
                 context.in_walk_kicks,
                 ball_position,
                 context.obstacle_circles,
@@ -117,26 +107,17 @@ impl KickSelector {
             .flatten()
             .collect();
 
+        kick_decisions.retain(|target| match target.variant {
+            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
+            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
+            KickVariant::Side => context.in_walk_kicks.side.enabled,
+        });
+
         kick_decisions.sort_by(|left, right| {
-            let left_in_obstacle = is_inside_any_obstacle(
-                left.kick_pose,
-                context.obstacles,
-                *context.kick_pose_obstacle_radius,
-            );
-            let right_in_obstacle = is_inside_any_obstacle(
-                right.kick_pose,
-                context.obstacles,
-                *context.kick_pose_obstacle_radius,
-            );
-            let distance_to_left =
-                distance_to_kick_pose(left.kick_pose, *context.angle_distance_weight);
-            let distance_to_right =
-                distance_to_kick_pose(right.kick_pose, *context.angle_distance_weight);
-            match (left_in_obstacle, right_in_obstacle) {
-                (true, false) => Ordering::Less,
-                (false, true) => Ordering::Greater,
-                _ => distance_to_left.total_cmp(&distance_to_right),
-            }
+            compare_decisions(left, right, &context, *context.ground_to_upcoming_support)
+        });
+        instant_kick_decisions.sort_by(|left, right| {
+            compare_decisions(left, right, &context, *context.ground_to_upcoming_support)
         });
 
         Ok(MainOutputs {
@@ -146,10 +127,40 @@ impl KickSelector {
     }
 }
 
+fn compare_decisions(
+    left: &KickDecision,
+    right: &KickDecision,
+    context: &CycleContext,
+    ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
+) -> Ordering {
+    let left_in_obstacle = is_inside_any_obstacle(
+        left.kick_pose,
+        context.obstacles,
+        *context.kick_pose_obstacle_radius,
+    );
+    let right_in_obstacle = is_inside_any_obstacle(
+        right.kick_pose,
+        context.obstacles,
+        *context.kick_pose_obstacle_radius,
+    );
+    let distance_to_left = distance_to_kick_pose(
+        ground_to_upcoming_support * left.kick_pose,
+        *context.angle_distance_weight,
+    );
+    let distance_to_right = distance_to_kick_pose(
+        ground_to_upcoming_support * right.kick_pose,
+        *context.angle_distance_weight,
+    );
+    match (left_in_obstacle, right_in_obstacle) {
+        (false, true) => Ordering::Less,
+        (true, false) => Ordering::Greater,
+        _ => distance_to_left.total_cmp(&distance_to_right),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn generate_decisions_for_instant_kicks(
     sides: &[Side; 2],
-    kick_variants: &[KickVariant],
     in_walk_kicks: &InWalkKicksParameters,
     ball_position: Point2<Ground>,
     obstacle_circles: &[Circle<Ground>],
@@ -163,8 +174,11 @@ fn generate_decisions_for_instant_kicks(
 ) -> Vec<KickDecision> {
     let field_to_ground = ground_to_field.inverse();
     instant_kick_targets.fill_if_subscribed(Default::default);
+
+    let kick_variants = vec![KickVariant::Forward, KickVariant::Turn, KickVariant::Side];
+
     iproduct!(sides, kick_variants)
-        .filter_map(|(&kicking_side, &variant)| {
+        .filter_map(|(&kicking_side, variant)| {
             let kick_info = &in_walk_kicks[variant];
 
             struct TargetAlignedBall;
@@ -314,7 +328,7 @@ fn kick_decisions_from_targets(
     )
 }
 
-fn distance_to_kick_pose(kick_pose: Pose2<Ground>, angle_distance_weight: f32) -> f32 {
+fn distance_to_kick_pose(kick_pose: Pose2<UpcomingSupport>, angle_distance_weight: f32) -> f32 {
     kick_pose.position().coords().norm()
         + angle_distance_weight * kick_pose.orientation().angle().abs()
 }

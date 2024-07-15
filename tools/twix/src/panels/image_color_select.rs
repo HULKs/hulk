@@ -19,7 +19,7 @@ use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use types::{
-    color::{Rgb, RgbChannel, YCbCr444},
+    color::{Rgb, YCbCr444},
     field_color::FieldColor,
     ycbcr422_image::YCbCr422Image,
 };
@@ -351,7 +351,7 @@ impl ImageColorSelectPanel {
             })
             .flat_map(|ycbcr444| {
                 let rgb = Rgb::from(ycbcr444);
-                [rgb.r, rgb.g, rgb.b, 255]
+                [rgb.red, rgb.green, rgb.blue, 255]
             })
             .collect::<Vec<_>>();
         let image = ColorImage::from_rgba_unmultiplied(
@@ -373,11 +373,12 @@ enum Axis {
 
 impl Axis {
     fn get_value(self, color: Rgb) -> f32 {
+        let chromaticity = color.convert_to_rgchromaticity();
         match self {
-            Axis::RedChromaticity => color.get_chromaticity(RgbChannel::Red),
-            Axis::GreenChromaticity => color.get_chromaticity(RgbChannel::Green),
-            Axis::BlueChromaticity => color.get_chromaticity(RgbChannel::Blue),
-            Axis::GreenLuminance => color.g as f32 / 255.0,
+            Axis::RedChromaticity => chromaticity.red,
+            Axis::GreenChromaticity => chromaticity.green,
+            Axis::BlueChromaticity => 1.0 - chromaticity.red - chromaticity.green,
+            Axis::GreenLuminance => color.green as f32 / 255.0,
             Axis::Luminance => color.get_luminance() as f32 / 255.0,
         }
     }

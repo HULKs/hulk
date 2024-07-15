@@ -296,9 +296,9 @@ pub struct Color {
 impl From<types::color::Rgb> for Color {
     fn from(color: types::color::Rgb) -> Self {
         Self {
-            red: color.r as f32 / 255.0,
-            green: color.g as f32 / 255.0,
-            blue: color.b as f32 / 255.0,
+            red: color.red as f32 / 255.0,
+            green: color.green as f32 / 255.0,
+            blue: color.blue as f32 / 255.0,
         }
     }
 }

@@ -2,7 +2,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, UpcomingSupport};
 use framework::MainOutput;
 use linear_algebra::{Isometry2, Point2};
 use spl_network_messages::PlayerNumber;
@@ -37,6 +37,8 @@ pub struct CycleContext {
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
+    ground_to_upcoming_support:
+        CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 
@@ -69,6 +71,7 @@ impl WorldStateComposer {
             fall_state: *context.fall_state,
             has_ground_contact: *context.has_ground_contact,
             player_number: *context.player_number,
+            ground_to_upcoming_support: *context.ground_to_upcoming_support,
         };
 
         let world_state = WorldState {

@@ -211,9 +211,9 @@ fn load_into_scratchpad(scratchpad: &mut [f32], image: &YCbCr422Image) {
         {
             let pixel: Rgb = image.at(x, y).into();
 
-            scratchpad[scratchpad_index] = pixel.r as f32 / 255.;
-            scratchpad[scratchpad_index + STRIDE] = pixel.g as f32 / 255.;
-            scratchpad[scratchpad_index + 2 * STRIDE] = pixel.b as f32 / 255.;
+            scratchpad[scratchpad_index] = pixel.red as f32 / 255.;
+            scratchpad[scratchpad_index + STRIDE] = pixel.green as f32 / 255.;
+            scratchpad[scratchpad_index + 2 * STRIDE] = pixel.blue as f32 / 255.;
 
             scratchpad_index += 1;
         }

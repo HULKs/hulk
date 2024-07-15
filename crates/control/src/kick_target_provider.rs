@@ -242,13 +242,13 @@ fn collect_kick_targets(
 
     let kick_opportunities = kick_opportunities
         .iter()
-        .flat_map(|target| {
-            let ball_to_target = LineSegment(ball_position, target.kick_target.position);
+        .flat_map(|kick_opportunity| {
+            let ball_to_target = LineSegment(ball_position, kick_opportunity.kick_target.position);
             let closest_intersecting_obstacle = obstacle_circles
                 .iter()
                 .filter(|circle| circle.intersects_line_segment(&ball_to_target))
                 .min_by_key(|circle| NotNan::new(circle.center.coords().norm()).unwrap());
-            match closest_intersecting_obstacle {
+            let targets = match closest_intersecting_obstacle {
                 Some(circle) => {
                     let TwoLineSegments(left_tangent, right_tangent) =
                         circle.tangents_with_point(ball_position).unwrap();
@@ -265,12 +265,14 @@ fn collect_kick_targets(
                         .map(KickTarget::new)
                         .collect()
                 }
-                None => vec![target.kick_target],
-            }
-        })
-        .map(|kick_target| KickTargetWithKickVariants {
-            kick_target,
-            kick_variants: vec![KickVariant::Forward, KickVariant::Side, KickVariant::Turn],
+                None => vec![kick_opportunity.kick_target],
+            };
+            targets
+                .into_iter()
+                .map(|target| KickTargetWithKickVariants {
+                    kick_target: target,
+                    kick_variants: kick_opportunity.kick_variants.clone(),
+                })
         })
         .collect();
     (kick_opportunities, allow_instant_kicks)

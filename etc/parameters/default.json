@@ -468,17 +468,17 @@
   },
   "walking_engine": {
     "base": {
-      "foot_lift_apex": 0.01,
+      "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.1,
-        "left": 0.1,
+        "forward": 0.14,
+        "left": 0.17,
         "turn": 0.0
       },
       "foot_offset_left": [0.0, 0.05, 0.0],
       "foot_offset_right": [0.0, -0.05, 0.0],
       "step_duration": { "nanos": 260000000, "secs": 0 },
       "step_duration_increase": {
-        "forward": 0.1,
+        "forward": 0.0,
         "left": 0.3,
         "turn": 0.1
       },
@@ -1192,7 +1192,7 @@
       "keeper_x_offset": 0.1,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_pose": {
-        "translation": [-0.1, 0.1],
+        "translation": [-0.15, 0.15],
         "rotation": [0.707, -0.707]
       }
     },
