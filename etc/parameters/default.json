@@ -488,11 +488,12 @@
       "walk_height": 0.22
     },
     "catching_steps": {
+      "enabled": false,
       "catching_step_zero_moment_point_frame_count_threshold": 5,
-      "use_catching_steps": true,
       "max_adjustment": 0.07,
       "midpoint": 0.3,
       "target_overestimation_factor": 1.05,
+      "longitudinal_offset": -0.05,
       "additional_foot_lift": 0.02
     },
     "gyro_balancing": {

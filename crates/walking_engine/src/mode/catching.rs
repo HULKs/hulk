@@ -30,10 +30,7 @@ pub struct Catching {
 impl Catching {
     pub fn new(context: &Context, support_side: Side) -> Self {
         let parameters = &context.parameters;
-        let target_overestimation_factor = context
-            .parameters
-            .catching_steps
-            .target_overestimation_factor;
+        let target_overestimation_factor = parameters.catching_steps.target_overestimation_factor;
 
         let step_duration = parameters.base.step_duration;
         let start_feet =
@@ -43,6 +40,7 @@ impl Catching {
             parameters,
             *context.zero_moment_point,
             target_overestimation_factor,
+            parameters.catching_steps.longitudinal_offset,
             support_side,
         );
         let max_swing_foot_lift =
@@ -92,13 +90,15 @@ fn catching_end_feet(
     parameters: &Parameters,
     zero_moment_point: Point2<Ground>,
     target_overestimation_factor: f32,
+    longitudinal_zero_moment_point_offset: f32,
     support_side: Side,
 ) -> Feet {
     let max_adjustment = parameters.catching_steps.max_adjustment;
     Feet::end_from_request(
         parameters,
         Step {
-            forward: (zero_moment_point.x() * target_overestimation_factor)
+            forward: ((zero_moment_point.x() + longitudinal_zero_moment_point_offset)
+                * target_overestimation_factor)
                 .clamp(-max_adjustment, max_adjustment),
             left: (zero_moment_point.y() * target_overestimation_factor)
                 .clamp(-max_adjustment, max_adjustment),
@@ -154,6 +154,7 @@ impl Catching {
                 .parameters
                 .catching_steps
                 .target_overestimation_factor,
+            context.parameters.catching_steps.longitudinal_offset,
             self.step.plan.support_side,
         );
         self.step.tick(context);
