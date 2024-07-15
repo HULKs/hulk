@@ -660,6 +660,7 @@ dependencies = [
  "filtering",
  "linear_algebra",
  "nalgebra",
+ "ordered-float",
  "path_serde",
  "serde",
  "types",
