@@ -387,6 +387,8 @@ pub struct WideStanceParameters {
     pub maximum_ball_distance: f32,
     pub minimum_ball_velocity: f32,
     pub action_radius: f32,
+    pub minimum_velocity: f32,
+    pub action_radius_left: f32,
 }
 
 #[derive(

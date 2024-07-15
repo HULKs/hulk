@@ -81,8 +81,10 @@ impl<'cycle> Defend<'cycle> {
         match (
             (-parameters.action_radius..=parameters.action_radius)
                 .contains(&horizontal_distance_to_intersection),
-            (parameters.action_radius..0.6).contains(&horizontal_distance_to_intersection),
-            (-0.6..-parameters.action_radius).contains(&horizontal_distance_to_intersection),
+            (parameters.action_radius..parameters.action_radius_left)
+                .contains(&horizontal_distance_to_intersection),
+            (-parameters.action_radius_left..-parameters.action_radius)
+                .contains(&horizontal_distance_to_intersection),
         ) {
             (true, _, _) => Some(MotionCommand::WideStance {
                 direction: JumpDirection::Center,
