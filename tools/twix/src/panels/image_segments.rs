@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use types::{
     camera_position::CameraPosition,
     color::{Hsv, Rgb},
-    image_segments::ImageSegments,
+    image_segments::{Direction, ImageSegments, Segment},
 };
 
 use crate::{
@@ -42,6 +42,7 @@ pub struct ImageSegmentsPanel {
     nao: Arc<Nao>,
     buffer: BufferHandle<ImageSegments>,
     camera_position: CameraPosition,
+    direction: Direction,
     color_mode: ColorMode,
     use_filtered_segments: bool,
     zoom_and_pan: ZoomAndPanTransform,
@@ -70,6 +71,7 @@ impl Panel for ImageSegmentsPanel {
             nao,
             buffer: value_buffer,
             camera_position,
+            direction: Direction::Vertical,
             color_mode,
             use_filtered_segments,
             zoom_and_pan: ZoomAndPanTransform::default(),
@@ -108,6 +110,12 @@ impl Widget for &mut ImageSegmentsPanel {
                     {
                         camera_selection_changed = true;
                     };
+                });
+            ComboBox::from_label("Direction")
+                .selected_text(format!("{:?}", self.direction))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.direction, Direction::Vertical, "Vertical");
+                    ui.selectable_value(&mut self.direction, Direction::Horizontal, "Horizontal");
                 });
             let filtered_segments_checkbox =
                 ui.checkbox(&mut self.use_filtered_segments, "Filtered Segments");
@@ -205,47 +213,67 @@ impl Widget for &mut ImageSegmentsPanel {
             }
         }
 
-        for scanline in image_segments.scan_grid.vertical_scan_lines {
-            let x = scanline.position as f32;
+        let scan_lines = match self.direction {
+            Direction::Horizontal => image_segments.scan_grid.horizontal_scan_lines,
+            Direction::Vertical => image_segments.scan_grid.vertical_scan_lines,
+        };
+
+        for scanline in scan_lines {
             for segment in scanline.segments {
-                let ycbcr_color = segment.color;
-                let rgb_color = Rgb::from(ycbcr_color);
-                let start = point![x, segment.start as f32];
-                let end = point![x, segment.end as f32];
-                let original_color =
-                    Color32::from_rgb(rgb_color.red, rgb_color.green, rgb_color.blue);
-                let high_color = Color32::YELLOW;
-                let chromaticity = rgb_color.convert_to_rgchromaticity();
-                let visualized_color = match self.color_mode {
-                    ColorMode::Original => original_color,
-                    ColorMode::FieldColor => match segment.field_color {
-                        types::color::Intensity::Low => original_color,
-                        types::color::Intensity::High => high_color,
-                    },
-                    ColorMode::Y => Color32::from_gray(ycbcr_color.y),
-                    ColorMode::Cb => Color32::from_gray(ycbcr_color.cb),
-                    ColorMode::Cr => Color32::from_gray(ycbcr_color.cr),
-                    ColorMode::Red => Color32::from_gray(rgb_color.red),
-                    ColorMode::Green => Color32::from_gray(rgb_color.green),
-                    ColorMode::Blue => Color32::from_gray(rgb_color.blue),
-                    ColorMode::RedChromaticity => {
-                        Color32::from_gray((chromaticity.red * 255.0) as u8)
-                    }
-                    ColorMode::GreenChromaticity => {
-                        Color32::from_gray((chromaticity.green * 255.0) as u8)
-                    }
-                    ColorMode::BlueChromaticity => Color32::from_gray(
-                        ((1.0 - chromaticity.red - chromaticity.green) * 255.0) as u8,
-                    ),
-                };
-                painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
-                painter.line_segment(
-                    start - vector![1.0, 0.0],
-                    start + vector![1.0, 0.0],
-                    Stroke::new(1.0, Color32::from_rgb(0, 0, 255)),
-                );
+                self.draw_segment(scanline.position as f32, self.direction, segment, &painter);
             }
         }
+
         response
+    }
+}
+
+impl ImageSegmentsPanel {
+    fn draw_segment(
+        &self,
+        position: f32,
+        direction: Direction,
+        segment: Segment,
+        painter: &TwixPainter<Pixel>,
+    ) {
+        let ycbcr_color = segment.color;
+        let rgb_color = Rgb::from(ycbcr_color);
+        let (start, end) = match direction {
+            Direction::Horizontal => (
+                point![segment.start as f32, position],
+                point![segment.end as f32, position],
+            ),
+            Direction::Vertical => (
+                point![position, segment.start as f32],
+                point![position, segment.end as f32],
+            ),
+        };
+        let original_color = Color32::from_rgb(rgb_color.red, rgb_color.green, rgb_color.blue);
+        let high_color = Color32::YELLOW;
+        let chromaticity = rgb_color.convert_to_rgchromaticity();
+        let visualized_color = match self.color_mode {
+            ColorMode::Original => original_color,
+            ColorMode::FieldColor => match segment.field_color {
+                types::color::Intensity::Low => original_color,
+                types::color::Intensity::High => high_color,
+            },
+            ColorMode::Y => Color32::from_gray(ycbcr_color.y),
+            ColorMode::Cb => Color32::from_gray(ycbcr_color.cb),
+            ColorMode::Cr => Color32::from_gray(ycbcr_color.cr),
+            ColorMode::Red => Color32::from_gray(rgb_color.red),
+            ColorMode::Green => Color32::from_gray(rgb_color.green),
+            ColorMode::Blue => Color32::from_gray(rgb_color.blue),
+            ColorMode::RedChromaticity => Color32::from_gray((chromaticity.red * 255.0) as u8),
+            ColorMode::GreenChromaticity => Color32::from_gray((chromaticity.green * 255.0) as u8),
+            ColorMode::BlueChromaticity => {
+                Color32::from_gray(((1.0 - chromaticity.red - chromaticity.green) * 255.0) as u8)
+            }
+        };
+        painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
+        painter.line_segment(
+            start - vector![1.0, 0.0],
+            start + vector![1.0, 0.0],
+            Stroke::new(1.0, Color32::from_rgb(0, 0, 255)),
+        );
     }
 }
