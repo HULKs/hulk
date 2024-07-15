@@ -31,6 +31,9 @@ pub fn greater_than_with_relative_hysteresis(
     threshold: f32,
     hysteresis: Range<f32>,
 ) -> bool {
+    assert!(hysteresis.start <= 0.0);
+    assert!(hysteresis.end >= 0.0);
+
     greater_than_with_absolute_hysteresis(
         last_evaluation,
         value,
@@ -44,6 +47,9 @@ pub fn less_than_with_relative_hysteresis(
     threshold: f32,
     hysteresis: Range<f32>,
 ) -> bool {
+    assert!(hysteresis.start <= 0.0);
+    assert!(hysteresis.end >= 0.0);
+
     less_than_with_absolute_hysteresis(
         last_evaluation,
         value,
