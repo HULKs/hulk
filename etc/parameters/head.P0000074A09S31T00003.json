@@ -1,18 +1,20 @@
 {
-  "camera_matrix_parameters": {
-    "vision_bottom": {
-      "extrinsic_rotations": [
-        -0.4524931311607361,
-        0.6353920698165894,
-        -0.4027533531188965
-      ]
-    },
-    "vision_top": {
-      "extrinsic_rotations": [
-        -3.337556838989258,
-        2.329537868499756,
-        0.0392228364944458
-      ]
+  "parameters": {
+    "camera_matrix_parameters": {
+      "vision_bottom": {
+        "extrinsic_rotations": [
+          -3.5938758850097656,
+          1.7237269878387451,
+          1.1488670110702515
+        ]
+      },
+      "vision_top": {
+        "extrinsic_rotations": [
+          -4.161088943481445,
+          0.810440182685852,
+          1.4565306901931765
+        ]
+      }
     }
   }
 }
