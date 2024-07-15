@@ -468,10 +468,10 @@
   },
   "walking_engine": {
     "base": {
-      "foot_lift_apex": 0.01,
+      "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.12,
-        "left": 0.15,
+        "forward": 0.14,
+        "left": 0.17,
         "turn": 0.0
       },
       "foot_offset_left": [0.0, 0.05, 0.0],
