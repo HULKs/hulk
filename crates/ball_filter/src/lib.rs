@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 mod hypothesis;
 
-pub use hypothesis::BallHypothesis;
+pub use hypothesis::{BallHypothesis, BallMode};
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 #[derive(
@@ -40,7 +40,6 @@ impl BallFilter {
         velocity_decay: f32,
         moving_process_noise: Matrix4<f32>,
         resting_process_noise: Matrix2<f32>,
-        velocity_threshold: f32,
     ) {
         for hypothesis in self.hypotheses.iter_mut() {
             hypothesis.predict(
@@ -49,34 +48,12 @@ impl BallFilter {
                 velocity_decay,
                 moving_process_noise,
                 resting_process_noise,
-                velocity_threshold,
             )
         }
     }
 
     pub fn reset(&mut self) {
         self.hypotheses.clear()
-    }
-
-    pub fn update(
-        &mut self,
-        detection_time: SystemTime,
-        measurement: MultivariateNormalDistribution<2>,
-        matching_criterion: impl Fn(usize, &BallHypothesis) -> bool,
-    ) -> bool {
-        let mut number_of_matching_hypotheses = 0;
-
-        for (_, hypothesis) in self
-            .hypotheses
-            .iter_mut()
-            .enumerate()
-            .filter(|(index, hypothesis)| matching_criterion(*index, hypothesis))
-        {
-            number_of_matching_hypotheses += 1;
-            hypothesis.update(detection_time, measurement)
-        }
-
-        number_of_matching_hypotheses > 0
     }
 
     pub fn remove_hypotheses(
@@ -110,7 +87,6 @@ impl BallFilter {
         detection_time: SystemTime,
         measurement: Point2<Ground>,
         initial_moving_covariance: Matrix4<f32>,
-        initial_resting_covariance: Matrix2<f32>,
     ) {
         let initial_state = nalgebra::vector![measurement.x(), measurement.y(), 0.0, 0.0];
 
@@ -118,15 +94,8 @@ impl BallFilter {
             mean: initial_state,
             covariance: initial_moving_covariance,
         };
-        let resting_hypothesis = MultivariateNormalDistribution {
-            mean: initial_state.xy(),
-            covariance: initial_resting_covariance,
-        };
 
-        self.hypotheses.push(BallHypothesis::new(
-            moving_hypothesis,
-            resting_hypothesis,
-            detection_time,
-        ))
+        self.hypotheses
+            .push(BallHypothesis::new(moving_hypothesis, detection_time))
     }
 }

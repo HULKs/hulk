@@ -11,6 +11,12 @@ pub struct AssignmentProblem {
     number_of_tasks: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Assignment {
+    pub to: usize,
+    pub cost: f32,
+}
+
 impl Weights<NotNan<f32>> for AssignmentProblem {
     fn rows(&self) -> usize {
         self.costs.nrows()
@@ -58,14 +64,19 @@ impl AssignmentProblem {
         }
     }
 
-    pub fn solve(self) -> Vec<Option<usize>> {
+    pub fn solve(self) -> Vec<Option<Assignment>> {
         let (_, assignment) = kuhn_munkres(&self);
 
         assignment[..self.number_of_tasks]
             .iter()
-            .map(|&job_assignment| {
+            .enumerate()
+            .map(|(task_index, &job_assignment)| {
                 if job_assignment < self.number_of_workers {
-                    Some(job_assignment)
+                    let cost = self.costs[(task_index, job_assignment)];
+                    Some(Assignment {
+                        to: job_assignment,
+                        cost: cost.into(),
+                    })
                 } else {
                     None
                 }
@@ -95,16 +106,29 @@ mod tests {
         let problem = AssignmentProblem::from_costs(costs);
 
         let solution = problem.solve();
-        assert_eq!(solution, vec![Some(0), Some(1), Some(2)]);
+        assert_eq!(
+            solution,
+            vec![
+                Some(Assignment { to: 0, cost: 1.0 }),
+                Some(Assignment { to: 1, cost: 1.0 }),
+                Some(Assignment { to: 2, cost: 1.0 })
+            ]
+        );
     }
 
     #[test]
     fn test_unbalanced_1() {
-        let costs = array![[1., 0., 0.], [0., 1., 0.]].convert();
+        let costs = array![[1., 0.9, 0.], [0.8, 0., 1.]].convert();
         let problem = AssignmentProblem::from_costs(costs);
 
         let solution = problem.solve();
-        assert_eq!(solution, vec![Some(0), Some(1)]);
+        assert_eq!(
+            solution,
+            vec![
+                Some(Assignment { to: 0, cost: 1.0 }),
+                Some(Assignment { to: 2, cost: 1.0 })
+            ]
+        );
     }
 
     #[test]
@@ -113,6 +137,13 @@ mod tests {
         let problem = AssignmentProblem::from_costs(costs);
 
         let solution = problem.solve();
-        assert_eq!(solution, vec![Some(0), None, Some(1)]);
+        assert_eq!(
+            solution,
+            vec![
+                Some(Assignment { to: 0, cost: 1.0 }),
+                None,
+                Some(Assignment { to: 1, cost: 2.0 })
+            ]
+        );
     }
 }
