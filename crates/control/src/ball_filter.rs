@@ -157,7 +157,10 @@ impl BallFilter {
                 .start_time
                 .duration_since(ball.last_seen)
                 .expect("time ran backwards");
+            let validity_high_enough =
+                hypothesis.validity >= filter_parameters.validity_discard_threshold;
             is_ball_inside_field(ball, field_dimensions)
+                && validity_high_enough
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout
         };
 
