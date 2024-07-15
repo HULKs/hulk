@@ -1202,7 +1202,7 @@
       "ignore_robot_when_near_ball_radius": 0.6
     },
     "walk_and_stand": {
-      "hysteresis": [0.05, 0.05],
+      "hysteresis": [1.0, 1.0],
       "target_reached_thresholds": [0.02, 0.05],
       "hybrid_align_distance": 1.0,
       "distance_to_be_aligned": 0.05
@@ -1303,14 +1303,14 @@
   },
   "ground_contact_detector": {
     "pressure_threshold": 0.6,
-    "hysteresis": 0.3,
+    "hysteresis": 0.6,
     "timeout": {
       "nanos": 500000000,
       "secs": 0
     }
   },
   "support_foot_estimation": {
-    "hysteresis": 0.2
+    "hysteresis": 0.4
   },
   "projected_limbs": {
     "vision_top": {

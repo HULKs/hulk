@@ -56,7 +56,7 @@ impl SupportFootEstimation {
             last_has_left_more_pressure,
             left_sum,
             right_sum,
-            -*context.hysteresis / 2.0..=*context.hysteresis / 2.0,
+            *context.hysteresis,
         );
         let support_side = if has_left_more_pressure {
             Side::Left
