@@ -6,7 +6,9 @@ use std::{
 use parking_lot::{RwLock, RwLockReadGuard};
 use tokio::sync::watch;
 
-use crate::{find_oldest_free_buffer, Shared, State};
+use crate::{
+    find_oldest_free_buffer, receiver::lock_a_readable_buffer, ReceiverGuard, Shared, State,
+};
 
 /// Sends values to the associated Receivers
 pub struct Sender<T> {
@@ -18,6 +20,23 @@ unsafe impl<T> Sync for Sender<T> where T: Sync {}
 unsafe impl<T> Send for Sender<T> where T: Send + Sync {}
 
 impl<T> Sender<T> {
+    /// Borrows the latest value
+    pub fn borrow(&mut self) -> ReceiverGuard<T> {
+        let shared = self.shared.read();
+        let index = {
+            let states = &mut *shared.states.lock();
+            lock_a_readable_buffer(states)
+        };
+        // Safety: access is managed by the `shared.states`, we are allowed to dereference
+        let buffer = unsafe { &*shared.buffers[index].get() };
+
+        ReceiverGuard {
+            shared,
+            buffer_index: index,
+            buffer,
+        }
+    }
+
     /// Borrows a buffer to write to
     pub fn borrow_mut(&mut self) -> SenderGuard<T> {
         let shared = self.shared.read();

@@ -19,7 +19,7 @@ pub fn derive_path_introspect(mut input: DeriveInput) -> Result<TokenStream> {
 
     Ok(quote! {
         impl #impl_generics path_serde::PathIntrospect for #name #ty_generics #where_clause {
-            fn extend_with_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str)  {
+            fn extend_with_fields(fields: &mut std::collections::HashSet<String>, prefix: &str)  {
                 #(#extend_with_fields)*
             }
         }

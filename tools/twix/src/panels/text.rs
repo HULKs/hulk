@@ -1,86 +1,80 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use communication::client::CyclerOutput;
-use eframe::egui::{Label, ScrollArea, Sense, Widget};
-use log::error;
+use chrono::{DateTime, Utc};
+use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
 use serde_json::{json, Value};
 
-use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 pub struct TextPanel {
     nao: Arc<Nao>,
-    output: String,
-    values: Option<ValueBuffer>,
+    path: String,
+    buffer: Option<BufferHandle<Value>>,
 }
 
 impl Panel for TextPanel {
     const NAME: &'static str = "Text";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let output = match value.and_then(|value| value.get("subscribe_key")) {
+        let path = match value.and_then(|value| value.get("path")) {
             Some(Value::String(string)) => string.to_string(),
             _ => String::new(),
         };
-        let values = if !output.is_empty() {
-            let output = CyclerOutput::from_str(&output);
-            match output {
-                Ok(output) => Some(nao.subscribe_output(output)),
-                Err(error) => {
-                    error!("Failed to subscribe: {error:?}");
-                    None
-                }
-            }
+        let buffer = if !path.is_empty() {
+            Some(nao.subscribe_json(path.clone()))
         } else {
             None
         };
-        Self {
-            nao,
-            output,
-            values,
-        }
+        Self { nao, path, buffer }
     }
 
     fn save(&self) -> Value {
         json!({
-            "subscribe_key": self.output.clone()
+            "path": self.path.clone()
         })
     }
 }
 
 impl Widget for &mut TextPanel {
-    fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-        let edit_response = ui.add(CompletionEdit::outputs(&mut self.output, self.nao.as_ref()));
-        if edit_response.changed() {
-            match CyclerOutput::from_str(&self.output) {
-                Ok(output) => {
-                    self.values = Some(self.nao.subscribe_output(output));
+    fn ui(self, ui: &mut Ui) -> Response {
+        let edit_response = ui
+            .horizontal(|ui| {
+                let edit_response = ui.add(CompletionEdit::readable_paths(
+                    &mut self.path,
+                    self.nao.as_ref(),
+                ));
+                if edit_response.changed() {
+                    self.buffer = Some(self.nao.subscribe_json(self.path.clone()));
                 }
-                Err(error) => {
-                    error!("Failed to subscribe: {error:#?}");
+                if let Some(buffer) = &self.buffer {
+                    if let Ok(Some(timestamp)) = buffer.get_last_timestamp() {
+                        let date: DateTime<Utc> = timestamp.into();
+                        ui.label(date.format("%T%.3f").to_string());
+                    }
                 }
-            }
-        }
+                edit_response
+            })
+            .inner;
         let scroll_area = ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                self.values
-                    .as_ref()
-                    .map(|buffer| match buffer.get_latest() {
-                        Ok(value) => {
-                            let content = match serde_json::to_string_pretty(&value) {
-                                Ok(pretty_string) => pretty_string,
-                                Err(error) => error.to_string(),
-                            };
-                            let label = ui.add(Label::new(&content).sense(Sense::click()));
-                            if label.clicked() {
-                                ui.output_mut(|output| output.copied_text = content);
-                            }
-                            label.on_hover_ui_at_pointer(|ui| {
-                                ui.label("Click to copy");
-                            })
+                self.buffer.as_ref().map(|buffer| match buffer.get_last() {
+                    Ok(Some(datum)) => {
+                        let content = match serde_json::to_string_pretty(&datum.value) {
+                            Ok(pretty_string) => pretty_string,
+                            Err(error) => error.to_string(),
+                        };
+                        let label = ui.add(Label::new(&content).sense(Sense::click()));
+                        if label.clicked() {
+                            ui.output_mut(|output| output.copied_text = content);
                         }
-                        Err(error) => ui.label(error),
-                    })
+                        label.on_hover_ui_at_pointer(|ui| {
+                            ui.label("Click to copy");
+                        })
+                    }
+                    Err(error) => ui.label(error.to_string()),
+                    Ok(None) => ui.label("no data yet"),
+                })
             });
         if let Some(response) = scroll_area.inner {
             edit_response | response

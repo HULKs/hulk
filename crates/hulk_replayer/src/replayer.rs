@@ -8,6 +8,7 @@ use ctrlc::set_handler;
 use eframe::run_native;
 use framework::Parameters as FrameworkParameters;
 use hardware::IdInterface;
+use log::info;
 use serde_json::from_reader;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
@@ -39,6 +40,7 @@ pub fn replayer() -> Result<()> {
     let mut framework_parameters: FrameworkParameters =
         from_reader(file).wrap_err("failed to parse framework parameters")?;
     if framework_parameters.communication_addresses.is_none() {
+        info!("framework.json disabled communication, falling back to :1337");
         framework_parameters.communication_addresses = Some("[::1]:1337".to_string());
     }
 
@@ -54,8 +56,7 @@ pub fn replayer() -> Result<()> {
     let replayer = Replayer::new(
         Arc::new(hardware_interface),
         replay_path.clone(),
-        ids.body_id,
-        ids.head_id,
+        ids,
         replay_path,
         framework_parameters.communication_addresses,
         keep_running,

@@ -1,36 +1,30 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use communication::client::CyclerOutput;
-use eframe::egui::{Response, Slider, Ui, Widget};
+use communication::messages::TextOrBinary;
+use eframe::egui::{Color32, Response, Slider, Ui, Widget};
 use serde_json::{json, Value};
-use tokio::sync::mpsc;
 
-use crate::{nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 pub struct BehaviorSimulatorPanel {
     nao: Arc<Nao>,
-    update_notify_receiver: mpsc::Receiver<()>,
 
     selected_frame: usize,
     selected_robot: usize,
     playing: bool,
     playing_start: f64,
 
-    value_buffer: ValueBuffer,
-    frame_count: ValueBuffer,
+    selected_frame_updater: BufferHandle<usize>,
+    frame_count: BufferHandle<usize>,
 }
 
 impl Panel for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let value_buffer = nao.subscribe_parameter("selected_frame");
-        let (update_notify_sender, update_notify_receiver) = mpsc::channel(1);
-        value_buffer.listen_to_updates(update_notify_sender);
+        let selected_frame_updater = nao.subscribe_value("parameters.selected_frame");
 
-        let frame_count = nao.subscribe_output(
-            CyclerOutput::from_str("BehaviorSimulator.main_outputs.frame_count").unwrap(),
-        );
+        let frame_count = nao.subscribe_value("BehaviorSimulator.main_outputs.frame_count");
         let selected_frame = value
             .and_then(|value| value.get("selected_frame"))
             .and_then(|value| value.as_bool())
@@ -49,14 +43,13 @@ impl Panel for BehaviorSimulatorPanel {
             .unwrap_or_default();
         Self {
             nao,
-            update_notify_receiver,
 
             selected_frame,
             selected_robot,
             playing,
             playing_start,
 
-            value_buffer,
+            selected_frame_updater,
             frame_count,
         }
     }
@@ -73,11 +66,19 @@ impl Panel for BehaviorSimulatorPanel {
 
 impl Widget for &mut BehaviorSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        while self.update_notify_receiver.try_recv().is_ok() {
-            if let Ok(value) = self.value_buffer.require_latest() {
-                self.selected_frame = value;
+        if self.selected_frame_updater.has_changed() {
+            self.selected_frame_updater.mark_as_seen();
+            if let Some(selected_frame) =
+                self.selected_frame_updater.get_last_value().ok().flatten()
+            {
+                self.selected_frame = selected_frame
             }
         }
+        let frame_count = match self.frame_count.get_last_value() {
+            Ok(Some(frame_count)) => frame_count,
+            Ok(None) => return ui.label("no frame data yet"),
+            Err(error) => return ui.colored_label(Color32::RED, format!("Error: {error}")),
+        };
         let mut new_frame = None;
         let response = ui
             .vertical(|ui| {
@@ -87,18 +88,9 @@ impl Widget for &mut BehaviorSimulatorPanel {
                     if ui
                         .add_sized(
                             ui.available_size(),
-                            Slider::new(
-                                &mut frame,
-                                0..=self
-                                    .frame_count
-                                    .get_latest()
-                                    .ok()
-                                    .and_then(|v| v.as_u64())
-                                    .unwrap_or(1) as usize
-                                    - 1,
-                            )
-                            .smart_aim(false)
-                            .text("Frame"),
+                            Slider::new(&mut frame, 0..=frame_count - 1)
+                                .smart_aim(false)
+                                .text("Frame"),
                         )
                         .changed()
                     {
@@ -115,8 +107,10 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         )
                         .changed()
                     {
-                        self.nao
-                            .update_parameter_value("selected_robot", self.selected_robot.into());
+                        self.nao.write(
+                            "parameters.selected_robot",
+                            TextOrBinary::Text(self.selected_robot.into()),
+                        );
                     };
                 });
                 if ui.checkbox(&mut self.playing, "Play").changed() || new_frame.is_some() {
@@ -135,9 +129,11 @@ impl Widget for &mut BehaviorSimulatorPanel {
             new_frame = Some(new_frame.unwrap_or(self.selected_frame) + 10);
         }
         if let Some(new_frame) = new_frame {
-            self.selected_frame = new_frame % self.frame_count.require_latest().unwrap_or(1);
-            self.nao
-                .update_parameter_value("selected_frame", self.selected_frame.into());
+            self.selected_frame = new_frame % frame_count;
+            self.nao.write(
+                "parameters.selected_frame",
+                TextOrBinary::Text(self.selected_frame.into()),
+            );
         }
         response
     }

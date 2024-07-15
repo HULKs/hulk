@@ -1,7 +1,6 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
-use communication::client::CyclerOutput;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Ground, Robot, Walk};
@@ -18,42 +17,33 @@ use walking_engine::{
 };
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::ValueBuffer,
+    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct Walking {
-    robot_to_ground: ValueBuffer,
-    robot_kinematics: ValueBuffer,
-    walking_engine: ValueBuffer,
-    last_actuated_joints: ValueBuffer,
-    step_plan: ValueBuffer,
-    center_of_mass: ValueBuffer,
-    robot_to_walk: ValueBuffer,
-    zero_moment_point: ValueBuffer,
+    robot_to_ground: BufferHandle<Option<Isometry3<Robot, Ground>>>,
+    robot_kinematics: BufferHandle<RobotKinematics>,
+    walking_engine: BufferHandle<Option<Engine>>,
+    last_actuated_joints: BufferHandle<Option<BodyJoints>>,
+    step_plan: BufferHandle<Step>,
+    center_of_mass: BufferHandle<Point3<Robot>>,
+    robot_to_walk: BufferHandle<Option<Isometry3<Robot, Walk>>>,
+    zero_moment_point: BufferHandle<Point2<Ground>>,
 }
 
 impl Layer<Ground> for Walking {
     const NAME: &'static str = "Walking";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let robot_to_ground =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_to_ground").unwrap());
-        let robot_kinematics =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.robot_kinematics").unwrap());
-        let walking_engine = nao
-            .subscribe_output(CyclerOutput::from_str("Control.additional.walking.engine").unwrap());
-        let last_actuated_joints = nao.subscribe_output(
-            CyclerOutput::from_str("Control.additional.walking.last_actuated_joints").unwrap(),
-        );
-        let step_plan =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.step_plan").unwrap());
-        let center_of_mass =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.center_of_mass").unwrap());
-        let robot_to_walk = nao.subscribe_output(
-            CyclerOutput::from_str("Control.additional.walking.robot_to_walk").unwrap(),
-        );
-        let zero_moment_point =
-            nao.subscribe_output(CyclerOutput::from_str("Control.main.zero_moment_point").unwrap());
+        let robot_to_ground = nao.subscribe_value("Control.main_outputs.robot_to_ground");
+        let robot_kinematics = nao.subscribe_value("Control.main_outputs.robot_kinematics");
+        let walking_engine = nao.subscribe_value("Control.additional_outputs.walking.engine");
+        let last_actuated_joints =
+            nao.subscribe_value("Control.additional_outputs.walking.last_actuated_joints");
+        let step_plan = nao.subscribe_value("Control.main_outputs.step_plan");
+        let center_of_mass = nao.subscribe_value("Control.main_outputs.center_of_mass");
+        let robot_to_walk = nao.subscribe_value("Control.additional_outputs.walking.robot_to_walk");
+        let zero_moment_point = nao.subscribe_value("Control.main_outputs.zero_moment_point");
         Self {
             robot_to_ground,
             robot_kinematics,
@@ -71,15 +61,32 @@ impl Layer<Ground> for Walking {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let robot_to_ground: Isometry3<Robot, Ground> = self.robot_to_ground.require_latest()?;
-        let robot_kinematics: RobotKinematics = self.robot_kinematics.require_latest()?;
-        let engine: Engine = self.walking_engine.require_latest()?;
-        let last_actuated_joints: BodyJoints = self.last_actuated_joints.require_latest()?;
-        let step_plan: Step = self.step_plan.require_latest()?;
-        let center_of_mass: Point3<Robot> = self.center_of_mass.require_latest()?;
+        let Some(robot_to_ground) = self.robot_to_ground.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        let Some(robot_kinematics) = self.robot_kinematics.get_last_value()? else {
+            return Ok(());
+        };
+        let Some(engine) = self.walking_engine.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        let Some(last_actuated_joints) = self.last_actuated_joints.get_last_value()?.flatten()
+        else {
+            return Ok(());
+        };
+        let Some(step_plan) = self.step_plan.get_last_value()? else {
+            return Ok(());
+        };
+        let Some(center_of_mass) = self.center_of_mass.get_last_value()? else {
+            return Ok(());
+        };
         let center_of_mass_in_ground = robot_to_ground * center_of_mass;
-        let robot_to_walk: Isometry3<Robot, Walk> = self.robot_to_walk.require_latest()?;
-        let zero_moment_point: Point2<Ground> = self.zero_moment_point.require_latest()?;
+        let Some(robot_to_walk) = self.robot_to_walk.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        let Some(zero_moment_point) = self.zero_moment_point.get_last_value()? else {
+            return Ok(());
+        };
 
         paint_actuated_feet(
             painter,

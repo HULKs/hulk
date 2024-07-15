@@ -9,18 +9,18 @@ use parking_lot::Mutex;
 
 use coordinate_systems::Field;
 use linear_algebra::{Isometry2, Point2, Vector2};
-use types::{obstacles::Obstacle, players::Players};
+use types::{ball_position::SimulatorBallState, obstacles::Obstacle, players::Players};
 
 use crate::{
     cyclers::control::Database,
     robot::{to_player_number, Robot},
-    state::{Ball, Event, LuaRobot, State},
+    state::{Event, LuaRobot, State},
 };
 
 const SERIALIZE_OPTIONS: SerializeOptions = SerializeOptions::new().serialize_none_to_null(false);
 
 pub struct Frame {
-    pub ball: Option<Ball>,
+    pub ball: Option<SimulatorBallState>,
     pub robots: Players<Option<Database>>,
 }
 
@@ -100,7 +100,7 @@ impl Simulator {
             }
             self.frames.push(Frame {
                 robots,
-                ball: state.ball.clone(),
+                ball: state.ball,
             });
 
             if state.finished {

@@ -1,25 +1,29 @@
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
-    str::FromStr,
+    iter::once,
+    ops::Range,
     sync::Arc,
+    time::{Duration, SystemTime},
 };
 
 use eframe::{
     egui::{
-        show_tooltip_at_pointer, Button, ComboBox, Response, RichText, Sense, TextStyle, Ui,
-        Widget, WidgetText,
+        show_tooltip_at_pointer, Align2, Button, ComboBox, FontId, Response, RichText, Sense,
+        TextStyle, Ui, Widget, WidgetText,
     },
     emath::{remap, Rangef, RectTransform},
     epaint::{Color32, Rect, Rounding, Shape, Stroke, TextShape, Vec2},
 };
 use itertools::Itertools;
-use log::{error, info};
 use serde_json::{json, Value};
 
-use communication::client::CyclerOutput;
-
-use crate::{change_buffer::ChangeBuffer, completion_edit::CompletionEdit, nao::Nao, panel::Panel};
+use crate::{
+    change_buffer::{Change, ChangeBufferHandle},
+    completion_edit::CompletionEdit,
+    nao::Nao,
+    panel::Panel,
+};
 
 fn color_hash(value: impl Hash) -> Color32 {
     let mut hasher = DefaultHasher::new();
@@ -32,10 +36,10 @@ fn color_hash(value: impl Hash) -> Color32 {
     Color32::from_rgb(r, g, b)
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Segment {
-    start: usize,
-    end: usize,
+    start: f32,
+    end: f32,
     value: Value,
 }
 
@@ -44,7 +48,7 @@ impl Segment {
         match &self.value {
             Value::Null => "<Null>".into(),
             Value::Bool(value) => value.to_string(),
-            Value::Number(_) => "<Number>".into(),
+            Value::Number(number) => number.to_string(),
             Value::String(string) => string.clone(),
             Value::Array(_) => "<Array>".into(),
             Value::Object(map) => {
@@ -74,20 +78,21 @@ impl Segment {
         }
     }
 
-    fn render(&self, ui: &mut Ui, offset: usize, index: usize, viewport_transform: &RectTransform) {
+    fn render(&self, ui: &mut Ui, index: usize, viewport_transform: &RectTransform) {
         let stroke_color = color_hash(self.name());
         let fill_color = stroke_color.gamma_multiply(0.5);
         let stroke_width = 2.0;
 
-        let rect = Rect::from_min_max(
-            [(self.start + offset) as f32, index as f32].into(),
-            [(self.end + offset) as f32, (index + 1) as f32].into(),
-        );
+        let x_min = self.start;
+        let x_max = self.end;
+        let y_min = index as f32;
+        let y_max = (index + 1) as f32;
+        let rect = Rect::from_x_y_ranges(x_min..=x_max, y_min..=y_max);
 
-        if !rect
+        let is_segment_in_viewport = rect
             .x_range()
-            .intersects(viewport_transform.from().x_range())
-        {
+            .intersects(viewport_transform.from().x_range());
+        if !is_segment_in_viewport {
             return;
         }
 
@@ -137,86 +142,51 @@ enum ViewportMode {
 
 #[derive(Default)]
 struct SegmentRow {
-    output_key: String,
-    change_buffer: Option<ChangeBuffer>,
-    messages_count: usize,
-    last_error: Option<String>,
+    path: String,
+    buffer: Option<ChangeBufferHandle<Value>>,
 }
 
 impl SegmentRow {
     fn subscribe(&mut self, nao: Arc<Nao>) {
-        self.change_buffer = match CyclerOutput::from_str(&self.output_key) {
-            Ok(output) => {
-                let buffer = nao.subscribe_changes(output);
-                self.last_error = None;
-                Some(buffer)
-            }
-            Err(error) => {
-                error!("Failed to subscribe: {:#}", error);
-                self.last_error = Some(error.to_string());
-                None
-            }
-        };
+        self.buffer = Some(nao.subscribe_changes_json(&self.path));
     }
 
     fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>) {
         let subscription_field =
-            ui.add(CompletionEdit::outputs(&mut self.output_key, nao.as_ref()));
+            ui.add(CompletionEdit::readable_paths(&mut self.path, nao.as_ref()));
 
         if subscription_field.changed() {
-            info!("Subscribing: {}", self.output_key);
-            if let Some(change_buffer) = self.change_buffer.as_mut() {
-                change_buffer.reset();
-            }
             self.subscribe(nao);
         }
-
-        if let Some(error) = self.last_error.as_ref() {
-            ui.colored_label(Color32::RED, error);
-        }
     }
 
-    fn segments(&mut self) -> Vec<Segment> {
-        self.change_buffer
-            .as_ref()
-            .and_then(|change_buffer| match change_buffer.get_buffered() {
-                Ok(change_buffer_update) => {
-                    let mut segments = Vec::new();
+    fn segments(&self, timestamp_range: &Range<SystemTime>) -> Option<Vec<Segment>> {
+        let buffer = self.buffer.as_ref()?;
+        let series = buffer.get().ok()?;
 
-                    self.messages_count = change_buffer_update.message_count;
-
-                    for (start, end) in change_buffer_update.updates.iter().tuple_windows() {
-                        segments.push(Segment {
-                            start: start.message_number,
-                            end: end.message_number,
-                            value: start.value.clone(),
-                        });
-                    }
-
-                    if let Some(last_change) = change_buffer_update.updates.last() {
-                        segments.push(Segment {
-                            start: last_change.message_number,
-                            end: self.messages_count,
-                            value: last_change.value.clone(),
-                        });
-                    }
-
-                    Some(segments)
-                }
-                Err(error) => {
-                    self.last_error = Some(error);
-
-                    None
-                }
+        let segments = series
+            .changes()
+            .chain(once(&Change {
+                timestamp: series.last_update()?,
+                value: Value::Null,
+            }))
+            .tuple_windows()
+            .map(|(start, end)| Segment {
+                start: start
+                    .timestamp
+                    .duration_since(timestamp_range.start)
+                    .unwrap_or_default()
+                    .as_secs_f32(),
+                end: end
+                    .timestamp
+                    .duration_since(timestamp_range.start)
+                    .unwrap_or_default()
+                    .as_secs_f32(),
+                value: start.value.clone(),
             })
-            .unwrap_or_default()
-    }
+            .collect();
 
-    fn clear(&mut self) {
-        if let Some(change_buffer) = self.change_buffer.as_ref() {
-            change_buffer.clear();
-        }
-        self.messages_count = 0;
+        Some(segments)
     }
 }
 
@@ -232,7 +202,7 @@ impl Panel for EnumPlotPanel {
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let output_keys: Vec<_> = value
-            .and_then(|value| value.get("subscribe_keys"))
+            .and_then(|value| value.get("paths"))
             .and_then(|value| value.as_array())
             .map(|values| values.iter().flat_map(|value| value.as_str()).collect())
             .unwrap_or_default();
@@ -241,7 +211,7 @@ impl Panel for EnumPlotPanel {
             .iter()
             .map(|&output_key| {
                 let mut result = SegmentRow {
-                    output_key: String::from(output_key),
+                    path: String::from(output_key),
                     ..Default::default()
                 };
                 result.subscribe(nao.clone());
@@ -253,21 +223,27 @@ impl Panel for EnumPlotPanel {
         Self {
             nao,
             segment_rows,
-            x_range: Rangef::new(0.0, 1000.0),
+            x_range: Rangef::new(-3.0, 0.0),
             viewport_mode: ViewportMode::Follow,
         }
     }
 
     fn save(&self) -> Value {
+        let paths = self
+            .segment_rows
+            .iter()
+            .map(|segment_data| &segment_data.path)
+            .collect::<Vec<_>>();
         json!({
-            "subscribe_keys": self.segment_rows.iter().map(|segment_data|&segment_data.output_key).collect::<Vec<_>>()
+            "paths": paths
         })
     }
 }
 
 impl EnumPlotPanel {
-    fn interact(&mut self, response: &Response, ui: &mut Ui, max_message_count: usize) {
+    fn interact(&mut self, response: &Response, ui: &mut Ui, timestamp_range: &Range<SystemTime>) {
         const SCROLL_THRESHOLD: f32 = 1.0;
+        const MINIMUM_VISIBLE_DURATION: Duration = Duration::from_millis(10);
 
         let (scroll_position, viewport_width) = if response.contains_pointer() {
             let drag_delta = response.drag_delta();
@@ -292,8 +268,8 @@ impl EnumPlotPanel {
 
             let scroll_offset = -previous_viewport_width * scroll_delta.x / 400.0;
 
-            let new_viewport_width =
-                (previous_viewport_width * 0.99f32.powf(scroll_delta.y)).max(1.0);
+            let new_viewport_width = (previous_viewport_width * 0.99f32.powf(scroll_delta.y))
+                .max(MINIMUM_VISIBLE_DURATION.as_secs_f32());
 
             let zoom_difference = new_viewport_width - previous_viewport_width;
             let zoom_scroll_compensation = -zoom_difference * normalized_cursor_position;
@@ -331,13 +307,23 @@ impl EnumPlotPanel {
 
         match self.viewport_mode {
             ViewportMode::Full => {
-                self.x_range = Rangef::new(0.0, max_message_count as f32);
+                self.x_range = Rangef::new(
+                    0.0,
+                    timestamp_range
+                        .end
+                        .duration_since(timestamp_range.start)
+                        .unwrap_or_default()
+                        .as_secs_f32(),
+                );
             }
             ViewportMode::Follow => {
-                self.x_range = Rangef::new(
-                    max_message_count as f32 - viewport_width,
-                    max_message_count as f32,
-                );
+                let timestamps_span = timestamp_range
+                    .end
+                    .duration_since(timestamp_range.start)
+                    .unwrap_or_default()
+                    .as_secs_f32();
+
+                self.x_range = Rangef::new(timestamps_span - viewport_width, timestamps_span);
             }
             ViewportMode::Free => {
                 self.x_range = Rangef::new(scroll_position, scroll_position + viewport_width);
@@ -353,42 +339,58 @@ impl EnumPlotPanel {
             self.segment_rows.len().max(1) as f32 * LINE_HEIGHT,
         );
 
-        let lines: Vec<_> = self
+        let start = self
             .segment_rows
-            .iter_mut()
-            .map(|segment_data| (segment_data.segments(), segment_data.messages_count))
-            .collect();
-
-        let max_message_count = lines
             .iter()
-            .map(|(_line, message_count)| *message_count)
-            .max()
-            .unwrap_or_default();
+            .filter_map(|row| row.buffer.as_ref()?.get().ok()?.first_update())
+            .min();
+        let end = self
+            .segment_rows
+            .iter()
+            .filter_map(|row| row.buffer.as_ref()?.get().ok()?.last_update())
+            .max();
 
         let (frame, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
-
-        self.interact(&response, ui, max_message_count);
-
-        let viewport_rect = Rect::from_x_y_ranges(
-            self.x_range,
-            Rangef::new(0.0, self.segment_rows.len() as f32),
-        );
-
-        let viewport_transform = RectTransform::from_to(viewport_rect, response.rect);
 
         ui.scope(|ui| {
             ui.set_clip_rect(frame);
             ui.painter()
                 .rect_filled(frame, Rounding::ZERO, Color32::BLACK);
 
-            for (index, (segments, message_count)) in lines.iter().enumerate() {
-                let offset = max_message_count - message_count;
+            if let (Some(start), Some(end)) = (start, end) {
+                let timestamp_range = Range { start, end };
 
-                for segment in segments {
-                    segment.render(ui, offset, index, &viewport_transform);
+                let lines: Vec<_> = self
+                    .segment_rows
+                    .iter()
+                    .map(|segment_row| segment_row.segments(&timestamp_range).unwrap_or_default())
+                    .collect();
+
+                self.interact(&response, ui, &timestamp_range);
+
+                let viewport_rect = Rect::from_x_y_ranges(
+                    self.x_range,
+                    Rangef::new(0.0, self.segment_rows.len() as f32),
+                );
+
+                let viewport_transform = RectTransform::from_to(viewport_rect, response.rect);
+
+                for (index, segments) in lines.iter().enumerate() {
+                    for segment in segments {
+                        segment.render(ui, index, &viewport_transform);
+                    }
                 }
+            } else {
+                ui.painter().text(
+                    frame.center(),
+                    Align2::CENTER_CENTER,
+                    "(nothing to show)",
+                    FontId::default(),
+                    Color32::GRAY,
+                );
             }
         });
+
         response
     }
 }
@@ -399,12 +401,6 @@ impl Widget for &mut EnumPlotPanel {
             self.render(ui);
 
             ui.horizontal(|ui| {
-                if ui.button("Clear").clicked() {
-                    for segment_data in &mut self.segment_rows {
-                        segment_data.clear();
-                    }
-                }
-
                 ui.label("Viewport mode:");
                 ComboBox::new("viewport_mode", "")
                     .selected_text(format!("{:?}", self.viewport_mode))

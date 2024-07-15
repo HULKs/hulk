@@ -1,160 +1,151 @@
-use communication::{
-    client::{Communication, CyclerOutput, SubscriberMessage},
-    messages::Format,
+use std::{
+    fmt::{Debug, Display},
+    time::SystemTime,
 };
-use log::error;
-use serde_json::Value;
-use tokio::{
-    select, spawn,
-    sync::{
-        mpsc::{self, Receiver},
-        oneshot,
-    },
+
+use color_eyre::eyre::{self, eyre};
+use color_eyre::Result;
+use communication::client::{
+    protocol::{self, SubscriptionEvent},
+    SubscriptionHandle,
 };
+use tokio::{select, sync::watch};
 
 #[derive(Clone, Debug)]
-pub struct Change {
-    pub message_number: usize,
-    pub value: Value,
+pub struct Change<T> {
+    pub timestamp: SystemTime,
+    pub value: T,
 }
 
-#[derive(Debug)]
-pub struct ChangeBufferUpdate {
-    pub updates: Vec<Change>,
-    pub message_count: usize,
+#[derive(Clone)]
+pub struct ChangeSeries<T> {
+    changes: Vec<Change<T>>,
+    first_update: Option<SystemTime>,
+    last_update: Option<SystemTime>,
 }
 
-pub enum Message {
-    GetBuffered {
-        response_sender: oneshot::Sender<Result<ChangeBufferUpdate, String>>,
-    },
-    Clear,
-    Reset,
+impl<T> ChangeSeries<T> {
+    fn new() -> Self {
+        Self {
+            changes: Vec::new(),
+            first_update: None,
+            last_update: None,
+        }
+    }
+
+    pub fn changes(&self) -> impl Iterator<Item = &Change<T>> {
+        self.changes.iter()
+    }
+
+    pub fn first_update(&self) -> Option<SystemTime> {
+        self.first_update
+    }
+
+    pub fn last_update(&self) -> Option<SystemTime> {
+        self.last_update
+    }
 }
 
-pub struct ChangeBuffer {
-    command_sender: mpsc::Sender<Message>,
+pub struct ChangeBufferHandle<T, E = eyre::Report> {
+    receiver: watch::Receiver<Result<ChangeSeries<T>, E>>,
 }
 
-async fn change_buffer(
-    mut subscriber_receiver: Receiver<SubscriberMessage>,
-    mut command_receiver: Receiver<Message>,
-) {
-    let mut last_value: Option<Value> = None;
-    let mut changes = Ok(Vec::<Change>::new());
-    let mut message_count: usize = 0;
+impl<T, E> ChangeBufferHandle<T, E>
+where
+    T: Clone + PartialEq,
+    E: Display,
+{
+    pub fn get(&self) -> Result<ChangeSeries<T>> {
+        let guard = self.receiver.borrow();
+        guard.as_ref().map_err(|error| eyre!("{error:#}")).cloned()
+    }
+}
 
-    loop {
-        select! {
-            maybe_message = subscriber_receiver.recv() => {
-                match maybe_message {
-                    Some(message) => {
-                        match message {
-                            SubscriberMessage::Update{value} => {
-                                if !last_value.as_ref().is_some_and(|last_value|*last_value==value){
-                                    last_value = Some(value.clone());
-                                    add_change(&mut changes, Change { message_number: message_count, value });
-                                }
-                            },
-                            SubscriberMessage::SubscriptionSuccess => (),
-                            SubscriberMessage::SubscriptionFailure{info} => {
-                                last_value = None;
-                                changes = Err(info);
-                            },
-                            SubscriberMessage::UpdateBinary{..} => {
-                                error!("Got UpdateBinary message in change buffer");
-                                break;
-                            }
-                        }
-                        message_count += 1;
-                    },
-                    None => continue,
-                }
-            }
-            maybe_command = command_receiver.recv() => {
-                match maybe_command {
-                    Some(command) => match command {
-                        Message::GetBuffered { response_sender } => {
-                            match changes.as_mut() {
-                                Ok(changes) => {
-                                    let updates = changes.to_vec();
-                                    response_sender.send(Ok(ChangeBufferUpdate{updates, message_count})).unwrap();
+pub struct ChangeBuffer<T, E> {
+    sender: watch::Sender<Result<ChangeSeries<T>, E>>,
+}
+
+impl<T: PartialEq, E> ChangeBuffer<T, E> {
+    pub fn new() -> (ChangeBuffer<T, E>, ChangeBufferHandle<T, E>) {
+        let (sender, receiver) = watch::channel(Ok(ChangeSeries::new()));
+        let buffer = ChangeBuffer { sender };
+        let handle = ChangeBufferHandle { receiver };
+        (buffer, handle)
+    }
+
+    pub async fn map<U: Debug>(
+        self,
+        mut subscription: SubscriptionHandle<U>,
+        op: impl Fn(Result<Change<&U>, &protocol::Error>) -> Result<Change<T>, E>
+            + Send
+            + Sync
+            + 'static,
+    ) {
+        loop {
+            select! {
+                maybe_event = subscription.receiver.recv() => {
+                    match maybe_event {
+                        Ok(event) => {
+                            let maybe_datum = match event.as_ref() {
+                                SubscriptionEvent::Successful { timestamp, value } => Ok(Change {
+                                    timestamp: *timestamp,
+                                    value,
+                                }),
+                                SubscriptionEvent::Update { timestamp, value } => Ok(Change {
+                                    timestamp: *timestamp,
+                                    value,
+                                }),
+                                SubscriptionEvent::Failure { error } => Err(error),
+                            };
+                            let maybe_datum = op(maybe_datum);
+                            match maybe_datum {
+                                Ok(datum) => {
+                                    self.sender.send_modify(|value| handle_update(value, datum))
                                 }
                                 Err(error) => {
-                                    response_sender.send(Err(error.clone())).unwrap();
+                                    let _ = self.sender.send(Err(error));
                                 }
                             }
                         },
-                        Message::Clear => {
-                            if let Ok(changes) = changes.as_mut() {
-                                let last_change = changes.pop();
-
-                                changes.clear();
-                                message_count = 0;
-
-                                if let Some(last_change) = last_change {
-                                    changes.push(Change {
-                                        message_number: 0,
-                                        value: last_change.value,
-                                    });
-                                }
-                            }
-                        }
-                        Message::Reset  => {
-                            match changes.as_mut() {
-                                Ok(changes) => changes.clear(),
-                                Err(_) => {changes = Ok(Vec::new())}
-                            }
-                            message_count = 0;
-                        }
-                    },
-                    None => break,
+                        Err(_) => break,
+                    }
+                },
+                _ = self.sender.closed() => {
+                    break
                 }
+            };
+        }
+    }
+}
+
+fn handle_update<T: PartialEq, E>(value: &mut Result<ChangeSeries<T>, E>, datum: Change<T>) {
+    match value {
+        Ok(ref mut buffer) => {
+            let right = buffer
+                .changes
+                .partition_point(|sample| sample.timestamp < datum.timestamp);
+            buffer.changes.truncate(right);
+
+            buffer.last_update = Some(datum.timestamp);
+            buffer.first_update = match buffer.first_update {
+                Some(first_update) => Some(first_update.min(datum.timestamp)),
+                None => Some(datum.timestamp),
+            };
+
+            if !buffer
+                .changes
+                .last()
+                .is_some_and(|last_change| last_change.value == datum.value)
+            {
+                buffer.changes.push(datum);
             }
         }
-    }
-}
-
-fn add_change(changes: &mut Result<Vec<Change>, String>, change: Change) {
-    match changes {
-        Ok(changes) => {
-            changes.push(change);
-        }
         Err(_) => {
-            *changes = Ok(vec![change]);
+            *value = Ok(ChangeSeries {
+                first_update: Some(datum.timestamp),
+                last_update: Some(datum.timestamp),
+                changes: vec![datum],
+            });
         }
-    }
-}
-
-impl ChangeBuffer {
-    pub fn output(communication: Communication, output: CyclerOutput) -> Self {
-        let (command_sender, command_receiver) = mpsc::channel(10);
-        spawn(async move {
-            let (uuid, receiver) = communication
-                .subscribe_output(output, Format::Textual)
-                .await;
-
-            change_buffer(receiver, command_receiver).await;
-            communication.unsubscribe_output(uuid).await;
-        });
-        Self { command_sender }
-    }
-
-    pub fn get_buffered(&self) -> Result<ChangeBufferUpdate, String> {
-        let (sender, receiver) = oneshot::channel();
-        self.command_sender
-            .blocking_send(Message::GetBuffered {
-                response_sender: sender,
-            })
-            .unwrap();
-        receiver.blocking_recv().unwrap()
-    }
-
-    pub fn clear(&self) {
-        self.command_sender.blocking_send(Message::Clear).unwrap();
-    }
-
-    pub fn reset(&self) {
-        self.command_sender.blocking_send(Message::Reset).unwrap();
     }
 }

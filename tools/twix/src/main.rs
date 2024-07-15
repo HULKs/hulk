@@ -14,7 +14,7 @@ use color_eyre::{
     Result,
 };
 
-use communication::client::ConnectionStatus;
+use communication::client::Status;
 use completion_edit::CompletionEdit;
 use configuration::{
     keybind_plugin::{self, KeybindSystem},
@@ -50,12 +50,11 @@ use visuals::Visuals;
 mod change_buffer;
 mod completion_edit;
 mod configuration;
-mod image_buffer;
+mod log_error;
 mod nao;
 mod panel;
 mod panels;
-mod players_value_buffer;
-mod repository_parameters;
+mod players_buffer_handle;
 mod selectable_panel_macro;
 mod twix_painter;
 mod value_buffer;
@@ -65,7 +64,7 @@ mod zoom_and_pan;
 #[derive(Debug, Parser)]
 struct Arguments {
     /// Nao address to connect to (overrides the address saved in the configuration file)
-    pub nao_address: Option<NaoAddress>,
+    pub address: Option<String>,
 
     /// Delete the current panel setup
     #[arg(long)]
@@ -174,7 +173,7 @@ struct TwixApp {
     nao: Arc<Nao>,
     reachable_naos: ReachableNaos,
     connection_intent: bool,
-    ip_address: String,
+    address: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
@@ -187,23 +186,27 @@ impl TwixApp {
         arguments: Arguments,
         configuration: Configuration,
     ) -> Self {
-        let ip_address = arguments.nao_address.map_or(
-            creation_context
-                .storage
-                .and_then(|storage| storage.get_string("ip_address")),
-            |nao_address| Some(nao_address.ip.to_string()),
-        );
+        let address = arguments
+            .address
+            .map(|address| {
+                NaoAddress::from_str(&address)
+                    .map(|nao| nao.to_string())
+                    .unwrap_or(address)
+            })
+            .or_else(|| creation_context.storage?.get_string("address"))
+            .unwrap_or_else(|| "localhost".to_string());
+
+        let nao = Arc::new(Nao::new(format!("ws://{address}:1337")));
 
         let connection_intent = creation_context
             .storage
-            .and_then(|storage| {
-                storage
-                    .get_string("connection_intent")
-                    .map(|stored| stored == "true")
-            })
+            .and_then(|storage| storage.get_string("connection_intent"))
+            .map(|stored| stored == "true")
             .unwrap_or(false);
 
-        let nao = Arc::new(Nao::new(ip_address.clone(), connection_intent));
+        if connection_intent {
+            nao.connect();
+        }
 
         let dock_state: Option<DockState<Value>> = if arguments.clear {
             None
@@ -233,7 +236,7 @@ impl TwixApp {
         context.set_keybinds(Arc::new(configuration.keys));
 
         let reachable_naos = ReachableNaos::new(context.clone());
-        nao.on_update(move || context.request_repaint());
+        nao.on_change(move || context.request_repaint());
 
         let visual = creation_context
             .storage
@@ -248,7 +251,7 @@ impl TwixApp {
             nao,
             reachable_naos,
             connection_intent,
-            ip_address: ip_address.unwrap_or_default(),
+            address,
             panel_selection,
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
@@ -373,7 +376,7 @@ impl App for TwixApp {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     let address_input = CompletionEdit::addresses(
-                        &mut self.ip_address,
+                        &mut self.address,
                         21..=41,
                         &self.reachable_naos.ips,
                     )
@@ -383,33 +386,34 @@ impl App for TwixApp {
                     }
                     if context.keybind_pressed(KeybindAction::FocusAddress) {
                         address_input.request_focus();
-                        CompletionEdit::select_all(&self.ip_address, ui, address_input.id);
+                        CompletionEdit::select_all(&self.address, ui, address_input.id);
                     }
                     if address_input.changed() || address_input.lost_focus() {
-                        self.nao.set_address(&self.ip_address);
+                        let address = &self.address;
+                        self.nao.set_address(format!("ws://{address}:1337"));
+                        self.connection_intent = true;
+                        self.nao.connect();
                     }
                     let (connect_text, color) = match self.nao.connection_status() {
-                        ConnectionStatus::Disconnected { connect, .. } => {
-                            if connect {
-                                ("Connecting", Color32::RED)
-                            } else {
-                                ("Disconnected", Color32::WHITE)
-                            }
-                        }
-                        ConnectionStatus::Connecting { .. } => ("Connecting", Color32::YELLOW),
-                        ConnectionStatus::Connected { .. } => ("Connected", Color32::GREEN),
+                        Status::Disconnected => ("Disconnected", Color32::RED),
+                        Status::Connecting => ("Connecting", Color32::YELLOW),
+                        Status::Connected => ("Connected", Color32::GREEN),
                     };
                     let connect_text = WidgetText::from(connect_text).color(color);
                     if ui
                         .checkbox(&mut self.connection_intent, connect_text)
                         .changed()
                     {
-                        self.nao.set_connect(self.connection_intent);
+                        if self.connection_intent {
+                            self.nao.connect();
+                        } else {
+                            self.nao.disconnect();
+                        }
                     }
                     if context.keybind_pressed(KeybindAction::Reconnect) {
-                        self.nao.set_connect(false);
+                        self.nao.disconnect();
                         self.connection_intent = true;
-                        self.nao.set_connect(true);
+                        self.nao.connect();
                     }
 
                     if self.active_tab_index() != Some(self.last_focused_tab) {
@@ -570,7 +574,7 @@ impl App for TwixApp {
         let dock_state = self.dock_state.map_tabs(|tab| tab.panel.save());
 
         storage.set_string("dock_state", to_string(&dock_state).unwrap());
-        storage.set_string("ip_address", self.ip_address.clone());
+        storage.set_string("address", self.address.clone());
         storage.set_string(
             "connection_intent",
             if self.connection_intent {

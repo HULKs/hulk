@@ -4,7 +4,6 @@ use std::{
     ops::RangeInclusive,
 };
 
-use communication::messages::Fields;
 use eframe::{
     egui::{
         text::{CCursor, CCursorRange},
@@ -15,6 +14,7 @@ use eframe::{
 };
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use itertools::chain;
+use log::error;
 
 use crate::nao::Nao;
 
@@ -51,7 +51,7 @@ impl From<String> for CompletionEntry {
 }
 
 pub struct CompletionEdit<'key> {
-    hint_text: &'static str,
+    hint_text: WidgetText,
     key: &'key mut String,
     completion_items: Vec<CompletionEntry>,
 }
@@ -60,10 +60,10 @@ impl<'key> CompletionEdit<'key> {
     pub fn new(
         key: &'key mut String,
         completion_items: Vec<CompletionEntry>,
-        hint_text: &'static str,
+        hint_text: impl Into<WidgetText>,
     ) -> Self {
         Self {
-            hint_text,
+            hint_text: hint_text.into(),
             key,
             completion_items,
         }
@@ -85,33 +85,59 @@ impl<'key> CompletionEdit<'key> {
         .collect();
 
         Self {
-            hint_text: "Address",
+            hint_text: "Address".into(),
             key,
             completion_items,
         }
     }
 
-    pub fn outputs(key: &'key mut String, nao: &Nao) -> Self {
-        let completion_items = nao
-            .get_output_fields()
-            .map(output_fields_to_completion_items)
-            .unwrap_or_default();
+    pub fn readable_paths(key: &'key mut String, nao: &Nao) -> Self {
+        let completion_items = match &*nao.latest_paths() {
+            Some(Ok(paths)) => paths
+                .iter()
+                .filter_map(|(path, entry)| {
+                    if entry.is_readable {
+                        Some(CompletionEntry::from(path.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            Some(Err(error)) => {
+                error!("{error}");
+                Vec::new()
+            }
+            None => Vec::new(),
+        };
 
         Self {
-            hint_text: "Subscription Key",
+            hint_text: "Path".into(),
             key,
             completion_items,
         }
     }
 
-    pub fn parameters(key: &'key mut String, nao: &Nao) -> Self {
-        let completion_items = nao
-            .get_parameter_fields()
-            .map(|fields| fields.into_iter().map(|field| field.into()).collect())
-            .unwrap_or_default();
+    pub fn writable_paths(key: &'key mut String, nao: &Nao) -> Self {
+        let completion_items = match &*nao.latest_paths() {
+            Some(Ok(paths)) => paths
+                .iter()
+                .filter_map(|(path, entry)| {
+                    if entry.is_writable {
+                        Some(CompletionEntry::from(path.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            Some(Err(error)) => {
+                error!("{error}");
+                Vec::new()
+            }
+            None => Vec::new(),
+        };
 
         Self {
-            hint_text: "Parameter",
+            hint_text: "Path".into(),
             key,
             completion_items,
         }
@@ -141,7 +167,7 @@ impl Widget for CompletionEdit<'_> {
         let matcher = SkimMatcherV2::default();
         let mut completion_text_items: Vec<_> = self
             .completion_items
-            .iter()
+            .into_iter()
             .filter_map(|item| {
                 matcher
                     .fuzzy_match(&item.text, self.key)
@@ -212,7 +238,7 @@ impl Widget for CompletionEdit<'_> {
                             for (i, completion_item) in
                                 completion_text_items.into_iter().enumerate()
                             {
-                                let completion_entry = completion_item.1;
+                                let completion_entry = &completion_item.1;
                                 let is_selected = Some(i as i64) == state.selected_item;
 
                                 let mut text = WidgetText::from(completion_entry.text.clone());
@@ -245,15 +271,4 @@ impl Widget for CompletionEdit<'_> {
         state.store(ui.ctx(), popup_id);
         response
     }
-}
-
-pub fn output_fields_to_completion_items(output_fields: Fields) -> Vec<CompletionEntry> {
-    output_fields
-        .into_iter()
-        .flat_map(|(cycler_instance, fields)| {
-            fields
-                .into_iter()
-                .map(move |field| format!("{cycler_instance}.{field}").into())
-        })
-        .collect()
 }

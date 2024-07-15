@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     net::SocketAddr,
     path::PathBuf,
     time::{Duration, SystemTime},
@@ -42,7 +42,7 @@ macro_rules! implement_as_not_supported {
         }
 
         impl PathIntrospect for $type {
-            fn extend_with_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
+            fn extend_with_fields(_fields: &mut HashSet<String>, _prefix: &str) {}
         }
     };
     ($type:ty, $($generic:tt),*) => {
@@ -77,7 +77,7 @@ macro_rules! implement_as_not_supported {
         }
 
         impl<$($generic),*> PathIntrospect for $type {
-            fn extend_with_fields(_fields: &mut BTreeSet<String>, _prefix: &str) {}
+            fn extend_with_fields(_fields: &mut HashSet<String>, _prefix: &str) {}
         }
     };
 }

@@ -12,7 +12,7 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, point, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball::BallPercept,
+    ball_detection::BallPercept,
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},

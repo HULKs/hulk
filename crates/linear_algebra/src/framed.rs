@@ -3,7 +3,7 @@ use num_traits::Num;
 use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeSet,
+    collections::HashSet,
     hash::{Hash, Hasher},
     iter::Sum,
     marker::PhantomData,
@@ -200,7 +200,7 @@ impl<Frame, Inner> PathIntrospect for Framed<Frame, Inner>
 where
     Inner: PathIntrospect,
 {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         Inner::extend_with_fields(fields, prefix)
     }
 }

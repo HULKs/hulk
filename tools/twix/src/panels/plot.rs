@@ -1,20 +1,20 @@
-use std::{str::FromStr, sync::Arc};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
-use color_eyre::eyre::{eyre, Result, WrapErr};
-use communication::client::CyclerOutput;
+use color_eyre::eyre::{Context, OptionExt};
 use eframe::{
-    egui::{
-        Button, CollapsingHeader, DragValue, Response, RichText, TextEdit, TextStyle, Ui, Widget,
-    },
+    egui::{Button, CollapsingHeader, DragValue, Response, TextEdit, TextStyle, Ui, Widget},
     epaint::Color32,
 };
 use egui_plot::{Line, Plot as EguiPlot, PlotPoints};
-use log::{error, info};
+use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string_pretty, Value};
 
-use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::ValueBuffer};
+use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 const DEFAULT_LINE_COLORS: &[Color32] = &[
     Color32::from_rgb(31, 119, 180),
@@ -31,9 +31,9 @@ const DEFAULT_LINE_COLORS: &[Color32] = &[
 
 #[derive(Serialize, Deserialize)]
 struct LineData {
-    output_key: String,
+    path: String,
     #[serde(skip)]
-    value_buffer: Option<ValueBuffer>,
+    buffer: Option<BufferHandle<Value>>,
     color: Color32,
     #[serde(skip)]
     #[serde(default = "LineData::create_lua")]
@@ -67,8 +67,8 @@ impl LineData {
         let lua_text = "function (value)\n  return value\nend".to_string();
 
         let mut line_data = Self {
-            output_key: String::new(),
-            value_buffer: None,
+            path: String::new(),
+            buffer: None,
             color,
             lua,
             lua_text,
@@ -85,23 +85,28 @@ impl LineData {
         self.is_highlighted = is_highlighted
     }
 
-    fn plot(&self, maximum_buffer_size: usize) -> Line {
+    fn plot(&self, latest_timestamp: Option<SystemTime>) -> Line {
         let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
         let values = self
-            .value_buffer
+            .buffer
             .as_ref()
             .map(|buffer| {
                 buffer
-                    .get_buffered()
+                    .get()
                     .map(|buffered_values| {
-                        PlotPoints::from_iter(buffered_values.iter().enumerate().map(
-                            |(i, value)| {
-                                let value = lua_function
-                                    .call::<_, f64>(self.lua.to_value(value))
-                                    .unwrap_or(f64::NAN);
-                                [(maximum_buffer_size - i - 1) as f64, value]
-                            },
-                        ))
+                        PlotPoints::from_iter(buffered_values.iter().map(|datum| {
+                            let value = lua_function
+                                .call::<_, f64>(self.lua.to_value(&datum.value))
+                                .unwrap_or(f64::NAN);
+                            [
+                                -latest_timestamp
+                                    .unwrap()
+                                    .duration_since(datum.timestamp)
+                                    .unwrap_or(Duration::ZERO)
+                                    .as_secs_f64(),
+                                value,
+                            ]
+                        }))
                     })
                     .unwrap_or_default()
             })
@@ -111,28 +116,36 @@ impl LineData {
             .highlight(self.is_highlighted)
     }
 
-    fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>, buffer_size: usize, id: usize) {
+    fn show_settings(&mut self, ui: &mut Ui, id: usize, nao: &Nao, buffer_history: Duration) {
         ui.horizontal_top(|ui| {
-            let subscription_field =
-                ui.add(CompletionEdit::outputs(&mut self.output_key, nao.as_ref()));
+            let subscription_field = ui.add(CompletionEdit::readable_paths(&mut self.path, nao));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
-                info!("Subscribing: {}", self.output_key);
-                self.subscribe_key(nao.clone(), buffer_size);
+                let handle = nao.subscribe_buffered_json(&self.path, buffer_history);
+                self.buffer = Some(handle);
             }
+
             ui.color_edit_button_srgba(&mut self.color);
+
             let id_source = ui.id().with("conversion_collapse").with(id);
             CollapsingHeader::new("Conversion Function")
                 .id_source(id_source)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        let latest_value = get_latest_value(&self.value_buffer);
-                        let content = latest_value
-                            .and_then(|value| {
-                                to_string_pretty(&value).wrap_err("failed to prettify value")
-                            })
-                            .unwrap_or_else(|error| error.to_string());
-                        ui.label(content);
+                        let latest_value = self
+                            .buffer
+                            .as_ref()
+                            .ok_or_eyre("no subscription yet")
+                            .and_then(|buffer| buffer.get_last_value())
+                            .and_then(|maybe_value| maybe_value.ok_or_eyre("no value yet"));
+
+                        let pretty_json = match &latest_value {
+                            Ok(value) => to_string_pretty(value)
+                                .wrap_err("failed to serialize value")
+                                .unwrap_or_else(|error| format!("{error:#}")),
+                            Err(error) => format!("{error:#}"),
+                        };
+                        ui.label(pretty_json);
                         let code_edit = TextEdit::multiline(&mut self.lua_text)
                             .font(TextStyle::Monospace)
                             .code_editor()
@@ -152,7 +165,7 @@ impl LineData {
                         }
                         if let Some(error) = &self.lua_error {
                             ui.colored_label(Color32::RED, error);
-                        } else if let Ok(value) = get_latest_value(&self.value_buffer) {
+                        } else if let Ok(value) = &latest_value {
                             let lua_function: Function =
                                 self.lua.globals().get("conversion_function").unwrap();
                             let value = lua_function.call::<_, f64>(self.lua.to_value(&value));
@@ -169,25 +182,11 @@ impl LineData {
                 });
         });
     }
-
-    fn subscribe_key(&mut self, nao: Arc<Nao>, buffer_size: usize) {
-        self.value_buffer = match CyclerOutput::from_str(&self.output_key) {
-            Ok(output) => {
-                let buffer = nao.subscribe_output(output);
-                buffer.reserve(buffer_size);
-                Some(buffer)
-            }
-            Err(error) => {
-                error!("Failed to subscribe: {:#}", error);
-                None
-            }
-        };
-    }
 }
 
 pub struct PlotPanel {
-    line_datas: Vec<LineData>,
-    buffer_capacity: usize,
+    lines: Vec<LineData>,
+    buffer_history: Duration,
     nao: Arc<Nao>,
 }
 
@@ -195,62 +194,62 @@ impl Panel for PlotPanel {
     const NAME: &'static str = "Plot";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        const DEFAULT_BUFFER_CAPACITY: usize = 1_000;
+        const DEFAULT_BUFFER_HISTORY: Duration = Duration::from_secs(10);
 
-        let line_datas = if let Some(line_datas) =
-            value.and_then(|value| value["subscribe_keys"].as_array())
-        {
-            line_datas
-                .iter()
-                .filter_map(|line_data| {
-                    if let Ok(mut line_data) = serde_json::from_value::<LineData>(line_data.clone())
-                    {
+        let lines = value
+            .and_then(|value| value["lines"].as_array())
+            .map(|lines| {
+                lines
+                    .iter()
+                    .filter_map(|line_data| {
+                        let mut line_data =
+                            serde_json::from_value::<LineData>(line_data.clone()).ok()?;
                         line_data.set_lua();
-                        line_data.subscribe_key(nao.clone(), 1000);
+                        if !line_data.path.is_empty() {
+                            let handle = nao
+                                .subscribe_buffered_json(&line_data.path, DEFAULT_BUFFER_HISTORY);
+                            line_data.buffer = Some(handle);
+                        }
                         Some(line_data)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<LineData>>()
-        } else {
-            vec![]
-        };
+                    })
+                    .collect_vec()
+            })
+            .unwrap_or_default();
 
         PlotPanel {
-            line_datas,
-            buffer_capacity: DEFAULT_BUFFER_CAPACITY,
+            lines,
+            buffer_history: DEFAULT_BUFFER_HISTORY,
             nao,
         }
     }
 
     fn save(&self) -> Value {
         json!({
-            "subscribe_keys": self.line_datas.iter().filter_map(|line_data| serde_json::to_value(line_data).ok()).collect::<Vec<Value>>(),
+            "lines": self.lines.iter().filter_map(|line_data| serde_json::to_value(line_data).ok()).collect::<Vec<Value>>(),
         })
     }
 }
 
 impl PlotPanel {
     fn plot(&self, ui: &mut Ui) -> Response {
-        let maximum_buffer_size = self
-            .line_datas
+        let latest_timestamp = self
+            .lines
             .iter()
             .filter_map(|line_data| {
-                let buffer = line_data.value_buffer.as_ref()?;
-                buffer.size().ok()
+                let buffer = line_data.buffer.as_ref()?;
+                let last = buffer.get_last_timestamp().ok().flatten()?;
+                Some(last)
             })
-            .max()
-            .unwrap_or(self.buffer_capacity);
+            .max();
 
         EguiPlot::new(ui.id().with("value_plot"))
             .view_aspect(2.0)
             .show(ui, |plot_ui| {
                 for line in self
-                    .line_datas
+                    .lines
                     .iter()
                     .filter(|line_data| !line_data.is_hidden)
-                    .map(|entry| entry.plot(maximum_buffer_size))
+                    .map(|entry| entry.plot(latest_timestamp))
                 {
                     plot_ui.line(line);
                 }
@@ -260,20 +259,18 @@ impl PlotPanel {
 
     fn show_menu(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            if ui
-                .add(
-                    DragValue::new(&mut self.buffer_capacity)
-                        .clamp_range(0..=10_000)
-                        .prefix("Buffer Size:"),
-                )
-                .changed()
-            {
+            let mut history_in_seconds = self.buffer_history.as_secs_f64();
+            let widget = DragValue::new(&mut history_in_seconds)
+                .clamp_range(0.0..=600.0)
+                .prefix("History [s]:");
+            if ui.add(widget).changed() {
+                self.buffer_history = Duration::from_secs_f64(history_in_seconds);
                 for buffer in self
-                    .line_datas
+                    .lines
                     .iter_mut()
-                    .filter_map(|data| data.value_buffer.as_ref())
+                    .filter_map(|data| data.buffer.as_ref())
                 {
-                    buffer.reserve(self.buffer_capacity);
+                    buffer.set_history(self.buffer_history);
                 }
             }
         });
@@ -286,25 +283,18 @@ impl Widget for &mut PlotPanel {
         self.show_menu(ui);
 
         let mut id = 0;
-        self.line_datas.retain_mut(|line_data| {
+        self.lines.retain_mut(|line_data| {
             ui.horizontal(|ui| {
-                let delete_button = Button::new(RichText::new("❌").color(Color32::WHITE).strong())
-                    .fill(Color32::RED);
+                let delete_button = Button::new("X");
                 let delete_button = ui.add(delete_button);
 
-                let hide_button_face = if line_data.is_hidden {
-                    RichText::new("H")
-                } else {
-                    RichText::new("V")
-                };
+                let hide_button_face = if line_data.is_hidden { "H" } else { "V" };
 
-                let hide_button =
-                    Button::new(hide_button_face.color(Color32::WHITE)).fill(Color32::GRAY);
-                if ui.add(hide_button).clicked() {
+                if ui.button(hide_button_face).clicked() {
                     line_data.is_hidden = !line_data.is_hidden;
                 }
 
-                line_data.show_settings(ui, self.nao.clone(), self.buffer_capacity, id);
+                line_data.show_settings(ui, id, &self.nao, self.buffer_history);
                 id += 1;
                 !delete_button.clicked()
             })
@@ -312,9 +302,9 @@ impl Widget for &mut PlotPanel {
         });
 
         if ui.button("✚").clicked() {
-            self.line_datas.push(LineData::new(
+            self.lines.push(LineData::new(
                 DEFAULT_LINE_COLORS
-                    .get(self.line_datas.len())
+                    .get(self.lines.len())
                     .copied()
                     .unwrap_or(Color32::TRANSPARENT),
             ));
@@ -322,13 +312,4 @@ impl Widget for &mut PlotPanel {
 
         plot_response
     }
-}
-
-fn get_latest_value(value_buffer: &Option<ValueBuffer>) -> Result<Value> {
-    let buffer = value_buffer
-        .as_ref()
-        .ok_or(eyre!("nothing subscribed yet"))?;
-    buffer
-        .get_latest()
-        .map_err(|error| eyre!("failed to get latest value: {error}"))
 }
