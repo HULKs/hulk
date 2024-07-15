@@ -114,7 +114,7 @@ impl MotorCommandCollector {
                     *context.current_minimizer_parameters,
                 ),
                 Joints::from_head_and_body(
-                    HeadJoints::fill(0.01),
+                    HeadJoints::fill(0.6),
                     BodyJoints::from_lower_and_upper(
                         LowerBodyJoints::fill(0.6),
                         UpperBodyJoints::fill(0.01),
@@ -144,7 +144,7 @@ impl MotorCommandCollector {
                     *context.current_minimizer_parameters,
                 ),
                 Joints::from_head_and_body(
-                    HeadJoints::fill(0.01),
+                    HeadJoints::fill(0.6),
                     BodyJoints::from_lower_and_upper(
                         LowerBodyJoints::fill(0.6),
                         UpperBodyJoints::fill(0.01),
