@@ -1,5 +1,12 @@
+//! A hysteresis function collection
+
 use std::ops::RangeInclusive;
 
+/// For an absolute hysteresis with concrete lower and upper values
+///
+/// ---false----[----old-value----]---true---
+///            ⏞                  ⏞
+///     hysteresis.start()  hysteresis.end()
 pub fn greater_than_with_absolute_hysteresis(
     last_evaluation: bool,
     value: f32,
@@ -12,6 +19,11 @@ pub fn greater_than_with_absolute_hysteresis(
     }
 }
 
+/// For an absolute hysteresis with concrete lower and upper values
+///
+/// ---true----[----old-value-----]---false---
+///           ⏞                  ⏞
+///    hysteresis.start()  hysteresis.end()
 pub fn less_than_with_absolute_hysteresis(
     last_evaluation: bool,
     value: f32,
@@ -24,6 +36,11 @@ pub fn less_than_with_absolute_hysteresis(
     }
 }
 
+/// For a relative hysteresis with relative lower and upper values
+///
+/// -----false-----[-------old-value-------------------------------]-----true-----
+///               ⏞                         ⏞                     ⏞
+///    threshold + hysteresis.start()    threshold    threshold + hysteresis.end()
 pub fn greater_than_with_relative_hysteresis(
     last_evaluation: bool,
     value: f32,
@@ -40,6 +57,11 @@ pub fn greater_than_with_relative_hysteresis(
     )
 }
 
+/// For a relative hysteresis with relative lower and upper values
+///
+/// ------true-----[-------old-value-------------------------------]-----false-----
+///               ⏞                         ⏞                     ⏞
+///    threshold + hysteresis.start()    threshold    threshold + hysteresis.end()
 pub fn less_than_with_relative_hysteresis(
     last_evaluation: bool,
     value: f32,
@@ -56,6 +78,11 @@ pub fn less_than_with_relative_hysteresis(
     )
 }
 
+/// For a relative hysteresis with relative lower and upper values
+///
+/// -----false-----[-------old-value-----------------------------]-----true-----
+///               ⏞                       ⏞                     ⏞
+///    threshold - hysteresis / 2.0    threshold    threshold + hysteresis / 2.0
 pub fn greater_than_with_hysteresis(
     last_evaluation: bool,
     value: f32,
@@ -69,6 +96,11 @@ pub fn greater_than_with_hysteresis(
     )
 }
 
+/// For a relative hysteresis with relative lower and upper values
+///
+/// ------true-----[-------old-value-----------------------------]-----false-----
+///               ⏞                       ⏞                     ⏞
+///    threshold - hysteresis / 2.0    threshold    threshold + hysteresis / 2.0
 pub fn less_than_with_hysteresis(
     last_evaluation: bool,
     value: f32,
