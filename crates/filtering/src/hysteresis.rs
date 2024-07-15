@@ -1,202 +1,117 @@
-pub fn greater_than_with_hysteresis_from_tresholds(
+use std::ops::Range;
+
+pub fn greater_than_with_absolute_hysteresis(
     last_evaluation: bool,
     value: f32,
-    lower_threshold: f32,
-    upper_threshold: f32,
+    hysteresis: Range<f32>,
 ) -> bool {
-    if value > upper_threshold {
-        true
-    } else if value < lower_threshold {
-        false
-    } else {
+    if hysteresis.contains(&value) {
         last_evaluation
+    } else {
+        value >= hysteresis.end
     }
 }
 
 #[allow(clippy::if_same_then_else)]
-pub fn less_than_with_hysteresis_from_thresholds(
+pub fn less_than_with_absolute_hysteresis(
     last_evaluation: bool,
     value: f32,
-    lower_threshold: f32,
-    upper_threshold: f32,
+    hysteresis: Range<f32>,
 ) -> bool {
-    if value < lower_threshold {
-        true
-    } else if value > upper_threshold {
-        false
-    } else {
+    if hysteresis.contains(&value) {
         last_evaluation
+    } else {
+        value <= hysteresis.start
     }
 }
 
-pub fn greater_than_with_hysteresis_from_delta(
+pub fn greater_than_with_relative_hysteresis(
     last_evaluation: bool,
     value: f32,
     threshold: f32,
     hysteresis: f32,
 ) -> bool {
-    greater_than_with_hysteresis_from_tresholds(
+    greater_than_with_absolute_hysteresis(
         last_evaluation,
         value,
-        threshold - hysteresis,
-        threshold + hysteresis,
+        threshold - hysteresis..threshold + hysteresis,
     )
 }
 
-pub fn less_than_with_hysteresis_from_delta(
+pub fn less_than_with_relative_hysteresis(
     last_evaluation: bool,
     value: f32,
     threshold: f32,
     hysteresis: f32,
 ) -> bool {
-    less_than_with_hysteresis_from_thresholds(
+    less_than_with_absolute_hysteresis(
         last_evaluation,
         value,
-        threshold - hysteresis,
-        threshold + hysteresis,
+        threshold - hysteresis..threshold + hysteresis,
     )
 }
 
 #[cfg(test)]
 mod test {
+    use super::*;
 
     #[test]
     fn greater_than_with_hysteresis_from_tresholds() {
-        assert!(!super::greater_than_with_hysteresis_from_tresholds(
-            false, 0.0, 1.0, 2.0
-        ));
-        assert!(!super::greater_than_with_hysteresis_from_tresholds(
-            false, 1.0, 1.0, 2.0
-        ));
-        assert!(!super::greater_than_with_hysteresis_from_tresholds(
-            false, 1.5, 1.0, 2.0
-        ));
-        assert!(!super::greater_than_with_hysteresis_from_tresholds(
-            false, 2.0, 1.0, 2.0
-        ));
-        assert!(super::greater_than_with_hysteresis_from_tresholds(
-            false, 3.0, 1.0, 2.0
-        ));
+        assert!(!greater_than_with_absolute_hysteresis(false, 0.0, 1.0..2.0));
+        assert!(!greater_than_with_absolute_hysteresis(false, 1.0, 1.0..2.0));
+        assert!(!greater_than_with_absolute_hysteresis(false, 1.5, 1.0..2.0));
+        assert!(greater_than_with_absolute_hysteresis(false, 2.0, 1.0..2.0));
+        assert!(greater_than_with_absolute_hysteresis(false, 3.0, 1.0..2.0));
 
-        assert!(!super::greater_than_with_hysteresis_from_tresholds(
-            true, 0.0, 1.0, 2.0
-        ));
-        assert!(super::greater_than_with_hysteresis_from_tresholds(
-            true, 1.0, 1.0, 2.0
-        ));
-        assert!(super::greater_than_with_hysteresis_from_tresholds(
-            true, 1.5, 1.0, 2.0
-        ));
-        assert!(super::greater_than_with_hysteresis_from_tresholds(
-            true, 2.0, 1.0, 2.0
-        ));
-        assert!(super::greater_than_with_hysteresis_from_tresholds(
-            true, 3.0, 1.0, 2.0
-        ));
+        assert!(!greater_than_with_absolute_hysteresis(true, 0.0, 1.0..2.0));
+        assert!(greater_than_with_absolute_hysteresis(true, 1.0, 1.0..2.0));
+        assert!(greater_than_with_absolute_hysteresis(true, 1.5, 1.0..2.0));
+        assert!(greater_than_with_absolute_hysteresis(true, 2.0, 1.0..2.0));
+        assert!(greater_than_with_absolute_hysteresis(true, 3.0, 1.0..2.0));
     }
 
     #[test]
     fn less_than_with_hysteresis_from_thresholds() {
-        assert!(super::less_than_with_hysteresis_from_thresholds(
-            false, 0.0, 1.0, 2.0
-        ));
-        assert!(!super::less_than_with_hysteresis_from_thresholds(
-            false, 1.0, 1.0, 2.0
-        ));
-        assert!(!super::less_than_with_hysteresis_from_thresholds(
-            false, 1.5, 1.0, 2.0
-        ));
-        assert!(!super::less_than_with_hysteresis_from_thresholds(
-            false, 2.0, 1.0, 2.0
-        ));
-        assert!(!super::less_than_with_hysteresis_from_thresholds(
-            false, 3.0, 1.0, 2.0
-        ));
+        assert!(less_than_with_absolute_hysteresis(false, 0.0, 1.0..2.0));
+        assert!(!less_than_with_absolute_hysteresis(false, 1.0, 1.0..2.0));
+        assert!(!less_than_with_absolute_hysteresis(false, 1.5, 1.0..2.0));
+        assert!(!less_than_with_absolute_hysteresis(false, 2.0, 1.0..2.0));
+        assert!(!less_than_with_absolute_hysteresis(false, 3.0, 1.0..2.0));
 
-        assert!(super::less_than_with_hysteresis_from_thresholds(
-            true, 0.0, 1.0, 2.0
-        ));
-        assert!(super::less_than_with_hysteresis_from_thresholds(
-            true, 1.0, 1.0, 2.0
-        ));
-        assert!(super::less_than_with_hysteresis_from_thresholds(
-            true, 1.5, 1.0, 2.0
-        ));
-        assert!(super::less_than_with_hysteresis_from_thresholds(
-            true, 2.0, 1.0, 2.0
-        ));
-        assert!(!super::less_than_with_hysteresis_from_thresholds(
-            true, 3.0, 1.0, 2.0
-        ));
+        assert!(less_than_with_absolute_hysteresis(true, 0.0, 1.0..2.0));
+        assert!(less_than_with_absolute_hysteresis(true, 1.0, 1.0..2.0));
+        assert!(less_than_with_absolute_hysteresis(true, 1.5, 1.0..2.0));
+        assert!(!less_than_with_absolute_hysteresis(true, 2.0, 1.0..2.0));
+        assert!(!less_than_with_absolute_hysteresis(true, 3.0, 1.0..2.0));
     }
 
     #[test]
     fn greater_than_with_hysteresis_from_delta() {
-        assert!(!super::greater_than_with_hysteresis_from_delta(
-            false, 0.0, 1.0, 0.5
-        ));
-        assert!(!super::greater_than_with_hysteresis_from_delta(
-            false, 1.0, 1.0, 0.5
-        ));
-        assert!(!super::greater_than_with_hysteresis_from_delta(
-            false, 1.5, 1.0, 0.5
-        ));
-        assert!(super::greater_than_with_hysteresis_from_delta(
-            false, 2.0, 1.0, 0.5
-        ));
-        assert!(super::greater_than_with_hysteresis_from_delta(
-            false, 2.5, 1.0, 0.5
-        ));
+        assert!(!greater_than_with_relative_hysteresis(false, 0.0, 1.0, 0.5));
+        assert!(!greater_than_with_relative_hysteresis(false, 1.0, 1.0, 0.5));
+        assert!(greater_than_with_relative_hysteresis(false, 1.5, 1.0, 0.5));
+        assert!(greater_than_with_relative_hysteresis(false, 2.0, 1.0, 0.5));
+        assert!(greater_than_with_relative_hysteresis(false, 2.5, 1.0, 0.5));
 
-        assert!(!super::greater_than_with_hysteresis_from_delta(
-            true, 0.0, 1.0, 0.5
-        ));
-        assert!(super::greater_than_with_hysteresis_from_delta(
-            true, 1.0, 1.0, 0.5
-        ));
-        assert!(super::greater_than_with_hysteresis_from_delta(
-            true, 1.5, 1.0, 0.5
-        ));
-        assert!(super::greater_than_with_hysteresis_from_delta(
-            true, 2.0, 1.0, 0.5
-        ));
-        assert!(super::greater_than_with_hysteresis_from_delta(
-            true, 2.5, 1.0, 0.5
-        ));
+        assert!(!greater_than_with_relative_hysteresis(true, 0.0, 1.0, 0.5));
+        assert!(greater_than_with_relative_hysteresis(true, 1.0, 1.0, 0.5));
+        assert!(greater_than_with_relative_hysteresis(true, 1.5, 1.0, 0.5));
+        assert!(greater_than_with_relative_hysteresis(true, 2.0, 1.0, 0.5));
+        assert!(greater_than_with_relative_hysteresis(true, 2.5, 1.0, 0.5));
     }
 
     #[test]
     fn less_than_with_hysteresis_from_delta() {
-        assert!(super::less_than_with_hysteresis_from_delta(
-            false, 0.0, 1.0, 0.5
-        ));
-        assert!(!super::less_than_with_hysteresis_from_delta(
-            false, 1.0, 1.0, 0.5
-        ));
-        assert!(!super::less_than_with_hysteresis_from_delta(
-            false, 1.5, 1.0, 0.5
-        ));
-        assert!(!super::less_than_with_hysteresis_from_delta(
-            false, 2.0, 1.0, 0.5
-        ));
-        assert!(!super::less_than_with_hysteresis_from_delta(
-            false, 2.5, 1.0, 0.5
-        ));
+        assert!(less_than_with_relative_hysteresis(false, 0.0, 1.0, 0.5));
+        assert!(!less_than_with_relative_hysteresis(false, 1.0, 1.0, 0.5));
+        assert!(!less_than_with_relative_hysteresis(false, 1.5, 1.0, 0.5));
+        assert!(!less_than_with_relative_hysteresis(false, 2.0, 1.0, 0.5));
+        assert!(!less_than_with_relative_hysteresis(false, 2.5, 1.0, 0.5));
 
-        assert!(super::less_than_with_hysteresis_from_delta(
-            true, 0.0, 1.0, 0.5
-        ));
-        assert!(super::less_than_with_hysteresis_from_delta(
-            true, 1.0, 1.0, 0.5
-        ));
-        assert!(super::less_than_with_hysteresis_from_delta(
-            true, 1.5, 1.0, 0.5
-        ));
-        assert!(!super::less_than_with_hysteresis_from_delta(
-            true, 2.0, 1.0, 0.5
-        ));
-        assert!(!super::less_than_with_hysteresis_from_delta(
-            true, 2.5, 1.0, 0.5
-        ));
+        assert!(less_than_with_relative_hysteresis(true, 0.0, 1.0, 0.5));
+        assert!(less_than_with_relative_hysteresis(true, 1.0, 1.0, 0.5));
+        assert!(!less_than_with_relative_hysteresis(true, 1.5, 1.0, 0.5));
+        assert!(!less_than_with_relative_hysteresis(true, 2.0, 1.0, 0.5));
+        assert!(!less_than_with_relative_hysteresis(true, 2.5, 1.0, 0.5));
     }
 }
