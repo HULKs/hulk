@@ -23,3 +23,5 @@ pub mod step_planner;
 pub mod walk_manager;
 pub mod walking_engine;
 pub mod wide_stance;
+pub mod wide_stance_left;
+pub mod wide_stance_right;
