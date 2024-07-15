@@ -164,6 +164,20 @@ fn collect_kick_targets(
         })
     );
 
+    let is_penalty_shoot = matches!(
+        filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            game_phase: GamePhase::PenaltyShootout { .. },
+            ..
+        })
+    ) || matches!(
+        filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            sub_state: Some(SubState::PenaltyKick),
+            ..
+        })
+    );
+
     let (kick_opportunities, allow_instant_kicks): (Vec<_>, _) =
         if is_own_kick_off && is_not_free_for_opponent {
             (
@@ -214,7 +228,7 @@ fn collect_kick_targets(
                             .clone(),
                     })
                     .collect(),
-                true,
+                !is_penalty_shoot,
             )
         };
 
