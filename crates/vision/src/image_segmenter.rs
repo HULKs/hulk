@@ -9,10 +9,9 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Isometry2, Transform};
 use types::{
-    color::{Intensity, Rgb, YCbCr444},
-    field_color::FieldColor,
+    color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
+    field_color::FieldColorParameters,
     image_segments::{EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
-    interpolated::Interpolated,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
@@ -38,7 +37,6 @@ pub struct CycleContext {
         "Control",
         "ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
-    field_color: Input<FieldColor, "field_color">,
     projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 
     horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
@@ -48,9 +46,10 @@ pub struct CycleContext {
         "image_segmenter.$cycler_instance.vertical_edge_detection_source",
     >,
     vertical_edge_threshold:
-        Parameter<Interpolated, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
+        Parameter<u8, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     vertical_median_mode:
         Parameter<MedianModeParameters, "image_segmenter.$cycler_instance.vertical_median_mode">,
+    field_color: Parameter<FieldColorParameters, "field_color_detection.$cycler_instance">,
 }
 
 #[context]
@@ -93,10 +92,7 @@ impl ImageSegmenter {
             *context.horizontal_stride,
             *context.vertical_stride,
             *context.vertical_edge_detection_source,
-            context
-                .vertical_edge_threshold
-                .evaluate_at(self.ground_to_field_of_home_after_coin_toss_before_second_half)
-                as i16,
+            *context.vertical_edge_threshold as i16,
             *context.vertical_median_mode,
             projected_limbs,
         );
@@ -114,7 +110,7 @@ impl ImageSegmenter {
 fn new_grid(
     image: &YCbCr422Image,
     horizon: &Horizon,
-    field_color: &FieldColor,
+    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     vertical_stride: usize,
     vertical_edge_detection_source: EdgeDetectionSourceParameters,
@@ -199,7 +195,7 @@ fn median_of_five(mut values: [u8; 5]) -> u8 {
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line(
     image: &YCbCr422Image,
-    field_color: &FieldColor,
+    field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_detection_source: EdgeDetectionSourceParameters,
@@ -310,7 +306,8 @@ fn pixel_to_edge_detection_value(
         EdgeDetectionSourceParameters::Luminance => pixel.y,
         EdgeDetectionSourceParameters::GreenChromaticity => {
             let rgb = Rgb::from(pixel);
-            (rgb.convert_to_rgchromaticity().green * 255.0) as u8
+            let chromaticity = RgChromaticity::from(rgb);
+            (chromaticity.green * 255.0) as u8
         }
     }
 }
@@ -319,7 +316,7 @@ fn set_color_in_vertical_segment(
     mut segment: Segment,
     image: &YCbCr422Image,
     x: u32,
-    field_color: &FieldColor,
+    field_color: &FieldColorParameters,
 ) -> Segment {
     segment.color = match segment.length() {
         6.. => {
@@ -477,12 +474,47 @@ fn detect_edge(
     segment
 }
 
+trait FieldColorDetection {
+    fn get_intensity(&self, color: YCbCr444) -> Intensity;
+}
+
+impl FieldColorDetection for FieldColorParameters {
+    fn get_intensity(&self, color: YCbCr444) -> Intensity {
+        let rgb = Rgb::from(color);
+        let rg_chromaticity = RgChromaticity::from(rgb);
+        let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
+        let hsv = Hsv::from(rgb);
+
+        if self.luminance.contains(&color.y)
+            && self.green_luminance.contains(&color.y)
+            && self.red_chromaticity.contains(&rg_chromaticity.red)
+            && self.green_chromaticity.contains(&rg_chromaticity.green)
+            && self.blue_chromaticity.contains(&blue_chromaticity)
+            && self.hue.contains(&hsv.hue)
+            && self.saturation.contains(&hsv.saturation)
+        {
+            Intensity::High
+        } else {
+            Intensity::Low
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use itertools::iproduct;
-    use types::{color::YCbCr422, field_color::FieldColorFunction};
+    use types::color::YCbCr422;
 
     use super::*;
+    const FIELD_COLOR: FieldColorParameters = FieldColorParameters {
+        luminance: 25..=255,
+        green_luminance: 255..=255,
+        red_chromaticity: 0.37..=1.0,
+        green_chromaticity: 0.43..=1.0,
+        blue_chromaticity: 0.37..=1.0,
+        hue: 0..=0,
+        saturation: 0..=0,
+    };
 
     #[test]
     fn maximum_with_sign_switch() {
@@ -490,18 +522,6 @@ mod tests {
             "../../tests/data/white_wall_with_a_little_desk_in_front.png",
         )
         .unwrap();
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
         let vertical_stride = 2;
         let vertical_edge_threshold = 16;
         let vertical_median_mode = MedianModeParameters::Disabled;
@@ -509,7 +529,7 @@ mod tests {
         let horizon_y_minimum = 0.0;
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             12,
             vertical_stride,
             vertical_edge_detection_source,
@@ -530,21 +550,9 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_without_median() {
         let image = YCbCr422Image::zero(6, 3);
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -562,21 +570,9 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_with_median() {
         let image = YCbCr422Image::zero(6, 3);
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -603,22 +599,10 @@ mod tests {
                 YCbCr422::new(0, 10, 10, 10),
             ],
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -654,22 +638,10 @@ mod tests {
                 YCbCr422::new(0, 10, 10, 10),
             ],
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -710,18 +682,6 @@ mod tests {
                                            // segment boundary will be here
             ],
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
         // 0  0     0          0                   1             0
@@ -734,7 +694,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -787,18 +747,6 @@ mod tests {
             .flatten()
             .collect(),
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
         // 0
@@ -817,7 +765,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -867,18 +815,6 @@ mod tests {
                                            // segment boundary will be here
             ],
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         // y  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
         // 3   0     0         0                    1              0
@@ -891,7 +827,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -951,18 +887,6 @@ mod tests {
             .flatten()
             .collect(),
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         // y  y_median  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
         // 3
@@ -981,7 +905,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1063,18 +987,6 @@ mod tests {
                                            // segment boundary will be here
             ],
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
         // 0   0     0         0                   0             0
@@ -1128,7 +1040,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1220,18 +1132,6 @@ mod tests {
             .flatten()
             .collect(),
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
         // 0
@@ -1329,7 +1229,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1381,18 +1281,6 @@ mod tests {
                                             // segment boundary will be here
             ],
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         //  y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
         //  0  0     0          0                   1             0
@@ -1407,7 +1295,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1460,18 +1348,6 @@ mod tests {
             .flatten()
             .collect(),
         );
-        let field_color = FieldColor {
-            red_chromaticity_threshold: 0.37,
-            blue_chromaticity_threshold: 0.38,
-            green_chromaticity_threshold: 0.43,
-            green_luminance_threshold: 255.0,
-            luminance_threshold: 25.0,
-            function: FieldColorFunction::GreenChromaticity,
-            hue_low_threshold: 0.0,
-            hue_high_threshold: 0.0,
-            saturation_low_threshold: 0.0,
-            saturation_high_threshold: 0.0,
-        };
 
         //  y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
         //  0
@@ -1494,7 +1370,7 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &field_color,
+            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,

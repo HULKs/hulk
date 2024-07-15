@@ -29,7 +29,6 @@ pub mod hardware;
 pub mod image_segments;
 pub mod initial_look_around;
 pub mod initial_pose;
-pub mod interpolated;
 pub mod joints;
 pub mod joints_velocity;
 pub mod jpeg;
