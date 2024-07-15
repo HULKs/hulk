@@ -7,7 +7,7 @@ use framework::MainOutput;
 use geometry::{circle::Circle, line_segment::LineSegment, two_line_segments::TwoLineSegments};
 use linear_algebra::{distance, point, Isometry2, Point2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, SubState};
+use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -167,13 +167,15 @@ fn collect_kick_targets(
             ..
         })
     );
-    let is_penalty_shoot = matches!(
+    let is_penalty_shot = matches!(
         filtered_game_controller_state,
         Some(FilteredGameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
+            kicking_team: Team::Hulks,
             ..
         }) | Some(FilteredGameControllerState {
             sub_state: Some(SubState::PenaltyKick),
+            kicking_team: Team::Hulks,
             ..
         })
     );
@@ -217,7 +219,7 @@ fn collect_kick_targets(
                 .collect(),
                 true,
             )
-        } else if is_penalty_shoot {
+        } else if is_penalty_shot {
             (
                 generate_goal_line_kick_targets(field_dimensions, field_to_ground)
                     .into_iter()
