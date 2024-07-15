@@ -1088,6 +1088,7 @@
     "kick_off_kick_strength": 0.25,
     "kick_off_kick_variants": ["Forward", "Side"],
     "corner_kick_variants": ["Forward", "Side", "Turn"],
+    "penalty_kick_kick_variants": ["Forward"],
     "goal_line_kick_variants": ["Forward", "Side", "Turn"]
   },
   "role_assignment": {

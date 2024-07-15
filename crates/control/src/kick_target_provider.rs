@@ -46,6 +46,8 @@ pub struct CycleContext {
     kick_off_kick_variants:
         Parameter<Vec<KickVariant>, "kick_target_provider.kick_off_kick_variants">,
     corner_kick_variants: Parameter<Vec<KickVariant>, "kick_target_provider.corner_kick_variants">,
+    penalty_kick_kick_variants:
+        Parameter<Vec<KickVariant>, "kick_target_provider.penalty_kick_kick_variants">,
     goal_line_kick_variants:
         Parameter<Vec<KickVariant>, "kick_target_provider.goal_line_kick_variants">,
 }
@@ -57,6 +59,7 @@ struct CollectKickTargetsParameter<'cycle> {
     kick_off_kick_strength: f32,
     kick_off_kick_variants: Vec<KickVariant>,
     corner_kick_variants: Vec<KickVariant>,
+    penalty_kick_kick_variants: Vec<KickVariant>,
     goal_line_kick_variants: Vec<KickVariant>,
 }
 
@@ -98,6 +101,7 @@ impl KickTargetProvider {
             kick_off_kick_strength: *context.kick_off_kick_strength,
             kick_off_kick_variants: context.kick_off_kick_variants.clone(),
             corner_kick_variants: context.corner_kick_variants.clone(),
+            penalty_kick_kick_variants: context.penalty_kick_kick_variants.clone(),
             goal_line_kick_variants: context.goal_line_kick_variants.clone(),
         };
 
@@ -163,6 +167,16 @@ fn collect_kick_targets(
             ..
         })
     );
+    let is_penalty_shoot = matches!(
+        filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            game_phase: GamePhase::PenaltyShootout { .. },
+            ..
+        }) | Some(FilteredGameControllerState {
+            sub_state: Some(SubState::PenaltyKick),
+            ..
+        })
+    );
 
     let (kick_opportunities, allow_instant_kicks): (Vec<_>, _) =
         if is_own_kick_off && is_not_free_for_opponent {
@@ -201,6 +215,19 @@ fn collect_kick_targets(
                     kick_variants: collect_kick_targets_parameters.corner_kick_variants.clone(),
                 })
                 .collect(),
+                true,
+            )
+        } else if is_penalty_shoot {
+            (
+                generate_goal_line_kick_targets(field_dimensions, field_to_ground)
+                    .into_iter()
+                    .map(|kick_target| KickTargetWithKickVariants {
+                        kick_target,
+                        kick_variants: collect_kick_targets_parameters
+                            .penalty_kick_kick_variants
+                            .clone(),
+                    })
+                    .collect(),
                 true,
             )
         } else {
