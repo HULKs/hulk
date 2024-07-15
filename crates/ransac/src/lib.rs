@@ -7,8 +7,16 @@ use ordered_float::NotNan;
 use rand::{seq::SliceRandom, Rng};
 
 #[derive(Default, Debug, PartialEq)]
+pub enum RansacFeature<Frame> {
+    #[default]
+    None,
+    Line(Line2<Frame>),
+    Junction(Line2<Frame>, Point2<Frame>),
+}
+
+#[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {
-    pub line: Option<Line2<Frame>>,
+    pub feature: RansacFeature<Frame>,
     pub used_points: Vec<Point2<Frame>>,
 }
 
@@ -23,7 +31,7 @@ impl<Frame> Ransac<Frame> {
 }
 
 impl<Frame> Ransac<Frame> {
-    pub fn next_line(
+    pub fn next_feature(
         &mut self,
         random_number_generator: &mut impl Rng,
         iterations: usize,
@@ -32,7 +40,7 @@ impl<Frame> Ransac<Frame> {
     ) -> RansacResult<Frame> {
         if self.unused_points.len() < 2 {
             return RansacResult {
-                line: None,
+                feature: RansacFeature::None,
                 used_points: vec![],
             };
         }
@@ -63,8 +71,9 @@ impl<Frame> Ransac<Frame> {
             best_line.squared_distance_to(**point) <= maximum_inclusion_distance_squared
         });
         self.unused_points = unused_points;
+
         RansacResult {
-            line: Some(best_line),
+            feature: RansacFeature::Line(best_line),
             used_points,
         }
     }
@@ -87,7 +96,7 @@ mod test {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
         let mut rng = ChaChaRng::from_entropy();
         assert_eq!(
-            ransac.next_line(&mut rng, 10, 5.0, 5.0),
+            ransac.next_feature(&mut rng, 10, 5.0, 5.0),
             RansacResult::default()
         );
     }
@@ -97,7 +106,7 @@ mod test {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
         let mut rng = ChaChaRng::from_entropy();
         assert_eq!(
-            ransac.next_line(&mut rng, 10, 5.0, 5.0),
+            ransac.next_feature(&mut rng, 10, 5.0, 5.0),
             RansacResult::default()
         );
     }
@@ -108,17 +117,23 @@ mod test {
         let p2 = point![30.0, 30.0];
         let mut ransac = Ransac::<SomeFrame>::new(vec![p1, p2]);
         let mut rng = ChaChaRng::from_entropy();
-        let RansacResult { line, used_points } = ransac.next_line(&mut rng, 10, 5.0, 5.0);
-        let line = line.expect("No line found");
-        println!("{line:#?}");
+        let RansacResult {
+            feature,
+            used_points,
+        } = ransac.next_feature(&mut rng, 10, 5.0, 5.0);
+        println!("{feature:#?}");
         println!("{used_points:#?}");
 
-        assert!(
-            relative_eq!(line, Line::from_points(p1, p2))
-                || relative_eq!(line, Line::from_points(p2, p1))
-        );
-        assert!(relative_eq!(used_points[0], p1) || relative_eq!(used_points[0], p2));
-        assert!(relative_eq!(used_points[1], p2) || relative_eq!(used_points[0], p1));
+        if let RansacFeature::Line(line) = feature {
+            assert!(
+                relative_eq!(line, Line::from_points(p1, p2))
+                    || relative_eq!(line, Line::from_points(p2, p1))
+            );
+            assert!(relative_eq!(used_points[0], p1) || relative_eq!(used_points[0], p2));
+            assert!(relative_eq!(used_points[1], p2) || relative_eq!(used_points[0], p1));
+        } else {
+            panic!("expected line")
+        }
     }
 
     #[test]
@@ -131,10 +146,14 @@ mod test {
 
         let mut ransac = Ransac::<SomeFrame>::new(points.clone());
         let mut rng = ChaChaRng::from_entropy();
-        let result = ransac.next_line(&mut rng, 15, 1.0, 1.0);
-        let line = result.line.expect("No line was found");
-        assert_relative_eq!(line.slope(), slope, epsilon = 0.0001);
-        assert_relative_eq!(line.y_axis_intercept(), y_intercept, epsilon = 0.0001);
-        assert_eq!(result.used_points, points);
+        let result = ransac.next_feature(&mut rng, 15, 1.0, 1.0);
+
+        if let RansacFeature::Line(line) = result.feature {
+            assert_relative_eq!(line.slope(), slope, epsilon = 0.0001);
+            assert_relative_eq!(line.y_axis_intercept(), y_intercept, epsilon = 0.0001);
+            assert_eq!(result.used_points, points);
+        } else {
+            panic!("expected line")
+        }
     }
 }
