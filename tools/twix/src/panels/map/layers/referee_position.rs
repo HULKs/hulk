@@ -20,9 +20,8 @@ impl Layer<Field> for RefereePosition {
     fn new(nao: Arc<Nao>) -> Self {
         let expected_referee_position =
             nao.subscribe_value("Control.main_outputs.expected_referee_position");
-        let maximum_distance_to_referee_position = nao.subscribe_value(
-            "parameters.object_detection.object_detection_top.distance_to_referee_position_threshold",
-        );
+        let maximum_distance_to_referee_position =
+            nao.subscribe_value("parameters.pose_detection.maximum_distance_to_referee_position");
         Self {
             expected_referee_position,
             maximum_distance_to_referee_position,
