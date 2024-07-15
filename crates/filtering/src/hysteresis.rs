@@ -66,7 +66,7 @@ pub fn greater_than_with_relative_hysteresis(
     greater_than_with_absolute_hysteresis(
         last_evaluation,
         value,
-        threshold + hysteresis / 2.0..=threshold + hysteresis / 2.0,
+        threshold - hysteresis / 2.0..=threshold + hysteresis / 2.0,
     )
 }
 
