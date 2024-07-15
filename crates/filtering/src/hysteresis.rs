@@ -8,7 +8,7 @@ pub fn greater_than_with_absolute_hysteresis(
     if hysteresis.contains(&value) {
         last_evaluation
     } else {
-        value >= hysteresis.end
+        value > hysteresis.end
     }
 }
 
