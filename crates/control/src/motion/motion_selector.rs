@@ -87,7 +87,12 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
             Kind::FacingUp => MotionType::StandUpBack,
             Kind::Sitting => MotionType::StandUpSitting,
         },
-        MotionCommand::WideStance => MotionType::WideStance,
+        MotionCommand::WideStance { direction } => match direction {
+            JumpDirection::Left => MotionType::WideStanceLeft,
+            JumpDirection::Right => MotionType::WideStanceRight,
+            JumpDirection::Center => MotionType::WideStance,
+        },
+
         MotionCommand::Unstiff => MotionType::Unstiff,
         MotionCommand::Animation { stiff: false } => MotionType::Animation,
         MotionCommand::Animation { stiff: true } => MotionType::AnimationStiff,
@@ -109,6 +114,13 @@ fn transition_motion(
         (MotionType::StandUpFront, _, MotionType::FallProtection, _) => MotionType::StandUpFront,
         (MotionType::StandUpBack, _, MotionType::FallProtection, _) => MotionType::StandUpBack,
         (MotionType::WideStance, _, MotionType::FallProtection, _) => MotionType::WideStance,
+        (MotionType::WideStanceLeft, _, MotionType::FallProtection, _) => {
+            MotionType::WideStanceLeft
+        }
+
+        (MotionType::WideStanceRight, _, MotionType::FallProtection, _) => {
+            MotionType::WideStanceRight
+        }
         (MotionType::JumpLeft, _, MotionType::FallProtection, _) => MotionType::JumpLeft,
         (MotionType::JumpRight, _, MotionType::FallProtection, _) => MotionType::JumpRight,
         (MotionType::CenterJump, _, MotionType::FallProtection, _) => MotionType::CenterJump,
@@ -122,7 +134,12 @@ fn transition_motion(
             MotionType::Dispatching
         }
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
-        (_, _, MotionType::WideStance, _) => MotionType::WideStance,
+        (MotionType::Walk, _, MotionType::WideStance, _) => MotionType::WideStance,
+        (MotionType::Walk, _, MotionType::WideStanceRight, _) => MotionType::WideStanceRight,
+        (MotionType::Walk, _, MotionType::WideStanceLeft, _) => MotionType::WideStanceLeft,
+        (_, true, MotionType::WideStance, _) => MotionType::WideStance,
+        (_, true, MotionType::WideStanceRight, _) => MotionType::WideStanceRight,
+        (_, true, MotionType::WideStanceLeft, _) => MotionType::WideStanceLeft,
         (_, _, MotionType::CenterJump, _) => MotionType::CenterJump,
         (MotionType::ArmsUpStand, _, _, false) => MotionType::ArmsUpStand,
         (MotionType::Dispatching, true, _, _) => to,

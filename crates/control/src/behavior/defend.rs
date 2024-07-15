@@ -8,7 +8,7 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{MotionCommand, WalkSpeed},
+    motion_command::{JumpDirection, MotionCommand, WalkSpeed},
     parameters::{RolePositionsParameters, WideStanceParameters},
     path_obstacles::PathObstacle,
     support_foot::Side,
@@ -72,10 +72,24 @@ impl<'cycle> Defend<'cycle> {
         let horizontal_distance_to_intersection =
             position.y() - position.x() / velocity.x() * velocity.y();
 
-        if horizontal_distance_to_intersection.abs() < wide_stance_paramters.action_radius {
-            Some(MotionCommand::WideStance)
-        } else {
-            None
+        match (
+            (-wide_stance_paramters.action_radius..=wide_stance_paramters.action_radius)
+                .contains(&horizontal_distance_to_intersection),
+            (wide_stance_paramters.action_radius..0.6)
+                .contains(&horizontal_distance_to_intersection),
+            (-0.6..-wide_stance_paramters.action_radius)
+                .contains(&horizontal_distance_to_intersection),
+        ) {
+            (true, _, _) => Some(MotionCommand::WideStance {
+                direction: JumpDirection::Center,
+            }),
+            (false, true, _) => Some(MotionCommand::WideStance {
+                direction: JumpDirection::Left,
+            }),
+            (false, _, true) => Some(MotionCommand::WideStance {
+                direction: JumpDirection::Right,
+            }),
+            (false, false, false) => None,
         }
     }
 
