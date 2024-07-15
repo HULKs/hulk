@@ -373,11 +373,11 @@ enum Axis {
 
 impl Axis {
     fn get_value(self, color: Rgb) -> f32 {
-        let chromaticiy = color.convert_to_rgchromaticity();
+        let chromaticity = color.convert_to_rgchromaticity();
         match self {
-            Axis::RedChromaticity => chromaticiy.red,
-            Axis::GreenChromaticity => chromaticiy.green,
-            Axis::BlueChromaticity => 1.0 - chromaticiy.red - chromaticiy.green,
+            Axis::RedChromaticity => chromaticity.red,
+            Axis::GreenChromaticity => chromaticity.green,
+            Axis::BlueChromaticity => 1.0 - chromaticity.red - chromaticity.green,
             Axis::GreenLuminance => color.green as f32 / 255.0,
             Axis::Luminance => color.get_luminance() as f32 / 255.0,
         }
