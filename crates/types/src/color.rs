@@ -92,24 +92,17 @@ impl From<Rgb> for YCbCr444 {
         // Conversion factors from https://de.wikipedia.org/wiki/YCbCr-Farbmodell#Umrechnung_zwischen_RGB_und_YCbCr
 
         Self {
-            y: (0.299 * (rgb.r as f32) + 0.587 * (rgb.g as f32) + 0.114 * (rgb.b as f32))
+            y: (0.299 * (rgb.red as f32) + 0.587 * (rgb.green as f32) + 0.114 * (rgb.blue as f32))
                 .clamp(0.0, 255.0) as u8,
-            cb: (128.0 - 0.168736 * (rgb.r as f32) - 0.331264 * (rgb.g as f32)
-                + 0.5 * (rgb.b as f32))
+            cb: (128.0 - 0.168736 * (rgb.red as f32) - 0.331264 * (rgb.green as f32)
+                + 0.5 * (rgb.blue as f32))
                 .clamp(0.0, 255.0) as u8,
-            cr: (128.0 + 0.5 * (rgb.r as f32)
-                - 0.418688 * (rgb.g as f32)
-                - 0.081312 * (rgb.b as f32))
+            cr: (128.0 + 0.5 * (rgb.red as f32)
+                - 0.418688 * (rgb.green as f32)
+                - 0.081312 * (rgb.blue as f32))
                 .clamp(0.0, 255.0) as u8,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RgbChannel {
-    Red,
-    Green,
-    Blue,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -132,9 +125,9 @@ pub enum Intensity {
     PathIntrospect,
 )]
 pub struct Rgb {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
 }
 
 impl Rgb {
@@ -149,25 +142,25 @@ impl Rgb {
     pub const PINK: Rgb = Rgb::new(250, 45, 208);
     pub const ORANGE: Rgb = Rgb::new(255, 69, 0);
 
-    pub const fn new(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b }
+    pub const fn new(red: u8, green: u8, blue: u8) -> Self {
+        Self { red, green, blue }
     }
 
-    pub fn get_chromaticity(&self, channel: RgbChannel) -> f32 {
-        let sum = self.r as f32 + self.g as f32 + self.b as f32;
-        if sum == 0.0 {
-            return 0.0;
+    pub fn convert_to_rgchromaticity(&self) -> RgChromaticity {
+        let sum = self.red as f32 + self.green as f32 + self.blue as f32;
+        let mut chromaticity = RgChromaticity {
+            red: 0.0,
+            green: 0.0,
+        };
+        if sum != 0.0 {
+            chromaticity.red = (self.red as f32) / sum;
+            chromaticity.green = (self.green as f32) / sum;
         }
-        let value = match channel {
-            RgbChannel::Red => self.r,
-            RgbChannel::Green => self.g,
-            RgbChannel::Blue => self.b,
-        } as f32;
-        value / sum
+        chromaticity
     }
 
     pub fn get_luminance(&self) -> u8 {
-        (0.299 * (self.r as f32) + 0.587 * (self.g as f32) + 0.114 * (self.b as f32)) as u8
+        (0.299 * (self.red as f32) + 0.587 * (self.green as f32) + 0.114 * (self.blue as f32)) as u8
     }
 }
 
@@ -177,10 +170,10 @@ impl From<YCbCr422> for Rgb {
         let centered_cb = ycbcr422.cb as f32 - 128.0;
         let centered_cr = ycbcr422.cr as f32 - 128.0;
         Rgb {
-            r: ((y as f32 + 1.40200 * centered_cr).round() as u8).clamp(0, 255),
-            g: ((y as f32 - 0.34414 * centered_cb - 0.71414 * centered_cr).round() as u8)
+            red: ((y as f32 + 1.40200 * centered_cr).round() as u8).clamp(0, 255),
+            green: ((y as f32 - 0.34414 * centered_cb - 0.71414 * centered_cr).round() as u8)
                 .clamp(0, 255),
-            b: ((y as f32 + 1.77200 * centered_cb).round() as u8).clamp(0, 255),
+            blue: ((y as f32 + 1.77200 * centered_cb).round() as u8).clamp(0, 255),
         }
     }
 }
@@ -191,12 +184,17 @@ impl From<YCbCr444> for Rgb {
         let centered_cb = ycbcr444.cb as f32 - 128.0;
         let centered_cr = ycbcr444.cr as f32 - 128.0;
         Rgb {
-            r: ((y as f32 + 1.40200 * centered_cr).round() as u8).clamp(0, 255),
-            g: ((y as f32 - 0.34414 * centered_cb - 0.71414 * centered_cr).round() as u8)
+            red: ((y as f32 + 1.40200 * centered_cr).round() as u8).clamp(0, 255),
+            green: ((y as f32 - 0.34414 * centered_cb - 0.71414 * centered_cr).round() as u8)
                 .clamp(0, 255),
-            b: ((y as f32 + 1.77200 * centered_cb).round() as u8).clamp(0, 255),
+            blue: ((y as f32 + 1.77200 * centered_cb).round() as u8).clamp(0, 255),
         }
     }
+}
+
+pub struct RgChromaticity {
+    pub red: f32,
+    pub green: f32,
 }
 
 #[derive(
@@ -221,7 +219,7 @@ pub struct Hsv {
 impl From<Rgb> for Hsv {
     fn from(value: Rgb) -> Self {
         const HUE_DEGREE: i32 = 512;
-        let (r, g, b): (i32, i32, i32) = (value.r.into(), value.g.into(), value.b.into());
+        let (r, g, b): (i32, i32, i32) = (value.red.into(), value.green.into(), value.blue.into());
         let max = r.max(g).max(b);
         let min = r.min(g).min(b);
         let delta = max - min;
@@ -258,10 +256,14 @@ mod tests {
 
     #[test]
     fn create_000_rgb() {
-        let rgb = Rgb { r: 0, g: 0, b: 0 };
-        assert_eq!(rgb.r, 0);
-        assert_eq!(rgb.g, 0);
-        assert_eq!(rgb.b, 0);
+        let rgb = Rgb {
+            red: 0,
+            green: 0,
+            blue: 0,
+        };
+        assert_eq!(rgb.red, 0);
+        assert_eq!(rgb.green, 0);
+        assert_eq!(rgb.blue, 0);
     }
 
     #[test]
@@ -288,9 +290,9 @@ mod tests {
         assert_eq!(
             rgb,
             Rgb {
-                r: 0,
-                g: 99,
-                b: 193,
+                red: 0,
+                green: 99,
+                blue: 193,
             }
         );
 
@@ -301,7 +303,14 @@ mod tests {
             cr: 128,
         };
         let rgb = Rgb::from(ycbcr);
-        assert_eq!(rgb, Rgb { r: 0, g: 0, b: 0 });
+        assert_eq!(
+            rgb,
+            Rgb {
+                red: 0,
+                green: 0,
+                blue: 0
+            }
+        );
 
         let ycbcr = YCbCr422 {
             y1: 255,
@@ -313,9 +322,9 @@ mod tests {
         assert_eq!(
             rgb,
             Rgb {
-                r: 255,
-                g: 255,
-                b: 255,
+                red: 255,
+                green: 255,
+                blue: 255,
             }
         );
 
@@ -326,12 +335,23 @@ mod tests {
             cr: 0,
         };
         let rgb = Rgb::from(ycbcr);
-        assert_eq!(rgb, Rgb { r: 0, g: 255, b: 0 });
+        assert_eq!(
+            rgb,
+            Rgb {
+                red: 0,
+                green: 255,
+                blue: 0
+            }
+        );
     }
 
     #[test]
     fn convert_from_rgb_to_ycbcr444() {
-        let rgb = Rgb { r: 255, g: 0, b: 0 };
+        let rgb = Rgb {
+            red: 255,
+            green: 0,
+            blue: 0,
+        };
         let ycbcr444 = YCbCr444::from(rgb);
         assert_eq!(
             ycbcr444,
@@ -342,7 +362,11 @@ mod tests {
             }
         );
 
-        let rgb = Rgb { r: 0, g: 255, b: 0 };
+        let rgb = Rgb {
+            red: 0,
+            green: 255,
+            blue: 0,
+        };
         let ycbcr444 = YCbCr444::from(rgb);
         assert_eq!(
             ycbcr444,
@@ -353,7 +377,11 @@ mod tests {
             }
         );
 
-        let rgb = Rgb { r: 0, g: 0, b: 255 };
+        let rgb = Rgb {
+            red: 0,
+            green: 0,
+            blue: 255,
+        };
         let ycbcr444 = YCbCr444::from(rgb);
         assert_eq!(
             ycbcr444,
@@ -365,9 +393,9 @@ mod tests {
         );
 
         let rgb = Rgb {
-            r: 255,
-            g: 255,
-            b: 0,
+            red: 255,
+            green: 255,
+            blue: 0,
         };
         let ycbcr444 = YCbCr444::from(rgb);
         assert_eq!(
@@ -380,9 +408,9 @@ mod tests {
         );
 
         let rgb = Rgb {
-            r: 146,
-            g: 14,
-            b: 43,
+            red: 146,
+            green: 14,
+            blue: 43,
         };
         let ycbcr444 = YCbCr444::from(rgb);
         assert_eq!(
@@ -447,28 +475,39 @@ mod tests {
     #[test]
     fn calculate_red_chromaticity() {
         let rgb = Rgb {
-            r: 30,
-            g: 70,
-            b: 200,
+            red: 30,
+            green: 70,
+            blue: 200,
         };
-        let chromaticity = rgb.get_chromaticity(RgbChannel::Red);
+        let chromaticity = rgb.convert_to_rgchromaticity().red;
         assert_eq!(chromaticity, 0.1);
     }
 
     #[test]
     fn rgb_hsv_conversion() {
         for (rgb, hsv) in [
-            (Rgb { r: 0, g: 0, b: 0 }, Hsv { h: 0, s: 0, v: 0 }),
             (
                 Rgb {
-                    r: 255,
-                    g: 255,
-                    b: 255,
+                    red: 0,
+                    green: 0,
+                    blue: 0,
+                },
+                Hsv { h: 0, s: 0, v: 0 },
+            ),
+            (
+                Rgb {
+                    red: 255,
+                    green: 255,
+                    blue: 255,
                 },
                 Hsv { h: 0, s: 0, v: 255 },
             ),
             (
-                Rgb { r: 255, g: 0, b: 0 },
+                Rgb {
+                    red: 255,
+                    green: 0,
+                    blue: 0,
+                },
                 Hsv {
                     h: 0,
                     s: 255,
@@ -476,7 +515,11 @@ mod tests {
                 },
             ),
             (
-                Rgb { r: 0, g: 255, b: 0 },
+                Rgb {
+                    red: 0,
+                    green: 255,
+                    blue: 0,
+                },
                 Hsv {
                     h: 120,
                     s: 255,
@@ -484,7 +527,11 @@ mod tests {
                 },
             ),
             (
-                Rgb { r: 0, g: 0, b: 255 },
+                Rgb {
+                    red: 0,
+                    green: 0,
+                    blue: 255,
+                },
                 Hsv {
                     h: 240,
                     s: 255,
@@ -493,9 +540,9 @@ mod tests {
             ),
             (
                 Rgb {
-                    r: 128,
-                    g: 0,
-                    b: 255,
+                    red: 128,
+                    green: 0,
+                    blue: 255,
                 },
                 Hsv {
                     h: 270,
