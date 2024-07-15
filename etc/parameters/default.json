@@ -104,18 +104,26 @@
   },
   "image_segmenter": {
     "vision_top": {
+      "horizontal_edge_detection_source": "Luminance",
+      "horizontal_edge_threshold": 20,
+      "horizontal_median_mode": "ThreePixels",
       "horizontal_stride": 4,
-      "vertical_stride": 2,
       "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 20,
-      "vertical_median_mode": "ThreePixels"
+      "vertical_edge_threshold": 20,
+      "vertical_median_mode": "ThreePixels",
+      "vertical_stride": 2
     },
     "vision_bottom": {
+      "horizontal_edge_detection_source": "Luminance",
+      "horizontal_edge_threshold": 32,
+      "horizontal_median_mode": "ThreePixels",
       "horizontal_stride": 4,
-      "vertical_stride": 8,
       "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 32,
-      "vertical_median_mode": "ThreePixels"
+      "vertical_edge_threshold": 32,
+      "vertical_median_mode": "ThreePixels",
+      "vertical_stride": 8
     }
   },
   "line_detection": {

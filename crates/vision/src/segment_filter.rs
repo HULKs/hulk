@@ -36,6 +36,8 @@ impl SegmentFilter {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let filtered_segments = FilteredSegments {
             scan_grid: ScanGrid {
+                // TODO
+                horizontal_scan_lines: Vec::new(),
                 vertical_scan_lines: filter_vertical_scan_lines(
                     &context.image_segments.scan_grid.vertical_scan_lines,
                     context.field_border,

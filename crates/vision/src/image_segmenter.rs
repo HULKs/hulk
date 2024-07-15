@@ -4,17 +4,18 @@ use std::{
 };
 
 use color_eyre::Result;
-use projection::{camera_matrix::CameraMatrix, horizon::Horizon};
+use itertools::iproduct;
+use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{point, Isometry2, Transform};
+use linear_algebra::{point, vector, Isometry2, Point2, Transform, Vector2};
 use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
-    image_segments::{EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
+    image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
@@ -43,6 +44,14 @@ pub struct CycleContext {
     projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 
     horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
+    horizontal_edge_detection_source: Parameter<
+        EdgeDetectionSourceParameters,
+        "image_segmenter.$cycler_instance.horizontal_edge_detection_source",
+    >,
+    horizontal_edge_threshold:
+        Parameter<u8, "image_segmenter.$cycler_instance.horizontal_edge_threshold">,
+    horizontal_median_mode:
+        Parameter<MedianModeParameters, "image_segmenter.$cycler_instance.horizontal_median_mode">,
     vertical_stride: Parameter<usize, "image_segmenter.$cycler_instance.vertical_stride">,
     vertical_edge_detection_source: Parameter<
         EdgeDetectionSourceParameters,
@@ -88,12 +97,19 @@ impl ImageSegmenter {
             .and_then(|camera_matrix| camera_matrix.horizon)
             .unwrap_or(Horizon::ABOVE_IMAGE);
 
+        let vertical_stride_in_robot_coordinates = 0.02;
+
         let scan_grid = new_grid(
             context.image,
+            context.camera_matrix,
             &horizon,
             context.field_color,
             *context.horizontal_stride,
+            *context.horizontal_edge_threshold as i16,
+            *context.horizontal_median_mode,
+            *context.horizontal_edge_detection_source,
             *context.vertical_stride,
+            vertical_stride_in_robot_coordinates,
             *context.vertical_edge_detection_source,
             *context.vertical_edge_threshold as i16,
             *context.vertical_median_mode,
@@ -109,20 +125,65 @@ impl ImageSegmenter {
     }
 }
 
+fn padding_size(median_mode: MedianModeParameters) -> u32 {
+    match median_mode {
+        MedianModeParameters::Disabled => 0,
+        MedianModeParameters::ThreePixels => 1,
+        MedianModeParameters::FivePixels => 2,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn new_grid(
     image: &YCbCr422Image,
+    camera_matrix: Option<&CameraMatrix>,
     horizon: &Horizon,
     field_color: &FieldColorParameters,
     horizontal_stride: usize,
+    horizontal_edge_threshold: i16,
+    horizontal_median_mode: MedianModeParameters,
+    horizontal_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_stride: usize,
+    vertical_stride_in_robot_coordinates: f32,
     vertical_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_edge_threshold: i16,
     vertical_median_mode: MedianModeParameters,
     projected_limbs: &[Limb],
 ) -> ScanGrid {
+    let horizontal_padding_size = padding_size(horizontal_median_mode);
+    let vertical_padding_size = padding_size(vertical_median_mode);
+
+    let horizon_y_maximum = horizon
+        .horizon_y_maximum()
+        .clamp(0.0, image.height() as f32);
+    let mut horizontal_scan_lines = vec![];
+    // do not start at horizon because of numerically unstable math
+    let mut y = horizon_y_maximum + 1.0 + horizontal_padding_size as f32;
+
+    while y < (image.height() - horizontal_padding_size) as f32 {
+        horizontal_scan_lines.push(new_horizontal_scan_line(
+            image,
+            field_color,
+            y as u32,
+            horizontal_stride,
+            horizontal_edge_detection_source,
+            horizontal_edge_threshold,
+            horizontal_median_mode,
+        ));
+
+        y = next_y_from_current_y(
+            image,
+            camera_matrix,
+            vertical_stride_in_robot_coordinates,
+            y,
+        )
+        .unwrap_or(0.0)
+        .max(y + 2.0);
+    }
+
     ScanGrid {
-        vertical_scan_lines: (2..image.width() - 2)
+        horizontal_scan_lines,
+        vertical_scan_lines: (vertical_padding_size..image.width() - vertical_padding_size)
             .step_by(horizontal_stride)
             .map(|x| {
                 let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
@@ -140,6 +201,31 @@ fn new_grid(
             })
             .collect(),
     }
+}
+
+fn next_y_from_current_y(
+    image: &YCbCr422Image,
+    camera_matrix: Option<&CameraMatrix>,
+    vertical_stride_in_robot_coordinates: f32,
+    y: f32,
+) -> Option<f32> {
+    let camera_matrix = camera_matrix?;
+
+    let center_point_at_y = point![(image.width() / 2) as f32, y];
+    let center_point_in_robot_coordinates =
+        camera_matrix.pixel_to_ground(center_point_at_y).ok()?;
+
+    let x_in_robot_coordinates = center_point_in_robot_coordinates.x();
+    let y_in_robot_coordinates = center_point_in_robot_coordinates.y();
+    let next_x_in_robot_coordinates = x_in_robot_coordinates - vertical_stride_in_robot_coordinates;
+
+    let next_center_point_in_robot_coordinates =
+        point![next_x_in_robot_coordinates, y_in_robot_coordinates];
+    let next_point_in_pixel_coordinates = camera_matrix
+        .ground_to_pixel(next_center_point_in_robot_coordinates)
+        .ok()?;
+
+    Some(next_point_in_pixel_coordinates.y())
 }
 
 struct ScanLineState {
@@ -195,6 +281,67 @@ fn median_of_five(mut values: [u8; 5]) -> u8 {
     *median
 }
 
+fn new_horizontal_scan_line(
+    image: &YCbCr422Image,
+    field_color: &FieldColorParameters,
+    position: u32,
+    stride: usize,
+    edge_detection_source: EdgeDetectionSourceParameters,
+    edge_threshold: i16,
+    median_mode: MedianModeParameters,
+) -> ScanLine {
+    let start_x = 0;
+    let end_x = image.width();
+
+    let edge_detection_value = edge_detection_value_at(
+        Direction::Horizontal,
+        point!(start_x, position),
+        image,
+        edge_detection_source,
+        median_mode,
+    );
+    let mut state = ScanLineState::new(edge_detection_value, start_x as u16, EdgeType::ImageBorder);
+
+    let mut segments = Vec::with_capacity((end_x - start_x) as usize / stride);
+
+    for x in (start_x..end_x).step_by(stride) {
+        let edge_detection_value = edge_detection_value_at(
+            Direction::Horizontal,
+            point!(x, position),
+            image,
+            edge_detection_source,
+            median_mode,
+        );
+
+        if let Some(segment) =
+            detect_edge(&mut state, x as u16, edge_detection_value, edge_threshold)
+        {
+            segments.push(set_field_color_in_segment(
+                set_color_in_segment(segment, position, Direction::Horizontal, image),
+                field_color,
+            ));
+        }
+    }
+
+    let last_segment = Segment {
+        start: state.start_position,
+        end: image.width() as u16,
+        start_edge_type: state.start_edge_type,
+        end_edge_type: EdgeType::ImageBorder,
+        color: Default::default(),
+        field_color: Intensity::Low,
+    };
+    segments.push(set_field_color_in_segment(
+        set_color_in_segment(last_segment, position, Direction::Horizontal, image),
+        field_color,
+    ));
+
+    ScanLine {
+        position: position as u16,
+        segments,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line(
     image: &YCbCr422Image,
@@ -207,11 +354,9 @@ fn new_vertical_scan_line(
     horizon_y: f32,
     projected_limbs: &[Limb],
 ) -> ScanLine {
-    let (start_y, end_y) = match median_mode {
-        MedianModeParameters::Disabled => (horizon_y as u32, image.height()),
-        MedianModeParameters::ThreePixels => ((horizon_y as u32) + 1, image.height() - 1),
-        MedianModeParameters::FivePixels => ((horizon_y as u32) + 2, image.height() - 2),
-    };
+    let start_y = horizon_y as u32;
+    let end_y = image.height();
+
     if start_y >= end_y {
         return ScanLine {
             position: position as u16,
@@ -219,18 +364,24 @@ fn new_vertical_scan_line(
         };
     }
 
-    let edge_detection_value =
-        edge_detection_value_at(position, start_y, image, edge_detection_source, median_mode);
-    let mut state = ScanLineState::new(
-        edge_detection_value,
-        horizon_y as u16,
-        EdgeType::ImageBorder,
+    let edge_detection_value = edge_detection_value_at(
+        Direction::Vertical,
+        point!(position, start_y),
+        image,
+        edge_detection_source,
+        median_mode,
     );
+    let mut state = ScanLineState::new(edge_detection_value, start_y as u16, EdgeType::ImageBorder);
 
     let mut segments = Vec::with_capacity((end_y - start_y) as usize / stride);
     for y in (start_y..end_y).step_by(stride) {
-        let edge_detection_value =
-            edge_detection_value_at(position, y, image, edge_detection_source, median_mode);
+        let edge_detection_value = edge_detection_value_at(
+            Direction::Vertical,
+            point!(position, y),
+            image,
+            edge_detection_source,
+            median_mode,
+        );
 
         if let Some(segment) =
             detect_edge(&mut state, y as u16, edge_detection_value, edge_threshold)
@@ -239,8 +390,8 @@ fn new_vertical_scan_line(
                 fix_previous_edge_type(&mut segments);
                 break;
             }
-            segments.push(set_field_color_in_vertical_segment(
-                set_color_in_vertical_segment(segment, image, position),
+            segments.push(set_field_color_in_segment(
+                set_color_in_segment(segment, position, Direction::Vertical, image),
                 field_color,
             ));
         }
@@ -255,8 +406,8 @@ fn new_vertical_scan_line(
         field_color: Intensity::Low,
     };
     if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
-        segments.push(set_field_color_in_vertical_segment(
-            set_color_in_vertical_segment(last_segment, image, position),
+        segments.push(set_field_color_in_segment(
+            set_color_in_segment(last_segment, position, Direction::Vertical, image),
             field_color,
         ));
     }
@@ -268,28 +419,37 @@ fn new_vertical_scan_line(
 }
 
 fn edge_detection_value_at(
-    x: u32,
-    y: u32,
+    direction: Direction,
+    position: Point2<Pixel, u32>,
     image: &YCbCr422Image,
     edge_detection_source: EdgeDetectionSourceParameters,
     median_mode: MedianModeParameters,
 ) -> i16 {
-    let pixel = pixel_to_edge_detection_value(image.at(x, y), edge_detection_source);
+    let offset: Vector2<Pixel, u32> = match direction {
+        Direction::Horizontal => vector!(0, 1),
+        Direction::Vertical => vector!(1, 0),
+    };
+
+    let pixel = pixel_to_edge_detection_value(image.at_point(position), edge_detection_source);
 
     (match median_mode {
         MedianModeParameters::Disabled => pixel,
         MedianModeParameters::ThreePixels => {
-            let pixels = [image.at(x - 1, y), image.at(x, y), image.at(x + 1, y)]
-                .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
+            let pixels = [
+                image.at_point(position - offset),
+                image.at_point(position),
+                image.at_point(position + offset),
+            ]
+            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
             median_of_three(pixels)
         }
         MedianModeParameters::FivePixels => {
             let pixels = [
-                image.at(x - 2, y),
-                image.at(x - 1, y),
-                image.at(x, y),
-                image.at(x + 1, y),
-                image.at(x + 2, y),
+                image.at_point(position - offset * 2),
+                image.at_point(position - offset),
+                image.at_point(position),
+                image.at_point(position + offset),
+                image.at_point(position + offset * 2),
             ]
             .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
             median_of_five(pixels)
@@ -311,30 +471,7 @@ fn pixel_to_edge_detection_value(
     }
 }
 
-fn set_color_in_vertical_segment(mut segment: Segment, image: &YCbCr422Image, x: u32) -> Segment {
-    let length = segment.length();
-    let stride = match length {
-        20.. => 4,   // results in 5.. or more sample pixels
-        7..=19 => 2, // results in 4..=10 or more sample pixels
-        1..=6 => 1,  // results in 1..=6 or more sample pixels
-        0 => {
-            segment.color = image.at(x, segment.start as u32);
-            return segment;
-        }
-    };
-    segment.color = average_image_pixels_vertically(
-        image,
-        x,
-        (segment.start as u32)..(segment.end as u32),
-        stride,
-    );
-    segment
-}
-
-fn set_field_color_in_vertical_segment(
-    mut segment: Segment,
-    field_color: &FieldColorParameters,
-) -> Segment {
+fn set_field_color_in_segment(mut segment: Segment, field_color: &FieldColorParameters) -> Segment {
     segment.field_color = field_color.get_intensity(segment.color);
     segment
 }
@@ -371,15 +508,14 @@ impl YCbCr444Sum {
     }
 }
 
-fn average_image_pixels_vertically(
+fn average_image_pixels(
     image: &YCbCr422Image,
-    x: u32,
+    x: Range<u32>,
     y: Range<u32>,
     stride: usize,
 ) -> YCbCr444 {
-    let sum = y
-        .step_by(stride)
-        .fold(YCbCr444Sum::default(), |sum, y| sum + image.at(x, y));
+    let sum = iproduct!(x.step_by(stride), y.step_by(stride))
+        .fold(YCbCr444Sum::default(), |sum, (x, y)| sum + image.at(x, y));
     sum.average()
 }
 
@@ -398,6 +534,30 @@ fn fix_previous_edge_type(segments: &mut [Segment]) {
     if let Some(previous_segment) = segments.last_mut() {
         previous_segment.end_edge_type = EdgeType::LimbBorder;
     }
+}
+
+fn set_color_in_segment(
+    mut segment: Segment,
+    position: u32,
+    direction: Direction,
+    image: &YCbCr422Image,
+) -> Segment {
+    let length = segment.length();
+    let x = match direction {
+        Direction::Horizontal => (segment.start as u32)..(segment.end as u32),
+        Direction::Vertical => position..(position + 1),
+    };
+    let y = match direction {
+        Direction::Horizontal => position..(position + 1),
+        Direction::Vertical => (segment.start as u32)..(segment.end as u32),
+    };
+    let stride = match length {
+        20.. => 4,   // results in 5.. or more sample pixels
+        7..=19 => 2, // results in 4..=10 or more sample pixels
+        0..=6 => 1,  // results in 1..=6 or more sample pixels
+    };
+    segment.color = average_image_pixels(image, x, y, stride);
+    segment
 }
 
 fn detect_edge(

@@ -33,6 +33,10 @@ impl Horizon {
         horizon_y + margin < point.y()
     }
 
+    pub fn horizon_y_maximum(&self) -> f32 {
+        self.y_at_x(0.0).max(self.y_at_x(640.0))
+    }
+
     pub fn horizon_y_minimum(&self) -> f32 {
         self.y_at_x(0.0).min(self.y_at_x(640.0))
     }
