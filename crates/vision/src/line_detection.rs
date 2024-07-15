@@ -20,7 +20,7 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Point2};
 use ordered_float::NotNan;
 use projection::{camera_matrix::CameraMatrix, Projection};
-use ransac::{Ransac, RansacResult};
+use ransac::{Ransac, RansacFeature, RansacResult};
 use types::{
     filtered_segments::FilteredSegments,
     image_segments::GenericSegment,
@@ -168,16 +168,18 @@ impl LineDetection {
                 break;
             }
             let RansacResult {
-                line: ransac_line,
+                feature,
                 used_points,
-            } = ransac.next_line(
+            } = ransac.next_feature(
                 &mut self.random_state,
                 *context.ransac_iterations,
                 *context.maximum_fit_distance_in_ground,
                 *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,
             );
-            let ransac_line =
-                ransac_line.expect("Insufficient number of line points. Cannot fit line.");
+            let ransac_line = match feature {
+                RansacFeature::Line(line) => line,
+                _ => unimplemented!(),
+            };
             if used_points.len() < *context.minimum_number_of_points_on_line {
                 discarded_lines.push((ransac_line, LineDiscardReason::TooFewPoints));
                 break;
