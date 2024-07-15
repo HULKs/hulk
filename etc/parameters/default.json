@@ -563,7 +563,8 @@
   },
   "wide_stance": {
     "action_radius": 0.3,
-    "minimum_velocity": -0.5
+    "minimum_velocity": -0.5,
+    "action_radius_left": 0.5
   },
   "kick_steps": {
     "forward": [

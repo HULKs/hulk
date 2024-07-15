@@ -389,6 +389,7 @@ pub struct SearchSuggestorParameters {
 pub struct WideStanceParameters {
     pub action_radius: f32,
     pub minimum_velocity: f32,
+    pub action_radius_left: f32,
 }
 
 #[derive(

@@ -75,9 +75,9 @@ impl<'cycle> Defend<'cycle> {
         match (
             (-wide_stance_paramters.action_radius..=wide_stance_paramters.action_radius)
                 .contains(&horizontal_distance_to_intersection),
-            (wide_stance_paramters.action_radius..0.6)
+            (wide_stance_paramters.action_radius..wide_stance_paramters.action_radius_left)
                 .contains(&horizontal_distance_to_intersection),
-            (-0.6..-wide_stance_paramters.action_radius)
+            (-wide_stance_paramters.action_radius_left..-wide_stance_paramters.action_radius)
                 .contains(&horizontal_distance_to_intersection),
         ) {
             (true, _, _) => Some(MotionCommand::WideStance {
