@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     time::SystemTime,
 };
 
@@ -16,7 +16,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
-use linear_algebra::{distance, IntoFramed, IntoTransform, Isometry2, Point2};
+use linear_algebra::{distance, IntoTransform, Isometry2, Point2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
@@ -94,6 +94,10 @@ impl BallFilter {
         walking_engine_mode: Mode,
     ) -> Vec<BallHypothesis> {
         for (detection_time, balls) in measurements {
+            self.ball_filter.hypotheses.retain(|hypothesis| {
+                hypothesis.validity > filter_parameters.validity_discard_threshold
+            });
+
             let delta_time = historic_cycle_times
                 .get(&detection_time)
                 .last_cycle_duration;
@@ -109,6 +113,7 @@ impl BallFilter {
                 filter_parameters.velocity_decay_factor,
                 Matrix4::from_diagonal(&filter_parameters.noise.process_noise_moving),
                 Matrix2::from_diagonal(&filter_parameters.noise.process_noise_resting),
+                filter_parameters.resting_ball_velocity_threshold,
             );
 
             if !had_ground_contact.get(&detection_time) {
@@ -138,6 +143,8 @@ impl BallFilter {
 
             let assignment = AssignmentProblem::from_costs(match_matrix).solve();
 
+            let mut used_percepts = vec![];
+
             for (hypothesis, assigned_percept) in self
                 .ball_filter
                 .hypotheses
@@ -145,19 +152,21 @@ impl BallFilter {
                 .zip_eq(assignment.iter())
             {
                 if let Some(assigned_percept) = assigned_percept {
+                    let mahalanobis_distance = -assigned_percept.cost;
+                    if mahalanobis_distance > filter_parameters.maximum_matching_cost {
+                        continue;
+                    }
                     let validity_increase = assigned_percept.cost.exp();
                     let percept = balls[assigned_percept.to];
+                    used_percepts.push(assigned_percept.to);
                     hypothesis.update(detection_time, percept.percept_in_ground, validity_increase);
                 }
             }
 
             let unused_percepts = {
-                let indices: BTreeSet<_> = assignment
-                    .into_iter()
-                    .filter_map(|assignment| assignment.map(|assignment| assignment.to))
-                    .collect();
                 let mut all_percepts = balls.clone();
-                for index in indices.into_iter().rev() {
+                used_percepts.sort_unstable();
+                for index in used_percepts.into_iter().rev() {
                     all_percepts.remove(index);
                 }
                 all_percepts
@@ -166,7 +175,7 @@ impl BallFilter {
             for percept in unused_percepts {
                 self.ball_filter.spawn(
                     detection_time,
-                    percept.percept_in_ground.mean.framed().as_point(),
+                    percept.percept_in_ground,
                     Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
                 );
             }

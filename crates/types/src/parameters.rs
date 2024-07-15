@@ -312,7 +312,6 @@ pub struct BallDetectionParameters {
 pub struct BallFilterNoise {
     pub process_noise_moving: nalgebra::Vector4<f32>,
     pub process_noise_resting: nalgebra::Vector2<f32>,
-    pub measurement_noise: nalgebra::Vector2<f32>,
     pub initial_covariance: nalgebra::Vector4<f32>,
 }
 
@@ -330,6 +329,7 @@ pub struct BallFilterParameters {
     pub velocity_decay_factor: f32,
     pub resting_ball_velocity_threshold: f32,
     pub noise: BallFilterNoise,
+    pub maximum_matching_cost: f32,
 }
 
 #[derive(

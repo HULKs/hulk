@@ -1,8 +1,10 @@
 use std::time::{Duration, SystemTime};
 
 use coordinate_systems::Ground;
-use linear_algebra::{Isometry2, Point2};
-use nalgebra::{Matrix2, Matrix4};
+use filtering::kalman_filter::KalmanFilter;
+use linear_algebra::{distance, IntoFramed, Isometry2};
+use nalgebra::{Matrix2, Matrix2x4, Matrix4};
+use ordered_float::NotNan;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +42,7 @@ impl BallFilter {
         velocity_decay: f32,
         moving_process_noise: Matrix4<f32>,
         resting_process_noise: Matrix2<f32>,
+        velocity_threshold: f32,
     ) {
         for hypothesis in self.hypotheses.iter_mut() {
             hypothesis.predict(
@@ -48,6 +51,7 @@ impl BallFilter {
                 velocity_decay,
                 moving_process_noise,
                 resting_process_noise,
+                velocity_threshold,
             )
         }
     }
@@ -85,17 +89,43 @@ impl BallFilter {
     pub fn spawn(
         &mut self,
         detection_time: SystemTime,
-        measurement: Point2<Ground>,
+        measurement: MultivariateNormalDistribution<2>,
         initial_moving_covariance: Matrix4<f32>,
     ) {
-        let initial_state = nalgebra::vector![measurement.x(), measurement.y(), 0.0, 0.0];
+        let closest_hypothesis = self.hypotheses.iter().min_by_key(|hypothesis| {
+            NotNan::new(distance(
+                measurement.mean.framed().as_point(),
+                hypothesis.position().position,
+            ))
+            .expect("distance is nan")
+        });
 
-        let moving_hypothesis = MultivariateNormalDistribution {
-            mean: initial_state,
+        let mut new_hypothesis = MultivariateNormalDistribution {
+            mean: closest_hypothesis.map_or(
+                nalgebra::vector![measurement.mean.x, measurement.mean.y, 0.0, 0.0],
+                |hypothesis| {
+                    let position = hypothesis.position().position.inner.coords;
+                    nalgebra::vector![position.x, position.y, 0.0, 0.0]
+                },
+            ),
             covariance: initial_moving_covariance,
         };
 
-        self.hypotheses
-            .push(BallHypothesis::new(moving_hypothesis, detection_time))
+        if closest_hypothesis.is_some() {
+            KalmanFilter::update(
+                &mut new_hypothesis,
+                Matrix2x4::identity(),
+                measurement.mean,
+                measurement.covariance,
+            )
+        }
+
+        let new_hypothesis = BallHypothesis {
+            mode: BallMode::Moving(new_hypothesis),
+            last_seen: detection_time,
+            validity: 1.0,
+        };
+
+        self.hypotheses.push(new_hypothesis)
     }
 }
