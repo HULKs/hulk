@@ -975,7 +975,7 @@
       "elbow_yaw": -1.57,
       "hand": 0.0,
       "shoulder_pitch": 1.57,
-      "shoulder_roll": 0.25,
+      "shoulder_roll": 0.1,
       "wrist_yaw": 0.0
     },
     "left_leg": {
@@ -991,7 +991,7 @@
       "elbow_yaw": 1.57,
       "hand": 0.0,
       "shoulder_pitch": 1.57,
-      "shoulder_roll": -0.25,
+      "shoulder_roll": -0.1,
       "wrist_yaw": 0.0
     },
     "right_leg": {
@@ -1013,7 +1013,7 @@
       "elbow_yaw": -1.57,
       "hand": 0.0,
       "shoulder_pitch": 1.57,
-      "shoulder_roll": 0.25,
+      "shoulder_roll": 0.1,
       "wrist_yaw": 0.0
     },
     "left_leg": {
@@ -1029,7 +1029,7 @@
       "elbow_yaw": 1.57,
       "hand": 0.0,
       "shoulder_pitch": 1.57,
-      "shoulder_roll": -0.25,
+      "shoulder_roll": -0.1,
       "wrist_yaw": 0.0
     },
     "right_leg": {
