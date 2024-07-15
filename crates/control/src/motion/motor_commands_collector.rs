@@ -5,7 +5,13 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::{arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints, Joints},
+    joints::{
+        arm::ArmJoints,
+        body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
+        head::HeadJoints,
+        leg::LegJoints,
+        Joints,
+    },
     motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommands,
     sensor_data::SensorData,
@@ -107,7 +113,13 @@ impl MotorCommandCollector {
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),
-                Joints::fill(0.6),
+                Joints::from_head_and_body(
+                    HeadJoints::fill(0.01),
+                    BodyJoints::from_lower_and_upper(
+                        LowerBodyJoints::fill(0.6),
+                        UpperBodyJoints::fill(0.01),
+                    ),
+                ),
             ),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
@@ -131,7 +143,13 @@ impl MotorCommandCollector {
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),
-                Joints::fill(0.6),
+                Joints::from_head_and_body(
+                    HeadJoints::fill(0.01),
+                    BodyJoints::from_lower_and_upper(
+                        LowerBodyJoints::fill(0.6),
+                        UpperBodyJoints::fill(0.01),
+                    ),
+                ),
             ),
             MotionType::SitDown => (sit_down.positions, sit_down.stiffnesses),
             MotionType::Stand => (
