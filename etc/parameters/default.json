@@ -188,11 +188,11 @@
   "field_color_detection": {
     "vision_top": {
       "luminance": {
-        "start": 0,
-        "end": 255
+        "start": 35,
+        "end": 210
       },
       "green_luminance": {
-        "start": 0,
+        "start": 20,
         "end": 255
       },
       "red_chromaticity": {
@@ -208,21 +208,21 @@
         "end": 1.0
       },
       "hue": {
-        "start": 0,
-        "end": 360
+        "start": 67,
+        "end": 130
       },
       "saturation": {
-        "start": 0,
+        "start": 75,
         "end": 255
       }
     },
     "vision_bottom": {
       "luminance": {
-        "start": 0,
-        "end": 255
+        "start": 35,
+        "end": 210
       },
       "green_luminance": {
-        "start": 0,
+        "start": 20,
         "end": 255
       },
       "red_chromaticity": {
@@ -238,11 +238,11 @@
         "end": 1.0
       },
       "hue": {
-        "start": 0,
-        "end": 360
+        "start": 67,
+        "end": 130
       },
       "saturation": {
-        "start": 0,
+        "start": 75,
         "end": 255
       }
     }
