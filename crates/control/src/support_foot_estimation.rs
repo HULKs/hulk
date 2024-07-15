@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use filtering::hysteresis::greater_than_with_hysteresis_from_delta;
+use filtering::hysteresis::greater_than_with_relative_hysteresis;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -52,7 +52,7 @@ impl SupportFootEstimation {
         let right_sum = context.sensor_data.force_sensitive_resistors.right.sum();
 
         let last_has_left_more_pressure = self.last_support_side == Side::Left;
-        let has_left_more_pressure = greater_than_with_hysteresis_from_delta(
+        let has_left_more_pressure = greater_than_with_relative_hysteresis(
             last_has_left_more_pressure,
             left_sum,
             right_sum,
