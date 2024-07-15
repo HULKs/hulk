@@ -1,9 +1,10 @@
 use color_eyre::{eyre::eyre, Result};
+use coordinate_systems::{Ground, UpcomingSupport};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::MainOutput;
-use linear_algebra::{Orientation2, Pose2};
+use linear_algebra::{Isometry2, Orientation2, Pose2};
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     planned_path::PathSegment,
@@ -28,7 +29,8 @@ pub struct CycleContext {
     rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
 
-    walk_return_offset: CyclerState<Step, "walk_return_offset">,
+    ground_to_upcoming_support:
+        CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
 }
 
 #[context]
@@ -99,11 +101,13 @@ impl StepPlanner {
             }
         };
 
+        let step_target = *context.ground_to_upcoming_support * target_pose;
+
         let mut step = Step {
-            forward: target_pose.position().x(),
-            left: target_pose.position().y(),
+            forward: step_target.position().x(),
+            left: step_target.position().y(),
             turn: match orientation_mode {
-                OrientationMode::AlignWithPath => target_pose.orientation().angle(),
+                OrientationMode::AlignWithPath => step_target.orientation().angle(),
                 OrientationMode::Override(orientation) => orientation.angle(),
             },
         };
@@ -117,7 +121,6 @@ impl StepPlanner {
             WalkSpeed::Normal => *context.max_step_size,
             WalkSpeed::Fast => *context.max_step_size + *context.step_size_delta_fast,
         };
-        let step = compensate_with_return_offset(step, *context.walk_return_offset);
         let step = clamp_step_to_walk_volume(
             step,
             &max_step_size,
@@ -130,10 +133,6 @@ impl StepPlanner {
             step_plan: step.into(),
         })
     }
-}
-
-fn compensate_with_return_offset(step: Step, walk_return_offset: Step) -> Step {
-    step - walk_return_offset
 }
 
 fn clamp_step_to_walk_volume(
