@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, UpcomingSupport};
 use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use spl_network_messages::PlayerNumber;
@@ -78,5 +78,5 @@ pub struct RobotState {
     pub fall_state: FallState,
     pub has_ground_contact: bool,
     pub player_number: PlayerNumber,
-    pub walk_return_offset: Isometry2<Ground, Ground>,
+    pub ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 }

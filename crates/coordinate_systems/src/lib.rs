@@ -46,6 +46,22 @@ generate_coordinate_system!(
     /// X axis pointing forward
     /// Y axis pointing left
     Walk,
+    /// Represents the coordinate system of the ground frame next to the upcoming support foot.
+    ///
+    /// The UpcomingSupport frame helps the robot to anticipate and plan the placement of its foot
+    /// for the next step.
+    ///
+    /// This frame is used by the walking engine to plan steps. Its origin is located at the point
+    /// where the ground will be once the current step is completed and walking were to stop in the
+    /// following step (zero-step). In other words, it is the coordinate frame equal to the ground
+    /// frame where the current swing foot is, assuming it becoming support foot this control frame.
+    /// Planning always assumes that the current step is ending this very frame to be able to plan
+    /// the next, if walking determines that it actually ended this frame.
+    ///
+    /// Note:
+    /// - "Upcoming support foot" refers to the foot that will become the new support foot after
+    ///   the current swing foot lands.
+    UpcomingSupport,
     /// 2D coordinate system centered on the field,
     ///
     /// Origin: center of the field

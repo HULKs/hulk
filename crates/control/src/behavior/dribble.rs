@@ -1,4 +1,4 @@
-use coordinate_systems::Ground;
+use coordinate_systems::{Ground, UpcomingSupport};
 use geometry::look_at::LookAt;
 use linear_algebra::{Isometry2, Point, Pose2};
 use types::{
@@ -33,7 +33,7 @@ pub fn execute(
             is_kick_pose_reached(
                 decision.kick_pose,
                 &in_walk_kicks[decision.variant],
-                world_state.robot.walk_return_offset,
+                world_state.robot.ground_to_upcoming_support,
             )
         });
     if let Some(kick) = available_kick {
@@ -82,9 +82,9 @@ pub fn execute(
 fn is_kick_pose_reached(
     kick_pose: Pose2<Ground>,
     kick_info: &InWalkKickInfoParameters,
-    walk_return_offset: Isometry2<Ground, Ground>,
+    ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 ) -> bool {
-    let upcoming_kick_pose = walk_return_offset.inverse() * kick_pose;
+    let upcoming_kick_pose = ground_to_upcoming_support * kick_pose;
     let is_x_reached = upcoming_kick_pose.position().x().abs() < kick_info.reached_thresholds.x;
     let is_y_reached = upcoming_kick_pose.position().y().abs() < kick_info.reached_thresholds.y;
     let is_orientation_reached =

@@ -2,11 +2,11 @@ use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Field, Ground, Robot, Walk};
+use coordinate_systems::{Field, Ground, Robot, UpcomingSupport, Walk};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use kinematics::forward;
-use linear_algebra::{vector, Isometry3, Orientation3, Point2, Point3, Vector3};
+use linear_algebra::{vector, Isometry2, Isometry3, Orientation3, Point2, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
@@ -15,7 +15,6 @@ use types::{
     motor_commands::MotorCommands,
     obstacle_avoiding_arms::{ArmCommand, ArmCommands},
     sensor_data::SensorData,
-    step_plan::Step,
     support_foot::Side,
     walk_command::WalkCommand,
 };
@@ -40,7 +39,8 @@ pub struct CycleContext {
     kick_steps: Parameter<KickSteps, "kick_steps">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    walk_return_offset: CyclerState<Step, "walk_return_offset">,
+    ground_to_upcoming_support:
+        CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
     center_of_mass: Input<Point3<Robot>, "center_of_mass">,
@@ -142,7 +142,7 @@ impl WalkingEngine {
 
         self.last_actuated_joints = motor_commands.positions;
 
-        *cycle_context.walk_return_offset = self
+        *cycle_context.ground_to_upcoming_support = self
             .calculate_return_offset(cycle_context.parameters, robot_to_walk)
             .unwrap_or_default();
         cycle_context.motion_safe_exits[MotionType::Walk] = self.engine.is_standing();
@@ -166,7 +166,7 @@ impl WalkingEngine {
         &self,
         parameters: &Parameters,
         robot_to_walk: Isometry3<Robot, Walk>,
-    ) -> Option<Step> {
+    ) -> Option<Isometry2<Ground, UpcomingSupport>> {
         let left_sole = robot_to_walk
             * forward::left_sole_to_robot(&self.last_actuated_joints.left_leg).as_pose();
         let right_sole = robot_to_walk
@@ -181,11 +181,10 @@ impl WalkingEngine {
             Side::Right => parameters.base.foot_offset_left,
         };
 
-        Some(Step {
-            forward: swing_sole.position().x(),
-            left: swing_sole.position().y() - swing_sole_base_offset.y(),
-            turn: swing_sole.orientation().inner.euler_angles().2,
-        })
+        let forward = swing_sole.position().x();
+        let left = swing_sole.position().y() - swing_sole_base_offset.y();
+        let turn = swing_sole.orientation().inner.euler_angles().2;
+        Some(Isometry2::from_parts(vector![forward, left], turn).inverse())
     }
 }
 

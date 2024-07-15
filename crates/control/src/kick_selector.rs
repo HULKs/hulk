@@ -5,7 +5,7 @@ use itertools::iproduct;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, line_segment::LineSegment, look_at::LookAt};
 use linear_algebra::{
@@ -20,7 +20,6 @@ use types::{
     motion_command::KickVariant,
     obstacles::Obstacle,
     parameters::{InWalkKickInfoParameters, InWalkKicksParameters},
-    step_plan::Step,
     support_foot::Side,
     world_state::BallState,
 };
@@ -41,7 +40,8 @@ pub struct CycleContext {
     allow_instant_kicks: Input<bool, "allow_instant_kicks">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    walk_return_offset: CyclerState<Step, "walk_return_offset">,
+    ground_to_upcoming_support:
+        CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
@@ -119,18 +119,12 @@ impl KickSelector {
             .flatten()
             .collect();
 
-        let walk_return_offset = Isometry2::from_parts(
-            vector![
-                context.walk_return_offset.forward,
-                context.walk_return_offset.left
-            ],
-            context.walk_return_offset.turn,
-        );
-
-        kick_decisions
-            .sort_by(|left, right| compare_decisions(left, right, &context, walk_return_offset));
-        instant_kick_decisions
-            .sort_by(|left, right| compare_decisions(left, right, &context, walk_return_offset));
+        kick_decisions.sort_by(|left, right| {
+            compare_decisions(left, right, &context, *context.ground_to_upcoming_support)
+        });
+        instant_kick_decisions.sort_by(|left, right| {
+            compare_decisions(left, right, &context, *context.ground_to_upcoming_support)
+        });
 
         Ok(MainOutputs {
             kick_decisions: Some(kick_decisions).into(),
@@ -143,7 +137,7 @@ fn compare_decisions(
     left: &KickDecision,
     right: &KickDecision,
     context: &CycleContext,
-    walk_return_offset: Isometry2<Ground, Ground>,
+    ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 ) -> Ordering {
     let left_in_obstacle = is_inside_any_obstacle(
         left.kick_pose,
@@ -156,11 +150,11 @@ fn compare_decisions(
         *context.kick_pose_obstacle_radius,
     );
     let distance_to_left = distance_to_kick_pose(
-        walk_return_offset.inverse() * left.kick_pose,
+        ground_to_upcoming_support * left.kick_pose,
         *context.angle_distance_weight,
     );
     let distance_to_right = distance_to_kick_pose(
-        walk_return_offset.inverse() * right.kick_pose,
+        ground_to_upcoming_support * right.kick_pose,
         *context.angle_distance_weight,
     );
     match (left_in_obstacle, right_in_obstacle) {
@@ -338,7 +332,7 @@ fn kick_decisions_from_targets(
     )
 }
 
-fn distance_to_kick_pose(kick_pose: Pose2<Ground>, angle_distance_weight: f32) -> f32 {
+fn distance_to_kick_pose(kick_pose: Pose2<UpcomingSupport>, angle_distance_weight: f32) -> f32 {
     kick_pose.position().coords().norm()
         + angle_distance_weight * kick_pose.orientation().angle().abs()
 }
