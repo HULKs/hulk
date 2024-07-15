@@ -1,6 +1,5 @@
 use std::time::{Duration, SystemTime};
 
-use ball_filter::BallPosition;
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
@@ -9,7 +8,7 @@ use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Team};
 use types::{
-    cycle_time::CycleTime, field_dimensions::FieldDimensions,
+    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState, parameters::GameStateFilterParameters,

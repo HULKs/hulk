@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::Mul};
+use std::{collections::HashSet, marker::PhantomData, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
@@ -195,7 +195,7 @@ impl<From, To, Inner> PathIntrospect for Transform<From, To, Inner>
 where
     Inner: PathIntrospect,
 {
-    fn extend_with_fields(fields: &mut std::collections::BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         Inner::extend_with_fields(fields, prefix)
     }
 }

@@ -56,7 +56,7 @@ impl<T> Receiver<T> {
     }
 }
 
-fn lock_a_readable_buffer(states: &mut [State]) -> usize {
+pub(crate) fn lock_a_readable_buffer(states: &mut [State]) -> usize {
     let index = find_newest_readable_buffer(states);
 
     match states[index] {
@@ -115,9 +115,9 @@ impl<T> Drop for Receiver<T> {
 
 /// RAII guard for reading from a buffer
 pub struct ReceiverGuard<'lock, T> {
-    shared: RwLockReadGuard<'lock, Shared<T>>,
-    buffer_index: usize,
-    buffer: &'lock T,
+    pub(crate) shared: RwLockReadGuard<'lock, Shared<T>>,
+    pub(crate) buffer_index: usize,
+    pub(crate) buffer: &'lock T,
 }
 
 impl<T> Deref for ReceiverGuard<'_, T> {

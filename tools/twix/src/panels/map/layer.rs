@@ -3,6 +3,7 @@ use std::{marker::PhantomData, sync::Arc};
 use color_eyre::Result;
 use convert_case::{Case, Casing};
 use eframe::egui::Ui;
+use log::error;
 use serde_json::{json, Value};
 
 use types::field_dimensions::FieldDimensions;
@@ -22,7 +23,6 @@ where
 {
     nao: Arc<Nao>,
     layer: Option<T>,
-    active: bool,
     frame: PhantomData<Frame>,
 }
 
@@ -40,35 +40,36 @@ where
         Self {
             nao,
             layer,
-            active,
             frame: PhantomData,
         }
     }
 
     pub fn checkbox(&mut self, ui: &mut Ui) {
-        if ui.checkbox(&mut self.active, T::NAME).changed() {
-            match (self.active, self.layer.is_some()) {
-                (true, false) => self.layer = Some(T::new(self.nao.clone())),
-                (false, true) => self.layer = None,
-                _ => {}
+        let mut active = self.layer.is_some();
+        if ui.checkbox(&mut active, T::NAME).changed() {
+            match self.layer.is_some() {
+                false => self.layer = Some(T::new(self.nao.clone())),
+                true => self.layer = None,
             }
         }
     }
 
-    pub fn paint(
-        &self,
+    pub fn paint_or_disable(
+        &mut self,
         painter: &TwixPainter<Frame>,
         field_dimensions: &FieldDimensions,
-    ) -> Result<()> {
+    ) {
         if let Some(layer) = &self.layer {
-            layer.paint(painter, field_dimensions)?;
+            if let Err(error) = layer.paint(painter, field_dimensions) {
+                error!("failed to paint map overlay {}: {:#}", T::NAME, error);
+                self.layer = None;
+            }
         }
-        Ok(())
     }
 
     pub fn save(&self) -> Value {
         json!({
-            "active": self.active
+            "active": self.layer.is_some(),
         })
     }
 }

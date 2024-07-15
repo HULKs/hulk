@@ -37,6 +37,7 @@ use tokio::{
 
 use constants::{OS_IS_NOT_LINUX, SDK_VERSION};
 use spl_network_messages::PlayerNumber;
+use types::hardware::Ids;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -298,10 +299,11 @@ impl Repository {
             },
             path,
             self.parameters_root(),
-            "unknown_body_id",
-            head_id,
+            &Ids {
+                body_id: "unknown_body_id".to_string(),
+                head_id: head_id.to_string(),
+            },
         )
-        .await
         .wrap_err("failed to serialize parameters directory")
     }
 
@@ -421,14 +423,14 @@ impl Repository {
         Ok((upload_directory, hulk_directory))
     }
 
-    pub async fn get_hardware_ids(&self) -> Result<HashMap<u8, HardwareIds>> {
+    pub async fn get_hardware_ids(&self) -> Result<HashMap<u8, Ids>> {
         let hardware_ids_path = self.root.join("etc/parameters/hardware_ids.json");
         let mut hardware_ids = File::open(&hardware_ids_path)
             .await
             .wrap_err_with(|| format!("failed to open {}", hardware_ids_path.display()))?;
         let mut contents = vec![];
         hardware_ids.read_to_end(&mut contents).await?;
-        let hardware_ids_with_string_keys: HashMap<String, HardwareIds> = from_slice(&contents)?;
+        let hardware_ids_with_string_keys: HashMap<String, Ids> = from_slice(&contents)?;
         let hardware_ids_with_nao_number_keys = hardware_ids_with_string_keys
             .into_iter()
             .map(|(nao_number, hardware_ids)| {
@@ -672,15 +674,18 @@ pub async fn get_repository_root() -> Result<PathBuf> {
     for ancestor in ancestors {
         let mut directory = read_dir(ancestor)
             .await
-            .wrap_err_with(|| format!("failed to read directory {ancestor:?}"))?;
+            .wrap_err_with(|| format!("failed to read directory {}", ancestor.display()))?;
         while let Some(child) = directory.next_entry().await.wrap_err_with(|| {
-            format!("failed to get next directory entry while iterating {ancestor:?}")
+            format!(
+                "failed to get next directory entry while iterating {}",
+                ancestor.display()
+            )
         })? {
             if child.file_name() == ".git" {
                 return Ok(child
                     .path()
                     .parent()
-                    .ok_or_else(|| eyre!("failed to get parent of {child:?}"))?
+                    .ok_or_else(|| eyre!("failed to get parent of {}", child.path().display()))?
                     .to_path_buf());
             }
         }
@@ -710,10 +715,4 @@ impl Display for CargoAction {
             }
         )
     }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct HardwareIds {
-    pub body_id: String,
-    pub head_id: String,
 }

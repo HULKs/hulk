@@ -1,7 +1,6 @@
-use std::{cmp::Ordering, str::FromStr, sync::Arc};
+use std::{cmp::Ordering, sync::Arc};
 
-use color_eyre::{eyre::eyre, Result};
-use communication::client::{Cycler, CyclerOutput, Output};
+use color_eyre::{eyre::ContextCompat, Result};
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{
@@ -16,7 +15,6 @@ use egui_plot::{HLine, Points, VLine};
 use geometry::rectangle::Rectangle;
 use itertools::iproduct;
 use linear_algebra::{point, vector, Point2};
-use log::error;
 use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -27,23 +25,22 @@ use types::{
 };
 
 use crate::{
-    image_buffer::ImageBuffer,
     nao::Nao,
     panel::Panel,
     twix_painter::{Orientation, TwixPainter},
-    value_buffer::ValueBuffer,
+    value_buffer::BufferHandle,
 };
 
-use super::image::cycler_selector::VisionCyclerSelector;
+use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
 
 const FIELD_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(255, 0, 0, 50);
 const OTHER_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 255, 50);
 
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
-    image_buffer: ImageBuffer,
-    field_color: ValueBuffer,
-    cycler_selector: VisionCyclerSelector,
+    image: BufferHandle<YCbCr422Image>,
+    field_color: BufferHandle<FieldColor>,
+    cycler: VisionCycler,
     brush_size: f32,
     selection_mask: ColorImage,
     x_axis: Axis,
@@ -56,38 +53,19 @@ impl Panel for ImageColorSelectPanel {
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
         let cycler = value
-            .and_then(
-                |value| match Cycler::from_str(value.get("cycler")?.as_str()?) {
-                    Ok(cycler @ (Cycler::VisionTop | Cycler::VisionBottom)) => Some(cycler),
-                    Ok(cycler) => {
-                        error!("Invalid vision cycler: {cycler}");
-                        None
-                    }
-                    Err(error) => {
-                        error!("{error}");
-                        None
-                    }
-                },
-            )
-            .unwrap_or(Cycler::VisionTop);
-        let image_buffer = nao.subscribe_image(CyclerOutput {
-            cycler,
-            output: Output::Main {
-                path: "image".to_string(),
-            },
-        });
-        let cycler_selector = VisionCyclerSelector::new(cycler);
+            .and_then(|value| {
+                let string = value.get("cycler")?.as_str()?;
+                VisionCycler::try_from(string).ok()
+            })
+            .unwrap_or(VisionCycler::Top);
+        let cycler_path = cycler.as_path();
+        let image = nao.subscribe_value(format!("{cycler_path}.main_outputs.image"));
 
         let brush_size = 50.0;
 
         let selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
 
-        let field_color = nao.subscribe_output(CyclerOutput {
-            cycler,
-            output: Output::Main {
-                path: "field_color".to_string(),
-            },
-        });
+        let field_color = nao.subscribe_value(format!("{cycler_path}.main_outputs.field_color"));
 
         let x_axis = value
             .and_then(|value| serde_json::from_value::<Axis>(value.get("x_axis")?.clone()).ok())
@@ -102,9 +80,9 @@ impl Panel for ImageColorSelectPanel {
 
         Self {
             nao,
-            image_buffer,
+            image,
             field_color,
-            cycler_selector,
+            cycler,
             brush_size,
             selection_mask,
             x_axis,
@@ -114,9 +92,8 @@ impl Panel for ImageColorSelectPanel {
     }
 
     fn save(&self) -> Value {
-        let cycler = self.cycler_selector.selected_cycler();
         json!({
-            "cycler": cycler.to_string(),
+            "cycler": self.cycler.as_path(),
             "x_axis": self.x_axis,
             "y_axis": self.y_axis,
             "filter_by_other_axes": self.filter_by_other_axes,
@@ -187,7 +164,9 @@ impl Widget for &mut ImageColorSelectPanel {
                 });
 
                 egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
-                    let field_color = self.field_color.parse_latest::<FieldColor>().ok();
+                    let Ok(Some(field_color)) = self.field_color.get_last_value() else {
+                        return;
+                    };
                     if let Ok(image) = &image {
                         plot_ui.points(
                             generate_points(
@@ -197,7 +176,7 @@ impl Widget for &mut ImageColorSelectPanel {
                                 self.x_axis,
                                 self.y_axis,
                                 self.filter_by_other_axes,
-                                field_color,
+                                &field_color,
                             )
                             .color(Color32::RED),
                         );
@@ -209,35 +188,27 @@ impl Widget for &mut ImageColorSelectPanel {
                                 self.x_axis,
                                 self.y_axis,
                                 self.filter_by_other_axes,
-                                field_color,
+                                &field_color,
                             )
                             .color(Color32::BLUE),
                         );
                     }
-                    if let Some(field_color) = field_color {
-                        plot_ui
-                            .vline(VLine::new(self.x_axis.get_threshold(field_color).1).width(5.0));
-                        plot_ui
-                            .hline(HLine::new(self.y_axis.get_threshold(field_color).1).width(5.0));
-                    }
+                    plot_ui.vline(VLine::new(self.x_axis.get_threshold(&field_color).1).width(5.0));
+                    plot_ui.hline(HLine::new(self.y_axis.get_threshold(&field_color).1).width(5.0));
                 })
             });
         CentralPanel::default()
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    if self.cycler_selector.ui(ui).changed() {
-                        self.image_buffer = self.nao.subscribe_image(CyclerOutput {
-                            cycler: self.cycler_selector.selected_cycler(),
-                            output: Output::Main {
-                                path: "image".to_string(),
-                            },
-                        });
-                        self.field_color = self.nao.subscribe_output(CyclerOutput {
-                            cycler: self.cycler_selector.selected_cycler(),
-                            output: Output::Main {
-                                path: "field_color".to_string(),
-                            },
-                        });
+                    let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
+                    if cycler_selector.ui(ui).changed() {
+                        let cycler_path = self.cycler.as_path();
+                        self.image = self
+                            .nao
+                            .subscribe_value(format!("{cycler_path}.main_outputs.image"));
+                        self.field_color = self
+                            .nao
+                            .subscribe_value(format!("{cycler_path}.main_outputs.field_color"));
                     }
 
                     if ui.button("reset").clicked() {
@@ -315,8 +286,8 @@ impl Widget for &mut ImageColorSelectPanel {
                 painter.image(
                     colored_handle,
                     Rectangle {
-                        min: point!(0.0, 0.0),
-                        max: point!(640.0, 480.0),
+                        min: point![0.0, 0.0],
+                        max: point![640.0, 480.0],
                     },
                 );
                 response
@@ -366,11 +337,10 @@ impl ImageColorSelectPanel {
     }
 
     fn get_image(&self) -> Result<ColorImage> {
-        let image_data = self
-            .image_buffer
-            .get_latest()
-            .map_err(|error| eyre!("{error}"))?;
-        let image_ycbcr = bincode::deserialize::<YCbCr422Image>(&image_data)?;
+        let image_ycbcr = self
+            .image
+            .get_last_value()?
+            .wrap_err("No image available")?;
 
         let buffer = image_ycbcr
             .buffer()
@@ -412,7 +382,7 @@ impl Axis {
         }
     }
 
-    fn get_threshold(self, field_color: FieldColor) -> (Ordering, f32) {
+    fn get_threshold(self, field_color: &FieldColor) -> (Ordering, f32) {
         match self {
             Axis::RedChromaticity => (Ordering::Greater, field_color.red_chromaticity_threshold),
             Axis::GreenChromaticity => (Ordering::Less, field_color.green_chromaticity_threshold),
@@ -425,7 +395,7 @@ impl Axis {
         }
     }
 
-    fn passes_threshold(self, color: Rgb, field_color: FieldColor) -> bool {
+    fn passes_threshold(self, color: Rgb, field_color: &FieldColor) -> bool {
         let value = self.get_value(color);
         let (ordering, threshold) = self.get_threshold(field_color);
 
@@ -440,7 +410,7 @@ fn generate_points(
     x_axis: Axis,
     y_axis: Axis,
     filter_by_other_axes: bool,
-    field_color: Option<FieldColor>,
+    field_color: &FieldColor,
 ) -> Points {
     Points::new(
         image
@@ -453,7 +423,6 @@ fn generate_points(
                 }
                 let rgb = Rgb::new(color.r(), color.g(), color.b());
 
-                if let Some(field_color) = field_color {
                     let skip = [x_axis, y_axis];
                     let [
                         red_chromaticity,
@@ -479,7 +448,6 @@ fn generate_points(
                     {
                         return None;
                     }
-                }
 
                 Some([x_axis.get_value(rgb) as f64, y_axis.get_value(rgb) as f64])
             })

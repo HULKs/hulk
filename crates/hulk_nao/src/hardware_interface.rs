@@ -145,7 +145,7 @@ impl NetworkInterface for HardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
         self.async_runtime.block_on(async {
             select! {
-                result =  self.spl_network_endpoint.read() => {
+                result = self.spl_network_endpoint.read() => {
                     result.map_err(Error::from)
                 },
                 _ = self.keep_running.cancelled() => {

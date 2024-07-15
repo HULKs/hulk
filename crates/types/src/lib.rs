@@ -1,7 +1,7 @@
 #![recursion_limit = "256"]
 pub mod action;
 pub mod audio;
-pub mod ball;
+pub mod ball_detection;
 pub mod ball_position;
 pub mod bounding_box;
 pub mod buttons;

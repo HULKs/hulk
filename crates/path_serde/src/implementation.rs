@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeSet,
+    collections::HashSet,
     ops::{Deref, DerefMut, Range},
     sync::Arc,
 };
@@ -49,7 +49,7 @@ impl<T> PathIntrospect for Box<T>
 where
     T: PathIntrospect,
 {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         T::extend_with_fields(fields, prefix)
     }
 }
@@ -74,7 +74,7 @@ impl<T> PathIntrospect for Arc<T>
 where
     T: PathIntrospect,
 {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         T::extend_with_fields(fields, prefix)
     }
 }
@@ -128,7 +128,7 @@ impl<T> PathIntrospect for Option<T>
 where
     T: PathIntrospect,
 {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         T::extend_with_fields(fields, prefix)
     }
 }
@@ -202,7 +202,7 @@ impl<T> PathIntrospect for Range<T>
 where
     T: PathIntrospect,
 {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}start"));
         fields.insert(format!("{prefix}end"));
     }
@@ -264,7 +264,7 @@ where
 }
 
 impl<T, const N: usize> PathIntrospect for Matrix<T, Const<N>, U1, ArrayStorage<T, N, 1>> {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         for field in &["x", "y", "z", "w", "v", "u"][0..N] {
             fields.insert(format!("{prefix}{field}"));
         }
@@ -308,7 +308,7 @@ impl<T, const N: usize> PathIntrospect for Point<T, N>
 where
     T: PathIntrospect + Scalar,
 {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::extend_with_fields(fields, prefix)
     }
 }
@@ -366,7 +366,7 @@ impl<T> PathDeserialize for UnitQuaternion<T> {
 }
 
 impl<T> PathIntrospect for UnitQuaternion<T> {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}roll"));
         fields.insert(format!("{prefix}pitch"));
         fields.insert(format!("{prefix}yaw"));
@@ -437,7 +437,7 @@ where
 }
 
 impl<T> PathIntrospect for UnitComplex<T> {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}rad"));
         fields.insert(format!("{prefix}deg"));
     }
@@ -516,7 +516,7 @@ where
 }
 
 impl<T> PathIntrospect for Isometry2<T> {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}translation"));
         fields.insert(format!("{prefix}rotation"));
         Vector2::<T>::extend_with_fields(fields, &format!("{prefix}translation."));
@@ -596,7 +596,7 @@ where
 }
 
 impl<T> PathIntrospect for Isometry3<T> {
-    fn extend_with_fields(fields: &mut BTreeSet<String>, prefix: &str) {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}translation"));
         fields.insert(format!("{prefix}rotation"));
         Vector3::<T>::extend_with_fields(fields, &format!("{prefix}translation."));

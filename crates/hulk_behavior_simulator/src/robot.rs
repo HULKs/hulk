@@ -1,7 +1,7 @@
 use std::{
     convert::Into,
     sync::{mpsc, Arc},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use buffered_watch::Receiver;
@@ -13,7 +13,7 @@ use linear_algebra::vector;
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
 use spl_network_messages::{HulkMessage, PlayerNumber};
-use types::{messages::IncomingMessage, motion_selection::MotionSafeExits};
+use types::{hardware::Ids, messages::IncomingMessage, motion_selection::MotionSafeExits};
 
 use crate::{
     cyclers::control::{Cycler, CyclerInstance, Database},
@@ -30,36 +30,31 @@ pub struct Robot {
     pub ball_last_seen: Option<SystemTime>,
 
     cycler: Cycler<Interfake>,
-    control_receiver: Receiver<Database>,
+    control_receiver: Receiver<(SystemTime, Database)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
 }
 
 impl Robot {
     pub fn try_new(player_number: PlayerNumber) -> Result<Self> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap();
-        let mut parameter: Parameters = runtime.block_on(async {
-            deserialize(
-                "etc/parameters",
-                &format!("behavior_simulator.{}", from_player_number(player_number)),
-                &format!("behavior_simulator.{}", from_player_number(player_number)),
-            )
-            .await
-            .wrap_err("could not load initial parameters")
-        })?;
+        let ids = Ids {
+            body_id: format!("behavior_simulator.{}", from_player_number(player_number)),
+            head_id: format!("behavior_simulator.{}", from_player_number(player_number)),
+        };
+        let mut parameter: Parameters =
+            deserialize("etc/parameters", &ids).wrap_err("could not load initial parameters")?;
         parameter.player_number = player_number;
 
         let interface: Arc<_> = Interfake::default().into();
 
-        let (control_sender, control_receiver) = buffered_watch::channel(Database::default());
+        let (control_sender, control_receiver) =
+            buffered_watch::channel((UNIX_EPOCH, Database::default()));
         let (mut subscriptions_sender, subscriptions_receiver) =
             buffered_watch::channel(Default::default());
         let (mut parameters_sender, parameters_receiver) =
-            buffered_watch::channel(Default::default());
+            buffered_watch::channel((UNIX_EPOCH, Default::default()));
         let (spl_network_sender, spl_network_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
-        *parameters_sender.borrow_mut() = parameter.clone();
+        *parameters_sender.borrow_mut() = (SystemTime::now(), parameter.clone());
 
         let mut cycler = Cycler::new(
             CyclerInstance::Control,
@@ -120,7 +115,7 @@ impl Robot {
 
         self.cycler.cycle()?;
 
-        let database = self.control_receiver.borrow_and_mark_as_seen();
+        let (_, database) = &*self.control_receiver.borrow_and_mark_as_seen();
         self.database.main_outputs = database.main_outputs.clone();
         self.database.additional_outputs = database.additional_outputs.clone();
         Ok(())
