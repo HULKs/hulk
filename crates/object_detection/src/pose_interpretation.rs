@@ -229,8 +229,15 @@ fn is_left_shoulder_angled_up(
     elbow_point: Point2<Pixel>,
     minimum_shoulder_angle: f32,
 ) -> bool {
-    let right_to_left_shoulder =
-        keypoints.left_shoulder.point.coords() - keypoints.right_shoulder.point.coords();
+    let right_to_left_shoulder: linear_algebra::Framed<
+        Pixel,
+        nalgebra::Matrix<
+            f32,
+            nalgebra::Const<2>,
+            nalgebra::Const<1>,
+            nalgebra::ArrayStorage<f32, 2, 1>,
+        >,
+    > = keypoints.left_shoulder.point.coords() - keypoints.right_shoulder.point.coords();
 
     Rotation2::rotation_between(elbow_point - shoulder_point, right_to_left_shoulder).angle()
         > minimum_shoulder_angle

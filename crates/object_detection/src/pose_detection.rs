@@ -117,9 +117,9 @@ impl PoseDetection {
                 ..
             }
         );
-        if !behavior_requests_pose_detection {
-            return Ok(MainOutputs::default());
-        };
+        // if !behavior_requests_pose_detection {
+        //     return Ok(MainOutputs::default());
+        // };
 
         let image = context.image;
 
