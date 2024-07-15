@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::MainOutput;
-use types::pose_detection::HumanPose;
+use types::pose_detection::{
+    HumanPose, OVERALL_KEYPOINT_INDEX_MASK, VISUAL_REFEREE_KEYPOINT_INDEX_MASK,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseFilter {}
@@ -56,7 +58,7 @@ fn filter_poses_by_overall_confidence(
     pose: &HumanPose,
     minimum_overall_keypoint_confidence: f32,
 ) -> bool {
-    let visual_referee_keypoint_indices = types::pose_detection::OVERALL_KEYPOINT_INDEX_MASK;
+    let visual_referee_keypoint_indices = OVERALL_KEYPOINT_INDEX_MASK;
     visual_referee_keypoint_indices
         .into_iter()
         .all(|index| pose.keypoints[index].confidence > minimum_overall_keypoint_confidence)
@@ -66,7 +68,7 @@ fn filter_poses_by_visual_referee_confidence(
     pose: &HumanPose,
     minimum_visual_referee_keypoint_confidence: f32,
 ) -> bool {
-    let visual_referee_keypoint_indices = types::pose_detection::VISUAL_REFEREE_KEYPOINT_INDEX_MASK;
+    let visual_referee_keypoint_indices = VISUAL_REFEREE_KEYPOINT_INDEX_MASK;
     visual_referee_keypoint_indices
         .into_iter()
         .all(|index| pose.keypoints[index].confidence > minimum_visual_referee_keypoint_confidence)
