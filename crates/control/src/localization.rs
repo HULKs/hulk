@@ -15,7 +15,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use spl_network_messages::{GamePhase, Penalty, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -136,9 +136,16 @@ impl Localization {
         game_phase: Option<GamePhase>,
         context: &CycleContext,
         penalty: &Option<Penalty>,
+        sub_state: Option<SubState>,
+        kicking_team: Option<Team>,
     ) {
-        match (self.last_primary_state, primary_state, game_phase) {
-            (PrimaryState::Standby, PrimaryState::Ready, _) => {
+        match (
+            self.last_primary_state,
+            primary_state,
+            game_phase,
+            sub_state,
+        ) {
+            (PrimaryState::Standby, PrimaryState::Ready, _, _) => {
                 let initial_pose = generate_initial_pose(
                     &context.initial_poses[*context.player_number],
                     context.field_dimensions,
@@ -157,6 +164,7 @@ impl Localization {
                 Some(GamePhase::PenaltyShootout {
                     kicking_team: Team::Hulks,
                 }),
+                _,
             ) => {
                 let penalty_shoot_out_striker_pose = Pose2::from(point![
                     -context.field_dimensions.penalty_area_length
@@ -177,22 +185,26 @@ impl Localization {
                 Some(GamePhase::PenaltyShootout {
                     kicking_team: Team::Opponent,
                 }),
-            ) => {
-                let penalty_shoot_out_keeper_pose =
-                    Pose2::from(point![-context.field_dimensions.length / 2.0, 0.0]);
-                self.hypotheses = vec![ScoredPose::from_isometry(
-                    penalty_shoot_out_keeper_pose,
-                    *context.initial_hypothesis_covariance,
-                    *context.initial_hypothesis_score,
-                )];
+                _,
+            )
+            | (_, _, _, Some(SubState::PenaltyKick)) => {
+                if !matches!(kicking_team, Some(Team::Hulks)) {
+                    let penalty_shoot_out_keeper_pose =
+                        Pose2::from(point![-context.field_dimensions.length / 2.0, 0.0]);
+                    self.hypotheses = vec![ScoredPose::from_isometry(
+                        penalty_shoot_out_keeper_pose,
+                        *context.initial_hypothesis_covariance,
+                        *context.initial_hypothesis_score,
+                    )];
+                    self.hypotheses_when_entered_playing
+                        .clone_from(&self.hypotheses);
+                }
+            }
+            (PrimaryState::Set, PrimaryState::Playing, _, _) => {
                 self.hypotheses_when_entered_playing
                     .clone_from(&self.hypotheses);
             }
-            (PrimaryState::Set, PrimaryState::Playing, _) => {
-                self.hypotheses_when_entered_playing
-                    .clone_from(&self.hypotheses);
-            }
-            (PrimaryState::Ready, PrimaryState::Penalized, _) => {
+            (PrimaryState::Ready, PrimaryState::Penalized, _, _) => {
                 self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
                 match penalty {
                     Some(Penalty::IllegalMotionInStandby { .. }) => {
@@ -202,7 +214,7 @@ impl Localization {
                     None => {}
                 };
             }
-            (PrimaryState::Playing, PrimaryState::Penalized, _) => {
+            (PrimaryState::Playing, PrimaryState::Penalized, _, _) => {
                 self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
                 match penalty {
                     Some(Penalty::IllegalMotionInSet { .. }) => {
@@ -212,7 +224,7 @@ impl Localization {
                     None => {}
                 };
             }
-            (PrimaryState::Penalized, _, _) if primary_state != PrimaryState::Penalized => {
+            (PrimaryState::Penalized, _, _, _) if primary_state != PrimaryState::Penalized => {
                 if self.is_penalized_with_motion_in_set_or_initial {
                     if self.was_picked_up_while_penalized {
                         self.hypotheses
@@ -246,7 +258,7 @@ impl Localization {
                 self.is_penalized_with_motion_in_set_or_initial = false;
                 self.was_picked_up_while_penalized = false;
             }
-            (PrimaryState::Unstiff, _, _) => {
+            (PrimaryState::Unstiff, _, _, _) => {
                 let penalized_poses =
                     generate_penalized_poses(context.field_dimensions, *context.penalized_distance);
                 self.hypotheses = penalized_poses
@@ -275,7 +287,7 @@ impl Localization {
             .updates
             .fill_if_subscribed(|| vec![vec![]; self.hypotheses.len()]);
 
-        let line_datas = context
+        let line_data = context
             .line_data_top
             .persistent
             .iter()
@@ -283,7 +295,7 @@ impl Localization {
         for (
             (line_data_top_timestamp, line_data_top),
             (line_data_bottom_timestamp, line_data_bottom),
-        ) in line_datas
+        ) in line_data
         {
             assert_eq!(line_data_top_timestamp, line_data_bottom_timestamp);
             let current_odometry_to_last_odometry = context
@@ -511,8 +523,21 @@ impl Localization {
         let game_phase = context
             .filtered_game_controller_state
             .map(|game_controller_state| game_controller_state.game_phase);
+        let sub_state = context
+            .filtered_game_controller_state
+            .and_then(|game_controller_state| game_controller_state.sub_state);
+        let kicking_team = context
+            .filtered_game_controller_state
+            .map(|game_controller_state| game_controller_state.kicking_team);
 
-        self.reset_state(primary_state, game_phase, &context, &penalty);
+        self.reset_state(
+            primary_state,
+            game_phase,
+            &context,
+            &penalty,
+            sub_state,
+            kicking_team,
+        );
         self.last_primary_state = primary_state;
 
         if primary_state == PrimaryState::Penalized && !context.has_ground_contact {
