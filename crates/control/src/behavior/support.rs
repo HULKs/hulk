@@ -59,9 +59,9 @@ fn support_pose(
         .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
     let side = field_side.unwrap_or_else(|| ball.field_side.opposite());
     let offset_vector = Rotation2::new(match side {
-        Side::Left => -FRAC_PI_4,
-        Side::Right => FRAC_PI_4,
-    }) * -(Vector2::<Field>::x_axis() * distance_to_ball);
+        Side::Left => FRAC_PI_4,
+        Side::Right => -FRAC_PI_4,
+    }) * (Vector2::<Field>::x_axis() * distance_to_ball);
     let supporting_position = ball.ball_in_field + offset_vector;
 
     let filtered_game_state = world_state
@@ -72,17 +72,33 @@ fn support_pose(
         | Some(FilteredGameState::Playing {
             ball_is_free: false,
             ..
-        }) => supporting_position.x().clamp(
-            minimum_x.min(maximum_x_in_ready_and_when_ball_is_not_free),
-            minimum_x.max(maximum_x_in_ready_and_when_ball_is_not_free),
-        ),
-        _ => supporting_position
+        }) => supporting_position
             .x()
-            .clamp(minimum_x, field_dimensions.length / 2.0),
+            .min(maximum_x_in_ready_and_when_ball_is_not_free),
+        _ => supporting_position.x().clamp(
+            minimum_x,
+            (field_dimensions.length / 2.0) - field_dimensions.goal_box_area_length,
+        ),
     };
-    let clamped_y = supporting_position
-        .y()
-        .clamp(-field_dimensions.width / 2.0, field_dimensions.width / 2.0);
+    let distance_from_midline_to_penaltybox =
+        field_dimensions.length / 2.0 - field_dimensions.penalty_area_length;
+    let distance_from_midline_to_goalbox =
+        field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length;
+    let clamped_y = if (distance_from_midline_to_penaltybox..=distance_from_midline_to_goalbox)
+        .contains(&clamped_x)
+    {
+        let absolute_clamped_y_distance = field_dimensions.penalty_area_width / 2.0
+            - (clamped_x - distance_from_midline_to_penaltybox);
+        supporting_position
+            .y()
+            .clamp(-absolute_clamped_y_distance, absolute_clamped_y_distance)
+    } else {
+        supporting_position.y().clamp(
+            -field_dimensions.penalty_area_width / 2.0,
+            field_dimensions.penalty_area_width / 2.0,
+        )
+    };
+
     let clamped_position = point![clamped_x, clamped_y];
     let support_pose = Pose2::new(
         clamped_position.coords(),
