@@ -8,7 +8,7 @@ use resting::{RestingPredict, RestingUpdate};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
-use linear_algebra::{IntoFramed, Isometry2, Vector2};
+use linear_algebra::{vector, IntoFramed, Isometry2, Vector2};
 
 use types::{
     ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,
@@ -48,7 +48,7 @@ impl BallHypothesis {
             },
             BallMode::Moving(moving) => BallPosition {
                 position: moving.mean.xy().framed().as_point(),
-                velocity: Vector2::zeros(),
+                velocity: vector![moving.mean.z, moving.mean.w],
                 last_seen: self.last_seen,
             },
         }
@@ -68,18 +68,27 @@ impl BallHypothesis {
         velocity_decay: f32,
         moving_process_noise: Matrix4<f32>,
         resting_process_noise: Matrix2<f32>,
+        velocity_threshold: f32,
     ) {
         match &mut self.mode {
             BallMode::Resting(resting) => {
                 RestingPredict::predict(resting, last_to_current_odometry, resting_process_noise)
             }
-            BallMode::Moving(moving) => MovingPredict::predict(
-                moving,
-                delta_time,
-                last_to_current_odometry,
-                velocity_decay,
-                moving_process_noise,
-            ),
+            BallMode::Moving(moving) => {
+                MovingPredict::predict(
+                    moving,
+                    delta_time,
+                    last_to_current_odometry,
+                    velocity_decay,
+                    moving_process_noise,
+                );
+            }
+        }
+        if self.position().velocity.norm() < velocity_threshold {
+            self.mode = BallMode::Resting(MultivariateNormalDistribution {
+                mean: moving.mean.xy(),
+                covariance: moving.covariance.fixed_view::<2, 2>(0, 0).into_owned(),
+            })
         }
     }
 
