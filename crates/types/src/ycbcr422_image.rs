@@ -207,7 +207,7 @@ impl YCbCr422Image {
         self.height
     }
 
-    fn coordinates_to_buffer_index(&self, x: u32, y: u32) -> usize {
+    pub fn coordinates_to_buffer_index(&self, x: u32, y: u32) -> usize {
         let x_422 = x / 2;
         (y * self.width_422 + x_422) as usize
     }
