@@ -40,10 +40,11 @@ pub struct CycleContext {
     network_robot_obstacles: HistoricInput<Vec<Point2<Ground>>, "network_robot_obstacles">,
     ground_to_field: HistoricInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     sonar_obstacles: HistoricInput<Vec<SonarObstacle>, "sonar_obstacles">,
-
     foot_bumper_obstacles: HistoricInput<Vec<FootBumperObstacle>, "foot_bumper_obstacle">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
     primary_state: Input<PrimaryState, "primary_state">,
+    current_ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
@@ -225,9 +226,10 @@ impl ObstacleFilter {
                 }
             })
             .collect::<Vec<_>>();
-        let current_ground_to_field = context.ground_to_field.get(&cycle_start_time);
-        let goal_posts =
-            calculate_goal_post_positions(current_ground_to_field.copied(), field_dimensions);
+        let goal_posts = calculate_goal_post_positions(
+            context.current_ground_to_field.copied(),
+            field_dimensions,
+        );
         let goal_post_obstacles = goal_posts
             .into_iter()
             .map(|goal_post| Obstacle::goal_post(goal_post, *context.goal_post_obstacle_radius));

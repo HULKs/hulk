@@ -1,6 +1,6 @@
-use coordinate_systems::Ground;
+use coordinate_systems::{Ground, UpcomingSupport};
 use geometry::look_at::LookAt;
-use linear_algebra::{Point, Pose2};
+use linear_algebra::{Isometry2, Point, Pose2};
 use types::{
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
@@ -30,7 +30,11 @@ pub fn execute(
         .iter()
         .chain(instant_kick_decisions.iter())
         .find(|decision| {
-            is_kick_pose_reached(decision.kick_pose, &in_walk_kicks[decision.variant])
+            is_kick_pose_reached(
+                decision.kick_pose,
+                &in_walk_kicks[decision.variant],
+                world_state.robot.ground_to_upcoming_support,
+            )
         });
     if let Some(kick) = available_kick {
         let command = MotionCommand::InWalkKick {
@@ -76,12 +80,14 @@ pub fn execute(
 }
 
 fn is_kick_pose_reached(
-    kick_pose_to_robot: Pose2<Ground>,
+    kick_pose: Pose2<Ground>,
     kick_info: &InWalkKickInfoParameters,
+    ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 ) -> bool {
-    let is_x_reached = kick_pose_to_robot.position().x().abs() < kick_info.reached_thresholds.x;
-    let is_y_reached = kick_pose_to_robot.position().y().abs() < kick_info.reached_thresholds.y;
+    let upcoming_kick_pose = ground_to_upcoming_support * kick_pose;
+    let is_x_reached = upcoming_kick_pose.position().x().abs() < kick_info.reached_thresholds.x;
+    let is_y_reached = upcoming_kick_pose.position().y().abs() < kick_info.reached_thresholds.y;
     let is_orientation_reached =
-        kick_pose_to_robot.orientation().angle().abs() < kick_info.reached_thresholds.z;
+        upcoming_kick_pose.orientation().angle().abs() < kick_info.reached_thresholds.z;
     is_x_reached && is_y_reached && is_orientation_reached
 }

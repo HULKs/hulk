@@ -58,7 +58,7 @@ impl KickDecisions {
             return Ok(());
         };
         let best_kick_decision = kick_decisions.first();
-        draw_kick_pose(
+        draw_kick_poses(
             painter,
             &kick_decisions,
             Stroke {
@@ -66,7 +66,7 @@ impl KickDecisions {
                 color: Color32::BLACK,
             },
         );
-        draw_kick_pose(
+        draw_kick_poses(
             painter,
             best_kick_decision.cloned().as_slice(),
             Stroke {
@@ -82,7 +82,7 @@ impl KickDecisions {
         else {
             return Ok(());
         };
-        draw_kick_pose(
+        draw_kick_poses(
             painter,
             &instant_kick_decisions,
             Stroke {
@@ -118,7 +118,7 @@ impl KickDecisions {
     }
 }
 
-fn draw_kick_pose(painter: &TwixPainter<Ground>, kick_decisions: &[KickDecision], stroke: Stroke) {
+fn draw_kick_poses(painter: &TwixPainter<Ground>, kick_decisions: &[KickDecision], stroke: Stroke) {
     for kick_decision in kick_decisions {
         painter.pose(
             kick_decision.kick_pose,
