@@ -1,4 +1,5 @@
 use geometry::{
+    corner::Corner,
     line::{Line, Line2},
     Distance,
 };
@@ -11,7 +12,46 @@ pub enum RansacFeature<Frame> {
     #[default]
     None,
     Line(Line2<Frame>),
-    Junction(Line2<Frame>, Point2<Frame>),
+    Corner(Corner<Frame>),
+}
+
+impl<Frame> RansacFeature<Frame> {
+    fn from_points(point1: Point2<Frame>, point2: Point2<Frame>, point3: Point2<Frame>) -> Self {
+        let line = Line::from_points(point1, point2);
+        let corner = Corner::from_line_and_point_orthogonal(&line, point3);
+
+        if corner.direction2.norm() > f32::EPSILON {
+            Self::Corner(corner)
+        } else {
+            Self::Line(line)
+        }
+    }
+
+    fn score<'a>(
+        &self,
+        unused_points: impl IntoIterator<Item = &'a Point2<Frame>>,
+        maximum_score_distance: f32,
+        maximum_score_distance_squared: f32,
+    ) -> f32
+    where
+        Frame: 'a,
+    {
+        unused_points
+            .into_iter()
+            .filter(|point| self.squared_distance_to(**point) <= maximum_score_distance_squared)
+            .map(|point| 1.0 - self.distance_to(*point) / maximum_score_distance)
+            .sum()
+    }
+}
+
+impl<Frame> Distance<Point2<Frame>> for RansacFeature<Frame> {
+    fn squared_distance_to(&self, point: Point2<Frame>) -> f32 {
+        match self {
+            RansacFeature::None => f32::INFINITY,
+            RansacFeature::Line(line) => line.squared_distance_to(point),
+            RansacFeature::Corner(corner) => corner.squared_distance_to(point),
+        }
+    }
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -44,36 +84,45 @@ impl<Frame> Ransac<Frame> {
                 used_points: vec![],
             };
         }
+        if self.unused_points.len() == 2 {
+            return RansacResult {
+                feature: RansacFeature::Line(Line(self.unused_points[0], self.unused_points[1])),
+                used_points: self.unused_points.clone(),
+            };
+        }
 
         let maximum_score_distance_squared = maximum_score_distance * maximum_score_distance;
         let maximum_inclusion_distance_squared =
             maximum_inclusion_distance * maximum_inclusion_distance;
-        let best_line = (0..iterations)
+
+        let best_feature = (0..iterations)
             .map(|_| {
                 let mut points = self
                     .unused_points
-                    .choose_multiple(random_number_generator, 2);
-                let line = Line::from_points(*points.next().unwrap(), *points.next().unwrap());
-                let score: f32 = self
-                    .unused_points
-                    .iter()
-                    .filter(|&point| {
-                        line.squared_distance_to(*point) <= maximum_score_distance_squared
-                    })
-                    .map(|point| 1.0 - line.distance_to(*point) / maximum_score_distance)
-                    .sum();
-                (line, score)
+                    .choose_multiple(random_number_generator, 3);
+                let feature = RansacFeature::from_points(
+                    *points.next().unwrap(),
+                    *points.next().unwrap(),
+                    *points.next().unwrap(),
+                );
+                let score = feature.score(
+                    self.unused_points.iter(),
+                    maximum_score_distance,
+                    maximum_score_distance_squared,
+                );
+                (feature, score)
             })
-            .max_by_key(|(_line, score)| NotNan::new(*score).expect("score should never be NaN"))
+            .max_by_key(|(_feature, score)| NotNan::new(*score).expect("score should never be NaN"))
             .expect("max_by_key erroneously returned no result")
             .0;
+
         let (used_points, unused_points) = self.unused_points.iter().partition(|point| {
-            best_line.squared_distance_to(**point) <= maximum_inclusion_distance_squared
+            best_feature.squared_distance_to(**point) <= maximum_inclusion_distance_squared
         });
         self.unused_points = unused_points;
 
         RansacResult {
-            feature: RansacFeature::Line(best_line),
+            feature: best_feature,
             used_points,
         }
     }
