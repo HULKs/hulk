@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{ops::RangeInclusive, sync::Arc};
 
 use color_eyre::{eyre::ContextCompat, Result};
 use coordinate_systems::Pixel;
@@ -19,8 +19,8 @@ use nalgebra::Similarity2;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use types::{
-    color::{Rgb, YCbCr444},
-    field_color::FieldColor,
+    color::{Hsv, RgChromaticity, Rgb, YCbCr444},
+    field_color::FieldColorParameters,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -39,7 +39,7 @@ const OTHER_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 25
 pub struct ImageColorSelectPanel {
     nao: Arc<Nao>,
     image: BufferHandle<YCbCr422Image>,
-    field_color: BufferHandle<FieldColor>,
+    field_color: BufferHandle<FieldColorParameters>,
     cycler: VisionCycler,
     brush_size: f32,
     selection_mask: ColorImage,
@@ -58,14 +58,19 @@ impl Panel for ImageColorSelectPanel {
                 VisionCycler::try_from(string).ok()
             })
             .unwrap_or(VisionCycler::Top);
-        let cycler_path = cycler.as_path();
-        let image = nao.subscribe_value(format!("{cycler_path}.main_outputs.image"));
+        let image = nao.subscribe_value(format!(
+            "{cycler_path}.main_outputs.image",
+            cycler_path = cycler.as_path()
+        ));
 
         let brush_size = 50.0;
 
         let selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
 
-        let field_color = nao.subscribe_value(format!("{cycler_path}.main_outputs.field_color"));
+        let field_color = nao.subscribe_value(format!(
+            "parameters.field_color_detection.{cycler_path}",
+            cycler_path = cycler.as_snake_case_path()
+        ));
 
         let x_axis = value
             .and_then(|value| serde_json::from_value::<Axis>(value.get("x_axis")?.clone()).ok())
@@ -133,6 +138,8 @@ impl Widget for &mut ImageColorSelectPanel {
                                 "Green Luminance",
                             );
                             ui.selectable_value(&mut self.x_axis, Axis::Luminance, "Luminance");
+                            ui.selectable_value(&mut self.x_axis, Axis::Hue, "Hue");
+                            ui.selectable_value(&mut self.x_axis, Axis::Saturation, "Saturation");
                         });
                     ui.label("y:");
                     ComboBox::from_id_source("y_axis")
@@ -159,14 +166,24 @@ impl Widget for &mut ImageColorSelectPanel {
                                 "Green Luminance",
                             );
                             ui.selectable_value(&mut self.y_axis, Axis::Luminance, "Luminance");
+                            ui.selectable_value(&mut self.y_axis, Axis::Hue, "Hue");
+                            ui.selectable_value(&mut self.y_axis, Axis::Saturation, "Saturation");
                         });
                     ui.checkbox(&mut self.filter_by_other_axes, "Filter")
                 });
 
-                egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
-                    let Ok(Some(field_color)) = self.field_color.get_last_value() else {
+                let field_color = match self.field_color.get_last_value() {
+                    Ok(Some(value)) => value,
+                    Ok(None) => {
+                        ui.label("No field color available");
                         return;
-                    };
+                    }
+                    Err(error) => {
+                        ui.label(format!("{error:#?}"));
+                        return;
+                    }
+                };
+                egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
                     if let Ok(image) = &image {
                         plot_ui.points(
                             generate_points(
@@ -193,22 +210,41 @@ impl Widget for &mut ImageColorSelectPanel {
                             .color(Color32::BLUE),
                         );
                     }
-                    plot_ui.vline(VLine::new(self.x_axis.get_threshold(&field_color).1).width(5.0));
-                    plot_ui.hline(HLine::new(self.y_axis.get_threshold(&field_color).1).width(5.0));
-                })
+                    plot_ui.vline(
+                        VLine::new(*self.x_axis.get_range(&field_color).start())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
+                    plot_ui.vline(
+                        VLine::new(*self.x_axis.get_range(&field_color).end())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
+                    plot_ui.hline(
+                        HLine::new(*self.y_axis.get_range(&field_color).start())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
+                    plot_ui.hline(
+                        HLine::new(*self.y_axis.get_range(&field_color).end())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
+                });
             });
         CentralPanel::default()
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
                     let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
                     if cycler_selector.ui(ui).changed() {
-                        let cycler_path = self.cycler.as_path();
-                        self.image = self
-                            .nao
-                            .subscribe_value(format!("{cycler_path}.main_outputs.image"));
-                        self.field_color = self
-                            .nao
-                            .subscribe_value(format!("{cycler_path}.main_outputs.field_color"));
+                        self.image = self.nao.subscribe_value(format!(
+                            "{cycler_path}.main_outputs.image",
+                            cycler_path = self.cycler.as_path()
+                        ));
+                        self.field_color = self.nao.subscribe_value(format!(
+                            "parameters.field_color_detection.{cycler_path}",
+                            cycler_path = self.cycler.as_snake_case_path()
+                        ));
                     }
 
                     if ui.button("reset").clicked() {
@@ -369,38 +405,48 @@ enum Axis {
     BlueChromaticity,
     GreenLuminance,
     Luminance,
+    Hue,
+    Saturation,
 }
 
 impl Axis {
     fn get_value(self, color: Rgb) -> f32 {
-        let chromaticity = color.convert_to_rgchromaticity();
+        let chromaticity = RgChromaticity::from(color);
+        let hsv = Hsv::from(color);
         match self {
             Axis::RedChromaticity => chromaticity.red,
             Axis::GreenChromaticity => chromaticity.green,
             Axis::BlueChromaticity => 1.0 - chromaticity.red - chromaticity.green,
-            Axis::GreenLuminance => color.green as f32 / 255.0,
-            Axis::Luminance => color.get_luminance() as f32 / 255.0,
+            Axis::GreenLuminance => color.green as f32,
+            Axis::Luminance => color.get_luminance() as f32,
+            Axis::Hue => hsv.hue as f32,
+            Axis::Saturation => hsv.saturation as f32,
         }
     }
 
-    fn get_threshold(self, field_color: &FieldColor) -> (Ordering, f32) {
+    fn get_range(self, field_color: &FieldColorParameters) -> RangeInclusive<f32> {
         match self {
-            Axis::RedChromaticity => (Ordering::Greater, field_color.red_chromaticity_threshold),
-            Axis::GreenChromaticity => (Ordering::Less, field_color.green_chromaticity_threshold),
-            Axis::BlueChromaticity => (Ordering::Greater, field_color.blue_chromaticity_threshold),
-            Axis::GreenLuminance => (
-                Ordering::Less,
-                field_color.green_luminance_threshold / 255.0,
-            ),
-            Axis::Luminance => (Ordering::Greater, field_color.luminance_threshold / 255.0),
+            Axis::RedChromaticity => field_color.red_chromaticity.clone(),
+            Axis::GreenChromaticity => field_color.green_chromaticity.clone(),
+            Axis::BlueChromaticity => field_color.blue_chromaticity.clone(),
+            Axis::GreenLuminance => {
+                *field_color.green_luminance.start() as f32
+                    ..=*field_color.green_luminance.end() as f32
+            }
+            Axis::Luminance => {
+                *field_color.luminance.start() as f32..=*field_color.luminance.end() as f32
+            }
+            Axis::Hue => *field_color.hue.start() as f32..=*field_color.hue.end() as f32,
+            Axis::Saturation => {
+                *field_color.saturation.start() as f32..=*field_color.saturation.end() as f32
+            }
         }
     }
 
-    fn passes_threshold(self, color: Rgb, field_color: &FieldColor) -> bool {
+    fn passes_range_check(self, color: Rgb, field_color: &FieldColorParameters) -> bool {
         let value = self.get_value(color);
-        let (ordering, threshold) = self.get_threshold(field_color);
-
-        value.total_cmp(&threshold) == ordering
+        let range = self.get_range(field_color);
+        range.contains(&value)
     }
 }
 
@@ -411,7 +457,7 @@ fn generate_points(
     x_axis: Axis,
     y_axis: Axis,
     filter_by_other_axes: bool,
-    field_color: &FieldColor,
+    field_color: &FieldColorParameters,
 ) -> Points {
     Points::new(
         image
@@ -424,31 +470,23 @@ fn generate_points(
                 }
                 let rgb = Rgb::new(color.r(), color.g(), color.b());
 
-                    let skip = [x_axis, y_axis];
-                    let [
-                        red_chromaticity,
-                        green_chromaticity,
-                        blue_chromaticity,
-                        green_luminance,
-                        luminance,
-                    ] = [
-                        Axis::RedChromaticity,
-                        Axis::GreenChromaticity,
-                        Axis::BlueChromaticity,
-                        Axis::GreenLuminance,
-                        Axis::Luminance,
-                    ]
-                    .map(|axis| !skip.contains(&axis) && axis.passes_threshold(rgb, field_color));
+                let skip = [x_axis, y_axis];
+                let passes_relevant_range_checks = [
+                    Axis::RedChromaticity,
+                    Axis::GreenChromaticity,
+                    Axis::BlueChromaticity,
+                    Axis::GreenLuminance,
+                    Axis::Luminance,
+                    Axis::Hue,
+                    Axis::Saturation,
+                ]
+                .into_iter()
+                .filter(|axis| !skip.contains(axis))
+                .all(|axis| axis.passes_range_check(rgb, field_color));
 
-                    if filter_by_other_axes
-                        && (red_chromaticity
-                            || green_chromaticity
-                            || blue_chromaticity
-                            || green_luminance)
-                        && luminance
-                    {
-                        return None;
-                    }
+                if filter_by_other_axes && !passes_relevant_range_checks {
+                    return None;
+                }
 
                 Some([x_axis.get_value(rgb) as f64, y_axis.get_value(rgb) as f64])
             })

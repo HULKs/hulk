@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    ops::{Deref, DerefMut, Range},
+    ops::{Deref, DerefMut, Range, RangeInclusive},
     sync::Arc,
 };
 
@@ -199,6 +199,93 @@ where
 }
 
 impl<T> PathIntrospect for Range<T>
+where
+    T: PathIntrospect,
+{
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}start"));
+        fields.insert(format!("{prefix}end"));
+    }
+}
+
+impl<T> PathSerialize for RangeInclusive<T>
+where
+    T: PathSerialize + Serialize,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("start", suffix))) => self.start().serialize_path(suffix, serializer),
+            (_, Some(("end", suffix))) => self.end().serialize_path(suffix, serializer),
+            ("start", None) => self
+                .start()
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("end", None) => self
+                .end()
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathDeserialize for RangeInclusive<T>
+where
+    T: PathDeserialize + Clone,
+    for<'de> T: Deserialize<'de>,
+{
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("start", suffix))) => {
+                let mut start = self.start().clone();
+                start.deserialize_path(suffix, deserializer)?;
+                *self = start..=self.end().clone();
+                Ok(())
+            }
+            (_, Some(("end", suffix))) => {
+                let mut end = self.end().clone();
+                end.deserialize_path(suffix, deserializer)?;
+                *self = self.start().clone()..=end;
+                Ok(())
+            }
+            ("start", None) => {
+                let start = T::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                *self = start..=self.end().clone();
+                Ok(())
+            }
+            ("end", None) => {
+                let end = T::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                *self = self.start().clone()..=end;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<T> PathIntrospect for RangeInclusive<T>
 where
     T: PathIntrospect,
 {
