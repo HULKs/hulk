@@ -71,7 +71,7 @@ impl RelativeEq for PathSegment {
 impl PathSegment {
     pub fn length(&self) -> f32 {
         match self {
-            PathSegment::LineSegment(line_segment) => line_segment.norm(),
+            PathSegment::LineSegment(line_segment) => line_segment.length(),
             PathSegment::Arc(arc, direction) => arc.length(*direction),
         }
     }

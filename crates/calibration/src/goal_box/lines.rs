@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Ground, Pixel};
-use geometry::line::{Line, Line2};
+use geometry::line_segment::LineSegment;
 use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::{camera_matrix::CameraMatrix, Projection};
@@ -10,9 +10,9 @@ use projection::{camera_matrix::CameraMatrix, Projection};
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect, PathDeserialize,
 )]
 pub struct Lines<Frame> {
-    pub border_line: Line2<Frame>,
-    pub goal_box_line: Line2<Frame>,
-    pub connecting_line: Line2<Frame>,
+    pub border_line: LineSegment<Frame>,
+    pub goal_box_line: LineSegment<Frame>,
+    pub connecting_line: LineSegment<Frame>,
 }
 
 impl Lines<Pixel> {
@@ -40,10 +40,10 @@ pub enum LinesError {
 
 fn project_line_and_map_error(
     matrix: &CameraMatrix,
-    line: Line2<Pixel>,
+    line: LineSegment<Pixel>,
     which: &str,
-) -> Result<Line2<Ground>, LinesError> {
-    Ok(Line(
+) -> Result<LineSegment<Ground>, LinesError> {
+    Ok(LineSegment(
         project_point_and_map_error(matrix, line.0, format!("{which} point 0"))?,
         project_point_and_map_error(matrix, line.1, format!("{which} point 1"))?,
     ))
