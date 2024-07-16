@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    time::SystemTime,
-};
+use std::{collections::BTreeMap, time::SystemTime};
 
 use color_eyre::Result;
 use hungarian_algorithm::AssignmentProblem;
@@ -16,7 +13,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
-use linear_algebra::{distance, IntoTransform, Isometry2, Point2};
+use linear_algebra::{IntoTransform, Isometry2, Point2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
@@ -113,7 +110,7 @@ impl BallFilter {
                 filter_parameters.velocity_decay_factor,
                 Matrix4::from_diagonal(&filter_parameters.noise.process_noise_moving),
                 Matrix2::from_diagonal(&filter_parameters.noise.process_noise_resting),
-                filter_parameters.resting_ball_velocity_threshold,
+                filter_parameters.log_likelihood_of_zero_velocity_threshold,
             );
 
             if !had_ground_contact.get(&detection_time) {
@@ -197,16 +194,18 @@ impl BallFilter {
         };
 
         let should_merge_hypotheses =
-            |hypothesis1: &BallHypothesis, hypothesis2: &BallHypothesis| {
-                let ball1 = hypothesis1.position();
-                let ball2 = hypothesis2.position();
+            |_hypothesis1: &BallHypothesis, _hypothesis2: &BallHypothesis| false;
 
-                distance(ball1.position, ball2.position)
-                    < filter_parameters.hypothesis_merge_distance
-            };
-
+        let removed = self
+            .ball_filter
+            .remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses);
         self.ball_filter
-            .remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses)
+            .hypotheses
+            .sort_unstable_by(|a, b| b.validity.total_cmp(&a.validity));
+        self.ball_filter
+            .hypotheses
+            .truncate(filter_parameters.maximum_number_of_hypotheses);
+        removed
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {

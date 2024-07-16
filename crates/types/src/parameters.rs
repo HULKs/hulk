@@ -320,7 +320,8 @@ pub struct BallFilterNoise {
 )]
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
-    pub measurement_matching_distance: f32,
+    pub maximum_number_of_hypotheses: usize,
+    pub log_likelihood_of_zero_velocity_threshold: f32,
     pub hypothesis_merge_distance: f32,
     pub visible_validity_exponential_decay_factor: f32,
     pub hidden_validity_exponential_decay_factor: f32,
