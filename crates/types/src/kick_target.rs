@@ -6,6 +6,15 @@ use coordinate_systems::Ground;
 
 use crate::motion_command::KickVariant;
 
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub enum PlayingSituation {
+    KickOff,
+    CornerKick,
+    PenaltyShot,
+    #[default]
+    Normal,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct KickTarget {
     pub position: Point2<Ground>,
