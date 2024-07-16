@@ -253,13 +253,13 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current": 0.11,
+    "allowed_current": 0.13,
     "allowed_current_upper_threshold": 0.2,
     "optimization_speed": 0.000005,
     "position_difference_threshold": 0.0,
     "reset_base_offset": 0.0002,
     "reset_speed": 0.0006,
-    "reset_threshold": 0.001,
+    "reset_threshold": 0.0007,
     "optimization_sign": {
       "head": {
         "yaw": 1,
@@ -424,11 +424,11 @@
     "catching_steps": {
       "enabled": true,
       "catching_step_zero_moment_point_frame_count_threshold": 5,
-      "max_adjustment": 0.07,
-      "midpoint": 0.3,
+      "max_adjustment": 0.0,
+      "midpoint": 0.5,
       "target_overestimation_factor": 1.05,
       "longitudinal_offset": -0.05,
-      "additional_foot_lift": 0.02
+      "additional_foot_lift": 0.0
     },
     "gyro_balancing": {
       "balance_factors": {
@@ -451,10 +451,10 @@
     },
     "max_level_delta": 0.1,
     "max_rotation_speed": 5.0,
-    "max_forward_acceleration": 0.01,
+    "max_forward_acceleration": 0.005,
     "max_inside_turn": 0.0,
     "max_step_duration": { "nanos": 0, "secs": 2 },
-    "max_support_foot_lift_speed": 0.01,
+    "max_support_foot_lift_speed": 0.02,
     "min_step_duration": { "nanos": 180000000, "secs": 0 },
     "sole_pressure_threshold": 0.4,
     "starting_step": {
