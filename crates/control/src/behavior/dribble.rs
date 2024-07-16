@@ -70,7 +70,7 @@ pub fn execute(
         }
         orientation_mode => orientation_mode,
     };
-   
+
     if let Some(FilteredGameControllerState {
         game_phase: GamePhase::PenaltyShootout { .. },
         ..
