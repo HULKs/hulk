@@ -380,7 +380,7 @@
       "turn": 1.0
     },
     "step_size_delta_slow": {
-      "forward": -0.01,
+      "forward": -0.025,
       "left": 0.0,
       "turn": 0.0
     },
