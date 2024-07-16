@@ -79,6 +79,7 @@ bat = { version = "0.23.0", default-features = false, features = [
 ] }
 bincode = "1.3.3"
 bindgen = "0.69.4"
+buffered_watch = { path = "crates/buffered_watch" }
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.4.3"
 calibration = { path = "crates/calibration" }
@@ -131,7 +132,6 @@ linear_algebra = { path = "crates/linear_algebra" }
 log = "0.4.17"
 mlua = { version = "0.8.7", features = ["luajit", "serialize", "parking_lot"] }
 motionfile = { path = "crates/motionfile" }
-buffered_watch = { path = "crates/buffered_watch" }
 nalgebra = { version = "0.32.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
@@ -139,10 +139,10 @@ ndarray = { version = "0.15.6", features = ["serde"] }
 nix = { version = "0.28", features = ["ioctl"] }
 num-derive = "0.4.2"
 num-traits = "0.2"
+object_detection = { path = "crates/object_detection" }
 once_cell = "1.19.0"
 openvino = { version = "0.7.2", features = ["runtime-linking"] }
 opn = { path = "crates/opn" }
-object_detection = { path = "crates/object_detection" }
 opusfile-ng = "0.1.0"
 ordered-float = "3.1.0"
 parameters = { path = "crates/parameters" }
@@ -169,6 +169,7 @@ serde = { version = "1.0.195", features = ["derive", "rc"] }
 serde-transcode = "1.1.1"
 serde_bytes = "0.11.8"
 serde_derive = "1.0.195"
+serde_ignored = "0.1.10"
 serde_json = "1.0.107"
 serde_test = "1.0.152"
 sha2 = "0.10.8"
@@ -192,9 +193,9 @@ types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
 vision = { path = "crates/vision" }
-watch = "0.2.3"
 walkdir = "2.3.2"
 walking_engine = { path = "crates/walking_engine" }
+watch = "0.2.3"
 webots = { version = "0.8.0" }
 zbus = { version = "3.7.0" }
 

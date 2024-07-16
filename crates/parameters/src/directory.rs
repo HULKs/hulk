@@ -1,11 +1,12 @@
 use std::{
+    collections::BTreeSet,
     fs::{read_to_string, write},
     io,
     path::{Path, PathBuf},
 };
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{error, from_str, from_value, to_string_pretty, to_value, Value};
+use serde_json::{error, from_str, to_string_pretty, to_value, Value};
 use types::hardware::Ids;
 
 use super::json::{clone_nested_value, merge_json, prune_equal_branches};
@@ -30,6 +31,8 @@ pub enum DirectoryError {
     ParametersNotConvertedToJsonValue(#[source] error::Error),
     #[error("failed to set head parameters of location")]
     HeadParametersOfLocationNotSet(#[source] SerializationError),
+    #[error("superfluous fields in json: {field_names:#?}")]
+    SuperfluousFields { field_names: BTreeSet<String> },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -48,6 +51,7 @@ pub enum SerializationError {
 pub fn deserialize<Parameters>(
     parameters_root_path: impl AsRef<Path>,
     hardware_ids: &Ids,
+    allow_superfluous_fields: bool,
 ) -> Result<Parameters, DirectoryError>
 where
     Parameters: DeserializeOwned,
@@ -101,7 +105,17 @@ where
         merge_json(&mut parameters, &location_head_parameters);
     }
 
-    from_value(parameters).map_err(DirectoryError::JsonValueNotConvertedToParameters)
+    let mut superfluous_fields = BTreeSet::<String>::new();
+    let parsed = serde_ignored::deserialize(parameters, |path| {
+        superfluous_fields.insert(path.to_string());
+    })
+    .map_err(DirectoryError::JsonValueNotConvertedToParameters);
+    if !allow_superfluous_fields && !superfluous_fields.is_empty() {
+        return Err(DirectoryError::SuperfluousFields {
+            field_names: superfluous_fields,
+        });
+    }
+    parsed
 }
 
 pub fn serialize<Parameters>(
@@ -117,7 +131,7 @@ where
     let mut parameters =
         to_value(parameters).map_err(DirectoryError::ParametersNotConvertedToJsonValue)?;
     let stored_parameters = to_value(
-        deserialize::<Parameters>(&parameters_root_path, hardware_ids).map_err(|error| {
+        deserialize::<Parameters>(&parameters_root_path, hardware_ids, true).map_err(|error| {
             println!("{:?}", error);
             error
         })?,

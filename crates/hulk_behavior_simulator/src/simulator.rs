@@ -46,7 +46,8 @@ impl Simulator {
         let create_robot = lua
             .create_function(|lua, player_number: usize| {
                 let player_number = to_player_number(player_number).map_err(LuaError::external)?;
-                let robot = Robot::try_new(player_number).map_err(LuaError::external)?;
+                let robot = Robot::try_new(player_number)
+                    .map_err(|err| LuaError::external(format!("{err:#?}")))?;
                 Ok(lua.to_value(&LuaRobot::new(&robot)))
             })
             .wrap_err("failed to create function `create_robot`")?;

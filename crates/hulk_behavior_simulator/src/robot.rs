@@ -40,8 +40,8 @@ impl Robot {
             body_id: format!("behavior_simulator.{}", from_player_number(player_number)),
             head_id: format!("behavior_simulator.{}", from_player_number(player_number)),
         };
-        let mut parameter: Parameters =
-            deserialize("etc/parameters", &ids).wrap_err("could not load initial parameters")?;
+        let mut parameter: Parameters = deserialize("etc/parameters", &ids, true)
+            .wrap_err("could not load initial parameters")?;
         parameter.player_number = player_number;
 
         let interface: Arc<_> = Interfake::default().into();
