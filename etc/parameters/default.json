@@ -17,14 +17,16 @@
       "maximum_cluster_distance": 0.2,
       "minimum_consecutive_segments": 7,
       "minimum_luminance_standard_deviation": 7,
-      "minimum_samples_per_cluster": 8
+      "minimum_samples_per_cluster": 8,
+      "minimum_feet_width": 0.06
     },
     "vision_bottom": {
       "enable": true,
       "maximum_cluster_distance": 0.2,
       "minimum_consecutive_segments": 7,
       "minimum_luminance_standard_deviation": 7,
-      "minimum_samples_per_cluster": 8
+      "minimum_samples_per_cluster": 8,
+      "minimum_feet_width": 0.06
     }
   },
   "whistle_detection": {

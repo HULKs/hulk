@@ -3,13 +3,13 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Ground;
 use filtering::{
     mean_clustering::MeanClustering,
     statistics::{mean, standard_deviation},
 };
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{distance, point, Point2};
+use linear_algebra::distance;
+use linear_algebra::point;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
@@ -28,7 +28,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cluster_points: AdditionalOutput<Vec<ClusterPoint>, "feet_detection.cluster_points">,
-    clusters_in_ground: AdditionalOutput<Vec<Point2<Ground>>, "feet_detection.clusters_in_ground">,
+    clusters_in_ground: AdditionalOutput<Vec<CountedCluster>, "feet_detection.clusters_in_ground">,
 
     enable: Parameter<bool, "feet_detection.$cycler_instance.enable">,
     maximum_cluster_distance:
@@ -39,6 +39,7 @@ pub struct CycleContext {
         Parameter<f32, "feet_detection.$cycler_instance.minimum_luminance_standard_deviation">,
     minimum_samples_per_cluster:
         Parameter<usize, "feet_detection.$cycler_instance.minimum_samples_per_cluster">,
+    minimum_feet_width: Parameter<f32, "feet_detection.$cycler_instance.minimum_feet_width">,
 
     balls: RequiredInput<Option<Vec<BallPercept>>, "balls?">,
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
@@ -79,13 +80,15 @@ impl FeetDetection {
         let clusters_in_ground: Vec<_> = clusters_in_ground
             .into_iter()
             .filter(|cluster| cluster.samples > *context.minimum_samples_per_cluster)
+            .filter(|cluster| {
+                cluster.rightmost_point.y() - cluster.lefmost_point.y()
+                    >= *context.minimum_feet_width
+            })
             .collect();
-        context.clusters_in_ground.fill_if_subscribed(|| {
-            clusters_in_ground
-                .iter()
-                .map(|cluster| cluster.mean)
-                .collect()
-        });
+        context
+            .clusters_in_ground
+            .fill_if_subscribed(|| clusters_in_ground.clone());
+
         let positions = clusters_in_ground
             .into_iter()
             .map(|cluster| cluster.mean)
@@ -200,6 +203,8 @@ fn cluster_scored_cluster_points(
             None => clusters.push(CountedCluster {
                 mean: point.position_in_ground,
                 samples: 1,
+                lefmost_point: point.position_in_ground,
+                rightmost_point: point.position_in_ground,
             }),
         }
     }
