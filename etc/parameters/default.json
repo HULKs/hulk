@@ -1035,16 +1035,16 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.16, -0.02],
+      "position": [-0.16, -0.04],
       "orientation": 0.0,
-      "reached_thresholds": [0.06, 0.03, 0.15],
+      "reached_thresholds": [0.02, 0.01, 0.15],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
       "position": [-0.145, -0.08],
       "orientation": 0.9,
-      "reached_thresholds": [0.04, 0.04, 0.15],
+      "reached_thresholds": [0.03, 0.03, 0.15],
       "shot_distance": 3.5,
       "enabled": true
     },
