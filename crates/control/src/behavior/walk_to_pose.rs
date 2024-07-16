@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use coordinate_systems::{Field, Ground};
-use filtering::hysteresis::less_than_with_hysteresis;
+use filtering::hysteresis::less_than_with_relative_hysteresis;
 use framework::AdditionalOutput;
 use linear_algebra::{point, Isometry2, Orientation2, Point, Point2, Pose2};
 use types::{
@@ -166,16 +166,16 @@ impl<'cycle> WalkAndStand<'cycle> {
         let angle_to_walk = target_pose.orientation().angle();
         let was_standing_last_cycle =
             matches!(self.last_motion_command, MotionCommand::Stand { .. });
-        let is_reached = less_than_with_hysteresis(
+        let is_reached = less_than_with_relative_hysteresis(
             was_standing_last_cycle,
             distance_to_walk,
-            self.parameters.target_reached_thresholds.x + self.parameters.hysteresis.x,
-            self.parameters.hysteresis.x,
-        ) && less_than_with_hysteresis(
+            self.parameters.target_reached_thresholds.x,
+            0.0..=self.parameters.hysteresis.x,
+        ) && less_than_with_relative_hysteresis(
             was_standing_last_cycle,
             angle_to_walk.abs(),
-            self.parameters.target_reached_thresholds.y + self.parameters.hysteresis.y,
-            self.parameters.hysteresis.y,
+            self.parameters.target_reached_thresholds.y,
+            0.0..=self.parameters.hysteresis.y,
         );
         let orientation_mode = hybrid_alignment(
             target_pose,
