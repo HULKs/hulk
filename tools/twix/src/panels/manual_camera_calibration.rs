@@ -44,7 +44,7 @@ impl Widget for &mut ManualCalibrationPanel {
                     "Top Camera",
                     value,
                     &self.nao,
-                    "parameters.camera_matrix_parameters.vision_top.extrinsic_rotations",
+                    "camera_matrix_parameters.vision_top.extrinsic_rotations",
                 );
             }
             ui.separator();
@@ -54,7 +54,7 @@ impl Widget for &mut ManualCalibrationPanel {
                     "Bottom Camera",
                     value,
                     &self.nao,
-                    "parameters.camera_matrix_parameters.vision_bottom.extrinsic_rotations",
+                    "camera_matrix_parameters.vision_bottom.extrinsic_rotations",
                 );
             }
         })
@@ -75,7 +75,7 @@ fn draw_calibration_ui(
             let serialized = serde_json::to_value(rotations);
             match serialized {
                 Ok(value) => {
-                    nao.store_parameters(path, value, Scope::current_head())
+                    nao.store_parameters(path, value, Scope::default_head())
                         .log_err();
                 }
                 Err(error) => error!("failed to serialize parameter value: {error:#?}"),
@@ -91,7 +91,7 @@ fn draw_calibration_ui(
     );
     if response.changed() {
         nao.write(
-            format!("{path}.x"),
+            format!("parameters.{path}.x"),
             TextOrBinary::Text(serde_json::to_value(roll).unwrap()),
         );
     }
@@ -103,7 +103,7 @@ fn draw_calibration_ui(
     );
     if response.changed() {
         nao.write(
-            format!("{path}.y"),
+            format!("parameters.{path}.y"),
             TextOrBinary::Text(serde_json::to_value(pitch).unwrap()),
         );
     }
@@ -111,7 +111,7 @@ fn draw_calibration_ui(
     let response = ui.add(Slider::new(&mut yaw, range).text("Yaw").smart_aim(false));
     if response.changed() {
         nao.write(
-            format!("{path}.z"),
+            format!("parameters.{path}.z"),
             TextOrBinary::Text(serde_json::to_value(yaw).unwrap()),
         );
     }
