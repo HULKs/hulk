@@ -561,6 +561,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
             let itt_domain = ittapi::Domain::new(&instance_name);
 
             let (own_database_timestamp, own_database) = &mut *self.own_sender.borrow_mut();
+            *own_database = Default::default();
 
             #pre_setup
 
