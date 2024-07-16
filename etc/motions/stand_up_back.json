@@ -380,7 +380,12 @@
               "ankle_roll": -0.017453292519943295
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "interrupt_conditions": [{ "NoGroundContactAbort": {} }],
+      "keyframes": [
         {
           "duration": 0.4,
           "positions": {
@@ -425,7 +430,10 @@
       ]
     },
     {
-      "interrupt_conditions": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [
+        { "FallenAbort": {} },
+        { "NoGroundContactAbort": {} }
+      ],
       "keyframes": [
         {
           "duration": 0.3,
@@ -559,7 +567,10 @@
       }
     },
     {
-      "interrupt_conditions": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [
+        { "FallenAbort": {} },
+        { "NoGroundContactAbort": {} }
+      ],
       "keyframes": [
         {
           "duration": 0.5,
