@@ -1,6 +1,6 @@
 use std::{fmt::Debug, time::Duration};
 
-use crate::{FallenAbort, StabilizedCondition};
+use crate::{FallenAbort, NoGroundContactAbort, StabilizedCondition};
 
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
@@ -42,4 +42,5 @@ pub enum DiscreteConditionType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ContinuousConditionType {
     FallenAbort,
+    NoGroundContactAbort,
 }
