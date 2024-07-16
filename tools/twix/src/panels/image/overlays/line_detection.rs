@@ -2,7 +2,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Pixel;
-use geometry::line::Line2;
+use geometry::line_segment::LineSegment;
 use linear_algebra::Point2;
 use types::line_data::LineDiscardReason;
 
@@ -12,10 +12,10 @@ use crate::{
     value_buffer::BufferHandle,
 };
 
-type DiscardedLines = Vec<(Line2<Pixel>, LineDiscardReason)>;
+type DiscardedLines = Vec<(LineSegment<Pixel>, LineDiscardReason)>;
 
 pub struct LineDetection {
-    lines_in_image: BufferHandle<Option<Vec<Line2<Pixel>>>>,
+    lines_in_image: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
     discarded_lines: BufferHandle<Option<DiscardedLines>>,
     ransac_input: BufferHandle<Option<Vec<Point2<Pixel>>>>,
 }

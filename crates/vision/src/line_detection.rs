@@ -1,7 +1,7 @@
 use std::{collections::HashSet, iter::Peekable, ops::Range};
 
 use color_eyre::Result;
-use geometry::line::{Line, Line2};
+use geometry::line_segment::LineSegment;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
@@ -30,8 +30,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    lines_in_image: AdditionalOutput<Vec<Line2<Pixel>>, "lines_in_image">,
-    discarded_lines: AdditionalOutput<Vec<(Line2<Pixel>, LineDiscardReason)>, "discarded_lines">,
+    lines_in_image: AdditionalOutput<Vec<LineSegment<Pixel>>, "lines_in_image">,
+    discarded_lines:
+        AdditionalOutput<Vec<(LineSegment<Pixel>, LineDiscardReason)>, "discarded_lines">,
     ransac_input: AdditionalOutput<Vec<Point2<Pixel>>, "ransac_input">,
 
     allowed_line_length_in_field:
@@ -158,7 +159,7 @@ impl LineDetection {
                 break;
             };
 
-            let line_in_ground = Line(start_point_in_robot, end_point_in_robot);
+            let line_in_ground = LineSegment(start_point_in_robot, end_point_in_robot);
             let line_length_in_robot = line_in_ground.length();
             let is_too_short = *context.check_line_length
                 && line_length_in_robot < context.allowed_line_length_in_field.start;
@@ -182,7 +183,7 @@ impl LineDetection {
 
             lines_in_ground.push(line_in_ground);
             if context.lines_in_image.is_subscribed() {
-                image_lines.push(Line(start_point_in_ground, end_point_in_ground));
+                image_lines.push(LineSegment(start_point_in_ground, end_point_in_ground));
             }
         }
         let line_data = LineData {
@@ -194,7 +195,7 @@ impl LineDetection {
             image_lines
                 .into_iter()
                 .map(|line| {
-                    Line(
+                    LineSegment(
                         context.camera_matrix.ground_to_pixel(line.0).unwrap(),
                         context.camera_matrix.ground_to_pixel(line.1).unwrap(),
                     )
@@ -206,7 +207,7 @@ impl LineDetection {
                 .into_iter()
                 .map(|(line, discard_reason)| {
                     (
-                        Line(
+                        LineSegment(
                             context.camera_matrix.ground_to_pixel(line.0).unwrap(),
                             context.camera_matrix.ground_to_pixel(line.1).unwrap(),
                         ),

@@ -1,12 +1,12 @@
-use std::{cmp::PartialEq, f32::consts::TAU};
+use std::{cmp::PartialEq, f32::consts::TAU, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{distance_squared, vector, Point2, Vector2};
+use linear_algebra::{center, distance, distance_squared, vector, Point2, Transform, Vector2};
 
-use crate::{arc::Arc, direction::Direction, Distance};
+use crate::{arc::Arc, direction::Direction, signed_acute_angle, Distance};
 
 #[derive(
     Clone,
@@ -22,41 +22,6 @@ use crate::{arc::Arc, direction::Direction, Distance};
 )]
 pub struct LineSegment<Frame>(pub Point2<Frame>, pub Point2<Frame>);
 
-impl<Frame> AbsDiffEq for LineSegment<Frame>
-where
-    Frame: PartialEq,
-{
-    type Epsilon = f32;
-
-    fn default_epsilon() -> Self::Epsilon {
-        f32::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        Point2::abs_diff_eq(&other.0, &self.0, epsilon)
-            && Point2::abs_diff_eq(&other.1, &self.1, epsilon)
-    }
-}
-
-impl<Frame> RelativeEq for LineSegment<Frame>
-where
-    Frame: PartialEq,
-{
-    fn default_max_relative() -> f32 {
-        f32::default_max_relative()
-    }
-
-    fn relative_eq(
-        &self,
-        other: &Self,
-        epsilon: Self::Epsilon,
-        max_relative: Self::Epsilon,
-    ) -> bool {
-        Point2::relative_eq(&self.0, &other.0, epsilon, max_relative)
-            && Point2::relative_eq(&self.1, &other.1, epsilon, max_relative)
-    }
-}
-
 impl<Frame> LineSegment<Frame> {
     pub fn new(start: Point2<Frame>, end: Point2<Frame>) -> Self {
         Self(start, end)
@@ -65,18 +30,49 @@ impl<Frame> LineSegment<Frame> {
         Self(self.1, self.0)
     }
 
-    pub fn norm(&self) -> f32 {
-        (self.0 - self.1).norm()
+    pub fn length(&self) -> f32 {
+        distance(self.0, self.1)
     }
 
-    pub fn norm_squared(&self) -> f32 {
-        (self.0 - self.1).norm_squared()
+    pub fn length_squared(&self) -> f32 {
+        distance_squared(self.0, self.1)
+    }
+
+    pub fn center(&self) -> Point2<Frame> {
+        center(self.0, self.1)
+    }
+
+    pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {
+        let line_vector = self.1 - self.0;
+        let normal_vector = vector![-line_vector.y(), line_vector.x()].normalize();
+        normal_vector.dot(point.coords()) - normal_vector.dot(self.0.coords())
+    }
+
+    pub fn signed_acute_angle(&self, other: Self) -> f32 {
+        let self_direction = self.1 - self.0;
+        let other_direction = other.1 - other.0;
+        signed_acute_angle(self_direction, other_direction)
+    }
+
+    pub fn angle(&self, other: Self) -> f32 {
+        (self.1 - self.0).angle(other.1 - other.0)
+    }
+
+    pub fn signed_acute_angle_to_orthogonal(&self, other: Self) -> f32 {
+        let self_direction = self.1 - self.0;
+        let other_direction = other.1 - other.0;
+        let orthogonal_other_direction = vector![other_direction.y(), -other_direction.x()];
+        signed_acute_angle(self_direction, orthogonal_other_direction)
+    }
+
+    pub fn is_orthogonal(&self, other: Self, epsilon: f32) -> bool {
+        self.signed_acute_angle_to_orthogonal(other).abs() < epsilon
     }
 
     pub fn projection_factor(&self, point: Point2<Frame>) -> f32 {
         let projection = (point - self.0).dot(self.1 - self.0);
 
-        projection / self.norm_squared()
+        projection / self.length_squared()
     }
 
     pub fn closest_point(&self, point: Point2<Frame>) -> Point2<Frame> {
@@ -140,7 +136,7 @@ impl<Frame> LineSegment<Frame> {
         }
 
         let projection = (arc.circle.center - self.0).dot(self.1 - self.0);
-        let projected_point_relative_contribution = projection / self.norm_squared();
+        let projected_point_relative_contribution = projection / self.length_squared();
         let base_point = self.0 + (self.1 - self.0) * projected_point_relative_contribution;
 
         let center_to_base_length = (base_point - arc.circle.center).norm();
@@ -195,9 +191,55 @@ impl<Frame> LineSegment<Frame> {
     }
 }
 
+impl<From, To, Inner> Mul<LineSegment<From>> for Transform<From, To, Inner>
+where
+    Self: Mul<Point2<From>, Output = Point2<To>> + Copy,
+{
+    type Output = LineSegment<To>;
+
+    fn mul(self, right: LineSegment<From>) -> Self::Output {
+        LineSegment(self * right.0, self * right.1)
+    }
+}
+
 impl<Frame> Distance<Point2<Frame>> for LineSegment<Frame> {
     fn squared_distance_to(&self, point: Point2<Frame>) -> f32 {
         distance_squared(point, self.closest_point(point))
+    }
+}
+
+impl<Frame> AbsDiffEq for LineSegment<Frame>
+where
+    Frame: PartialEq,
+{
+    type Epsilon = f32;
+
+    fn default_epsilon() -> Self::Epsilon {
+        f32::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        Point2::abs_diff_eq(&other.0, &self.0, epsilon)
+            && Point2::abs_diff_eq(&other.1, &self.1, epsilon)
+    }
+}
+
+impl<Frame> RelativeEq for LineSegment<Frame>
+where
+    Frame: PartialEq,
+{
+    fn default_max_relative() -> f32 {
+        f32::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        Point2::relative_eq(&self.0, &other.0, epsilon, max_relative)
+            && Point2::relative_eq(&self.1, &other.1, epsilon, max_relative)
     }
 }
 
@@ -214,11 +256,11 @@ mod tests {
     #[test]
     fn line_segment_lengths() {
         let line_segment = LineSegment::<SomeFrame>(Point2::origin(), point![0.0, 5.0]);
-        assert_relative_eq!(line_segment.norm(), 5.0);
-        assert_relative_eq!(line_segment.norm_squared(), 5.0 * 5.0);
+        assert_relative_eq!(line_segment.length(), 5.0);
+        assert_relative_eq!(line_segment.length_squared(), 5.0 * 5.0);
         let diagonal = LineSegment::<SomeFrame>(point![-1.0, -1.0], point![1.0, 1.0]);
-        assert_relative_eq!(diagonal.norm(), 8.0_f32.sqrt());
-        assert_relative_eq!(diagonal.norm_squared(), 8.0);
+        assert_relative_eq!(diagonal.length(), 8.0_f32.sqrt());
+        assert_relative_eq!(diagonal.length_squared(), 8.0);
     }
 
     #[test]

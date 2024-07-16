@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::epaint::{Color32, Stroke};
-use geometry::line::Line2;
+use geometry::line_segment::LineSegment;
 use linear_algebra::Point2;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub struct FieldBorder {
-    border_lines: BufferHandle<Option<Vec<Line2<Pixel>>>>,
+    border_lines: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
     candidates: BufferHandle<Option<Vec<Point2<Pixel>>>>,
 }
 

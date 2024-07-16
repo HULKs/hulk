@@ -5,7 +5,7 @@ use std::{
 
 use approx::assert_relative_eq;
 use color_eyre::{eyre::WrapErr, Result};
-use geometry::line::{Line, Line2};
+use geometry::line_segment::LineSegment;
 use linear_algebra::{distance, point, vector, IntoTransform, Isometry2, Pose2};
 use nalgebra::{matrix, Matrix, Matrix2, Matrix3, Rotation2, Translation2, Vector2, Vector3};
 use ordered_float::NotNan;
@@ -48,10 +48,11 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    correspondence_lines: AdditionalOutput<Vec<Line2<Field>>, "localization.correspondence_lines">,
+    correspondence_lines:
+        AdditionalOutput<Vec<LineSegment<Field>>, "localization.correspondence_lines">,
     fit_errors: AdditionalOutput<Vec<Vec<Vec<Vec<f32>>>>, "localization.fit_errors">,
     measured_lines_in_field:
-        AdditionalOutput<Vec<Line2<Field>>, "localization.measured_lines_in_field">,
+        AdditionalOutput<Vec<LineSegment<Field>>, "localization.measured_lines_in_field">,
     pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
     updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
 
@@ -348,11 +349,11 @@ impl Localization {
                                     let correspondence_points_1 =
                                         field_mark_correspondence.correspondence_points.1;
                                     [
-                                        Line(
+                                        LineSegment(
                                             correspondence_points_0.measured,
                                             correspondence_points_0.reference,
                                         ),
-                                        Line(
+                                        LineSegment(
                                             correspondence_points_1.measured,
                                             correspondence_points_1.reference,
                                         ),
@@ -577,7 +578,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
     let goal_depth = field_dimensions.goal_depth;
     vec![
         FieldMark::Line {
-            line: Line(
+            line: LineSegment(
                 point![
                     -field_dimensions.length / 2.0 - goal_depth,
                     -goal_width / 2.0
@@ -590,7 +591,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: LineSegment(
                 point![
                     -field_dimensions.length / 2.0 - goal_depth,
                     -goal_width / 2.0
@@ -600,7 +601,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: LineSegment(
                 point![
                     -field_dimensions.length / 2.0 - goal_depth,
                     goal_width / 2.0
@@ -610,7 +611,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: LineSegment(
                 point![
                     field_dimensions.length / 2.0 + goal_depth,
                     -goal_width / 2.0
@@ -620,7 +621,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
             direction: Direction::PositiveY,
         },
         FieldMark::Line {
-            line: Line(
+            line: LineSegment(
                 point![field_dimensions.length / 2.0, -goal_width / 2.0],
                 point![
                     field_dimensions.length / 2.0 + goal_depth,
@@ -630,7 +631,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
             direction: Direction::PositiveX,
         },
         FieldMark::Line {
-            line: Line(
+            line: LineSegment(
                 point![field_dimensions.length / 2.0, goal_width / 2.0],
                 point![field_dimensions.length / 2.0 + goal_depth, goal_width / 2.0],
             ),
@@ -641,7 +642,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
 
 #[derive(Clone, Copy, Debug)]
 pub struct FieldMarkCorrespondence {
-    measured_line_in_field: Line2<Field>,
+    measured_line_in_field: LineSegment<Field>,
     field_mark: FieldMark,
     pub correspondence_points: (CorrespondencePoints, CorrespondencePoints),
 }
@@ -686,7 +687,7 @@ fn predict(
 
 #[allow(clippy::too_many_arguments)]
 pub fn get_fitted_field_mark_correspondence(
-    measured_lines_in_field: &[Line2<Field>],
+    measured_lines_in_field: &[LineSegment<Field>],
     field_marks: &[FieldMark],
     gradient_convergence_threshold: f32,
     gradient_descent_step_size: f32,
@@ -818,7 +819,7 @@ fn get_fit_error(
 }
 
 fn get_field_mark_correspondence(
-    measured_lines_in_field: &[Line2<Field>],
+    measured_lines_in_field: &[LineSegment<Field>],
     correction: nalgebra::Isometry2<f32>,
     field_marks: &[FieldMark],
     line_length_acceptance_factor: f32,
@@ -928,7 +929,7 @@ fn get_translation_and_rotation_measurement(
             if field_mark_correspondence.measured_line_in_field.1.x()
                 < field_mark_correspondence.measured_line_in_field.0.x() =>
         {
-            Line(
+            LineSegment(
                 field_mark_correspondence.measured_line_in_field.1,
                 field_mark_correspondence.measured_line_in_field.0,
             )
@@ -937,7 +938,7 @@ fn get_translation_and_rotation_measurement(
             if field_mark_correspondence.measured_line_in_field.1.y()
                 < field_mark_correspondence.measured_line_in_field.0.y() =>
         {
-            Line(
+            LineSegment(
                 field_mark_correspondence.measured_line_in_field.1,
                 field_mark_correspondence.measured_line_in_field.0,
             )
@@ -1063,9 +1064,9 @@ mod tests {
     fn fitting_line_results_in_zero_measurement() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 0.0], point![0.0, 1.0]),
+            measured_line_in_field: LineSegment(point![0.0, 0.0], point![0.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1084,9 +1085,9 @@ mod tests {
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 1.0], point![0.0, 0.0]),
+            measured_line_in_field: LineSegment(point![0.0, 1.0], point![0.0, 0.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1105,9 +1106,9 @@ mod tests {
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 0.0], point![1.0, 0.0]),
+            measured_line_in_field: LineSegment(point![0.0, 0.0], point![1.0, 0.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1126,9 +1127,9 @@ mod tests {
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 0.0], point![0.0, 0.0]),
+            measured_line_in_field: LineSegment(point![1.0, 0.0], point![0.0, 0.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1151,9 +1152,9 @@ mod tests {
     fn translated_line_results_in_translation_measurement() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 0.0], point![1.0, 1.0]),
+            measured_line_in_field: LineSegment(point![1.0, 0.0], point![1.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1172,9 +1173,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![1.0, 0.0]),
+            measured_line_in_field: LineSegment(point![1.0, 1.0], point![1.0, 0.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1193,30 +1194,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 0.0], point![-1.0, 1.0]),
+            measured_line_in_field: LineSegment(point![-1.0, 0.0], point![-1.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
-                direction: Direction::PositiveY,
-            },
-            correspondence_points: (
-                CorrespondencePoints {
-                    measured: Point2::origin(),
-                    reference: Point2::origin(),
-                },
-                CorrespondencePoints {
-                    measured: Point2::origin(),
-                    reference: Point2::origin(),
-                },
-            ),
-        };
-        let update =
-            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
-        assert_relative_eq!(update, nalgebra::vector![1.0, 0.0]);
-
-        let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 1.0], point![-1.0, 0.0]),
-            field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1235,9 +1215,30 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, 1.0], point![1.0, 1.0]),
+            measured_line_in_field: LineSegment(point![-1.0, 1.0], point![-1.0, 0.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
+                direction: Direction::PositiveY,
+            },
+            correspondence_points: (
+                CorrespondencePoints {
+                    measured: Point2::origin(),
+                    reference: Point2::origin(),
+                },
+                CorrespondencePoints {
+                    measured: Point2::origin(),
+                    reference: Point2::origin(),
+                },
+            ),
+        };
+        let update =
+            get_translation_and_rotation_measurement(ground_to_field, field_mark_correspondence);
+        assert_relative_eq!(update, nalgebra::vector![1.0, 0.0]);
+
+        let field_mark_correspondence = FieldMarkCorrespondence {
+            measured_line_in_field: LineSegment(point![0.0, 1.0], point![1.0, 1.0]),
+            field_mark: FieldMark::Line {
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1256,9 +1257,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![0.0, 1.0]),
+            measured_line_in_field: LineSegment(point![1.0, 1.0], point![0.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1277,9 +1278,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![0.0, -1.0], point![1.0, -1.0]),
+            measured_line_in_field: LineSegment(point![0.0, -1.0], point![1.0, -1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1298,9 +1299,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![1.0, 0.0]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, -1.0], point![0.0, -1.0]),
+            measured_line_in_field: LineSegment(point![1.0, -1.0], point![0.0, -1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1323,9 +1324,9 @@ mod tests {
     fn rotated_line_results_in_rotation_measurement() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, -1.0], point![1.0, 1.0]),
+            measured_line_in_field: LineSegment(point![-1.0, -1.0], point![1.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1344,9 +1345,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![-1.0, -1.0]),
+            measured_line_in_field: LineSegment(point![1.0, 1.0], point![-1.0, -1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1365,9 +1366,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 1.0], point![1.0, -1.0]),
+            measured_line_in_field: LineSegment(point![-1.0, 1.0], point![1.0, -1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1386,9 +1387,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, -1.0], point![-1.0, 1.0]),
+            measured_line_in_field: LineSegment(point![1.0, -1.0], point![-1.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![0.0, -3.0], point![0.0, 3.0]),
+                line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
                 direction: Direction::PositiveY,
             },
             correspondence_points: (
@@ -1407,9 +1408,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, -1.0], point![1.0, 1.0]),
+            measured_line_in_field: LineSegment(point![-1.0, -1.0], point![1.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1428,9 +1429,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, 1.0], point![-1.0, -1.0]),
+            measured_line_in_field: LineSegment(point![1.0, 1.0], point![-1.0, -1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1449,9 +1450,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, -FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![-1.0, 1.0], point![1.0, -1.0]),
+            measured_line_in_field: LineSegment(point![-1.0, 1.0], point![1.0, -1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1470,9 +1471,9 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, FRAC_PI_4]);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(point![1.0, -1.0], point![-1.0, 1.0]),
+            measured_line_in_field: LineSegment(point![1.0, -1.0], point![-1.0, 1.0]),
             field_mark: FieldMark::Line {
-                line: Line(point![-3.0, 0.0], point![3.0, 0.0]),
+                line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
                 direction: Direction::PositiveX,
             },
             correspondence_points: (
@@ -1495,9 +1496,9 @@ mod tests {
     fn correct_correspondence_points() {
         let line_length_acceptance_factor = 1.5;
 
-        let measured_lines_in_field = [Line(point![0.0, 0.0], point![1.0, 0.0])];
+        let measured_lines_in_field = [LineSegment(point![0.0, 0.0], point![1.0, 0.0])];
         let field_marks = [FieldMark::Line {
-            line: Line(point![0.0, 0.0], point![1.0, 0.0]),
+            line: LineSegment(point![0.0, 0.0], point![1.0, 0.0]),
             direction: Direction::PositiveX,
         }];
         let correspondences = get_field_mark_correspondence(
@@ -1524,9 +1525,9 @@ mod tests {
             point![1.0, 0.0]
         );
 
-        let measured_lines_in_field = [Line(point![0.0, 0.0], point![1.0, 0.0])];
+        let measured_lines_in_field = [LineSegment(point![0.0, 0.0], point![1.0, 0.0])];
         let field_marks = [FieldMark::Line {
-            line: Line(point![0.0, 1.0], point![1.0, 1.0]),
+            line: LineSegment(point![0.0, 1.0], point![1.0, 1.0]),
             direction: Direction::PositiveX,
         }];
         let correspondences = get_field_mark_correspondence(
@@ -1553,9 +1554,9 @@ mod tests {
             point![1.0, 1.0]
         );
 
-        let measured_lines_in_field = [Line(point![0.0, 0.0], point![1.0, 0.0])];
+        let measured_lines_in_field = [LineSegment(point![0.0, 0.0], point![1.0, 0.0])];
         let field_marks = [FieldMark::Line {
-            line: Line(point![0.0, 0.0], point![1.0, 0.0]),
+            line: LineSegment(point![0.0, 0.0], point![1.0, 0.0]),
             direction: Direction::PositiveX,
         }];
         let correspondences = get_field_mark_correspondence(
@@ -1587,7 +1588,7 @@ mod tests {
     fn circle_mark_correspondence_translates() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
                 radius: 0.0,
@@ -1607,7 +1608,7 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
                 radius: 0.0,
@@ -1627,7 +1628,7 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, -1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
                 radius: 0.0,
@@ -1647,7 +1648,7 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![0.0, 1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
                 radius: 0.0,
@@ -1667,7 +1668,7 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
                 radius: 0.0,
@@ -1687,7 +1688,7 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![1.0, 0.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
                 radius: 0.0,
@@ -1707,7 +1708,7 @@ mod tests {
         assert_relative_eq!(update, nalgebra::vector![-1.0, -1.0], epsilon = 0.0001);
 
         let field_mark_correspondence = FieldMarkCorrespondence {
-            measured_line_in_field: Line(Point2::origin(), Point2::origin()),
+            measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
                 radius: 0.0,

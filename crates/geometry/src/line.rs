@@ -1,17 +1,12 @@
-use std::{
-    f32::consts::{FRAC_PI_2, PI},
-    ops::Mul,
-};
+use std::ops::Mul;
 
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{
-    center, distance, distance_squared, point, vector, Point, Point2, Rotation2, Transform, Vector2,
-};
+use linear_algebra::{distance_squared, point, vector, Point, Point2, Transform};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::Distance;
+use crate::{line_segment::LineSegment, signed_acute_angle, Distance};
 
 #[derive(
     Copy,
@@ -106,17 +101,6 @@ impl<Frame> Line2<Frame> {
     }
 }
 
-fn signed_acute_angle<Frame>(first: Vector2<Frame>, second: Vector2<Frame>) -> f32 {
-    let difference = Rotation2::rotation_between(first, second).angle();
-    if difference > FRAC_PI_2 {
-        difference - PI
-    } else if difference < -FRAC_PI_2 {
-        difference + PI
-    } else {
-        difference
-    }
-}
-
 impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
     pub fn closest_point(&self, point: Point<Frame, DIMENSION>) -> Point<Frame, DIMENSION> {
         let difference_on_line = self.1 - self.0;
@@ -124,14 +108,6 @@ impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
         self.0
             + (difference_on_line * difference_on_line.dot(difference_to_point)
                 / difference_on_line.norm_squared())
-    }
-
-    pub fn length(&self) -> f32 {
-        distance(self.0, self.1)
-    }
-
-    pub fn center(&self) -> Point<Frame, DIMENSION> {
-        center(self.0, self.1)
     }
 }
 
@@ -185,6 +161,12 @@ impl<Frame, const DIMENSION: usize> RelativeEq for Line<Frame, DIMENSION> {
     ) -> bool {
         self.0.relative_eq(&other.0, epsilon, max_relative)
             && self.1.relative_eq(&other.1, epsilon, max_relative)
+    }
+}
+
+impl<Frame> From<LineSegment<Frame>> for Line2<Frame> {
+    fn from(line_segment: LineSegment<Frame>) -> Self {
+        Self(line_segment.0, line_segment.1)
     }
 }
 

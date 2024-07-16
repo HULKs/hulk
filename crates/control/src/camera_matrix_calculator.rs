@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
-use geometry::line::{Line, Line2};
+use geometry::line_segment::LineSegment;
 use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector3};
 use types::{
     field_dimensions::FieldDimensions, field_lines::ProjectedFieldLines,
@@ -105,7 +105,7 @@ impl CameraMatrixCalculator {
 fn project_penalty_area_on_images(
     field_dimensions: &FieldDimensions,
     camera_matrix: &CameraMatrix,
-) -> Option<Vec<Line2<Pixel>>> {
+) -> Option<Vec<LineSegment<Pixel>>> {
     let field_length = &field_dimensions.length;
     let field_width = &field_dimensions.width;
     let penalty_area_length = &field_dimensions.penalty_area_length;
@@ -137,11 +137,11 @@ fn project_penalty_area_on_images(
         .ok()?;
 
     Some(vec![
-        Line(penalty_top_left, penalty_top_right),
-        Line(penalty_bottom_left, penalty_bottom_right),
-        Line(penalty_bottom_left, penalty_top_left),
-        Line(penalty_bottom_right, penalty_top_right),
-        Line(corner_left, corner_right),
+        LineSegment(penalty_top_left, penalty_top_right),
+        LineSegment(penalty_bottom_left, penalty_bottom_right),
+        LineSegment(penalty_bottom_left, penalty_top_left),
+        LineSegment(penalty_bottom_right, penalty_top_right),
+        LineSegment(corner_left, corner_right),
     ])
 }
 

@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Ground, Pixel};
-use geometry::line::Line2;
+use geometry::line_segment::LineSegment;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::field_dimensions::FieldDimensions;
 
@@ -13,9 +13,9 @@ use crate::{
 };
 
 pub struct Lines {
-    lines_in_image_top: BufferHandle<Option<Vec<Line2<Pixel>>>>,
+    lines_in_image_top: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
     camera_matrix_top: BufferHandle<Option<CameraMatrix>>,
-    lines_in_image_bottom: BufferHandle<Option<Vec<Line2<Pixel>>>>,
+    lines_in_image_bottom: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
     camera_matrix_bottom: BufferHandle<Option<CameraMatrix>>,
 }
 
@@ -62,7 +62,7 @@ impl Layer<Ground> for Lines {
 
 fn paint_lines(
     painter: &TwixPainter<Ground>,
-    lines_in_image: Option<Vec<Line2<Pixel>>>,
+    lines_in_image: Option<Vec<LineSegment<Pixel>>>,
     camera_matrix: Option<CameraMatrix>,
 ) -> Option<()> {
     let camera_matrix = camera_matrix?;
