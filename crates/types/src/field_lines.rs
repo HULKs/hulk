@@ -1,5 +1,5 @@
 use coordinate_systems::Pixel;
-use geometry::line::Line2;
+use geometry::line_segment::LineSegment;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +7,6 @@ use serde::{Deserialize, Serialize};
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct ProjectedFieldLines {
-    pub top: Vec<Line2<Pixel>>,
-    pub bottom: Vec<Line2<Pixel>>,
+    pub top: Vec<LineSegment<Pixel>>,
+    pub bottom: Vec<LineSegment<Pixel>>,
 }

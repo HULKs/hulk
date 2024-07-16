@@ -9,7 +9,7 @@ use calibration::goal_box::{lines::Lines, measurement::Measurement};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
-use geometry::line::{Line, Line2};
+use geometry::line_segment::LineSegment;
 use linear_algebra::point;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
@@ -89,8 +89,11 @@ fn get_measurement_from_image(
     get_fake_measurement(image, matrix, position, field_dimensions)
 }
 
-fn project_line_to_camera(matrix: &CameraMatrix, line: Line2<Ground>) -> Result<Line2<Pixel>> {
-    Ok(Line(
+fn project_line_to_camera(
+    matrix: &CameraMatrix,
+    line: LineSegment<Ground>,
+) -> Result<LineSegment<Pixel>> {
+    Ok(LineSegment(
         matrix.ground_to_pixel(line.0)?,
         matrix.ground_to_pixel(line.1)?,
     ))
@@ -104,13 +107,13 @@ fn get_fake_measurement(
 ) -> Result<Measurement> {
     // Minimal length lines representing the 3 lines to make sure they are in the camera's FOV
     // otherwise occlusions/ trimmed lines have to be handled
-    let border_line = Line(point![2.0, 0.0], point![3.0, 0.0]);
+    let border_line = LineSegment(point![2.0, 0.0], point![3.0, 0.0]);
     let goal_box_line = {
         let y = field_dimensions.goal_box_area_length + border_line.0.y();
         let bottom_x = border_line.0.x() + 0.5;
-        Line(point![bottom_x, y], point![bottom_x + 1.0, y])
+        LineSegment(point![bottom_x, y], point![bottom_x + 1.0, y])
     };
-    let connecting_line = Line(
+    let connecting_line = LineSegment(
         goal_box_line.0,
         point![goal_box_line.0.x(), border_line.0.y()],
     );

@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use geometry::line::{Line, Line2};
+use geometry::line_segment::LineSegment;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
@@ -108,7 +108,7 @@ fn find_border_lines(
     angle_threshold: f32,
     first_line_association_distance: f32,
     second_line_association_distance: f32,
-) -> Vec<Line2<Pixel>> {
+) -> Vec<LineSegment<Pixel>> {
     // first line
     let result = ransac.next_line(
         random_state,
@@ -137,11 +137,11 @@ fn find_border_lines(
     vec![first_line, second_line]
 }
 
-fn best_fit_line(points: &[Point2<Pixel>]) -> Line2<Pixel> {
+fn best_fit_line(points: &[Point2<Pixel>]) -> LineSegment<Pixel> {
     let half_size = points.len() / 2;
     let line_start = find_center_of_group(&points[0..half_size]);
     let line_end = find_center_of_group(&points[half_size..points.len()]);
-    Line(line_start, line_end)
+    LineSegment(line_start, line_end)
 }
 
 fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
@@ -154,16 +154,16 @@ fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
 }
 
 fn is_orthogonal(
-    lines: &[Line2<Pixel>; 2],
+    lines: &[LineSegment<Pixel>; 2],
     camera_matrix: &CameraMatrix,
     angle_threshold: f32,
 ) -> Result<bool> {
     let projected_lines = [
-        Line(
+        LineSegment(
             camera_matrix.pixel_to_ground(lines[0].0)?,
             camera_matrix.pixel_to_ground(lines[0].1)?,
         ),
-        Line(
+        LineSegment(
             camera_matrix.pixel_to_ground(lines[1].0)?,
             camera_matrix.pixel_to_ground(lines[1].1)?,
         ),

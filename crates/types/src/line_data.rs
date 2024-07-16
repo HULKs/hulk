@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use coordinate_systems::{Ground, Pixel};
-use geometry::line::Line2;
+use geometry::line_segment::LineSegment;
 use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
     Clone, Default, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct LineData {
-    pub lines: Vec<Line2<Ground>>,
+    pub lines: Vec<LineSegment<Ground>>,
     pub used_segments: HashSet<Point2<Pixel, u16>>,
 }
 

@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Field;
-use geometry::line::Line2;
+use geometry::line_segment::LineSegment;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
@@ -12,8 +12,8 @@ use crate::{
 };
 
 pub struct LineCorrespondences {
-    correspondence_lines: BufferHandle<Option<Vec<Line2<Field>>>>,
-    lines_in_field: BufferHandle<Option<Vec<Line2<Field>>>>,
+    correspondence_lines: BufferHandle<Option<Vec<LineSegment<Field>>>>,
+    lines_in_field: BufferHandle<Option<Vec<LineSegment<Field>>>>,
 }
 
 impl Layer<Field> for LineCorrespondences {
