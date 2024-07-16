@@ -1247,10 +1247,10 @@
     "sacrificial_nao_playernumber": "Three"
   },
   "ground_contact_detector": {
-    "pressure_threshold": 0.3,
-    "hysteresis": 0.3,
+    "pressure_threshold": 0.6,
+    "hysteresis": 0.6,
     "timeout": {
-      "nanos": 250000000,
+      "nanos": 50000000,
       "secs": 0
     }
   },

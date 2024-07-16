@@ -11,7 +11,7 @@ use types::{cycle_time::CycleTime, sole_pressure::SolePressure};
 pub struct GroundContactDetector {
     last_has_pressure: bool,
     last_time_switched: SystemTime,
-    has_firm_ground_contact: bool,
+    has_ground_contact: bool,
 }
 
 #[context]
@@ -30,7 +30,6 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub has_firm_ground_contact: MainOutput<bool>,
     pub has_ground_contact: MainOutput<bool>,
 }
 
@@ -39,7 +38,7 @@ impl GroundContactDetector {
         Ok(Self {
             last_has_pressure: false,
             last_time_switched: UNIX_EPOCH,
-            has_firm_ground_contact: false,
+            has_ground_contact: false,
         })
     }
 
@@ -60,13 +59,12 @@ impl GroundContactDetector {
             .expect("time ran backwards")
             > *context.timeout
         {
-            self.has_firm_ground_contact = has_pressure;
+            self.has_ground_contact = has_pressure;
         }
         self.last_has_pressure = has_pressure;
 
         Ok(MainOutputs {
-            has_firm_ground_contact: self.has_firm_ground_contact.into(),
-            has_ground_contact: has_pressure.into(),
+            has_ground_contact: self.has_ground_contact.into(),
         })
     }
 }

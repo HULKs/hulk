@@ -58,7 +58,7 @@ pub struct CycleContext {
     active_action_output: AdditionalOutput<Action, "active_action">,
 
     expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
-    has_firm_ground_contact: Input<bool, "has_firm_ground_contact">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
@@ -288,7 +288,7 @@ impl Behavior {
                         *context.enable_pose_detection,
                     ),
                     Action::FallSafely => {
-                        fall_safely::execute(world_state, *context.has_firm_ground_contact)
+                        fall_safely::execute(world_state, *context.has_ground_contact)
                     }
                     Action::StandUp => stand_up::execute(world_state),
                     Action::NoGroundContact => no_ground_contact::execute(world_state),

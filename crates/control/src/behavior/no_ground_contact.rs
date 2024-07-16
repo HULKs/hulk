@@ -4,7 +4,7 @@ use types::{
 };
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
-    if world_state.robot.has_firm_ground_contact {
+    if world_state.robot.has_ground_contact {
         return None;
     }
     Some(MotionCommand::Stand {

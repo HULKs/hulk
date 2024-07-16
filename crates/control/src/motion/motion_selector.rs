@@ -19,7 +19,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     motion_command: Input<MotionCommand, "motion_command">,
-    has_firm_ground_contact: Input<bool, "has_firm_ground_contact">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
 }
@@ -45,7 +45,7 @@ impl MotionSelector {
             self.current_motion,
             requested_motion,
             motion_safe_to_exit,
-            *context.has_firm_ground_contact,
+            *context.has_ground_contact,
         );
 
         let dispatching_motion = if self.current_motion == MotionType::Dispatching {
@@ -100,9 +100,9 @@ fn transition_motion(
     from: MotionType,
     to: MotionType,
     motion_safe_to_exit: bool,
-    has_firm_ground_contact: bool,
+    has_ground_contact: bool,
 ) -> MotionType {
-    match (from, motion_safe_to_exit, to, has_firm_ground_contact) {
+    match (from, motion_safe_to_exit, to, has_ground_contact) {
         (MotionType::SitDown, true, MotionType::Unstiff, _) => MotionType::Unstiff,
         (_, _, MotionType::Unstiff, false) => MotionType::Unstiff,
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,

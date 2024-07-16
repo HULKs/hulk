@@ -54,7 +54,7 @@ pub struct MainOutputs {
     pub game_controller_address: MainOutput<Option<SocketAddr>>,
     pub game_controller_state: MainOutput<Option<GameControllerState>>,
     pub ground_to_field: MainOutput<Option<Isometry2<Ground, Field>>>,
-    pub has_firm_ground_contact: MainOutput<bool>,
+    pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
     pub majority_vote_is_referee_ready_pose_detected: MainOutput<bool>,
     pub visual_referee_proceed_to_ready: MainOutput<bool>,
@@ -87,7 +87,7 @@ impl FakeData {
             filtered_whistle: last_database.filtered_whistle.clone().into(),
             game_controller_state: last_database.game_controller_state.into(),
             game_controller_address: last_database.game_controller_address.into(),
-            has_firm_ground_contact: last_database.has_firm_ground_contact.into(),
+            has_ground_contact: last_database.has_ground_contact.into(),
             hulk_messages: last_database.hulk_messages.clone().into(),
             majority_vote_is_referee_ready_pose_detected: last_database
                 .majority_vote_is_referee_ready_pose_detected

@@ -41,7 +41,7 @@ pub struct CycleContext {
     current_odometry_to_last_odometry:
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
-    had_ground_contact: HistoricInput<bool, "has_firm_ground_contact">,
+    had_ground_contact: HistoricInput<bool, "has_ground_contact">,
     historic_cycle_times: HistoricInput<CycleTime, "cycle_time">,
 
     camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
