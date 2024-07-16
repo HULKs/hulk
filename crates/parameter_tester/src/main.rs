@@ -25,7 +25,7 @@ fn main() -> Result<()> {
         head_id: String::new(),
     };
     let _robotics_parameters: hulk::structs::Parameters =
-        deserialize(framework_parameters.parameters_directory, &ids)?;
+        deserialize(framework_parameters.parameters_directory, &ids, false)?;
 
     Ok(())
 }

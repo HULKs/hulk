@@ -93,15 +93,12 @@
   },
   "image_receiver": {
     "vision_top": {
-      "resolution": 42,
       "camera_position": "Top"
     },
     "object_detection_top": {
-      "resolution": 42,
       "camera_position": "Top"
     },
     "vision_bottom": {
-      "resolution": 42,
       "camera_position": "Bottom"
     }
   },
@@ -604,7 +601,6 @@
     ]
   },
   "localization": {
-    "angle_similarity_threshold": 0.4,
     "circle_measurement_noise": [1000.0, 1000.0],
     "gradient_convergence_threshold": 1e-2,
     "gradient_descent_step_size": 0.01,
@@ -644,17 +640,11 @@
         "side": "Right"
       }
     },
-    "injected_ground_to_field_of_home_after_coin_toss_before_second_half": null,
     "line_length_acceptance_factor": 1.5,
     "line_measurement_noise": [1000.0, 320.0],
     "maximum_amount_of_gradient_descent_iterations": 20,
     "maximum_amount_of_outer_iterations": 10,
-    "maximum_association_distance": 0.4,
-    "maximum_line_distance": 2.0,
-    "maximum_line_point_distance": 3.0,
-    "minimal_line_length": 0.3,
     "minimum_fit_error": 0.001,
-    "minimum_line_length": 0.15,
     "odometry_noise": [0.05, 0.01, 0.008],
     "use_line_measurements": true,
     "penalized_distance": 0.5,
@@ -1000,7 +990,6 @@
       "secs": 1
     },
     "minimum_bottom_focus_pitch": 0.2,
-    "glance_center_offset_in_image": [0.0, -100.0],
     "image_regions": {
       "bottom": [0.5, 0.7],
       "center": [0.5, 0.5]
@@ -1335,10 +1324,6 @@
       [0.1, -0.06, 0.02]
     ]
   },
-  "message_receiver": {
-    "initial_value": 0,
-    "step": 0
-  },
   "field_dimensions": {
     "ball_radius": 0.05,
     "length": 9.0,
@@ -1379,44 +1364,6 @@
     "striker_trusts_team_ball": {
       "nanos": 0,
       "secs": 1
-    }
-  },
-  "maximum_joint_velocities": {
-    "head": {
-      "pitch": 2.0,
-      "yaw": 2.0
-    },
-    "left_arm": {
-      "elbow_roll": 3.0,
-      "elbow_yaw": 3.0,
-      "hand": 2.0,
-      "shoulder_pitch": 3.0,
-      "shoulder_roll": 3.0,
-      "wrist_yaw": 2.0
-    },
-    "left_leg": {
-      "ankle_pitch": 2.5,
-      "ankle_roll": 2.5,
-      "hip_pitch": 2.5,
-      "hip_roll": 2.5,
-      "hip_yaw_pitch": 2.5,
-      "knee_pitch": 2.5
-    },
-    "right_arm": {
-      "elbow_roll": 3.0,
-      "elbow_yaw": 3.0,
-      "hand": 2.0,
-      "shoulder_pitch": 3.0,
-      "shoulder_roll": 3.0,
-      "wrist_yaw": 2.0
-    },
-    "right_leg": {
-      "ankle_pitch": 2.5,
-      "ankle_roll": 2.5,
-      "hip_pitch": 2.5,
-      "hip_roll": 2.5,
-      "hip_yaw_pitch": 2.5,
-      "knee_pitch": 2.5
     }
   },
   "joint_calibration_offsets": {
