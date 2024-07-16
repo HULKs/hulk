@@ -1,7 +1,6 @@
 use std::{
     fmt::Debug,
     mem::{size_of, ManuallyDrop},
-    ops::Index,
     path::Path,
     sync::Arc,
 };
@@ -207,7 +206,7 @@ impl YCbCr422Image {
         self.height
     }
 
-    fn coordinates_to_buffer_index(&self, x: u32, y: u32) -> usize {
+    pub fn coordinates_to_buffer_index(&self, x: u32, y: u32) -> usize {
         let x_422 = x / 2;
         (y * self.width_422 + x_422) as usize
     }
@@ -222,6 +221,10 @@ impl YCbCr422Image {
         }
     }
 
+    pub fn at_point(&self, point: Point2<Pixel, u32>) -> YCbCr444 {
+        self.at(point.x(), point.y())
+    }
+
     pub fn try_at(&self, x: u32, y: u32) -> Option<YCbCr444> {
         if x >= self.width() || y >= self.height() {
             return None;
@@ -234,13 +237,5 @@ impl YCbCr422Image {
             cr: pixel.cr,
         };
         Some(pixel)
-    }
-}
-
-impl Index<Point2<Pixel, usize>> for YCbCr422Image {
-    type Output = YCbCr422;
-
-    fn index(&self, position: Point2<Pixel, usize>) -> &Self::Output {
-        &self.buffer[position.y() * self.width_422 as usize + position.x()]
     }
 }
