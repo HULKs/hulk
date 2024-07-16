@@ -142,7 +142,7 @@ impl KickSelector {
 
         Ok(MainOutputs {
             kick_decisions: Some(kick_decisions).into(),
-            instant_kick_decisions: Some(Vec::new()).into(),
+            instant_kick_decisions: Some(instant_kick_decisions).into(),
         })
     }
 }
