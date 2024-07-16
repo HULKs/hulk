@@ -133,7 +133,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     let multi_progress = ProgressIndicator::new();
 
     if arguments.prepare {
-        println!("WARNING: This upload was only prepared, no actual upload was performed!")
+        eprintln!("WARNING: This upload was only prepared, no actual upload was performed!")
     } else {
         arguments
             .naos
