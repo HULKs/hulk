@@ -6,12 +6,11 @@ use geometry::{line::Line, look_at::LookAt};
 use linear_algebra::{distance, point, Point2, Pose2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{MotionCommand, WalkSpeed},
     parameters::{RolePositionsParameters, WideStanceParameters},
     path_obstacles::PathObstacle,
-    support_foot::Side,
     world_state::{BallState, WorldState},
 };
 

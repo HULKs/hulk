@@ -11,7 +11,7 @@ use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, WalkSpeed},
@@ -24,7 +24,6 @@ use types::{
     primary_state::PrimaryState,
     roles::Role,
     step_plan::Step,
-    support_foot::Side,
     world_state::WorldState,
 };
 
