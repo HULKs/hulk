@@ -1,0 +1,14 @@
+{
+  "image_segmenter": {
+    "vision_top": {
+      "vertical_edge_threshold": 10
+    }
+  },
+  "field_color_detection": {
+    "vision_top": {
+      "saturation": {
+        "start": 40
+      }
+    }
+  }
+}
