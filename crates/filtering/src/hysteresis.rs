@@ -106,13 +106,13 @@ pub fn greater_than_with_hysteresis(
     )
 }
 
-/// For a relative hysteresis with relative lower and upper values
-///
-/// ```text
-/// ------true-----[-------old-value---------------------------]-----false-----
-///               ⏞                   ⏞                   ⏞
-///    threshold - hysteresis / 2.0   threshold    threshold + hysteresis / 2.0
-///```
+#[doc = r"For a relative hysteresis with relative lower and upper values
+
+```text
+------true-----[-------old-value---------------------------]-----false-----
+              ⏞                   ⏞                   ⏞
+   threshold - hysteresis / 2.0   threshold    threshold + hysteresis / 2.0
+```"]
 pub fn less_than_with_hysteresis(
     last_evaluation: bool,
     value: f32,

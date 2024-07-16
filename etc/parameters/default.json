@@ -253,13 +253,13 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current": 0.1,
-    "allowed_current_upper_threshold": 0.13,
-    "optimization_speed": 0.0000012,
+    "allowed_current": 0.11,
+    "allowed_current_upper_threshold": 0.2,
+    "optimization_speed": 0.000005,
     "position_difference_threshold": 0.0,
     "reset_base_offset": 0.0002,
     "reset_speed": 0.0006,
-    "reset_threshold": 0.0007,
+    "reset_threshold": 0.001,
     "optimization_sign": {
       "head": {
         "yaw": 1,
