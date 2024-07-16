@@ -5,7 +5,7 @@
     "maximum_distance_to_referee_position": 2.0,
     "minimum_bounding_box_confidence": 0.8,
     "minimum_overall_keypoint_confidence": 0.5,
-    "minimum_visual_referee_keypoint_confidence": 0.85,
+    "minimum_visual_referee_keypoint_confidence": 0.8,
     "minimum_shoulder_angle": 0.2,
     "foot_z_offset": 0.05,
     "referee_pose_queue_length": 8,
@@ -425,11 +425,12 @@
       "walk_height": 0.22
     },
     "catching_steps": {
+      "enabled": true,
       "catching_step_zero_moment_point_frame_count_threshold": 5,
-      "use_catching_steps": true,
       "max_adjustment": 0.07,
       "midpoint": 0.3,
       "target_overestimation_factor": 1.05,
+      "longitudinal_offset": -0.05,
       "additional_foot_lift": 0.02
     },
     "gyro_balancing": {
@@ -1085,8 +1086,10 @@
     "max_kick_around_obstacle_angle": 0.8,
     "corner_kick_strength": 0.25,
     "kick_off_kick_strength": 0.25,
+    "penalty_shot_kick_strength": 2.0,
     "kick_off_kick_variants": ["Forward", "Side"],
     "corner_kick_variants": ["Forward", "Side", "Turn"],
+    "penalty_kick_kick_variants": ["Forward"],
     "goal_line_kick_variants": ["Forward", "Side", "Turn"]
   },
   "role_assignment": {

@@ -62,7 +62,7 @@ pub struct CycleContext {
         Parameter<Vector3<Robot>, "fall_state_estimation.gravitational_force_sitting">,
     gravity_acceleration: Parameter<f32, "physical_constants.gravity_acceleration">,
     sitting_pose: Parameter<Joints<f32>, "fall_state_estimation.sitting_pose">,
-    use_catching_steps: Parameter<bool, "walking_engine.catching_steps.use_catching_steps">,
+    catching_steps_enabled: Parameter<bool, "walking_engine.catching_steps.enabled">,
 
     robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     sensor_data: Input<SensorData, "sensor_data">,
@@ -147,7 +147,7 @@ impl FallStateEstimation {
             None
         };
 
-        let falling_angle_threshold = if *context.use_catching_steps {
+        let falling_angle_threshold = if *context.catching_steps_enabled {
             context.falling_angle_threshold_forward_with_catching_steps
         } else {
             context.falling_angle_threshold_forward

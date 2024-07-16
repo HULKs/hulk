@@ -30,21 +30,12 @@ pub struct Catching {
 impl Catching {
     pub fn new(context: &Context, support_side: Side) -> Self {
         let parameters = &context.parameters;
-        let target_overestimation_factor = context
-            .parameters
-            .catching_steps
-            .target_overestimation_factor;
 
         let step_duration = parameters.base.step_duration;
         let start_feet =
             Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
 
-        let end_feet = catching_end_feet(
-            parameters,
-            *context.zero_moment_point,
-            target_overestimation_factor,
-            support_side,
-        );
+        let end_feet = catching_end_feet(parameters, *context.zero_moment_point, support_side);
         let max_swing_foot_lift =
             parameters.base.foot_lift_apex + parameters.catching_steps.additional_foot_lift;
         let midpoint = parameters.catching_steps.midpoint;
@@ -91,14 +82,17 @@ impl Catching {
 fn catching_end_feet(
     parameters: &Parameters,
     zero_moment_point: Point2<Ground>,
-    target_overestimation_factor: f32,
     support_side: Side,
 ) -> Feet {
+    let target_overestimation_factor = parameters.catching_steps.target_overestimation_factor;
+    let longitudinal_zero_moment_point_offset = parameters.catching_steps.longitudinal_offset;
     let max_adjustment = parameters.catching_steps.max_adjustment;
+
     Feet::end_from_request(
         parameters,
         Step {
-            forward: (zero_moment_point.x() * target_overestimation_factor)
+            forward: ((zero_moment_point.x() + longitudinal_zero_moment_point_offset)
+                * target_overestimation_factor)
                 .clamp(-max_adjustment, max_adjustment),
             left: (zero_moment_point.y() * target_overestimation_factor)
                 .clamp(-max_adjustment, max_adjustment),
@@ -150,10 +144,6 @@ impl Catching {
         self.step.plan.end_feet = catching_end_feet(
             context.parameters,
             *context.zero_moment_point,
-            context
-                .parameters
-                .catching_steps
-                .target_overestimation_factor,
             self.step.plan.support_side,
         );
         self.step.tick(context);
