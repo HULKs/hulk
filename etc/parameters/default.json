@@ -324,10 +324,11 @@
       "secs": 20
     },
     "maximum_matching_cost": 0.1,
-    "measurement_matching_distance": 1.0,
     "hypothesis_merge_distance": 1.0,
+    "log_likelihood_of_zero_velocity_threshold": 1.25,
+    "maximum_number_of_hypotheses": 10,
     "resting_ball_velocity_threshold": 0.25,
-    "visible_validity_exponential_decay_factor": 0.96,
+    "visible_validity_exponential_decay_factor": 0.9,
     "hidden_validity_exponential_decay_factor": 0.997,
     "validity_output_threshold": 3.0,
     "validity_discard_threshold": 0.5,
