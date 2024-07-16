@@ -37,6 +37,9 @@ pub struct Arguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
+    /// Prepare everything for the upload without performing the actual one
+    #[arg(long)]
+    pub prepare: bool,
     /// Intervals between cycle recordings, e.g. Control=1,VisionTop=30 to record every cycle in Control
     /// and one out of every 30 in VisionTop. Set to 0 or don't specify to disable recording for a cycler.
     #[arg(long, value_delimiter=',', value_parser = parse_key_value::<String, usize>, default_value = "Control=1,VisionTop=30,VisionBottom=30,SplNetwork=1")]
@@ -93,12 +96,14 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     .await
     .wrap_err("failed to set player numbers")?;
 
-    wireless(WirelessArguments::Set {
-        network: arguments.network,
-        naos: naos.clone(),
-    })
-    .await
-    .wrap_err("failed to set wireless network")?;
+    if !arguments.prepare {
+        wireless(WirelessArguments::Set {
+            network: arguments.network,
+            naos: naos.clone(),
+        })
+        .await
+        .wrap_err("failed to set wireless network")?;
+    }
 
     upload(
         UploadArguments {
@@ -108,6 +113,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
             no_restart: arguments.no_restart,
             no_clean: arguments.no_clean,
             no_communication: !arguments.with_communication,
+            prepare: arguments.prepare,
             skip_os_check: arguments.skip_os_check,
             naos,
             remote: arguments.remote,
