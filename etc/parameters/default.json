@@ -307,18 +307,19 @@
       "nanos": 0,
       "secs": 20
     },
-    "measurement_matching_distance": 1.0,
+    "maximum_matching_cost": 0.1,
     "hypothesis_merge_distance": 1.0,
+    "log_likelihood_of_zero_velocity_threshold": 1.25,
+    "maximum_number_of_hypotheses": 10,
     "resting_ball_velocity_threshold": 0.25,
-    "visible_validity_exponential_decay_factor": 0.96,
-    "hidden_validity_exponential_decay_factor": 0.999,
+    "visible_validity_exponential_decay_factor": 0.9,
+    "hidden_validity_exponential_decay_factor": 0.997,
     "validity_output_threshold": 3.0,
     "validity_discard_threshold": 0.5,
     "velocity_decay_factor": 0.998,
     "noise": {
-      "process_noise_moving": [0.005, 0.005, 0.2, 0.2],
+      "process_noise_moving": [0.005, 0.005, 0.02, 0.02],
       "process_noise_resting": [0.001, 0.001],
-      "measurement_noise": [0.5, 2.0],
       "initial_covariance": [0.5, 0.5, 10.0, 10.0]
     }
   },
