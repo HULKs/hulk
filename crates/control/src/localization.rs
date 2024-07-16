@@ -136,25 +136,24 @@ impl Localization {
         sub_state: Option<SubState>,
         kicking_team: Option<Team>,
     ) {
-        match (*context.player_number, sub_state) {
-            (PlayerNumber::One, Some(SubState::PenaltyKick)) => {
-                if matches!(kicking_team, Some(Team::Opponent)) {
-                    self.hypotheses = self
-                        .hypotheses
-                        .iter()
-                        .map(|scored_pose| {
-                            let mut state = scored_pose.state;
-                            state.mean.x = -context.field_dimensions.length / 2.0;
+        if let (PlayerNumber::One, Some(SubState::PenaltyKick)) =
+            (*context.player_number, sub_state)
+        {
+            if matches!(kicking_team, Some(Team::Opponent)) {
+                self.hypotheses = self
+                    .hypotheses
+                    .iter()
+                    .map(|scored_pose| {
+                        let mut state = scored_pose.state;
+                        state.mean.x = -context.field_dimensions.length / 2.0;
 
-                            ScoredPose {
-                                state,
-                                score: scored_pose.score,
-                            }
-                        })
-                        .collect();
-                }
+                        ScoredPose {
+                            state,
+                            score: scored_pose.score,
+                        }
+                    })
+                    .collect();
             }
-            _ => {}
         }
     }
 
