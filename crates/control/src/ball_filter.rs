@@ -282,7 +282,7 @@ impl BallFilter {
             ball_position: filtered_ball.into(),
             removed_ball_positions: removed_ball_positions.into(),
             hypothetical_ball_positions: self
-                .hypothetical_ball_positions(velocity_threshold)
+                .hypothetical_ball_positions(filter_parameters.validity_output_threshold)
                 .into(),
         })
     }
