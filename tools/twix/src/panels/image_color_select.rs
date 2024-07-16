@@ -117,6 +117,8 @@ impl Widget for &mut ImageColorSelectPanel {
                     ComboBox::from_id_source("x_axis")
                         .selected_text(format!("{:?}", self.x_axis))
                         .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.x_axis, Axis::Cb, "Cb");
+                            ui.selectable_value(&mut self.x_axis, Axis::Cr, "Cr");
                             ui.selectable_value(
                                 &mut self.x_axis,
                                 Axis::RedChromaticity,
@@ -145,6 +147,8 @@ impl Widget for &mut ImageColorSelectPanel {
                     ComboBox::from_id_source("y_axis")
                         .selected_text(format!("{:?}", self.y_axis))
                         .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.y_axis, Axis::Cb, "Cb");
+                            ui.selectable_value(&mut self.y_axis, Axis::Cr, "Cr");
                             ui.selectable_value(
                                 &mut self.y_axis,
                                 Axis::RedChromaticity,
@@ -400,6 +404,8 @@ impl ImageColorSelectPanel {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 enum Axis {
+    Cb,
+    Cr,
     RedChromaticity,
     GreenChromaticity,
     BlueChromaticity,
@@ -413,7 +419,10 @@ impl Axis {
     fn get_value(self, color: Rgb) -> f32 {
         let chromaticity = RgChromaticity::from(color);
         let hsv = Hsv::from(color);
+        let ycbcr = YCbCr444::from(color);
         match self {
+            Axis::Cb => ycbcr.cb as f32,
+            Axis::Cr => ycbcr.cr as f32,
             Axis::RedChromaticity => chromaticity.red,
             Axis::GreenChromaticity => chromaticity.green,
             Axis::BlueChromaticity => 1.0 - chromaticity.red - chromaticity.green,
@@ -426,6 +435,8 @@ impl Axis {
 
     fn get_range(self, field_color: &FieldColorParameters) -> RangeInclusive<f32> {
         match self {
+            Axis::Cb => 0.0..=255.0,
+            Axis::Cr => 0.0..=255.0,
             Axis::RedChromaticity => field_color.red_chromaticity.clone(),
             Axis::GreenChromaticity => field_color.green_chromaticity.clone(),
             Axis::BlueChromaticity => field_color.blue_chromaticity.clone(),
