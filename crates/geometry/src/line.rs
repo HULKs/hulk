@@ -38,8 +38,7 @@ impl<Frame> Line2<Frame> {
     }
 
     pub fn is_above(&self, point: Point2<Frame>) -> bool {
-        let rise = (point.x() - self.0.x()) * self.slope();
-        point.y() >= rise + self.0.y()
+        self.signed_distance_to_point(point) >= 0.0
     }
 
     pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {
