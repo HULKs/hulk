@@ -56,6 +56,17 @@ impl Half {
     }
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum Side {
     Left,
     Right,
@@ -66,6 +77,13 @@ impl Side {
         match self {
             Side::Left => 1.0,
             Side::Right => -1.0,
+        }
+    }
+
+    pub fn opposite(&self) -> Side {
+        match self {
+            Side::Left => Self::Right,
+            Side::Right => Self::Left,
         }
     }
 }

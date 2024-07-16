@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
-    filtered_game_controller_state::FilteredGameControllerState,
-    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState, support_foot::Side,
+    field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
+    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
     world_state::BallState,
 };
 
