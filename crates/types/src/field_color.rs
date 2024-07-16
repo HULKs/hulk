@@ -41,7 +41,7 @@ impl Default for FieldColorParameters {
             red_chromaticity: 0.0..=1.0,
             green_chromaticity: 0.0..=1.0,
             blue_chromaticity: 0.0..=1.0,
-            hue: 0..=360,
+            hue: 0..=359,
             saturation: 0..=255,
         }
     }
