@@ -1037,14 +1037,14 @@
     "forward": {
       "position": [-0.16, -0.04],
       "orientation": 0.0,
-      "reached_thresholds": [0.02, 0.01, 0.15],
+      "reached_thresholds": [0.02, 0.01, 0.05],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
       "position": [-0.145, -0.08],
       "orientation": 0.9,
-      "reached_thresholds": [0.03, 0.03, 0.15],
+      "reached_thresholds": [0.03, 0.03, 0.1],
       "shot_distance": 3.5,
       "enabled": true
     },
