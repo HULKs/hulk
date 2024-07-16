@@ -352,12 +352,12 @@ fn generate_goal_line_kick_targets(
 ) -> Vec<KickTarget> {
     let left_goal_half = field_to_ground
         * point![
-            field_dimensions.length / 2.0,
+            field_dimensions.length / 2.0 + 0.1,
             field_dimensions.goal_inner_width / 4.0
         ];
     let right_goal_half = field_to_ground
         * point![
-            field_dimensions.length / 2.0,
+            field_dimensions.length / 2.0 + 0.1,
             -field_dimensions.goal_inner_width / 4.0
         ];
     vec![
