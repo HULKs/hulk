@@ -234,7 +234,7 @@ impl Widget for &mut MapPanel {
                 let (response, painter) = TwixPainter::allocate(
                     ui,
                     vector![2.0, 2.0],
-                    point![-1.0, -1.0],
+                    point![1.0, -1.0],
                     Orientation::RightHanded,
                 );
                 (response, painter.transform_painter(ground_to_field))
