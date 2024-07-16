@@ -109,9 +109,9 @@ fn support_pose(
                 -absolute_clamped_y_distance_b,
                 absolute_clamped_y_distance_a,
             ),
-            Side::Right => -supporting_position.y().clamp(
-                -absolute_clamped_y_distance_b,
-                absolute_clamped_y_distance_a,
+            Side::Right => supporting_position.y().clamp(
+                -absolute_clamped_y_distance_a,
+                absolute_clamped_y_distance_b,
             ),
         }
     } else {
