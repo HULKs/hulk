@@ -228,8 +228,6 @@ impl BallFilter {
             *context.walking_engine_mode,
         );
 
-        let velocity_threshold = filter_parameters.resting_ball_velocity_threshold;
-
         context
             .filter_state
             .fill_if_subscribed(|| self.ball_filter.clone());
