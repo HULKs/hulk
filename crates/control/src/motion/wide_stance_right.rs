@@ -4,17 +4,17 @@ use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{MotionFile, MotionInterpolator};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
-    joints::{mirror::Mirror, Joints},
+    joints::Joints,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    motor_commands::MotorCommands,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct WideStanceRight {
-    interpolator: MotionInterpolator<Joints<f32>>,
+    interpolator: MotionInterpolator<MotorCommands<Joints<f32>>>,
 }
 
 #[context]
@@ -34,15 +34,14 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub wide_stance_right_positions: MainOutput<Joints<f32>>,
-    pub wide_stance_right_estimated_remaining_duration: MainOutput<Option<Duration>>,
+    pub wide_stance_right_joints_command: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
 impl WideStanceRight {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
         let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path(paths.motions.join("wide_stance_left.json"))?
+            interpolator: MotionFile::from_path(paths.motions.join("wide_stance_right.json"))?
                 .try_into()?,
         })
     }
@@ -60,18 +59,16 @@ impl WideStanceRight {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let wide_stance_right_estimated_remaining_duration =
-            if let MotionType::WideStanceRight = context.motion_selection.current_motion {
-                self.advance_interpolator(context);
-                Some(self.interpolator.estimated_remaining_duration())
-            } else {
-                self.interpolator.reset();
-                None
-            };
+        let last_cycle_duration = context.cycle_time.last_cycle_duration;
+        if context.motion_selection.current_motion == MotionType::WideStanceRight {
+            self.interpolator
+                .advance_by(last_cycle_duration, context.condition_input);
+        } else {
+            self.interpolator.reset();
+        }
+
         Ok(MainOutputs {
-            wide_stance_right_positions: self.interpolator.value().mirrored().into(),
-            wide_stance_right_estimated_remaining_duration:
-                wide_stance_right_estimated_remaining_duration.into(),
+            wide_stance_right_joints_command: self.interpolator.value().into(),
         })
     }
 }
