@@ -6,10 +6,10 @@ use geometry::look_at::LookAt;
 use linear_algebra::{point, Pose2, Rotation2, Vector2};
 use types::{
     field_dimensions::FieldDimensions,
+    field_dimensions::Side,
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, WalkSpeed},
     path_obstacles::PathObstacle,
-    support_foot::Side,
     world_state::{BallState, WorldState},
 };
 

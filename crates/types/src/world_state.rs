@@ -9,9 +9,10 @@ use spl_network_messages::PlayerNumber;
 
 use crate::{
     ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
-    fall_state::FallState, filtered_game_controller_state::FilteredGameControllerState,
-    kick_decision::KickDecision, obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection,
-    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle, support_foot::Side,
+    fall_state::FallState, field_dimensions::Side,
+    filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
+    obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
+    roles::Role, rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect)]
