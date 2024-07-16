@@ -200,7 +200,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                     parameters::directory::deserialize(
                         parameters_directory,
                         &hardware_ids,
-                        false,
+                        true,
                     ).wrap_err("failed to parse initial parameters")?;
                 let initial_parameters = parameters_from_disk;
                 #[allow(unused)]
