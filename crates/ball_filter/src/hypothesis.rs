@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    f32::consts::PI,
+    time::{Duration, SystemTime},
+};
 
 use filtering::kalman_filter::KalmanFilter;
 use moving::{MovingPredict, MovingUpdate};
@@ -68,7 +71,7 @@ impl BallHypothesis {
         velocity_decay: f32,
         moving_process_noise: Matrix4<f32>,
         resting_process_noise: Matrix2<f32>,
-        velocity_threshold: f32,
+        log_likelihood_of_zero_velocity_threshold: f32,
     ) {
         match &mut self.mode {
             BallMode::Resting(resting) => {
@@ -82,13 +85,28 @@ impl BallHypothesis {
                     velocity_decay,
                     moving_process_noise,
                 );
+
+                let velocity_covariance = moving.covariance.fixed_view::<2, 2>(0, 0);
+                let velocity = nalgebra::vector![moving.mean.z, moving.mean.w];
+
+                let exponent = -velocity.dot(
+                    &velocity_covariance
+                        .cholesky()
+                        .expect("covariance not invertible")
+                        .solve(&velocity),
+                ) / 2.;
+                let determinant = velocity_covariance.determinant();
+
+                let log_likelihood_of_zero_velocity =
+                    exponent - (2. * PI * determinant.sqrt()).ln();
+
+                if log_likelihood_of_zero_velocity > log_likelihood_of_zero_velocity_threshold {
+                    self.mode = BallMode::Resting(MultivariateNormalDistribution {
+                        mean: moving.mean.xy(),
+                        covariance: moving.covariance.fixed_view::<2, 2>(0, 0).into_owned(),
+                    })
+                }
             }
-        }
-        if self.position().velocity.norm() < velocity_threshold {
-            self.mode = BallMode::Resting(MultivariateNormalDistribution {
-                mean: moving.mean.xy(),
-                covariance: moving.covariance.fixed_view::<2, 2>(0, 0).into_owned(),
-            })
         }
     }
 
