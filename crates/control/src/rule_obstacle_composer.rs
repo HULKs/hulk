@@ -107,6 +107,25 @@ impl RuleObstacleComposer {
                 );
                 rule_obstacles.push(penalty_box_obstacle);
             }
+            (
+                FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Ready {
+                            kicking_team: Team::Opponent | Team::Uncertain,
+                        },
+                    sub_state: None,
+                    ..
+                },
+                _,
+            ) => {
+                let center_circle_obstacle = RuleObstacle::Circle(Circle {
+                    center: Point::origin(),
+                    radius: context.field_dimensions.center_circle_diameter / 2.0
+                        * context.center_circle_obstacle_increase,
+                });
+
+                rule_obstacles.push(center_circle_obstacle);
+            }
             _ => (),
         };
 
