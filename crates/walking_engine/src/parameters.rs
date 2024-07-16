@@ -84,11 +84,12 @@ pub struct GyroBalancingParameters {
     PathIntrospect,
 )]
 pub struct CatchingStepsParameters {
+    pub enabled: bool,
     pub catching_step_zero_moment_point_frame_count_threshold: i32,
-    pub use_catching_steps: bool,
     pub max_adjustment: f32,
     pub midpoint: f32,
     pub target_overestimation_factor: f32,
+    pub longitudinal_offset: f32,
     pub additional_foot_lift: f32,
 }
 
