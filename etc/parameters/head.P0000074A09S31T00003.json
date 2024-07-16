@@ -10,13 +10,5 @@
         -4.161088943481445, 0.810440182685852, 1.4565306901931765
       ]
     }
-  },
-  "step_planner": {
-    "max_step_size": {
-      "forward": 0.05
-    },
-    "step_size_delta_fast": {
-      "forward": 0.005
-    }
   }
 }
