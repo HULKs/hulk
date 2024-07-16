@@ -45,6 +45,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
                 parameters::directory::deserialize(
                     parameters_directory,
                     &hardware_ids,
+                    false,
                 ).wrap_err("failed to parse initial parameters")?;
             let initial_parameters = parameters_from_disk;
             let (parameters_sender, parameters_receiver) =
@@ -199,6 +200,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                     parameters::directory::deserialize(
                         parameters_directory,
                         &hardware_ids,
+                        true,
                     ).wrap_err("failed to parse initial parameters")?;
                 let initial_parameters = parameters_from_disk;
                 #[allow(unused)]

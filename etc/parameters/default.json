@@ -93,15 +93,12 @@
   },
   "image_receiver": {
     "vision_top": {
-      "resolution": 42,
       "camera_position": "Top"
     },
     "object_detection_top": {
-      "resolution": 42,
       "camera_position": "Top"
     },
     "vision_bottom": {
-      "resolution": 42,
       "camera_position": "Bottom"
     }
   },
@@ -256,13 +253,13 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current": 0.1,
-    "allowed_current_upper_threshold": 0.13,
-    "optimization_speed": 0.0000012,
+    "allowed_current": 0.11,
+    "allowed_current_upper_threshold": 0.2,
+    "optimization_speed": 0.000005,
     "position_difference_threshold": 0.0,
     "reset_base_offset": 0.0002,
     "reset_speed": 0.0006,
-    "reset_threshold": 0.0007,
+    "reset_threshold": 0.001,
     "optimization_sign": {
       "head": {
         "yaw": 1,
@@ -604,7 +601,6 @@
     ]
   },
   "localization": {
-    "angle_similarity_threshold": 0.4,
     "circle_measurement_noise": [1000.0, 1000.0],
     "gradient_convergence_threshold": 1e-2,
     "gradient_descent_step_size": 0.01,
@@ -644,17 +640,11 @@
         "side": "Right"
       }
     },
-    "injected_ground_to_field_of_home_after_coin_toss_before_second_half": null,
     "line_length_acceptance_factor": 1.5,
     "line_measurement_noise": [1000.0, 320.0],
     "maximum_amount_of_gradient_descent_iterations": 20,
     "maximum_amount_of_outer_iterations": 10,
-    "maximum_association_distance": 0.4,
-    "maximum_line_distance": 2.0,
-    "maximum_line_point_distance": 3.0,
-    "minimal_line_length": 0.3,
     "minimum_fit_error": 0.001,
-    "minimum_line_length": 0.15,
     "odometry_noise": [0.05, 0.01, 0.008],
     "use_line_measurements": true,
     "penalized_distance": 0.5,
@@ -1000,7 +990,6 @@
       "secs": 1
     },
     "minimum_bottom_focus_pitch": 0.2,
-    "glance_center_offset_in_image": [0.0, -100.0],
     "image_regions": {
       "bottom": [0.5, 0.7],
       "center": [0.5, 0.5]
@@ -1046,16 +1035,16 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.16, -0.02],
+      "position": [-0.16, -0.04],
       "orientation": 0.0,
-      "reached_thresholds": [0.06, 0.03, 0.15],
+      "reached_thresholds": [0.02, 0.01, 0.15],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
       "position": [-0.145, -0.08],
       "orientation": 0.9,
-      "reached_thresholds": [0.04, 0.04, 0.15],
+      "reached_thresholds": [0.03, 0.03, 0.15],
       "shot_distance": 3.5,
       "enabled": true
     },
@@ -1127,7 +1116,7 @@
       "right_midfielder_minimum_x": 2.25,
       "striker_supporter_distance_to_ball": 1.2,
       "striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free": -1.0,
-      "striker_supporter_minimum_x": 2.0,
+      "striker_supporter_minimum_x": 1.0,
       "keeper_x_offset": 0.1,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_pose": {
@@ -1335,10 +1324,6 @@
       [0.1, -0.06, 0.02]
     ]
   },
-  "message_receiver": {
-    "initial_value": 0,
-    "step": 0
-  },
   "field_dimensions": {
     "ball_radius": 0.05,
     "length": 9.0,
@@ -1379,44 +1364,6 @@
     "striker_trusts_team_ball": {
       "nanos": 0,
       "secs": 1
-    }
-  },
-  "maximum_joint_velocities": {
-    "head": {
-      "pitch": 2.0,
-      "yaw": 2.0
-    },
-    "left_arm": {
-      "elbow_roll": 3.0,
-      "elbow_yaw": 3.0,
-      "hand": 2.0,
-      "shoulder_pitch": 3.0,
-      "shoulder_roll": 3.0,
-      "wrist_yaw": 2.0
-    },
-    "left_leg": {
-      "ankle_pitch": 2.5,
-      "ankle_roll": 2.5,
-      "hip_pitch": 2.5,
-      "hip_roll": 2.5,
-      "hip_yaw_pitch": 2.5,
-      "knee_pitch": 2.5
-    },
-    "right_arm": {
-      "elbow_roll": 3.0,
-      "elbow_yaw": 3.0,
-      "hand": 2.0,
-      "shoulder_pitch": 3.0,
-      "shoulder_roll": 3.0,
-      "wrist_yaw": 2.0
-    },
-    "right_leg": {
-      "ankle_pitch": 2.5,
-      "ankle_roll": 2.5,
-      "hip_pitch": 2.5,
-      "hip_roll": 2.5,
-      "hip_yaw_pitch": 2.5,
-      "knee_pitch": 2.5
     }
   },
   "joint_calibration_offsets": {

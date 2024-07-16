@@ -11,7 +11,7 @@ use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, WalkSpeed},
@@ -24,7 +24,6 @@ use types::{
     primary_state::PrimaryState,
     roles::Role,
     step_plan::Step,
-    support_foot::Side,
     world_state::WorldState,
 };
 
@@ -169,8 +168,22 @@ impl Behavior {
             .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
 
         match world_state.robot.role {
-            Role::DefenderLeft => actions.push(Action::DefendLeft),
-            Role::DefenderRight => actions.push(Action::DefendRight),
+            Role::DefenderLeft => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::CornerKick),
+                    kicking_team: Team::Opponent,
+                    ..
+                }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Left }),
+                _ => actions.push(Action::DefendLeft),
+            },
+            Role::DefenderRight => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::CornerKick),
+                    kicking_team: Team::Opponent,
+                    ..
+                }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Right }),
+                _ => actions.push(Action::DefendRight),
+            },
             Role::Keeper => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     game_phase: GamePhase::PenaltyShootout { .. },
@@ -308,6 +321,18 @@ impl Behavior {
                         &mut context.path_obstacles_output,
                         *context.defend_walk_speed,
                     ),
+                    Action::DefendOpponentCornerKick { side: Side::Left } => defend
+                        .opponent_corner_kick(
+                            &mut context.path_obstacles_output,
+                            *context.defend_walk_speed,
+                            Side::Left,
+                        ),
+                    Action::DefendOpponentCornerKick { side: Side::Right } => defend
+                        .opponent_corner_kick(
+                            &mut context.path_obstacles_output,
+                            *context.defend_walk_speed,
+                            Side::Right,
+                        ),
                     Action::Stand => stand::execute(
                         world_state,
                         context.field_dimensions,
