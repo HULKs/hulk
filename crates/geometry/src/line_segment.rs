@@ -1,12 +1,18 @@
-use std::{cmp::PartialEq, f32::consts::TAU, ops::Mul};
+use std::{
+    cmp::PartialEq,
+    f32::consts::{FRAC_PI_2, PI, TAU},
+    ops::Mul,
+};
 
 use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{center, distance, distance_squared, vector, Point2, Transform, Vector2};
+use linear_algebra::{
+    center, distance, distance_squared, vector, Point2, Rotation2, Transform, Vector2,
+};
 
-use crate::{arc::Arc, direction::Direction, signed_acute_angle, Distance};
+use crate::{arc::Arc, direction::Direction, Distance};
 
 #[derive(
     Clone,
@@ -243,14 +249,27 @@ where
     }
 }
 
+fn signed_acute_angle<Frame>(first: Vector2<Frame>, second: Vector2<Frame>) -> f32 {
+    let difference = Rotation2::rotation_between(first, second).angle();
+    if difference > FRAC_PI_2 {
+        difference - PI
+    } else if difference < -FRAC_PI_2 {
+        difference + PI
+    } else {
+        difference
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::FRAC_PI_4;
+
     use approx::assert_relative_eq;
     use linear_algebra::point;
 
     use super::*;
 
-    #[derive(Clone, Copy)]
+    #[derive(Debug, Clone, Copy)]
     struct SomeFrame;
 
     #[test]
@@ -347,5 +366,123 @@ mod tests {
         let reference_line_segment = LineSegment(point![0.0, 0.0], point![1.0, 0.0]);
         let line_segment = LineSegment(point![5.0, 4.0], point![4.0, 5.0]);
         test_all_permutations(reference_line_segment, line_segment, false);
+    }
+
+    #[test]
+    fn correct_acute_signed_angle() {
+        #[derive(Debug)]
+        struct Case {
+            self_line: LineSegment<SomeFrame>,
+            other_line: LineSegment<SomeFrame>,
+            expected_angle: f32,
+        }
+
+        let thirty_degree = 30.0_f32.to_radians();
+        let sixty_degree = 60.0_f32.to_radians();
+        let cases = [
+            Case {
+                self_line: LineSegment(point![0.0, 0.0], point![42.0, 0.0]),
+                other_line: LineSegment(point![0.0, 0.0], point![42.0, 0.0]),
+                expected_angle: 0.0,
+            },
+            Case {
+                self_line: LineSegment(point![0.0, 0.0], point![42.0, 0.0]),
+                other_line: LineSegment(point![0.0, 0.0], point![42.0, 42.0]),
+                expected_angle: FRAC_PI_4,
+            },
+            Case {
+                self_line: LineSegment(point![0.0, 0.0], point![42.0, 42.0]),
+                other_line: LineSegment(point![0.0, 0.0], point![42.0, 0.0]),
+                expected_angle: -FRAC_PI_4,
+            },
+            Case {
+                self_line: LineSegment(point![0.0, 0.0], point![42.0, 0.0]),
+                other_line: LineSegment(point![0.0, 0.0], point![42.0, -42.0]),
+                expected_angle: -FRAC_PI_4,
+            },
+            Case {
+                self_line: LineSegment(point![0.0, 0.0], point![42.0, -42.0]),
+                other_line: LineSegment(point![0.0, 0.0], point![42.0, 0.0]),
+                expected_angle: FRAC_PI_4,
+            },
+            Case {
+                self_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![(-thirty_degree).cos(), (-thirty_degree).sin()],
+                ),
+                other_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![thirty_degree.cos(), thirty_degree.sin()],
+                ),
+                expected_angle: sixty_degree,
+            },
+            Case {
+                self_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![thirty_degree.cos(), thirty_degree.sin()],
+                ),
+                other_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![(-thirty_degree).cos(), (-thirty_degree).sin()],
+                ),
+                expected_angle: -sixty_degree,
+            },
+            Case {
+                self_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![(-sixty_degree).cos(), (-sixty_degree).sin()],
+                ),
+                other_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![sixty_degree.cos(), sixty_degree.sin()],
+                ),
+                expected_angle: -sixty_degree,
+            },
+            Case {
+                self_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![sixty_degree.cos(), sixty_degree.sin()],
+                ),
+                other_line: LineSegment(
+                    point![0.0, 0.0],
+                    point![(-sixty_degree).cos(), (-sixty_degree).sin()],
+                ),
+                expected_angle: sixty_degree,
+            },
+        ]
+        .into_iter()
+        .flat_map(|case| {
+            [
+                Case {
+                    self_line: case.self_line,
+                    other_line: case.other_line,
+                    expected_angle: case.expected_angle,
+                },
+                Case {
+                    self_line: LineSegment(case.self_line.1, case.self_line.0),
+                    other_line: case.other_line,
+                    expected_angle: case.expected_angle,
+                },
+                Case {
+                    self_line: case.self_line,
+                    other_line: LineSegment(case.other_line.1, case.other_line.0),
+                    expected_angle: case.expected_angle,
+                },
+                Case {
+                    self_line: LineSegment(case.self_line.1, case.self_line.0),
+                    other_line: LineSegment(case.other_line.1, case.other_line.0),
+                    expected_angle: case.expected_angle,
+                },
+            ]
+        });
+
+        for case in cases {
+            dbg!(&case);
+            assert_relative_eq!(
+                case.self_line.signed_acute_angle(case.other_line),
+                case.expected_angle,
+                epsilon = 0.000001,
+            );
+        }
     }
 }
