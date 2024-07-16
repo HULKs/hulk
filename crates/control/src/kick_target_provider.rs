@@ -219,28 +219,21 @@ fn collect_kick_targets(
                 .collect(),
                 true,
             )
-        } else if is_penalty_shot {
-            (
-                generate_goal_line_kick_targets(field_dimensions, field_to_ground)
-                    .into_iter()
-                    .map(|kick_target| KickTargetWithKickVariants {
-                        kick_target,
-                        kick_variants: collect_kick_targets_parameters
-                            .penalty_kick_kick_variants
-                            .clone(),
-                    })
-                    .collect(),
-                true,
-            )
         } else {
             (
                 generate_goal_line_kick_targets(field_dimensions, field_to_ground)
                     .into_iter()
                     .map(|kick_target| KickTargetWithKickVariants {
                         kick_target,
-                        kick_variants: collect_kick_targets_parameters
-                            .goal_line_kick_variants
-                            .clone(),
+                        kick_variants: if is_penalty_shot {
+                            collect_kick_targets_parameters
+                                .penalty_kick_kick_variants
+                                .clone()
+                        } else {
+                            collect_kick_targets_parameters
+                                .goal_line_kick_variants
+                                .clone()
+                        },
                     })
                     .collect(),
                 true,
