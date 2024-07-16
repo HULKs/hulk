@@ -2,6 +2,7 @@ pub mod arc;
 pub mod circle;
 pub mod circle_tangents;
 pub mod convex_hull;
+pub mod corner;
 pub mod direction;
 pub mod is_inside_polygon;
 pub mod line;
