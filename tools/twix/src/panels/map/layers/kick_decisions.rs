@@ -4,10 +4,7 @@ use color_eyre::Result;
 use coordinate_systems::Ground;
 use eframe::epaint::{Color32, Stroke};
 use linear_algebra::Point2;
-use types::{
-    field_dimensions::FieldDimensions, kick_decision::KickDecision,
-    kick_target::KickTargetWithKickVariants,
-};
+use types::{field_dimensions::FieldDimensions, kick_decision::KickDecision};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
@@ -16,8 +13,6 @@ use crate::{
 pub struct KickDecisions {
     kick_decisions: BufferHandle<Option<Vec<KickDecision>>>,
     instant_kick_decisions: BufferHandle<Option<Vec<KickDecision>>>,
-    kick_opportunities: BufferHandle<Vec<KickTargetWithKickVariants>>,
-    instant_kick_targets: BufferHandle<Option<Vec<Point2<Ground>>>>,
 }
 
 impl Layer<Ground> for KickDecisions {
@@ -27,14 +22,9 @@ impl Layer<Ground> for KickDecisions {
         let kick_decisions = nao.subscribe_value("Control.main_outputs.kick_decisions");
         let instant_kick_decisions =
             nao.subscribe_value("Control.main_outputs.instant_kick_decisions");
-        let kick_opportunities = nao.subscribe_value("Control.main_outputs.kick_opportunities");
-        let instant_kick_targets =
-            nao.subscribe_value("Control.additional_outputs.instant_kick_targets");
         Self {
             kick_decisions,
             instant_kick_decisions,
-            kick_opportunities,
-            instant_kick_targets,
         }
     }
 
@@ -45,8 +35,6 @@ impl Layer<Ground> for KickDecisions {
     ) -> Result<()> {
         self.draw_kick_decisions(painter)?;
         self.draw_instant_kick_decisions(painter)?;
-        self.draw_kick_targets(painter)?;
-        self.draw_instant_kick_targets(painter)?;
 
         Ok(())
     }
@@ -58,6 +46,14 @@ impl KickDecisions {
             return Ok(());
         };
         let best_kick_decision = kick_decisions.first();
+        draw_kick_targets(
+            painter,
+            kick_decisions
+                .iter()
+                .map(|decision| decision.target)
+                .collect(),
+            Color32::BLACK,
+        );
         draw_kick_poses(
             painter,
             &kick_decisions,
@@ -82,6 +78,14 @@ impl KickDecisions {
         else {
             return Ok(());
         };
+        draw_kick_targets(
+            painter,
+            instant_kick_decisions
+                .iter()
+                .map(|decision| decision.target)
+                .collect(),
+            Color32::RED,
+        );
         draw_kick_poses(
             painter,
             &instant_kick_decisions,
@@ -90,30 +94,6 @@ impl KickDecisions {
                 color: Color32::RED,
             },
         );
-        Ok(())
-    }
-
-    fn draw_kick_targets(&self, painter: &TwixPainter<Ground>) -> Result<()> {
-        let Some(kick_opportunities) = self.kick_opportunities.get_last_value()? else {
-            return Ok(());
-        };
-        draw_kick_target(
-            painter,
-            kick_opportunities
-                .iter()
-                .map(|kick_opportunity| kick_opportunity.kick_target.position)
-                .collect(),
-            Color32::BLACK,
-        );
-        Ok(())
-    }
-
-    fn draw_instant_kick_targets(&self, painter: &TwixPainter<Ground>) -> Result<()> {
-        let Some(instant_kick_targets) = self.instant_kick_targets.get_last_value()?.flatten()
-        else {
-            return Ok(());
-        };
-        draw_kick_target(painter, instant_kick_targets, Color32::RED);
         Ok(())
     }
 }
@@ -130,7 +110,7 @@ fn draw_kick_poses(painter: &TwixPainter<Ground>, kick_decisions: &[KickDecision
     }
 }
 
-fn draw_kick_target(
+fn draw_kick_targets(
     painter: &TwixPainter<Ground>,
     kick_targets: Vec<Point2<Ground>>,
     stroke_color: Color32,
