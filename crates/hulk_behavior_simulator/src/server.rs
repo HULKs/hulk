@@ -94,7 +94,7 @@ pub fn run(
         head_id: "behavior_simulator".to_string(),
     };
     let parameters_from_disk: Parameters =
-        parameters::directory::deserialize("crates/hulk_behavior_simulator", &ids)
+        parameters::directory::deserialize("crates/hulk_behavior_simulator", &ids, true)
             .wrap_err("failed to parse initial parameters")?;
     let initial_parameters = parameters_from_disk;
     let (parameters_sender, parameters_receiver) =
