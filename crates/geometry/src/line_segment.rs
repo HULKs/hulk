@@ -4,9 +4,9 @@ use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{vector, Point2, Vector2};
+use linear_algebra::{distance_squared, vector, Point2, Vector2};
 
-use crate::{arc::Arc, direction::Direction};
+use crate::{arc::Arc, direction::Direction, Distance};
 
 #[derive(
     Clone,
@@ -57,10 +57,7 @@ where
     }
 }
 
-impl<Frame> LineSegment<Frame>
-where
-    Frame: Copy,
-{
+impl<Frame> LineSegment<Frame> {
     pub fn new(start: Point2<Frame>, end: Point2<Frame>) -> Self {
         Self(start, end)
     }
@@ -85,10 +82,6 @@ where
     pub fn closest_point(&self, point: Point2<Frame>) -> Point2<Frame> {
         let projected_factor = self.projection_factor(point).clamp(0.0, 1.0);
         self.0 + (self.1 - self.0) * projected_factor
-    }
-
-    pub fn shortest_distance_to_point(&self, other_point: Point2<Frame>) -> f32 {
-        (other_point - self.closest_point(other_point)).norm()
     }
 
     /// Reference: <https://algotree.org/algorithms/computational_geometry/line_segment_intersection/>
@@ -142,7 +135,7 @@ where
     }
 
     pub fn overlaps_arc(&self, arc: Arc<Frame>, orientation: Direction) -> bool {
-        if self.shortest_distance_to_point(arc.circle.center) >= arc.circle.radius {
+        if self.distance_to(arc.circle.center) >= arc.circle.radius {
             return false;
         }
 
@@ -202,6 +195,12 @@ where
     }
 }
 
+impl<Frame> Distance<Point2<Frame>> for LineSegment<Frame> {
+    fn squared_distance_to(&self, point: Point2<Frame>) -> f32 {
+        distance_squared(point, self.closest_point(point))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
@@ -226,26 +225,11 @@ mod tests {
     fn shortest_distance_between_point_and_line_segment() {
         let line_segment = LineSegment::<SomeFrame>(point![-1.0, 0.0], point![1.0, 0.0]);
 
-        assert_relative_eq!(
-            0.0,
-            line_segment.shortest_distance_to_point(point![-1.0, 0.0])
-        );
-        assert_relative_eq!(
-            0.0,
-            line_segment.shortest_distance_to_point(point![1.0, 0.0])
-        );
-        assert_relative_eq!(
-            1.0,
-            line_segment.shortest_distance_to_point(point![0.0, 1.0])
-        );
-        assert_relative_eq!(
-            2.0_f32.sqrt(),
-            line_segment.shortest_distance_to_point(point![2.0, -1.0])
-        );
-        assert_relative_eq!(
-            0.5,
-            line_segment.shortest_distance_to_point(point![-0.5, -0.5])
-        );
+        assert_relative_eq!(0.0, line_segment.distance_to(point![-1.0, 0.0]));
+        assert_relative_eq!(0.0, line_segment.distance_to(point![1.0, 0.0]));
+        assert_relative_eq!(1.0, line_segment.distance_to(point![0.0, 1.0]));
+        assert_relative_eq!(2.0_f32.sqrt(), line_segment.distance_to(point![2.0, -1.0]));
+        assert_relative_eq!(0.5, line_segment.distance_to(point![-0.5, -0.5]));
     }
 
     fn test_all_permutations(

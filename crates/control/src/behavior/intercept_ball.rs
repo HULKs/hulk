@@ -67,7 +67,7 @@ pub fn execute(
                 ball.ball_in_ground,
                 ball.ball_in_ground + ball.ball_in_ground_velocity,
             );
-            let interception_point = ball_line.project_point(Point::origin());
+            let interception_point = ball_line.closest_point(Point::origin());
 
             if interception_point.coords().norm() > parameters.maximum_intercept_distance {
                 return None;

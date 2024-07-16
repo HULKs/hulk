@@ -1,4 +1,7 @@
-use geometry::line::{Line, Line2};
+use geometry::{
+    line::{Line, Line2},
+    Distance,
+};
 use linear_algebra::Point2;
 use ordered_float::NotNan;
 use rand::{seq::SliceRandom, Rng};
@@ -47,9 +50,9 @@ impl<Frame> Ransac<Frame> {
                     .unused_points
                     .iter()
                     .filter(|&point| {
-                        line.squared_distance_to_point(*point) <= maximum_score_distance_squared
+                        line.squared_distance_to(*point) <= maximum_score_distance_squared
                     })
-                    .map(|point| 1.0 - line.distance_to_point(*point) / maximum_score_distance)
+                    .map(|point| 1.0 - line.distance_to(*point) / maximum_score_distance)
                     .sum();
                 (line, score)
             })
@@ -57,7 +60,7 @@ impl<Frame> Ransac<Frame> {
             .expect("max_by_key erroneously returned no result")
             .0;
         let (used_points, unused_points) = self.unused_points.iter().partition(|point| {
-            best_line.squared_distance_to_point(**point) <= maximum_inclusion_distance_squared
+            best_line.squared_distance_to(**point) <= maximum_inclusion_distance_squared
         });
         self.unused_points = unused_points;
         RansacResult {

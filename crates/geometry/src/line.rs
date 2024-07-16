@@ -11,6 +11,8 @@ use linear_algebra::{
 };
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
+use crate::Distance;
+
 #[derive(
     Copy,
     Clone,
@@ -116,34 +118,12 @@ fn signed_acute_angle<Frame>(first: Vector2<Frame>, second: Vector2<Frame>) -> f
 }
 
 impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
-    pub fn project_point(&self, point: Point<Frame, DIMENSION>) -> Point<Frame, DIMENSION> {
+    pub fn closest_point(&self, point: Point<Frame, DIMENSION>) -> Point<Frame, DIMENSION> {
         let difference_on_line = self.1 - self.0;
         let difference_to_point = point - self.0;
         self.0
             + (difference_on_line * difference_on_line.dot(difference_to_point)
                 / difference_on_line.norm_squared())
-    }
-
-    pub fn squared_distance_to_segment(&self, point: Point<Frame, DIMENSION>) -> f32 {
-        let difference_on_line = self.1 - self.0;
-        let difference_to_point = point - self.0;
-        let t = difference_to_point.dot(difference_on_line) / difference_on_line.norm_squared();
-        if t <= 0.0 {
-            (point - self.0).norm_squared()
-        } else if t >= 1.0 {
-            (point - self.1).norm_squared()
-        } else {
-            (point - (self.0 + difference_on_line * t)).norm_squared()
-        }
-    }
-
-    pub fn squared_distance_to_point(&self, point: Point<Frame, DIMENSION>) -> f32 {
-        let closest_point = self.project_point(point);
-        distance_squared(closest_point, point)
-    }
-
-    pub fn distance_to_point(&self, point: Point<Frame, DIMENSION>) -> f32 {
-        self.squared_distance_to_point(point).sqrt()
     }
 
     pub fn length(&self) -> f32 {
@@ -152,6 +132,13 @@ impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
 
     pub fn center(&self) -> Point<Frame, DIMENSION> {
         center(self.0, self.1)
+    }
+}
+
+impl<Frame, const DIMENSION: usize> Distance<Point<Frame, DIMENSION>> for Line<Frame, DIMENSION> {
+    fn squared_distance_to(&self, point: Point<Frame, DIMENSION>) -> f32 {
+        let closest_point = self.closest_point(point);
+        distance_squared(closest_point, point)
     }
 }
 

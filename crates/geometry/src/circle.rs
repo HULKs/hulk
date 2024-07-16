@@ -8,7 +8,7 @@ use linear_algebra::{distance, vector, Point2};
 
 use crate::{
     arc::Arc, circle_tangents::CircleTangents, direction::Direction, line_segment::LineSegment,
-    rectangle::Rectangle, two_line_segments::TwoLineSegments,
+    rectangle::Rectangle, two_line_segments::TwoLineSegments, Distance,
 };
 
 #[derive(
@@ -88,7 +88,7 @@ where
     }
 
     pub fn intersects_line_segment(&self, line_segment: &LineSegment<Frame>) -> bool {
-        line_segment.shortest_distance_to_point(self.center) <= self.radius
+        line_segment.distance_to(self.center) <= self.radius
     }
 
     pub fn overlaps_arc(&self, arc: Arc<Frame>, orientation: Direction) -> bool {

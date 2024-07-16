@@ -124,7 +124,7 @@ impl LineDetection {
             }
             let mut points_with_projection_onto_line: Vec<_> = used_points
                 .iter()
-                .map(|&point| (point, ransac_line.project_point(point)))
+                .map(|&point| (point, ransac_line.closest_point(point)))
                 .collect();
             points_with_projection_onto_line.sort_by_key(|(_point, projected_point)| {
                 NotNan::new(projected_point.x()).expect("Tried to compare NaN")
