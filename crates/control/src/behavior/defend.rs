@@ -83,7 +83,13 @@ impl<'cycle> Defend<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
-        let pose = defend_left_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        let pose = defend_pose(
+            self.world_state,
+            self.field_dimensions,
+            self.role_positions,
+            -self.field_dimensions.length / 2.0,
+            Side::Left,
+        )?;
         self.with_pose(pose, path_obstacles_output, walk_speed)
     }
 
@@ -92,7 +98,29 @@ impl<'cycle> Defend<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
     ) -> Option<MotionCommand> {
-        let pose = defend_right_pose(self.world_state, self.field_dimensions, self.role_positions)?;
+        let pose = defend_pose(
+            self.world_state,
+            self.field_dimensions,
+            self.role_positions,
+            -self.field_dimensions.length / 2.0,
+            Side::Right,
+        )?;
+        self.with_pose(pose, path_obstacles_output, walk_speed)
+    }
+
+    pub fn opponent_corner_kick(
+        &self,
+        path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+        walk_speed: WalkSpeed,
+        field_side: Side,
+    ) -> Option<MotionCommand> {
+        let pose = defend_pose(
+            self.world_state,
+            self.field_dimensions,
+            self.role_positions,
+            -self.field_dimensions.length / 2.0 + self.field_dimensions.goal_box_area_length * 2.0,
+            field_side,
+        )?;
         self.with_pose(pose, path_obstacles_output, walk_speed)
     }
 
@@ -175,6 +203,42 @@ fn defend_right_pose(
         role_positions.defender_aggressive_ring_radius
     } else {
         role_positions.defender_passive_ring_radius
+    };
+    distance_to_target = penalty_kick_defender_radius(
+        distance_to_target,
+        world_state.filtered_game_controller_state,
+        field_dimensions,
+    );
+    let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
+    Some(ground_to_field.inverse() * defend_pose)
+}
+
+fn defend_pose(
+    world_state: &WorldState,
+    field_dimensions: &FieldDimensions,
+    role_positions: &RolePositionsParameters,
+    x_offset: f32,
+    field_side: Side,
+) -> Option<Pose2<Ground>> {
+    let ground_to_field = world_state.robot.ground_to_field?;
+    let ball = world_state
+        .rule_ball
+        .or(world_state.ball)
+        .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
+
+    let y_offset = if field_side == Side::Right {
+        -role_positions.defender_y_offset
+    } else {
+        role_positions.defender_y_offset
+    };
+
+    let position_to_defend = point![x_offset, y_offset];
+
+    let mut distance_to_target = match (field_side, ball.field_side) {
+        (Side::Left, Side::Left) | (Side::Right, Side::Right) => {
+            role_positions.defender_aggressive_ring_radius
+        }
+        _ => role_positions.defender_passive_ring_radius,
     };
     distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
