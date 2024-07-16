@@ -112,6 +112,11 @@ impl KickSelector {
             KickVariant::Turn => context.in_walk_kicks.turn.enabled,
             KickVariant::Side => context.in_walk_kicks.side.enabled,
         });
+        instant_kick_decisions.retain(|target| match target.variant {
+            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
+            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
+            KickVariant::Side => context.in_walk_kicks.side.enabled,
+        });
 
         kick_decisions.sort_by(|left, right| {
             compare_decisions(left, right, &context, *context.ground_to_upcoming_support)
