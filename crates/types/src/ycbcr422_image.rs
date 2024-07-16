@@ -108,10 +108,6 @@ impl From<YCbCr422Image> for RgbImage {
 }
 
 impl YCbCr422Image {
-    pub fn buffer(&self) -> &[YCbCr422] {
-        &self.buffer
-    }
-
     pub fn zero(width: u32, height: u32) -> Self {
         assert!(
             width % 2 == 0,
@@ -234,6 +230,14 @@ impl YCbCr422Image {
             cr: pixel.cr,
         };
         Some(pixel)
+    }
+
+    /// row-major
+    pub fn iter_pixels(&self) -> impl Iterator<Item = YCbCr444> + '_ {
+        self.buffer.iter().flat_map(|&ycbcr422| {
+            let ycbcr444: [YCbCr444; 2] = ycbcr422.into();
+            ycbcr444
+        })
     }
 }
 
