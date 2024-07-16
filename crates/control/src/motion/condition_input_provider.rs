@@ -21,7 +21,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     fall_state: Input<FallState, "fall_state">,
-    has_ground_contact: Input<bool, "has_ground_contact">,
+    has_firm_ground_contact: Input<bool, "has_firm_ground_contact">,
 }
 
 #[context]
@@ -52,7 +52,7 @@ impl ConditionInputProvider {
             condition_input: ConditionInput {
                 filtered_angular_velocity: self.angular_velocity_filter.state(),
                 fall_state: *context.fall_state,
-                ground_contact: *context.has_ground_contact,
+                ground_contact: *context.has_firm_ground_contact,
             }
             .into(),
         })

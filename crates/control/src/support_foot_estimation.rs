@@ -20,7 +20,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     hysteresis: Parameter<f32, "support_foot_estimation.hysteresis">,
 
-    has_ground_contact: Input<bool, "has_ground_contact">,
+    has_firm_ground_contact: Input<bool, "has_firm_ground_contact">,
     sensor_data: Input<SensorData, "sensor_data">,
 }
 
@@ -38,7 +38,7 @@ impl SupportFootEstimation {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if !context.has_ground_contact {
+        if !context.has_firm_ground_contact {
             return Ok(MainOutputs {
                 support_foot: SupportFoot {
                     support_side: None,

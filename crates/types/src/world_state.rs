@@ -77,7 +77,7 @@ pub struct RobotState {
     pub role: Role,
     pub primary_state: PrimaryState,
     pub fall_state: FallState,
-    pub has_ground_contact: bool,
+    pub has_firm_ground_contact: bool,
     pub player_number: PlayerNumber,
     pub ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 }

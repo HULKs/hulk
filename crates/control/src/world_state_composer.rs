@@ -43,7 +43,7 @@ pub struct CycleContext {
     player_number: Parameter<PlayerNumber, "player_number">,
 
     fall_state: Input<FallState, "fall_state">,
-    has_ground_contact: Input<bool, "has_ground_contact">,
+    has_firm_ground_contact: Input<bool, "has_firm_ground_contact">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     primary_state: Input<PrimaryState, "primary_state">,
@@ -69,7 +69,7 @@ impl WorldStateComposer {
             role: *context.role,
             primary_state: *context.primary_state,
             fall_state: *context.fall_state,
-            has_ground_contact: *context.has_ground_contact,
+            has_firm_ground_contact: *context.has_firm_ground_contact,
             player_number: *context.player_number,
             ground_to_upcoming_support: *context.ground_to_upcoming_support,
         };

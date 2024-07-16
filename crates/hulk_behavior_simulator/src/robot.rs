@@ -77,7 +77,7 @@ impl Robot {
             )
             .as_transform(),
         );
-        database.main_outputs.has_ground_contact = true;
+        database.main_outputs.has_firm_ground_contact = true;
         database.main_outputs.is_localization_converged = true;
         subscriptions_sender
             .borrow_mut()

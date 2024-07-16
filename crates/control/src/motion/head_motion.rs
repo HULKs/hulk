@@ -34,7 +34,7 @@ pub struct CycleContext {
     motion_command: Input<MotionCommand, "motion_command">,
     sensor_data: Input<SensorData, "sensor_data">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    has_ground_contact: Input<bool, "has_ground_contact">,
+    has_firm_ground_contact: Input<bool, "has_firm_ground_contact">,
     motion_selection: Input<MotionSelection, "motion_selection">,
 }
 
@@ -66,7 +66,7 @@ impl HeadMotion {
             positions: raw_positions,
             stiffnesses,
         } = context
-            .has_ground_contact
+            .has_firm_ground_contact
             .then(|| Self::joints_from_motion(&context))
             .unwrap_or_else(|| MotorCommands {
                 positions: Default::default(),

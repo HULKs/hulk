@@ -61,7 +61,7 @@ pub struct CycleContext {
 
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    has_ground_contact: Input<bool, "has_ground_contact">,
+    has_firm_ground_contact: Input<bool, "has_firm_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
@@ -516,7 +516,7 @@ impl Localization {
         self.reset_state(primary_state, game_phase, &context, &penalty);
         self.last_primary_state = primary_state;
 
-        if primary_state == PrimaryState::Penalized && !context.has_ground_contact {
+        if primary_state == PrimaryState::Penalized && !context.has_firm_ground_contact {
             self.was_picked_up_while_penalized = true;
         }
 
