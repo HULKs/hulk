@@ -3,10 +3,10 @@ use std::ops::Mul;
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{distance_squared, point, vector, Point, Point2, Transform};
+use linear_algebra::{distance_squared, point, Point, Point2, Transform};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{line_segment::LineSegment, Distance};
+use crate::{direction::Direction, line_segment::LineSegment, Distance};
 
 #[derive(
     Copy,
@@ -44,7 +44,9 @@ impl<Frame> Line2<Frame> {
 
     pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {
         let line_vector = self.1 - self.0;
-        let normal_vector = vector![-line_vector.y(), line_vector.x()].normalize();
+        let normal_vector = Direction::Counterclockwise
+            .rotate_vector_90_degrees(line_vector)
+            .normalize();
         normal_vector.dot(point.coords()) - normal_vector.dot(self.0.coords())
     }
 

@@ -1,11 +1,11 @@
-use geometry::line_segment::LineSegment;
+use geometry::{direction::Direction as RotationDirection, line_segment::LineSegment};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Field;
 
 use crate::field_dimensions::FieldDimensions;
-use linear_algebra::{distance, point, vector, Point2, Vector2};
+use linear_algebra::{distance, point, Point2, Vector2};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum FieldMark {
@@ -116,9 +116,9 @@ impl FieldMark {
                 let measured_direction = (measured_line.0 - measured_line.1).normalize();
                 let center_vector =
                     (correspondence_0_reference - center) + (correspondence_1_reference - center);
-                let center_vector_rotated_by_90_degree =
-                    vector![-center_vector.y(), center_vector.x()];
-                let reference_direction = center_vector_rotated_by_90_degree.normalize();
+                let reference_direction = RotationDirection::Counterclockwise
+                    .rotate_vector_90_degrees(center_vector)
+                    .normalize();
 
                 Correspondences {
                     correspondence_points: (
