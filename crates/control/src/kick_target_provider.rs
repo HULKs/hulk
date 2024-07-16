@@ -43,6 +43,7 @@ pub struct CycleContext {
         Parameter<f32, "kick_target_provider.max_kick_around_obstacle_angle">,
     corner_kick_strength: Parameter<f32, "kick_target_provider.corner_kick_strength">,
     kick_off_kick_strength: Parameter<f32, "kick_target_provider.kick_off_kick_strength">,
+    penalty_shot_kick_strength: Parameter<f32, "kick_target_provider.penalty_shot_kick_strength">,
     kick_off_kick_variants:
         Parameter<Vec<KickVariant>, "kick_target_provider.kick_off_kick_variants">,
     corner_kick_variants: Parameter<Vec<KickVariant>, "kick_target_provider.corner_kick_variants">,
@@ -57,6 +58,7 @@ struct CollectKickTargetsParameter<'cycle> {
     max_kick_around_obstacle_angle: f32,
     corner_kick_strength: f32,
     kick_off_kick_strength: f32,
+    penalty_shot_kick_strength: f32,
     kick_off_kick_variants: Vec<KickVariant>,
     corner_kick_variants: Vec<KickVariant>,
     penalty_kick_kick_variants: Vec<KickVariant>,
@@ -99,6 +101,7 @@ impl KickTargetProvider {
             max_kick_around_obstacle_angle: *context.max_kick_around_obstacle_angle,
             corner_kick_strength: *context.corner_kick_strength,
             kick_off_kick_strength: *context.kick_off_kick_strength,
+            penalty_shot_kick_strength: *context.penalty_shot_kick_strength,
             kick_off_kick_variants: context.kick_off_kick_variants.clone(),
             corner_kick_variants: context.corner_kick_variants.clone(),
             penalty_kick_kick_variants: context.penalty_kick_kick_variants.clone(),
@@ -219,21 +222,32 @@ fn collect_kick_targets(
                 .collect(),
                 true,
             )
+        } else if is_penalty_shot {
+            (
+                generate_penalty_shot_kick_targets(
+                    field_dimensions,
+                    field_to_ground,
+                    collect_kick_targets_parameters.penalty_shot_kick_strength,
+                )
+                .into_iter()
+                .map(|kick_target| KickTargetWithKickVariants {
+                    kick_target,
+                    kick_variants: collect_kick_targets_parameters
+                        .penalty_kick_kick_variants
+                        .clone(),
+                })
+                .collect(),
+                true,
+            )
         } else {
             (
                 generate_goal_line_kick_targets(field_dimensions, field_to_ground)
                     .into_iter()
                     .map(|kick_target| KickTargetWithKickVariants {
                         kick_target,
-                        kick_variants: if is_penalty_shot {
-                            collect_kick_targets_parameters
-                                .penalty_kick_kick_variants
-                                .clone()
-                        } else {
-                            collect_kick_targets_parameters
-                                .goal_line_kick_variants
-                                .clone()
-                        },
+                        kick_variants: collect_kick_targets_parameters
+                            .goal_line_kick_variants
+                            .clone(),
                     })
                     .collect(),
                 true,
@@ -371,5 +385,27 @@ fn generate_kick_off_kick_targets(
     vec![
         KickTarget::new_with_strength(left_kick_off_target, kick_off_kick_strength),
         KickTarget::new_with_strength(right_kick_off_target, kick_off_kick_strength),
+    ]
+}
+
+fn generate_penalty_shot_kick_targets(
+    field_dimensions: &FieldDimensions,
+    field_to_ground: Isometry2<Field, Ground>,
+    penalty_shot_kick_strength: f32,
+) -> Vec<KickTarget> {
+    let left_kick_off_target = field_to_ground
+        * point![
+            field_dimensions.length / 2.0,
+            field_dimensions.goal_inner_width / 4.0
+        ];
+    let right_kick_off_target = field_to_ground
+        * point![
+            field_dimensions.length / 2.0,
+            -field_dimensions.goal_inner_width / 4.0
+        ];
+
+    vec![
+        KickTarget::new_with_strength(left_kick_off_target, penalty_shot_kick_strength),
+        KickTarget::new_with_strength(right_kick_off_target, penalty_shot_kick_strength),
     ]
 }
