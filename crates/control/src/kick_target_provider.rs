@@ -65,6 +65,7 @@ pub struct CycleContext {
         Parameter<Vec<KickVariant>, "kick_target_provider.penalty_kick_kick_variants">,
     goal_line_kick_variants:
         Parameter<Vec<KickVariant>, "kick_target_provider.goal_line_kick_variants">,
+    playing_situation: AdditionalOutput<PlayingSituation, "playing_situation">,
 }
 
 struct CollectKickTargetsParameter<'cycle> {
@@ -92,7 +93,7 @@ impl KickTargetProvider {
         Ok(Self {})
     }
 
-    pub fn cycle(&self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&self, mut context: CycleContext) -> Result<MainOutputs> {
         let obstacle_circles = generate_obstacle_circles(
             context.obstacles,
             *context.ball_radius_for_kick_target_selection,
@@ -104,6 +105,10 @@ impl KickTargetProvider {
             context.find_kick_targets_parameters,
             context.field_dimensions,
         );
+
+        context
+            .playing_situation
+            .fill_if_subscribed(|| playing_situation);
 
         let collect_kick_targets_parameters = CollectKickTargetsParameter {
             find_kick_targets_parameter: context.find_kick_targets_parameters,
