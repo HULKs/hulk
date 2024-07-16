@@ -1,5 +1,5 @@
 {
-  "communication_addresses": "[::]:1337",
+  "communication_addresses": null,
   "hardware_parameters": "etc/parameters/hardware.json",
   "parameters_directory": "etc/parameters",
   "recording_intervals": {
