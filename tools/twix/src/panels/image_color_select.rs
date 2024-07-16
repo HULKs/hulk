@@ -383,12 +383,7 @@ impl ImageColorSelectPanel {
             .wrap_err("No image available")?;
 
         let buffer = image_ycbcr
-            .buffer()
-            .iter()
-            .flat_map(|&ycbcr422| {
-                let ycbcr444: [YCbCr444; 2] = ycbcr422.into();
-                ycbcr444
-            })
+            .iter_pixels()
             .flat_map(|ycbcr444| {
                 let rgb = Rgb::from(ycbcr444);
                 [rgb.red, rgb.green, rgb.blue, 255]
