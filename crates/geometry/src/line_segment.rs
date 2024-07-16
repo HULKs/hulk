@@ -480,7 +480,6 @@ mod tests {
         });
 
         for case in cases {
-            dbg!(&case);
             assert_relative_eq!(
                 case.self_line.signed_acute_angle(case.other_line),
                 case.expected_angle,
