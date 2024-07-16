@@ -4,9 +4,10 @@ use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
 use linear_algebra::{point, Pose2, Rotation2, Vector2};
+use spl_network_messages::SubState;
 use types::{
-    field_dimensions::FieldDimensions,
-    field_dimensions::Side,
+    field_dimensions::{FieldDimensions, Side},
+    filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, WalkSpeed},
     path_obstacles::PathObstacle,
@@ -57,32 +58,78 @@ fn support_pose(
         .rule_ball
         .or(world_state.ball)
         .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
-    let side = field_side.unwrap_or_else(|| ball.field_side.opposite());
+    let distance_from_midline_to_penaltybox =
+        field_dimensions.length / 2.0 - field_dimensions.penalty_area_length;
+    let distance_from_midline_to_goalbox =
+        field_dimensions.length / 2.0 - field_dimensions.goal_box_area_length;
+    let maximum_x = if field_side.is_none() {
+        distance_from_midline_to_penaltybox
+    } else {
+        distance_from_midline_to_goalbox
+    };
+    let side = field_side.unwrap_or_else(|| match world_state.filtered_game_controller_state {
+        Some(FilteredGameControllerState {
+            sub_state: Some(SubState::CornerKick),
+            ..
+        }) => ball.field_side,
+        _ => ball.field_side.opposite(),
+    });
     let offset_vector = Rotation2::new(match side {
-        Side::Left => -FRAC_PI_4,
-        Side::Right => FRAC_PI_4,
-    }) * -(Vector2::<Field>::x_axis() * distance_to_ball);
+        Side::Left => FRAC_PI_4,
+        Side::Right => -FRAC_PI_4,
+    }) * (Vector2::<Field>::x_axis() * distance_to_ball);
     let supporting_position = ball.ball_in_field + offset_vector;
 
     let filtered_game_state = world_state
         .filtered_game_controller_state
         .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
-    let clamped_x = match filtered_game_state {
-        Some(FilteredGameState::Ready { .. })
-        | Some(FilteredGameState::Playing {
-            ball_is_free: false,
-            ..
-        }) => supporting_position.x().clamp(
-            minimum_x.min(maximum_x_in_ready_and_when_ball_is_not_free),
-            minimum_x.max(maximum_x_in_ready_and_when_ball_is_not_free),
-        ),
-        _ => supporting_position
+    let mut clamped_x = match filtered_game_state {
+        Some(FilteredGameState::Ready { .. }) => supporting_position
             .x()
-            .clamp(minimum_x, field_dimensions.length / 2.0),
+            .min(maximum_x_in_ready_and_when_ball_is_not_free),
+        Some(FilteredGameState::Playing {
+            ball_is_free: false,
+            kick_off: true,
+            ..
+        }) => supporting_position
+            .x()
+            .clamp(maximum_x_in_ready_and_when_ball_is_not_free, maximum_x),
+        _ => supporting_position.x().clamp(minimum_x, maximum_x),
     };
-    let clamped_y = supporting_position
-        .y()
-        .clamp(-field_dimensions.width / 2.0, field_dimensions.width / 2.0);
+
+    let clamped_y = if (distance_from_midline_to_penaltybox..=distance_from_midline_to_goalbox)
+        .contains(&clamped_x)
+    {
+        let absolute_clamped_y_distance_a = field_dimensions.penalty_area_width / 2.0
+            - (clamped_x - distance_from_midline_to_penaltybox);
+        let absolute_clamped_y_distance_b =
+            absolute_clamped_y_distance_a - field_dimensions.goal_box_area_width / 2.0;
+        match side {
+            Side::Left => supporting_position.y().clamp(
+                -absolute_clamped_y_distance_b,
+                absolute_clamped_y_distance_a,
+            ),
+            Side::Right => -supporting_position.y().clamp(
+                -absolute_clamped_y_distance_b,
+                absolute_clamped_y_distance_a,
+            ),
+        }
+    } else {
+        supporting_position.y().clamp(
+            -field_dimensions.penalty_area_width / 2.0,
+            field_dimensions.penalty_area_width / 2.0,
+        )
+    };
+    clamped_x = if let Some(FilteredGameControllerState {
+        sub_state: Some(SubState::PenaltyKick),
+        ..
+    }) = world_state.filtered_game_controller_state
+    {
+        clamped_x.min(distance_from_midline_to_penaltybox - 0.5)
+    } else {
+        clamped_x
+    };
+
     let clamped_position = point![clamped_x, clamped_y];
     let support_pose = Pose2::new(
         clamped_position.coords(),
