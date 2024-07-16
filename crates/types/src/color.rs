@@ -146,19 +146,6 @@ impl Rgb {
         Self { red, green, blue }
     }
 
-    pub fn convert_to_rgchromaticity(&self) -> RgChromaticity {
-        let sum = self.red as f32 + self.green as f32 + self.blue as f32;
-        let mut chromaticity = RgChromaticity {
-            red: 0.0,
-            green: 0.0,
-        };
-        if sum != 0.0 {
-            chromaticity.red = (self.red as f32) / sum;
-            chromaticity.green = (self.green as f32) / sum;
-        }
-        chromaticity
-    }
-
     pub fn get_luminance(&self) -> u8 {
         (0.299 * (self.red as f32) + 0.587 * (self.green as f32) + 0.114 * (self.blue as f32)) as u8
     }
@@ -192,9 +179,24 @@ impl From<YCbCr444> for Rgb {
     }
 }
 
+#[derive(Default, Clone, Copy)]
 pub struct RgChromaticity {
     pub red: f32,
     pub green: f32,
+}
+
+impl From<Rgb> for RgChromaticity {
+    fn from(value: Rgb) -> Self {
+        let sum = value.red as f32 + value.green as f32 + value.blue as f32;
+        if sum != 0.0 {
+            Self {
+                red: (value.red as f32) / sum,
+                green: (value.green as f32) / sum,
+            }
+        } else {
+            Self::default()
+        }
+    }
 }
 
 #[derive(
@@ -211,9 +213,9 @@ pub struct RgChromaticity {
     PathIntrospect,
 )]
 pub struct Hsv {
-    pub h: u16,
-    pub s: u8,
-    pub v: u8,
+    pub hue: u16,
+    pub saturation: u8,
+    pub value: u8,
 }
 
 impl From<Rgb> for Hsv {
@@ -243,9 +245,9 @@ impl From<Rgb> for Hsv {
         };
 
         Hsv {
-            h: h as u16,
-            s: s as u8,
-            v: max as u8,
+            hue: h as u16,
+            saturation: s as u8,
+            value: max as u8,
         }
     }
 }
@@ -479,7 +481,7 @@ mod tests {
             green: 70,
             blue: 200,
         };
-        let chromaticity = rgb.convert_to_rgchromaticity().red;
+        let chromaticity = RgChromaticity::from(rgb).red;
         assert_eq!(chromaticity, 0.1);
     }
 
@@ -492,7 +494,11 @@ mod tests {
                     green: 0,
                     blue: 0,
                 },
-                Hsv { h: 0, s: 0, v: 0 },
+                Hsv {
+                    hue: 0,
+                    saturation: 0,
+                    value: 0,
+                },
             ),
             (
                 Rgb {
@@ -500,7 +506,11 @@ mod tests {
                     green: 255,
                     blue: 255,
                 },
-                Hsv { h: 0, s: 0, v: 255 },
+                Hsv {
+                    hue: 0,
+                    saturation: 0,
+                    value: 255,
+                },
             ),
             (
                 Rgb {
@@ -509,9 +519,9 @@ mod tests {
                     blue: 0,
                 },
                 Hsv {
-                    h: 0,
-                    s: 255,
-                    v: 255,
+                    hue: 0,
+                    saturation: 255,
+                    value: 255,
                 },
             ),
             (
@@ -521,9 +531,9 @@ mod tests {
                     blue: 0,
                 },
                 Hsv {
-                    h: 120,
-                    s: 255,
-                    v: 255,
+                    hue: 120,
+                    saturation: 255,
+                    value: 255,
                 },
             ),
             (
@@ -533,9 +543,9 @@ mod tests {
                     blue: 255,
                 },
                 Hsv {
-                    h: 240,
-                    s: 255,
-                    v: 255,
+                    hue: 240,
+                    saturation: 255,
+                    value: 255,
                 },
             ),
             (
@@ -545,9 +555,9 @@ mod tests {
                     blue: 255,
                 },
                 Hsv {
-                    h: 270,
-                    s: 255,
-                    v: 255,
+                    hue: 270,
+                    saturation: 255,
+                    value: 255,
                 },
             ),
         ] {

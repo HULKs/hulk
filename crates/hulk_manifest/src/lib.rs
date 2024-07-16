@@ -18,7 +18,6 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "vision::camera_matrix_extractor",
                     "vision::feet_detection",
                     "vision::field_border_detection",
-                    "vision::field_color_detection",
                     "vision::image_segmenter",
                     "vision::limb_projector",
                     "vision::line_detection",
