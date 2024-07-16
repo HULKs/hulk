@@ -1,7 +1,16 @@
-use std::{collections::HashSet, iter::Peekable, ops::Range};
+mod checks;
+mod iter_if;
+mod map_segments;
+mod segment;
+mod segment_merger;
 
+use std::{collections::HashSet, ops::Range};
+
+use checks::{has_opposite_gradients, is_in_length_range, is_non_field_segment};
 use color_eyre::Result;
 use geometry::line_segment::LineSegment;
+use iter_if::iter_if;
+use map_segments::{map_segments, HorizontalMapping, VerticalMapping};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
@@ -9,13 +18,12 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{distance, point, vector, Point2, Vector2};
+use linear_algebra::{distance, Point2};
 use ordered_float::NotNan;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use ransac::{Ransac, RansacResult};
 use types::{
     filtered_segments::FilteredSegments,
-    image_segments::{EdgeType, Segment},
     line_data::{LineData, LineDiscardReason},
     ycbcr422_image::YCbCr422Image,
 };
@@ -35,6 +43,9 @@ pub struct CycleContext {
         AdditionalOutput<Vec<(LineSegment<Pixel>, LineDiscardReason)>, "discarded_lines">,
     ransac_input: AdditionalOutput<Vec<Point2<Pixel>>, "ransac_input">,
 
+    use_horizontal_segments:
+        Parameter<bool, "line_detection.$cycler_instance.use_horizontal_segments">,
+    use_vertical_segments: Parameter<bool, "line_detection.$cycler_instance.use_vertical_segments">,
     allowed_line_length_in_field:
         Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_line_length_in_field">,
     check_edge_gradient: Parameter<bool, "line_detection.$cycler_instance.check_edge_gradient">,
@@ -43,6 +54,7 @@ pub struct CycleContext {
     check_line_segments_projection:
         Parameter<bool, "line_detection.$cycler_instance.check_line_segments_projection">,
     gradient_alignment: Parameter<f32, "line_detection.$cycler_instance.gradient_alignment">,
+    gradient_sobel_stride: Parameter<u32, "line_detection.$cycler_instance.gradient_sobel_stride">,
     margin_for_point_inclusion:
         Parameter<f32, "line_detection.$cycler_instance.margin_for_point_inclusion">,
     maximum_distance_to_robot:
@@ -82,19 +94,66 @@ impl LineDetection {
         let mut image_lines = Vec::new();
         let mut discarded_lines = Vec::new();
 
-        let LinePoints {
-            line_points,
-            used_segments,
-        } = filter_segments_for_lines(
-            context.camera_matrix,
-            context.filtered_segments,
-            context.image,
-            *context.check_line_segments_projection,
-            context.allowed_projected_segment_length,
-            *context.check_edge_gradient,
-            *context.gradient_alignment,
+        let horizontal_scan_lines = iter_if(
+            *context.use_horizontal_segments,
+            context
+                .filtered_segments
+                .scan_grid
+                .horizontal_scan_lines
+                .iter(),
+        );
+        let vertical_scan_lines = iter_if(
+            *context.use_vertical_segments,
+            context
+                .filtered_segments
+                .scan_grid
+                .vertical_scan_lines
+                .iter(),
+        );
+
+        let horizontal_segments = map_segments::<HorizontalMapping>(
+            horizontal_scan_lines,
             *context.maximum_merge_gap_in_pixels,
         );
+        let vertical_segments = map_segments::<VerticalMapping>(
+            vertical_scan_lines,
+            *context.maximum_merge_gap_in_pixels,
+        );
+
+        let filtered_segments = horizontal_segments
+            .chain(vertical_segments)
+            .filter(is_non_field_segment)
+            .filter(|segment| {
+                !*context.check_line_segments_projection
+                    || is_in_length_range(
+                        segment,
+                        context.camera_matrix,
+                        context.allowed_projected_segment_length,
+                    )
+            })
+            .filter(|segment| {
+                !*context.check_edge_gradient
+                    || has_opposite_gradients(
+                        segment,
+                        context.image,
+                        *context.gradient_alignment,
+                        *context.gradient_sobel_stride,
+                    )
+            });
+
+        let (line_points, used_segments): (Vec<Point2<Ground>>, HashSet<Point2<Pixel, u16>>) =
+            filtered_segments
+                .filter_map(|segment| {
+                    Some((
+                        context
+                            .camera_matrix
+                            .pixel_to_ground(segment.center().cast())
+                            .ok()?,
+                        segment.start,
+                    ))
+                })
+                .unzip();
+
         context.ransac_input.fill_if_subscribed(|| {
             line_points
                 .iter()
@@ -220,226 +279,5 @@ impl LineDetection {
         Ok(MainOutputs {
             line_data: Some(line_data).into(),
         })
-    }
-}
-
-fn get_gradient(image: &YCbCr422Image, point: Point2<Pixel, u16>) -> Vector2<f32> {
-    if point.x() < 1
-        || point.y() < 1
-        || point.x() > image.width() as u16 - 2
-        || point.y() > image.height() as u16 - 2
-    {
-        return vector![0.0, 0.0];
-    }
-    let px = point.x() as u32;
-    let py = point.y() as u32;
-    // Sobel matrix x (transposed)
-    // -1 -2 -1
-    //  0  0  0
-    //  1  2  1
-    let gradient_x = (-1.0 * image.at(px - 1, py - 1).y as f32)
-        + (-2.0 * image.at(px, py - 1).y as f32)
-        + (-1.0 * image.at(px + 1, py - 1).y as f32)
-        + (1.0 * image.at(px - 1, py + 1).y as f32)
-        + (2.0 * image.at(px, py + 1).y as f32)
-        + (1.0 * image.at(px + 1, py + 1).y as f32);
-    // Sobel matrix y (transposed)
-    //  1  0 -1
-    //  2  0 -2
-    //  1  0 -1
-    let gradient_y = (1.0 * image.at(px - 1, py - 1).y as f32)
-        + (-1.0 * image.at(px + 1, py - 1).y as f32)
-        + (2.0 * image.at(px - 1, py).y as f32)
-        + (-2.0 * image.at(px + 1, py).y as f32)
-        + (1.0 * image.at(px - 1, py + 1).y as f32)
-        + (-1.0 * image.at(px + 1, py + 1).y as f32);
-    let gradient = vector![gradient_x, gradient_y];
-    gradient
-        .try_normalize(0.0001)
-        .unwrap_or_else(Vector2::zeros)
-}
-
-struct SegmentMerger<T: Iterator<Item = Segment>> {
-    iterator: Peekable<T>,
-    maximum_merge_gap: u16,
-}
-
-impl<T> SegmentMerger<T>
-where
-    T: Iterator<Item = Segment>,
-{
-    fn new(iterator: T, maximum_merge_gap: u16) -> Self {
-        Self {
-            iterator: iterator.peekable(),
-            maximum_merge_gap,
-        }
-    }
-}
-
-impl<T> Iterator for SegmentMerger<T>
-where
-    T: Iterator<Item = Segment>,
-{
-    type Item = Segment;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut current = self.iterator.next()?;
-
-        while let Some(next) = self.iterator.peek().copied() {
-            if next.start - current.end >= self.maximum_merge_gap {
-                break;
-            }
-
-            let _ = self.iterator.next();
-            current.end = next.end;
-            current.end_edge_type = next.end_edge_type;
-        }
-
-        Some(current)
-    }
-}
-
-struct LinePoints {
-    line_points: Vec<Point2<Ground>>,
-    used_segments: HashSet<Point2<Pixel, u16>>,
-}
-
-#[allow(clippy::too_many_arguments)]
-fn filter_segments_for_lines(
-    camera_matrix: &CameraMatrix,
-    filtered_segments: &FilteredSegments,
-    image: &YCbCr422Image,
-    check_line_segments_projection: bool,
-    allowed_projected_segment_length: &Range<f32>,
-    check_edge_gradient: bool,
-    gradient_alignment: f32,
-    maximum_merge_gap: u16,
-) -> LinePoints {
-    let (line_points, used_segments) = filtered_segments
-        .scan_grid
-        .vertical_scan_lines
-        .iter()
-        .flat_map(|scan_line| {
-            let merged_segments =
-                SegmentMerger::new(scan_line.segments.iter().copied(), maximum_merge_gap);
-
-            let scan_line_position = scan_line.position;
-            merged_segments.filter_map(move |segment| {
-                let is_line_segment = is_line_segment(
-                    segment,
-                    scan_line_position,
-                    image,
-                    camera_matrix,
-                    check_line_segments_projection,
-                    allowed_projected_segment_length,
-                    check_edge_gradient,
-                    gradient_alignment,
-                );
-                if is_line_segment {
-                    Some((scan_line_position, segment))
-                } else {
-                    None
-                }
-            })
-        })
-        .filter_map(|(scan_line_position, segment)| {
-            let center = (segment.start + segment.end) as f32 / 2.0;
-            Some((
-                camera_matrix
-                    .pixel_to_ground(point![scan_line_position as f32, center])
-                    .ok()?,
-                point![scan_line_position, segment.start],
-            ))
-        })
-        .unzip();
-    LinePoints {
-        line_points,
-        used_segments,
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn is_line_segment(
-    segment: Segment,
-    scan_line_position: u16,
-    image: &YCbCr422Image,
-    camera_matrix: &CameraMatrix,
-    check_line_segments_projection: bool,
-    allowed_projected_segment_length: &Range<f32>,
-    check_edge_gradient: bool,
-    gradient_alignment: f32,
-) -> bool {
-    if segment.start_edge_type == EdgeType::Falling || segment.end_edge_type == EdgeType::Rising {
-        return false;
-    }
-    let is_too_long = check_line_segments_projection
-        && !is_segment_length_ok(
-            camera_matrix,
-            point![scan_line_position as f32, segment.start as f32],
-            point![scan_line_position as f32, segment.end as f32],
-            allowed_projected_segment_length,
-        )
-        .unwrap_or(false);
-    if is_too_long {
-        return false;
-    }
-    if !check_edge_gradient
-        || segment.start_edge_type != EdgeType::Rising
-        || segment.end_edge_type != EdgeType::Falling
-    {
-        return true;
-    }
-    // gradients (approximately) point in opposite directions if their dot product is (close to) -1
-    let gradient_at_start = get_gradient(image, point![scan_line_position, segment.start]);
-    let gradient_at_end = get_gradient(image, point![scan_line_position, segment.end]);
-    gradient_at_start.dot(gradient_at_end) < gradient_alignment
-}
-
-fn is_segment_length_ok(
-    camera_matrix: &CameraMatrix,
-    segment_start: Point2<Pixel>,
-    segment_end: Point2<Pixel>,
-    allowed_projected_segment_length: &Range<f32>,
-) -> Option<bool> {
-    let start = camera_matrix.pixel_to_ground(segment_start).ok()?;
-    let end = camera_matrix.pixel_to_ground(segment_end).ok()?;
-    Some(allowed_projected_segment_length.contains(&distance(start, end)))
-}
-
-#[cfg(test)]
-mod tests {
-    use linear_algebra::IntoTransform;
-    use nalgebra::{Isometry3, Translation, UnitQuaternion};
-
-    use super::*;
-
-    #[test]
-    fn check_fixed_segment_size() {
-        let image_size = vector![1.0, 1.0];
-        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
-            nalgebra::vector![2.0, 2.0],
-            nalgebra::point![1.0, 1.0],
-            image_size,
-            Isometry3 {
-                rotation: UnitQuaternion::from_euler_angles(0.0, std::f32::consts::PI / 4.0, 0.0),
-                translation: Translation::from(nalgebra::point![0.0, 0.0, 0.5]),
-            }
-            .framed_transform(),
-            Isometry3::identity().framed_transform(),
-            Isometry3::identity().framed_transform(),
-        );
-        let start = point![40.0, 2.0];
-        let end = point![40.0, 202.0];
-        assert!(!is_segment_length_ok(&camera_matrix, start, end, &(0.0..0.3)).unwrap());
-        let start2 = point![40.0, 364.0];
-        let end2 = point![40.0, 366.0];
-        assert!(is_segment_length_ok(&camera_matrix, start2, end2, &(0.0..0.3)).unwrap());
-    }
-
-    #[test]
-    fn gradient_of_zero_image() {
-        let image = YCbCr422Image::zero(4, 4);
-        let point = point![1, 1];
-        assert_eq!(get_gradient(&image, point), vector![0.0, 0.0]);
     }
 }
