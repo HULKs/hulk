@@ -60,7 +60,7 @@ impl WalkTransition for Walking {
     fn walk(self, context: &Context, requested_step: Step) -> Mode {
         let current_step = self.step;
 
-        if context.parameters.catching_steps.use_catching_steps {
+        if context.parameters.catching_steps.enabled {
             if context.robot_to_ground.is_none() {
                 return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
             }
