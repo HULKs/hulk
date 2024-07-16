@@ -1,7 +1,9 @@
 use coordinate_systems::{Ground, UpcomingSupport};
 use geometry::look_at::LookAt;
 use linear_algebra::{Isometry2, Point, Pose2};
+use spl_network_messages::GamePhase;
 use types::{
+    filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
@@ -17,7 +19,7 @@ pub fn execute(
     in_walk_kicks: &InWalkKicksParameters,
     parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
-    walk_speed: WalkSpeed,
+    mut walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let head = HeadMotion::LookLeftAndRightOf {
@@ -68,6 +70,15 @@ pub fn execute(
         }
         orientation_mode => orientation_mode,
     };
+   
+    if let Some(FilteredGameControllerState {
+        game_phase: GamePhase::PenaltyShootout { .. },
+        ..
+    }) = world_state.filtered_game_controller_state
+    {
+        walk_speed = WalkSpeed::Slow;
+    }
+
     match dribble_path {
         Some(path) => Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
