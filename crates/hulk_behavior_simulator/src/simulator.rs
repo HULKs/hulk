@@ -180,6 +180,52 @@ impl Simulator {
             )?;
 
             self.lua.globals().set(
+                "get_robot_pose_x",
+                scope.create_function(|_lua, player_number: usize| {
+                    let player_number =
+                        to_player_number(player_number).map_err(LuaError::external)?;
+
+                    let position_x = self
+                        .state
+                        .lock()
+                        .robots
+                        .get_mut(&player_number)
+                        .unwrap()
+                        .database
+                        .main_outputs
+                        .ground_to_field
+                        .unwrap()
+                        .inner
+                        .translation
+                        .x;
+                    Ok(position_x)
+                })?,
+            )?;
+
+            self.lua.globals().set(
+                "get_robot_pose_y",
+                scope.create_function(|_lua, player_number: usize| {
+                    let player_number =
+                        to_player_number(player_number).map_err(LuaError::external)?;
+
+                    let position_y = self
+                        .state
+                        .lock()
+                        .robots
+                        .get_mut(&player_number)
+                        .unwrap()
+                        .database
+                        .main_outputs
+                        .ground_to_field
+                        .unwrap()
+                        .inner
+                        .translation
+                        .x;
+                    Ok(position_y)
+                })?,
+            )?;
+
+            self.lua.globals().set(
                 "whistle",
                 scope.create_function(|_lua, player_number: usize| {
                     let player_number =

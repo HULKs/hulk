@@ -52,8 +52,21 @@ function on_cycle()
         whistle(7)
     end
 
-    //13 frames in simulator are counted as 13 seconds in the game_controller_state_filter
-    if state.cycle_count == 1720 then
+    -- 10 frames in simulator are counted as 10 seconds in the game_controller_state_filter and thus correspond to the opponent kick off time
+    if state.cycle_count >= 1700 and state.cycle_count <= 1710 then
+        for i = 1, 7 do
+            is_in_opponent_half = get_robot_pose_x(i) >= 0.0
+            if is_in_opponent_half then
+                error("Illegal Position in Kickoff Playing")
+            end
+            is_in_center_circle = math.sqrt(get_robot_pose_x(i) ^ 2 + get_robot_pose_y(i) ^ 2) <= 0.75
+            if is_in_center_circle then
+                error("Illegal Position in Kickoff Playing")
+            end
+        end
+    end
+
+    if state.cycle_count == 1713 then
         state.game_controller_state.game_state = "Playing"
     end
 
