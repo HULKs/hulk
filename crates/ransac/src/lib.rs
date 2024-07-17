@@ -1,12 +1,10 @@
+use ordered_float::NotNan;
+use rand::{seq::SliceRandom, Rng};
+
 use geometry::{
     line::{Line, Line2},
     Distance,
 };
-use linear_algebra::Point2;
-use ordered_float::NotNan;
-use rand::{seq::SliceRandom, Rng};
-
-use geometry::line::{Line, Line2};
 use linear_algebra::Point2;
 
 pub mod circles;
