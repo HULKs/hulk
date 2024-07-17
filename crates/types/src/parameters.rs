@@ -149,6 +149,7 @@ pub struct DribblingParameters {
     pub distance_to_be_aligned: f32,
     pub angle_to_approach_ball_from_threshold: f32,
     pub ignore_robot_when_near_ball_radius: f32,
+    pub distance_to_look_directly_at_the_ball: f32,
 }
 
 #[derive(

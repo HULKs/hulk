@@ -3,8 +3,11 @@ use geometry::look_at::LookAt;
 use linear_algebra::{Isometry2, Point, Pose2};
 use spl_network_messages::GamePhase;
 use types::{
+    camera_position::CameraPosition,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{
+        ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed,
+    },
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
     world_state::WorldState,
@@ -22,8 +25,17 @@ pub fn execute(
     mut walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
-    let head = HeadMotion::LookLeftAndRightOf {
-        target: ball_position,
+    let distance_to_ball = ball_position.coords().norm();
+    let head = if distance_to_ball < parameters.distance_to_look_directly_at_the_ball {
+        HeadMotion::LookAt {
+            target: ball_position,
+            image_region_target: ImageRegion::Center,
+            camera: Some(CameraPosition::Bottom),
+        }
+    } else {
+        HeadMotion::LookLeftAndRightOf {
+            target: ball_position,
+        }
     };
     let kick_decisions = world_state.kick_decisions.as_ref()?;
     let instant_kick_decisions = world_state.instant_kick_decisions.as_ref()?;
