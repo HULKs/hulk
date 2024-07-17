@@ -153,7 +153,7 @@
       "maximum_fit_distance_in_ground": 0.05,
       "maximum_gap_on_line": 0.2,
       "maximum_merge_gap_in_pixels": 5,
-      "maximum_number_of_lines": 10,
+      "maximum_number_of_features": 10,
       "allowed_projected_segment_length": {
         "start": 0.02,
         "end": 0.1
@@ -180,7 +180,7 @@
       "maximum_fit_distance_in_ground": 0.05,
       "maximum_gap_on_line": 0.1,
       "maximum_merge_gap_in_pixels": 30,
-      "maximum_number_of_lines": 10,
+      "maximum_number_of_features": 10,
       "allowed_projected_segment_length": {
         "start": 0.02,
         "end": 0.1
