@@ -6,7 +6,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, Team};
+use spl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -32,6 +32,7 @@ pub struct CycleContext {
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    player_number: Parameter<PlayerNumber, "player_number">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
 
@@ -63,6 +64,7 @@ impl GameControllerStateFilter {
             context.filtered_whistle,
             context.cycle_time,
             *context.visual_referee_proceed_to_ready,
+            *context.player_number,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -98,6 +100,7 @@ impl GameControllerStateFilter {
         filtered_whistle: &FilteredWhistle,
         cycle_time: &CycleTime,
         visual_referee_proceed_to_ready: bool,
+        player_number: PlayerNumber,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
             ground_to_field,
@@ -130,7 +133,11 @@ impl GameControllerStateFilter {
                     ball_position.map(|ball| ground_to_field * ball.position);
             }
         }
-        if let State::Playing { .. } = self.state {
+        let motion_in_set = matches!(
+            game_controller_state.penalties[player_number],
+            Some(Penalty::IllegalMotionInSet { .. })
+        );
+        if matches!(self.state, State::Playing { .. }) || motion_in_set {
             self.whistle_in_set_ball_position = None;
         }
 
