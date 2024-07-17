@@ -23,8 +23,7 @@ pub struct CycleContext {
         RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ball_state: Input<Option<BallState>, "ball_state?">,
 
-    center_circle_obstacle_increase:
-        Parameter<f32, "rule_obstacles.center_circle_obstacle_increase">,
+    center_circle_obstacle_offset: Parameter<f32, "rule_obstacles.center_circle_obstacle_offset">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     free_kick_obstacle_radius: Parameter<f32, "rule_obstacles.free_kick_obstacle_radius">,
     penaltykick_box_extension: Parameter<f32, "rule_obstacles.penaltykick_box_extension">,
@@ -79,7 +78,7 @@ impl RuleObstacleComposer {
                 let center_circle_obstacle = RuleObstacle::Circle(Circle::new(
                     Point::origin(),
                     context.field_dimensions.center_circle_diameter / 2.0
-                        * context.center_circle_obstacle_increase,
+                        + context.center_circle_obstacle_offset,
                 ));
                 rule_obstacles.push(center_circle_obstacle);
 
@@ -121,7 +120,7 @@ impl RuleObstacleComposer {
                 let center_circle_obstacle = RuleObstacle::Circle(Circle {
                     center: Point::origin(),
                     radius: context.field_dimensions.center_circle_diameter / 2.0
-                        * context.center_circle_obstacle_increase,
+                        + context.center_circle_obstacle_offset,
                 });
 
                 rule_obstacles.push(center_circle_obstacle);
