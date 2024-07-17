@@ -8,7 +8,7 @@ use types::{image_segments::EdgeType, ycbcr422_image::YCbCr422Image};
 use super::segment::Segment;
 
 pub fn is_non_field_segment(segment: &Segment) -> bool {
-    segment.start_edge_type != EdgeType::Falling && segment.end_edge_type != EdgeType::Rising
+    segment.start_edge_type == EdgeType::Rising && segment.end_edge_type == EdgeType::Falling
 }
 
 pub fn is_in_length_range(
