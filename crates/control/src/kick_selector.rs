@@ -80,7 +80,16 @@ impl KickSelector {
                 &context.decision_parameters.penalty_shot_kick_variants
             }
             PlayingSituation::Normal => &context.decision_parameters.default_kick_variants,
-        };
+        }
+        .iter()
+        .filter(|variant| match variant {
+            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
+            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
+            KickVariant::Side => context.in_walk_kicks.side.enabled,
+        })
+        .copied()
+        .collect::<Vec<_>>();
+
         let strength = match playing_situation {
             PlayingSituation::KickOff => context.decision_parameters.kick_off_kick_strength,
             PlayingSituation::CornerKick => context.decision_parameters.corner_kick_strength,
@@ -92,22 +101,18 @@ impl KickSelector {
 
         let mut kick_decisions = kick_decisions_from_targets(
             &targets,
-            variants,
+            &variants,
             &sides,
             strength,
             ball_position,
             context.in_walk_kicks,
         );
 
-        kick_decisions.retain(|target| match target.variant {
-            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
-            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
-            KickVariant::Side => context.in_walk_kicks.side.enabled,
-        });
         kick_decisions.sort_by(|left, right| {
             compare_decisions(
                 left,
                 right,
+                ball_position,
                 *context.ground_to_upcoming_support,
                 context.obstacles,
                 context.decision_parameters,
@@ -118,21 +123,16 @@ impl KickSelector {
             &sides,
             context.in_walk_kicks,
             ball_position,
-            context.obstacles,
             context.field_dimensions,
             *context.ground_to_field,
             context.filtered_game_controller_state,
             context.decision_parameters,
         );
-        instant_kick_decisions.retain(|target| match target.variant {
-            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
-            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
-            KickVariant::Side => context.in_walk_kicks.side.enabled,
-        });
         instant_kick_decisions.sort_by(|left, right| {
             compare_decisions(
                 left,
                 right,
+                ball_position,
                 *context.ground_to_upcoming_support,
                 context.obstacles,
                 context.decision_parameters,
@@ -275,12 +275,17 @@ fn generate_penalty_shot_kick_targets(context: &CycleContext) -> Vec<Point2<Grou
 fn compare_decisions(
     left: &KickDecision,
     right: &KickDecision,
+    ball_position: Point2<Ground>,
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
     obstacles: &[Obstacle],
     parameters: &DecisionParameters,
 ) -> Ordering {
     let left_in_obstacle = is_inside_any_obstacle(left.kick_pose, obstacles, parameters);
     let right_in_obstacle = is_inside_any_obstacle(right.kick_pose, obstacles, parameters);
+    let left_is_intersecting_with_obstacle =
+        is_intersecting_with_an_obstacle(obstacles, ball_position, left.target, parameters);
+    let right_is_intersecting_with_obstacle =
+        is_intersecting_with_an_obstacle(obstacles, ball_position, right.target, parameters);
     let distance_to_left = distance_to_kick_pose(
         ground_to_upcoming_support * left.kick_pose,
         parameters.angle_distance_weight,
@@ -289,19 +294,55 @@ fn compare_decisions(
         ground_to_upcoming_support * right.kick_pose,
         parameters.angle_distance_weight,
     );
-    match (left_in_obstacle, right_in_obstacle) {
-        (false, true) => Ordering::Less,
-        (true, false) => Ordering::Greater,
+
+    match (
+        left_in_obstacle,
+        right_in_obstacle,
+        left_is_intersecting_with_obstacle,
+        right_is_intersecting_with_obstacle,
+    ) {
+        (false, true, _, _) => Ordering::Less,
+        (true, false, _, _) => Ordering::Greater,
+        (_, _, false, true) => Ordering::Less,
+        (_, _, true, false) => Ordering::Greater,
         _ => distance_to_left.total_cmp(&distance_to_right),
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+fn is_intersecting_with_an_obstacle(
+    obstacles: &[Obstacle],
+    ball_position: Point2<Ground>,
+    target: Point2<Ground>,
+    parameters: &DecisionParameters,
+) -> bool {
+    let ball_to_target = LineSegment::new(ball_position, target);
+    let circles = obstacles
+        .iter()
+        .map(|obstacle| Circle::new(obstacle.position, obstacle.radius_at_foot_height))
+        .filter(|circle| circle.intersects_line_segment(&ball_to_target))
+        .collect::<Vec<_>>();
+    let closest_obstructing = circles.into_iter().max_by(|left, right| {
+        let distance_to_left = distance(ball_position, left.center);
+        let distance_to_right = distance(ball_position, right.center);
+        distance_to_left.total_cmp(&distance_to_right)
+    });
+    if let Some(mut obstacle) = closest_obstructing {
+        let distance_to_ball = distance(obstacle.center, ball_position);
+        if distance_to_ball < parameters.min_obstacle_distance {
+            let ball_to_obstacle = obstacle.center - ball_position;
+            let push_direction = ball_to_obstacle.try_normalize(0.0).unwrap_or_default();
+            obstacle.center = ball_position + push_direction * parameters.min_obstacle_distance;
+        }
+        obstacle.intersects_line_segment(&ball_to_target)
+    } else {
+        false
+    }
+}
+
 fn generate_decisions_for_instant_kicks(
     sides: &[Side; 2],
     in_walk_kicks: &InWalkKicksParameters,
     ball_position: Point2<Ground>,
-    obstacles: &[Obstacle],
     field_dimensions: &FieldDimensions,
     ground_to_field: Isometry2<Ground, Field>,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
@@ -336,11 +377,6 @@ fn generate_decisions_for_instant_kicks(
             let target = ball_position + shot_direction;
 
             let is_inside_field = field_dimensions.is_inside_field(ground_to_field * target);
-            let ball_to_target = LineSegment(ball_position, target);
-            let is_intersecting_with_an_obstacle = obstacles.iter().any(|obstacle| {
-                let circle = Circle::new(obstacle.position, obstacle.radius_at_foot_height);
-                circle.intersects_line_segment(&ball_to_target)
-            });
             let opponent_goal_center = field_to_ground * point![field_dimensions.length / 2.0, 0.0];
             let own_goal_center = field_to_ground * point![-field_dimensions.length / 2.0, 0.0];
             let is_target_closer_to_opponent_goal = (distance(target, opponent_goal_center)
@@ -373,11 +409,7 @@ fn generate_decisions_for_instant_kicks(
                 Some(FilteredGameState::Playing { kick_off: true, .. })
             );
 
-            if is_own_kick_off
-                && is_inside_field
-                && is_inside_kick_off_target_region
-                && !is_intersecting_with_an_obstacle
-            {
+            if is_own_kick_off && is_inside_field && is_inside_kick_off_target_region {
                 let kick_pose = compute_kick_pose(ball_position, target, kick_info, kicking_side);
                 Some(KickDecision {
                     target,
@@ -386,11 +418,7 @@ fn generate_decisions_for_instant_kicks(
                     kick_pose,
                     strength: parameters.kick_off_kick_strength,
                 })
-            } else if !is_own_kick_off
-                && (is_inside_field || scores_goal)
-                && !is_intersecting_with_an_obstacle
-                && is_strategic_target
-            {
+            } else if !is_own_kick_off && (is_inside_field || scores_goal) && is_strategic_target {
                 let kick_pose = compute_kick_pose(ball_position, target, kick_info, kicking_side);
                 Some(KickDecision {
                     target,
