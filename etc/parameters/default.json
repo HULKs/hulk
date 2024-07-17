@@ -391,7 +391,7 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.055,
+      "forward": 0.05,
       "left": 0.1,
       "turn": 1.0
     },
@@ -420,7 +420,7 @@
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.18,
+        "forward": 0.14,
         "left": 0.17,
         "turn": 0.025
       },
