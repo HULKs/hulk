@@ -554,7 +554,11 @@ fn set_color_in_segment(
     let stride = match length {
         20.. => 4,   // results in 5.. or more sample pixels
         7..=19 => 2, // results in 4..=10 or more sample pixels
-        0..=6 => 1,  // results in 1..=6 or more sample pixels
+        1..=6 => 1,  // results in 1..=6 or more sample pixels
+        0 => {
+            segment.color = image.at(x.start, y.start);
+            return segment;
+        }
     };
     segment.color = average_image_pixels(image, x, y, stride);
     segment
