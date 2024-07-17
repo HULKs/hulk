@@ -64,7 +64,7 @@ impl GameControllerStateFilter {
             context.filtered_whistle,
             context.cycle_time,
             *context.visual_referee_proceed_to_ready,
-            context.player_number,
+            *context.player_number,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
