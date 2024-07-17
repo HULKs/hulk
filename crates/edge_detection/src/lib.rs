@@ -42,11 +42,7 @@ pub fn get_edge_source_image(image: &YCbCr422Image, source_type: EdgeSourceType)
 }
 
 fn generate_luminance_image(image: &YCbCr422Image) -> Option<GrayImage> {
-    let grayscale_buffer: Vec<_> = image
-        .buffer()
-        .iter()
-        .flat_map(|pixel| [pixel.y1, pixel.y2])
-        .collect();
+    let grayscale_buffer: Vec<_> = image.iter_pixels().map(|pixel| pixel.y).collect();
     GrayImage::from_vec(image.width(), image.height(), grayscale_buffer)
 }
 
