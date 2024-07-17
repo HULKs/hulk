@@ -420,7 +420,7 @@
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.18,
+        "forward": 0.15,
         "left": 0.17,
         "turn": 0.025
       },
@@ -478,7 +478,7 @@
       "step_duration": { "nanos": 200000000, "secs": 0 }
     },
     "step_midpoint": {
-      "forward": 0.5,
+      "forward": 0.38,
       "left": 0.35,
       "turn": 0.5
     },
