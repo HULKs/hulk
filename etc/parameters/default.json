@@ -391,7 +391,7 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.055,
+      "forward": 0.053,
       "left": 0.1,
       "turn": 1.0
     },
@@ -420,7 +420,7 @@
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.14,
+        "forward": 0.18,
         "left": 0.17,
         "turn": 0.025
       },
@@ -470,7 +470,7 @@
     "max_forward_acceleration": 0.005,
     "max_inside_turn": 0.0,
     "max_step_duration": { "nanos": 0, "secs": 2 },
-    "max_support_foot_lift_speed": 0.02,
+    "max_support_foot_lift_speed": 0.025,
     "min_step_duration": { "nanos": 180000000, "secs": 0 },
     "sole_pressure_threshold": 0.4,
     "starting_step": {
@@ -478,7 +478,7 @@
       "step_duration": { "nanos": 200000000, "secs": 0 }
     },
     "step_midpoint": {
-      "forward": 0.4,
+      "forward": 0.5,
       "left": 0.35,
       "turn": 0.5
     },
