@@ -281,6 +281,8 @@ pub enum EdgeDetectionSourceParameters {
     #[default]
     Luminance,
     GreenChromaticity,
+    Saturation,
+    SaturationYhs2,
 }
 
 #[derive(

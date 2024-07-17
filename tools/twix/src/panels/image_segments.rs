@@ -11,7 +11,7 @@ use coordinate_systems::Pixel;
 use serde_json::{json, Value};
 use types::{
     camera_position::CameraPosition,
-    color::{Hsv, RgChromaticity, Rgb},
+    color::{Hsv, RgChromaticity, Rgb, Yhs2},
     image_segments::{Direction, ImageSegments, Segment},
 };
 
@@ -36,6 +36,10 @@ enum ColorMode {
     RedChromaticity,
     GreenChromaticity,
     BlueChromaticity,
+    Hue,
+    Saturation,
+    Value,
+    SaturationYhs2,
 }
 
 pub struct ImageSegmentsPanel {
@@ -162,6 +166,14 @@ impl Widget for &mut ImageSegmentsPanel {
                         ColorMode::BlueChromaticity,
                         "BlueChromaticity",
                     );
+                    ui.selectable_value(&mut self.color_mode, ColorMode::Hue, "Hue");
+                    ui.selectable_value(&mut self.color_mode, ColorMode::Saturation, "Saturation");
+                    ui.selectable_value(&mut self.color_mode, ColorMode::Value, "Value");
+                    ui.selectable_value(
+                        &mut self.color_mode,
+                        ColorMode::SaturationYhs2,
+                        "SaturationYhs2",
+                    );
                 });
         });
         let image_segments: ImageSegments = match self.buffer.get_last_value() {
@@ -238,6 +250,8 @@ impl ImageSegmentsPanel {
     ) {
         let ycbcr_color = segment.color;
         let rgb = Rgb::from(ycbcr_color);
+        let hsv = Hsv::from(rgb);
+        let yhs2 = Yhs2::from(ycbcr_color);
         let (start, end) = match direction {
             Direction::Horizontal => (
                 point![segment.start as f32, position],
@@ -268,6 +282,10 @@ impl ImageSegmentsPanel {
             ColorMode::BlueChromaticity => {
                 Color32::from_gray(((1.0 - chromaticity.red - chromaticity.green) * 255.0) as u8)
             }
+            ColorMode::Hue => Color32::from_gray((((hsv.hue as f32) / 360.0) * 255.0) as u8),
+            ColorMode::Saturation => Color32::from_gray(hsv.saturation),
+            ColorMode::Value => Color32::from_gray(hsv.value),
+            ColorMode::SaturationYhs2 => Color32::from_gray(yhs2.saturation),
         };
         painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
         painter.line_segment(

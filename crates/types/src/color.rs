@@ -252,6 +252,74 @@ impl From<Rgb> for Hsv {
     }
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct Yhs2 {
+    pub luminance: u8,
+    pub hue: u8,
+    pub saturation: u8,
+}
+
+impl From<YCbCr444> for Yhs2 {
+    fn from(ycbcr444: YCbCr444) -> Self {
+        /// An integer-math only approximation of atan2.
+        /// Modified version of the Q15-implementation from http://geekshavefeelings.com/posts/fixed-point-atan2.
+        ///
+        /// @param y y coordinate as a short in the range [-16384, 16384)
+        /// @param x x coordinate as a short in the range [-16384, 16384)
+        /// @return atan2 of y and x as an unsigned short in the range [0,65536)
+        fn atan2(y: i16, x: i16) -> u16 {
+            let (quotient, offset) = if x.abs() > y.abs() {
+                ((y << 14) / x, if x > 0 { 0 } else { 32768 })
+            } else {
+                (
+                    if x == 0 { 0 } else { -(x << 14) / y },
+                    if y > 0 { 16384 } else { 49152 },
+                )
+            };
+            offset
+                + (((11039 - ((5695 * quotient.abs() as i32) >> 15)) * quotient as i32) >> 15)
+                    as u16
+        }
+
+        fn isqrt(mut n: u16) -> u16 {
+            let mut result = 0;
+            let mut bit = 1 << 14;
+
+            for _ in 0..6 {
+                let result_plus_bit = result + bit;
+                result >>= 1;
+                if n >= result_plus_bit {
+                    n -= result_plus_bit;
+                    result += bit;
+                }
+                bit >>= 2;
+            }
+            (result >> 1) + if n >= result + bit { bit } else { 0 }
+        }
+
+        let centered_cr = ycbcr444.cr as i16 - 128;
+        let centered_cb = ycbcr444.cb as i16 - 128;
+        Self {
+            luminance: ycbcr444.y,
+            hue: (atan2(centered_cr, centered_cb) >> 8) as u8,
+            saturation: ((isqrt((centered_cb.pow(2) + centered_cr.pow(2)) as u16 * 2) << 8)
+                / ycbcr444.y as u16) as u8,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

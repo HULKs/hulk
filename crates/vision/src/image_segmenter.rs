@@ -13,11 +13,10 @@ use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Isometry2, Point2, Transform, Vector2};
 use types::{
-    color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
+    color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444, Yhs2},
     field_color::FieldColorParameters,
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
-    limb::project_onto_limbs,
-    limb::{Limb, ProjectedLimbs},
+    limb::{project_onto_limbs, Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
 };
@@ -477,6 +476,15 @@ fn pixel_to_edge_detection_value(
             let rgb = Rgb::from(pixel);
             let chromaticity = RgChromaticity::from(rgb);
             (chromaticity.green * 255.0) as u8
+        }
+        EdgeDetectionSourceParameters::Saturation => {
+            let rgb = Rgb::from(pixel);
+            let hsv = Hsv::from(rgb);
+            hsv.saturation
+        }
+        EdgeDetectionSourceParameters::SaturationYhs2 => {
+            let yhs2 = Yhs2::from(pixel);
+            yhs2.saturation
         }
     }
 }
