@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub struct CalibrationMeasurementDetection {
-    center_circle_points: BufferHandle<Option<CenterCirclePoints<Pixel>>>,
+    center_circle_points: BufferHandle<Option<Vec<CenterCirclePoints<Pixel>>>>,
     edge_points: BufferHandle<Vec<Point2<Pixel>>>,
 }
 
@@ -27,10 +27,10 @@ impl Overlay for CalibrationMeasurementDetection {
         let cycler_path = selected_cycler.as_path();
         Self {
             center_circle_points: nao.subscribe_value(format!(
-                "{cycler_path}.main_outputs.calibration_center_circle"
+                "{cycler_path}.main_outputs.calibration_center_circles"
             )),
             edge_points: nao.subscribe_value(format!(
-                "{cycler_path}.additional.calibration_center_circle_detection.detected_edge_points"
+                "{cycler_path}.calibration_center_circle_detection.detected_edge_points"
             )),
         }
     }
@@ -42,8 +42,12 @@ impl Overlay for CalibrationMeasurementDetection {
             }
         }
 
-        if let Some(center_circle_detections) =
-            self.center_circle_points.get_last_value().ok().flatten()
+        if let Some(center_circle_detections) = self
+            .center_circle_points
+            .get_last_value()
+            .ok()
+            .flatten()
+            .flatten()
         {
             for (index, center_circle) in center_circle_detections.iter().enumerate() {
                 painter.floating_text(
