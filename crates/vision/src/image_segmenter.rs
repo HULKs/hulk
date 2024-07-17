@@ -157,11 +157,20 @@ fn new_grid(
     let horizon_y_maximum = horizon
         .horizon_y_maximum()
         .clamp(0.0, image.height() as f32);
+    let limbs_y_minimum = projected_limbs
+        .iter()
+        .flat_map(|limb| &limb.pixel_polygon)
+        .filter(|point| (0.0..image.width() as f32).contains(&point.x()))
+        .map(|point| point.y())
+        .min_by(f32::total_cmp)
+        .unwrap_or(image.height() as f32)
+        .clamp(0.0, image.height() as f32);
+
     let mut horizontal_scan_lines = vec![];
     // do not start at horizon because of numerically unstable math
     let mut y = horizon_y_maximum + 1.0 + horizontal_padding_size as f32;
 
-    while y < (image.height() - horizontal_padding_size) as f32 {
+    while y < (limbs_y_minimum - horizontal_padding_size as f32) {
         horizontal_scan_lines.push(new_horizontal_scan_line(
             image,
             field_color,
