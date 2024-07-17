@@ -83,6 +83,7 @@ impl Robot {
             .borrow_mut()
             .insert("additional_outputs".to_string());
 
+        database.main_outputs.buttons.is_chest_button_pressed_once = true;
         Ok(Self {
             interface,
             database,

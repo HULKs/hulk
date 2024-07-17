@@ -1,4 +1,9 @@
-use std::{fs::read_to_string, path::Path, sync::Arc, time::Duration};
+use std::{
+    fs::read_to_string,
+    path::Path,
+    sync::Arc,
+    time::{Duration, UNIX_EPOCH},
+};
 
 use color_eyre::{
     eyre::{eyre, WrapErr},
@@ -172,6 +177,35 @@ impl Simulator {
                         Ok(())
                     },
                 )?,
+            )?;
+
+            self.lua.globals().set(
+                "whistle",
+                scope.create_function(|_lua, player_number: usize| {
+                    let player_number =
+                        to_player_number(player_number).map_err(LuaError::external)?;
+
+                    self.state
+                        .lock()
+                        .robots
+                        .get_mut(&player_number)
+                        .unwrap()
+                        .database
+                        .main_outputs
+                        .filtered_whistle
+                        .is_detected = true;
+                    let time = self.state.lock().time_elapsed;
+                    self.state
+                        .lock()
+                        .robots
+                        .get_mut(&player_number)
+                        .unwrap()
+                        .database
+                        .main_outputs
+                        .filtered_whistle
+                        .last_detection = Some(UNIX_EPOCH + time);
+                    Ok(())
+                })?,
             )?;
 
             self.lua.globals().set(

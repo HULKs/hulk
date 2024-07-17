@@ -43,10 +43,17 @@ function on_cycle()
 
     if state.cycle_count == 1700 then
         -- TODO: simulate whistle
-        state.ball.velocity = { -3.0, 1.5 }
+        whistle(1)
+        whistle(2)
+        whistle(3)
+        whistle(4)
+        whistle(5)
+        whistle(6)
+        whistle(7)
     end
 
-    if state.cycle_count == 2300 then
+    //13 frames in simulator are counted as 13 seconds in the game_controller_state_filter
+    if state.cycle_count == 1720 then
         state.game_controller_state.game_state = "Playing"
     end
 
