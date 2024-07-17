@@ -36,7 +36,11 @@ impl SegmentFilter {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let filtered_segments = FilteredSegments {
             scan_grid: ScanGrid {
-                vertical_scan_lines: filter_vertical_scan_lines(
+                horizontal_scan_lines: filter_scan_lines(
+                    &context.image_segments.scan_grid.horizontal_scan_lines,
+                    context.field_border,
+                ),
+                vertical_scan_lines: filter_scan_lines(
                     &context.image_segments.scan_grid.vertical_scan_lines,
                     context.field_border,
                 ),
@@ -48,24 +52,17 @@ impl SegmentFilter {
     }
 }
 
-fn filter_vertical_scan_lines(
-    scan_lines: &[ScanLine],
-    field_border: Option<&FieldBorder>,
-) -> Vec<ScanLine> {
+fn filter_scan_lines(scan_lines: &[ScanLine], field_border: Option<&FieldBorder>) -> Vec<ScanLine> {
     scan_lines
         .iter()
         .map(|scan_line| ScanLine {
             position: scan_line.position,
-            segments: filter_vertical_segments(
-                scan_line.position,
-                &scan_line.segments,
-                field_border,
-            ),
+            segments: filter_segments(scan_line.position, &scan_line.segments, field_border),
         })
         .collect()
 }
 
-fn filter_vertical_segments(
+fn filter_segments(
     scan_line_position: u16,
     segments: &[Segment],
     field_border: Option<&FieldBorder>,
