@@ -45,8 +45,6 @@ pub struct CycleContext {
     center_jump_positions: Input<Joints<f32>, "center_jump_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
     cycle_time: Input<CycleTime, "cycle_time">,
-
-    joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     penalized_pose: Parameter<Joints<f32>, "penalized_pose">,
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
     current_minimizer_parameters:
@@ -216,9 +214,8 @@ impl MotorCommandCollector {
             ),
         };
 
-        let compensated_positions = positions + *context.joint_calibration_offsets;
         let motor_commands = MotorCommands {
-            positions: compensated_positions,
+            positions,
             stiffnesses,
         };
 

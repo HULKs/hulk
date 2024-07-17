@@ -17,9 +17,9 @@ pub struct CreationContext {}
 pub struct CycleContext {
     optimized_motor_commands: Input<MotorCommands<Joints<f32>>, "optimized_motor_commands">,
     leds: Input<Leds, "leds">,
-
+    joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    last_actuated_motor_commands:
+    last_actuated_motor_commands_before_offset:
         CyclerState<MotorCommands<Joints<f32>>, "last_actuated_motor_commands">,
 
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
@@ -49,7 +49,7 @@ impl CommandSender {
         context
             .hardware_interface
             .write_to_actuators(
-                motor_commands.positions,
+                motor_commands.positions + *context.joint_calibration_offsets,
                 motor_commands.stiffnesses,
                 *context.leds,
             )
@@ -65,11 +65,14 @@ impl CommandSender {
         context
             .actuated_motor_commands_difference
             .fill_if_subscribed(|| {
-                motor_commands.positions - context.last_actuated_motor_commands.positions
+                motor_commands.positions
+                    - context.last_actuated_motor_commands_before_offset.positions
             });
 
-        context.last_actuated_motor_commands.positions = motor_commands.positions;
-        context.last_actuated_motor_commands.stiffnesses = motor_commands.stiffnesses;
+        context.last_actuated_motor_commands_before_offset.positions = motor_commands.positions;
+        context
+            .last_actuated_motor_commands_before_offset
+            .stiffnesses = motor_commands.stiffnesses;
 
         Ok(MainOutputs {})
     }
