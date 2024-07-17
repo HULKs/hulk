@@ -1,9 +1,12 @@
+use std::vec::IntoIter;
+
 use geometry::{
     corner::Corner,
     line::{Line, Line2},
+    line_segment::LineSegment,
     Distance,
 };
-use linear_algebra::Point2;
+use linear_algebra::{Point2, Rotation2};
 use ordered_float::NotNan;
 use rand::{seq::SliceRandom, Rng};
 
@@ -54,6 +57,82 @@ impl<Frame> Distance<Point2<Frame>> for RansacFeature<Frame> {
     }
 }
 
+impl<Frame> IntoIterator for RansacResult<Frame> {
+    type Item = RansacLineSegment<Frame>;
+
+    type IntoIter = IntoIter<RansacLineSegment<Frame>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.feature {
+            RansacFeature::None => Vec::new(),
+            RansacFeature::Line(line) => {
+                RansacLineSegment::try_from_used_points(line, self.used_points)
+                    .map(|line_segment| vec![line_segment])
+                    .unwrap_or_default()
+            }
+            RansacFeature::Corner(corner) => {
+                let dividing_line = Line {
+                    point: corner.point,
+                    direction: corner.direction1.normalize() + corner.direction2.normalize(),
+                };
+
+                let (used_points1, used_points2): (Vec<_>, Vec<_>) = self
+                    .used_points
+                    .iter()
+                    .partition(|&point| dividing_line.is_above(*point));
+                let line1 = Line {
+                    point: corner.point,
+                    direction: corner.direction1,
+                };
+                let line2 = Line {
+                    point: corner.point,
+                    direction: corner.direction2,
+                };
+
+                [
+                    RansacLineSegment::try_from_used_points(line1, used_points1),
+                    RansacLineSegment::try_from_used_points(line2, used_points2),
+                ]
+                .into_iter()
+                .flatten()
+                .collect()
+            }
+        }
+        .into_iter()
+    }
+}
+
+#[derive(Default, Debug, PartialEq)]
+pub struct RansacLineSegment<Frame> {
+    pub line_segment: LineSegment<Frame>,
+    pub sorted_used_points: Vec<Point2<Frame>>,
+}
+
+impl<Frame> RansacLineSegment<Frame> {
+    fn try_from_used_points(
+        line: Line2<Frame>,
+        mut used_points: Vec<Point2<Frame>>,
+    ) -> Option<Self> {
+        struct Horizontal;
+
+        let frame_to_horizontal: Rotation2<Frame, Horizontal> =
+            Rotation2::from_vector(line.direction).inverse();
+
+        used_points.sort_by_key(|point| {
+            let x = (frame_to_horizontal * point).x();
+            NotNan::new(x).expect("X coordinate should never be NaN")
+        });
+
+        let point1 = line.closest_point(used_points.first().copied()?);
+        let point2 = line.closest_point(used_points.last().copied()?);
+
+        Some(Self {
+            line_segment: LineSegment(point1, point2),
+            sorted_used_points: used_points,
+        })
+    }
+}
+
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {
     pub feature: RansacFeature<Frame>,
@@ -86,7 +165,10 @@ impl<Frame> Ransac<Frame> {
         }
         if self.unused_points.len() == 2 {
             return RansacResult {
-                feature: RansacFeature::Line(Line(self.unused_points[0], self.unused_points[1])),
+                feature: RansacFeature::Line(Line::from_points(
+                    self.unused_points[0],
+                    self.unused_points[1],
+                )),
                 used_points: self.unused_points.clone(),
             };
         }
