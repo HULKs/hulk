@@ -20,7 +20,7 @@ pub struct CycleContext {
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     last_actuated_motor_commands_before_offset:
-        CyclerState<MotorCommands<Joints<f32>>, "last_actuated_motor_commands">,
+        CyclerState<MotorCommands<Joints<f32>>, "last_actuated_motor_commands_before_offset">,
 
     motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
     actuated_motor_commands:
