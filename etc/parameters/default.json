@@ -1144,7 +1144,8 @@
       "hybrid_align_distance": 0.5,
       "distance_to_be_aligned": 0.1,
       "angle_to_approach_ball_from_threshold": 0.78,
-      "ignore_robot_when_near_ball_radius": 0.6
+      "ignore_robot_when_near_ball_radius": 0.6,
+      "distance_to_look_directly_at_the_ball": 1.0
     },
     "walk_and_stand": {
       "hysteresis": [0.1, 0.1],
