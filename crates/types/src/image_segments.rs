@@ -14,6 +14,7 @@ pub struct ImageSegments {
     Default, Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct ScanGrid {
+    pub horizontal_scan_lines: Vec<ScanLine>,
     pub vertical_scan_lines: Vec<ScanLine>,
 }
 
@@ -49,4 +50,10 @@ pub enum EdgeType {
     Falling,
     ImageBorder,
     LimbBorder,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum Direction {
+    Horizontal,
+    Vertical,
 }
