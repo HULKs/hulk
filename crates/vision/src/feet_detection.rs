@@ -117,6 +117,7 @@ fn extract_segment_cluster_points(
                 line_data,
                 balls,
                 minimum_consecutive_segments,
+                camera_matrix,
             )?;
             let luminances: Vec<_> = cluster
                 .iter()
@@ -144,6 +145,7 @@ fn find_last_consecutive_cluster(
     line_data: &LineData,
     balls: &[BallPercept],
     minimum_consecutive_segments: usize,
+    camera_matrix: &CameraMatrix,
 ) -> Option<Vec<Segment>> {
     let filtered_segments = scan_line.segments.iter().filter(|segment| {
         let is_on_line = line_data
@@ -168,8 +170,23 @@ fn find_last_consecutive_cluster(
             let last_edge_type = consecutive_segments.last().unwrap().end_edge_type;
             let last_segment_reaches_border =
                 matches!(last_edge_type, EdgeType::ImageBorder | EdgeType::LimbBorder);
+            let start_position = point![
+                scan_line.position as f32,
+                consecutive_segments.first().unwrap().start as f32
+            ];
+            let end_position = point![
+                scan_line.position as f32,
+                consecutive_segments.last().unwrap().end as f32
+            ];
+            let start_on_ground = camera_matrix.pixel_to_ground(start_position).ok();
+            let end_on_ground = camera_matrix.pixel_to_ground(end_position).ok();
+            let cluster_long_enough = match (start_on_ground, end_on_ground) {
+                (Some(start), Some(end)) => distance(start, end) > 0.20,
+                _ => true,
+            };
             if consecutive_segments.len() > minimum_consecutive_segments
                 && !last_segment_reaches_border
+                && cluster_long_enough
             {
                 Some(consecutive_segments)
             } else {
