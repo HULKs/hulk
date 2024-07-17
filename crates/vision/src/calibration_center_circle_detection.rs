@@ -20,8 +20,10 @@ use ransac::circles::circle::{
     RansacCircleWithTransformation, RansacResultCircleWithTransformation,
 };
 use types::{
-    calibration::CalibrationCommand, camera_position::CameraPosition,
-    field_dimensions::FieldDimensions, filtered_segments::FilteredSegments,
+    calibration::{CalibrationCommand, CalibrationFeatureDetectorOutput},
+    camera_position::CameraPosition,
+    field_dimensions::FieldDimensions,
+    filtered_segments::FilteredSegments,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -84,7 +86,8 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub calibration_center_circles: MainOutput<Option<Vec<CenterCirclePoints<Pixel>>>>,
+    pub calibration_center_circle:
+        MainOutput<CalibrationFeatureDetectorOutput<CenterCirclePoints<Pixel>>>,
 }
 
 impl CalibrationMeasurementDetection {
@@ -98,13 +101,15 @@ impl CalibrationMeasurementDetection {
         let capture_command_received = context.calibration_command.map_or(false, |command| {
             command.capture && command.camera == *context.camera_position
         });
-        let tuning_mode_and_wait_complete = *context.tuning_mode
-            && self.last_processed_instance.elapsed()
-                >= Duration::from_millis(*context.run_next_cycle_after_ms);
-
-        if !capture_command_received && !tuning_mode_and_wait_complete {
+        let timeout_complete = self.last_processed_instance.elapsed()
+            >= Duration::from_millis(*context.run_next_cycle_after_ms);
+        if !(timeout_complete && (capture_command_received || *context.tuning_mode)) {
             return Ok(MainOutputs {
-                calibration_center_circles: None.into(),
+                calibration_center_circle: CalibrationFeatureDetectorOutput {
+                    cycle_skipped: true,
+                    detected_feature: None,
+                }
+                .into(),
             });
         }
 
@@ -166,19 +171,22 @@ impl CalibrationMeasurementDetection {
 
         self.last_processed_instance = Instant::now();
 
+        let center_circle_points: Option<CenterCirclePoints<Pixel>> =
+            filtered_calibration_circles_ground
+                .first()
+                .map(|ransac_result| CenterCirclePoints {
+                    center: context
+                        .camera_matrix
+                        .ground_to_pixel(ransac_result.circle.center)
+                        .expect("ground -> pixel failed"),
+                    points: ransac_result.used_points_original.clone(),
+                });
+
         Ok(MainOutputs {
-            calibration_center_circles: Some(
-                filtered_calibration_circles_ground
-                    .into_iter()
-                    .map(|ransac_result| CenterCirclePoints {
-                        center: context
-                            .camera_matrix
-                            .ground_to_pixel(ransac_result.circle.center)
-                            .expect("ground -> pixel failed"),
-                        points: ransac_result.used_points_original.clone(),
-                    })
-                    .collect_vec(),
-            )
+            calibration_center_circle: CalibrationFeatureDetectorOutput {
+                detected_feature: center_circle_points,
+                cycle_skipped: false,
+            }
             .into(),
         })
     }
@@ -282,7 +290,7 @@ fn get_edges_from_segments(
                 })
                 .flatten()
         })
-        .collect_vec()
+        .collect()
 }
 
 fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pixel>> {
@@ -304,7 +312,7 @@ fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pix
         .horizon
         .map_or(0, |h| h.horizon_y_minimum() as u32);
 
-    let filtered_points = edge_image
+    edge_image
         .enumerate_pixels()
         .filter_map(|(x, y, color)| {
             if color[0] > 127 && y > y_exclusion_threshold {
@@ -313,7 +321,5 @@ fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pix
                 None
             }
         })
-        .collect_vec();
-
-    filtered_points
+        .collect()
 }
