@@ -1,3 +1,4 @@
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Point2;
@@ -5,6 +6,25 @@ use linear_algebra::Point2;
 use coordinate_systems::Ground;
 
 use crate::motion_command::KickVariant;
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub enum PlayingSituation {
+    KickOff,
+    CornerKick,
+    PenaltyShot,
+    #[default]
+    Normal,
+}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct KickTarget {
