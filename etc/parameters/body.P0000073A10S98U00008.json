@@ -1,1 +1,10 @@
-{}
+{
+  "joint_calibration_offsets": {
+    "left_arm": {
+      "shoulder_roll": 0.18
+    },
+    "right_arm": {
+      "shoulder_roll": -0.18
+    }
+  }
+}
