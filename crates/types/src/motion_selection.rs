@@ -43,8 +43,8 @@ pub enum MotionType {
     Unstiff,
     Walk,
     WideStance,
-    WideStanceLeft,
-    WideStanceRight,
+    KeeperJumpLeft,
+    KeeperJumpRight,
 }
 
 impl Default for MotionType {
@@ -74,8 +74,8 @@ pub struct MotionSafeExits {
     unstiff: bool,
     walk: bool,
     wide_stance: bool,
-    wide_stance_left: bool,
-    wide_stance_right: bool,
+    keeper_jump_left: bool,
+    keeper_jump_right: bool,
 }
 
 impl MotionSafeExits {
@@ -100,8 +100,8 @@ impl MotionSafeExits {
             unstiff: value,
             walk: value,
             wide_stance: value,
-            wide_stance_left: value,
-            wide_stance_right: value,
+            keeper_jump_left: value,
+            keeper_jump_right: value,
         }
     }
 }
@@ -128,8 +128,8 @@ impl Default for MotionSafeExits {
             unstiff: true,
             walk: false,
             wide_stance: false,
-            wide_stance_left: false,
-            wide_stance_right: false,
+            keeper_jump_left: false,
+            keeper_jump_right: false,
         }
     }
 }
@@ -158,8 +158,8 @@ impl Index<MotionType> for MotionSafeExits {
             MotionType::Unstiff => &self.unstiff,
             MotionType::Walk => &self.walk,
             MotionType::WideStance => &self.wide_stance,
-            MotionType::WideStanceLeft => &self.wide_stance_left,
-            MotionType::WideStanceRight => &self.wide_stance_right,
+            MotionType::KeeperJumpLeft => &self.keeper_jump_left,
+            MotionType::KeeperJumpRight => &self.keeper_jump_right,
         }
     }
 }
@@ -186,8 +186,8 @@ impl IndexMut<MotionType> for MotionSafeExits {
             MotionType::Unstiff => &mut self.unstiff,
             MotionType::Walk => &mut self.walk,
             MotionType::WideStance => &mut self.wide_stance,
-            MotionType::WideStanceLeft => &mut self.wide_stance_left,
-            MotionType::WideStanceRight => &mut self.wide_stance_right,
+            MotionType::KeeperJumpLeft => &mut self.keeper_jump_left,
+            MotionType::KeeperJumpRight => &mut self.keeper_jump_right,
         }
     }
 }
