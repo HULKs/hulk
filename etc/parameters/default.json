@@ -391,7 +391,7 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.053,
+      "forward": 0.055,
       "left": 0.1,
       "turn": 1.0
     },
@@ -467,7 +467,7 @@
     },
     "max_level_delta": 0.1,
     "max_rotation_speed": 5.0,
-    "max_forward_acceleration": 0.005,
+    "max_forward_acceleration": 0.01,
     "max_inside_turn": 0.0,
     "max_step_duration": { "nanos": 0, "secs": 2 },
     "max_support_foot_lift_speed": 0.025,
