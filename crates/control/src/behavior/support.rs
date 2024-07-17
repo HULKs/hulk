@@ -28,6 +28,7 @@ pub fn execute(
     look_action: &LookAction,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     walk_speed: WalkSpeed,
+    distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let pose = support_pose(
         world_state,
@@ -42,6 +43,7 @@ pub fn execute(
         look_action.execute(),
         path_obstacles_output,
         walk_speed,
+        distance_to_be_aligned,
     )
 }
 

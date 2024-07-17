@@ -160,6 +160,7 @@ impl<'cycle> WalkAndStand<'cycle> {
         head: HeadMotion,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let ground_to_field = self.world_state.robot.ground_to_field?;
         let distance_to_walk = target_pose.position().coords().norm();
@@ -180,7 +181,7 @@ impl<'cycle> WalkAndStand<'cycle> {
         let orientation_mode = hybrid_alignment(
             target_pose,
             self.parameters.hybrid_align_distance,
-            self.parameters.distance_to_be_aligned,
+            distance_to_be_aligned,
         );
 
         if is_reached {
@@ -210,14 +211,15 @@ pub fn hybrid_alignment(
     hybrid_align_distance: f32,
     distance_to_be_aligned: f32,
 ) -> OrientationMode {
-    assert!(hybrid_align_distance > distance_to_be_aligned);
+    assert!(hybrid_align_distance > 0.0);
+    assert!(distance_to_be_aligned > 0.0);
+
     let distance_to_target = target_pose.position().coords().norm();
-    if distance_to_target >= hybrid_align_distance {
+    if distance_to_target > distance_to_be_aligned + hybrid_align_distance {
         return OrientationMode::AlignWithPath;
     }
 
-    let angle_limit = ((distance_to_target - distance_to_be_aligned)
-        / (hybrid_align_distance - distance_to_be_aligned))
+    let angle_limit = ((distance_to_target - distance_to_be_aligned) / (hybrid_align_distance))
         .clamp(0.0, 1.0)
         * PI;
 
