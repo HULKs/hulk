@@ -316,16 +316,15 @@ fn is_intersecting_with_an_obstacle(
     parameters: &DecisionParameters,
 ) -> bool {
     let ball_to_target = LineSegment::new(ball_position, target);
-    let circles = obstacles
+    let closest_obstructing = obstacles
         .iter()
         .map(|obstacle| Circle::new(obstacle.position, obstacle.radius_at_foot_height))
         .filter(|circle| circle.intersects_line_segment(&ball_to_target))
-        .collect::<Vec<_>>();
-    let closest_obstructing = circles.into_iter().max_by(|left, right| {
-        let distance_to_left = distance(ball_position, left.center);
-        let distance_to_right = distance(ball_position, right.center);
-        distance_to_left.total_cmp(&distance_to_right)
-    });
+        .max_by(|left, right| {
+            let distance_to_left = distance(ball_position, left.center);
+            let distance_to_right = distance(ball_position, right.center);
+            distance_to_left.total_cmp(&distance_to_right)
+        });
     if let Some(mut obstacle) = closest_obstructing {
         let distance_to_ball = distance(obstacle.center, ball_position);
         if distance_to_ball < parameters.min_obstacle_distance {
