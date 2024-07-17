@@ -65,14 +65,11 @@ impl CommandSender {
         context
             .actuated_motor_commands_difference
             .fill_if_subscribed(|| {
-                motor_commands.positions
-                    - context.last_actuated_motor_commands.positions
+                motor_commands.positions - context.last_actuated_motor_commands.positions
             });
 
         context.last_actuated_motor_commands.positions = motor_commands.positions;
-        context
-            .last_actuated_motor_commands
-            .stiffnesses = motor_commands.stiffnesses;
+        context.last_actuated_motor_commands.stiffnesses = motor_commands.stiffnesses;
 
         Ok(MainOutputs {})
     }
