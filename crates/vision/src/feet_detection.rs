@@ -16,7 +16,8 @@ use types::{
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},
-    line_data::LineData, parameters,
+    line_data::LineData,
+    parameters,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -40,7 +41,8 @@ pub struct CycleContext {
     minimum_samples_per_cluster:
         Parameter<usize, "feet_detection.$cycler_instance.minimum_samples_per_cluster">,
     minimum_feet_width: Parameter<f32, "feet_detection.$cycler_instance.minimum_feet_width">,
-    minimum_segment_height: Parameter<f32, "feet_detection.$cycler_instance.minimum_segment_height">,
+    minimum_segment_height:
+        Parameter<f32, "feet_detection.$cycler_instance.minimum_segment_height">,
 
     balls: RequiredInput<Option<Vec<BallPercept>>, "balls?">,
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
