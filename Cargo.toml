@@ -173,6 +173,7 @@ serde_ignored = "0.1.10"
 serde_json = "1.0.107"
 serde_test = "1.0.152"
 sha2 = "0.10.8"
+simba = "0.8.1"
 smallvec = "1.9.0"
 source_analyzer = { path = "crates/source_analyzer" }
 spl_network = { path = "crates/spl_network" }
