@@ -91,7 +91,6 @@ impl LineDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let mut image_lines = Vec::new();
         let mut discarded_lines = Vec::new();
 
         let horizontal_scan_lines = iter_if(
@@ -207,23 +206,22 @@ impl LineDetection {
                 continue;
             }
 
-            let Some((start_point_in_ground, start_point_in_robot)) =
+            let Some((_, projected_start_point)) =
                 points_with_projection_onto_line.first().copied()
             else {
                 break;
             };
-            let Some((end_point_in_ground, end_point_in_robot)) =
-                points_with_projection_onto_line.last().copied()
+            let Some((_, projected_end_point)) = points_with_projection_onto_line.last().copied()
             else {
                 break;
             };
 
-            let line_in_ground = LineSegment(start_point_in_robot, end_point_in_robot);
-            let line_length_in_robot = line_in_ground.length();
+            let line_in_ground = LineSegment(projected_start_point, projected_end_point);
+            let line_length_ground = line_in_ground.length();
             let is_too_short = *context.check_line_length
-                && line_length_in_robot < context.allowed_line_length_in_field.start;
+                && line_length_ground < context.allowed_line_length_in_field.start;
             let is_too_long = *context.check_line_length
-                && line_length_in_robot > context.allowed_line_length_in_field.end;
+                && line_length_ground > context.allowed_line_length_in_field.end;
             if is_too_short {
                 discarded_lines.push((ransac_line, LineDiscardReason::LineTooShort));
                 continue;
@@ -241,18 +239,11 @@ impl LineDetection {
             }
 
             lines_in_ground.push(line_in_ground);
-            if context.lines_in_image.is_subscribed() {
-                image_lines.push(LineSegment(start_point_in_ground, end_point_in_ground));
-            }
         }
-        let line_data = LineData {
-            lines: lines_in_ground,
-            used_segments,
-        };
 
         context.lines_in_image.fill_if_subscribed(|| {
-            image_lines
-                .into_iter()
+            lines_in_ground
+                .iter()
                 .map(|line| {
                     LineSegment(
                         context.camera_matrix.ground_to_pixel(line.0).unwrap(),
@@ -277,7 +268,11 @@ impl LineDetection {
         });
 
         Ok(MainOutputs {
-            line_data: Some(line_data).into(),
+            line_data: Some(LineData {
+                lines: lines_in_ground,
+                used_segments,
+            })
+            .into(),
         })
     }
 }
