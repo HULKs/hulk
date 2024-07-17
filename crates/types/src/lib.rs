@@ -33,7 +33,6 @@ pub mod joints;
 pub mod joints_velocity;
 pub mod jpeg;
 pub mod kick_decision;
-pub mod kick_target;
 pub mod last_filtered_game_controller_state_change;
 pub mod led;
 pub mod limb;

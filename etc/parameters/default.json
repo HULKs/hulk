@@ -1073,29 +1073,21 @@
     }
   },
   "kick_selector": {
-    "angle_distance_weight": 0.02,
-    "kick_pose_obstacle_radius": 0.1,
-    "closer_threshold": 1.0,
-    "goal_accuracy_margin": 0.25,
-    "default_kick_strength": 1.0
-  },
-  "kick_target_provider": {
-    "ball_radius_for_kick_target_selection": 0.15,
-    "find_kick_targets": {
-      "distance_from_corner": 1.5,
-      "corner_kick_target_distance_to_goal": 1.3,
-      "emergency_kick_target_angles": [-0.52, -0.26, 0.0, 0.26, 0.52],
-      "max_kick_around_obstacle_angle": 1.0,
-      "ball_radius_for_kick_target_selection": 0.15
-    },
-    "max_kick_around_obstacle_angle": 0.8,
+    "distance_to_corner": 1.5,
+    "corner_kick_target_distance_to_goal": 1.3,
+    "min_obstacle_distance": 1.0,
+    "kick_pose_robot_radius": 0.1,
+    "default_kick_variants": ["Forward", "Side", "Turn"],
+    "corner_kick_variants": ["Forward", "Side", "Turn"],
+    "kick_off_kick_variants": ["Forward", "Side", "Turn"],
+    "penalty_shot_kick_variants": ["Forward"],
+    "default_kick_strength": 1.0,
     "corner_kick_strength": 0.25,
     "kick_off_kick_strength": 0.25,
     "penalty_shot_kick_strength": 2.0,
-    "kick_off_kick_variants": ["Forward", "Side"],
-    "corner_kick_variants": ["Forward", "Side", "Turn"],
-    "penalty_kick_kick_variants": ["Forward"],
-    "goal_line_kick_variants": ["Forward", "Side", "Turn"]
+    "angle_distance_weight": 0.02,
+    "closer_to_goal_threshold": 1.0,
+    "goal_accuracy_margin": 0.25
   },
   "role_assignment": {
     "forced_role": null,
