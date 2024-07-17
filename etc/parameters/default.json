@@ -1250,7 +1250,7 @@
     "pressure_threshold": 0.6,
     "hysteresis": 0.6,
     "timeout": {
-      "nanos": 500000000,
+      "nanos": 50000000,
       "secs": 0
     }
   },

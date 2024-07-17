@@ -400,6 +400,7 @@
       }
     },
     {
+      "interrupt_conditions": [{ "NoGroundContactAbort": {} }],
       "keyframes": [
         {
           "duration": 0.4,
@@ -452,9 +453,8 @@
     },
     {
       "interrupt_conditions": [
-        {
-          "FallenAbort": {}
-        }
+        { "FallenAbort": {} },
+        { "NoGroundContactAbort": {} }
       ],
       "keyframes": [
         {
@@ -590,9 +590,8 @@
     },
     {
       "interrupt_conditions": [
-        {
-          "FallenAbort": {}
-        }
+        { "FallenAbort": {} },
+        { "NoGroundContactAbort": {} }
       ],
       "keyframes": [
         {
