@@ -5,7 +5,6 @@ use std::{
 
 use color_eyre::Result;
 use itertools::iproduct;
-use ordered_float::NotNan;
 use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
 use serde::{Deserialize, Serialize};
 
@@ -161,9 +160,8 @@ fn new_grid(
         .iter()
         .flat_map(|limb| &limb.pixel_polygon)
         .filter(|point| (0.0..image.width() as f32).contains(&point.x()))
-        .filter_map(|point| NotNan::new(point.y()).ok())
-        .min()
-        .map(NotNan::into_inner)
+        .map(|point| point.y())
+        .min_by(f32::total_cmp)
         .unwrap_or(image.height() as f32)
         .clamp(0.0, image.height() as f32);
 
