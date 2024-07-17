@@ -17,7 +17,6 @@ use types::{
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},
     line_data::LineData,
-    parameters,
 };
 
 #[derive(Deserialize, Serialize)]
