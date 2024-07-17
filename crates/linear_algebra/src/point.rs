@@ -1,5 +1,6 @@
 use nalgebra::{ClosedAdd, ClosedMul, ClosedSub, Scalar, SimdComplexField};
 use num_traits::{One, Zero};
+use simba::scalar::SupersetOf;
 
 use crate::{Framed, Vector};
 
@@ -12,7 +13,6 @@ pub type Point3<Frame, T = f32> = Point<Frame, 3, T>;
 macro_rules! point {
     ($($parameters:expr),* $(,)?) => {
         linear_algebra::Framed::wrap(nalgebra::point![$($parameters),*])
-
     };
 }
 
@@ -54,6 +54,14 @@ impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
         T: Zero,
     {
         Self::wrap(nalgebra::Point::origin())
+    }
+
+    pub fn cast<T2>(&self) -> Point<Frame, DIMENSION, T2>
+    where
+        T: Copy,
+        T2: Scalar + SupersetOf<T>,
+    {
+        Framed::wrap(self.inner.cast::<T2>())
     }
 
     pub fn coords(&self) -> Vector<Frame, DIMENSION, T>

@@ -268,3 +268,17 @@ where
         Self::wrap(iter.map(|framed| framed.inner).sum())
     }
 }
+
+// TODO: Fix and reduce trait bounds and remove Point::cast
+// impl<T, R: Dim, C: Dim, S: RawStorage<T, R, C>, Frame> Framed<Frame, Matrix<T, R, C, S>> {
+//     pub fn cast<T2>(&self) -> Framed<Frame, Matrix<T2, R, C, S>>
+//     where
+//         T: Scalar,
+//         T2: Scalar + SupersetOf<T>,
+//         Matrix<T, R, C, S>: SubsetOf<Matrix<T2, R, C, S>>,
+//         Matrix<T2, R, C, S>: SupersetOf<Matrix<T, R, C, S>>,
+//         DefaultAllocator: Allocator<T2, R, C>,
+//     {
+//         Framed::wrap(self.inner.cast::<T2>())
+//     }
+// }

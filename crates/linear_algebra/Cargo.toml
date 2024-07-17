@@ -11,3 +11,4 @@ nalgebra = { workspace = true }
 num-traits = { workspace = true }
 path_serde = { workspace = true }
 serde = { workspace = true }
+simba = { workspace = true }
