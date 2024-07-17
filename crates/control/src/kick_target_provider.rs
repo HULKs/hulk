@@ -166,46 +166,45 @@ fn collect_kick_targets(
 ) -> (Vec<KickTargetWithKickVariants>, bool) {
     let field_to_ground = ground_to_field.inverse();
 
-    let (mut kick_opportunities, allow_instant_kicks, respect_obstacles): (Vec<_>, _, _) =
-        match playing_situation {
-            PlayingSituation::KickOff => (
-                generate_kick_off_kick_targets(
-                    field_dimensions,
-                    field_to_ground,
-                    collect_kick_targets_parameters.kick_off_kick_strength,
-                )
-                .with_variants(&collect_kick_targets_parameters.kick_off_kick_variants),
-                true,
-                false,
-            ),
-            PlayingSituation::CornerKick => (
-                generate_corner_kick_targets(
-                    collect_kick_targets_parameters.find_kick_targets_parameter,
-                    field_dimensions,
-                    field_to_ground,
-                    collect_kick_targets_parameters.corner_kick_strength,
-                )
-                .with_variants(&collect_kick_targets_parameters.corner_kick_variants),
-                true,
-                true,
-            ),
-            PlayingSituation::PenaltyShot => (
-                generate_penalty_shot_kick_targets(
-                    field_dimensions,
-                    field_to_ground,
-                    collect_kick_targets_parameters.penalty_shot_kick_strength,
-                )
-                .with_variants(&collect_kick_targets_parameters.penalty_kick_kick_variants),
-                true,
-                false,
-            ),
-            PlayingSituation::Normal => (
-                generate_goal_line_kick_targets(field_dimensions, field_to_ground)
-                    .with_variants(&collect_kick_targets_parameters.goal_line_kick_variants),
-                true,
-                true,
-            ),
-        };
+    let (mut kick_opportunities, allow_instant_kicks, respect_obstacles) = match playing_situation {
+        PlayingSituation::KickOff => (
+            generate_kick_off_kick_targets(
+                field_dimensions,
+                field_to_ground,
+                collect_kick_targets_parameters.kick_off_kick_strength,
+            )
+            .with_variants(&collect_kick_targets_parameters.kick_off_kick_variants),
+            true,
+            false,
+        ),
+        PlayingSituation::CornerKick => (
+            generate_corner_kick_targets(
+                collect_kick_targets_parameters.find_kick_targets_parameter,
+                field_dimensions,
+                field_to_ground,
+                collect_kick_targets_parameters.corner_kick_strength,
+            )
+            .with_variants(&collect_kick_targets_parameters.corner_kick_variants),
+            true,
+            true,
+        ),
+        PlayingSituation::PenaltyShot => (
+            generate_penalty_shot_kick_targets(
+                field_dimensions,
+                field_to_ground,
+                collect_kick_targets_parameters.penalty_shot_kick_strength,
+            )
+            .with_variants(&collect_kick_targets_parameters.penalty_kick_kick_variants),
+            true,
+            false,
+        ),
+        PlayingSituation::Normal => (
+            generate_goal_line_kick_targets(field_dimensions, field_to_ground)
+                .with_variants(&collect_kick_targets_parameters.goal_line_kick_variants),
+            true,
+            true,
+        ),
+    };
 
     if respect_obstacles {
         kick_opportunities = modify_with_obstacles(
