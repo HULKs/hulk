@@ -7,7 +7,9 @@ use coordinate_systems::Pixel;
 use framework::MainOutput;
 use projection::camera_matrix::CameraMatrix;
 use types::{
-    calibration::{CalibrationCaptureResponse, CalibrationCommand},
+    calibration::{
+        CalibrationCaptureResponse, CalibrationCommand, CalibrationFeatureDetectorOutput,
+    },
     camera_position::CameraPosition,
 };
 
@@ -23,8 +25,10 @@ pub struct CycleContext {
     calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
 
-    calibration_center_circles:
-        Input<Option<Vec<CenterCirclePoints<Pixel>>>, "calibration_center_circles?">,
+    calibration_center_circle: Input<
+        CalibrationFeatureDetectorOutput<CenterCirclePoints<Pixel>>,
+        "calibration_center_circle",
+    >,
 }
 
 #[context]
@@ -44,14 +48,16 @@ impl CalibrationMeasurementProvider {
                 return None;
             }
 
-            // If no output is found, the detection cycler was not run or early-exited
-            let center_circles = context.calibration_center_circles?;
+            if context.calibration_center_circle.cycle_skipped {
+                return None;
+            }
 
-            // When the center_circles vector is empty -> no measurements found
-            let measurement = center_circles
-                .first()
+            let measurement = context
+                .calibration_center_circle
+                .detected_feature
+                .clone()
                 .map(|center_circle_points| Measurement {
-                    circle_and_points: center_circle_points.clone(),
+                    circle_and_points: center_circle_points,
                     position: *context.camera_position,
                     matrix: context.camera_matrix.clone(),
                 });
