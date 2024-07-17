@@ -81,7 +81,17 @@
               "ankle_roll": 0.017453292519943295
             }
           }
-        },
+        }
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.5,
+          "timeout_duration": 5.0
+        }
+      }
+    },
+    {
+      "keyframes": [
         {
           "duration": 0.4,
           "positions": {
@@ -122,7 +132,17 @@
               "ankle_roll": -0.017453292519943295
             }
           }
-        },
+        }
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.5,
+          "timeout_duration": 5.0
+        }
+      }
+    },
+    {
+      "keyframes": [
         {
           "duration": 0.1,
           "positions": {
@@ -163,9 +183,19 @@
               "ankle_roll": -0.017453292519943295
             }
           }
-        },
+        }
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.3,
+          "timeout_duration": 5.0
+        }
+      }
+    },
+    {
+      "keyframes": [
         {
-          "duration": 0.4,
+          "duration": 0.3,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -205,13 +235,23 @@
             }
           }
         }
-      ]
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.3,
+          "timeout_duration": 5.0
+        }
+      }
     },
     {
-      "interrupt_conditions": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [
+        {
+          "FallenAbort": {}
+        }
+      ],
       "keyframes": [
         {
-          "duration": 0.3,
+          "duration": 0.4,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -336,13 +376,17 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.5,
+          "tolerance": 0.3,
           "timeout_duration": 5.0
         }
       }
     },
     {
-      "interrupt_conditions": [{ "FallenAbort": {} }],
+      "interrupt_conditions": [
+        {
+          "FallenAbort": {}
+        }
+      ],
       "keyframes": [
         {
           "duration": 0.5,

@@ -502,10 +502,20 @@
               "knee_pitch": -0.10426998138427734
             }
           }
-        },
-
+        }
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.1,
+          "timeout_duration": 5.0
+        }
+      }
+    },
+    {
+      "interrupt_conditions": [{ "FallenAbort": {} }],
+      "keyframes": [
         {
-          "duration": 0.2,
+          "duration": 0.3,
           "positions": {
             "head": {
               "pitch": 0.5,
@@ -544,8 +554,18 @@
               "knee_pitch": -0.11040592193603516
             }
           }
-        },
-
+        }
+      ],
+      "exit_condition": {
+        "StabilizedCondition": {
+          "tolerance": 0.1,
+          "timeout_duration": 5.0
+        }
+      }
+    },
+    {
+      "interrupt_conditions": [{ "FallenAbort": {} }],
+      "keyframes": [
         {
           "duration": 0.8,
           "positions": {
@@ -599,7 +619,7 @@
       "interrupt_conditions": [{ "FallenAbort": {} }],
       "keyframes": [
         {
-          "duration": 1,
+          "duration": 1.0,
           "positions": {
             "head": {
               "pitch": 0.0030260086059570312,
