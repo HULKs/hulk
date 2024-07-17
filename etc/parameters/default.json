@@ -668,7 +668,7 @@
       0.01, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0, 0.001
     ],
     "good_matching_threshold": 0.5,
-    "score_per_good_match": 1.0,
+    "score_per_good_match": 2.0,
     "tentative_penalized_duration": {
       "nanos": 0,
       "secs": 12
