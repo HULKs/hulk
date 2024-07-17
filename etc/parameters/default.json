@@ -18,7 +18,8 @@
       "minimum_consecutive_segments": 7,
       "minimum_luminance_standard_deviation": 7,
       "minimum_samples_per_cluster": 8,
-      "minimum_feet_width": 0.06
+      "minimum_feet_width": 0.06,
+      "minimum_segment_height": 0.15
     },
     "vision_bottom": {
       "enable": true,
@@ -26,7 +27,8 @@
       "minimum_consecutive_segments": 7,
       "minimum_luminance_standard_deviation": 7,
       "minimum_samples_per_cluster": 8,
-      "minimum_feet_width": 0.06
+      "minimum_feet_width": 0.06,
+      "minimum_segment_height": 0.1
     }
   },
   "whistle_detection": {
