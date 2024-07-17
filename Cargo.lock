@@ -1715,7 +1715,7 @@ name = "code_generation"
 version = "0.1.0"
 dependencies = [
  "convert_case 0.6.0",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -1950,7 +1950,7 @@ dependencies = [
  "geometry",
  "hardware",
  "hungarian_algorithm",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "kinematics",
  "linear_algebra",
  "log",
@@ -4196,9 +4196,9 @@ checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
 
 [[package]]
 name = "itertools"
-version = "0.11.0"
+version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
 dependencies = [
  "either",
 ]
@@ -4700,7 +4700,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "enum_dispatch",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "serde",
  "serde_json",
  "splines",
@@ -5333,7 +5333,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "linear_algebra",
  "nalgebra",
  "ndarray",
@@ -6026,7 +6026,7 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "geometry",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "linear_algebra",
  "nalgebra",
  "ordered-float",
@@ -6204,7 +6204,7 @@ dependencies = [
  "futures-util",
  "glob",
  "home",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "parameters",
  "semver",
  "serde",
@@ -7394,7 +7394,7 @@ dependencies = [
  "gilrs",
  "hulk_widgets",
  "image",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "kinematics",
  "linear_algebra",
  "log",
@@ -7616,7 +7616,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "linear_algebra",
  "nalgebra",
  "ordered-float",
@@ -7649,7 +7649,7 @@ name = "walking_engine"
 version = "0.1.0"
 dependencies = [
  "coordinate_systems",
- "itertools 0.11.0",
+ "itertools 0.10.5",
  "kinematics",
  "linear_algebra",
  "motionfile",

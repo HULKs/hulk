@@ -131,7 +131,7 @@ image = "0.25.2"
 imageproc = "0.25.0"
 edge_detection = { path = "crates/edge_detection" }
 indicatif = "0.17.2"
-itertools = "0.11.0"
+itertools = "0.10.5"
 ittapi = "0.3.3"
 kinematics = { path = "crates/kinematics" }
 lazy_static = "1.4.0"
