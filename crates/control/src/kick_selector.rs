@@ -417,7 +417,7 @@ fn generate_decisions_for_instant_kicks(
                     kick_pose,
                     strength: parameters.kick_off_kick_strength,
                 })
-            } else if !is_own_kick_off && (is_inside_field || scores_goal) && is_strategic_target {
+            } else if !is_own_kick_off && (is_inside_field && is_strategic_target || scores_goal) {
                 let kick_pose = compute_kick_pose(ball_position, target, kick_info, kicking_side);
                 Some(KickDecision {
                     target,
