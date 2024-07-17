@@ -7,33 +7,31 @@ use rand::{seq::SliceRandom, Rng};
 use geometry::circle::Circle;
 use linear_algebra::{point, Point2};
 
-type T = f32;
-
 struct Parameters {
-    radius: T,
-    inlier_threshold_on_residual: T,
-    minimum_furthest_points_distance_squared: T,
+    radius: f32,
+    inlier_threshold_on_residual: f32,
+    minimum_furthest_points_distance_squared: f32,
 }
 
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResultCircle<Frame> {
     pub circle: Circle<Frame>,
-    pub used_points: Vec<Point2<Frame, T>>,
-    pub score: T,
+    pub used_points: Vec<Point2<Frame>>,
+    pub score: f32,
 }
 
 pub struct RansacCircle<Frame> {
-    pub unused_points: Vec<Point2<Frame, T>>,
+    pub unused_points: Vec<Point2<Frame>>,
     parameters: Parameters,
 }
 
 impl<Frame> RansacCircle<Frame> {
     pub fn new(
-        radius: T,
-        accepted_radius_variance: T,
-        unused_points: Vec<Point2<Frame, T>>,
+        radius: f32,
+        accepted_radius_variance: f32,
+        unused_points: Vec<Point2<Frame>>,
     ) -> Self {
-        const MINIMUM_ANGLE_OF_ARC: T = FRAC_PI_4;
+        const MINIMUM_ANGLE_OF_ARC: f32 = FRAC_PI_4;
         let minimum_furthest_points_distance =
             compute_minimum_point_distance(MINIMUM_ANGLE_OF_ARC, radius);
         Self {
@@ -87,26 +85,26 @@ impl<Frame> RansacCircle<Frame> {
 /// Otherwise, an ellipse fitting method should be used.
 pub struct RansacCircleWithTransformation<OriginalFrame, SearchFrame> {
     parameters: Parameters,
-    pub unused_points_original: Vec<Point2<OriginalFrame, T>>,
-    unused_points_transformed: Vec<Point2<SearchFrame, T>>,
+    pub unused_points_original: Vec<Point2<OriginalFrame>>,
+    unused_points_transformed: Vec<Point2<SearchFrame>>,
 }
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct RansacResultCircleWithTransformation<OriginalFrame, SearchFrame> {
     pub circle: Circle<SearchFrame>,
-    pub used_points_original: Vec<Point2<OriginalFrame, T>>,
-    pub used_points_transformed: Vec<Point2<SearchFrame, T>>,
-    pub score: T,
+    pub used_points_original: Vec<Point2<OriginalFrame>>,
+    pub used_points_transformed: Vec<Point2<SearchFrame>>,
+    pub score: f32,
 }
 
 impl<OriginalFrame, SearchFrame> RansacCircleWithTransformation<OriginalFrame, SearchFrame> {
     pub fn new(
-        radius: T,
-        accepted_radius_variance: T,
-        points: Vec<Point2<OriginalFrame, T>>,
-        transformer_function: impl Fn(&Point2<OriginalFrame, T>) -> Option<Point2<SearchFrame, T>>,
+        radius: f32,
+        accepted_radius_variance: f32,
+        points: Vec<Point2<OriginalFrame>>,
+        transformer_function: impl Fn(&Point2<OriginalFrame>) -> Option<Point2<SearchFrame>>,
     ) -> Self {
-        const MINIMUM_ANGLE_OF_ARC: T = FRAC_PI_4;
+        const MINIMUM_ANGLE_OF_ARC: f32 = FRAC_PI_4;
         let minimum_furthest_points_distance =
             compute_minimum_point_distance(MINIMUM_ANGLE_OF_ARC, radius);
 
@@ -178,11 +176,11 @@ impl<OriginalFrame, SearchFrame> RansacCircleWithTransformation<OriginalFrame, S
 }
 
 fn get_best_candidate<Frame>(
-    src_unused_points: &[Point2<Frame, T>],
+    src_unused_points: &[Point2<Frame>],
     iterations: usize,
     parameters: &Parameters,
     random_number_generator: &mut impl Rng,
-) -> Option<(Circle<Frame>, Vec<bool>, T)> {
+) -> Option<(Circle<Frame>, Vec<bool>, f32)> {
     let src_point_count = src_unused_points.len();
     if src_point_count < 3 {
         return None;
@@ -238,9 +236,9 @@ fn get_best_candidate<Frame>(
                         None
                     }
                 })
-                .sum::<T>();
+                .sum::<f32>();
 
-            Some((candidate_circle, score as T))
+            Some((candidate_circle, score as f32))
         })
         .max_by_key(|scored_circle| NotNan::new(scored_circle.1).unwrap_or_default());
 
@@ -266,11 +264,10 @@ fn get_best_candidate<Frame>(
 }
 
 fn circle_from_three_points<Frame>(
-    a: &Point2<Frame, T>,
-    b: &Point2<Frame, T>,
-    c: &Point2<Frame, T>,
+    a: &Point2<Frame>,
+    b: &Point2<Frame>,
+    c: &Point2<Frame>,
 ) -> Circle<Frame> {
-    // Let points be a, b, c
     let ba_diff = *b - *a;
     let cb_diff = *c - *b;
     let ab_mid = (a.coords() + b.coords()) / 2.0;
@@ -279,7 +276,7 @@ fn circle_from_three_points<Frame>(
     let ab_perpendicular_slope = -(ba_diff.x() / ba_diff.y());
     let bc_perpendicular_slope = -(cb_diff.x() / cb_diff.y());
 
-    // using y - y1 = m (x - x1) form, get x and y where center is intersection of ab & bc perpendicular bisectors!
+    // Center is the intersection point of perpendicular bisectors of lines ab, bc lines.
     let center_x = ((bc_mid.y() - ab_mid.y()) + (ab_perpendicular_slope * ab_mid.x())
         - (bc_perpendicular_slope * bc_mid.x()))
         / (ab_perpendicular_slope - bc_perpendicular_slope);
@@ -291,10 +288,10 @@ fn circle_from_three_points<Frame>(
     Circle { center, radius }
 }
 
-/// This function calculates distance between two points a, b on a circle,
-/// based on the angle alpha between ac & cb lines where c is the center.
+/// Calculates distance between two points a, b on a circle,
+/// based on the angle `alpha` (`angle_at_center_to_points`) between ac & cb lines where c is the center.
 /// For radius r, length of line ab = sin(alpha/2) * 2 * r
-fn compute_minimum_point_distance(angle_at_center_to_points: T, radius: T) -> f32 {
+fn compute_minimum_point_distance(angle_at_center_to_points: f32, radius: f32) -> f32 {
     (angle_at_center_to_points / 2.0).sin() * 2.0 * radius
 }
 
@@ -308,10 +305,9 @@ mod test {
     use rand::SeedableRng;
     use rand_chacha::ChaChaRng;
 
-    type T = f32;
-    const TYPICAL_RADIUS: T = 0.75;
-    const ACCEPTED_RADIUS_VARIANCE: T = 0.1;
-    const REL_ASSERT_EPSILON: T = 1e-5;
+    const TYPICAL_RADIUS: f32 = 0.75;
+    const ACCEPTED_RADIUS_VARIANCE: f32 = 0.1;
+    const REL_ASSERT_EPSILON: f32 = 1e-5;
 
     #[derive(Debug, Clone, PartialEq, Eq, Default)]
     struct SomeFrame;
@@ -319,12 +315,8 @@ mod test {
     #[test]
     fn ransac_empty_input() {
         let mut rng = ChaChaRng::from_entropy();
-        let mut ransac = RansacCircle::<SomeFrame>::new(
-            TYPICAL_RADIUS,
-            ACCEPTED_RADIUS_VARIANCE,
-            vec![],
-            // &mut rng,
-        );
+        let mut ransac =
+            RansacCircle::<SomeFrame>::new(TYPICAL_RADIUS, ACCEPTED_RADIUS_VARIANCE, vec![]);
         assert_eq!(ransac.next_candidate(&mut rng, 10), None);
     }
 
@@ -335,7 +327,6 @@ mod test {
             TYPICAL_RADIUS,
             ACCEPTED_RADIUS_VARIANCE,
             vec![point![5.0, 5.0]],
-            // &mut rng,
         );
         assert_eq!(ransac.next_candidate(&mut rng, 10), None);
     }
@@ -348,7 +339,7 @@ mod test {
 
         let points: Vec<_> = angles
             .iter()
-            .map(|a: &T| point![radius * a.cos() + center.x(), radius * a.sin() + center.y()])
+            .map(|a: &f32| point![radius * a.cos() + center.x(), radius * a.sin() + center.y()])
             .collect();
 
         let circle = circle_from_three_points::<SomeFrame>(&points[0], &points[1], &points[2]);
@@ -363,20 +354,18 @@ mod test {
 
         let points: Vec<_> = angles
             .iter()
-            .map(|a: &T| point![radius * a.cos() + center.x(), radius * a.sin() + center.y()])
+            .map(|a: &f32| point![radius * a.cos() + center.x(), radius * a.sin() + center.y()])
             .collect();
         let mut rng = ChaChaRng::from_entropy();
         let mut ransac = RansacCircle::<SomeFrame>::new(
             TYPICAL_RADIUS,
             ACCEPTED_RADIUS_VARIANCE,
             points.clone(),
-            // &mut rng,
         );
         let result = ransac
             .next_candidate(&mut rng, 10)
             .expect("No circle found");
 
-        // println!(" Score: {:?}", result.);
         let detected_circle = result.circle;
 
         assert_eq!(points.len(), result.used_points.len());
@@ -401,7 +390,6 @@ mod test {
             TYPICAL_RADIUS,
             ACCEPTED_RADIUS_VARIANCE,
             points.clone(),
-            // &mut rng,
         );
         let result = ransac
             .next_candidate(&mut rng, 15)
