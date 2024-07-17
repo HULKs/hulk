@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{point, vector, Isometry2, Point2, Transform, Vector2};
+use linear_algebra::{point, Isometry2, Point2, Transform, Vector2};
 use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
@@ -171,7 +171,7 @@ fn new_grid(
             horizontal_median_mode,
         ));
 
-        y = next_y_from_current_y(
+        y = next_horizontal_segment_height(
             image,
             camera_matrix,
             vertical_stride_in_robot_coordinates,
@@ -203,7 +203,7 @@ fn new_grid(
     }
 }
 
-fn next_y_from_current_y(
+fn next_horizontal_segment_height(
     image: &YCbCr422Image,
     camera_matrix: Option<&CameraMatrix>,
     vertical_stride_in_robot_coordinates: f32,
@@ -295,7 +295,7 @@ fn new_horizontal_scan_line(
 
     let edge_detection_value = edge_detection_value_at(
         Direction::Horizontal,
-        point!(start_x, position),
+        point![start_x, position],
         image,
         edge_detection_source,
         median_mode,
@@ -307,7 +307,7 @@ fn new_horizontal_scan_line(
     for x in (start_x..end_x).step_by(stride) {
         let edge_detection_value = edge_detection_value_at(
             Direction::Horizontal,
-            point!(x, position),
+            point![x, position],
             image,
             edge_detection_source,
             median_mode,
@@ -366,7 +366,7 @@ fn new_vertical_scan_line(
 
     let edge_detection_value = edge_detection_value_at(
         Direction::Vertical,
-        point!(position, start_y),
+        point![position, start_y],
         image,
         edge_detection_source,
         median_mode,
@@ -377,7 +377,7 @@ fn new_vertical_scan_line(
     for y in (start_y..end_y).step_by(stride) {
         let edge_detection_value = edge_detection_value_at(
             Direction::Vertical,
-            point!(position, y),
+            point![position, y],
             image,
             edge_detection_source,
             median_mode,
@@ -426,8 +426,8 @@ fn edge_detection_value_at(
     median_mode: MedianModeParameters,
 ) -> i16 {
     let offset: Vector2<Pixel, u32> = match direction {
-        Direction::Horizontal => vector!(0, 1),
-        Direction::Vertical => vector!(1, 0),
+        Direction::Horizontal => Vector2::y_axis(),
+        Direction::Vertical => Vector2::x_axis(),
     };
 
     let pixel = pixel_to_edge_detection_value(image.at_point(position), edge_detection_source);

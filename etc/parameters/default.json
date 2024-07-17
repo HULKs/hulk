@@ -110,7 +110,6 @@
       "horizontal_stride": 4,
       "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 20,
-      "vertical_edge_threshold": 20,
       "vertical_median_mode": "ThreePixels",
       "vertical_stride": 2
     },
@@ -120,7 +119,6 @@
       "horizontal_median_mode": "ThreePixels",
       "horizontal_stride": 4,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": 32,
       "vertical_edge_threshold": 32,
       "vertical_median_mode": "ThreePixels",
       "vertical_stride": 8
