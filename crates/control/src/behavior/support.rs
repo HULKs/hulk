@@ -84,16 +84,14 @@ fn support_pose(
         .filtered_game_controller_state
         .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
     let mut clamped_x = match filtered_game_state {
-        Some(FilteredGameState::Ready { .. }) => supporting_position
-            .x()
-            .min(maximum_x_in_ready_and_when_ball_is_not_free),
-        Some(FilteredGameState::Playing {
+        Some(FilteredGameState::Ready { .. })
+        | Some(FilteredGameState::Playing {
             ball_is_free: false,
             kick_off: true,
             ..
         }) => supporting_position
             .x()
-            .clamp(maximum_x_in_ready_and_when_ball_is_not_free, maximum_x),
+            .min(maximum_x_in_ready_and_when_ball_is_not_free),
         _ => supporting_position.x().clamp(minimum_x, maximum_x),
     };
 
