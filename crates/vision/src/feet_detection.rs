@@ -16,7 +16,7 @@ use types::{
     detected_feet::{ClusterPoint, CountedCluster, DetectedFeet},
     filtered_segments::FilteredSegments,
     image_segments::{EdgeType, ScanLine, Segment},
-    line_data::LineData,
+    line_data::LineData, parameters,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -40,6 +40,7 @@ pub struct CycleContext {
     minimum_samples_per_cluster:
         Parameter<usize, "feet_detection.$cycler_instance.minimum_samples_per_cluster">,
     minimum_feet_width: Parameter<f32, "feet_detection.$cycler_instance.minimum_feet_width">,
+    minimum_segment_height: Parameter<f32, "feet_detection.$cycler_instance.minimum_segment_height">,
 
     balls: RequiredInput<Option<Vec<BallPercept>>, "balls?">,
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
@@ -70,6 +71,7 @@ impl FeetDetection {
             context.balls,
             context.line_data,
             context.camera_matrix,
+            *context.minimum_segment_height,
         );
         context
             .cluster_points
@@ -106,6 +108,7 @@ fn extract_segment_cluster_points(
     balls: &[BallPercept],
     line_data: &LineData,
     camera_matrix: &CameraMatrix,
+    minimum_segment_height: f32,
 ) -> Vec<ClusterPoint> {
     filtered_segments
         .scan_grid
@@ -118,6 +121,7 @@ fn extract_segment_cluster_points(
                 balls,
                 minimum_consecutive_segments,
                 camera_matrix,
+                minimum_segment_height,
             )?;
             let luminances: Vec<_> = cluster
                 .iter()
@@ -146,6 +150,7 @@ fn find_last_consecutive_cluster(
     balls: &[BallPercept],
     minimum_consecutive_segments: usize,
     camera_matrix: &CameraMatrix,
+    minimum_segment_height: f32,
 ) -> Option<Vec<Segment>> {
     let filtered_segments = scan_line.segments.iter().filter(|segment| {
         let is_on_line = line_data
@@ -181,7 +186,7 @@ fn find_last_consecutive_cluster(
             let start_on_ground = camera_matrix.pixel_to_ground(start_position).ok();
             let end_on_ground = camera_matrix.pixel_to_ground(end_position).ok();
             let cluster_long_enough = match (start_on_ground, end_on_ground) {
-                (Some(start), Some(end)) => distance(start, end) > 0.20,
+                (Some(start), Some(end)) => distance(start, end) > minimum_segment_height,
                 _ => true,
             };
             if consecutive_segments.len() > minimum_consecutive_segments
