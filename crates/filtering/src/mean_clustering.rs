@@ -10,5 +10,10 @@ impl MeanClustering for CountedCluster {
     fn push(&mut self, other: Point2<Ground>) {
         self.mean = (self.mean * self.samples as f32 + other.coords()) / (self.samples + 1) as f32;
         self.samples += 1;
+        if other.x() < self.leftmost_point.x() {
+            self.leftmost_point = other;
+        } else if other.x() > self.rightmost_point.x() {
+            self.rightmost_point = other;
+        }
     }
 }
