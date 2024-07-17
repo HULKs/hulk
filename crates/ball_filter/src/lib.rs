@@ -104,8 +104,8 @@ impl BallFilter {
             mean: closest_hypothesis.map_or(
                 nalgebra::vector![measurement.mean.x, measurement.mean.y, 0.0, 0.0],
                 |hypothesis| {
-                    let position = hypothesis.position().position.inner.coords;
-                    nalgebra::vector![position.x, position.y, 0.0, 0.0]
+                    let old_position = hypothesis.position().position.inner.coords;
+                    nalgebra::vector![old_position.x, old_position.y, 0.0, 0.0]
                 },
             ),
             covariance: initial_moving_covariance,

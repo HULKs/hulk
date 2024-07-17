@@ -151,6 +151,7 @@ impl BallFilter {
                 if let Some(assigned_percept) = assigned_percept {
                     let mahalanobis_distance = -assigned_percept.cost;
                     if mahalanobis_distance > filter_parameters.maximum_matching_cost {
+                        hypothesis.validity *= 0.1;
                         continue;
                     }
                     let validity_increase = assigned_percept.cost.exp();
