@@ -1,1 +1,29 @@
-{}
+{
+  "feet_detection": {
+    "vision_bottom": {
+      "minimum_consecutive_segments": 14,
+      "minimum_luminance_standard_deviation": 20.0,
+      "minimum_samples_per_cluster": 10
+    },
+    "vision_top": {
+      "minimum_consecutive_segments": 14,
+      "minimum_luminance_standard_deviation": 20.0,
+      "minimum_samples_per_cluster": 10
+    }
+  },
+  "image_segmenter": {
+    "vision_top": {
+      "vertical_edge_threshold": 30
+    },
+    "vision_bottom": {
+      "vertical_median_mode": "FivePixels"
+    }
+  },
+  "line_detection": {
+    "vision_top": {
+      "allowed_projected_segment_length": {
+        "start": 0.02
+      }
+    }
+  }
+}
