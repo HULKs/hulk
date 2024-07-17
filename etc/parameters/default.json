@@ -130,7 +130,7 @@
   },
   "line_detection": {
     "vision_top": {
-      "use_horizontal_segments": false,
+      "use_horizontal_segments": true,
       "use_vertical_segments": true,
       "allowed_line_length_in_field": {
         "start": 0.3,
@@ -150,13 +150,13 @@
       "maximum_number_of_lines": 10,
       "allowed_projected_segment_length": {
         "start": 0.02,
-        "end": 0.2
+        "end": 0.1
       },
       "minimum_number_of_points_on_line": 10,
       "ransac_iterations": 20
     },
     "vision_bottom": {
-      "use_horizontal_segments": false,
+      "use_horizontal_segments": true,
       "use_vertical_segments": true,
       "allowed_line_length_in_field": {
         "start": 0.15,
@@ -176,7 +176,7 @@
       "maximum_number_of_lines": 10,
       "allowed_projected_segment_length": {
         "start": 0.02,
-        "end": 0.2
+        "end": 0.1
       },
       "minimum_number_of_points_on_line": 10,
       "ransac_iterations": 20
