@@ -12,7 +12,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{JumpDirection, MotionCommand, WalkSpeed},
-    parameters::{RolePositionsParameters, WideStanceParameters},
+    parameters::{KeeperMotionParameters, RolePositionsParameters},
     path_obstacles::PathObstacle,
     world_state::{BallState, WorldState},
 };
@@ -60,7 +60,7 @@ impl<'cycle> Defend<'cycle> {
         )
     }
 
-    pub fn wide_stance(&self, parameters: WideStanceParameters) -> Option<MotionCommand> {
+    pub fn wide_stance(&self, parameters: KeeperMotionParameters) -> Option<MotionCommand> {
         let ball = self.world_state.ball?;
 
         let position = ball.ball_in_ground;
@@ -86,13 +86,13 @@ impl<'cycle> Defend<'cycle> {
             (-parameters.action_radius_left..-parameters.action_radius)
                 .contains(&horizontal_distance_to_intersection),
         ) {
-            (true, _, _) => Some(MotionCommand::WideStance {
+            (true, _, _) => Some(MotionCommand::KeeperMotion {
                 direction: JumpDirection::Center,
             }),
-            (false, true, _) => Some(MotionCommand::WideStance {
+            (false, true, _) => Some(MotionCommand::KeeperMotion {
                 direction: JumpDirection::Left,
             }),
-            (false, _, true) => Some(MotionCommand::WideStance {
+            (false, _, true) => Some(MotionCommand::KeeperMotion {
                 direction: JumpDirection::Right,
             }),
             (false, false, false) => None,

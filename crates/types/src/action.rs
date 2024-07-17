@@ -38,7 +38,7 @@ pub enum Action {
     SitDown,
     Stand,
     StandUp,
-    WideStance,
+    KeeperMotion,
     SupportLeft,
     SupportRight,
     SupportStriker,

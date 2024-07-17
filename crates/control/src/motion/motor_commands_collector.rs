@@ -42,10 +42,10 @@ pub struct CycleContext {
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     stand_up_sitting_positions: Input<Joints<f32>, "stand_up_sitting_positions">,
     wide_stance_positions: Input<Joints<f32>, "wide_stance_positions">,
-    wide_stance_left_joints_command:
-        Input<MotorCommands<Joints<f32>>, "wide_stance_left_joints_command">,
-    wide_stance_right_joints_command:
-        Input<MotorCommands<Joints<f32>>, "wide_stance_right_joints_command">,
+    keeper_jump_left_joints_command:
+        Input<MotorCommands<Joints<f32>>, "keeper_jump_left_joints_command">,
+    keeper_jump_right_joints_command:
+        Input<MotorCommands<Joints<f32>>, "keeper_jump_right_joints_command">,
     center_jump_positions: Input<Joints<f32>, "center_jump_positions">,
     walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -90,8 +90,8 @@ impl MotorCommandCollector {
         let stand_up_front_positions = context.stand_up_front_positions;
         let stand_up_sitting_positions = context.stand_up_sitting_positions;
         let wide_stance_positions = context.wide_stance_positions;
-        let wide_stance_left = context.wide_stance_left_joints_command;
-        let wide_stance_right = context.wide_stance_right_joints_command;
+        let keeper_jump_left = context.keeper_jump_left_joints_command;
+        let keeper_jump_right = context.keeper_jump_right_joints_command;
         let walk = context.walk_motor_commands;
 
         let (positions, stiffnesses) = match motion_selection.current_motion {
@@ -214,11 +214,11 @@ impl MotorCommandCollector {
                 ),
             ),
 
-            MotionType::WideStanceLeft => {
-                (wide_stance_left.positions, wide_stance_left.stiffnesses)
+            MotionType::KeeperJumpLeft => {
+                (keeper_jump_left.positions, keeper_jump_left.stiffnesses)
             }
-            MotionType::WideStanceRight => {
-                (wide_stance_right.positions, wide_stance_right.stiffnesses)
+            MotionType::KeeperJumpRight => {
+                (keeper_jump_right.positions, keeper_jump_right.stiffnesses)
             }
             MotionType::Unstiff => (measured_positions, Joints::fill(0.0)),
             MotionType::Walk => (

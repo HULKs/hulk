@@ -87,9 +87,9 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
             Kind::FacingUp => MotionType::StandUpBack,
             Kind::Sitting => MotionType::StandUpSitting,
         },
-        MotionCommand::WideStance { direction } => match direction {
-            JumpDirection::Left => MotionType::WideStanceLeft,
-            JumpDirection::Right => MotionType::WideStanceRight,
+        MotionCommand::KeeperMotion { direction } => match direction {
+            JumpDirection::Left => MotionType::KeeperJumpLeft,
+            JumpDirection::Right => MotionType::KeeperJumpRight,
             JumpDirection::Center => MotionType::WideStance,
         },
 
@@ -114,13 +114,6 @@ fn transition_motion(
         (MotionType::StandUpFront, _, MotionType::FallProtection, _) => MotionType::StandUpFront,
         (MotionType::StandUpBack, _, MotionType::FallProtection, _) => MotionType::StandUpBack,
         (MotionType::WideStance, _, MotionType::FallProtection, _) => MotionType::WideStance,
-        (MotionType::WideStanceLeft, _, MotionType::FallProtection, _) => {
-            MotionType::WideStanceLeft
-        }
-
-        (MotionType::WideStanceRight, _, MotionType::FallProtection, _) => {
-            MotionType::WideStanceRight
-        }
         (MotionType::JumpLeft, _, MotionType::FallProtection, _) => MotionType::JumpLeft,
         (MotionType::JumpRight, _, MotionType::FallProtection, _) => MotionType::JumpRight,
         (MotionType::CenterJump, _, MotionType::FallProtection, _) => MotionType::CenterJump,
@@ -135,11 +128,11 @@ fn transition_motion(
         }
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
         (MotionType::Walk, _, MotionType::WideStance, _) => MotionType::WideStance,
-        (MotionType::Walk, _, MotionType::WideStanceRight, _) => MotionType::WideStanceRight,
-        (MotionType::Walk, _, MotionType::WideStanceLeft, _) => MotionType::WideStanceLeft,
+        (MotionType::Walk, _, MotionType::KeeperJumpRight, _) => MotionType::KeeperJumpRight,
+        (MotionType::Walk, _, MotionType::KeeperJumpLeft, _) => MotionType::KeeperJumpLeft,
         (_, true, MotionType::WideStance, _) => MotionType::WideStance,
-        (_, true, MotionType::WideStanceRight, _) => MotionType::WideStanceRight,
-        (_, true, MotionType::WideStanceLeft, _) => MotionType::WideStanceLeft,
+        (_, true, MotionType::KeeperJumpRight, _) => MotionType::KeeperJumpRight,
+        (_, true, MotionType::KeeperJumpLeft, _) => MotionType::KeeperJumpLeft,
         (_, _, MotionType::CenterJump, _) => MotionType::CenterJump,
         (MotionType::ArmsUpStand, _, _, false) => MotionType::ArmsUpStand,
         (MotionType::Dispatching, true, _, _) => to,

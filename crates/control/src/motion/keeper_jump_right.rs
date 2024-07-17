@@ -13,7 +13,7 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct WideStanceRight {
+pub struct KeeperJumpRight {
     interpolator: MotionInterpolator<MotorCommands<Joints<f32>>>,
 }
 
@@ -34,14 +34,14 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub wide_stance_right_joints_command: MainOutput<MotorCommands<Joints<f32>>>,
+    pub keeper_jump_right_joints_command: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
-impl WideStanceRight {
+impl KeeperJumpRight {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
         let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path(paths.motions.join("wide_stance_right.json"))?
+            interpolator: MotionFile::from_path(paths.motions.join("keeper_jump_right.json"))?
                 .try_into()?,
         })
     }
@@ -50,17 +50,17 @@ impl WideStanceRight {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        context.motion_safe_exits[MotionType::WideStanceRight] = false;
+        context.motion_safe_exits[MotionType::KeeperJumpRight] = false;
 
         self.interpolator
             .advance_by(last_cycle_duration, condition_input);
 
-        context.motion_safe_exits[MotionType::WideStanceRight] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::KeeperJumpRight] = self.interpolator.is_finished();
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
-        if context.motion_selection.current_motion == MotionType::WideStanceRight {
+        if context.motion_selection.current_motion == MotionType::KeeperJumpRight {
             self.interpolator
                 .advance_by(last_cycle_duration, context.condition_input);
         } else {
@@ -68,7 +68,7 @@ impl WideStanceRight {
         }
 
         Ok(MainOutputs {
-            wide_stance_right_joints_command: self.interpolator.value().into(),
+            keeper_jump_right_joints_command: self.interpolator.value().into(),
         })
     }
 }

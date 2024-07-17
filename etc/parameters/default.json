@@ -533,7 +533,7 @@
     "gyro_low_pass_factor": 0.4,
     "leg_balancing_factor": [0, 0.08]
   },
-  "wide_stance": {
+  "keeper_motion": {
     "maximum_ball_distance": 1.5,
     "minimum_ball_velocity": 0.6,
     "action_radius": 0.25,

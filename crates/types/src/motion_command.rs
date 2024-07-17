@@ -63,7 +63,7 @@ pub enum MotionCommand {
     StandUp {
         kind: Kind,
     },
-    WideStance {
+    KeeperMotion {
         direction: JumpDirection,
     },
 
@@ -106,7 +106,7 @@ impl MotionCommand {
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
             | MotionCommand::StandUp { .. } => None,
-            MotionCommand::WideStance { .. } => None,
+            MotionCommand::KeeperMotion { .. } => None,
         }
     }
 
