@@ -25,6 +25,6 @@ pub struct ClusterPoint {
 pub struct CountedCluster {
     pub mean: Point2<Ground>,
     pub samples: usize,
-    pub lefmost_point: Point2<Ground>,
+    pub leftmost_point: Point2<Ground>,
     pub rightmost_point: Point2<Ground>,
 }

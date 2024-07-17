@@ -81,7 +81,7 @@ impl FeetDetection {
             .into_iter()
             .filter(|cluster| cluster.samples > *context.minimum_samples_per_cluster)
             .filter(|cluster| {
-                cluster.rightmost_point.y() - cluster.lefmost_point.y()
+                cluster.rightmost_point.y() - cluster.leftmost_point.y()
                     >= *context.minimum_feet_width
             })
             .collect();
@@ -203,7 +203,7 @@ fn cluster_scored_cluster_points(
             None => clusters.push(CountedCluster {
                 mean: point.position_in_ground,
                 samples: 1,
-                lefmost_point: point.position_in_ground,
+                leftmost_point: point.position_in_ground,
                 rightmost_point: point.position_in_ground,
             }),
         }
