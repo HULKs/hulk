@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use types::{
     camera_position::CameraPosition,
     color::{Hsv, RgChromaticity, Rgb},
-    image_segments::{Direction, ImageSegments, Segment},
+    image_segments::{Direction, EdgeType, ImageSegments, Segment},
 };
 
 use crate::{
@@ -269,11 +269,27 @@ impl ImageSegmentsPanel {
                 Color32::from_gray(((1.0 - chromaticity.red - chromaticity.green) * 255.0) as u8)
             }
         };
-        painter.line_segment(start, end, Stroke::new(4.0, visualized_color));
+        const SEGMENT_WIDTH: f32 = 4.0;
+        const END_MARKER_WIDTH: f32 = 0.25;
+        painter.line_segment(start, end, Stroke::new(SEGMENT_WIDTH, visualized_color));
         painter.line_segment(
-            start - vector![1.0, 0.0],
-            start + vector![1.0, 0.0],
-            Stroke::new(1.0, Color32::from_rgb(0, 0, 255)),
+            start + vector![0.0, END_MARKER_WIDTH] - vector![SEGMENT_WIDTH / 4.0, 0.0],
+            start + vector![0.0, END_MARKER_WIDTH] + vector![SEGMENT_WIDTH / 4.0, 0.0],
+            Stroke::new(1.0, edge_type_to_color(segment.start_edge_type)),
         );
+        painter.line_segment(
+            end - vector![0.0, END_MARKER_WIDTH] - vector![SEGMENT_WIDTH / 4.0, 0.0],
+            end - vector![0.0, END_MARKER_WIDTH] + vector![SEGMENT_WIDTH / 4.0, 0.0],
+            Stroke::new(1.0, edge_type_to_color(segment.end_edge_type)),
+        );
+    }
+}
+
+fn edge_type_to_color(edge_type: EdgeType) -> Color32 {
+    match edge_type {
+        EdgeType::Rising => Color32::RED,
+        EdgeType::Falling => Color32::BLUE,
+        EdgeType::ImageBorder => Color32::GOLD,
+        EdgeType::LimbBorder => Color32::BLACK,
     }
 }
