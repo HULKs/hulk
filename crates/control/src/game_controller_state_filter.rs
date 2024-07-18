@@ -73,7 +73,12 @@ impl GameControllerStateFilter {
                     ),
                 )
             })
-            .unzip();
+            .unwrap_or_default();
+
+        let did_receive_motion_in_set_penalty = new_own_penalties_last_cycle
+            .iter()
+            .chain(new_opponent_penalties_last_cycles.iter())
+            .any(|(_, penalty)| matches!(penalty, Penalty::IllegalMotionInSet { .. }));
 
         let game_states = self.filter_game_states(
             *context.ground_to_field,
@@ -85,6 +90,7 @@ impl GameControllerStateFilter {
             context.cycle_time,
             *context.visual_referee_proceed_to_ready,
             *context.player_number,
+            did_receive_motion_in_set_penalty,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -99,9 +105,8 @@ impl GameControllerStateFilter {
             own_team_is_home_after_coin_toss: context
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
-            new_own_penalties_last_cycle: new_own_penalties_last_cycle.unwrap_or_default(),
-            new_opponent_penalties_last_cycle: new_opponent_penalties_last_cycles
-                .unwrap_or_default(),
+            new_own_penalties_last_cycle: new_own_penalties_last_cycle,
+            new_opponent_penalties_last_cycle: new_opponent_penalties_last_cycles,
         };
         context
             .whistle_in_set_ball_position
@@ -125,6 +130,7 @@ impl GameControllerStateFilter {
         cycle_time: &CycleTime,
         visual_referee_proceed_to_ready: bool,
         player_number: PlayerNumber,
+        did_receive_motion_in_set_penalty: bool,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
             ground_to_field,
@@ -140,6 +146,7 @@ impl GameControllerStateFilter {
             config,
             ball_detected_far_from_any_goal,
             visual_referee_proceed_to_ready,
+            did_receive_motion_in_set_penalty,
         );
         self.opponent_state = next_filtered_state(
             self.opponent_state,
@@ -149,6 +156,7 @@ impl GameControllerStateFilter {
             config,
             ball_detected_far_from_any_goal,
             visual_referee_proceed_to_ready,
+            did_receive_motion_in_set_penalty,
         );
 
         if let State::WhistleInSet { .. } = self.state {
@@ -212,6 +220,7 @@ fn next_filtered_state(
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
     visual_referee_proceed_to_ready: bool,
+    did_receive_motion_in_set_penalty: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
         (State::Finished, GameState::Initial) => State::Initial,
@@ -279,6 +288,9 @@ fn next_filtered_state(
                 State::Set
             }
         }
+        (State::WhistleInSet { .. }, GameState::Set) if did_receive_motion_in_set_penalty => {
+            State::Set
+        }
         (
             State::WhistleInSet {
                 time_when_whistle_was_detected,
@@ -294,7 +306,7 @@ fn next_filtered_state(
                     time_when_whistle_was_detected,
                 }
             } else {
-                State::Set
+                State::Playing
             }
         }
         (State::Playing, GameState::Playing) => {
