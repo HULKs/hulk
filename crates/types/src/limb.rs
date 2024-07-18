@@ -33,7 +33,9 @@ pub fn project_onto_limbs(position: Point2<Pixel>, projected_limbs: &[Limb]) -> 
                         return Some(f32::min(points[0].y(), points[1].y()));
                     }
 
-                    Some(Line(points[0], points[1]).project_onto_segment_in_x_axis(position))
+                    Some(
+                        Line::from_points(points[0], points[1]).project_onto_along_y_axis(position),
+                    )
                 })
                 .min_by(f32::total_cmp)
         })

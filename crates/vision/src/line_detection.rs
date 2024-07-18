@@ -259,8 +259,11 @@ impl LineDetection {
                 .map(|(line, discard_reason)| {
                     (
                         LineSegment(
-                            context.camera_matrix.ground_to_pixel(line.0).unwrap(),
-                            context.camera_matrix.ground_to_pixel(line.1).unwrap(),
+                            context.camera_matrix.ground_to_pixel(line.point).unwrap(),
+                            context
+                                .camera_matrix
+                                .ground_to_pixel(line.point + line.direction)
+                                .unwrap(),
                         ),
                         discard_reason,
                     )

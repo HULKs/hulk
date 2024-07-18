@@ -64,10 +64,10 @@ pub fn execute(
                 return None;
             }
 
-            let ball_line = Line(
-                ball.ball_in_ground,
-                ball.ball_in_ground + ball.ball_in_ground_velocity,
-            );
+            let ball_line = Line {
+                point: ball.ball_in_ground,
+                direction: ball.ball_in_ground_velocity,
+            };
             let interception_point = ball_line.closest_point(Point::origin());
 
             if interception_point.coords().norm() > parameters.maximum_intercept_distance {
