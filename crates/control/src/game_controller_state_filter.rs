@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use framework::{AdditionalOutput, MainOutput};
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, Team};
@@ -11,8 +11,10 @@ use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
-    game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
+    game_controller_state::GameControllerState, messages::IncomingMessage,
+    parameters::GameStateFilterParameters,
 };
+
 #[derive(Deserialize, Serialize)]
 pub struct GameControllerStateFilter {
     state: State,
