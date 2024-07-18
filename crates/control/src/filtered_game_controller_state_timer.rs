@@ -30,7 +30,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub last_filterd_game_controller_state_changes:
+    pub last_filtered_game_controller_state_changes:
         MainOutput<Option<LastFilteredGameControllerStateChanges>>,
 }
 
@@ -140,10 +140,10 @@ impl FilteredGameControllerStateTimer {
             self.filtered_game_controller_state_changes.sub_state = Some(cycle_start_time);
         }
 
-        self.last_filtered_game_controller_state = *context.filtered_game_controller_state;
+        self.last_filtered_game_controller_state = context.filtered_game_controller_state.clone();
 
         Ok(MainOutputs {
-            last_filterd_game_controller_state_changes: Some(
+            last_filtered_game_controller_state_changes: Some(
                 self.filtered_game_controller_state_changes,
             )
             .into(),

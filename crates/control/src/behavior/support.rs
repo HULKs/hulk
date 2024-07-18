@@ -82,6 +82,7 @@ fn support_pose(
 
     let filtered_game_state = world_state
         .filtered_game_controller_state
+        .as_ref()
         .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
     let mut clamped_x = match filtered_game_state {
         Some(FilteredGameState::Ready { .. })
