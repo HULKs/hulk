@@ -89,6 +89,13 @@ pub fn execute(
                 ) => Some(MotionCommand::Stand {
                     head: HeadMotion::Center,
                 }),
+                (_, Role::StrikerSupporter, Some(ball)) => Some(MotionCommand::Stand {
+                    head: HeadMotion::LookAt {
+                        target: ball.ball_in_ground,
+                        image_region_target: Default::default(),
+                        camera: None,
+                    },
+                }),
                 _ => None,
             }
         }
