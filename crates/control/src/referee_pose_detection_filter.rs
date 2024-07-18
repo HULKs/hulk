@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use spl_network_messages::{HulkMessage, PlayerNumber, VisualRefereeMessage};
+use spl_network_messages::{GameState, HulkMessage, PlayerNumber, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
+    game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
     parameters::SplNetworkParameters,
     players::Players,
@@ -46,6 +47,7 @@ pub struct CycleContext {
     remaining_amount_of_messages:
         Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
 
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
     initial_message_grace_period:
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
     message_interval: Parameter<Duration, "referee_pose_detection_filter.message_interval">,
@@ -91,6 +93,14 @@ impl RefereePoseDetectionFilter {
 
         let (is_referee_ready_pose_detected, did_detect_any_referee_this_cycle) =
             self.update(&context)?;
+
+        let is_standby = matches!(
+            context.game_controller_state.unwrap().game_state,
+            GameState::Standby
+        );
+        if !is_standby {
+            self.detection_times = Default::default();
+        }
 
         let majority_vote_is_referee_ready_pose_detected = decide(
             self.detection_times,
