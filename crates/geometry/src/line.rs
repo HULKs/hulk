@@ -148,3 +148,89 @@ impl<Frame> From<LineSegment<Frame>> for Line2<Frame> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_relative_eq;
+    use linear_algebra::{distance, point, vector};
+
+    use super::*;
+
+    #[derive(Debug, Clone, Copy)]
+    struct SomeFrame;
+
+    const LINE1: Line2<SomeFrame> = Line {
+        point: point![0.0, 10.0],
+        direction: vector![5.0, 5.0],
+    };
+    const LINE2: Line2<SomeFrame> = Line {
+        point: point![-10.0, 0.0],
+        direction: vector![3.0, 0.0],
+    };
+    const LINE3: Line2<SomeFrame> = Line {
+        point: point![10.0, 16.0],
+        direction: vector![0.0, -5.0],
+    };
+    const POINT: Point2<SomeFrame> = point![5.0, -5.0];
+
+    #[test]
+    fn y_axis_intercept() {
+        assert_relative_eq!(LINE1.y_axis_intercept(), 10.0);
+        assert_relative_eq!(LINE2.y_axis_intercept(), 0.0);
+        assert!(LINE3.y_axis_intercept().is_infinite());
+    }
+
+    #[test]
+    fn slope() {
+        assert_relative_eq!(LINE1.slope(), 1.0);
+        assert_relative_eq!(LINE2.slope(), 0.0);
+        assert!(dbg!(LINE3.slope()).is_infinite());
+    }
+
+    #[test]
+    fn closest_points_and_distances() {
+        const CLOSEST_POINT1: Point2<SomeFrame> = point![-5.0, 5.0];
+        const CLOSEST_POINT2: Point2<SomeFrame> = point![5.0, 0.0];
+        const CLOSEST_POINT3: Point2<SomeFrame> = point![10.0, -5.0];
+        let distance1 = distance(POINT, CLOSEST_POINT1);
+        let distance2 = distance(POINT, CLOSEST_POINT2);
+        let distance3 = distance(POINT, CLOSEST_POINT3);
+
+        assert_relative_eq!(LINE1.closest_point(POINT), CLOSEST_POINT1);
+        assert_relative_eq!(LINE2.closest_point(POINT), CLOSEST_POINT2);
+        assert_relative_eq!(LINE3.closest_point(POINT), CLOSEST_POINT3);
+
+        assert_relative_eq!(LINE1.distance_to(POINT), distance1);
+        assert_relative_eq!(LINE2.distance_to(POINT), distance2);
+        assert_relative_eq!(LINE3.distance_to(POINT), distance3);
+
+        assert_relative_eq!(LINE1.signed_distance_to_point(POINT), -distance1);
+        assert_relative_eq!(LINE2.signed_distance_to_point(POINT), -distance2);
+        assert_relative_eq!(LINE3.signed_distance_to_point(POINT), -distance3);
+    }
+
+    #[test]
+    fn points_above_line() {
+        assert!(!LINE1.is_above(POINT));
+        assert!(!LINE2.is_above(POINT));
+        assert!(!LINE3.is_above(POINT));
+    }
+
+    #[test]
+    fn line_intersections() {
+        const INTERSECTION1: Point2<SomeFrame> = point![-10.0, 0.0];
+        const INTERSECTION2: Point2<SomeFrame> = point![10.0, 20.0];
+        const INTERSECTION3: Point2<SomeFrame> = point![10.0, 0.0];
+
+        assert_relative_eq!(LINE1.intersection(&LINE2), INTERSECTION1);
+        assert_relative_eq!(LINE1.intersection(&LINE3), INTERSECTION2);
+        assert_relative_eq!(LINE2.intersection(&LINE3), INTERSECTION3);
+    }
+
+    #[test]
+    fn projections_along_y_axis() {
+        assert_relative_eq!(LINE1.project_onto_along_y_axis(POINT), 15.0);
+        assert_relative_eq!(LINE2.project_onto_along_y_axis(POINT), 0.0);
+        assert!(LINE3.project_onto_along_y_axis(POINT).is_infinite());
+    }
+}
