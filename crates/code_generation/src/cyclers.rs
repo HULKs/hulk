@@ -124,7 +124,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
     };
 
     quote! {
-        pub(crate) struct Cycler<HardwareInterface>  {
+        pub struct Cycler<HardwareInterface>  {
             instance: CyclerInstance,
             hardware_interface: std::sync::Arc<HardwareInterface>,
             own_sender: buffered_watch::Sender<(std::time::SystemTime, Database)>,

@@ -205,6 +205,7 @@ impl State {
                     None
                 };
             robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
+            robot.cycler.cycler_state.ground_to_field = ground_to_field;
             robot.cycle(&messages_sent_last_cycle)?;
 
             for message in robot.interface.take_outgoing_messages() {

@@ -29,7 +29,7 @@ pub struct Robot {
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
 
-    cycler: Cycler<Interfake>,
+    pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
 }
