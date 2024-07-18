@@ -78,12 +78,13 @@ impl Robot {
             .as_transform(),
         );
         database.main_outputs.has_ground_contact = true;
+        database.main_outputs.buttons.is_chest_button_pressed_once = true;
         database.main_outputs.is_localization_converged = true;
+
         subscriptions_sender
             .borrow_mut()
             .insert("additional_outputs".to_string());
 
-        database.main_outputs.buttons.is_chest_button_pressed_once = true;
         Ok(Self {
             interface,
             database,

@@ -220,7 +220,7 @@ impl Simulator {
                         .unwrap()
                         .inner
                         .translation
-                        .x;
+                        .y;
                     Ok(position_y)
                 })?,
             )?;

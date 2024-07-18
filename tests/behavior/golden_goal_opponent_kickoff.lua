@@ -42,7 +42,6 @@ function on_cycle()
     end
 
     if state.cycle_count == 1700 then
-        -- TODO: simulate whistle
         whistle(1)
         whistle(2)
         whistle(3)
@@ -57,11 +56,11 @@ function on_cycle()
         for i = 1, 7 do
             is_in_opponent_half = get_robot_pose_x(i) >= 0.0
             if is_in_opponent_half then
-                -- error("Illegal Position in Kickoff Playing")
+                error("Illegal Position in Kickoff Playing")
             end
             is_in_center_circle = math.sqrt(get_robot_pose_x(i) ^ 2 + get_robot_pose_y(i) ^ 2) <= 0.75
             if is_in_center_circle then
-                -- error("Illegal Position in Kickoff Playing")
+                error("Illegal Position in Kickoff Playing")
             end
         end
     end
