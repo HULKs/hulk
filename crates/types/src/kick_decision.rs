@@ -20,6 +20,7 @@ pub enum PlayingSituation {
     KickOff,
     CornerKick,
     PenaltyShot,
+    IndirectGoalDance,
     #[default]
     Normal,
 }
@@ -50,6 +51,7 @@ pub struct DecisionParameters {
     pub penalty_shot_kick_variants: Vec<KickVariant>,
 
     pub default_kick_strength: f32,
+    pub indirect_goal_dance_kick_strength: f32,
     pub corner_kick_strength: f32,
     pub kick_off_kick_strength: f32,
     pub penalty_shot_kick_strength: f32,

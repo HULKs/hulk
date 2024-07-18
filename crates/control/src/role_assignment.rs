@@ -57,6 +57,7 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
+    own_ball_contact_count: CyclerState<usize, "own_ball_contact_count">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
@@ -334,6 +335,7 @@ impl RoleAssignment {
                             pose: ground_to_field.as_pose(),
                             ball_position,
                             time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
+                            number_of_ball_contacts: *context.own_ball_contact_count,
                         }),
                     ))?;
                 }
