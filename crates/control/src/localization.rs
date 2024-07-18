@@ -163,7 +163,6 @@ impl Localization {
         game_phase: Option<GamePhase>,
         context: &CycleContext,
         penalty: &Option<Penalty>,
-        kicking_team: Option<Team>,
     ) {
         match (self.last_primary_state, primary_state, game_phase) {
             (PrimaryState::Standby, PrimaryState::Ready, _) => {
@@ -546,7 +545,7 @@ impl Localization {
             .filtered_game_controller_state
             .map(|game_controller_state| game_controller_state.kicking_team);
 
-        self.reset_state(primary_state, game_phase, &context, &penalty, kicking_team);
+        self.reset_state(primary_state, game_phase, &context, &penalty);
         self.modify_state(&context, sub_state, kicking_team);
         self.last_primary_state = primary_state;
 
