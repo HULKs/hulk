@@ -138,7 +138,7 @@ impl KickSelector {
             *context.ground_to_field,
             context.filtered_game_controller_state,
             context.decision_parameters,
-            *context.other_striker_had_ball_contact,
+            true, //*context.other_striker_had_ball_contact,
         );
         instant_kick_decisions.sort_by(|left, right| {
             compare_decisions(

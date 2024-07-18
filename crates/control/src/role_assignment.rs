@@ -409,7 +409,7 @@ impl RoleAssignment {
                 pose,
                 ball_position,
                 time_to_reach_kick_position: *context.time_to_reach_kick_position.unwrap(),
-                own_ball_contact_count: *context.own_ball_contact_count,
+                number_of_ball_contacts: *context.own_ball_contact_count,
             })))
             .wrap_err("failed to write StrikerMessage to hardware")
     }
