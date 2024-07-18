@@ -3402,6 +3402,7 @@ dependencies = [
  "parameters",
  "path_serde",
  "projection",
+ "ransac",
  "serde",
  "serde_json",
  "source_analyzer",
@@ -3435,6 +3436,7 @@ dependencies = [
  "parameters",
  "path_serde",
  "projection",
+ "ransac",
  "serde",
  "source_analyzer",
  "tokio",
@@ -3513,6 +3515,7 @@ dependencies = [
  "parameters",
  "path_serde",
  "projection",
+ "ransac",
  "serde",
  "serde_json",
  "source_analyzer",
@@ -5344,6 +5347,7 @@ dependencies = [
  "ordered-float",
  "rand",
  "rand_chacha",
+ "serde",
 ]
 
 [[package]]
@@ -6617,8 +6621,10 @@ dependencies = [
  "log",
  "mlua",
  "nalgebra",
+ "ordered-float",
  "parameters",
  "projection",
+ "ransac",
  "repository",
  "serde",
  "serde_json",
