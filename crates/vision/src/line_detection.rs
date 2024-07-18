@@ -6,7 +6,7 @@ mod segment_merger;
 use std::{collections::HashSet, ops::Range};
 
 use color_eyre::Result;
-use geometry::line_segment::LineSegment;
+use geometry::{line::Line, line_segment::LineSegment, two_lines::TwoLines};
 use itertools::Itertools;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -17,7 +17,7 @@ use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
-use ransac::{Ransac, RansacLineSegment};
+use ransac::{Ransac, RansacFeature, RansacLineSegment};
 use types::{
     filtered_segments::FilteredSegments,
     image_segments::GenericSegment,
@@ -44,6 +44,7 @@ pub struct CycleContext {
         AdditionalOutput<Vec<(LineSegment<Pixel>, LineDiscardReason)>, "discarded_lines">,
     filtered_segments_output:
         AdditionalOutput<Vec<GenericSegment>, "line_detection.filtered_segments">,
+    detected_features: AdditionalOutput<Vec<RansacFeature<Pixel>>, "detected_features">,
 
     use_horizontal_segments:
         Parameter<bool, "line_detection.$cycler_instance.use_horizontal_segments">,
@@ -161,6 +162,7 @@ impl LineDetection {
                 .unzip();
 
         let mut ransac = Ransac::new(line_points);
+        let mut detected_features = Vec::new();
         let mut line_segments = Vec::new();
         let mut discarded_line_segments = Vec::new();
 
@@ -168,14 +170,15 @@ impl LineDetection {
             if ransac.unused_points.len() < *context.minimum_number_of_points_on_line {
                 break;
             }
-            let ransac_feature = ransac.next_feature(
+            let ransac_result = ransac.next_feature(
                 &mut self.random_state,
                 *context.ransac_iterations,
                 *context.maximum_fit_distance_in_ground,
                 *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,
             );
+            detected_features.push(ransac_result.feature.clone());
 
-            for line_segment in ransac_feature {
+            for line_segment in ransac_result {
                 let RansacLineSegment {
                     line_segment,
                     sorted_used_points,
@@ -232,6 +235,40 @@ impl LineDetection {
             }
         }
 
+        context.detected_features.fill_if_subscribed(|| {
+            detected_features
+                .into_iter()
+                .map(|feature| match feature {
+                    RansacFeature::None => RansacFeature::None,
+                    RansacFeature::Line(line) => RansacFeature::Line(Line::from_points(
+                        context.camera_matrix.ground_to_pixel(line.point).unwrap(),
+                        context
+                            .camera_matrix
+                            .ground_to_pixel(line.point + line.direction)
+                            .unwrap(),
+                    )),
+                    RansacFeature::TwoLines(two_lines) => {
+                        let point = context
+                            .camera_matrix
+                            .ground_to_pixel(two_lines.point)
+                            .unwrap();
+                        RansacFeature::TwoLines(TwoLines {
+                            point,
+                            direction1: context
+                                .camera_matrix
+                                .ground_to_pixel(two_lines.point + two_lines.direction1.normalize())
+                                .unwrap_or(point)
+                                - point,
+                            direction2: context
+                                .camera_matrix
+                                .ground_to_pixel(two_lines.point + two_lines.direction2.normalize())
+                                .unwrap_or(point)
+                                - point,
+                        })
+                    }
+                })
+                .collect()
+        });
         context.lines_in_image.fill_if_subscribed(|| {
             line_segments
                 .iter()

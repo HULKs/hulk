@@ -9,8 +9,9 @@ use geometry::{
 use linear_algebra::{Point2, Rotation2};
 use ordered_float::NotNan;
 use rand::{seq::SliceRandom, Rng};
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub enum RansacFeature<Frame> {
     #[default]
     None,

@@ -28,6 +28,7 @@ object_detection = { workspace = true }
 parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
+ransac = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 spl_network = { workspace = true }
