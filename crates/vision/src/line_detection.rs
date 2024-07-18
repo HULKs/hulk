@@ -49,6 +49,7 @@ pub struct CycleContext {
     use_vertical_segments: Parameter<bool, "line_detection.$cycler_instance.use_vertical_segments">,
     allowed_line_length_in_field:
         Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_line_length_in_field">,
+    check_edge_types: Parameter<bool, "line_detection.$cycler_instance.check_edge_types">,
     check_edge_gradient: Parameter<bool, "line_detection.$cycler_instance.check_edge_gradient">,
     check_line_distance: Parameter<bool, "line_detection.$cycler_instance.check_line_distance">,
     check_line_length: Parameter<bool, "line_detection.$cycler_instance.check_line_length">,
@@ -122,7 +123,7 @@ impl LineDetection {
 
         let filtered_segments = horizontal_segments
             .chain(vertical_segments)
-            .filter(is_non_field_segment)
+            .filter(|segment| !*context.check_edge_types || is_non_field_segment(segment))
             .filter(|segment| {
                 !*context.check_line_segments_projection
                     || is_in_length_range(
