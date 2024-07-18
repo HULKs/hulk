@@ -3,16 +3,17 @@ use std::ops::Range;
 use coordinate_systems::Pixel;
 use linear_algebra::{distance, vector, Point2, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
-use types::{image_segments::EdgeType, ycbcr422_image::YCbCr422Image};
+use types::{
+    image_segments::{EdgeType, GenericSegment},
+    ycbcr422_image::YCbCr422Image,
+};
 
-use super::segment::Segment;
-
-pub fn is_non_field_segment(segment: &Segment) -> bool {
+pub fn is_non_field_segment(segment: &GenericSegment) -> bool {
     segment.start_edge_type == EdgeType::Rising && segment.end_edge_type == EdgeType::Falling
 }
 
 pub fn is_in_length_range(
-    segment: &Segment,
+    segment: &GenericSegment,
     camera_matrix: &CameraMatrix,
     allowed_projected_segment_length: &Range<f32>,
 ) -> bool {
@@ -26,7 +27,7 @@ pub fn is_in_length_range(
 }
 
 pub fn has_opposite_gradients(
-    segment: &Segment,
+    segment: &GenericSegment,
     image: &YCbCr422Image,
     gradient_alignment: f32,
     gradient_sobel_stride: u32,
@@ -129,7 +130,7 @@ mod tests {
             Isometry3::identity().framed_transform(),
         );
 
-        let segment = Segment {
+        let segment = GenericSegment {
             start: point![40, 2],
             end: point![40, 202],
             start_edge_type: EdgeType::ImageBorder,
@@ -137,7 +138,7 @@ mod tests {
         };
         assert!(!is_in_length_range(&segment, &camera_matrix, &(0.0..0.3)));
 
-        let segment = Segment {
+        let segment = GenericSegment {
             start: point![40, 364],
             end: point![40, 366],
             start_edge_type: EdgeType::ImageBorder,
