@@ -100,8 +100,10 @@ impl FootBumperFilter {
         }
 
         if let Some(last_left_foot_bumper_time) = self.last_left_time {
-            if last_left_foot_bumper_time
-                .elapsed()
+            if context
+                .cycle_time
+                .start_time
+                .duration_since(last_left_foot_bumper_time)
                 .expect("Time ran backwards")
                 > *context.acceptance_duration
             {
@@ -112,8 +114,10 @@ impl FootBumperFilter {
         }
 
         if let Some(last_right_foot_bumper_time) = self.last_right_time {
-            if last_right_foot_bumper_time
-                .elapsed()
+            if context
+                .cycle_time
+                .start_time
+                .duration_since(last_right_foot_bumper_time)
                 .expect("Time ran backwards")
                 > *context.acceptance_duration
             {
