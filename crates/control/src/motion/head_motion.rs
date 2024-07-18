@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use color_eyre::Result;
 use context_attribute::context;
+use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -16,6 +17,7 @@ use types::{
 #[derive(Default, Deserialize, Serialize)]
 pub struct HeadMotion {
     last_positions: HeadJoints<f32>,
+    lowpass_filter: LowPassFilter<HeadJoints<f32>>,
 }
 
 #[context]
@@ -28,6 +30,7 @@ pub struct CycleContext {
     maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
     outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
     outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
+    injected_head_joints: Parameter<Option<HeadJoints<f32>>, "head_motion.injected_head_joints?">,
 
     look_around: Input<HeadJoints<f32>, "look_around">,
     look_at: Input<HeadJoints<f32>, "look_at">,
@@ -48,10 +51,22 @@ impl HeadMotion {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_positions: Default::default(),
+            lowpass_filter: LowPassFilter::with_smoothing_factor(Default::default(), 0.075),
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        if let Some(injected_head_joints) = context.injected_head_joints.copied() {
+            self.lowpass_filter.update(injected_head_joints);
+
+            return Ok(MainOutputs {
+                head_joints_command: MotorCommands {
+                    positions: self.lowpass_filter.state(),
+                    stiffnesses: HeadJoints::fill(0.8),
+                }
+                .into(),
+            });
+        }
         if context.motion_selection.dispatching_motion.is_some() {
             return Ok(MainOutputs {
                 head_joints_command: MotorCommands {
