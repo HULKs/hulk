@@ -299,7 +299,7 @@ impl ImageSegmentsPanel {
     }
 }
 
-fn edge_type_to_color(edge_type: EdgeType) -> Color32 {
+pub fn edge_type_to_color(edge_type: EdgeType) -> Color32 {
     match edge_type {
         EdgeType::Rising => Color32::RED,
         EdgeType::Falling => Color32::BLUE,
