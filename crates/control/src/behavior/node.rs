@@ -226,7 +226,8 @@ impl Behavior {
                 },
                 _ => match world_state.filtered_game_controller_state {
                     Some(FilteredGameControllerState {
-                        game_state: FilteredGameState::Ready { .. },
+                        game_state:
+                            FilteredGameState::Ready { .. } | FilteredGameState::Playing { .. },
                         sub_state: Some(SubState::PenaltyKick),
                         kicking_team: Team::Opponent,
                         ..
