@@ -7,7 +7,7 @@
     "minimum_overall_keypoint_confidence": 0.5,
     "minimum_visual_referee_keypoint_confidence": 0.8,
     "minimum_shoulder_angle": 0.2,
-    "foot_z_offset": 0.05,
+    "foot_z_offset": 0.10,
     "referee_pose_queue_length": 8,
     "minimum_number_poses_before_message": 3
   },
