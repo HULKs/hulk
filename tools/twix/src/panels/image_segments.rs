@@ -4,7 +4,7 @@ use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},
 };
-use linear_algebra::{point, vector};
+use linear_algebra::{point, vector, Vector2};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
@@ -269,18 +269,32 @@ impl ImageSegmentsPanel {
                 Color32::from_gray(((1.0 - chromaticity.red - chromaticity.green) * 255.0) as u8)
             }
         };
+
         const SEGMENT_WIDTH: f32 = 4.0;
         const END_MARKER_WIDTH: f32 = 0.25;
+
+        let (main_axis, other_axis) = match direction {
+            Direction::Horizontal => (Vector2::x_axis(), Vector2::y_axis()),
+            Direction::Vertical => (Vector2::y_axis(), Vector2::x_axis()),
+        };
+
+        let main_axis_offset = main_axis * END_MARKER_WIDTH / 2.0;
+        let other_axis_offset = other_axis * SEGMENT_WIDTH / 3.0;
+
         painter.line_segment(start, end, Stroke::new(SEGMENT_WIDTH, visualized_color));
+
         painter.line_segment(
-            start + vector![0.0, END_MARKER_WIDTH] - vector![SEGMENT_WIDTH / 4.0, 0.0],
-            start + vector![0.0, END_MARKER_WIDTH] + vector![SEGMENT_WIDTH / 4.0, 0.0],
-            Stroke::new(1.0, edge_type_to_color(segment.start_edge_type)),
+            start + main_axis_offset + other_axis_offset,
+            start + main_axis_offset - other_axis_offset,
+            Stroke::new(
+                END_MARKER_WIDTH,
+                edge_type_to_color(segment.start_edge_type),
+            ),
         );
         painter.line_segment(
-            end - vector![0.0, END_MARKER_WIDTH] - vector![SEGMENT_WIDTH / 4.0, 0.0],
-            end - vector![0.0, END_MARKER_WIDTH] + vector![SEGMENT_WIDTH / 4.0, 0.0],
-            Stroke::new(1.0, edge_type_to_color(segment.end_edge_type)),
+            end - main_axis_offset + other_axis_offset,
+            end - main_axis_offset - other_axis_offset,
+            Stroke::new(END_MARKER_WIDTH, edge_type_to_color(segment.end_edge_type)),
         );
     }
 }
