@@ -1128,7 +1128,7 @@
       "keeper_x_offset": 0.1,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_pose": {
-        "translation": [-0.15, 0.15],
+        "translation": [-0.2, 0.2],
         "rotation": [0.707, -0.707]
       }
     },
