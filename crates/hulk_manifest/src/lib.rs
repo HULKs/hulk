@@ -45,6 +45,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::active_vision",
                     "control::ball_filter",
                     "control::ball_state_composer",
+                    "control::ball_contact_counter",
                     "control::behavior::node",
                     "control::button_filter",
                     "control::calibration_controller",

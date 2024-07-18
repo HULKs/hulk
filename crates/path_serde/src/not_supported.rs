@@ -9,6 +9,7 @@ use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSeriali
 use nalgebra::{DMatrix, Rotation3, SMatrix};
 use ndarray::Array2;
 use serde::{Deserializer, Serializer};
+use serde_json::Value;
 
 macro_rules! implement_as_not_supported {
     ($type:ty) => {
@@ -109,3 +110,4 @@ implement_as_not_supported!(String);
 implement_as_not_supported!(SystemTime);
 implement_as_not_supported!(Vec<T>, T);
 implement_as_not_supported!(VecDeque<T>, T);
+implement_as_not_supported!(Value);
