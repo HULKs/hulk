@@ -206,17 +206,15 @@ impl Localization {
                     kicking_team: Team::Opponent,
                 }),
             ) => {
-                if matches!(kicking_team, Some(Team::Opponent)) {
-                    let penalty_shoot_out_keeper_pose =
-                        Pose2::from(point![-context.field_dimensions.length / 2.0, 0.0]);
-                    self.hypotheses = vec![ScoredPose::from_isometry(
-                        penalty_shoot_out_keeper_pose,
-                        *context.initial_hypothesis_covariance,
-                        *context.initial_hypothesis_score,
-                    )];
-                    self.hypotheses_when_entered_playing
-                        .clone_from(&self.hypotheses);
-                }
+                let penalty_shoot_out_keeper_pose =
+                    Pose2::from(point![-context.field_dimensions.length / 2.0, 0.0]);
+                self.hypotheses = vec![ScoredPose::from_isometry(
+                    penalty_shoot_out_keeper_pose,
+                    *context.initial_hypothesis_covariance,
+                    *context.initial_hypothesis_score,
+                )];
+                self.hypotheses_when_entered_playing
+                    .clone_from(&self.hypotheses);
             }
             (PrimaryState::Set, PrimaryState::Playing, _) => {
                 self.hypotheses_when_entered_playing
