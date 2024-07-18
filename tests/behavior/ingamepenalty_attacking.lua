@@ -59,6 +59,15 @@ function on_cycle()
   if state.cycle_count == 3700 then
     state.game_controller_state.game_state = "Set"
   end
+  if state.cycle_count == 3701 then
+    whistle(1)
+    whistle(2)
+    whistle(3)
+    whistle(4)
+    whistle(5)
+    whistle(6)
+    whistle(7)
+  end
 
   if state.cycle_count == 4000 then
     state.game_controller_state.game_state = "Playing"

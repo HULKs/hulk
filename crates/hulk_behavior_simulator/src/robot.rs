@@ -29,7 +29,7 @@ pub struct Robot {
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
 
-    cycler: Cycler<Interfake>,
+    pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
 }
@@ -78,7 +78,9 @@ impl Robot {
             .as_transform(),
         );
         database.main_outputs.has_ground_contact = true;
+        database.main_outputs.buttons.is_chest_button_pressed_once = true;
         database.main_outputs.is_localization_converged = true;
+
         subscriptions_sender
             .borrow_mut()
             .insert("additional_outputs".to_string());

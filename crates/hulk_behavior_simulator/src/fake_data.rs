@@ -10,6 +10,7 @@ use framework::MainOutput;
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
+    buttons::Buttons,
     calibration::CalibrationCommand,
     cycle_time::CycleTime,
     fall_state::FallState,
@@ -19,7 +20,6 @@ use types::{
     obstacles::Obstacle,
     parameters::{BallFilterParameters, CameraMatrixParameters},
     penalty_shot_direction::PenaltyShotDirection,
-    primary_state::PrimaryState,
     sensor_data::SensorData,
 };
 
@@ -48,6 +48,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
+    pub buttons: MainOutput<Buttons>,
     pub cycle_time: MainOutput<CycleTime>,
     pub fall_state: MainOutput<FallState>,
     pub filtered_whistle: MainOutput<FilteredWhistle>,
@@ -62,7 +63,6 @@ pub struct MainOutputs {
     pub is_localization_converged: MainOutput<bool>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
     pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
-    pub primary_state: MainOutput<PrimaryState>,
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
@@ -82,6 +82,7 @@ impl FakeData {
         let last_database = &receiver.borrow_and_mark_as_seen().main_outputs;
         Ok(MainOutputs {
             ball_position: last_database.ball_position.into(),
+            buttons: last_database.buttons.into(),
             cycle_time: last_database.cycle_time.into(),
             fall_state: last_database.fall_state.into(),
             filtered_whistle: last_database.filtered_whistle.clone().into(),
@@ -97,7 +98,6 @@ impl FakeData {
             is_localization_converged: last_database.is_localization_converged.into(),
             obstacles: last_database.obstacles.clone().into(),
             penalty_shot_direction: last_database.penalty_shot_direction.into(),
-            primary_state: last_database.primary_state.into(),
             ground_to_field: last_database.ground_to_field.into(),
             sensor_data: last_database.sensor_data.clone().into(),
             stand_up_front_estimated_remaining_duration: last_database
