@@ -25,6 +25,7 @@ fn main() -> Result<()> {
                     "control::game_controller_state_filter",
                     "control::kick_selector",
                     "control::filtered_game_controller_state_timer",
+                    "control::primary_state_filter",
                     "control::motion::look_around",
                     "control::motion::motion_selector",
                     "control::referee_position_provider",

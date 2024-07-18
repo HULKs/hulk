@@ -19,7 +19,6 @@ use types::{
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     planned_path::PathSegment,
     players::Players,
-    primary_state::PrimaryState,
     support_foot::Side,
 };
 
@@ -205,17 +204,8 @@ impl State {
                 } else {
                     None
                 };
-            robot.database.main_outputs.primary_state =
-                match (robot.is_penalized, self.game_controller_state.game_state) {
-                    (true, _) => PrimaryState::Penalized,
-                    (false, GameState::Initial) => PrimaryState::Initial,
-                    (false, GameState::Standby) => PrimaryState::Standby,
-                    (false, GameState::Ready { .. }) => PrimaryState::Ready,
-                    (false, GameState::Set) => PrimaryState::Set,
-                    (false, GameState::Playing { .. }) => PrimaryState::Playing,
-                    (false, GameState::Finished) => PrimaryState::Finished,
-                };
             robot.database.main_outputs.game_controller_state = Some(self.game_controller_state);
+            robot.cycler.cycler_state.ground_to_field = ground_to_field;
             robot.cycle(&messages_sent_last_cycle)?;
 
             for message in robot.interface.take_outgoing_messages() {

@@ -2,7 +2,15 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Debug,
+    Default,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Debug,
 )]
 pub struct Buttons {
     pub is_chest_button_pressed_once: bool,
