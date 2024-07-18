@@ -6,7 +6,10 @@ use geometry::line_segment::LineSegment;
 use types::{image_segments::GenericSegment, line_data::LineDiscardReason};
 
 use crate::{
-    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
+    panels::{
+        image::{cycler_selector::VisionCycler, overlay::Overlay},
+        image_segments::edge_type_to_color,
+    },
     twix_painter::TwixPainter,
     value_buffer::BufferHandle,
 };
@@ -46,9 +49,22 @@ impl Overlay for LineDetection {
             return Ok(());
         };
         for segment in filtered_segments {
-            let stroke = Stroke::new(1.0, Color32::RED);
-            painter.line_segment(segment.start.cast(), segment.end.cast(), stroke);
-            painter.circle_stroke(segment.center().cast(), 3.0, stroke);
+            painter.line_segment(
+                segment.start.cast(),
+                segment.end.cast(),
+                Stroke::new(1.0, Color32::BLACK),
+            );
+            painter.circle_stroke(segment.center().cast(), 2.0, Stroke::new(1.0, Color32::RED));
+            painter.circle_filled(
+                segment.start.cast(),
+                1.0,
+                edge_type_to_color(segment.start_edge_type),
+            );
+            painter.circle_filled(
+                segment.end.cast(),
+                1.0,
+                edge_type_to_color(segment.end_edge_type),
+            );
         }
         for (line, reason) in discarded_lines {
             let color = match reason {
