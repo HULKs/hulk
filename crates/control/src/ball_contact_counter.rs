@@ -90,7 +90,7 @@ impl BallContactCounter {
             .flatten()
             .filter_map(|message| *message)
         {
-            if let IncomingMessage::Spl(HulkMessage::Striker(striker_message)) = dbg!(message) {
+            if let IncomingMessage::Spl(HulkMessage::Striker(striker_message)) = message {
                 if striker_message.number_of_ball_contacts > 0 {
                     self.other_players_had_contact[striker_message.player_number] = true;
                 }
