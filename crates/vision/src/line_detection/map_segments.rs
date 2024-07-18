@@ -2,17 +2,17 @@ use std::slice::Iter;
 
 use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
-use types::image_segments::ScanLine;
+use types::image_segments::{GenericSegment, ScanLine};
 
-use super::{segment::Segment, segment_merger::SegmentMerger};
+use super::segment_merger::SegmentMerger;
 
 pub fn map_segments<Mapping: PositionMapping>(
     scan_lines: Iter<'_, ScanLine>,
     maximum_merge_gap: u16,
-) -> impl Iterator<Item = Segment> + '_ {
+) -> impl Iterator<Item = GenericSegment> + '_ {
     scan_lines.flat_map(move |scan_line| {
         SegmentMerger::new(
-            scan_line.segments.iter().map(|segment| Segment {
+            scan_line.segments.iter().map(|segment| GenericSegment {
                 start: Mapping::map(scan_line.position, segment.start),
                 end: Mapping::map(scan_line.position, segment.end),
                 start_edge_type: segment.start_edge_type,

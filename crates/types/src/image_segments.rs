@@ -1,3 +1,5 @@
+use coordinate_systems::Pixel;
+use linear_algebra::{point, Point2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +46,18 @@ impl Segment {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum EdgeType {
     Rising,
     Falling,
@@ -56,4 +69,23 @@ pub enum EdgeType {
 pub enum Direction {
     Horizontal,
     Vertical,
+}
+
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct GenericSegment {
+    pub start: Point2<Pixel, u16>,
+    pub end: Point2<Pixel, u16>,
+    pub start_edge_type: EdgeType,
+    pub end_edge_type: EdgeType,
+}
+
+impl GenericSegment {
+    pub fn center(&self) -> Point2<Pixel, u16> {
+        point![
+            self.start.x() + (self.end.x() - self.start.x()) / 2,
+            self.start.y() + (self.end.y() - self.start.y()) / 2,
+        ]
+    }
 }
