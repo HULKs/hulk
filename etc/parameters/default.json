@@ -1141,7 +1141,7 @@
     },
     "walk_and_stand": {
       "hysteresis": [0.1, 0.1],
-      "target_reached_thresholds": [0.02, 0.05],
+      "target_reached_thresholds": [0.2, 0.5],
       "hybrid_align_distance": 1.0,
       "distance_to_be_aligned": 0.05
     },
