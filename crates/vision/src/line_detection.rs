@@ -1,7 +1,6 @@
 mod checks;
 mod iter_if;
 mod map_segments;
-mod segment;
 mod segment_merger;
 
 use std::{collections::HashSet, ops::Range};
@@ -24,6 +23,7 @@ use projection::{camera_matrix::CameraMatrix, Projection};
 use ransac::{Ransac, RansacResult};
 use types::{
     filtered_segments::FilteredSegments,
+    image_segments::GenericSegment,
     line_data::{LineData, LineDiscardReason},
     ycbcr422_image::YCbCr422Image,
 };
@@ -41,7 +41,8 @@ pub struct CycleContext {
     lines_in_image: AdditionalOutput<Vec<LineSegment<Pixel>>, "lines_in_image">,
     discarded_lines:
         AdditionalOutput<Vec<(LineSegment<Pixel>, LineDiscardReason)>, "discarded_lines">,
-    ransac_input: AdditionalOutput<Vec<Point2<Pixel>>, "ransac_input">,
+    filtered_segments_output:
+        AdditionalOutput<Vec<GenericSegment>, "line_detection.filtered_segments">,
 
     use_horizontal_segments:
         Parameter<bool, "line_detection.$cycler_instance.use_horizontal_segments">,
@@ -138,10 +139,16 @@ impl LineDetection {
                         *context.gradient_alignment,
                         *context.gradient_sobel_stride,
                     )
-            });
+            })
+            .collect::<Vec<_>>();
+
+        context
+            .filtered_segments_output
+            .fill_if_subscribed(|| filtered_segments.clone());
 
         let (line_points, used_segments): (Vec<Point2<Ground>>, HashSet<Point2<Pixel, u16>>) =
             filtered_segments
+                .into_iter()
                 .filter_map(|segment| {
                     Some((
                         context
@@ -152,13 +159,6 @@ impl LineDetection {
                     ))
                 })
                 .unzip();
-
-        context.ransac_input.fill_if_subscribed(|| {
-            line_points
-                .iter()
-                .map(|point| context.camera_matrix.ground_to_pixel(*point).unwrap())
-                .collect()
-        });
 
         let mut ransac = Ransac::new(line_points);
         let mut lines_in_ground = Vec::new();

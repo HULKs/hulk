@@ -1,15 +1,15 @@
 use std::iter::Peekable;
 
-use super::segment::Segment;
+use types::image_segments::GenericSegment;
 
-pub struct SegmentMerger<T: Iterator<Item = Segment>> {
+pub struct SegmentMerger<T: Iterator<Item = GenericSegment>> {
     iterator: Peekable<T>,
     maximum_merge_gap: u16,
 }
 
 impl<T> SegmentMerger<T>
 where
-    T: Iterator<Item = Segment>,
+    T: Iterator<Item = GenericSegment>,
 {
     pub fn new(iterator: T, maximum_merge_gap: u16) -> Self {
         Self {
@@ -21,9 +21,9 @@ where
 
 impl<T> Iterator for SegmentMerger<T>
 where
-    T: Iterator<Item = Segment>,
+    T: Iterator<Item = GenericSegment>,
 {
-    type Item = Segment;
+    type Item = GenericSegment;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut current = self.iterator.next()?;
@@ -42,6 +42,6 @@ where
     }
 }
 
-fn distance_between_segments(first: Segment, second: Segment) -> u16 {
+fn distance_between_segments(first: GenericSegment, second: GenericSegment) -> u16 {
     (second.start.x() - first.end.x()) + (second.start.y() - first.end.y())
 }
