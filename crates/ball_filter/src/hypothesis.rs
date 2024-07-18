@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    f32::consts::PI,
+    time::{Duration, SystemTime},
+};
 
 use filtering::kalman_filter::KalmanFilter;
 use moving::{MovingPredict, MovingUpdate};
@@ -18,49 +21,47 @@ pub mod moving;
 pub mod resting;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+pub enum BallMode {
+    Resting(MultivariateNormalDistribution<2>),
+    Moving(MultivariateNormalDistribution<4>),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct BallHypothesis {
-    pub moving: MultivariateNormalDistribution<4>,
-    pub resting: MultivariateNormalDistribution<2>,
+    pub mode: BallMode,
     pub last_seen: SystemTime,
     pub validity: f32,
 }
 
 impl BallHypothesis {
-    pub fn new(
-        moving_hypothesis: MultivariateNormalDistribution<4>,
-        resting_hypothesis: MultivariateNormalDistribution<2>,
-        last_seen: SystemTime,
-    ) -> Self {
+    pub fn new(hypothesis: MultivariateNormalDistribution<4>, last_seen: SystemTime) -> Self {
         Self {
-            moving: moving_hypothesis,
-            resting: resting_hypothesis,
+            mode: BallMode::Moving(hypothesis),
             last_seen,
             validity: 1.0,
         }
     }
 
-    pub fn resting(&self) -> BallPosition<Ground> {
-        BallPosition {
-            position: self.resting.mean.xy().framed().as_point(),
-            velocity: Vector2::zeros(),
-            last_seen: self.last_seen,
+    pub fn position(&self) -> BallPosition<Ground> {
+        match self.mode {
+            BallMode::Resting(resting) => BallPosition {
+                position: resting.mean.framed().as_point(),
+                velocity: Vector2::zeros(),
+                last_seen: self.last_seen,
+            },
+            BallMode::Moving(moving) => BallPosition {
+                position: moving.mean.xy().framed().as_point(),
+                velocity: vector![moving.mean.z, moving.mean.w],
+                last_seen: self.last_seen,
+            },
         }
     }
 
-    pub fn moving(&self) -> BallPosition<Ground> {
-        BallPosition {
-            position: self.moving.mean.xy().framed().as_point(),
-            velocity: vector![self.moving.mean.z, self.moving.mean.w],
-            last_seen: self.last_seen,
+    pub fn position_covariance(&self) -> Matrix2<f32> {
+        match self.mode {
+            BallMode::Resting(resting) => resting.covariance,
+            BallMode::Moving(moving) => moving.covariance.fixed_view::<2, 2>(0, 0).into_owned(),
         }
-    }
-
-    pub fn choose_ball(&self, velocity_threshold: f32) -> BallPosition<Ground> {
-        let moving = self.moving();
-        if moving.velocity.norm() < velocity_threshold {
-            return self.resting();
-        };
-        moving
     }
 
     pub fn predict(
@@ -70,25 +71,42 @@ impl BallHypothesis {
         velocity_decay: f32,
         moving_process_noise: Matrix4<f32>,
         resting_process_noise: Matrix2<f32>,
-        velocity_threshold: f32,
+        log_likelihood_of_zero_velocity_threshold: f32,
     ) {
-        MovingPredict::predict(
-            &mut self.moving,
-            delta_time,
-            last_to_current_odometry,
-            velocity_decay,
-            moving_process_noise,
-        );
-        RestingPredict::predict(
-            &mut self.resting,
-            last_to_current_odometry,
-            resting_process_noise,
-        );
+        match &mut self.mode {
+            BallMode::Resting(resting) => {
+                RestingPredict::predict(resting, last_to_current_odometry, resting_process_noise)
+            }
+            BallMode::Moving(moving) => {
+                MovingPredict::predict(
+                    moving,
+                    delta_time,
+                    last_to_current_odometry,
+                    velocity_decay,
+                    moving_process_noise,
+                );
 
-        let moving_velocity: Vector2<Ground> = vector![self.moving.mean.z, self.moving.mean.w];
-        if moving_velocity.norm() < velocity_threshold {
-            self.resting.mean.x = self.moving.mean.x;
-            self.resting.mean.y = self.moving.mean.y;
+                let velocity_covariance = moving.covariance.fixed_view::<2, 2>(0, 0);
+                let velocity = nalgebra::vector![moving.mean.z, moving.mean.w];
+
+                let exponent = -velocity.dot(
+                    &velocity_covariance
+                        .cholesky()
+                        .expect("covariance not invertible")
+                        .solve(&velocity),
+                ) / 2.;
+                let determinant = velocity_covariance.determinant();
+
+                let log_likelihood_of_zero_velocity =
+                    exponent - (2. * PI * determinant.sqrt()).ln();
+
+                if log_likelihood_of_zero_velocity > log_likelihood_of_zero_velocity_threshold {
+                    self.mode = BallMode::Resting(MultivariateNormalDistribution {
+                        mean: moving.mean.xy(),
+                        covariance: moving.covariance.fixed_view::<2, 2>(0, 0).into_owned(),
+                    })
+                }
+            }
         }
     }
 
@@ -96,25 +114,26 @@ impl BallHypothesis {
         &mut self,
         detection_time: SystemTime,
         measurement: MultivariateNormalDistribution<2>,
+        validity_bonus: f32,
     ) {
         self.last_seen = detection_time;
-        MovingUpdate::update(&mut self.moving, measurement);
-        RestingUpdate::update(&mut self.resting, measurement);
-        self.validity += 1.0;
+        self.validity += validity_bonus;
+
+        match &mut self.mode {
+            BallMode::Resting(resting) => RestingUpdate::update(resting, measurement),
+            BallMode::Moving(moving) => MovingUpdate::update(moving, measurement),
+        }
     }
 
     pub fn merge(&mut self, other: BallHypothesis) {
-        KalmanFilter::update(
-            &mut self.moving,
-            Matrix4::identity(),
-            other.moving.mean,
-            other.moving.covariance,
-        );
-        KalmanFilter::update(
-            &mut self.resting,
-            Matrix2::identity(),
-            other.resting.mean,
-            other.resting.covariance,
-        );
+        match (&mut self.mode, other.mode) {
+            (BallMode::Resting(resting), BallMode::Resting(other)) => {
+                KalmanFilter::update(resting, Matrix2::identity(), other.mean, other.covariance)
+            }
+            (BallMode::Moving(moving), BallMode::Moving(other)) => {
+                KalmanFilter::update(moving, Matrix4::identity(), other.mean, other.covariance)
+            }
+            _ => (), // deny merge
+        };
     }
 }
