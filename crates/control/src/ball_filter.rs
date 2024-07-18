@@ -13,7 +13,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
-use linear_algebra::{IntoTransform, Isometry2, Point2};
+use linear_algebra::{distance, IntoTransform, Isometry2, Point2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
@@ -195,8 +195,14 @@ impl BallFilter {
         };
 
         let should_merge_hypotheses =
-            |_hypothesis1: &BallHypothesis, _hypothesis2: &BallHypothesis| false;
+            |hypothesis1: &BallHypothesis, hypothesis2: &BallHypothesis| {
+                distance(
+                    hypothesis1.position().position,
+                    hypothesis2.position().position,
+                ) < filter_parameters.hypothesis_merge_distance
+            };
 
+        // TODO: this removed hypotheses if not one is resting and the other one is moving!
         let removed = self
             .ball_filter
             .remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses);
