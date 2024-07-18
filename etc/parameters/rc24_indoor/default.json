@@ -13,7 +13,7 @@
   },
   "image_segmenter": {
     "vision_top": {
-      "vertical_edge_threshold": 30
+      "vertical_edge_threshold": 20
     },
     "vision_bottom": {
       "vertical_median_mode": "FivePixels"
