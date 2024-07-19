@@ -49,15 +49,14 @@ async fn replay_worker(
             _ = sleep(Duration::from_secs(1)) => {}
             result = receiver.changed() => {
                 if result.is_err() {
-                    // channel closed, quit thread
+                    // channel closed, quit
                     break;
                 }
             }
         }
 
-        let state = *receiver.borrow();
-
-        if let Err(error) = replayer.replay_at(state.time) {
+        let timestamp = receiver.borrow().time;
+        if let Err(error) = replayer.replay_at(timestamp) {
             eprintln!("{error:#?}");
         }
 
@@ -83,7 +82,11 @@ async fn playback_worker(sender: watch::Sender<PlayerState>) {
                     .unwrap_or(Duration::from_millis(12));
                 last_autoplay_time = Some(Instant::now());
                 sender.send_modify(|state| {
-                    state.time += elapsed.mul_f32(state.playback_rate);
+                    if state.playback_rate.is_sign_positive(){
+                        state.time += elapsed.mul_f32(state.playback_rate);
+                    } else {
+                        state.time -= elapsed.mul_f32(-state.playback_rate);
+                    }
                 });
             }
         }
