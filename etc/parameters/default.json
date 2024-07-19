@@ -20,7 +20,7 @@
       "minimum_samples_per_cluster": 5,
       "minimum_feet_width": 0.0,
       "minimum_segment_height": 0.08,
-      "maximum_standard_deviation": [0.1, 0.1],
+      "maximum_standard_deviation": [0.1, 0.1]
     },
     "vision_bottom": {
       "enable": false,
@@ -29,8 +29,8 @@
       "minimum_luminance_standard_deviation": 7,
       "minimum_samples_per_cluster": 8,
       "minimum_feet_width": 0.06,
-      "minimum_segment_height": 0.1
-      "maximum_standard_deviation": [0.1, 0.1],
+      "minimum_segment_height": 0.1,
+      "maximum_standard_deviation": [0.1, 0.1]
     }
   },
   "whistle_detection": {
