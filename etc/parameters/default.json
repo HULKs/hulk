@@ -1423,6 +1423,7 @@
   },
   "rule_obstacles": {
     "center_circle_obstacle_radius_increase": 0.2,
+    "center_circle_ballspace_free_obstacle_radius": 0.2,
     "free_kick_obstacle_radius": 0.75,
     "penaltykick_box_extension": 0.2
   },
