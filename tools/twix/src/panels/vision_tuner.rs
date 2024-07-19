@@ -5,7 +5,7 @@ use eframe::egui::{Grid, Response, Slider, Ui, Widget};
 use log::error;
 use serde_json::{to_value, Value};
 
-use types::field_color::FieldColorParameters;
+use types::{field_color::FieldColorParameters, image_segments::Direction};
 
 use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
@@ -14,8 +14,38 @@ use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
 pub struct VisionTunerPanel {
     nao: Arc<Nao>,
     cycler: VisionCycler,
+    horizontal_edge_threshold: BufferHandle<u8>,
     vertical_edge_threshold: BufferHandle<u8>,
     field_color_detection: BufferHandle<FieldColorParameters>,
+}
+
+impl VisionTunerPanel {
+    fn edge_threshold_slider(
+        &mut self,
+        ui: &mut Ui,
+        direction: Direction,
+    ) -> Result<(), color_eyre::Report> {
+        let (value_buffer, parameter_name) = match direction {
+            Direction::Horizontal => (&self.horizontal_edge_threshold, "horizontal_edge_threshold"),
+            Direction::Vertical => (&self.vertical_edge_threshold, "vertical_edge_threshold"),
+        };
+
+        let Some(mut edge_threshold) = value_buffer.get_last_value()? else {
+            return Ok(());
+        };
+
+        let slider = ui.add(Slider::new(&mut edge_threshold, 0..=255).text(parameter_name));
+        if slider.changed() {
+            let cycler = self.cycler.as_snake_case_path();
+
+            self.nao.write(
+                format!("parameters.image_segmenter.{cycler}.{parameter_name}"),
+                TextOrBinary::Text(to_value(edge_threshold).unwrap()),
+            );
+        }
+
+        Ok(())
+    }
 }
 
 impl Panel for VisionTunerPanel {
@@ -25,6 +55,9 @@ impl Panel for VisionTunerPanel {
         let cycler = VisionCycler::Top;
 
         let cycler_path = cycler.as_snake_case_path();
+        let horizontal_edge_threshold = nao.subscribe_value(format!(
+            "parameters.image_segmenter.{cycler_path}.horizontal_edge_threshold",
+        ));
         let vertical_edge_threshold = nao.subscribe_value(format!(
             "parameters.image_segmenter.{cycler_path}.vertical_edge_threshold",
         ));
@@ -34,6 +67,7 @@ impl Panel for VisionTunerPanel {
         Self {
             nao,
             cycler,
+            horizontal_edge_threshold,
             vertical_edge_threshold,
             field_color_detection,
         }
@@ -53,20 +87,8 @@ impl Widget for &mut VisionTunerPanel {
             ui.separator();
             let cycler = self.cycler.as_snake_case_path();
 
-            let Some(mut vertical_edge_threshold) =
-                self.vertical_edge_threshold.get_last_value()?
-            else {
-                return Ok(());
-            };
-            let slider = ui.add(
-                Slider::new(&mut vertical_edge_threshold, 0..=255).text("vertical_edge_threshold"),
-            );
-            if slider.changed() {
-                self.nao.write(
-                    format!("parameters.image_segmenter.{cycler}.vertical_edge_threshold"),
-                    TextOrBinary::Text(to_value(vertical_edge_threshold).unwrap()),
-                );
-            }
+            self.edge_threshold_slider(ui, Direction::Vertical)?;
+            self.edge_threshold_slider(ui, Direction::Horizontal)?;
 
             let Some(field_color_detection) = self.field_color_detection.get_last_value()? else {
                 return Ok(());
