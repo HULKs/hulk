@@ -3,8 +3,8 @@ use std::sync::Arc;
 use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
-use coordinate_systems::{Ground, Robot, Walk};
-use linear_algebra::{point, Isometry3, Point2, Point3, Pose2, Pose3};
+use coordinate_systems::{Ground, Robot, UpcomingSupport, Walk};
+use linear_algebra::{point, Isometry2, Isometry3, Point2, Point3, Pose2, Pose3};
 use types::{
     field_dimensions::FieldDimensions, joints::body::BodyJoints, robot_kinematics::RobotKinematics,
     step_plan::Step, support_foot::Side,
@@ -22,6 +22,7 @@ use crate::{
 
 pub struct Walking {
     robot_to_ground: BufferHandle<Option<Isometry3<Robot, Ground>>>,
+    ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
     robot_kinematics: BufferHandle<RobotKinematics>,
     walking_engine: BufferHandle<Option<Engine>>,
     last_actuated_joints: BufferHandle<Option<BodyJoints>>,
@@ -36,6 +37,8 @@ impl Layer<Ground> for Walking {
 
     fn new(nao: Arc<Nao>) -> Self {
         let robot_to_ground = nao.subscribe_value("Control.main_outputs.robot_to_ground");
+        let ground_to_upcoming_support =
+            nao.subscribe_value("Control.additional_outputs.ground_to_upcoming_support");
         let robot_kinematics = nao.subscribe_value("Control.main_outputs.robot_kinematics");
         let walking_engine = nao.subscribe_value("Control.additional_outputs.walking.engine");
         let last_actuated_joints =
@@ -44,8 +47,10 @@ impl Layer<Ground> for Walking {
         let center_of_mass = nao.subscribe_value("Control.main_outputs.center_of_mass");
         let robot_to_walk = nao.subscribe_value("Control.additional_outputs.walking.robot_to_walk");
         let zero_moment_point = nao.subscribe_value("Control.main_outputs.zero_moment_point");
+
         Self {
             robot_to_ground,
+            ground_to_upcoming_support,
             robot_kinematics,
             walking_engine,
             last_actuated_joints,
@@ -62,6 +67,11 @@ impl Layer<Ground> for Walking {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let Some(robot_to_ground) = self.robot_to_ground.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        let Some(ground_to_upcoming_support) =
+            self.ground_to_upcoming_support.get_last_value()?.flatten()
+        else {
             return Ok(());
         };
         let Some(robot_kinematics) = self.robot_kinematics.get_last_value()? else {
@@ -140,7 +150,7 @@ impl Layer<Ground> for Walking {
             Stroke::new(0.001, Color32::BLACK),
         );
 
-        paint_step_plan(painter, step_plan);
+        paint_step_plan(painter, step_plan, ground_to_upcoming_support);
         Ok(())
     }
 }
@@ -317,7 +327,11 @@ fn paint_sole_polygon(
     );
 }
 
-fn paint_step_plan(painter: &TwixPainter<Ground>, step_plan: Step) {
+fn paint_step_plan(
+    painter: &TwixPainter<Ground>,
+    step_plan: Step,
+    ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
+) {
     painter.pose(
         Pose2::default(),
         0.02,
@@ -326,7 +340,8 @@ fn paint_step_plan(painter: &TwixPainter<Ground>, step_plan: Step) {
         Stroke::new(0.005, Color32::BLACK),
     );
     painter.pose(
-        Pose2::new(point![step_plan.forward, step_plan.left], step_plan.turn),
+        ground_to_upcoming_support.inverse()
+            * Pose2::new(point![step_plan.forward, step_plan.left], step_plan.turn),
         0.02,
         0.03,
         Color32::RED,

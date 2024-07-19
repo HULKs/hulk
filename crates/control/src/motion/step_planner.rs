@@ -3,7 +3,7 @@ use coordinate_systems::{Ground, UpcomingSupport};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{Isometry2, Orientation2, Pose2};
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
@@ -31,6 +31,9 @@ pub struct CycleContext {
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
+
+    ground_to_upcoming_support_out:
+        AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
 }
 
 #[context]
@@ -44,7 +47,11 @@ impl StepPlanner {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        context
+            .ground_to_upcoming_support_out
+            .fill_if_subscribed(|| *context.ground_to_upcoming_support);
+
         let (path, orientation_mode, speed) = match context.motion_command {
             MotionCommand::Walk {
                 path,
