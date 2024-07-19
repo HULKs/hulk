@@ -1,7 +1,7 @@
 {
   "step_planner": {
     "max_step_size": {
-      "forward": 0.05
+      "forward": 0.045
     },
     "step_size_delta_fast": {
       "forward": 0.005

@@ -1,1 +1,7 @@
-{}
+{
+  "step_planner": {
+    "max_step_size": {
+      "forward": 0.045
+    }
+  }
+}

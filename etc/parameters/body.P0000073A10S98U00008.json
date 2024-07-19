@@ -1,4 +1,9 @@
 {
+  "step_planner": {
+    "max_step_size": {
+      "forward": 0.045
+    }
+  },
   "joint_calibration_offsets": {
     "left_arm": {
       "shoulder_roll": 0.18
