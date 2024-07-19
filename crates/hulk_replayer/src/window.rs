@@ -73,7 +73,10 @@ impl App for Window {
             }
         });
         CentralPanel::default().show(context, |ui| {
-            ui.label(format!("{}", self.time_sender.borrow().playback_rate));
+            ui.label(format!(
+                "Speed: {}",
+                self.time_sender.borrow().playback_rate
+            ));
             ui.horizontal_top(|ui| {
                 ui.add(Labels::new(&self.indices));
                 let absolute_position = AbsoluteTime::new(self.time_sender.borrow().time);
