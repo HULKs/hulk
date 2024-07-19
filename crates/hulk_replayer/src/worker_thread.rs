@@ -18,7 +18,7 @@ impl Default for PlayerState {
     fn default() -> Self {
         Self {
             time: SystemTime::UNIX_EPOCH,
-            playing: Default::default(),
+            playing: false,
             playback_rate: 1.0,
         }
     }
