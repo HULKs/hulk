@@ -46,6 +46,11 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 }
 
 impl RemotePanel {
+    fn reset(&self) {
+        self.update_step(Value::Null);
+        self.update_look_at_angle(Value::Null);
+    }
+
     fn update_step(&self, step: Value) {
         self.nao.write(
             "parameters.step_planner.injected_step",
@@ -70,15 +75,14 @@ impl Widget for &mut RemotePanel {
         self.gilrs.inc();
 
         if ui.checkbox(&mut self.enabled, "Enabled (Start)").changed() {
-            self.update_step(Value::Null);
-            self.update_look_at_angle(Value::Null);
+            self.reset();
         };
 
         while let Some(event) = self.gilrs.next_event() {
             if let gilrs::EventType::ButtonPressed(Button::Start, _) = event.event {
                 self.enabled = !self.enabled;
                 if !self.enabled {
-                    self.update_step(Value::Null)
+                    self.reset();
                 }
             };
             self.active_gamepad = Some(event.id);
