@@ -124,6 +124,7 @@ impl Index<KickVariant> for InWalkKicksParameters {
 )]
 pub struct InWalkKickInfoParameters {
     pub position: nalgebra::Point2<f32>,
+    pub position_offset: nalgebra::Vector2<f32>,
     pub orientation: f32,
     pub reached_thresholds: nalgebra::Vector3<f32>,
     pub shot_distance: f32,
