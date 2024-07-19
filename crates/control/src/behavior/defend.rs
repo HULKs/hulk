@@ -55,23 +55,25 @@ impl<'cycle> Defend<'cycle> {
         )
     }
 
-    pub fn wide_stance(
-        &self,
-        wide_stance_paramters: WideStanceParameters,
-    ) -> Option<MotionCommand> {
+    pub fn wide_stance(&self, parameters: WideStanceParameters) -> Option<MotionCommand> {
         let ball = self.world_state.ball?;
 
         let position = ball.ball_in_ground;
         let velocity = ball.ball_in_ground_velocity;
 
-        if velocity.x() >= wide_stance_paramters.minimum_velocity {
+        let ball_is_in_front_of_robot =
+            position.coords().norm() < parameters.maximum_ball_distance && position.x() > 0.0;
+        let ball_is_moving_towards_robot =
+            ball.ball_in_ground_velocity.x() < -parameters.minimum_ball_velocity;
+
+        if !ball_is_in_front_of_robot || !ball_is_moving_towards_robot {
             return None;
         }
 
         let horizontal_distance_to_intersection =
             position.y() - position.x() / velocity.x() * velocity.y();
 
-        if horizontal_distance_to_intersection.abs() < wide_stance_paramters.action_radius {
+        if horizontal_distance_to_intersection.abs() < parameters.action_radius {
             Some(MotionCommand::WideStance)
         } else {
             None
