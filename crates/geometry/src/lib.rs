@@ -2,7 +2,6 @@ pub mod arc;
 pub mod circle;
 pub mod circle_tangents;
 pub mod convex_hull;
-pub mod corner;
 pub mod direction;
 pub mod is_inside_polygon;
 pub mod line;
@@ -10,6 +9,7 @@ pub mod line_segment;
 pub mod look_at;
 pub mod rectangle;
 pub mod two_line_segments;
+pub mod two_lines;
 
 pub trait Distance<T> {
     fn squared_distance_to(&self, other: T) -> f32;
