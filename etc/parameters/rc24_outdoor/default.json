@@ -82,5 +82,19 @@
         "start": 50
       }
     }
+  },
+  "feet_detection": {
+    "vision_top": {
+      "enable": true,
+      "maximum_cluster_distance": 0.25,
+      "minimum_consecutive_segments": 6,
+      "minimum_luminance_standard_deviation": 10,
+      "minimum_samples_per_cluster": 6,
+      "minimum_feet_width": 0.0,
+      "minimum_segment_height": 0.12
+    },
+    "vision_bottom": {
+      "enable": false
+    }
   }
 }
