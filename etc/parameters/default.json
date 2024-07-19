@@ -14,10 +14,10 @@
   "feet_detection": {
     "vision_top": {
       "enable": true,
-      "maximum_cluster_distance": 0.3,
-      "minimum_consecutive_segments": 2,
-      "minimum_luminance_standard_deviation": 2,
-      "minimum_samples_per_cluster": 6,
+      "maximum_cluster_distance": 0.25,
+      "minimum_consecutive_segments": 5,
+      "minimum_luminance_standard_deviation": 5,
+      "minimum_samples_per_cluster": 5,
       "minimum_feet_width": 0.0,
       "minimum_segment_height": 0.08
     },
