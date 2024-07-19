@@ -58,24 +58,24 @@ impl<T> IndexMut<PlayerNumber> for Players<T> {
     }
 }
 
+fn get_penalty(team_state: &TeamState, index: usize) -> Option<Penalty> {
+    team_state
+        .players
+        .get(index)
+        .map(|player| player.penalty)
+        .unwrap_or_default()
+}
+
 impl From<TeamState> for Players<Option<Penalty>> {
     fn from(team_state: TeamState) -> Self {
         Self {
-            one: team_state.players[0].penalty,
-            two: team_state.players[1].penalty,
-            three: team_state.players[2].penalty,
-            four: team_state.players[3].penalty,
-            five: team_state.players[4].penalty,
-            six: team_state
-                .players
-                .get(5)
-                .map(|player| player.penalty)
-                .unwrap_or_default(),
-            seven: team_state
-                .players
-                .get(6)
-                .map(|player| player.penalty)
-                .unwrap_or_default(),
+            one: get_penalty(&team_state, 0),
+            two: get_penalty(&team_state, 1),
+            three: get_penalty(&team_state, 2),
+            four: get_penalty(&team_state, 3),
+            five: get_penalty(&team_state, 4),
+            six: get_penalty(&team_state, 5),
+            seven: get_penalty(&team_state, 6),
         }
     }
 }
