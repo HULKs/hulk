@@ -142,53 +142,54 @@
       }
     },
     {
+      "interrupt_conditions": [{ "NoGroundContactAbort": {} }],
       "keyframes": [
         {
-          "duration": 0.1,
+          "duration": 0.3,
           "positions": {
             "head": {
-              "yaw": 0.0,
-              "pitch": 0.3839724354387525
+              "pitch": 0.5767421722412109,
+              "yaw": -0.03225588798522949
             },
             "left_arm": {
-              "shoulder_pitch": 2.0245819323134224,
-              "shoulder_roll": -0.13962634015954636,
-              "elbow_yaw": -1.48352986419518,
-              "elbow_roll": -0.2792526803190927,
-              "wrist_yaw": -1.5707963267948966,
-              "hand": 0.0
-            },
-            "right_arm": {
-              "shoulder_pitch": 2.111848394913139,
-              "shoulder_roll": -0.6981317007977318,
-              "elbow_yaw": 1.7278759594743864,
-              "elbow_roll": -0.13962634015954636,
-              "wrist_yaw": 1.5707963267948966,
-              "hand": 0.0
+              "elbow_roll": -0.08125996589660645,
+              "elbow_yaw": -1.543245792388916,
+              "hand": 0.1119999885559082,
+              "shoulder_pitch": 1.8760401010513303,
+              "shoulder_roll": -0.018450021743774418,
+              "wrist_yaw": -1.3576321601867676
             },
             "left_leg": {
-              "hip_yaw_pitch": -1.1344640137963142,
-              "hip_roll": 0.20943951023931953,
-              "hip_pitch": -0.5235987755982988,
-              "knee_pitch": 2.111848394913139,
-              "ankle_pitch": -0.7155849933176751,
-              "ankle_roll": -0.33161255787892263
+              "ankle_pitch": -0.8161299228668213,
+              "ankle_roll": -0.29141807556152344,
+              "hip_pitch": -0.3773219585418701,
+              "hip_roll": 0.1595778465270996,
+              "hip_yaw_pitch": -1.175002098083496,
+              "knee_pitch": 2.162898063659668
+            },
+            "right_arm": {
+              "elbow_roll": 0.023051977157592773,
+              "elbow_yaw": 1.6858240365982056,
+              "hand": 0.10920000076293944,
+              "shoulder_pitch": 1.7089180946350098,
+              "shoulder_roll": -0.6427879333496094,
+              "wrist_yaw": 1.6321340799331665
             },
             "right_leg": {
-              "hip_yaw_pitch": -1.1344640137963142,
-              "hip_roll": -0.3490658503988659,
-              "hip_pitch": -1.53588974175501,
-              "knee_pitch": 0.8377580409572781,
-              "ankle_pitch": 0.9250245035569946,
-              "ankle_roll": -0.017453292519943295
+              "ankle_pitch": 0.9633941650390624,
+              "ankle_roll": 0.047595977783203125,
+              "hip_pitch": -1.435865879058838,
+              "hip_roll": -0.4985079765319824,
+              "hip_yaw_pitch": -1.175002098083496,
+              "knee_pitch": 0.7593719959259033
             }
           }
         }
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.3,
-          "timeout_duration": 5.0
+          "tolerance": 0.2,
+          "timeout_duration": 4.0
         }
       }
     },
@@ -196,7 +197,7 @@
       "interrupt_conditions": [{ "NoGroundContactAbort": {} }],
       "keyframes": [
         {
-          "duration": 0.3,
+          "duration": 0.4,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -239,7 +240,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.3,
+          "tolerance": 0.1,
           "timeout_duration": 5.0
         }
       }
@@ -376,16 +377,15 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.3,
+          "tolerance": 0.1,
           "timeout_duration": 5.0
         }
       }
     },
     {
       "interrupt_conditions": [
-        {
-          "FallenAbort": {}
-        }
+        { "FallenAbort": {} },
+        { "NoGroundContactAbort": {} }
       ],
       "keyframes": [
         {
