@@ -1,7 +1,8 @@
+use std::sync::Arc;
+
 use color_eyre::Result;
 use eframe::epaint::Color32;
 use filtering::mean_clustering::MeanClustering;
-use std::sync::Arc;
 
 use coordinate_systems::Ground;
 use types::{
