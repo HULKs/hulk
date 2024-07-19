@@ -1,9 +1,9 @@
 use std::vec::IntoIter;
 
 use geometry::{
-    corner::Corner,
     line::{Line, Line2},
     line_segment::LineSegment,
+    two_lines::TwoLines,
     Distance,
 };
 use linear_algebra::{Point2, Rotation2};
@@ -15,16 +15,16 @@ pub enum RansacFeature<Frame> {
     #[default]
     None,
     Line(Line2<Frame>),
-    Corner(Corner<Frame>),
+    TwoLines(TwoLines<Frame>),
 }
 
 impl<Frame> RansacFeature<Frame> {
     fn from_points(point1: Point2<Frame>, point2: Point2<Frame>, point3: Point2<Frame>) -> Self {
         let line = Line::from_points(point1, point2);
-        let corner = Corner::from_line_and_point_orthogonal(&line, point3);
+        let two_lines = TwoLines::from_line_and_point_orthogonal(&line, point3);
 
-        if corner.direction2.norm() > f32::EPSILON {
-            Self::Corner(corner)
+        if two_lines.direction2.norm() > f32::EPSILON {
+            Self::TwoLines(two_lines)
         } else {
             Self::Line(line)
         }
@@ -52,7 +52,7 @@ impl<Frame> Distance<Point2<Frame>> for RansacFeature<Frame> {
         match self {
             RansacFeature::None => f32::INFINITY,
             RansacFeature::Line(line) => line.squared_distance_to(point),
-            RansacFeature::Corner(corner) => corner.squared_distance_to(point),
+            RansacFeature::TwoLines(two_lines) => two_lines.squared_distance_to(point),
         }
     }
 }
@@ -70,23 +70,27 @@ impl<Frame> IntoIterator for RansacResult<Frame> {
                     .map(|line_segment| vec![line_segment])
                     .unwrap_or_default()
             }
-            RansacFeature::Corner(corner) => {
-                let dividing_line = Line {
-                    point: corner.point,
-                    direction: corner.direction1.normalize() + corner.direction2.normalize(),
+            RansacFeature::TwoLines(two_lines) => {
+                let dividing_line1 = Line {
+                    point: two_lines.point,
+                    direction: two_lines.direction1.normalize() + two_lines.direction2.normalize(),
+                };
+                let dividing_line2 = Line {
+                    point: two_lines.point,
+                    direction: two_lines.direction1.normalize() - two_lines.direction2.normalize(),
                 };
 
-                let (used_points1, used_points2): (Vec<_>, Vec<_>) = self
-                    .used_points
-                    .iter()
-                    .partition(|&point| dividing_line.is_above(*point));
+                let (used_points1, used_points2): (Vec<_>, Vec<_>) =
+                    self.used_points.iter().partition(|&point| {
+                        dividing_line1.is_above(*point) != dividing_line2.is_above(*point)
+                    });
                 let line1 = Line {
-                    point: corner.point,
-                    direction: corner.direction1,
+                    point: two_lines.point,
+                    direction: two_lines.direction1,
                 };
                 let line2 = Line {
-                    point: corner.point,
-                    direction: corner.direction2,
+                    point: two_lines.point,
+                    direction: two_lines.direction2,
                 };
 
                 [
