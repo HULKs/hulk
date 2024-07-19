@@ -183,7 +183,7 @@ fn defend_pose(
     };
     distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
-        world_state.filtered_game_controller_state,
+        world_state.filtered_game_controller_state.as_ref(),
         field_dimensions,
     );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
@@ -212,7 +212,7 @@ fn defend_penalty_kick(
     };
     distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
-        world_state.filtered_game_controller_state,
+        world_state.filtered_game_controller_state.as_ref(),
         field_dimensions,
     );
 
@@ -333,7 +333,7 @@ fn block_on_line(
 
 fn penalty_kick_defender_radius(
     distance_to_target: f32,
-    filtered_game_controller_state: Option<FilteredGameControllerState>,
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
     field_dimensions: &FieldDimensions,
 ) -> f32 {
     if let Some(FilteredGameControllerState {

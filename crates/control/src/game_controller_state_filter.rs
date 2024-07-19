@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::Result;
 use context_attribute::context;
@@ -12,11 +15,14 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
+    players::Players,
 };
+
 #[derive(Deserialize, Serialize)]
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
+    last_game_controller_state: Option<GameControllerState>,
     whistle_in_set_ball_position: Option<Point2<Field>>,
 }
 
@@ -48,6 +54,7 @@ pub struct MainOutputs {
 impl GameControllerStateFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
+            last_game_controller_state: None,
             state: State::Initial,
             opponent_state: State::Initial,
             whistle_in_set_ball_position: None,
@@ -55,6 +62,24 @@ impl GameControllerStateFilter {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycle) = self
+            .last_game_controller_state
+            .map(|last| {
+                (
+                    penalty_diff(last.penalties, context.game_controller_state.penalties),
+                    penalty_diff(
+                        last.opponent_penalties,
+                        context.game_controller_state.opponent_penalties,
+                    ),
+                )
+            })
+            .unwrap_or_default();
+
+        let did_receive_motion_in_set_penalty = new_own_penalties_last_cycle
+            .iter()
+            .chain(new_opponent_penalties_last_cycle.iter())
+            .any(|(_, penalty)| matches!(penalty, Penalty::IllegalMotionInSet { .. }));
+
         let game_states = self.filter_game_states(
             *context.ground_to_field,
             context.ball_position,
@@ -65,6 +90,7 @@ impl GameControllerStateFilter {
             context.cycle_time,
             *context.visual_referee_proceed_to_ready,
             *context.player_number,
+            did_receive_motion_in_set_penalty,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
@@ -79,11 +105,14 @@ impl GameControllerStateFilter {
             own_team_is_home_after_coin_toss: context
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
+            new_own_penalties_last_cycle,
+            new_opponent_penalties_last_cycle,
         };
         context
             .whistle_in_set_ball_position
             .fill_if_subscribed(|| self.whistle_in_set_ball_position);
 
+        self.last_game_controller_state = Some(*context.game_controller_state);
         Ok(MainOutputs {
             filtered_game_controller_state: Some(filtered_game_controller_state).into(),
         })
@@ -101,6 +130,7 @@ impl GameControllerStateFilter {
         cycle_time: &CycleTime,
         visual_referee_proceed_to_ready: bool,
         player_number: PlayerNumber,
+        did_receive_motion_in_set_penalty: bool,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
             ground_to_field,
@@ -116,6 +146,7 @@ impl GameControllerStateFilter {
             config,
             ball_detected_far_from_any_goal,
             visual_referee_proceed_to_ready,
+            did_receive_motion_in_set_penalty,
         );
         self.opponent_state = next_filtered_state(
             self.opponent_state,
@@ -125,6 +156,7 @@ impl GameControllerStateFilter {
             config,
             ball_detected_far_from_any_goal,
             visual_referee_proceed_to_ready,
+            did_receive_motion_in_set_penalty,
         );
 
         if let State::WhistleInSet { .. } = self.state {
@@ -188,6 +220,7 @@ fn next_filtered_state(
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
     visual_referee_proceed_to_ready: bool,
+    did_receive_motion_in_set_penalty: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
         (State::Finished, GameState::Initial) => State::Initial,
@@ -255,6 +288,9 @@ fn next_filtered_state(
                 State::Set
             }
         }
+        (State::WhistleInSet { .. }, GameState::Set) if did_receive_motion_in_set_penalty => {
+            State::Set
+        }
         (
             State::WhistleInSet {
                 time_when_whistle_was_detected,
@@ -270,7 +306,7 @@ fn next_filtered_state(
                     time_when_whistle_was_detected,
                 }
             } else {
-                State::Set
+                State::Playing
             }
         }
         (State::Playing, GameState::Playing) => {
@@ -462,4 +498,25 @@ impl State {
             State::TentativeFinished { .. } => FilteredGameState::Set,
         }
     }
+}
+
+fn penalty_diff(
+    last: Players<Option<Penalty>>,
+    current: Players<Option<Penalty>>,
+) -> HashMap<PlayerNumber, Penalty> {
+    let current_penalties = current
+        .iter()
+        .fold(HashMap::new(), |mut map, (player, penalty)| {
+            if let Some(penalty) = penalty {
+                map.insert(player, *penalty);
+            }
+            map
+        });
+    last.iter()
+        .fold(current_penalties, |mut map, (player, penalty)| {
+            if penalty.is_some() {
+                map.remove(&player);
+            }
+            map
+        })
 }
