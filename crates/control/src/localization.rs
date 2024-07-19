@@ -166,7 +166,7 @@ impl Localization {
         penalty: &Option<Penalty>,
     ) {
         match (self.last_primary_state, primary_state, game_phase) {
-            (PrimaryState::Standby, PrimaryState::Ready, _) => {
+            (PrimaryState::Standby | PrimaryState::Initial, PrimaryState::Ready, _) => {
                 let initial_pose = generate_initial_pose(
                     &context.initial_poses[*context.player_number],
                     context.field_dimensions,
