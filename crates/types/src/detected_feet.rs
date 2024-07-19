@@ -1,4 +1,4 @@
-use linear_algebra::Point2;
+use linear_algebra::{Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
