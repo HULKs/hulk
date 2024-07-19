@@ -36,6 +36,7 @@ pub struct StrikerMessage {
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
+    pub number_of_ball_contacts: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -122,6 +123,7 @@ mod tests {
                 age: Duration::MAX,
             }),
             time_to_reach_kick_position: Some(Duration::MAX),
+            number_of_ball_contacts: 0,
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }

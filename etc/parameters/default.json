@@ -1088,6 +1088,7 @@
     "kick_off_kick_variants": ["Forward", "Side", "Turn"],
     "penalty_shot_kick_variants": ["Forward"],
     "default_kick_strength": 1.0,
+    "indirect_goal_dance_kick_strength": 0.5,
     "corner_kick_strength": 0.25,
     "kick_off_kick_strength": 0.25,
     "penalty_shot_kick_strength": 2.0,

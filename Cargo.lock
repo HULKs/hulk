@@ -1467,6 +1467,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "serde",
+ "serde_json",
  "smallvec",
  "spl_network_messages",
  "splines",
@@ -4589,6 +4590,7 @@ dependencies = [
  "num-traits",
  "path_serde_derive",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
