@@ -6,7 +6,7 @@ use std::{
 use approx::assert_relative_eq;
 use color_eyre::{eyre::WrapErr, Result};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{distance, point, vector, IntoTransform, Isometry2, Pose2};
+use linear_algebra::{distance, point, IntoTransform, Isometry2, Pose2};
 use nalgebra::{matrix, Matrix, Matrix2, Matrix3, Rotation2, Translation2, Vector2, Vector3};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
@@ -1038,14 +1038,14 @@ pub fn generate_initial_pose(
 ) -> Pose2<Field> {
     match initial_pose.side {
         Side::Left => Pose2::new(
-            vector![
+            point![
                 initial_pose.center_line_offset_x,
                 field_dimensions.width * 0.5
             ],
             -FRAC_PI_2,
         ),
         Side::Right => Pose2::new(
-            vector![
+            point![
                 initial_pose.center_line_offset_x,
                 -field_dimensions.width * 0.5
             ],
@@ -1060,14 +1060,14 @@ fn generate_penalized_poses(
 ) -> Vec<Pose2<Field>> {
     vec![
         Pose2::new(
-            vector![
+            point![
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
                 -field_dimensions.width * 0.5 - penalized_distance
             ],
             FRAC_PI_2,
         ),
         Pose2::new(
-            vector![
+            point![
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
                 field_dimensions.width * 0.5 + penalized_distance
             ],
