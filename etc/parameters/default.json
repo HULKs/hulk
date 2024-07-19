@@ -1071,16 +1071,14 @@
       "position": [-0.22, -0.04],
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
-      "reached_thresholds": [0.06, 0.03, 0.1],
-      "precision_kick_reached_thresholds": [
-        0.05999999865889549, 0.009999999776482582, 0.015000000596046448
-      ],
+      "reached_thresholds": [0.04, 0.03, 0.1],
+      "precision_kick_reached_thresholds": [0.02, 0.01, 0.015],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
-      "position": [-0.15, -0.08],
-      "orientation": 0.78,
+      "position": [-0.145, -0.08],
+      "orientation": 0.9,
       "reached_thresholds": [0.04, 0.04, 0.1],
       "precision_kick_reached_thresholds": [0.0, 0.0, 0.0],
       "shot_distance": 3.5,
