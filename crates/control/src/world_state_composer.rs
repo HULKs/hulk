@@ -84,7 +84,7 @@ impl WorldStateComposer {
             robot,
             kick_decisions: context.kick_decisions.cloned(),
             instant_kick_decisions: context.instant_kick_decisions.cloned(),
-            filtered_game_controller_state: context.filtered_game_controller_state.copied(),
+            filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
             calibration_command: context.calibration_command.copied(),
         };

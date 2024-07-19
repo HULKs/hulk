@@ -75,7 +75,7 @@ pub fn execute(
         }
         PrimaryState::Playing => {
             match (
-                world_state.filtered_game_controller_state,
+                &world_state.filtered_game_controller_state,
                 world_state.robot.role,
                 world_state.ball,
             ) {

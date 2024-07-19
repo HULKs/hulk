@@ -43,8 +43,9 @@ fn look_at_referee(
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let expected_referee_position = expected_referee_position?;
+    let filtered_game_controller_state = world_state.filtered_game_controller_state.as_ref()?;
     if !enable_pose_detection
-        || world_state.filtered_game_controller_state?.game_state != FilteredGameState::Standby
+        || filtered_game_controller_state.game_state != FilteredGameState::Standby
     {
         return None;
     }
@@ -55,13 +56,9 @@ fn look_at_referee(
         return None;
     };
 
-    let own_team_is_home_after_coin_toss = world_state
-        .filtered_game_controller_state?
-        .own_team_is_home_after_coin_toss;
-
     match (
         world_state.robot.player_number,
-        own_team_is_home_after_coin_toss,
+        filtered_game_controller_state.own_team_is_home_after_coin_toss,
     ) {
         (PlayerNumber::Four | PlayerNumber::Seven, true) => {}
         (PlayerNumber::Two | PlayerNumber::Six, false) => {}

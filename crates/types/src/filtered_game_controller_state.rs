@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, Penalty, SubState, Team};
+use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 
 use crate::{filtered_game_state::FilteredGameState, players::Players};
 
 #[derive(
-    Default, Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq,
+    Default, Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq,
 )]
 
 pub struct FilteredGameControllerState {
@@ -17,4 +19,7 @@ pub struct FilteredGameControllerState {
     pub remaining_number_of_messages: u16,
     pub sub_state: Option<SubState>,
     pub own_team_is_home_after_coin_toss: bool,
+
+    pub new_own_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
+    pub new_opponent_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
 }

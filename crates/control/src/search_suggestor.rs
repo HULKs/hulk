@@ -98,7 +98,7 @@ impl SearchSuggestor {
         if let Some(filtered_game_controller_state) = context.filtered_game_controller_state {
             for rule_ball_hypothesis in get_rule_hypotheses(
                 *context.primary_state,
-                *filtered_game_controller_state,
+                filtered_game_controller_state,
                 *context.field_dimensions,
             ) {
                 self.heatmap[rule_ball_hypothesis] = 1.0;
@@ -164,7 +164,7 @@ impl IndexMut<Point2<Field>> for Heatmap {
 
 fn get_rule_hypotheses(
     primary_state: PrimaryState,
-    filtered_game_controller_state: FilteredGameControllerState,
+    filtered_game_controller_state: &FilteredGameControllerState,
     field_dimensions: FieldDimensions,
 ) -> Vec<Point2<Field>> {
     let kicking_team_half =

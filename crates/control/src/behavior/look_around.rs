@@ -8,7 +8,7 @@ use types::{
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match (
-        world_state.filtered_game_controller_state,
+        &world_state.filtered_game_controller_state,
         world_state.robot.primary_state,
     ) {
         (
