@@ -108,7 +108,13 @@ impl StepPlanner {
             left: step_target.position().y(),
             turn: match orientation_mode {
                 OrientationMode::AlignWithPath => step_target.orientation().angle(),
-                OrientationMode::Override(orientation) => orientation.angle(),
+                OrientationMode::Override(orientation) => {
+                    let ground_to_upcoming_support = context
+                        .ground_to_upcoming_support
+                        .orientation()
+                        .as_transform();
+                    (ground_to_upcoming_support * orientation).angle()
+                }
             },
         };
 
