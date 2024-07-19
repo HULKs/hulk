@@ -4,16 +4,18 @@ use color_eyre::Result;
 use eframe::epaint::Color32;
 
 use coordinate_systems::Ground;
-use linear_algebra::Point2;
-use types::{detected_feet::ClusterPoint, field_dimensions::FieldDimensions};
+use types::{
+    detected_feet::{ClusterPoint, CountedCluster},
+    field_dimensions::FieldDimensions,
+};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct FeetDetection {
-    cluster_bottom: BufferHandle<Option<Vec<Point2<Ground>>>>,
-    cluster_top: BufferHandle<Option<Vec<Point2<Ground>>>>,
+    cluster_bottom: BufferHandle<Option<Vec<CountedCluster>>>,
+    cluster_top: BufferHandle<Option<Vec<CountedCluster>>>,
     cluster_points_bottom: BufferHandle<Option<Vec<ClusterPoint>>>,
     cluster_points_top: BufferHandle<Option<Vec<ClusterPoint>>>,
 }
@@ -43,16 +45,16 @@ impl Layer<Ground> for FeetDetection {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(cluster) = self.cluster_bottom.get_last_value()?.flatten() {
-            for point in cluster {
+        if let Some(clusters) = self.cluster_bottom.get_last_value()?.flatten() {
+            for cluster in clusters {
                 let radius = 0.1;
-                painter.circle_filled(point, radius, Color32::YELLOW);
+                painter.circle_filled(cluster.mean, radius, Color32::YELLOW);
             }
         }
-        if let Some(cluster) = self.cluster_top.get_last_value()?.flatten() {
-            for point in cluster {
+        if let Some(clusters) = self.cluster_top.get_last_value()?.flatten() {
+            for cluster in clusters {
                 let radius = 0.1;
-                painter.circle_filled(point, radius, Color32::YELLOW);
+                painter.circle_filled(cluster.mean, radius, Color32::YELLOW);
             }
         }
 
