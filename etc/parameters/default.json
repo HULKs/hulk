@@ -1054,7 +1054,7 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.18, -0.04],
+      "position": [-0.22, -0.04],
       "position_offset": [0.02, 0.0],
       "orientation": 0.0,
       "reached_thresholds": [0.03, 0.01, 0.05],
