@@ -56,6 +56,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
+    team_time_to_reach_kick_position: Input<Option<Duration>, "team_time_to_reach_kick_position?">,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -254,6 +255,7 @@ impl RoleAssignment {
                 send_spl_striker_message,
                 team_ball,
                 cycle_start_time,
+                context.team_time_to_reach_kick_position.copied(),
                 context.filtered_game_controller_state,
                 *context.player_number,
                 context.spl_network.striker_trusts_team_ball,
@@ -276,6 +278,7 @@ impl RoleAssignment {
                     send_spl_striker_message,
                     team_ball,
                     cycle_start_time,
+                    context.team_time_to_reach_kick_position.copied(),
                     context.filtered_game_controller_state,
                     *context.player_number,
                     context.spl_network.striker_trusts_team_ball,
@@ -379,11 +382,16 @@ fn process_role_state_machine(
     send_spl_striker_message: bool,
     team_ball: Option<BallPosition<Field>>,
     cycle_start_time: SystemTime,
+    team_time_to_reach_kick_position: Option<Duration>,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
     striker_trusts_team_ball: Duration,
     optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition<Field>>) {
+    if time_to_reach_kick_position < team_time_to_reach_kick_position {
+        return (Role::Striker, true, team_ball);
+    }
+
     if let Some(game_controller_state) = filtered_game_controller_state {
         match game_controller_state.game_phase {
             GamePhase::PenaltyShootout {
@@ -413,7 +421,7 @@ fn process_role_state_machine(
     }
 
     match (current_role, detected_own_ball, incoming_message) {
-        //Striker maybe lost Ball
+        // Striker maybe lost Ball
         (Role::Striker, None, None) => match team_ball {
             None => (Role::Loser, true, None),
             Some(team_ball) => {
