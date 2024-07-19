@@ -120,6 +120,7 @@ impl KickSelector {
         });
 
         let mut instant_kick_decisions = generate_decisions_for_instant_kicks(
+            &variants,
             &sides,
             context.in_walk_kicks,
             ball_position,
@@ -339,6 +340,7 @@ fn is_intersecting_with_an_obstacle(
 }
 
 fn generate_decisions_for_instant_kicks(
+    kick_variants: &[KickVariant],
     sides: &[Side; 2],
     in_walk_kicks: &InWalkKicksParameters,
     ball_position: Point2<Ground>,
@@ -349,10 +351,8 @@ fn generate_decisions_for_instant_kicks(
 ) -> Vec<KickDecision> {
     let field_to_ground = ground_to_field.inverse();
 
-    let kick_variants = vec![KickVariant::Forward, KickVariant::Turn, KickVariant::Side];
-
     iproduct!(sides, kick_variants)
-        .filter_map(|(&kicking_side, variant)| {
+        .filter_map(|(&kicking_side, &variant)| {
             let kick_info = &in_walk_kicks[variant];
 
             struct TargetAlignedBall;
@@ -526,6 +526,7 @@ fn compute_kick_pose(
 
     ball_to_ground
         * aligned_ball_to_ball
+        * Isometry2::from(kick_info.position_offset.framed())
         * match side {
             Side::Left => kick_pose_in_target_aligned_ball,
             Side::Right => mirror_kick_pose(kick_pose_in_target_aligned_ball),
