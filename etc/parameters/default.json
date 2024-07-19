@@ -515,8 +515,9 @@
     }
   },
   "wide_stance": {
-    "action_radius": 0.3,
-    "minimum_velocity": -0.5
+    "maximum_ball_distance": 1.5,
+    "minimum_ball_velocity": 0.6,
+    "action_radius": 0.25
   },
   "kick_steps": {
     "forward": [
