@@ -25,6 +25,8 @@ pub struct CycleContext {
 
     center_circle_obstacle_radius_increase:
         Parameter<f32, "rule_obstacles.center_circle_obstacle_radius_increase">,
+    center_circle_ballspace_free_obstacle_radius:
+        Parameter<f32, "rule_obstacles.center_circle_ballspace_free_obstacle_radius">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     free_kick_obstacle_radius: Parameter<f32, "rule_obstacles.free_kick_obstacle_radius">,
     penaltykick_box_extension: Parameter<f32, "rule_obstacles.penaltykick_box_extension">,
@@ -106,6 +108,24 @@ impl RuleObstacleComposer {
                     *context.penaltykick_box_extension,
                 );
                 rule_obstacles.push(penalty_box_obstacle);
+            }
+            (
+                FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Ready {
+                            kicking_team: Team::Hulks,
+                        },
+                    sub_state: None,
+                    ..
+                },
+                _,
+            ) => {
+                let center_circle_ballspace_free_obstacle = RuleObstacle::Circle(Circle {
+                    center: Point::origin(),
+                    radius: *context.center_circle_ballspace_free_obstacle_radius,
+                });
+
+                rule_obstacles.push(center_circle_ballspace_free_obstacle);
             }
             (
                 FilteredGameControllerState {
