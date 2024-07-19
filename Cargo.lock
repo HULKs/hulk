@@ -6105,6 +6105,7 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "fern",
+ "filtering",
  "framework",
  "fuzzy-matcher",
  "geometry",

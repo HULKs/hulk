@@ -23,8 +23,9 @@ pub struct ClusterPoint {
     Default, Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct CountedCluster {
-    pub mean: Point2<Ground>,
     pub samples: usize,
     pub leftmost_point: Point2<Ground>,
     pub rightmost_point: Point2<Ground>,
+    pub sum: Vector2<Ground>,
+    pub sum_squared: Vector2<Ground>,
 }
