@@ -17,7 +17,7 @@ use types::hardware::Ids;
 use crate::{
     execution::Replayer,
     window::Window,
-    worker_thread::{spawn_worker, PlayerState},
+    worker_thread::{spawn_workers, PlayerState},
     ReplayerHardwareInterface,
 };
 
@@ -78,7 +78,7 @@ pub fn replayer() -> Result<()> {
         Box::new(move |creation_context| {
             let (time_sender, _) = watch::channel(PlayerState::default());
             let context = creation_context.egui_ctx.clone();
-            spawn_worker(replayer, time_sender.clone(), move || {
+            spawn_workers(replayer, time_sender.clone(), move || {
                 context.request_repaint();
             });
             Box::new(Window::new(indices, time_sender))

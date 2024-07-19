@@ -24,53 +24,68 @@ impl Default for PlayerState {
     }
 }
 
-pub fn spawn_worker(
-    mut replayer: Replayer<ReplayerHardwareInterface>,
+pub fn spawn_workers(
+    replayer: Replayer<ReplayerHardwareInterface>,
     sender: watch::Sender<PlayerState>,
     update_callback: impl Fn() + Send + Sync + 'static,
 ) {
     spawn(move || {
         let runtime = Builder::new_current_thread().enable_all().build().unwrap();
 
-        runtime.block_on(async move {
-            let mut receiver = sender.subscribe();
-            let mut parameters_receiver = replayer.get_parameters_receiver();
-            let mut last_autoplay_time = None;
-            loop {
-                select! {
-                    _ = parameters_receiver.wait_for_change() => {}
-                    _ = sleep(Duration::from_secs(1)) => {}
-                    _ = sleep(Duration::from_millis(12)), if receiver.borrow().playing => {
-                        let elapsed = last_autoplay_time
-                            .as_ref()
-                            .map(Instant::elapsed)
-                            .unwrap_or(Duration::from_millis(12));
-                        last_autoplay_time = Some(Instant::now());
-                        sender.send_modify(|state| {
-                            state.time += elapsed.mul_f32(state.playback_rate);
-                        });
-                        // receiver is updated anyway, prevent duplicate replaying
-                        continue;
-                    }
-                    result = receiver.changed() => {
-                        if result.is_err() {
-                            // channel closed, quit thread
-                            break;
-                        }
-                    }
-                }
+        runtime.spawn(playback_worker(sender.clone()));
+        runtime.block_on(replay_worker(replayer, sender.subscribe(), update_callback));
+    });
+}
 
+async fn replay_worker(
+    mut replayer: Replayer<ReplayerHardwareInterface>,
+    mut receiver: watch::Receiver<PlayerState>,
+    update_callback: impl Fn() + Send + Sync + 'static,
+) {
+    let mut parameters_receiver = replayer.get_parameters_receiver();
+    loop {
+        select! {
+            _ = parameters_receiver.wait_for_change() => {}
+            _ = sleep(Duration::from_secs(1)) => {}
+            result = receiver.changed() => {
+                if result.is_err() {
+                    // channel closed, quit thread
+                    break;
+                }
+            }
+        }
+
+        let state = *receiver.borrow();
+
+        if let Err(error) = replayer.replay_at(state.time) {
+            eprintln!("{error:#?}");
+        }
+
+        update_callback()
+    }
+}
+
+async fn playback_worker(sender: watch::Sender<PlayerState>) {
+    let mut receiver = sender.subscribe();
+    let mut last_autoplay_time = None;
+    loop {
+        select! {
+            _ = receiver.changed() => {
                 let state = *receiver.borrow();
-
-                if let Err(error) = replayer.replay_at(state.time) {
-                    eprintln!("{error:#?}");
-                }
-
                 if !state.playing {
                     last_autoplay_time = None
                 }
-                update_callback()
             }
-        });
-    });
+            _ = sleep(Duration::from_millis(12)), if receiver.borrow().playing => {
+                let elapsed = last_autoplay_time
+                    .as_ref()
+                    .map(Instant::elapsed)
+                    .unwrap_or(Duration::from_millis(12));
+                last_autoplay_time = Some(Instant::now());
+                sender.send_modify(|state| {
+                    state.time += elapsed.mul_f32(state.playback_rate);
+                });
+            }
+        }
+    }
 }
