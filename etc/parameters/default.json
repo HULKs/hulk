@@ -1128,7 +1128,7 @@
       "keeper_x_offset": 0.1,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_pose": {
-        "translation": [-0.5, 0.5],
+        "translation": [-0.15, 0.15],
         "rotation": [0.707, -0.707]
       }
     },
@@ -1418,7 +1418,7 @@
   },
   "rule_obstacles": {
     "center_circle_obstacle_radius_increase": 0.2,
-    "center_circle_ballspace_free_obstacle_radius": 0.4,
+    "center_circle_ballspace_free_obstacle_radius": 0.2,
     "free_kick_obstacle_radius": 0.75,
     "penaltykick_box_extension": 0.2
   },
