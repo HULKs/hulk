@@ -10,6 +10,9 @@ env:
   NAOSDK_HOME: /__w/hulk/naosdk
   NAOSDK_AUTOMATIC_YES: 1
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   check:
     name: Check
