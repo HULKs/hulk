@@ -1,5 +1,3 @@
-use coordinate_systems::Robot;
-use linear_algebra::Orientation3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{joints::body::LowerBodyJoints, support_foot::Side};
@@ -24,13 +22,13 @@ pub struct FootLeveling {
 
 impl FootLeveling {
     pub fn tick(&mut self, context: &Context, normalized_time_since_start: f32) {
-        let (roll, pitch, _) = context.robot_orientation.inner.euler_angles();
-        let imu_orientation = Orientation3::<Robot>::from_euler_angles(roll, pitch, 0.0).mirror();
-        let level_orientation = context.robot_to_walk.rotation() * imu_orientation;
-
-        let (level_roll, level_pitch, _) = level_orientation.inner.euler_angles();
-        let target_roll = level_pitch * (1.0 - normalized_time_since_start);
-        let target_pitch = level_roll * (1.0 - normalized_time_since_start);
+        let robot_orientation = *context.robot_orientation;
+        let robot_to_walk_rotation = context.robot_to_walk.rotation();
+        let level_orientation = robot_orientation.inner * robot_to_walk_rotation.inner.inverse();
+        let (level_roll, level_pitch, _) = level_orientation.euler_angles();
+        let return_factor = ((normalized_time_since_start - 0.5).max(0.0) * 2.0).powi(2);
+        let target_roll = -level_roll * (1.0 - return_factor);
+        let target_pitch = -level_pitch * (1.0 - return_factor);
 
         let max_delta = context.parameters.max_level_delta;
 
