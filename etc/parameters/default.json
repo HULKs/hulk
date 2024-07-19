@@ -1104,7 +1104,6 @@
     "corner_kick_variants": ["Forward", "Side", "Turn"],
     "kick_off_kick_variants": ["Forward", "Side", "Turn"],
     "penalty_shot_kick_variants": ["Forward"],
-    "goal_line_kick_variants": ["Forward", "Side", "Turn"],
     "default_kick_strength": 1.0,
     "corner_kick_strength": 0.25,
     "kick_off_kick_strength": 0.25,
