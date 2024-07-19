@@ -7,7 +7,7 @@
     "minimum_overall_keypoint_confidence": 0.5,
     "minimum_visual_referee_keypoint_confidence": 0.8,
     "minimum_shoulder_angle": 0.2,
-    "foot_z_offset": 0.10,
+    "foot_z_offset": 0.1,
     "referee_pose_queue_length": 8,
     "minimum_number_poses_before_message": 3
   },
@@ -391,7 +391,7 @@
   "step_planner": {
     "injected_step": null,
     "max_step_size": {
-      "forward": 0.055,
+      "forward": 0.05,
       "left": 0.1,
       "turn": 1.0
     },
@@ -418,27 +418,27 @@
   },
   "walking_engine": {
     "base": {
-      "foot_lift_apex": 0.008,
+      "foot_lift_apex": 0.01,
       "foot_lift_apex_increase": {
         "forward": 0.1,
-        "left": 0.17,
+        "left": 0.1,
         "turn": 0.025
       },
       "foot_offset_left": [0.0, 0.05, 0.0],
       "foot_offset_right": [0.0, -0.05, 0.0],
       "step_duration": { "nanos": 260000000, "secs": 0 },
       "step_duration_increase": {
-        "forward": 0.3,
-        "left": 0.3,
-        "turn": 0.1
+        "forward": 0.1,
+        "left": 0.0,
+        "turn": 0.0
       },
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
       "torso_tilt": 0.05,
-      "walk_height": 0.22
+      "walk_height": 0.23
     },
     "catching_steps": {
-      "enabled": true,
+      "enabled": false,
       "catching_step_zero_moment_point_frame_count_threshold": 5,
       "max_adjustment": 0.0,
       "midpoint": 0.5,
@@ -465,20 +465,20 @@
         "ankle_roll": 0.05
       }
     },
-    "max_level_delta": 0.1,
-    "max_rotation_speed": 5.0,
+    "max_level_delta": 10000.0,
+    "max_rotation_speed": 50000.0,
     "max_forward_acceleration": 0.01,
-    "max_inside_turn": 0.0,
+    "max_inside_turn": 0.1,
     "max_step_duration": { "nanos": 0, "secs": 2 },
     "max_support_foot_lift_speed": 0.025,
-    "min_step_duration": { "nanos": 180000000, "secs": 0 },
+    "min_step_duration": { "nanos": 100000000, "secs": 0 },
     "sole_pressure_threshold": 0.4,
     "starting_step": {
       "foot_lift_apex": 0.009,
       "step_duration": { "nanos": 200000000, "secs": 0 }
     },
     "step_midpoint": {
-      "forward": 0.38,
+      "forward": 0.45,
       "left": 0.35,
       "turn": 0.5
     },
