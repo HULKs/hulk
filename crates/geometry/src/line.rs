@@ -77,6 +77,7 @@ impl<Frame, const DIMENSION: usize> Distance<Point<Frame, DIMENSION>> for Line<F
     }
 }
 
+// [f32; DIMENSION] can not derive default, see e.g. https://users.rust-lang.org/t/issue-for-derives-for-arrays-greater-than-size-32/59055
 impl<Frame, const DIMENSION: usize> Default for Line<Frame, DIMENSION> {
     fn default() -> Self {
         Self {
