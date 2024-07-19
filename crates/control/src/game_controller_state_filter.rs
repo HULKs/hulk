@@ -62,7 +62,7 @@ impl GameControllerStateFilter {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycles) = self
+        let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycle) = self
             .last_game_controller_state
             .map(|last| {
                 (
@@ -77,7 +77,7 @@ impl GameControllerStateFilter {
 
         let did_receive_motion_in_set_penalty = new_own_penalties_last_cycle
             .iter()
-            .chain(new_opponent_penalties_last_cycles.iter())
+            .chain(new_opponent_penalties_last_cycle.iter())
             .any(|(_, penalty)| matches!(penalty, Penalty::IllegalMotionInSet { .. }));
 
         let game_states = self.filter_game_states(
@@ -105,8 +105,8 @@ impl GameControllerStateFilter {
             own_team_is_home_after_coin_toss: context
                 .game_controller_state
                 .hulks_team_is_home_after_coin_toss,
-            new_own_penalties_last_cycle: new_own_penalties_last_cycle,
-            new_opponent_penalties_last_cycle: new_opponent_penalties_last_cycles,
+            new_own_penalties_last_cycle,
+            new_opponent_penalties_last_cycle,
         };
         context
             .whistle_in_set_ball_position
