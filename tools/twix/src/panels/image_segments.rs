@@ -256,7 +256,6 @@ impl Widget for &mut ImageSegmentsPanel {
                     start + vector![1.0, 0.0],
                     Stroke::new(1.0, Color32::from_rgb(0, 0, 255)),
                 );
->>>>>>> 798657c7 (use other kick_decision parameters for PenaltyShootout)
             }
         }
 
