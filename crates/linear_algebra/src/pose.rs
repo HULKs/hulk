@@ -1,6 +1,6 @@
 use nalgebra::SimdRealField;
 
-use crate::{Framed, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Point3, Vector2};
+use crate::{Framed, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Point3};
 
 pub type Pose2<Frame, T = f32> = Framed<Frame, nalgebra::Isometry2<T>>;
 pub type Pose3<Frame, T = f32> = Framed<Frame, nalgebra::Isometry3<T>>;
@@ -12,8 +12,8 @@ where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
-    pub fn new(translation: Vector2<Frame, T>, angle: T) -> Self {
-        Self::wrap(nalgebra::Isometry2::new(translation.inner, angle))
+    pub fn new(position: Point2<Frame, T>, angle: T) -> Self {
+        Self::wrap(nalgebra::Isometry2::new(position.inner.coords, angle))
     }
 
     pub fn from_parts(position: Point2<Frame, T>, orientation: Orientation2<Frame, T>) -> Self {

@@ -290,7 +290,7 @@ pub fn block_on_circle(
     let target_to_ball = ball_position - target;
     let block_position = target + (target_to_ball.normalize() * distance_to_target);
     Pose2::new(
-        block_position.coords(),
+        block_position,
         block_position.look_at(&ball_position).angle(),
     )
 }
@@ -316,7 +316,7 @@ fn block_on_line(
                 .clamp(defense_line_y_range.start, defense_line_y_range.end)
         ];
         Pose2::new(
-            defense_position.coords(),
+            defense_position,
             defense_position.look_at(&ball_position).angle(),
         )
     } else {
@@ -325,7 +325,7 @@ fn block_on_line(
             (defense_line_y_range.start + defense_line_y_range.end) / 2.0
         ];
         Pose2::new(
-            defense_position.coords(),
+            defense_position,
             defense_position.look_at(&ball_position).angle(),
         )
     }

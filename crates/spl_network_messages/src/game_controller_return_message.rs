@@ -2,7 +2,7 @@ use std::{ffi::c_char, mem::size_of, ptr::read, slice::from_raw_parts, time::Dur
 
 use color_eyre::{eyre::bail, Report, Result};
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{point, vector, Pose2};
+use linear_algebra::{point, Pose2};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -67,7 +67,7 @@ impl TryFrom<RoboCupGameControlReturnData> for GameControllerReturnMessage {
                 _ => bail!("unexpected fallen state"),
             },
             pose: Pose2::new(
-                vector![message.pose[0] / 1000.0, message.pose[1] / 1000.0],
+                point![message.pose[0] / 1000.0, message.pose[1] / 1000.0],
                 message.pose[2],
             ),
             ball: if message.ballAge == -1.0 {
@@ -169,7 +169,7 @@ mod test {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
             fallen: false,
-            pose: Pose2::new(vector![0.0, 1.0], FRAC_PI_2),
+            pose: Pose2::new(point![0.0, 1.0], FRAC_PI_2),
             ball: None,
         };
         let output_message: RoboCupGameControlReturnData = input_message.into();
@@ -182,7 +182,7 @@ mod test {
 
         assert_relative_eq!(
             input_message_again.pose,
-            Pose2::new(vector![0.0, 1.0], FRAC_PI_2),
+            Pose2::new(point![0.0, 1.0], FRAC_PI_2),
             epsilon = 0.001
         );
     }
@@ -192,7 +192,7 @@ mod test {
         let input_message = GameControllerReturnMessage {
             player_number: PlayerNumber::One,
             fallen: false,
-            pose: Pose2::new(vector![1.0, 1.0], FRAC_PI_4),
+            pose: Pose2::new(point![1.0, 1.0], FRAC_PI_4),
             ball: None,
         };
         let output_message: RoboCupGameControlReturnData = input_message.into();
@@ -216,7 +216,7 @@ mod test {
 
         assert_relative_eq!(
             input_message_again.pose,
-            Pose2::new(vector![1.0, 1.0], FRAC_PI_4),
+            Pose2::new(point![1.0, 1.0], FRAC_PI_4),
             epsilon = 0.001
         );
     }

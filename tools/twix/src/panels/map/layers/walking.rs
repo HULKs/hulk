@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Ground, Robot, Walk};
-use linear_algebra::{point, vector, Isometry3, Point2, Point3, Pose2, Pose3};
+use linear_algebra::{point, Isometry3, Point2, Point3, Pose2, Pose3};
 use types::{
     field_dimensions::FieldDimensions, joints::body::BodyJoints, robot_kinematics::RobotKinematics,
     step_plan::Step, support_foot::Side,
@@ -326,7 +326,7 @@ fn paint_step_plan(painter: &TwixPainter<Ground>, step_plan: Step) {
         Stroke::new(0.005, Color32::BLACK),
     );
     painter.pose(
-        Pose2::new(vector![step_plan.forward, step_plan.left], step_plan.turn),
+        Pose2::new(point![step_plan.forward, step_plan.left], step_plan.turn),
         0.02,
         0.03,
         Color32::RED,
