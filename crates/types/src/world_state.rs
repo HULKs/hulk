@@ -11,6 +11,7 @@ use crate::{
     ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
     fall_state::FallState, field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
+    last_filtered_game_controller_state_change::LastFilteredGameControllerStateChanges,
     obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
     roles::Role, rule_obstacles::RuleObstacle,
 };
@@ -21,6 +22,7 @@ pub struct WorldState {
     pub rule_ball: Option<BallState>,
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
+    pub last_filtered_game_controller_state_change: Option<LastFilteredGameControllerStateChanges>,
     pub obstacles: Vec<Obstacle>,
     pub rule_obstacles: Vec<RuleObstacle>,
     pub position_of_interest: Point2<Ground>,
