@@ -23,6 +23,18 @@
     "vision_top": {
       "allowed_projected_segment_length": {
         "start": 0.02
+      },
+      "gradient_alignment": -0.8
+    },
+    "vision_bottom": {
+      "gradient_alignment": -0.8
+    }
+  },
+  "field_color_detection": {
+    "vision_bottom": {
+      "saturation": {
+        "start": 125,
+        "end": 255
       }
     }
   }
