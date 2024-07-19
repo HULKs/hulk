@@ -1,4 +1,4 @@
-use std::{env::args, fs::File, path::PathBuf, sync::Arc, time::SystemTime};
+use std::{env::args, fs::File, path::PathBuf, sync::Arc};
 
 use color_eyre::{
     eyre::{Report, WrapErr},
@@ -15,7 +15,10 @@ use tokio_util::sync::CancellationToken;
 use types::hardware::Ids;
 
 use crate::{
-    execution::Replayer, window::Window, worker_thread::spawn_worker, ReplayerHardwareInterface,
+    execution::Replayer,
+    window::Window,
+    worker_thread::{spawn_worker, PlayerState},
+    ReplayerHardwareInterface,
 };
 
 pub fn replayer() -> Result<()> {
@@ -69,13 +72,17 @@ pub fn replayer() -> Result<()> {
         .map(|(name, index)| (name, index.iter().collect()))
         .collect();
 
-    let (time_sender, time_receiver) = watch::channel(SystemTime::UNIX_EPOCH);
-    spawn_worker(replayer, time_receiver);
-
     run_native(
         "Replayer",
         Default::default(),
-        Box::new(move |_creation_context| Box::new(Window::new(indices, time_sender))),
+        Box::new(move |creation_context| {
+            let (time_sender, _) = watch::channel(PlayerState::default());
+            let context = creation_context.egui_ctx.clone();
+            spawn_worker(replayer, time_sender.clone(), move || {
+                context.request_repaint();
+            });
+            Box::new(Window::new(indices, time_sender))
+        }),
     )
     .map_err(|error| Report::msg(error.to_string()))
     .wrap_err("failed to run user interface")
