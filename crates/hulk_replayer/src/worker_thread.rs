@@ -35,14 +35,17 @@ pub fn spawn_worker(
         runtime.block_on(async move {
             let mut receiver = sender.subscribe();
             let mut parameters_receiver = replayer.get_parameters_receiver();
-            let mut last_autoplay_time = Instant::now();
+            let mut last_autoplay_time = None;
             loop {
                 select! {
                     _ = parameters_receiver.wait_for_change() => {}
                     _ = sleep(Duration::from_secs(1)) => {}
                     _ = sleep(Duration::from_millis(12)), if receiver.borrow().playing => {
-                        let elapsed = last_autoplay_time.elapsed();
-                        last_autoplay_time = Instant::now();
+                        let elapsed = last_autoplay_time
+                            .as_ref()
+                            .map(Instant::elapsed)
+                            .unwrap_or(Duration::from_millis(12));
+                        last_autoplay_time = Some(Instant::now());
                         sender.send_modify(|state| {
                             state.time += elapsed.mul_f32(state.playback_rate);
                         });
@@ -63,6 +66,9 @@ pub fn spawn_worker(
                     eprintln!("{error:#?}");
                 }
 
+                if !state.playing {
+                    last_autoplay_time = None
+                }
                 update_callback()
             }
         });
