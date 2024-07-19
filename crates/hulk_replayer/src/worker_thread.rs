@@ -1,6 +1,6 @@
 use std::{
     thread::spawn,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use tokio::{runtime::Builder, select, sync::watch, time::sleep};
@@ -35,10 +35,20 @@ pub fn spawn_worker(
         runtime.block_on(async move {
             let mut receiver = sender.subscribe();
             let mut parameters_receiver = replayer.get_parameters_receiver();
+            let mut last_autoplay_time = Instant::now();
             loop {
                 select! {
                     _ = parameters_receiver.wait_for_change() => {}
                     _ = sleep(Duration::from_secs(1)) => {}
+                    _ = sleep(Duration::from_millis(12)), if receiver.borrow().playing => {
+                        let elapsed = last_autoplay_time.elapsed();
+                        last_autoplay_time = Instant::now();
+                        sender.send_modify(|state| {
+                            state.time += elapsed.mul_f32(state.playback_rate);
+                        });
+                        // receiver is updated anyway, prevent duplicate replaying
+                        continue;
+                    }
                     result = receiver.changed() => {
                         if result.is_err() {
                             // channel closed, quit thread
@@ -48,15 +58,6 @@ pub fn spawn_worker(
                 }
 
                 let state = *receiver.borrow();
-                if state.playing {
-                    let sender = sender.clone();
-                    tokio::spawn(async move {
-                        sleep(Duration::from_millis(12)).await;
-                        sender.send_modify(|state| {
-                            state.time += Duration::from_secs_f32(0.012 * state.playback_rate)
-                        });
-                    });
-                }
 
                 if let Err(error) = replayer.replay_at(state.time) {
                     eprintln!("{error:#?}");
