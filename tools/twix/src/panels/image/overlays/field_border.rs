@@ -31,6 +31,13 @@ impl Overlay for FieldBorder {
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
+        let Some(candidates) = self.candidates.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        for point in candidates {
+            painter.circle_filled(point, 2.0, Color32::BLUE);
+        }
+
         let Some(border_lines_in_image) = self.border_lines.get_last_value()?.flatten() else {
             return Ok(());
         };
@@ -40,13 +47,6 @@ impl Overlay for FieldBorder {
                 line.1,
                 Stroke::new(3.0, Color32::from_rgb(255, 0, 240)),
             );
-        }
-
-        let Some(candidates) = self.candidates.get_last_value()?.flatten() else {
-            return Ok(());
-        };
-        for point in candidates {
-            painter.circle_filled(point, 2.0, Color32::BLUE);
         }
 
         Ok(())
