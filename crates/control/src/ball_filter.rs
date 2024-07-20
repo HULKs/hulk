@@ -194,15 +194,16 @@ impl BallFilter {
                 && !ball_kicked
         };
 
+        // TODO: this removes hypotheses if not one is resting and the other one is moving!
         let should_merge_hypotheses =
-            |hypothesis1: &BallHypothesis, hypothesis2: &BallHypothesis| {
-                distance(
-                    hypothesis1.position().position,
-                    hypothesis2.position().position,
-                ) < filter_parameters.hypothesis_merge_distance
+            |_hypothesis1: &BallHypothesis, _hypothesis2: &BallHypothesis| {
+                // distance(
+                //     hypothesis1.position().position,
+                //     hypothesis2.position().position,
+                // ) < filter_parameters.hypothesis_merge_distance
+                false
             };
 
-        // TODO: this removed hypotheses if not one is resting and the other one is moving!
         let removed = self
             .ball_filter
             .remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses);

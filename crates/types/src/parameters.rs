@@ -304,6 +304,8 @@ pub struct BallDetectionParameters {
     pub cluster_merge_radius_factor: f32,
     pub ball_radius_enlargement_factor: f32,
     pub detection_noise: Vector2<Pixel>,
+    pub noise_increase_slope: f32,
+    pub noise_increase_distance_threshold: f32,
 }
 
 #[derive(

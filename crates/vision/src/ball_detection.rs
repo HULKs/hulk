@@ -137,6 +137,8 @@ impl BallDetection {
             context.camera_matrix,
             context.parameters.detection_noise,
             *context.ball_radius,
+            context.parameters.noise_increase_slope,
+            context.parameters.noise_increase_distance_threshold,
         );
 
         Ok(MainOutputs {
@@ -319,6 +321,8 @@ fn project_balls_to_ground(
     clusters: &[BallCluster],
     camera_matrix: &CameraMatrix,
     measurement_noise: Vector2<Pixel>,
+    noise_increase_slope: f32,
+    noise_increase_distance_threshold: f32,
     ball_radius: f32,
 ) -> Vec<BallPercept> {
     clusters
@@ -331,9 +335,18 @@ fn project_balls_to_ground(
                 )
                 .ok()?;
             let projected_covariance = {
+                let distance = position.coords().norm_squared();
+                let distance_noise_increase = if distance
+                    < noise_increase_distance_threshold.powi(2)
+                {
+                    noise_increase_slope * (distance - noise_increase_distance_threshold.powi(2))
+                } else {
+                    0.0
+                };
+
                 let scaled_noise = measurement_noise
                     .inner
-                    .map(|x| (cluster.circle.radius * x).powi(2))
+                    .map(|x| (cluster.circle.radius * x * (1.0 + distance_noise_increase)).powi(2))
                     .framed();
                 camera_matrix.project_noise_to_ground(position, scaled_noise)
             }
@@ -490,6 +503,8 @@ mod tests {
             cluster_merge_radius_factor: 1.5,
             ball_radius_enlargement_factor: 2.0,
             detection_noise: vector![0.0, 0.0],
+            noise_increase_slope: 0.0,
+            noise_increase_distance_threshold: 0.0,
         };
         let perspective_grid_candidates = PerspectiveGridCandidates {
             candidates: vec![Circle {
