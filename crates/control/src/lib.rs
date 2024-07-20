@@ -36,6 +36,7 @@ pub mod sensor_data_receiver;
 pub mod sole_pressure_filter;
 pub mod sonar_filter;
 pub mod support_foot_estimation;
+pub mod team_time_to_reach;
 pub mod time_to_reach_kick_position;
 pub mod whistle_filter;
 pub mod world_state_composer;
