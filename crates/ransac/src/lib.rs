@@ -45,7 +45,7 @@ impl<Frame> Ransac<Frame> {
                 let mut points = self
                     .unused_points
                     .choose_multiple(random_number_generator, 2);
-                let line = Line(*points.next().unwrap(), *points.next().unwrap());
+                let line = Line::from_points(*points.next().unwrap(), *points.next().unwrap());
                 let score: f32 = self
                     .unused_points
                     .iter()
@@ -113,7 +113,10 @@ mod test {
         println!("{line:#?}");
         println!("{used_points:#?}");
 
-        assert!(relative_eq!(line, Line(p1, p2)) || relative_eq!(line, Line(p2, p1)));
+        assert!(
+            relative_eq!(line, Line::from_points(p1, p2))
+                || relative_eq!(line, Line::from_points(p2, p1))
+        );
         assert!(relative_eq!(used_points[0], p1) || relative_eq!(used_points[0], p2));
         assert!(relative_eq!(used_points[1], p2) || relative_eq!(used_points[0], p1));
     }
