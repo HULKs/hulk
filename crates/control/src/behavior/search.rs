@@ -74,6 +74,7 @@ pub fn execute(
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     previous_role: Role,
     walk_speed: WalkSpeed,
+    distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let search_role = assign_search_role(world_state);
@@ -101,7 +102,13 @@ pub fn execute(
     };
     if let Some(SearchRole::Goal) = search_role {
         let goal_pose = Pose2::from(search_position);
-        walk_and_stand.execute(goal_pose, head, path_obstacles_output, walk_speed)
+        walk_and_stand.execute(
+            goal_pose,
+            head,
+            path_obstacles_output,
+            walk_speed,
+            distance_to_be_aligned,
+        )
     } else {
         let path = walk_path_planner.plan(
             search_position,
