@@ -25,12 +25,13 @@ pub struct StandUpSitting {
 #[context]
 pub struct CreationContext {
     hardware_interface: HardwareInterface,
-    gyro_low_pass_factor: Parameter<f32, "motion_file.gyro_low_pass_factor">,
+    gyro_low_pass_factor: Parameter<f32, "motion_file_sitting.gyro_low_pass_factor">,
 }
 
 #[context]
 pub struct CycleContext {
-    leg_balancing_factor: Parameter<nalgebra::Vector2<f32>, "motion_file.leg_balancing_factor">,
+    leg_balancing_factor:
+        Parameter<nalgebra::Vector2<f32>, "motion_file_sitting.leg_balancing_factor">,
 
     condition_input: Input<ConditionInput, "condition_input">,
     cycle_time: Input<CycleTime, "cycle_time">,
