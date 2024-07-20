@@ -292,7 +292,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.2,
+          "tolerance": 10.2,
           "timeout_duration": 5.0
         }
       }
@@ -343,7 +343,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.1,
+          "tolerance": 10.1,
           "timeout_duration": 5.0
         }
       }
@@ -394,7 +394,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.1,
+          "tolerance": 10.1,
           "timeout_duration": 5.0
         }
       }
@@ -446,7 +446,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.1,
+          "tolerance": 10.1,
           "timeout_duration": 5.0
         }
       }
@@ -583,7 +583,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.1,
+          "tolerance": 0.5,
           "timeout_duration": 5.0
         }
       }
