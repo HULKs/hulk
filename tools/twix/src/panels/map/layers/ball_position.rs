@@ -14,6 +14,7 @@ use crate::{
 pub struct BallPosition {
     ground_to_field: BufferHandle<Option<Isometry2<Ground, Field>>>,
     ball_position: BufferHandle<Option<types::ball_position::BallPosition<Ground>>>,
+    team_ball: BufferHandle<Option<types::ball_position::BallPosition<Field>>>,
 }
 
 impl Layer<Field> for BallPosition {
@@ -26,9 +27,11 @@ impl Layer<Field> for BallPosition {
         );
         let ball_position = nao
             .subscribe_buffered_value("Control.main_outputs.ball_position", Duration::from_secs(2));
+        let team_ball = nao.subscribe_value("Control.main_outputs.team_ball");
         Self {
             ground_to_field,
             ball_position,
+            team_ball,
         }
     }
 
@@ -52,6 +55,10 @@ impl Layer<Field> for BallPosition {
             );
         }
 
+        if let Some(ball) = self.team_ball.get_last_value()?.flatten() {
+            painter.ball(ball.position, field_dimensions.ball_radius, Color32::RED);
+        }
+
         if let Some(ball) = self.ball_position.get_last_value()?.flatten() {
             let ground_to_field = self
                 .ground_to_field
@@ -61,6 +68,7 @@ impl Layer<Field> for BallPosition {
             painter.ball(
                 ground_to_field * ball.position,
                 field_dimensions.ball_radius,
+                Color32::WHITE,
             );
         }
         Ok(())
