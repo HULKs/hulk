@@ -177,14 +177,18 @@ fn defend_pose(
 
     let position_to_defend = point![x_offset, y_offset];
 
-    let mut distance_to_target = match (field_side, ball.field_side) {
-        (Side::Left, Side::Left) | (Side::Right, Side::Right) => {
+    let in_passive_mode =
+        ball.ball_in_ground.coords().norm() >= role_positions.defender_passive_distance;
+
+    let mut distance_to_target = match (in_passive_mode, field_side, ball.field_side) {
+        (true, _, _) => role_positions.defender_aggressive_ring_radius,
+        (_, Side::Left, Side::Left) | (_, Side::Right, Side::Right) => {
             role_positions.defender_aggressive_ring_radius
         }
         _ => role_positions.defender_passive_ring_radius,
     };
 
-    if ball.ball_in_ground.coords().norm() >= role_positions.defender_passive_distance {
+    if in_passive_mode {
         let passive_target_position = position_to_defend + (Vector2::x_axis() * distance_to_target);
         return Some(
             ground_to_field.inverse()
