@@ -51,7 +51,7 @@ impl Layer<Ground> for BallMeasurement {
                 stroke,
                 Color32::YELLOW.gamma_multiply(0.5),
             );
-            painter.ball(position, 0.07);
+            painter.ball(position, 0.07, Color32::WHITE);
         }
 
         Ok(())

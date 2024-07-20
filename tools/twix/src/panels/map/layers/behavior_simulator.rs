@@ -120,7 +120,7 @@ impl Layer<Field> for BehaviorSimulator {
         }
 
         if let Some(ball_state) = self.ball.get_last_value().wrap_err("ball state")?.flatten() {
-            painter.ball(ball_state.position, 0.05);
+            painter.ball(ball_state.position, 0.05, Color32::WHITE);
         }
 
         Ok(())
