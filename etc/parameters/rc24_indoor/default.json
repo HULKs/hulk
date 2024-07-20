@@ -1,7 +1,7 @@
 {
   "image_segmenter": {
     "vision_top": {
-      "vertical_edge_threshold": 15
+      "vertical_edge_threshold": 10
     },
     "vision_bottom": {
       "vertical_edge_threshold": 15,
