@@ -1,8 +1,13 @@
-use std::sync::Arc;
+use std::{ops::RangeInclusive, sync::Arc};
 
+use color_eyre::Result;
 use communication::messages::TextOrBinary;
-use eframe::egui::{Grid, Response, Slider, Ui, Widget};
+use eframe::{
+    egui::{Grid, Response, Slider, Ui, Widget},
+    emath::Numeric,
+};
 use log::error;
+use serde::Serialize;
 use serde_json::{to_value, Value};
 
 use types::{field_color::FieldColorParameters, image_segments::Direction};
@@ -20,11 +25,7 @@ pub struct VisionTunerPanel {
 }
 
 impl VisionTunerPanel {
-    fn edge_threshold_slider(
-        &mut self,
-        ui: &mut Ui,
-        direction: Direction,
-    ) -> Result<(), color_eyre::Report> {
+    fn edge_threshold_slider(&mut self, ui: &mut Ui, direction: Direction) -> Result<()> {
         let (value_buffer, parameter_name) = match direction {
             Direction::Horizontal => (&self.horizontal_edge_threshold, "horizontal_edge_threshold"),
             Direction::Vertical => (&self.vertical_edge_threshold, "vertical_edge_threshold"),
@@ -45,6 +46,34 @@ impl VisionTunerPanel {
         }
 
         Ok(())
+    }
+
+    fn row<T: Numeric + Serialize>(
+        &mut self,
+        ui: &mut Ui,
+        cycler: &str,
+        parameter: &'static str,
+        value: RangeInclusive<T>,
+        range: RangeInclusive<T>,
+    ) {
+        ui.label(parameter);
+        let mut start = *value.start();
+        let slider = ui.add(Slider::new(&mut start, range.clone()));
+        if slider.changed() {
+            self.nao.write(
+                format!("parameters.field_color_detection.{cycler}.{parameter}.start"),
+                TextOrBinary::Text(to_value(start).unwrap()),
+            );
+        }
+        let mut end = *value.end();
+        let slider = ui.add(Slider::new(&mut end, range));
+        if slider.changed() {
+            self.nao.write(
+                format!("parameters.field_color_detection.{cycler}.{parameter}.end"),
+                TextOrBinary::Text(to_value(end).unwrap()),
+            );
+        }
+        ui.end_row();
     }
 }
 
@@ -93,169 +122,51 @@ impl Widget for &mut VisionTunerPanel {
             let Some(field_color_detection) = self.field_color_detection.get_last_value()? else {
                 return Ok(());
             };
+
             Grid::new("field_color_sliders").show(ui, |ui| {
-                {
-                    ui.label("luminance");
-                    let mut start = *field_color_detection.luminance.start();
-                    let slider = ui.add(Slider::new(&mut start, 0..=255));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!("parameters.field_color_detection.{cycler}.luminance.start"),
-                            TextOrBinary::Text(to_value(start).unwrap()),
-                        );
-                    }
-                    let mut end = *field_color_detection.luminance.end();
-                    let slider = ui.add(Slider::new(&mut end, 0..=255));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!("parameters.field_color_detection.{cycler}.luminance.end"),
-                            TextOrBinary::Text(to_value(end).unwrap()),
-                        );
-                    }
-                    ui.end_row();
-                }
-
-                {
-                    ui.label("green_luminance");
-                    let mut start = *field_color_detection.green_luminance.start();
-                    let slider = ui.add(Slider::new(&mut start, 0..=255));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                                "parameters.field_color_detection.{cycler}.green_luminance.start"
-                            ),
-                            TextOrBinary::Text(to_value(start).unwrap()),
-                        );
-                    }
-                    let mut end = *field_color_detection.green_luminance.end();
-                    let slider = ui.add(Slider::new(&mut end, 0..=255));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                                "parameters.field_color_detection.{cycler}.green_luminance.end"
-                            ),
-                            TextOrBinary::Text(to_value(end).unwrap()),
-                        );
-                    }
-                    ui.end_row();
-                }
-
-                {
-                    ui.label("red_chromaticity");
-                    let mut start = *field_color_detection.red_chromaticity.start();
-                    let slider = ui.add(Slider::new(&mut start, 0.0..=1.0));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                                "parameters.field_color_detection.{cycler}.red_chromaticity.start"
-                            ),
-                            TextOrBinary::Text(to_value(start).unwrap()),
-                        );
-                    }
-                    let mut end = *field_color_detection.red_chromaticity.end();
-                    let slider = ui.add(Slider::new(&mut end, 0.0..=1.0));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                                "parameters.field_color_detection.{cycler}.red_chromaticity.end"
-                            ),
-                            TextOrBinary::Text(to_value(end).unwrap()),
-                        );
-                    }
-                    ui.end_row();
-                }
-
-                {
-                    ui.label("green_chromaticity");
-                    let mut start = *field_color_detection.green_chromaticity.start();
-                    let slider = ui.add(Slider::new(&mut start, 0.0..=1.0));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                            "parameters.field_color_detection.{cycler}.green_chromaticity.start"
-                        ),
-                            TextOrBinary::Text(to_value(start).unwrap()),
-                        );
-                    }
-                    let mut end = *field_color_detection.green_chromaticity.end();
-                    let slider = ui.add(Slider::new(&mut end, 0.0..=1.0));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                                "parameters.field_color_detection.{cycler}.green_chromaticity.end"
-                            ),
-                            TextOrBinary::Text(to_value(end).unwrap()),
-                        );
-                    }
-                    ui.end_row();
-                }
-
-                {
-                    ui.label("blue_chromaticity");
-                    let mut start = *field_color_detection.blue_chromaticity.start();
-                    let slider = ui.add(Slider::new(&mut start, 0.0..=1.0));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                                "parameters.field_color_detection.{cycler}.blue_chromaticity.start"
-                            ),
-                            TextOrBinary::Text(to_value(start).unwrap()),
-                        );
-                    }
-                    let mut end = *field_color_detection.blue_chromaticity.end();
-                    let slider = ui.add(Slider::new(&mut end, 0.0..=1.0));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!(
-                                "parameters.field_color_detection.{cycler}.blue_chromaticity.end"
-                            ),
-                            TextOrBinary::Text(to_value(end).unwrap()),
-                        );
-                    }
-                    ui.end_row();
-                }
-
-                {
-                    ui.label("hue");
-                    let mut start = *field_color_detection.hue.start();
-                    let slider = ui.add(Slider::new(&mut start, 0..=360));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!("parameters.field_color_detection.{cycler}.hue.start"),
-                            TextOrBinary::Text(to_value(start).unwrap()),
-                        );
-                    }
-                    let mut end = *field_color_detection.hue.end();
-                    let slider = ui.add(Slider::new(&mut end, 0..=360));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!("parameters.field_color_detection.{cycler}.hue.end"),
-                            TextOrBinary::Text(to_value(end).unwrap()),
-                        );
-                    }
-                    ui.end_row();
-                }
-
-                {
-                    ui.label("saturation");
-                    let mut start = *field_color_detection.saturation.start();
-                    let slider = ui.add(Slider::new(&mut start, 0..=255));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!("parameters.field_color_detection.{cycler}.saturation.start"),
-                            TextOrBinary::Text(to_value(start).unwrap()),
-                        );
-                    }
-                    let mut end = *field_color_detection.saturation.end();
-                    let slider = ui.add(Slider::new(&mut end, 0..=255));
-                    if slider.changed() {
-                        self.nao.write(
-                            format!("parameters.field_color_detection.{cycler}.saturation.end"),
-                            TextOrBinary::Text(to_value(end).unwrap()),
-                        );
-                    }
-                    ui.end_row();
-                }
+                self.row(
+                    ui,
+                    &cycler,
+                    "luminance",
+                    field_color_detection.luminance,
+                    0..=255,
+                );
+                self.row(
+                    ui,
+                    &cycler,
+                    "green_luminance",
+                    field_color_detection.green_luminance,
+                    0..=255,
+                );
+                self.row(
+                    ui,
+                    &cycler,
+                    "red_chromaticity",
+                    field_color_detection.red_chromaticity,
+                    0.0..=1.0,
+                );
+                self.row(
+                    ui,
+                    &cycler,
+                    "green_chromaticity",
+                    field_color_detection.green_chromaticity,
+                    0.0..=1.0,
+                );
+                self.row(
+                    ui,
+                    &cycler,
+                    "blue_chromaticity",
+                    field_color_detection.blue_chromaticity,
+                    0.0..=1.0,
+                );
+                self.row(ui, &cycler, "hue", field_color_detection.hue, 0..=360);
+                self.row(
+                    ui,
+                    &cycler,
+                    "saturation",
+                    field_color_detection.saturation,
+                    0..=255,
+                );
             });
 
             Ok::<(), color_eyre::Report>(())
