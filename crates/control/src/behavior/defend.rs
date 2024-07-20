@@ -46,12 +46,14 @@ impl<'cycle> Defend<'cycle> {
         pose: Pose2<Ground>,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         self.walk_and_stand.execute(
             pose,
             self.look_action.execute(),
             path_obstacles_output,
             walk_speed,
+            distance_to_be_aligned,
         )
     }
 
@@ -84,6 +86,7 @@ impl<'cycle> Defend<'cycle> {
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let pose = defend_pose(
             self.world_state,
@@ -92,13 +95,19 @@ impl<'cycle> Defend<'cycle> {
             -self.field_dimensions.length / 2.0,
             Side::Left,
         )?;
-        self.with_pose(pose, path_obstacles_output, walk_speed)
+        self.with_pose(
+            pose,
+            path_obstacles_output,
+            walk_speed,
+            distance_to_be_aligned,
+        )
     }
 
     pub fn right(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let pose = defend_pose(
             self.world_state,
@@ -107,7 +116,12 @@ impl<'cycle> Defend<'cycle> {
             -self.field_dimensions.length / 2.0,
             Side::Right,
         )?;
-        self.with_pose(pose, path_obstacles_output, walk_speed)
+        self.with_pose(
+            pose,
+            path_obstacles_output,
+            walk_speed,
+            distance_to_be_aligned,
+        )
     }
 
     pub fn opponent_corner_kick(
@@ -115,6 +129,7 @@ impl<'cycle> Defend<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
         field_side: Side,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let pose = defend_pose(
             self.world_state,
@@ -123,36 +138,59 @@ impl<'cycle> Defend<'cycle> {
             -self.field_dimensions.length / 2.0 + self.field_dimensions.goal_box_area_length * 2.0,
             field_side,
         )?;
-        self.with_pose(pose, path_obstacles_output, walk_speed)
+        self.with_pose(
+            pose,
+            path_obstacles_output,
+            walk_speed,
+            distance_to_be_aligned,
+        )
     }
 
     pub fn penalty_kick(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let pose =
             defend_penalty_kick(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output, walk_speed)
+        self.with_pose(
+            pose,
+            path_obstacles_output,
+            walk_speed,
+            distance_to_be_aligned,
+        )
     }
 
     pub fn goal(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let pose = defend_goal_pose(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output, walk_speed)
+        self.with_pose(
+            pose,
+            path_obstacles_output,
+            walk_speed,
+            distance_to_be_aligned,
+        )
     }
 
     pub fn kick_off(
         &self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let pose =
             defend_kick_off_pose(self.world_state, self.field_dimensions, self.role_positions)?;
-        self.with_pose(pose, path_obstacles_output, walk_speed)
+        self.with_pose(
+            pose,
+            path_obstacles_output,
+            walk_speed,
+            distance_to_be_aligned,
+        )
     }
 }
 

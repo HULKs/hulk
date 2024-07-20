@@ -16,6 +16,7 @@ pub fn execute(
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     field_dimensions: &FieldDimensions,
     walk_speed: WalkSpeed,
+    distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let kick_off_pose = Pose2::from(point![
@@ -29,5 +30,6 @@ pub fn execute(
         look_action.execute(),
         path_obstacles_output,
         walk_speed,
+        distance_to_be_aligned,
     )
 }

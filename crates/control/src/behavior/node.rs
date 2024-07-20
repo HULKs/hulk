@@ -307,34 +307,62 @@ impl Behavior {
                     Action::DefendGoal => defend.goal(
                         &mut context.path_obstacles_output,
                         *context.defend_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .defender_distance_to_be_aligned,
                     ),
                     Action::DefendKickOff => defend.kick_off(
                         &mut context.path_obstacles_output,
                         *context.defend_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .defender_distance_to_be_aligned,
                     ),
                     Action::DefendLeft => defend.left(
                         &mut context.path_obstacles_output,
                         *context.defend_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .defender_distance_to_be_aligned,
                     ),
                     Action::DefendRight => defend.right(
                         &mut context.path_obstacles_output,
                         *context.defend_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .defender_distance_to_be_aligned,
                     ),
                     Action::DefendPenaltyKick => defend.penalty_kick(
                         &mut context.path_obstacles_output,
                         *context.defend_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .defender_distance_to_be_aligned,
                     ),
                     Action::DefendOpponentCornerKick { side: Side::Left } => defend
                         .opponent_corner_kick(
                             &mut context.path_obstacles_output,
                             *context.defend_walk_speed,
                             Side::Left,
+                            context
+                                .parameters
+                                .walk_and_stand
+                                .defender_distance_to_be_aligned,
                         ),
                     Action::DefendOpponentCornerKick { side: Side::Right } => defend
                         .opponent_corner_kick(
                             &mut context.path_obstacles_output,
                             *context.defend_walk_speed,
                             Side::Right,
+                            context
+                                .parameters
+                                .walk_and_stand
+                                .defender_distance_to_be_aligned,
                         ),
                     Action::Stand => stand::execute(
                         world_state,
@@ -360,6 +388,10 @@ impl Behavior {
                         &mut context.path_obstacles_output,
                         self.previous_role,
                         *context.search_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::SearchForLostBall => lost_ball::execute(
                         world_state,
@@ -386,6 +418,10 @@ impl Behavior {
                         &look_action,
                         &mut context.path_obstacles_output,
                         *context.support_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::SupportRight => support::execute(
                         world_state,
@@ -404,6 +440,10 @@ impl Behavior {
                         &look_action,
                         &mut context.path_obstacles_output,
                         *context.support_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::SupportStriker => support::execute(
                         world_state,
@@ -425,6 +465,10 @@ impl Behavior {
                         &look_action,
                         &mut context.path_obstacles_output,
                         *context.support_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::WalkToKickOff => walk_to_kick_off::execute(
                         world_state,
@@ -433,6 +477,10 @@ impl Behavior {
                         &mut context.path_obstacles_output,
                         context.parameters.role_positions.striker_kickoff_pose,
                         *context.walk_to_kickoff_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::WalkToPenaltyKick => walk_to_penalty_kick::execute(
                         world_state,
@@ -441,6 +489,10 @@ impl Behavior {
                         &mut context.path_obstacles_output,
                         context.field_dimensions,
                         *context.walk_to_penalty_kick_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                 }?;
                 Some((action, motion_command))
