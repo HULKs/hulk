@@ -219,7 +219,7 @@ pub fn hybrid_alignment(
         return OrientationMode::AlignWithPath;
     }
 
-    let angle_limit = ((distance_to_target - distance_to_be_aligned) / (hybrid_align_distance))
+    let angle_limit = ((distance_to_target - distance_to_be_aligned) / hybrid_align_distance)
         .clamp(0.0, 1.0)
         * PI;
 
