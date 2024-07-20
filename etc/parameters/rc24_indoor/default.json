@@ -33,7 +33,7 @@
       },
       "saturation": {
         "end": 255,
-        "start": 80
+        "start": 63
       }
     }
   }
