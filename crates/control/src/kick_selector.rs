@@ -262,12 +262,12 @@ fn generate_penalty_shot_kick_targets(context: &CycleContext) -> Vec<Point2<Grou
     let left_target = field_to_ground
         * point![
             field_dimensions.length / 2.0,
-            field_dimensions.goal_inner_width / 4.0
+            field_dimensions.goal_inner_width / 3.5
         ];
     let right_target = field_to_ground
         * point![
             field_dimensions.length / 2.0,
-            -field_dimensions.goal_inner_width / 4.0
+            -field_dimensions.goal_inner_width / 3.5
         ];
 
     vec![left_target, right_target]
