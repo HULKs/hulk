@@ -1,10 +1,8 @@
 {
-  "parameters": {
-    "walking_engine": {
-      "base": {
-        "torso_offset": 0.009999999776482582,
-        "torso_tilt": 0.05999999865889549
-      }
+  "walking_engine": {
+    "base": {
+      "torso_offset": 0.009999999776482582,
+      "torso_tilt": 0.05999999865889549
     }
   }
 }
