@@ -30,7 +30,7 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    leg_balancing_factor: Parameter<nalgebra::Vector2<f32>, "stadn_up_back.leg_balancing_factor">,
+    leg_balancing_factor: Parameter<nalgebra::Vector2<f32>, "stand_up_back.leg_balancing_factor">,
 
     condition_input: Input<ConditionInput, "condition_input">,
     cycle_time: Input<CycleTime, "cycle_time">,
