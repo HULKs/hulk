@@ -1,13 +1,10 @@
 use coordinate_systems::{Ground, UpcomingSupport};
-use geometry::look_at::LookAt;
-use linear_algebra::{Isometry2, Point, Pose2};
+use linear_algebra::{Isometry2, Pose2};
 use spl_network_messages::GamePhase;
 use types::{
     camera_position::CameraPosition,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{
-        ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed,
-    },
+    motion_command::{ArmMotion, HeadMotion, ImageRegion, MotionCommand, WalkSpeed},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
     planned_path::PathSegment,
     world_state::WorldState,
@@ -69,19 +66,11 @@ pub fn execute(
 
     let best_pose = best_kick_decision.kick_pose;
 
-    let hybrid_orientation_mode = hybrid_alignment(
+    let orientation_mode = hybrid_alignment(
         best_pose,
         parameters.hybrid_align_distance,
         parameters.distance_to_be_aligned,
     );
-    let orientation_mode = match hybrid_orientation_mode {
-        types::motion_command::OrientationMode::AlignWithPath
-            if ball_position.coords().norm() > 0.0 =>
-        {
-            OrientationMode::Override(Point::origin().look_at(&ball_position))
-        }
-        orientation_mode => orientation_mode,
-    };
 
     if let Some(FilteredGameControllerState {
         game_phase: GamePhase::PenaltyShootout { .. },
