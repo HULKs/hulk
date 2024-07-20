@@ -5,10 +5,7 @@ use eframe::epaint::Color32;
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::Isometry2;
-use types::{
-    field_dimensions::FieldDimensions,
-    world_state::{BallState, WorldState},
-};
+use types::field_dimensions::FieldDimensions;
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
@@ -17,7 +14,7 @@ use crate::{
 pub struct BallPosition {
     ground_to_field: BufferHandle<Option<Isometry2<Ground, Field>>>,
     ball_position: BufferHandle<Option<types::ball_position::BallPosition<Ground>>>,
-    world_state: BufferHandle<WorldState>,
+    team_ball: BufferHandle<Option<types::ball_position::BallPosition<Field>>>,
 }
 
 impl Layer<Field> for BallPosition {
@@ -30,11 +27,11 @@ impl Layer<Field> for BallPosition {
         );
         let ball_position = nao
             .subscribe_buffered_value("Control.main_outputs.ball_position", Duration::from_secs(2));
-        let world_state = nao.subscribe_value("Control.main_outputs.world_state");
+        let team_ball = nao.subscribe_value("Control.main_outputs.team_ball");
         Self {
             ground_to_field,
             ball_position,
-            world_state,
+            team_ball,
         }
     }
 
@@ -58,12 +55,8 @@ impl Layer<Field> for BallPosition {
             );
         }
 
-        if let Some(WorldState {
-            ball: Some(BallState { ball_in_field, .. }),
-            ..
-        }) = self.world_state.get_last_value()?
-        {
-            painter.ball(ball_in_field, field_dimensions.ball_radius, Color32::RED);
+        if let Some(ball) = self.team_ball.get_last_value()?.flatten() {
+            painter.ball(ball.position, field_dimensions.ball_radius, Color32::RED);
         }
 
         if let Some(ball) = self.ball_position.get_last_value()?.flatten() {
