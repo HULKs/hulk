@@ -1,12 +1,11 @@
 use coordinate_systems::{Ground, UpcomingSupport};
 use geometry::look_at::LookAt;
 use linear_algebra::{Isometry2, Point, Pose2};
-use spl_network_messages::{GamePhase, Team};
+use spl_network_messages::GamePhase;
 use std::time::{Duration, SystemTime};
 use types::{
     camera_position::CameraPosition,
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::FilteredGameState,
     motion_command::{
         ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed,
     },
@@ -25,8 +24,7 @@ pub fn execute(
     parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
     mut walk_speed: WalkSpeed,
-    game_controller_state: Option<FilteredGameControllerState>,
-    precision_kick_timeout: u8,
+    precision_kick_timeout: Duration,
     bigger_threshold_start_time: Option<SystemTime>,
     cycle_start_time: SystemTime,
 ) -> Option<MotionCommand> {
@@ -45,8 +43,7 @@ pub fn execute(
     };
     let kick_decisions = world_state.kick_decisions.as_ref()?;
     let instant_kick_decisions = world_state.instant_kick_decisions.as_ref()?;
-    let break_precision_kick = break_precision_kick(
-        game_controller_state,
+    let abort_precision_kick = abort_precision_kick(
         precision_kick_timeout,
         bigger_threshold_start_time,
         cycle_start_time,
@@ -58,10 +55,10 @@ pub fn execute(
         .find(|decision| {
             is_kick_pose_reached(
                 decision.kick_pose,
-                if break_precision_kick {
-                    in_walk_kicks[decision.variant].reached_thresholds
-                } else {
+                if !abort_precision_kick {
                     in_walk_kicks[decision.variant].precision_kick_reached_thresholds
+                } else {
+                    in_walk_kicks[decision.variant].reached_thresholds
                 },
                 world_state.robot.ground_to_upcoming_support,
             )
@@ -132,38 +129,17 @@ pub fn is_kick_pose_reached(
     is_x_reached && is_y_reached && is_orientation_reached
 }
 
-pub fn break_precision_kick(
-    game_controller_state: Option<FilteredGameControllerState>,
-    precision_kick_timeout: u8,
+pub fn abort_precision_kick(
+    precision_kick_timeout: Duration,
     bigger_threshold_start_time: Option<SystemTime>,
     cycle_start_time: SystemTime,
 ) -> bool {
-    let game_controller_state = game_controller_state.unwrap_or_default();
-    let mut time_difference: Duration = Duration::default();
-
     if bigger_threshold_start_time.is_some() {
-        time_difference = cycle_start_time
+        let time_difference = cycle_start_time
             .duration_since(bigger_threshold_start_time.unwrap())
             .expect("Time ran back");
-    };
-
-    let precision_kick = matches!(
-        game_controller_state.game_phase,
-        GamePhase::PenaltyShootout { .. }
-    ) || game_controller_state.sub_state.is_some();
-
-    let own_kick_off = matches!(
-        game_controller_state.game_state,
-        FilteredGameState::Playing {
-            kick_off: true,
-            ball_is_free: true
-        }
-    );
-    // dbg!(time_difference);
-    // dbg!(Duration::from_secs(precision_kick_timeout.into()));
-    // dbg!(time_difference > Duration::from_secs(precision_kick_timeout.into()));
-    let sub_state = game_controller_state.sub_state.is_some();
-    let kicking = matches!(game_controller_state.kicking_team, Team::Hulks);
-    (precision_kick || own_kick_off || sub_state && kicking)
-        && time_difference > Duration::from_secs(precision_kick_timeout.into())
+        time_difference > precision_kick_timeout
+    } else {
+        false
+    }
 }
