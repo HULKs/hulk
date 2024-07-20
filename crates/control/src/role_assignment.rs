@@ -628,7 +628,9 @@ fn decide_if_claiming_striker_or_other_role(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition<Field>>) {
-    if time_to_reach_kick_position < spl_message.time_to_reach_kick_position {
+    if time_to_reach_kick_position < spl_message.time_to_reach_kick_position
+        && time_to_reach_kick_position.is_some_and(|duration| duration < Duration::from_secs(1200))
+    {
         (
             Role::Striker,
             true,
