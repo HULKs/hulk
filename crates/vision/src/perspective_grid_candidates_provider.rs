@@ -140,7 +140,7 @@ fn generate_candidates(
                 None => continue,
             };
             let x = scan_line.position as f32;
-            let index_in_row = (x / (row.circle_radius * 2.0)).floor() as usize;
+            let index_in_row = (x / row.circle_radius).floor() as usize;
 
             segments_per_circles
                 .entry((row_index, index_in_row))
@@ -157,7 +157,7 @@ fn generate_candidates(
                     let row = rows[row_index];
                     Some(Circle {
                         center: point![
-                            row.circle_radius + row.circle_radius * 2.0 * index_in_row as f32,
+                            row.circle_radius + row.circle_radius * index_in_row as f32,
                             row.center_y
                         ],
                         radius: row.circle_radius,
