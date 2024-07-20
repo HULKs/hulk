@@ -1094,7 +1094,7 @@
       "enabled": true
     }
   },
-  "precision_kick_timeout": 5,
+  "precision_kick_timeout": 2,
   "kick_selector": {
     "distance_to_corner": 1.5,
     "corner_kick_target_distance_to_goal": 1.3,

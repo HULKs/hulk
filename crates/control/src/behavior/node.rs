@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,8 @@ use crate::dribble_path_planner;
 use super::{
     animation, calibrate,
     defend::Defend,
-    dribble, fall_safely,
+    dribble::{self, is_kick_pose_reached},
+    fall_safely,
     head::LookAction,
     initial, intercept_ball, jump, look_around, lost_ball, no_ground_contact, penalize,
     prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
@@ -83,7 +84,7 @@ pub struct CycleContext {
     support_walk_speed: Parameter<WalkSpeed, "walk_speed.support">,
     walk_to_kickoff_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_kickoff">,
     walk_to_penalty_kick_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_penalty_kick">,
-    precision_kick_timeout: Parameter<u8, "precision_kick_timeout">,
+    precision_kick_timeout: Parameter<Duration, "precision_kick_timeout">,
 }
 
 #[context]
@@ -283,45 +284,46 @@ impl Behavior {
             world_state.kick_decisions.as_ref(),
             world_state.instant_kick_decisions.as_ref(),
         ) {
-            // let kick_decisions = world_state.kick_decisions.as_ref().unwrap();
-            // let instant_kick_decisions = world_state.instant_kick_decisions.as_ref().unwrap();
-
-            let available_kick_bigger = kick_decisions
+            let available_unprecise_kicks = kick_decisions
                 .iter()
                 .chain(instant_kick_decisions.iter())
                 .find(|decision| {
-                    dribble::is_kick_pose_reached(
+                    is_kick_pose_reached(
                         decision.kick_pose,
                         context.in_walk_kicks[decision.variant].reached_thresholds,
                         world_state.robot.ground_to_upcoming_support,
                     )
                 });
-            let available_kick_smaller = kick_decisions
+            let available_precise_kicks = kick_decisions
                 .iter()
                 .chain(instant_kick_decisions.iter())
                 .find(|decision| {
-                    dribble::is_kick_pose_reached(
+                    is_kick_pose_reached(
                         decision.kick_pose,
                         context.in_walk_kicks[decision.variant].precision_kick_reached_thresholds,
                         world_state.robot.ground_to_upcoming_support,
                     )
                 });
-            if available_kick_bigger.is_some()
-                && available_kick_smaller.is_none()
-                && !self.timer_started
-            {
-                let is_bigger_kick_pose_reached = dribble::is_kick_pose_reached(
-                    available_kick_bigger.unwrap().kick_pose,
-                    context.in_walk_kicks[available_kick_bigger.unwrap().variant]
-                        .reached_thresholds,
-                    world_state.robot.ground_to_upcoming_support,
-                );
-                if is_bigger_kick_pose_reached {
+
+            match (
+                available_unprecise_kicks,
+                available_precise_kicks,
+                self.timer_started,
+            ) {
+                (Some(available_unprecise_kicks), None, false) => {
+                    if is_kick_pose_reached(
+                        available_unprecise_kicks.kick_pose,
+                        context.in_walk_kicks[available_unprecise_kicks.variant].reached_thresholds,
+                        world_state.robot.ground_to_upcoming_support,
+                    ) {
+                        self.bigger_threshold_start_time = Some(context.cycle_time.start_time);
+                    }
+                    self.timer_started = true;
+                }
+                (_, Some(_), true) => {
                     self.bigger_threshold_start_time = Some(context.cycle_time.start_time);
                 }
-                self.timer_started = true;
-            } else if available_kick_smaller.is_some() && self.timer_started {
-                self.bigger_threshold_start_time = Some(context.cycle_time.start_time);
+                _ => {}
             }
         }
         let (action, motion_command) = actions
@@ -425,7 +427,6 @@ impl Behavior {
                         &context.parameters.dribbling,
                         dribble_path.clone(),
                         *context.dribble_walk_speed,
-                        world_state.filtered_game_controller_state.clone(),
                         *context.precision_kick_timeout,
                         self.bigger_threshold_start_time,
                         context.cycle_time.start_time,
