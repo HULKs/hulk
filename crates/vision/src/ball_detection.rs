@@ -14,11 +14,8 @@ use types::{
     multivariate_normal_distribution::MultivariateNormalDistribution,
     parameters::BallDetectionParameters,
     perspective_grid_candidates::PerspectiveGridCandidates,
-    ycbcr422_image::YCbCr422Image,
+    ycbcr422_image::{Sample, YCbCr422Image, SAMPLE_SIZE},
 };
-
-pub const SAMPLE_SIZE: usize = 32;
-pub type Sample = [[f32; SAMPLE_SIZE]; SAMPLE_SIZE];
 
 struct NeuralNetworks {
     preclassifier: CompiledNN,
@@ -184,22 +181,6 @@ fn position_sample(network: &mut CompiledNN, sample: &Sample) -> Circle<Pixel> {
     }
 }
 
-fn sample_grayscale(image: &YCbCr422Image, candidate: Circle<Pixel>) -> Sample {
-    let top_left = candidate.center - vector![candidate.radius, candidate.radius];
-    let image_pixels_per_sample_pixel = candidate.radius * 2.0 / SAMPLE_SIZE as f32;
-
-    let mut sample = Sample::default();
-    for (y, column) in sample.iter_mut().enumerate() {
-        for (x, pixel) in column.iter_mut().enumerate() {
-            let x = (top_left.x() + x as f32 * image_pixels_per_sample_pixel) as u32;
-            let y = (top_left.y() + y as f32 * image_pixels_per_sample_pixel) as u32;
-            *pixel = image.try_at(x, y).map_or(128.0, |pixel| pixel.y as f32);
-        }
-    }
-
-    sample
-}
-
 fn evaluate_candidates(
     candidates: &[Circle<Pixel>],
     image: &YCbCr422Image,
@@ -221,7 +202,7 @@ fn evaluate_candidates(
                 center: candidate.center,
                 radius: candidate.radius * ball_radius_enlargement_factor,
             };
-            let sample = sample_grayscale(image, enlarged_candidate);
+            let sample = image.sample_grayscale(enlarged_candidate);
             let preclassifier_confidence = preclassify_sample(preclassifier, &sample);
 
             let mut classifier_confidence = None;
@@ -401,13 +382,12 @@ mod tests {
     fn preclassify_ball() {
         let mut network = CompiledNN::default();
         network.compile(CLASSIFIER_PATH);
-        let sample = sample_grayscale(
-            &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
-            Circle {
+        let sample = YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH))
+            .unwrap()
+            .sample_grayscale(Circle {
                 center: point![16.0, 16.0],
                 radius: 16.0,
-            },
-        );
+            });
         let confidence = preclassify_sample(&mut network, &sample);
 
         println!("{confidence:?}");
@@ -418,13 +398,12 @@ mod tests {
     fn classify_ball() {
         let mut network = CompiledNN::default();
         network.compile(PRECLASSIFIER_PATH);
-        let sample = sample_grayscale(
-            &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
-            Circle {
+        let sample = YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH))
+            .unwrap()
+            .sample_grayscale(Circle {
                 center: point![16.0, 16.0],
                 radius: 16.0,
-            },
-        );
+            });
         let confidence = classify_sample(&mut network, &sample);
 
         println!("{confidence:?}");
@@ -435,13 +414,12 @@ mod tests {
     fn position_ball() {
         let mut network = CompiledNN::default();
         network.compile(POSITIONER_PATH);
-        let sample = sample_grayscale(
-            &YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH)).unwrap(),
-            Circle {
+        let sample = YCbCr422Image::load_from_444_png(Path::new(BALL_SAMPLE_PATH))
+            .unwrap()
+            .sample_grayscale(Circle {
                 center: point![16.0, 16.0],
                 radius: 16.0,
-            },
-        );
+            });
         let circle = position_sample(&mut network, &sample);
 
         assert_relative_eq!(
