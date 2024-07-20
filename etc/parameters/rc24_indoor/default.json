@@ -13,9 +13,10 @@
   },
   "image_segmenter": {
     "vision_top": {
-      "vertical_edge_threshold": 30
+      "vertical_edge_threshold": 20
     },
     "vision_bottom": {
+      "vertical_edge_threshold": 20,
       "vertical_median_mode": "FivePixels"
     }
   },
@@ -33,8 +34,18 @@
   "field_color_detection": {
     "vision_bottom": {
       "saturation": {
-        "start": 125,
+        "start": 67,
         "end": 255
+      }
+    },
+    "vision_top": {
+      "hue": {
+        "end": 147,
+        "start": 65
+      },
+      "saturation": {
+        "end": 255,
+        "start": 75
       }
     }
   }
