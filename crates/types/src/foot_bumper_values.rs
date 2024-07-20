@@ -9,4 +9,5 @@ pub struct FootBumperValues {
     pub right_foot_bumper_count: i32,
     pub obstacle_detected_on_left: bool,
     pub obstacle_detected_on_right: bool,
+    pub obstacle_detected_on_middle: bool,
 }
