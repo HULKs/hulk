@@ -128,11 +128,21 @@ impl BallHypothesis {
     pub fn merge(&mut self, other: BallHypothesis) {
         match (&mut self.mode, other.mode) {
             (BallMode::Resting(resting), BallMode::Resting(distribution)) => {
-                KalmanFilter::update(resting, Matrix2::identity(), distribution.mean, distribution.covariance)
+                KalmanFilter::update(
+                    resting,
+                    Matrix2::identity(),
+                    distribution.mean,
+                    distribution.covariance,
+                );
                 self.validity = self.validity.max(other.validity);
             }
             (BallMode::Moving(moving), BallMode::Moving(distribution)) => {
-                KalmanFilter::update(moving, Matrix4::identity(), distribution.mean, distribution.covariance)
+                KalmanFilter::update(
+                    moving,
+                    Matrix4::identity(),
+                    distribution.mean,
+                    distribution.covariance,
+                );
                 self.validity = self.validity.max(other.validity);
             }
             _ => (), // deny merge
