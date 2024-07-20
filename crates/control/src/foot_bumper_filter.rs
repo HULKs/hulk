@@ -133,24 +133,31 @@ impl FootBumperFilter {
             .push_back(self.right_pressed_last_cycle);
         self.right_detection_buffer.pop_front();
 
-        let obstacle_detected_on_left = self.left_count >= *context.activations_needed;
-        let obstacle_detected_on_right = self.right_count >= *context.activations_needed;
-
         self.check_for_bumper_errors(&context);
 
         if *fall_state != FallState::Upright {
             return Ok(Default::default());
         }
 
-        let obstacle_angle = match (
-            obstacle_detected_on_left && self.left_in_use,
-            obstacle_detected_on_right && self.right_in_use,
-        ) {
-            (true, true) => 0.0,
-            (true, false) => *context.sensor_angle,
-            (false, true) => -context.sensor_angle,
-            _ => return Ok(Default::default()),
-        };
+        let obstacle_detected_on_left =
+            (self.left_count >= *context.activations_needed) && self.left_in_use;
+        let obstacle_detected_on_right =
+            (self.right_count >= *context.activations_needed) && self.right_in_use;
+        let obstacle_detected_on_middle = ((self.right_count + self.left_count)
+            >= *context.activations_needed)
+            && (self.left_in_use || self.right_in_use);
+
+        let mut obstacle_angle = 0.0;
+
+        if obstacle_detected_on_left {
+            obstacle_angle = *context.sensor_angle;
+        } else if obstacle_detected_on_right {
+            obstacle_angle = -*context.sensor_angle;
+        } else if obstacle_detected_on_middle {
+        } else {
+            return Ok(Default::default());
+        }
+
         let obstacle_position = Rotation2::<Ground, Ground>::new(obstacle_angle)
             * point![*context.obstacle_distance, 0.0];
 
@@ -161,6 +168,7 @@ impl FootBumperFilter {
                 right_foot_bumper_count: self.right_count,
                 obstacle_detected_on_left,
                 obstacle_detected_on_right,
+                obstacle_detected_on_middle,
             });
 
         Ok(MainOutputs {

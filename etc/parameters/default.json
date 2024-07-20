@@ -87,7 +87,7 @@
     }
   },
   "foot_bumper_filter": {
-    "activations_needed": 1,
+    "activations_needed": 2,
     "acceptance_duration": { "nanos": 0, "secs": 1 },
     "buffer_size": 25,
     "number_of_detections_in_buffer_for_defective_declaration": 22,
