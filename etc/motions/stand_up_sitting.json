@@ -85,7 +85,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.5,
+          "tolerance": 10.2,
           "timeout_duration": 5.0
         }
       }
@@ -136,7 +136,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.5,
+          "tolerance": 10.1,
           "timeout_duration": 5.0
         }
       }
@@ -144,7 +144,7 @@
     {
       "keyframes": [
         {
-          "duration": 0.1,
+          "duration": 0.3,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -187,7 +187,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.3,
+          "tolerance": 10.1,
           "timeout_duration": 5.0
         }
       }
@@ -196,7 +196,7 @@
       "interrupt_conditions": [{ "NoGroundContactAbort": {} }],
       "keyframes": [
         {
-          "duration": 0.3,
+          "duration": 0.4,
           "positions": {
             "head": {
               "yaw": 0.0,
@@ -239,7 +239,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.3,
+          "tolerance": 10.1,
           "timeout_duration": 5.0
         }
       }
@@ -376,16 +376,15 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.3,
+          "tolerance": 0.5,
           "timeout_duration": 5.0
         }
       }
     },
     {
       "interrupt_conditions": [
-        {
-          "FallenAbort": {}
-        }
+        { "FallenAbort": {} },
+        { "NoGroundContactAbort": {} }
       ],
       "keyframes": [
         {
