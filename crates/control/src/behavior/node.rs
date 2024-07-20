@@ -46,6 +46,8 @@ pub struct Behavior {
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
+    bigger_threshold_start_time: Option<SystemTime>,
+    timer_started: bool,
 }
 
 #[context]
@@ -98,6 +100,8 @@ impl Behavior {
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
+            bigger_threshold_start_time: None,
+            timer_started: false,
         })
     }
 
@@ -275,6 +279,51 @@ impl Behavior {
             .dribble_path_obstacles_output
             .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
+        if let (Some(kick_decisions), Some(instant_kick_decisions)) = (
+            world_state.kick_decisions.as_ref(),
+            world_state.instant_kick_decisions.as_ref(),
+        ) {
+            // let kick_decisions = world_state.kick_decisions.as_ref().unwrap();
+            // let instant_kick_decisions = world_state.instant_kick_decisions.as_ref().unwrap();
+
+            let available_kick_bigger = kick_decisions
+                .iter()
+                .chain(instant_kick_decisions.iter())
+                .find(|decision| {
+                    dribble::is_kick_pose_reached(
+                        decision.kick_pose,
+                        context.in_walk_kicks[decision.variant].reached_thresholds,
+                        world_state.robot.ground_to_upcoming_support,
+                    )
+                });
+            let available_kick_smaller = kick_decisions
+                .iter()
+                .chain(instant_kick_decisions.iter())
+                .find(|decision| {
+                    dribble::is_kick_pose_reached(
+                        decision.kick_pose,
+                        context.in_walk_kicks[decision.variant].precision_kick_reached_thresholds,
+                        world_state.robot.ground_to_upcoming_support,
+                    )
+                });
+            if available_kick_bigger.is_some()
+                && available_kick_smaller.is_none()
+                && !self.timer_started
+            {
+                let is_bigger_kick_pose_reached = dribble::is_kick_pose_reached(
+                    available_kick_bigger.unwrap().kick_pose,
+                    context.in_walk_kicks[available_kick_bigger.unwrap().variant]
+                        .reached_thresholds,
+                    world_state.robot.ground_to_upcoming_support,
+                );
+                if is_bigger_kick_pose_reached {
+                    self.bigger_threshold_start_time = Some(context.cycle_time.start_time);
+                }
+                self.timer_started = true;
+            } else if available_kick_smaller.is_some() && self.timer_started {
+                self.bigger_threshold_start_time = Some(context.cycle_time.start_time);
+            }
+        }
         let (action, motion_command) = actions
             .iter()
             .find_map(|action| {
@@ -377,8 +426,9 @@ impl Behavior {
                         dribble_path.clone(),
                         *context.dribble_walk_speed,
                         world_state.filtered_game_controller_state.clone(),
-                        world_state.last_filtered_game_controller_state_change,
                         *context.precision_kick_timeout,
+                        self.bigger_threshold_start_time,
+                        context.cycle_time.start_time,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),
