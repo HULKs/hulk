@@ -48,7 +48,6 @@ pub struct Behavior {
     active_since: Option<SystemTime>,
     previous_role: Role,
     unprecise_threshold_start_time: Option<SystemTime>,
-    timer_started: bool,
 }
 
 #[context]
@@ -102,7 +101,6 @@ impl Behavior {
             active_since: None,
             previous_role: Role::Searcher,
             unprecise_threshold_start_time: None,
-            timer_started: false,
         })
     }
 
@@ -308,19 +306,18 @@ impl Behavior {
             match (
                 available_unprecise_kicks,
                 available_precise_kicks,
-                self.timer_started,
+                self.unprecise_threshold_start_time.is_none(),
             ) {
-                (Some(available_unprecise_kicks), None, false) => {
+                (Some(available_unprecise_kicks), None, true) => {
                     if is_kick_pose_reached(
                         available_unprecise_kicks.kick_pose,
                         context.in_walk_kicks[available_unprecise_kicks.variant].reached_thresholds,
                         world_state.robot.ground_to_upcoming_support,
                     ) {
                         self.unprecise_threshold_start_time = Some(context.cycle_time.start_time);
-                         self.timer_started = true;
                     }
                 }
-                (_, Some(_), true) => {
+                (_, Some(_), false) => {
                     self.unprecise_threshold_start_time = Some(context.cycle_time.start_time);
                 }
                 _ => {}
