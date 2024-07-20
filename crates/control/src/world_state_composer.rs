@@ -12,7 +12,6 @@ use types::{
     fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
-    last_filtered_game_controller_state_change::LastFilteredGameControllerStateChanges,
     obstacles::Obstacle,
     primary_state::PrimaryState,
     roles::Role,
@@ -34,10 +33,6 @@ pub struct CycleContext {
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    last_filtered_game_controller_state_changes: Input<
-        Option<LastFilteredGameControllerStateChanges>,
-        "last_filtered_game_controller_state_changes?",
-    >,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
     kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
@@ -90,9 +85,6 @@ impl WorldStateComposer {
             kick_decisions: context.kick_decisions.cloned(),
             instant_kick_decisions: context.instant_kick_decisions.cloned(),
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
-            last_filtered_game_controller_state_change: context
-                .last_filtered_game_controller_state_changes
-                .copied(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
             calibration_command: context.calibration_command.copied(),
         };
