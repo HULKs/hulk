@@ -147,14 +147,17 @@ impl FootBumperFilter {
             >= *context.activations_needed)
             && (self.left_in_use && self.right_in_use);
 
-        let obstacle_angle = if obstacle_detected_on_left {
-            *context.sensor_angle;
-        } else if obstacle_detected_on_right {
-            -*context.sensor_angle;
-        } else if obstacle_detected_on_middle {
-            0.0
-        } else {
+        if !(obstacle_detected_on_left || obstacle_detected_on_right || obstacle_detected_on_middle)
+        {
             return Ok(Default::default());
+        }
+
+        let obstacle_angle = if obstacle_detected_on_middle {
+            0.0
+        } else if obstacle_detected_on_right {
+            -*context.sensor_angle
+        } else {
+            *context.sensor_angle
         };
 
         let obstacle_position = Rotation2::<Ground, Ground>::new(obstacle_angle)
