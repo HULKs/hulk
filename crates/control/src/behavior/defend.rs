@@ -3,7 +3,7 @@ use std::ops::Range;
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use geometry::{line::Line, look_at::LookAt};
-use linear_algebra::{distance, point, Point2, Pose2};
+use linear_algebra::{distance, point, Point2, Pose2, Vector2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Side},
@@ -183,6 +183,18 @@ fn defend_pose(
         }
         _ => role_positions.defender_passive_ring_radius,
     };
+
+    if ball.ball_in_ground.coords().norm() >= role_positions.defender_passive_distance {
+        let passive_target_position = position_to_defend + (Vector2::x_axis() * distance_to_target);
+        return Some(
+            ground_to_field.inverse()
+                * Pose2::<Field>::new(
+                    passive_target_position,
+                    passive_target_position.look_at(&ball.ball_in_field).angle(),
+                ),
+        );
+    }
+
     distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
         world_state.filtered_game_controller_state.as_ref(),
@@ -251,7 +263,22 @@ fn defend_goal_pose(
         _ => role_positions.keeper_x_offset,
     };
 
+    let passive_position_to_defend = point![-field_dimensions.length / 2.0 + 0.25, 0.0];
+
+    if ball.ball_in_ground.coords().norm() >= role_positions.keeper_passive_distance {
+        return Some(
+            ground_to_field.inverse()
+                * Pose2::<Field>::new(
+                    passive_position_to_defend,
+                    passive_position_to_defend
+                        .look_at(&ball.ball_in_field)
+                        .angle(),
+                ),
+        );
+    }
+
     let position_to_defend = point![-field_dimensions.length / 2.0 - 1.0, 0.0];
+
     let defend_pose = block_on_line(
         ball.ball_in_field,
         position_to_defend,
