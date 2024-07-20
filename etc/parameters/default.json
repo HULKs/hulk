@@ -55,9 +55,9 @@
       "image_containment_merge_factor": 1.0,
       "cluster_merge_radius_factor": 1.5,
       "ball_radius_enlargement_factor": 1.5,
-      "detection_noise": [4.0, 4.0],
-      "noise_increase_slope": 0.5,
-      "noise_increase_distance_threshold": 2.5
+      "detection_noise": [8.0, 8.0],
+      "noise_increase_slope": 8.0,
+      "noise_increase_distance_threshold": 3.0
     },
     "vision_bottom": {
       "minimal_radius": 42.0,
