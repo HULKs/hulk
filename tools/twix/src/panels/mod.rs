@@ -1,3 +1,4 @@
+mod ball_candidates;
 mod behavior_simulator;
 mod enum_plot;
 mod image;
@@ -12,9 +13,10 @@ mod remote;
 mod text;
 mod vision_tuner;
 
-pub use self::behavior_simulator::BehaviorSimulatorPanel;
-pub use self::image::ImagePanel;
+pub use ball_candidates::BallCandidatePanel;
+pub use behavior_simulator::BehaviorSimulatorPanel;
 pub use enum_plot::EnumPlotPanel;
+pub use image::ImagePanel;
 pub use image_color_select::ImageColorSelectPanel;
 pub use image_segments::ImageSegmentsPanel;
 pub use look_at::LookAtPanel;

@@ -6,17 +6,20 @@ use std::{
 };
 
 use color_eyre::eyre::{self, WrapErr};
+use geometry::circle::Circle;
 use image::{io::Reader, RgbImage};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
-use linear_algebra::Point2;
+use linear_algebra::{vector, Point2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     color::{Rgb, YCbCr422, YCbCr444},
     jpeg::JpegImage,
 };
+
+pub const SAMPLE_SIZE: usize = 32;
 
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathIntrospect, PathDeserialize,
@@ -242,4 +245,22 @@ impl YCbCr422Image {
             ycbcr444
         })
     }
+
+    pub fn sample_grayscale(&self, candidate: Circle<Pixel>) -> Sample {
+        let top_left = candidate.center - vector![candidate.radius, candidate.radius];
+        let image_pixels_per_sample_pixel = candidate.radius * 2.0 / SAMPLE_SIZE as f32;
+
+        let mut sample = Sample::default();
+        for (y, column) in sample.iter_mut().enumerate() {
+            for (x, pixel) in column.iter_mut().enumerate() {
+                let x = (top_left.x() + x as f32 * image_pixels_per_sample_pixel) as u32;
+                let y = (top_left.y() + y as f32 * image_pixels_per_sample_pixel) as u32;
+                *pixel = self.try_at(x, y).map_or(128.0, |pixel| pixel.y as f32);
+            }
+        }
+
+        sample
+    }
 }
+
+pub type Sample = [[f32; SAMPLE_SIZE]; SAMPLE_SIZE];
