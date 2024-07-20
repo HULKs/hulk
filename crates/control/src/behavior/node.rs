@@ -47,7 +47,7 @@ pub struct Behavior {
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
-    bigger_threshold_start_time: Option<SystemTime>,
+    unprecise_threshold_start_time: Option<SystemTime>,
     timer_started: bool,
 }
 
@@ -101,7 +101,7 @@ impl Behavior {
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
-            bigger_threshold_start_time: None,
+            unprecise_threshold_start_time: None,
             timer_started: false,
         })
     }
@@ -316,12 +316,12 @@ impl Behavior {
                         context.in_walk_kicks[available_unprecise_kicks.variant].reached_thresholds,
                         world_state.robot.ground_to_upcoming_support,
                     ) {
-                        self.bigger_threshold_start_time = Some(context.cycle_time.start_time);
+                        self.unprecise_threshold_start_time = Some(context.cycle_time.start_time);
+                         self.timer_started = true;
                     }
-                    self.timer_started = true;
                 }
                 (_, Some(_), true) => {
-                    self.bigger_threshold_start_time = Some(context.cycle_time.start_time);
+                    self.unprecise_threshold_start_time = Some(context.cycle_time.start_time);
                 }
                 _ => {}
             }
@@ -428,7 +428,7 @@ impl Behavior {
                         dribble_path.clone(),
                         *context.dribble_walk_speed,
                         *context.precision_kick_timeout,
-                        self.bigger_threshold_start_time,
+                        self.unprecise_threshold_start_time,
                         context.cycle_time.start_time,
                     ),
                     Action::Jump => jump::execute(world_state),
