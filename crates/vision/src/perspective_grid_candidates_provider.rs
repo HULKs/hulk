@@ -101,7 +101,7 @@ fn generate_rows(
             circle_radius: radius,
             center_y: row_vertical_center,
         });
-        row_vertical_center -= 2.0 * radius;
+        row_vertical_center -= radius;
     }
 
     rows
