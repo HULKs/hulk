@@ -224,6 +224,9 @@ impl RoleAssignment {
                     team_ball = None;
                     new_role = Role::Loser;
                 }
+                Role::Loser if *context.player_number == PlayerNumber::One => {
+                    new_role = Role::Keeper;
+                }
                 _ => {
                     send_spl_striker_message = false;
                     team_ball = None;
