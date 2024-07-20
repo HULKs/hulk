@@ -106,7 +106,8 @@ where
 
 impl<Frame, const DIMENSION: usize> PartialEq for Line<Frame, DIMENSION> {
     fn eq(&self, other: &Self) -> bool {
-        self.point == other.point && self.direction == other.direction
+        self.squared_distance_to(other.point) == 0.0
+            && self.direction.normalize() == other.direction.normalize()
     }
 }
 
@@ -118,8 +119,11 @@ impl<Frame, const DIMENSION: usize> AbsDiffEq for Line<Frame, DIMENSION> {
     }
 
     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        self.point.abs_diff_eq(&other.point, epsilon)
-            && self.direction.abs_diff_eq(&other.direction, epsilon)
+        self.distance_to(other.point).abs_diff_eq(&0.0, epsilon)
+            && self
+                .direction
+                .normalize()
+                .abs_diff_eq(&other.direction.normalize(), epsilon)
     }
 }
 
@@ -134,10 +138,13 @@ impl<Frame, const DIMENSION: usize> RelativeEq for Line<Frame, DIMENSION> {
         epsilon: Self::Epsilon,
         max_relative: Self::Epsilon,
     ) -> bool {
-        self.point.relative_eq(&other.point, epsilon, max_relative)
-            && self
-                .direction
-                .relative_eq(&other.direction, epsilon, max_relative)
+        self.distance_to(other.point)
+            .relative_eq(&0.0, epsilon, max_relative)
+            && self.direction.normalize().relative_eq(
+                &other.direction.normalize(),
+                epsilon,
+                max_relative,
+            )
     }
 }
 
