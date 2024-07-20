@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use compiled_nn::CompiledNN;
+use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -321,9 +322,9 @@ fn project_balls_to_ground(
     clusters: &[BallCluster],
     camera_matrix: &CameraMatrix,
     measurement_noise: Vector2<Pixel>,
+    ball_radius: f32,
     noise_increase_slope: f32,
     noise_increase_distance_threshold: f32,
-    ball_radius: f32,
 ) -> Vec<BallPercept> {
     clusters
         .iter()
@@ -334,23 +335,22 @@ fn project_balls_to_ground(
                     ball_radius,
                 )
                 .ok()?;
+
             let projected_covariance = {
-                let distance = position.coords().norm_squared();
-                let distance_noise_increase = if distance
-                    < noise_increase_distance_threshold.powi(2)
-                {
-                    noise_increase_slope * (distance - noise_increase_distance_threshold.powi(2))
-                } else {
-                    0.0
-                };
+                let distance = position.coords().norm();
+                let distance_noise_increase = 1.0
+                    + (distance - noise_increase_distance_threshold).max(0.0)
+                        * noise_increase_slope;
 
                 let scaled_noise = measurement_noise
                     .inner
-                    .map(|x| (cluster.circle.radius * x * (1.0 + distance_noise_increase)).powi(2))
+                    .map(|x| (cluster.circle.radius * x).powi(2))
                     .framed();
-                camera_matrix.project_noise_to_ground(position, scaled_noise)
-            }
-            .ok()?;
+                camera_matrix
+                    .project_noise_to_ground(position, scaled_noise)
+                    .ok()?
+                    * (Matrix2::identity() * distance_noise_increase.powi(2))
+            };
 
             Some(BallPercept {
                 percept_in_ground: MultivariateNormalDistribution {
