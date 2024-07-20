@@ -22,7 +22,7 @@
   "field_color_detection": {
     "vision_bottom": {
       "saturation": {
-        "start": 108,
+        "start": 95,
         "end": 255
       }
     },
