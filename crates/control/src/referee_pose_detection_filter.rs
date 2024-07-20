@@ -95,8 +95,11 @@ impl RefereePoseDetectionFilter {
             self.update(&context)?;
 
         let is_standby = matches!(
-            context.game_controller_state.unwrap().game_state,
-            GameState::Standby
+            context.game_controller_state,
+            Some(GameControllerState {
+                game_state: GameState::Standby,
+                ..
+            })
         );
         if !is_standby {
             self.detection_times = Default::default();
