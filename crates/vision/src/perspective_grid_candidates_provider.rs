@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -30,9 +30,11 @@ pub struct CycleContext {
     line_data: RequiredInput<Option<LineData>, "line_data?">,
     image: Input<YCbCr422Image, "image">,
 
-    ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
     minimum_radius:
-        Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
+    Parameter<f32, "perspective_grid_candidates_provider.$cycler_instance.minimum_radius">,
+    minimum_number_of_segments_per_circle:
+    Parameter<usize, "perspective_grid_candidates_provider.$cycler_instance.minimum_number_of_segments_per_circle">,
+    ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
 
     perspective_grid_ball_sizes: AdditionalOutput<Vec<Row>, "perspective_grid_ball_sizes">,
 }
@@ -64,6 +66,7 @@ impl PerspectiveGridCandidatesProvider {
             vertical_scanlines,
             skip_segments,
             &perspective_grid_ball_sizes,
+            *context.minimum_number_of_segments_per_circle,
         );
         context
             .perspective_grid_ball_sizes
@@ -122,9 +125,9 @@ fn generate_candidates(
     vertical_scanlines: &[ScanLine],
     skip_segments: &HashSet<Point2<Pixel, u16>>,
     rows: &[Row],
+    minimum_number_of_segments_per_circle: usize,
 ) -> PerspectiveGridCandidates {
-    let mut already_added = HashSet::new();
-    let mut candidates = Vec::new();
+    let mut segments_per_circles = BTreeMap::new();
 
     for scan_line in vertical_scanlines {
         for segment in &scan_line.segments {
@@ -138,27 +141,33 @@ fn generate_candidates(
             };
             let x = scan_line.position as f32;
             let index_in_row = (x / (row.circle_radius * 2.0)).floor() as usize;
-            if already_added.insert((row_index, index_in_row)) {
-                candidates.push(Circle {
-                    center: point![
-                        row.circle_radius + row.circle_radius * 2.0 * index_in_row as f32,
-                        row.center_y
-                    ],
-                    radius: row.circle_radius,
-                })
-            }
+
+            segments_per_circles
+                .entry((row_index, index_in_row))
+                .and_modify(|segments_per_circle| *segments_per_circle += 1)
+                .or_insert(1);
         }
     }
 
-    candidates.sort_by(|a, b| {
-        b.center
-            .y()
-            .partial_cmp(&a.center.y())
-            .unwrap()
-            .then(a.center.x().partial_cmp(&b.center.x()).unwrap())
-    });
-
-    PerspectiveGridCandidates { candidates }
+    PerspectiveGridCandidates {
+        candidates: segments_per_circles
+            .into_iter()
+            .filter_map(|((row_index, index_in_row), segments_per_circle)| {
+                if segments_per_circle > minimum_number_of_segments_per_circle {
+                    let row = rows[row_index];
+                    Some(Circle {
+                        center: point![
+                            row.circle_radius + row.circle_radius * 2.0 * index_in_row as f32,
+                            row.center_y
+                        ],
+                        radius: row.circle_radius,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    }
 }
 
 #[cfg(test)]
@@ -223,7 +232,7 @@ mod tests {
             println!("Current: {current:#?}");
             assert_relative_eq!(
                 f32::abs(current.center_y - previous.center_y),
-                previous.circle_radius * 2.0,
+                previous.circle_radius,
                 epsilon = 0.001
             );
 
@@ -259,7 +268,7 @@ mod tests {
             }],
         }];
         let skip_segments = HashSet::new();
-        let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows);
+        let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows, 0);
         assert_relative_eq!(
             candidates,
             PerspectiveGridCandidates {
@@ -337,7 +346,7 @@ mod tests {
             ]
             .map(|point| point),
         );
-        let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows);
+        let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows, 0);
         assert_relative_eq!(
             candidates,
             PerspectiveGridCandidates {
