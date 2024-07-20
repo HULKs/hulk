@@ -1091,7 +1091,7 @@
     "default_kick_strength": 1.0,
     "corner_kick_strength": 0.25,
     "kick_off_kick_strength": 0.25,
-    "penalty_shot_kick_strength": 2.0,
+    "penalty_shot_kick_strength": 3.0,
     "angle_distance_weight": 0.02,
     "closer_to_goal_threshold": 1.0,
     "goal_accuracy_margin": 0.25
