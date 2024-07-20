@@ -1,22 +1,10 @@
 {
-  "feet_detection": {
-    "vision_bottom": {
-      "minimum_consecutive_segments": 14,
-      "minimum_luminance_standard_deviation": 20.0,
-      "minimum_samples_per_cluster": 10
-    },
-    "vision_top": {
-      "minimum_consecutive_segments": 14,
-      "minimum_luminance_standard_deviation": 20.0,
-      "minimum_samples_per_cluster": 10
-    }
-  },
   "image_segmenter": {
     "vision_top": {
-      "vertical_edge_threshold": 20
+      "vertical_edge_threshold": 15
     },
     "vision_bottom": {
-      "vertical_edge_threshold": 20,
+      "vertical_edge_threshold": 15,
       "vertical_median_mode": "FivePixels"
     }
   },
@@ -34,7 +22,7 @@
   "field_color_detection": {
     "vision_bottom": {
       "saturation": {
-        "start": 67,
+        "start": 108,
         "end": 255
       }
     },
@@ -45,7 +33,7 @@
       },
       "saturation": {
         "end": 255,
-        "start": 75
+        "start": 80
       }
     }
   }
