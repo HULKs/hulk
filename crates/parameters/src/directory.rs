@@ -163,10 +163,24 @@ pub struct Scope {
 }
 
 impl Scope {
+    pub fn default_location() -> Self {
+        Self {
+            location: Location::All,
+            id: Id::All,
+        }
+    }
+
     pub fn default_head() -> Self {
         Self {
             location: Location::All,
             id: Id::Head,
+        }
+    }
+
+    pub fn current_location() -> Self {
+        Self {
+            location: Location::Current,
+            id: Id::All,
         }
     }
 

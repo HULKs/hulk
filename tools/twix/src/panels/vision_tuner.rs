@@ -1,18 +1,19 @@
 use std::{ops::RangeInclusive, sync::Arc};
 
-use color_eyre::Result;
+use color_eyre::{eyre::OptionExt, Result};
 use communication::messages::TextOrBinary;
 use eframe::{
     egui::{Grid, Response, Slider, Ui, Widget},
     emath::Numeric,
 };
 use log::error;
+use parameters::directory::Scope;
 use serde::Serialize;
 use serde_json::{to_value, Value};
 
 use types::{field_color::FieldColorParameters, image_segments::Direction};
 
-use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
 
@@ -75,6 +76,58 @@ impl VisionTunerPanel {
         }
         ui.end_row();
     }
+
+    fn save_field_color_parameters(&self, scope: Scope) -> Result<()> {
+        let cycler = self.cycler.as_snake_case_path();
+
+        let parameters = self
+            .field_color_detection
+            .get_last_value()?
+            .ok_or_eyre("unable to retrieve parameters, nothing was saved.")?;
+
+        let value = to_value(parameters).unwrap();
+
+        self.nao
+            .store_parameters(&format!("field_color_detection.{cycler}"), value, scope)?;
+
+        Ok(())
+    }
+
+    fn save_image_segmenter_parameters(&self, scope: Scope) -> Result<()> {
+        let cycler = self.cycler.as_snake_case_path();
+
+        let horizontal_edge_threshold = self
+            .horizontal_edge_threshold
+            .get_last_value()?
+            .ok_or_eyre("unable to retrieve horizontal_edge_threshold, nothing was saved.")?;
+        let vertical_edge_threshold = self
+            .vertical_edge_threshold
+            .get_last_value()?
+            .ok_or_eyre("unable to retrieve vertical_edge_threshold, nothing was saved.")?;
+
+        let horizontal_edge_threshold_value = to_value(horizontal_edge_threshold).unwrap();
+        let vertical_edge_threshold_value = to_value(vertical_edge_threshold).unwrap();
+
+        self.nao.store_parameters(
+            &format!("image_segmenter.{cycler}.horizontal_edge_threshold"),
+            horizontal_edge_threshold_value,
+            scope,
+        )?;
+        self.nao.store_parameters(
+            &format!("image_segmenter.{cycler}.vertical_edge_threshold"),
+            vertical_edge_threshold_value,
+            scope,
+        )?;
+
+        Ok(())
+    }
+
+    fn save(&self, scope: Scope) -> Result<()> {
+        self.save_field_color_parameters(scope)?;
+        self.save_image_segmenter_parameters(scope)?;
+
+        Ok(())
+    }
 }
 
 impl Panel for VisionTunerPanel {
@@ -111,6 +164,9 @@ impl Widget for &mut VisionTunerPanel {
                 let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
                 if cycler_selector.ui(ui).changed() {
                     self.resubscribe();
+                }
+                if ui.button("Save to current location").clicked() {
+                    self.save(Scope::current_location()).log_err();
                 }
             });
             ui.separator();
