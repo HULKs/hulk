@@ -211,7 +211,14 @@ impl RoleAssignment {
 
         let mut team_ball = self.team_ball;
 
-        if spl_striker_message_timeout {
+        let is_in_penalty_kick = matches!(
+            context.filtered_game_controller_state,
+            Some(FilteredGameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                ..
+            })
+        );
+        if spl_striker_message_timeout && !is_in_penalty_kick {
             match new_role {
                 Role::Keeper => {
                     team_ball = None;
