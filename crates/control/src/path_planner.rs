@@ -278,8 +278,10 @@ impl PathPlanner {
             .min_by_key(|circle| NotNan::new(circle.center.coords().norm_squared()).unwrap());
         if let Some(circle) = closest_circle {
             let to_destination = destination - circle.center;
-            let safety_radius = circle.radius * 1.1;
-            destination += to_destination.normalize() * (safety_radius - to_destination.norm());
+            if let Some(to_destination_normalized) = to_destination.try_normalize(f32::EPSILON) {
+                let safety_radius = circle.radius * 1.1;
+                destination += to_destination_normalized * (safety_radius - to_destination.norm());
+            }
         }
 
         for circle in self
