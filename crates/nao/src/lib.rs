@@ -317,6 +317,24 @@ impl Nao {
         String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
     }
 
+    pub async fn scan_networks(&self) -> Result<()> {
+        let output = self
+            .ssh_to_nao()
+            .arg("iwctl")
+            .arg("station")
+            .arg("wlan0")
+            .arg("scan")
+            .output()
+            .await
+            .wrap_err("failed to execute iwctl ssh command")?;
+
+        if !output.status.success() {
+            bail!("iwctl ssh command exited with {}", output.status);
+        }
+
+        Ok(())
+    }
+
     pub async fn set_network(&self, network: Network) -> Result<()> {
         let command_string = [
             Network::SplA,

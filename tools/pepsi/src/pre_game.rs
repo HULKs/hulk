@@ -97,6 +97,10 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     .wrap_err("failed to set player numbers")?;
 
     if !arguments.prepare {
+        wireless(WirelessArguments::Scan { naos: naos.clone() })
+            .await
+            .wrap_err("failed to scan for networks")?;
+
         wireless(WirelessArguments::Set {
             network: arguments.network,
             naos: naos.clone(),
