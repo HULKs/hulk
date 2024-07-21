@@ -89,6 +89,10 @@ impl TimeToReachKickPosition {
                 .half_rotation
                 .mul_f32(angle * FRAC_1_PI)
         });
+        let falling_penalty = match context.motion_command {
+            MotionCommand::FallProtection { .. } => Duration::from_secs_f32(4.0),
+            _ => Duration::ZERO,
+        };
         let time_to_reach_kick_position = walk_time.map(|walk_time| {
             [
                 walk_time,
@@ -98,6 +102,7 @@ impl TimeToReachKickPosition {
                 *context
                     .stand_up_front_estimated_remaining_duration
                     .unwrap_or(&Duration::ZERO),
+                falling_penalty,
                 time_to_turn,
             ]
             .into_iter()
