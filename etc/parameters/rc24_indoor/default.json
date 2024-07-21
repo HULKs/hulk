@@ -18,23 +18,29 @@
     }
   },
   "image_segmenter": {
+    "vision_top": {
+      "vertical_edge_threshold": 13,
+      "horizontal_edge_threshold": 20
+    },
     "vision_bottom": {
       "vertical_edge_threshold": 15,
-      "vertical_median_mode": "FivePixels"
-    },
-    "vision_top": {
-      "vertical_edge_threshold": 10
+      "horizontal_edge_threshold": 20
     }
   },
   "line_detection": {
-    "vision_bottom": {
-      "gradient_alignment": -0.8
-    },
     "vision_top": {
       "allowed_projected_segment_length": {
         "start": 0.02
       },
       "gradient_alignment": -0.8
+    },
+    "vision_bottom": {
+      "gradient_alignment": -0.8
+    }
+  },
+  "feet_detection": {
+    "vision_top": {
+      "minimum_feet_width": 0.03
     }
   }
 }
