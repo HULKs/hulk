@@ -28,6 +28,20 @@ pub struct Players<T> {
     pub seven: T,
 }
 
+impl<T: Clone> Players<T> {
+    pub fn new(value: T) -> Self {
+        Self {
+            one: value.clone(),
+            two: value.clone(),
+            three: value.clone(),
+            four: value.clone(),
+            five: value.clone(),
+            six: value.clone(),
+            seven: value,
+        }
+    }
+}
+
 impl<T> Index<PlayerNumber> for Players<T> {
     type Output = T;
 

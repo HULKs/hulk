@@ -17,15 +17,9 @@ impl Default for GameController {
                 game_phase: GamePhase::Normal,
                 kicking_team: Team::Hulks,
                 last_game_state_change: SystemTime::UNIX_EPOCH,
-                penalties: Players {
-                    one: None,
-                    two: None,
-                    three: None,
-                    four: None,
-                    five: None,
-                    six: None,
-                    seven: None,
-                },
+                penalties: Players::new(None),
+                opponent_penalties: Players::new(None),
+                remaining_amount_of_messages: 1200,
                 sub_state: None,
                 hulks_team_is_home_after_coin_toss: true,
                 hulks_team: TeamState {
