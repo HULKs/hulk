@@ -174,8 +174,6 @@ fn generate_candidates(
 
 #[cfg(test)]
 mod tests {
-    use std::iter::FromIterator;
-
     use approx::assert_relative_eq;
     use linear_algebra::{vector, IntoTransform, Isometry3};
     use nalgebra::{Translation, UnitQuaternion};
