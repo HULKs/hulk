@@ -149,25 +149,27 @@ fn generate_candidates(
         }
     }
 
-    PerspectiveGridCandidates {
-        candidates: segments_per_circles
-            .into_iter()
-            .filter_map(|((row_index, index_in_row), segments_per_circle)| {
-                if segments_per_circle > minimum_number_of_segments_per_circle {
-                    let row = rows[row_index];
-                    Some(Circle {
-                        center: point![
-                            row.circle_radius + row.circle_radius * index_in_row as f32,
-                            row.center_y
-                        ],
-                        radius: row.circle_radius,
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect(),
-    }
+    let mut candidates = segments_per_circles
+        .into_iter()
+        .filter_map(|((row_index, index_in_row), segments_per_circle)| {
+            if segments_per_circle >= minimum_number_of_segments_per_circle {
+                let row = rows[row_index];
+                Some(Circle {
+                    center: point![
+                        row.circle_radius + row.circle_radius * index_in_row as f32,
+                        row.center_y
+                    ],
+                    radius: row.circle_radius,
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    candidates.sort_by(|a, b| b.center.y().total_cmp(&a.center.y()));
+
+    PerspectiveGridCandidates { candidates }
 }
 
 #[cfg(test)]
