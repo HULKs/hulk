@@ -1,29 +1,9 @@
 {
-  "image_segmenter": {
-    "vision_top": {
-      "vertical_edge_threshold": 10
-    },
-    "vision_bottom": {
-      "vertical_edge_threshold": 15,
-      "vertical_median_mode": "FivePixels"
-    }
-  },
-  "line_detection": {
-    "vision_top": {
-      "allowed_projected_segment_length": {
-        "start": 0.02
-      },
-      "gradient_alignment": -0.8
-    },
-    "vision_bottom": {
-      "gradient_alignment": -0.8
-    }
-  },
   "field_color_detection": {
     "vision_bottom": {
       "saturation": {
-        "start": 95,
-        "end": 255
+        "end": 255,
+        "start": 95
       }
     },
     "vision_top": {
@@ -35,6 +15,26 @@
         "end": 255,
         "start": 63
       }
+    }
+  },
+  "image_segmenter": {
+    "vision_bottom": {
+      "vertical_edge_threshold": 15,
+      "vertical_median_mode": "FivePixels"
+    },
+    "vision_top": {
+      "vertical_edge_threshold": 10
+    }
+  },
+  "line_detection": {
+    "vision_bottom": {
+      "gradient_alignment": -0.8
+    },
+    "vision_top": {
+      "allowed_projected_segment_length": {
+        "start": 0.02
+      },
+      "gradient_alignment": -0.8
     }
   }
 }
