@@ -12,6 +12,8 @@ mod syn_context;
 
 #[derive(Parser, Debug)]
 struct Arguments {
+    /// The paths to check
+    #[arg(required = true)]
     paths: Vec<PathBuf>,
 }
 
@@ -39,7 +41,8 @@ fn main() -> Result<()> {
             let file = RustFile::try_parse(entry.path())
                 .wrap_err_with(|| format!("failed to parse {}", entry.path().display()))?;
 
-            for report in check(&file) {
+            let checks = check(&file);
+            for report in checks {
                 report
                     .eprint((file.source_id.as_str(), file.source.clone()))
                     .wrap_err("failed to output report")?;

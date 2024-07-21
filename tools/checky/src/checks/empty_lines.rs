@@ -58,29 +58,30 @@ fn check_item_spacing<'a>(
 ) -> Option<Report<'a>> {
     let line_before = before.span().end().line;
     let line_after = after.span().start().line;
-    if line_before + 1 == line_after {
-        let Some(line_before) = file.source.line(line_before - 1) else {
-            panic!("line {line_before} does not exist");
-        };
-        let Some(line_after) = file.source.line(line_after - 1) else {
-            panic!("line {line_after} does not exist");
-        };
-
-        let span = line_before.offset()..(line_after.offset() + line_after.len());
-
-        Some(
-            Report::build(
-                ReportKind::Error,
-                file.source_id.as_str(),
-                line_after.offset(),
-            )
-            .with_message(message)
-            .with_label(
-                Label::new((file.source_id.as_str(), span)).with_message("missing empty line"),
-            )
-            .finish(),
-        )
-    } else {
-        None
+    let is_subsequent = line_before + 1 == line_after;
+    if !is_subsequent {
+        return None;
     }
+
+    let line_before = file
+        .source
+        .line(line_before - 1)
+        .expect(&format!("line {line_before} does not exist"));
+    let line_after = file
+        .source
+        .line(line_after - 1)
+        .expect(&format!("line {line_after} does not exist"));
+
+    let span = line_before.offset()..(line_after.offset() + line_after.len());
+
+    Some(
+        Report::build(
+            ReportKind::Error,
+            file.source_id.as_str(),
+            line_after.offset(),
+        )
+        .with_message(message)
+        .with_label(Label::new((file.source_id.as_str(), span)).with_message("missing empty line"))
+        .finish(),
+    )
 }

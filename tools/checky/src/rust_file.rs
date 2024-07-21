@@ -26,14 +26,14 @@ impl RustFile {
         file.read_to_string(&mut buffer).wrap_err_with(|| {
             format!("failed to read file {} to string", path.as_ref().display())
         })?;
-        let path = path.as_ref().to_path_buf();
+        let path = path.as_ref();
         let source_id = path.display().to_string();
         let source = Source::from(buffer);
         let file = parse_file(source.text())
             .syn_context(&path)
             .wrap_err_with(|| format!("failed to parse file {}", path.display()))?;
         Ok(Self {
-            path,
+            path: path.to_path_buf(),
             source_id,
             source,
             file,
