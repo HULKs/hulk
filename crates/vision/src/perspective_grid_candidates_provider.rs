@@ -111,9 +111,9 @@ fn generate_rows(
 }
 
 fn find_matching_row(rows: &[Row], segment: &Segment) -> Option<(usize, Row)> {
-    let center_y = (segment.start as f32 + segment.end as f32) / 2.0;
+    let center_y = segment.center() as f32;
     rows.iter().enumerate().find_map(|(index, row)| {
-        if (row.center_y - center_y).abs() <= row.circle_radius {
+        if (row.center_y - center_y).abs() <= row.circle_radius / 2.0 {
             Some((index, *row))
         } else {
             None
