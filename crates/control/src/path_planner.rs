@@ -1,6 +1,7 @@
 use color_eyre::{eyre::eyre, Result};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use linear_algebra::{distance, point, vector, Isometry2, Orientation2, Point2};
+use log::warn;
 use ordered_float::NotNan;
 use smallvec::SmallVec;
 
@@ -281,6 +282,8 @@ impl PathPlanner {
             if let Some(to_destination_normalized) = to_destination.try_normalize(f32::EPSILON) {
                 let safety_radius = circle.radius * 1.1;
                 destination += to_destination_normalized * (safety_radius - to_destination.norm());
+            } else {
+                warn!("Behavior bug: Path planning destination was an obstacle")
             }
         }
 
