@@ -19,7 +19,7 @@
   },
   "image_segmenter": {
     "vision_top": {
-      "vertical_edge_threshold": 13,
+      "vertical_edge_threshold": 10,
       "horizontal_edge_threshold": 20
     },
     "vision_bottom": {
