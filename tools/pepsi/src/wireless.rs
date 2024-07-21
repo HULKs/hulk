@@ -17,6 +17,12 @@ pub enum Arguments {
         #[arg(required = true)]
         naos: Vec<NaoAddress>,
     },
+    /// Scan for networks
+    Scan {
+        /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
+        #[arg(required = true)]
+        naos: Vec<NaoAddress>,
+    },
     /// Set active network
     Set {
         /// The network to connect the wireless device to (None disconnects from anything)
@@ -40,6 +46,7 @@ pub enum Arguments {
 pub async fn wireless(arguments: Arguments) -> Result<()> {
     match arguments {
         Arguments::Status { naos } => status(naos).await,
+        Arguments::Scan { naos } => scan(naos).await,
         Arguments::List { naos } => available_networks(naos).await,
         Arguments::Set { network, naos } => set(naos, network).await,
     };
@@ -56,6 +63,20 @@ async fn status(naos: Vec<NaoAddress>) {
             nao.get_network_status()
                 .await
                 .wrap_err_with(|| format!("failed to get network status from {nao_address}"))
+        },
+    )
+    .await;
+}
+
+async fn scan(naos: Vec<NaoAddress>) {
+    ProgressIndicator::map_tasks(
+        naos,
+        "Starting network scan...",
+        |nao_address, _progress_bar| async move {
+            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+            nao.scan_networks()
+                .await
+                .wrap_err_with(|| format!("failed to scan for networks on {nao_address}"))
         },
     )
     .await;
