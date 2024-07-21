@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use bindgen::Builder;
 
 fn main() {
-    println!("cargo:rerun-if-changed=wrapper.h");
+    println!("cargo::rerun-if-changed=wrapper.h");
 
     let bindings = Builder::default()
         .header("wrapper.h")

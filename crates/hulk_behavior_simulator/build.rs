@@ -49,7 +49,7 @@ fn main() -> Result<()> {
 
     let cyclers = Cyclers::try_from_manifest(manifest, root)?;
     for path in cyclers.watch_paths() {
-        println!("cargo:rerun-if-changed={}", path.display());
+        println!("cargo::rerun-if-changed={}", path.display());
     }
 
     println!();
