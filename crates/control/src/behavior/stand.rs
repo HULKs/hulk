@@ -2,7 +2,7 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Half},
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{HeadMotion, MotionCommand},
+    motion_command::{HeadMotion, ImageRegion, MotionCommand},
     primary_state::PrimaryState,
     roles::Role,
     world_state::WorldState,
@@ -80,15 +80,47 @@ pub fn execute(
                 world_state.ball,
             ) {
                 (
-                    Some(FilteredGameControllerState {
-                        game_phase: GamePhase::PenaltyShootout { .. },
-                        ..
-                    }),
+                    Some(
+                        FilteredGameControllerState {
+                            game_phase: GamePhase::PenaltyShootout { .. },
+                            kicking_team,
+                            ..
+                        }
+                        | FilteredGameControllerState {
+                            game_phase: GamePhase::Normal,
+                            kicking_team,
+                            sub_state: Some(SubState::PenaltyKick),
+                            ..
+                        },
+                    ),
                     Role::Striker,
                     None,
-                ) => Some(MotionCommand::Stand {
-                    head: HeadMotion::Center,
-                }),
+                ) => {
+                    let ground_to_field = world_state.robot.ground_to_field?;
+                    let half = match kicking_team {
+                        Team::Hulks => Half::Opponent,
+                        Team::Opponent => Half::Own,
+                        Team::Uncertain => {
+                            eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
+                            Half::Opponent
+                        }
+                    };
+                    let target = world_state
+                        .ball
+                        .or(world_state.rule_ball)
+                        .map(|ball| ball.ball_in_ground)
+                        .unwrap_or({
+                            ground_to_field.inverse() * field_dimensions.penalty_spot(half)
+                        });
+
+                    Some(MotionCommand::Stand {
+                        head: HeadMotion::LookAt {
+                            target,
+                            image_region_target: ImageRegion::Center,
+                            camera: None,
+                        },
+                    })
+                }
                 _ => None,
             }
         }
