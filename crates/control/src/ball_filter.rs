@@ -13,7 +13,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
-use linear_algebra::{distance, IntoTransform, Isometry2, Point2};
+use linear_algebra::{IntoTransform, Isometry2, Point2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
