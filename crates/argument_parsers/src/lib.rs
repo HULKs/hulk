@@ -11,7 +11,7 @@ use color_eyre::{
 use regex::Regex;
 
 use nao::{Network, SystemctlAction};
-use spl_network_messages::PlayerNumber;
+use spl_network_messages::bindings::MAX_NUM_PLAYERS;
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
     &["disable", "enable", "restart", "start", "status", "stop"];
@@ -151,61 +151,56 @@ impl TryFrom<NaoAddress> for NaoNumber {
 #[derive(Clone, Copy, Debug)]
 pub struct NaoAddressPlayerAssignment {
     pub nao_address: NaoAddress,
-    pub player_number: PlayerNumber,
+    pub jersey_number: u8,
 }
 
 impl FromStr for NaoAddressPlayerAssignment {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
-        let (prefix, player_number) = parse_assignment(input)?;
+        let (prefix, jersey_number) = parse_assignment(input)?;
         Ok(Self {
             nao_address: prefix.parse()?,
-            player_number,
+            jersey_number,
         })
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct NaoNumberPlayerAssignment {
+pub struct NaoNumberJerseyAssignment {
     pub nao_number: NaoNumber,
-    pub player_number: PlayerNumber,
+    pub jersey_number: u8,
 }
 
-impl FromStr for NaoNumberPlayerAssignment {
+impl FromStr for NaoNumberJerseyAssignment {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
-        let (prefix, player_number) = parse_assignment(input)?;
+        let (prefix, jersey_number) = parse_assignment(input)?;
         Ok(Self {
             nao_number: prefix.parse()?,
-            player_number,
+            jersey_number,
         })
     }
 }
 
-impl Display for NaoNumberPlayerAssignment {
+impl Display for NaoNumberJerseyAssignment {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}:{}", self.nao_number, self.player_number)
+        write!(formatter, "{}:{}", self.nao_number, self.jersey_number)
     }
 }
 
-fn parse_assignment(input: &str) -> Result<(&str, PlayerNumber)> {
-    let (prefix, player_number) = input.rsplit_once(':').ok_or_else(|| eyre!("missing `:`"))?;
-    let player_number = match player_number {
-        "1" => PlayerNumber::One,
-        "2" => PlayerNumber::Two,
-        "3" => PlayerNumber::Three,
-        "4" => PlayerNumber::Four,
-        "5" => PlayerNumber::Five,
-        "6" => PlayerNumber::Six,
-        "7" => PlayerNumber::Seven,
-        _ => bail!("unexpected player number {player_number}"),
-    };
-    Ok((prefix, player_number))
+fn parse_assignment(input: &str) -> Result<(&str, u8)> {
+    let (prefix, jersey_number) = input.rsplit_once(':').ok_or_else(|| eyre!("missing `:`"))?;
+    let jersey_number = jersey_number.parse()?;
+    if !(1..=MAX_NUM_PLAYERS).contains(&jersey_number) {
+        bail!("Unexpected jersey number {jersey_number}")
+    }
+
+    Ok((prefix, jersey_number))
 }
 
-impl TryFrom<NaoAddressPlayerAssignment> for NaoNumberPlayerAssignment {
+impl TryFrom<NaoAddressPlayerAssignment> for NaoNumberJerseyAssignment {
     type Error = Report;
 
     fn try_from(assignment: NaoAddressPlayerAssignment) -> Result<Self> {
@@ -214,7 +209,7 @@ impl TryFrom<NaoAddressPlayerAssignment> for NaoNumberPlayerAssignment {
                 .nao_address
                 .try_into()
                 .wrap_err("failed to convert NAO address into NAO number")?,
-            player_number: assignment.player_number,
+            jersey_number: assignment.jersey_number,
         })
     }
 }
