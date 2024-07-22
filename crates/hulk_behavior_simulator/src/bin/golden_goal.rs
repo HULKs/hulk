@@ -25,23 +25,26 @@ fn golden_goal(
     mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 1 {
-        commands.spawn(Robot::try_new(PlayerNumber::One).unwrap());
-        commands.spawn(Robot::try_new(PlayerNumber::Two).unwrap());
-        commands.spawn(Robot::try_new(PlayerNumber::Three).unwrap());
-        commands.spawn(Robot::try_new(PlayerNumber::Four).unwrap());
-        commands.spawn(Robot::try_new(PlayerNumber::Five).unwrap());
-        commands.spawn(Robot::try_new(PlayerNumber::Six).unwrap());
-        commands.spawn(Robot::try_new(PlayerNumber::Seven).unwrap());
+        for number in [
+            PlayerNumber::One,
+            PlayerNumber::Two,
+            PlayerNumber::Three,
+            PlayerNumber::Four,
+            PlayerNumber::Five,
+            PlayerNumber::Six,
+            PlayerNumber::Seven,
+        ] {
+            let robot = Robot::try_new(number).unwrap();
+            commands.spawn(robot);
+        }
     }
-    if game_controller.state.hulks_team.score > 4 || time.ticks() >= 100_000 {
+
+    if game_controller.state.hulks_team.score > 0 {
         println!("Done");
         exit.send(AppExit::Success);
     }
-    if time.ticks() >= 100_000 {
+    if time.ticks() >= 10_000 {
         println!("No goal was scored :(");
         exit.send(AppExit::from_code(1));
-    }
-    if time.ticks() % 299 == 0 {
-        println!("{}", time.ticks());
     }
 }
