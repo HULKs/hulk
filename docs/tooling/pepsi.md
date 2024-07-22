@@ -42,9 +42,9 @@ Many subcommands can act on multiple robots concurrently.
 
 `upload` builds a binary for the NAO target, and then uploads it and parameter files to one or more robot.
 
-`wireless`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `playernumber` only change the local configuration parameters.
+`wireless`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `jerseynumber` only change the local configuration parameters.
 
-`pregame` combines deactivating communication (to avoid sending illegal messages), assigning playernumbers, setting a wifi network, uploading, and restarting the HULK service.
+`pregame` combines deactivating communication (to avoid sending illegal messages), assigning jersey numbers, setting a wifi network, uploading, and restarting the HULK service.
 
 `logs` or and `postgame` can be used after a (test-)game to download logs, the latter also shuts down the HULKs binary and disables wifi.
 

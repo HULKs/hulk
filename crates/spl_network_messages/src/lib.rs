@@ -1,4 +1,4 @@
-mod bindings;
+pub mod bindings;
 mod game_controller_return_message;
 mod game_controller_state_message;
 

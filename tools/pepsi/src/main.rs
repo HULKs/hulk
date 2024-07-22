@@ -10,10 +10,10 @@ use communication::{communication, Arguments as CommunicationArguments};
 use completions::{completions, Arguments as CompletionArguments};
 use gammaray::{gammaray, Arguments as GammarayArguments};
 use hulk::{hulk, Arguments as HulkArguments};
+use jersey_number::{jersey_number, Arguments as PlayerNumberArguments};
 use location::{location, Arguments as LocationArguments};
 use logs::{logs, Arguments as LogsArguments};
 use ping::{ping, Arguments as PingArguments};
-use player_number::{player_number, Arguments as PlayerNumberArguments};
 use post_game::{post_game, Arguments as PostGameArguments};
 use power_off::{power_off, Arguments as PoweroffArguments};
 use pre_game::{pre_game, Arguments as PreGameArguments};
@@ -32,10 +32,10 @@ mod communication;
 mod completions;
 mod gammaray;
 mod hulk;
+mod jersey_number;
 mod location;
 mod logs;
 mod ping;
-mod player_number;
 mod post_game;
 mod power_off;
 mod pre_game;
@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
             .await
             .wrap_err("failed to execute logs command")?,
         Command::Ping(arguments) => ping(arguments).await,
-        Command::Playernumber(arguments) => player_number(arguments, &repository?)
+        Command::Jerseynumber(arguments) => jersey_number(arguments, &repository?)
             .await
             .wrap_err("failed to execute player_number command")?,
         Command::Postgame(arguments) => post_game(arguments)
@@ -175,7 +175,7 @@ enum Command {
     #[command(subcommand)]
     Logs(LogsArguments),
     /// Change player numbers of the NAOs in local parameters
-    Playernumber(PlayerNumberArguments),
+    Jerseynumber(PlayerNumberArguments),
     /// Ping NAOs
     Ping(PingArguments),
     /// Disable NAOs after a game (downloads logs, unsets wireless network, etc.)
