@@ -123,7 +123,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
         if self.playing {
             let now = ui.input(|input| input.time);
             let time_elapsed = now - self.playing_start;
-            new_frame = Some((time_elapsed * 83.0) as usize);
+            new_frame = Some((time_elapsed * 83.0 * 5.0) as usize);
         }
         if ui.button(">>").clicked() {
             new_frame = Some(new_frame.unwrap_or(self.selected_frame) + 10);
