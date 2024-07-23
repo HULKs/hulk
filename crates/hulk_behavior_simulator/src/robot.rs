@@ -24,7 +24,7 @@ use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
-use spl_network_messages::{GameState, HulkMessage, PlayerNumber};
+use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_position::BallPosition,
     hardware::Ids,
@@ -32,7 +32,6 @@ use types::{
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     motion_selection::MotionSafeExits,
     planned_path::PathSegment,
-    primary_state::PrimaryState,
     support_foot::Side,
 };
 
@@ -49,7 +48,6 @@ pub struct Robot {
     pub interface: Arc<Interfake>,
     pub database: Database,
     pub parameters: Parameters,
-    pub is_penalized: bool,
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
 
@@ -116,7 +114,6 @@ impl Robot {
             interface,
             database,
             parameters,
-            is_penalized: false,
             last_kick_time: Duration::default(),
             ball_last_seen: None,
 
@@ -359,16 +356,6 @@ pub fn cycle_robots(
                 })
             } else {
                 None
-            };
-        robot.database.main_outputs.primary_state =
-            match (robot.is_penalized, game_controller.state.game_state) {
-                (true, _) => PrimaryState::Penalized,
-                (false, GameState::Initial) => PrimaryState::Initial,
-                (false, GameState::Standby) => PrimaryState::Standby,
-                (false, GameState::Ready { .. }) => PrimaryState::Ready,
-                (false, GameState::Set) => PrimaryState::Set,
-                (false, GameState::Playing { .. }) => PrimaryState::Playing,
-                (false, GameState::Finished) => PrimaryState::Finished,
             };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycle(&messages_sent_last_cycle).unwrap();
