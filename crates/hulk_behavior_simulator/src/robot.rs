@@ -191,6 +191,7 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
 pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>, time: Res<Time>) {
     let time_step = Duration::from_secs_f32(0.012);
     for mut robot in &mut robots {
+        let parameters = &robot.parameters;
         let mut new_ground_to_field: Option<Isometry2<Ground, Field>> = None;
         let ground_to_field = robot
             .database
@@ -205,13 +206,25 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 orientation_mode,
                 ..
             } => {
-                let step = match path[0] {
+                let steps_per_second =
+                    1.0 / parameters.walking_engine.max_step_duration.as_secs_f32();
+                let max_step = parameters.step_planner.max_step_size;
+
+                let mut step = match path[0] {
                     PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
                     PathSegment::Arc(arc, direction) => {
                         direction.rotate_vector_90_degrees(arc.start - arc.circle.center)
                     }
-                }
-                .cap_magnitude(0.3 * time_step.as_secs_f32());
+                };
+                step.inner.x = step.inner.x.clamp(
+                    -max_step.forward * steps_per_second,
+                    max_step.forward * steps_per_second,
+                );
+                step.inner.y = step.inner.y.clamp(
+                    -max_step.left * steps_per_second,
+                    max_step.left * steps_per_second,
+                );
+                step = step.cap_magnitude(1.0 * time_step.as_secs_f32());
 
                 let orientation = match orientation_mode {
                     OrientationMode::AlignWithPath => {
