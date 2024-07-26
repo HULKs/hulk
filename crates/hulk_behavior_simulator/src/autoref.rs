@@ -13,7 +13,7 @@ use crate::{ball::BallResource, game_controller::GameController, robot::Robot};
 #[derive(Resource, Default)]
 struct AutorefData {
     last_state_change: Time,
-    robots_standing_still: Timer,
+    robots_standing_still: Option<Timer>,
     ball_spawn_timer: Timer,
 }
 
@@ -36,7 +36,7 @@ fn autoref(
             }
         }
         GameState::Ready => {
-            let read_phase_time_out =
+            let ready_phase_time_out =
                 (time.elapsed() - autoref.last_state_change.elapsed()).as_secs_f32() > 30.0;
             let robots_moved_this_cycle = robots.iter().any(|robot| -> bool {
                 match &robot.database.main_outputs.motion_command {
@@ -51,12 +51,19 @@ fn autoref(
                     _ => true,
                 }
             });
-            autoref.robots_standing_still.tick(time.delta());
+            if let Some(timer) = autoref.robots_standing_still.as_mut() {
+                timer.tick(time.delta());
+            }
             if robots_moved_this_cycle {
-                autoref.robots_standing_still = Timer::from_seconds(1.0, TimerMode::Once);
+                autoref.robots_standing_still = Some(Timer::from_seconds(1.0, TimerMode::Once));
             }
 
-            if read_phase_time_out || autoref.robots_standing_still.finished() {
+            if ready_phase_time_out
+                || autoref
+                    .robots_standing_still
+                    .as_ref()
+                    .is_some_and(|timer| timer.finished())
+            {
                 game_controller.state.game_state = GameState::Set;
                 autoref.last_state_change = time.as_generic();
                 autoref.ball_spawn_timer = Timer::from_seconds(1.5, TimerMode::Once)

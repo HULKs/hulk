@@ -7,7 +7,7 @@ use bevy::{
     time::Time,
 };
 
-use spl_network_messages::PlayerNumber;
+use spl_network_messages::{GameState, PlayerNumber};
 
 use hulk_behavior_simulator::{
     game_controller::GameController,
@@ -20,8 +20,8 @@ scenario!(golden_goal);
 
 fn golden_goal(
     mut commands: Commands,
-    game_controller: Res<GameController>,
-    time: ResMut<Time<Ticks>>,
+    mut game_controller: ResMut<GameController>,
+    time: Res<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 1 {
@@ -37,6 +37,7 @@ fn golden_goal(
             let robot = Robot::try_new(number).unwrap();
             commands.spawn(robot);
         }
+        game_controller.state.game_state = GameState::Ready;
     }
 
     if game_controller.state.hulks_team.score > 0 {
