@@ -1,6 +1,5 @@
 use std::{
     convert::Into,
-    f32::consts::FRAC_PI_4,
     mem::take,
     sync::{mpsc, Arc},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -159,6 +158,21 @@ impl Robot {
 
         field_of_view.x
     }
+
+    pub fn ground_to_field(&self) -> Isometry2<Ground, Field> {
+        self.database
+            .main_outputs
+            .ground_to_field
+            .expect("simulated robots should always have a ground to field")
+    }
+
+    pub fn ground_to_field_mut(&mut self) -> &mut Isometry2<Ground, Field> {
+        self.database
+            .main_outputs
+            .ground_to_field
+            .as_mut()
+            .expect("simulated robots should always have a ground to field")
+    }
 }
 
 pub fn to_player_number(value: usize) -> Result<PlayerNumber, String> {
@@ -189,15 +203,9 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
 }
 
 pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>, time: Res<Time>) {
-    let time_step = Duration::from_secs_f32(0.012);
     for mut robot in &mut robots {
         let parameters = &robot.parameters;
-        let mut new_ground_to_field: Option<Isometry2<Ground, Field>> = None;
-        let ground_to_field = robot
-            .database
-            .main_outputs
-            .ground_to_field
-            .expect("simulated robots should always have a known pose");
+        let mut ground_to_field_update: Option<Isometry2<Ground, Field>> = None;
 
         let head_motion = match robot.database.main_outputs.motion_command.clone() {
             MotionCommand::Walk {
@@ -206,51 +214,41 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 orientation_mode,
                 ..
             } => {
-                let steps_per_second =
-                    1.0 / parameters.walking_engine.max_step_duration.as_secs_f32();
+                let steps_per_second = 1.0 / 0.35;
+                let steps_this_cycle = steps_per_second * time.delta_seconds();
                 let max_step = parameters.step_planner.max_step_size;
 
-                let mut step = match path[0] {
+                let target = match path[0] {
                     PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
                     PathSegment::Arc(arc, direction) => {
                         direction.rotate_vector_90_degrees(arc.start - arc.circle.center)
                     }
                 };
-                step.inner.x = step.inner.x.clamp(
-                    -max_step.forward * steps_per_second,
-                    max_step.forward * steps_per_second,
-                );
-                step.inner.y = step.inner.y.clamp(
-                    -max_step.left * steps_per_second,
-                    max_step.left * steps_per_second,
-                );
-                step = step.cap_magnitude(1.0 * time_step.as_secs_f32());
 
                 let orientation = match orientation_mode {
                     OrientationMode::AlignWithPath => {
-                        if step.norm_squared() < f32::EPSILON {
+                        if target.norm_squared() < f32::EPSILON {
                             Orientation2::identity()
                         } else {
-                            Orientation2::from_vector(step)
+                            Orientation2::from_vector(target)
                         }
                     }
                     OrientationMode::Override(orientation) => orientation,
                 };
+                let step = target.cap_magnitude(max_step.forward * steps_this_cycle);
 
-                let previous_ground_to_field = ground_to_field;
+                let rotation = orientation.angle().clamp(
+                    -max_step.turn * steps_this_cycle,
+                    max_step.turn * steps_this_cycle,
+                );
+                let movement = Isometry2::from_parts(step.as_point().coords(), rotation);
+                let old_ground_to_field = robot.ground_to_field();
+                let new_ground_to_field = old_ground_to_field * movement;
+                ground_to_field_update = Some(new_ground_to_field);
 
-                new_ground_to_field = Some(Isometry2::from_parts(
-                    (ground_to_field * step.as_point()).coords(),
-                    ground_to_field.orientation().angle()
-                        + orientation.angle().clamp(
-                            -FRAC_PI_4 * time_step.as_secs_f32(),
-                            FRAC_PI_4 * time_step.as_secs_f32(),
-                        ),
-                ));
-
-                for obstacle in robot.database.main_outputs.obstacles.iter_mut() {
-                    obstacle.position =
-                        ground_to_field.inverse() * previous_ground_to_field * obstacle.position;
+                for obstacle in &mut robot.database.main_outputs.obstacles {
+                    let obstacle_in_field = old_ground_to_field * obstacle.position;
+                    obstacle.position = new_ground_to_field.inverse() * obstacle_in_field;
                 }
 
                 head
@@ -276,7 +274,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                             KickVariant::Turn => vector![0.707, 0.707 * side],
                             KickVariant::Side => vector![0.0, 1.0 * -side],
                         };
-                        ball.velocity += ground_to_field * direction * strength * 2.5;
+                        ball.velocity += robot.ground_to_field() * direction * strength * 2.5;
                         robot.last_kick_time = time.elapsed();
                     };
                 }
@@ -304,13 +302,13 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         };
 
         let max_head_rotation_per_cycle =
-            robot.parameters.head_motion.maximum_velocity.yaw * time_step.as_secs_f32();
+            robot.parameters.head_motion.maximum_velocity.yaw * time.delta_seconds();
         let diff = desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
         let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
 
         robot.database.main_outputs.sensor_data.positions.head.yaw += movement;
-        if let Some(new_ground_to_field) = new_ground_to_field {
-            robot.database.main_outputs.ground_to_field = Some(new_ground_to_field);
+        if let Some(new_ground_to_field) = ground_to_field_update {
+            *robot.ground_to_field_mut() = new_ground_to_field;
         }
     }
 }
@@ -339,13 +337,8 @@ pub fn cycle_robots(
     for mut robot in &mut robots {
         robot.database.main_outputs.cycle_time.start_time = now;
 
-        let ground_to_field = robot
-            .database
-            .main_outputs
-            .ground_to_field
-            .expect("simulated robots should always have a known pose");
         let ball_visible = ball.state.as_ref().is_some_and(|ball| {
-            let ball_in_ground = ground_to_field.inverse() * ball.position;
+            let ball_in_ground = robot.ground_to_field().inverse() * ball.position;
             let head_to_ground =
                 Rotation2::new(robot.database.main_outputs.sensor_data.positions.head.yaw);
             let ball_in_head: Point2<Head> = head_to_ground.inverse() * ball_in_ground;
@@ -363,8 +356,8 @@ pub fn cycle_robots(
                     < robot.parameters.ball_filter.hypothesis_timeout
             }) {
                 ball.state.as_ref().map(|ball| BallPosition {
-                    position: ground_to_field.inverse() * ball.position,
-                    velocity: ground_to_field.inverse() * ball.velocity,
+                    position: robot.ground_to_field().inverse() * ball.position,
+                    velocity: robot.ground_to_field().inverse() * ball.velocity,
                     last_seen: now,
                 })
             } else {
