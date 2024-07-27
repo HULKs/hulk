@@ -12,7 +12,7 @@ use color_eyre::{eyre::eyre, Result};
 use crate::{
     autoref::autoref_plugin,
     ball::{move_ball, BallResource},
-    game_controller::GameController,
+    game_controller::{game_controller_plugin, GameController},
     recorder::Recording,
     robot::{cycle_robots, move_robots, Messages},
     time::{update_time, Ticks},
@@ -39,6 +39,7 @@ impl Plugin for SimulatorPlugin {
             FrameCountPlugin,
         ))
         .add_plugins(autoref_plugin)
+        .add_plugins(game_controller_plugin)
         .insert_resource(GameController::default())
         .insert_resource(BallResource::default())
         .insert_resource(Messages::default())
