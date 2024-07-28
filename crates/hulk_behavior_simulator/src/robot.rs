@@ -56,6 +56,10 @@ pub struct Robot {
 }
 
 impl Robot {
+    pub fn new(player_number: PlayerNumber) -> Self {
+        Self::try_new(player_number).expect("failed to create robot")
+    }
+
     pub fn try_new(player_number: PlayerNumber) -> Result<Self> {
         let mut parameters: Parameters = deserialize(
             "etc/parameters",

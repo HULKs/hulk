@@ -34,8 +34,7 @@ fn golden_goal(
             PlayerNumber::Six,
             PlayerNumber::Seven,
         ] {
-            let robot = Robot::try_new(number).unwrap();
-            commands.spawn(robot);
+            commands.spawn(Robot::new(number));
         }
         game_controller.state.game_state = GameState::Ready;
     }
