@@ -1,12 +1,16 @@
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::{
     app::{App, Update},
     ecs::{
-        event::EventWriter,
+        event::{EventReader, EventWriter},
+        schedule::IntoSystemConfigs,
         system::{Query, ResMut, Resource},
     },
     time::{Time, Timer, TimerMode},
 };
-use spl_network_messages::{GameState, Team};
+use linear_algebra::{vector, Isometry2};
+use spl_network_messages::{GameState, Penalty, Team};
 use types::{
     ball_position::SimulatorBallState, motion_command::MotionCommand, planned_path::PathSegment,
 };
@@ -81,7 +85,53 @@ fn autoref(
     }
 }
 
+pub fn auto_assistant_referee(
+    mut game_controller_commands: EventReader<GameControllerCommand>,
+    mut robots: Query<&mut Robot>,
+) {
+    for command in game_controller_commands.read() {
+        match *command {
+            GameControllerCommand::SetGameState(_) => {}
+            GameControllerCommand::Goal(_) => {}
+            GameControllerCommand::Penalize(player_number, penalty) => match penalty {
+                Penalty::IllegalMotionInStandby { .. } | Penalty::IllegalMotionInSet { .. } => {
+                    // Robots are penalized in place
+                }
+                Penalty::IllegalBallContact { .. }
+                | Penalty::PlayerPushing { .. }
+                | Penalty::InactivePlayer { .. }
+                | Penalty::IllegalPosition { .. }
+                | Penalty::LeavingTheField { .. }
+                | Penalty::RequestForPickup { .. }
+                | Penalty::LocalGameStuck { .. }
+                | Penalty::IllegalPositionInSet { .. }
+                | Penalty::PlayerStance { .. }
+                | Penalty::Substitute { .. }
+                | Penalty::Manual { .. } => {
+                    if let Some(mut robot) = robots
+                        .iter_mut()
+                        .find(|robot| robot.parameters.player_number == player_number)
+                    {
+                        *robot.ground_to_field_mut() =
+                            Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
+                    }
+                }
+            },
+            GameControllerCommand::Unpenalize(player_number) => {
+                if let Some(mut robot) = robots
+                    .iter_mut()
+                    .find(|robot| robot.parameters.player_number == player_number)
+                {
+                    *robot.ground_to_field_mut() =
+                        Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
+                }
+            }
+        }
+    }
+}
+
 pub fn autoref_plugin(app: &mut App) {
     app.add_systems(Update, autoref);
+    app.add_systems(Update, auto_assistant_referee.after(autoref));
     app.init_resource::<AutorefState>();
 }
