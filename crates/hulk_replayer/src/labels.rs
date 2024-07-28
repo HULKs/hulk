@@ -43,7 +43,7 @@ impl<'state> Widget for Labels<'state> {
                 left_top,
                 pos2(ui.max_rect().right(), left_top.y + row_height),
             );
-            let mut child_ui = ui.child_ui(child_rect, Layout::top_down(Align::Min));
+            let mut child_ui = ui.child_ui(child_rect, Layout::top_down(Align::Min), None);
             child_ui.set_height(row_height);
             child_ui.label(RichText::new(label_content.name).strong());
             let text_height = ui.style().text_styles.get(&TextStyle::Body).unwrap().size;

@@ -81,7 +81,7 @@ pub fn replayer() -> Result<()> {
             spawn_workers(replayer, time_sender.clone(), move || {
                 context.request_repaint();
             });
-            Box::new(Window::new(indices, time_sender))
+            Ok(Box::new(Window::new(indices, time_sender)))
         }),
     )
     .map_err(|error| Report::msg(error.to_string()))

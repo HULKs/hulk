@@ -100,7 +100,9 @@ impl Segment {
 
         if ui.rect_contains_pointer(screenspace_rect) {
             if let Some(tooltip) = self.tooltip() {
-                show_tooltip_at_pointer(ui.ctx(), "Fridolin".into(), |ui| ui.label(tooltip));
+                show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), "Fridolin".into(), |ui| {
+                    ui.label(tooltip)
+                });
             }
         }
 
@@ -119,7 +121,7 @@ impl Segment {
 
         let text = WidgetText::from(&self.name()).into_galley(
             ui,
-            Some(false),
+            Some(eframe::egui::TextWrapMode::Truncate),
             available_text_rect.width(),
             TextStyle::Body,
         );
