@@ -12,7 +12,7 @@ use spl_network_messages::{GameState, PlayerNumber};
 
 use hulk_behavior_simulator::{
     ball::BallResource,
-    game_controller::GameController,
+    game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     scenario,
     time::{Ticks, TicksTime},
@@ -26,9 +26,11 @@ struct State<'s> {
     count: Local<'s, usize>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn intercept_ball(
     mut commands: Commands,
     mut game_controller: ResMut<GameController>,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: ResMut<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
@@ -41,6 +43,7 @@ fn intercept_ball(
         robot.parameters.step_planner.max_step_size.forward = 0.45;
         commands.spawn(robot);
         game_controller.state.game_state = GameState::Playing;
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
         ball.state = Some(SimulatorBallState {
             position: Point2::origin(),
             velocity: vector![2.0, 0.1],
