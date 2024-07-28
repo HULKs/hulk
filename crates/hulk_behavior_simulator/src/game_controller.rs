@@ -2,7 +2,9 @@ use std::time::SystemTime;
 
 use bevy::prelude::*;
 
-use spl_network_messages::{GamePhase, GameState, PlayerNumber, Team, TeamColor, TeamState};
+use spl_network_messages::{
+    GamePhase, GameState, Penalty, PlayerNumber, Team, TeamColor, TeamState,
+};
 use types::{game_controller_state::GameControllerState, players::Players};
 
 #[derive(Resource, Default)]
@@ -10,10 +12,12 @@ struct GameControllerControllerState {
     last_state_change: Time,
 }
 
-#[derive(Event)]
+#[derive(Clone, Copy, Event)]
 pub enum GameControllerCommand {
     SetGameState(GameState),
     Goal(Team),
+    Penalize(PlayerNumber, Penalty),
+    Unpenalize(PlayerNumber),
 }
 
 fn game_controller_controller(
@@ -23,9 +27,9 @@ fn game_controller_controller(
     time: ResMut<Time>,
 ) {
     for command in commands.read() {
-        match command {
+        match *command {
             GameControllerCommand::SetGameState(game_state) => {
-                game_controller.state.game_state = *game_state;
+                game_controller.state.game_state = game_state;
                 state.last_state_change = time.as_generic();
             }
             GameControllerCommand::Goal(team) => {
@@ -37,6 +41,12 @@ fn game_controller_controller(
                 .score += 1;
                 game_controller.state.game_state = GameState::Ready;
                 state.last_state_change = time.as_generic();
+            }
+            GameControllerCommand::Penalize(player_number, penalty) => {
+                game_controller.state.penalties[player_number] = Some(penalty);
+            }
+            GameControllerCommand::Unpenalize(player_number) => {
+                game_controller.state.penalties[player_number] = None;
             }
         }
     }

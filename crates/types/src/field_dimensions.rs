@@ -62,6 +62,7 @@ impl Half {
     Debug,
     Deserialize,
     PartialEq,
+    Eq,
     Serialize,
     PathSerialize,
     PathDeserialize,
