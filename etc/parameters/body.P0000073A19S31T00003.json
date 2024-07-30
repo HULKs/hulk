@@ -1,7 +1,17 @@
 {
+  "joint_calibration_offsets": {
+    "left_leg": {
+      "hip_yaw_pitch": -0.15000000596046448
+    }
+  },
   "step_planner": {
     "step_size_delta_fast": {
       "forward": 0.005
+    }
+  },
+  "walking_engine": {
+    "base": {
+      "torso_tilt": 0.05999999865889549
     }
   }
 }
