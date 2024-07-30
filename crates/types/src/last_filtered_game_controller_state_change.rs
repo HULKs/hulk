@@ -4,7 +4,7 @@ use crate::players::Players;
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
 
 pub struct LastFilteredGameControllerStateChanges {
     pub game_state: SystemTime,
@@ -22,15 +22,7 @@ impl Default for LastFilteredGameControllerStateChanges {
             opponent_game_state: SystemTime::now(),
             game_phase: SystemTime::now(),
             kicking_team: SystemTime::now(),
-            penalties: Players {
-                one: None,
-                two: None,
-                three: None,
-                four: None,
-                five: None,
-                six: None,
-                seven: None,
-            },
+            penalties: Players::new(),
             sub_state: None,
         }
     }
