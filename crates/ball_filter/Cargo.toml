@@ -10,6 +10,7 @@ coordinate_systems = { workspace = true }
 filtering = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+ordered-float = { workspace = true }
 path_serde = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }

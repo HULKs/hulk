@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use compiled_nn::CompiledNN;
+use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -137,6 +138,8 @@ impl BallDetection {
             context.camera_matrix,
             context.parameters.detection_noise,
             *context.ball_radius,
+            context.parameters.noise_increase_slope,
+            context.parameters.noise_increase_distance_threshold,
         );
 
         Ok(MainOutputs {
@@ -320,6 +323,8 @@ fn project_balls_to_ground(
     camera_matrix: &CameraMatrix,
     measurement_noise: Vector2<Pixel>,
     ball_radius: f32,
+    noise_increase_slope: f32,
+    noise_increase_distance_threshold: f32,
 ) -> Vec<BallPercept> {
     clusters
         .iter()
@@ -330,14 +335,22 @@ fn project_balls_to_ground(
                     ball_radius,
                 )
                 .ok()?;
+
             let projected_covariance = {
+                let distance = position.coords().norm();
+                let distance_noise_increase = 1.0
+                    + (distance - noise_increase_distance_threshold).max(0.0)
+                        * noise_increase_slope;
+
                 let scaled_noise = measurement_noise
                     .inner
                     .map(|x| (cluster.circle.radius * x).powi(2))
                     .framed();
-                camera_matrix.project_noise_to_ground(position, scaled_noise)
-            }
-            .ok()?;
+                camera_matrix
+                    .project_noise_to_ground(position, scaled_noise)
+                    .ok()?
+                    * (Matrix2::identity() * distance_noise_increase.powi(2))
+            };
 
             Some(BallPercept {
                 percept_in_ground: MultivariateNormalDistribution {
@@ -490,6 +503,8 @@ mod tests {
             cluster_merge_radius_factor: 1.5,
             ball_radius_enlargement_factor: 2.0,
             detection_noise: vector![0.0, 0.0],
+            noise_increase_slope: 0.0,
+            noise_increase_distance_threshold: 0.0,
         };
         let perspective_grid_candidates = PerspectiveGridCandidates {
             candidates: vec![Circle {
