@@ -101,13 +101,16 @@ fn main() -> Result<(), eframe::Error> {
     let configuration = Configuration::load()
         .unwrap_or_else(|error| panic!("failed to load configuration: {error}"));
 
-    let options = NativeOptions::default();
     run_native(
         "Twix",
-        options,
+        NativeOptions::default(),
         Box::new(|creation_context| {
             egui_extras::install_image_loaders(&creation_context.egui_ctx);
-            Box::new(TwixApp::create(creation_context, arguments, configuration))
+            Ok(Box::new(TwixApp::create(
+                creation_context,
+                arguments,
+                configuration,
+            )))
         }),
     )
 }

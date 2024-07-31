@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{Response, RichText, Sense, TextStyle, Ui, Widget, WidgetText},
+    egui::{Response, RichText, Sense, TextStyle, TextWrapMode, Ui, Widget, WidgetText},
     epaint::{Color32, Vec2},
 };
 
@@ -36,9 +36,18 @@ impl<'a> Widget for Row<'a> {
             RichText::new("❌").color(Color32::RED)
         }
         .into();
-        let text = text.into_galley(ui, Some(false), ui.available_width(), TextStyle::Button);
-        let check_mark =
-            check_mark.into_galley(ui, Some(false), ui.available_width(), TextStyle::Button);
+        let text = text.into_galley(
+            ui,
+            Some(TextWrapMode::Truncate),
+            ui.available_width(),
+            TextStyle::Button,
+        );
+        let check_mark = check_mark.into_galley(
+            ui,
+            Some(TextWrapMode::Extend),
+            ui.available_width(),
+            TextStyle::Button,
+        );
 
         let desired_size = Vec2::new(
             text.size().x + 40.0 + check_mark.size().x + 20.0,

@@ -43,7 +43,8 @@ impl<'state> Widget for Timeline<'state> {
                 ui.max_rect().left_top(),
                 vec2(ui.available_width(), ticks_height(ui)),
             );
-            let mut ticks_ui = ui.child_ui(ticks_rect, Layout::top_down_justified(Align::Min));
+            let mut ticks_ui =
+                ui.child_ui(ticks_rect, Layout::top_down_justified(Align::Min), None);
             ui.advance_cursor_after_rect(ticks_rect);
 
             let response = ui.add(Frames::new(

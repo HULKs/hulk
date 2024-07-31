@@ -74,10 +74,10 @@ fn start_labelling_ui(
 
             let context = &cc.egui_ctx;
             apply_theme(context, MOCHA);
-            Box::new(
-                AnnotatorApp::try_new(cc, image_folder, annotation_json, skip_introduction)
-                    .expect("failed to start annotato-rs"),
-            )
+
+            let app = AnnotatorApp::try_new(cc, image_folder, annotation_json, skip_introduction)?;
+
+            Ok(Box::new(app))
         }),
     )
 }

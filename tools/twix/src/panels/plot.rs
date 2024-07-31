@@ -261,7 +261,7 @@ impl PlotPanel {
         ui.horizontal(|ui| {
             let mut history_in_seconds = self.buffer_history.as_secs_f64();
             let widget = DragValue::new(&mut history_in_seconds)
-                .clamp_range(0.0..=600.0)
+                .range(0.0..=600.0)
                 .prefix("History [s]:");
             if ui.add(widget).changed() {
                 self.buffer_history = Duration::from_secs_f64(history_in_seconds);
