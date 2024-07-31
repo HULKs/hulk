@@ -445,6 +445,7 @@ impl<World> TwixPainter<World> {
         );
     }
 }
+
 impl TwixPainter<Ground> {
     pub fn path(
         &self,

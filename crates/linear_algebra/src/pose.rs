@@ -70,6 +70,7 @@ where
             orientation.inner,
         ))
     }
+
     pub fn as_transform<From>(&self) -> Isometry3<From, Frame, T> {
         Isometry3::wrap(self.inner)
     }
