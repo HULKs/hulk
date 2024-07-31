@@ -103,11 +103,14 @@ impl Behavior {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let world_state = context.world_state;
-        if let Some(command) = &context.parameters.injected_motion_command {
-            return Ok(MainOutputs {
-                motion_command: command.clone().into(),
-                dribble_path: None.into(),
-            });
+
+        if world_state.robot.primary_state == PrimaryState::Playing {
+            if let Some(command) = &context.parameters.injected_motion_command {
+                return Ok(MainOutputs {
+                    motion_command: command.clone().into(),
+                    dribble_path: None.into(),
+                });
+            }
         }
 
         if let Some(ball_state) = &world_state.ball {

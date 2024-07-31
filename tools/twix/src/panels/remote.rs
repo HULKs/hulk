@@ -7,7 +7,7 @@ use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
-use types::{joints::head::HeadJoints, step_plan::Step};
+use types::{joints::head::HeadJoints, motion_command::MotionCommand, step_plan::Step};
 
 use crate::{nao::Nao, panel::Panel};
 
@@ -58,6 +58,13 @@ impl RemotePanel {
         )
     }
 
+    fn update_motion_command(&self, motion_command: Value) {
+        self.nao.write(
+            "parameters.behavior.injected_motion_command",
+            TextOrBinary::Text(motion_command),
+        )
+    }
+
     fn update_look_at_angle(&self, joints: Value) {
         self.nao.write(
             "parameters.head_motion.injected_head_joints",
@@ -71,6 +78,7 @@ impl Widget for &mut RemotePanel {
         const UPDATE_DELAY: Duration = Duration::from_millis(100);
         const HEAD_PITCH_SCALE: f32 = 1.0;
         const HEAD_YAW_SCALE: f32 = 1.0;
+        const DEADZONE: f32 = 0.1;
 
         self.gilrs.inc();
 
@@ -118,6 +126,15 @@ impl Widget for &mut RemotePanel {
                 turn,
             };
 
+            let injected_motion_command =
+                if step.forward.abs() < DEADZONE && step.left.abs() < DEADZONE {
+                    Some(MotionCommand::Stand {
+                        head: types::motion_command::HeadMotion::ZeroAngles,
+                    })
+                } else {
+                    None
+                };
+
             if self.enabled {
                 let now = SystemTime::now();
                 if now
@@ -128,14 +145,18 @@ impl Widget for &mut RemotePanel {
                     self.last_update = now;
                     self.update_step(serde_json::to_value(step).unwrap());
                     self.update_look_at_angle(serde_json::to_value(injected_head_joints).unwrap());
+                    self.update_motion_command(
+                        serde_json::to_value(&injected_motion_command).unwrap(),
+                    );
                 }
             }
 
             ui.vertical(|ui| {
                 let label_1 = ui.label(&format!("{:#?}", step));
                 let label_2 = ui.label(&format!("{:#?}", injected_head_joints));
+                let label_3 = ui.label(&format!("{:#?}", injected_motion_command));
 
-                label_1.union(label_2)
+                label_1.union(label_2).union(label_3)
             })
             .inner
         } else {
