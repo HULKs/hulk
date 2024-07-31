@@ -2,7 +2,10 @@ use std::ops::Range;
 
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
-use geometry::{line::Line, look_at::LookAt};
+use geometry::{
+    line::{Line, Line2},
+    look_at::LookAt,
+};
 use linear_algebra::{distance, point, Point2, Pose2, Vector2};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
@@ -374,11 +377,11 @@ fn block_on_line(
 ) -> Pose2<Field> {
     let is_ball_in_front_of_defense_line = defense_line_x < ball_position.x();
     if is_ball_in_front_of_defense_line {
-        let defense_line = Line(
-            point![defense_line_x, defense_line_y_range.start],
-            point![defense_line_x, defense_line_y_range.end],
-        );
-        let ball_target_line = Line(ball_position, target);
+        let defense_line = Line {
+            point: point![defense_line_x, 0.0],
+            direction: Vector2::y_axis(),
+        };
+        let ball_target_line = Line2::from_points(ball_position, target);
         let intersection_point = defense_line.intersection(&ball_target_line);
         let defense_position = point![
             intersection_point.x(),
