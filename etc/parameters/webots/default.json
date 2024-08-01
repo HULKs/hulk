@@ -1,5 +1,1 @@
-{
-  "walking_engine": {
-    "stable_step_deviation": { "nanos": 100000000, "secs": 0 }
-  }
-}
+{}
