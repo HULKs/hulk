@@ -37,6 +37,7 @@ spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
+paste = { workspace = true }
 walking_engine = { workspace = true }
 
 [build-dependencies]

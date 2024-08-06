@@ -39,14 +39,16 @@ macro_rules! scenario {
         mod test {
             use super::*;
 
-            #[test]
-            fn $name() -> color_eyre::Result<()> {
-                use hulk_behavior_simulator::simulator::{AppExt, SimulatorPlugin};
+            paste::item! {
+                #[test]
+                fn [< $name _test >]() -> color_eyre::Result<()> {
+                    use hulk_behavior_simulator::simulator::{AppExt, SimulatorPlugin};
 
-                App::new()
-                    .add_plugins(SimulatorPlugin::default())
-                    .add_plugins($plugin)
-                    .run_to_completion()
+                    App::new()
+                        .add_plugins(SimulatorPlugin::default())
+                        .add_plugins($plugin)
+                        .run_to_completion()
+                }
             }
         }
     };
