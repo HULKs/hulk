@@ -1,16 +1,10 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
-use bevy::{
-    app::AppExit,
-    ecs::{
-        event::EventWriter,
-        system::{Commands, Query, Res, ResMut},
-    },
-    time::Time,
-};
+use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
 use spl_network_messages::{GameState, PlayerNumber};
+use types::action::Action;
 
 use hulk_behavior_simulator::{
     ball::BallResource,
@@ -19,11 +13,12 @@ use hulk_behavior_simulator::{
     scenario,
     time::{Ticks, TicksTime},
 };
-use types::action::Action;
 
-scenario!(deny_keeper_ballsearch);
+scenario!(deny_keeper_ballsearch, |app: &mut App| {
+    app.add_systems(Update, update);
+});
 
-fn deny_keeper_ballsearch(
+fn update(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,

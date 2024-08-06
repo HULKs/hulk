@@ -1,43 +1,52 @@
-use bevy::{
-    app::{App, Update},
-    ecs::schedule::IntoSystemConfigs,
-};
+use bevy::app::{App, Plugins};
+use clap::Parser;
 use color_eyre::Result;
 
 use crate::simulator::{AppExt, SimulatorPlugin};
 
-use clap::Parser;
-
 #[derive(Parser)]
-struct Arguments {
+pub struct Arguments {
     /// Just run the simulation, don't serve the result
     #[arg(short, long)]
-    run: bool,
+    pub run: bool,
 }
 
-pub fn run_scenario<M>(system: impl IntoSystemConfigs<M>, with_recording: bool) -> Result<()> {
-    let args = Arguments::parse();
+pub fn run_scenario<M>(plugin: impl Plugins<M>, with_recording: bool) -> Result<()> {
+    let args = Arguments::try_parse().unwrap();
 
     App::new()
         .add_plugins(SimulatorPlugin::default().with_recording(!args.run && with_recording))
-        .add_systems(Update, system)
+        .add_plugins(plugin)
         .run_to_completion()
 }
 
 #[macro_export]
 macro_rules! scenario {
-    ($name:ident) => {
+    ($name:ident, $plugin:expr) => {
         fn main() -> color_eyre::Result<()> {
-            hulk_behavior_simulator::scenario::run_scenario($name, true)
+            use clap::Parser;
+            use hulk_behavior_simulator::simulator::{AppExt, SimulatorPlugin};
+
+            let args = hulk_behavior_simulator::scenario::Arguments::parse();
+
+            App::new()
+                .add_plugins(SimulatorPlugin::default().with_recording(!args.run))
+                .add_plugins($plugin)
+                .run_to_completion()
         }
 
         #[cfg(test)]
         mod test {
-            use super::$name as scenario;
+            use super::*;
 
             #[test]
             fn $name() -> color_eyre::Result<()> {
-                hulk_behavior_simulator::scenario::run_scenario(scenario, false)
+                use hulk_behavior_simulator::simulator::{AppExt, SimulatorPlugin};
+
+                App::new()
+                    .add_plugins(SimulatorPlugin::default())
+                    .add_plugins($plugin)
+                    .run_to_completion()
             }
         }
     };
