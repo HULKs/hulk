@@ -10,31 +10,33 @@ use hulk_behavior_simulator::{
 };
 
 scenario!(golden_goal, |app: &mut App| {
+    app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 });
 
-fn update(
+fn startup(
     mut commands: Commands,
-    game_controller: ResMut<GameController>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
+) {
+    for number in [
+        PlayerNumber::One,
+        PlayerNumber::Two,
+        PlayerNumber::Three,
+        PlayerNumber::Four,
+        PlayerNumber::Five,
+        PlayerNumber::Six,
+        PlayerNumber::Seven,
+    ] {
+        commands.spawn(Robot::new(number));
+    }
+    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+}
+
+fn update(
+    game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
 ) {
-    if time.ticks() == 1 {
-        for number in [
-            PlayerNumber::One,
-            PlayerNumber::Two,
-            PlayerNumber::Three,
-            PlayerNumber::Four,
-            PlayerNumber::Five,
-            PlayerNumber::Six,
-            PlayerNumber::Seven,
-        ] {
-            commands.spawn(Robot::new(number));
-        }
-        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
-    }
-
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
         exit.send(AppExit::Success);

@@ -13,6 +13,7 @@ use hulk_behavior_simulator::{
 };
 
 scenario!(intercept_ball, |app: &mut App| {
+    app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 });
 
@@ -21,32 +22,34 @@ struct State<'s> {
     count: Local<'s, usize>,
 }
 
-#[allow(clippy::too_many_arguments)]
-fn update(
+fn startup(
     mut commands: Commands,
     mut game_controller: ResMut<GameController>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut ball: ResMut<BallResource>,
+) {
+    let mut robot = Robot::new(PlayerNumber::One);
+    *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
+    robot.parameters.step_planner.max_step_size.forward = 0.45;
+    commands.spawn(robot);
+    game_controller.state.game_state = GameState::Playing;
+    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
+    ball.state = Some(SimulatorBallState {
+        position: Point2::origin(),
+        velocity: vector![2.0, 0.1],
+    });
+    ball.friction_coefficient = 0.999;
+}
+
+#[allow(clippy::too_many_arguments)]
+fn update(
+    game_controller: ResMut<GameController>,
     time: ResMut<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
     mut state: State,
 ) {
-    if time.ticks() == 1 {
-        let mut robot = Robot::new(PlayerNumber::One);
-        *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
-        robot.parameters.step_planner.max_step_size.forward = 0.45;
-        commands.spawn(robot);
-        game_controller.state.game_state = GameState::Playing;
-        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
-        ball.state = Some(SimulatorBallState {
-            position: Point2::origin(),
-            velocity: vector![2.0, 0.1],
-        });
-        ball.friction_coefficient = 0.999;
-        return;
-    }
-
     if let Some(ball) = ball.state.as_mut() {
         let mut robot = robots.single_mut();
         let field_dimensions = robot.parameters.field_dimensions;

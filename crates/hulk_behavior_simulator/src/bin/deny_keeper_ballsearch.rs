@@ -15,24 +15,27 @@ use hulk_behavior_simulator::{
 };
 
 scenario!(deny_keeper_ballsearch, |app: &mut App| {
+    app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 });
 
-fn update(
+fn startup(
     mut commands: Commands,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
+) {
+    for number in [PlayerNumber::One, PlayerNumber::Seven] {
+        commands.spawn(Robot::new(number));
+    }
+    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+}
+
+fn update(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
 ) {
-    if time.ticks() == 1 {
-        for number in [PlayerNumber::One, PlayerNumber::Seven] {
-            commands.spawn(Robot::new(number));
-        }
-        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
-    }
-
     if time.ticks() == 3000 {
         ball.state = None;
     }
