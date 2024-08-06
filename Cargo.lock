@@ -4193,6 +4193,7 @@ dependencies = [
  "nalgebra",
  "parameters",
  "parking_lot",
+ "paste",
  "path_serde",
  "proc-macro2",
  "projection",

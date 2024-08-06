@@ -150,6 +150,7 @@ parameters = { path = "crates/parameters" }
 parking_lot = "0.12.1"
 path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
+paste = "1.0.15"
 petgraph = "0.6.2"
 png = "0.17.6"
 prettyplease = "0.2.19"
