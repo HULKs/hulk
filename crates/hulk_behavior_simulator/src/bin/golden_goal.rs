@@ -1,11 +1,4 @@
-use bevy::{
-    app::AppExit,
-    ecs::{
-        event::EventWriter,
-        system::{Commands, Res, ResMut},
-    },
-    time::Time,
-};
+use bevy::prelude::*;
 
 use spl_network_messages::{GameState, PlayerNumber};
 
@@ -16,9 +9,11 @@ use hulk_behavior_simulator::{
     time::{Ticks, TicksTime},
 };
 
-scenario!(golden_goal);
+scenario!(golden_goal, |app: &mut App| {
+    app.add_systems(Update, update);
+});
 
-fn golden_goal(
+fn update(
     mut commands: Commands,
     game_controller: ResMut<GameController>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,

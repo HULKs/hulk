@@ -1,14 +1,8 @@
-use bevy::{
-    app::AppExit,
-    ecs::{
-        event::EventWriter,
-        system::{Commands, Local, Query, ResMut, SystemParam},
-    },
-    time::Time,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 
 use linear_algebra::{point, vector, Isometry2, Point2, Vector};
 use spl_network_messages::{GameState, PlayerNumber};
+use types::ball_position::SimulatorBallState;
 
 use hulk_behavior_simulator::{
     ball::BallResource,
@@ -17,9 +11,10 @@ use hulk_behavior_simulator::{
     scenario,
     time::{Ticks, TicksTime},
 };
-use types::ball_position::SimulatorBallState;
 
-scenario!(intercept_ball);
+scenario!(intercept_ball, |app: &mut App| {
+    app.add_systems(Update, update);
+});
 
 #[derive(SystemParam)]
 struct State<'s> {
@@ -27,7 +22,7 @@ struct State<'s> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn intercept_ball(
+fn update(
     mut commands: Commands,
     mut game_controller: ResMut<GameController>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
