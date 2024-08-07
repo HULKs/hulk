@@ -36,7 +36,6 @@ fn game_controller_controller(
                 match team {
                     Team::Hulks => &mut game_controller.state.hulks_team,
                     Team::Opponent => &mut game_controller.state.opponent_team,
-                    Team::Uncertain => unimplemented!("Can't score goal for unknown team"),
                 }
                 .score += 1;
                 game_controller.state.game_state = GameState::Ready;
