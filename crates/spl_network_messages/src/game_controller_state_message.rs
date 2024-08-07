@@ -128,6 +128,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 message.teams[opponent_team_index].players[player_index as usize].try_into()
             })
             .collect::<Result<Vec<_>>>()?;
+
         Ok(GameControllerStateMessage {
             competition_phase: CompetitionPhase::try_from(message.competitionPhase)?,
             competition_type: CompetitionType::try_from(message.competitionType)?,
@@ -311,7 +312,6 @@ impl GameState {
 }
 
 #[derive(
-    Default,
     Clone,
     Copy,
     Debug,
@@ -326,8 +326,6 @@ impl GameState {
 pub enum Team {
     Hulks,
     Opponent,
-    #[default]
-    Uncertain,
 }
 
 impl Team {
