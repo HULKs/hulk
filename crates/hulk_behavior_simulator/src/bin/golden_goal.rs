@@ -1,18 +1,19 @@
 use bevy::prelude::*;
 
+use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 
 use hulk_behavior_simulator::{
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
-    scenario,
     time::{Ticks, TicksTime},
 };
 
-scenario!(golden_goal, |app: &mut App| {
+#[scenario]
+fn golden_goal(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
-});
+}
 
 fn startup(
     mut commands: Commands,

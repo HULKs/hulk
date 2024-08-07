@@ -30,6 +30,7 @@ parameters = { workspace = true }
 parking_lot = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
+scenario = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 spl_network = { workspace = true }
