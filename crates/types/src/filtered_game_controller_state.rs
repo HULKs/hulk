@@ -6,9 +6,7 @@ use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 
 use crate::{filtered_game_state::FilteredGameState, players::Players};
 
-#[derive(
-    Default, Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
 
 pub struct FilteredGameControllerState {
     pub game_state: FilteredGameState,
@@ -22,4 +20,21 @@ pub struct FilteredGameControllerState {
 
     pub new_own_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
     pub new_opponent_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
+}
+
+impl Default for FilteredGameControllerState {
+    fn default() -> Self {
+        Self {
+            game_state: Default::default(),
+            opponent_game_state: Default::default(),
+            game_phase: Default::default(),
+            kicking_team: Team::Opponent,
+            penalties: Default::default(),
+            remaining_number_of_messages: Default::default(),
+            sub_state: Default::default(),
+            own_team_is_home_after_coin_toss: Default::default(),
+            new_own_penalties_last_cycle: Default::default(),
+            new_opponent_penalties_last_cycle: Default::default(),
+        }
+    }
 }

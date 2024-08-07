@@ -167,8 +167,7 @@ fn get_rule_hypotheses(
     filtered_game_controller_state: &FilteredGameControllerState,
     field_dimensions: FieldDimensions,
 ) -> Vec<Point2<Field>> {
-    let kicking_team_half =
-        conservative_kicking_team_half(filtered_game_controller_state.kicking_team);
+    let kicking_team_half = kicking_team_half(filtered_game_controller_state.kicking_team);
 
     match (primary_state, filtered_game_controller_state.sub_state) {
         (PrimaryState::Ready, Some(SubState::PenaltyKick)) => {
@@ -195,11 +194,9 @@ fn get_rule_hypotheses(
     }
 }
 
-fn conservative_kicking_team_half(kicking_team: Team) -> Half {
+fn kicking_team_half(kicking_team: Team) -> Half {
     match kicking_team {
         Team::Opponent => Half::Opponent,
         Team::Hulks => Half::Own,
-        // If uncertain, assume opponent is kicking
-        Team::Uncertain => Half::Opponent,
     }
 }
