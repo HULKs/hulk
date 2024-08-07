@@ -21,9 +21,27 @@ use crate::{
     robot::Robot,
 };
 
-#[derive(Resource, Default)]
-struct AutorefState {
+#[derive(Resource)]
+pub struct AutorefState {
     robots_standing_still: Option<Timer>,
+    pub goal_mode: GoalMode,
+}
+
+#[derive(Default, Debug)]
+pub enum GoalMode {
+    #[default]
+    GoToReady,
+    Ignore,
+    ReturnBall,
+}
+
+impl Default for AutorefState {
+    fn default() -> Self {
+        Self {
+            robots_standing_still: None,
+            goal_mode: GoalMode::GoToReady,
+        }
+    }
 }
 
 fn autoref(
@@ -70,19 +88,32 @@ fn autoref(
             };
         }
         GameState::Playing => {
-            if let Some(ball_position) = ball.state.map(|ball_position| ball_position.position) {
-                if ball_position.x() > 4.5 && ball_position.y().abs() < 0.75 {
-                    ball.state = None;
-                    game_controller_commands.send(GameControllerCommand::Goal(Team::Hulks));
-                }
-                if ball_position.x() < -4.5 && ball_position.y().abs() < 0.75 {
-                    ball.state = None;
-                    game_controller_commands.send(GameControllerCommand::Goal(Team::Opponent));
+            if let Some(scoring_team) = ball.state.and_then(ball_in_goal) {
+                match state.goal_mode {
+                    GoalMode::GoToReady => {
+                        game_controller_commands.send(GameControllerCommand::Goal(scoring_team));
+                        ball.state = None;
+                    }
+                    GoalMode::ReturnBall => {
+                        ball.state = Some(SimulatorBallState::default());
+                    }
+                    GoalMode::Ignore => {}
                 }
             }
         }
         _ => {}
     }
+}
+
+fn ball_in_goal(ball: SimulatorBallState) -> Option<Team> {
+    if ball.position.x() > 4.5 && ball.position.y().abs() < 0.75 {
+        return Some(Team::Hulks);
+    }
+    if ball.position.x() < -4.5 && ball.position.y().abs() < 0.75 {
+        return Some(Team::Opponent);
+    }
+
+    None
 }
 
 pub fn auto_assistant_referee(
