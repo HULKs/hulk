@@ -23,6 +23,8 @@ use types::{
     sensor_data::SensorData,
 };
 
+use walking_engine::parameters::Parameters as WalkingEngineParameters;
+
 use crate::interfake::FakeDataInterface;
 
 #[derive(Deserialize, Serialize)]
@@ -35,13 +37,14 @@ pub struct CreationContext {
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
     ball_filter: Parameter<BallFilterParameters, "ball_filter">,
+    glance_angle: Parameter<f32, "look_at.glance_angle">,
+    parameters: Parameter<WalkingEngineParameters, "walking_engine">,
 }
 
 #[context]
 #[allow(dead_code)]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
-    glance_angle: Parameter<f32, "look_at.glance_angle">,
 }
 
 #[context]
@@ -86,7 +89,7 @@ impl FakeData {
             cycle_time: last_database.cycle_time.into(),
             fall_state: last_database.fall_state.into(),
             filtered_whistle: last_database.filtered_whistle.clone().into(),
-            game_controller_state: last_database.game_controller_state.into(),
+            game_controller_state: last_database.game_controller_state.clone().into(),
             game_controller_address: last_database.game_controller_address.into(),
             has_ground_contact: last_database.has_ground_contact.into(),
             hulk_messages: last_database.hulk_messages.clone().into(),
