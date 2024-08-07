@@ -3,6 +3,7 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
+use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 use types::action::Action;
 
@@ -10,14 +11,14 @@ use hulk_behavior_simulator::{
     ball::BallResource,
     game_controller::GameControllerCommand,
     robot::Robot,
-    scenario,
     time::{Ticks, TicksTime},
 };
 
-scenario!(deny_keeper_ballsearch, |app: &mut App| {
+#[scenario]
+fn golden_goal(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
-});
+}
 
 fn startup(
     mut commands: Commands,

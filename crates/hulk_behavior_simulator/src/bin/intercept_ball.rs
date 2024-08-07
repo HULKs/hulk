@@ -1,6 +1,7 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
 use linear_algebra::{point, vector, Isometry2, Point2, Vector};
+use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 use types::ball_position::SimulatorBallState;
 
@@ -8,14 +9,14 @@ use hulk_behavior_simulator::{
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
-    scenario,
     time::{Ticks, TicksTime},
 };
 
-scenario!(intercept_ball, |app: &mut App| {
+#[scenario]
+fn golden_goal(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
-});
+}
 
 #[derive(SystemParam)]
 struct State<'s> {
