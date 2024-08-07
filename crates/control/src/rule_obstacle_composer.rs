@@ -55,7 +55,7 @@ impl RuleObstacleComposer {
                             | SubState::GoalKick
                             | SubState::PushingFreeKick,
                         ),
-                    kicking_team: Team::Opponent | Team::Uncertain,
+                    kicking_team: Team::Opponent,
                     game_state: FilteredGameState::Playing { .. },
                     ..
                 },
@@ -113,7 +113,7 @@ impl RuleObstacleComposer {
                 FilteredGameControllerState {
                     game_state:
                         FilteredGameState::Ready {
-                            kicking_team: Team::Hulks,
+                            kicking_team: Some(Team::Hulks),
                         },
                     sub_state: None,
                     ..
@@ -131,7 +131,7 @@ impl RuleObstacleComposer {
                 FilteredGameControllerState {
                     game_state:
                         FilteredGameState::Ready {
-                            kicking_team: Team::Opponent | Team::Uncertain,
+                            kicking_team: Some(Team::Opponent),
                         },
                     sub_state: None,
                     ..
@@ -163,8 +163,6 @@ pub fn create_penalty_box(
     let side_factor: f32 = match kicking_team {
         Team::Hulks => 1.0,
         Team::Opponent => -1.0,
-        // Striker may still enter opponent penalty box so this doesn't stop us from defending our own goal
-        Team::Uncertain => 1.0,
     };
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
