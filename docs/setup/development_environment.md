@@ -16,29 +16,34 @@ Use your distribution's package manager to install the following dependencies:
 
 -   [Git](https://git-scm.com/), [Git LFS](https://git-lfs.com/)
 -   [clang](https://clang.llvm.org/)
+-   [cmake](https://cmake.org/)
 -   [python3](https://www.python.org/)
 -   [which](https://carlowood.github.io/which/)
 -   [zstd](http://www.zstd.net/)
 -   [xz](https://tukaani.org/xz/)
 -   [file](https://darwinsys.com/file/)
 -   [rsync](https://rsync.samba.org/)
+-   [opusfile](https://opus-codec.org/)
+-   [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
+-   [luajit](https://luajit.org/)
+-   [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
 
 === "Arch Linux"
 
     ```sh
-    sudo pacman -S git git-lfs clang python3 which zstd xz file rsync
+    sudo pacman -S git git-lfs clang cmake python3 which zstd xz file rsync alsa-lib opusfile hdf5 luajit systemd-libs
     ```
 
 === "Fedora"
 
     ```sh
-    sudo dnf install git git-lfs clang cmake python3 which zstd xz file rsync alsa-lib-devel opusfile-devel hdf5-devel luajit-devel systemd-devel
+    sudo dnf install git git-lfs clang cmake python3 which zstd xz file rsync alsa-lib-devel opusfile-devel hdf5-devel systemd-devel luajit-devel
     ```
 
 === "Ubuntu"
 
     ```sh
-    sudo apt install git git-lfs clang python3 zstd xz-utils file rsync
+    sudo apt install git git-lfs clang cmake python3 zstd xz-utils file rsync libasound2-dev libopusfile-dev libhdf5-dev libsystemd-dev libluajit-5.1-dev
     ```
 
 ### OpenVino:tm: runtime for Neural Networks
