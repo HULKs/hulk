@@ -453,14 +453,14 @@ impl State {
             State::Standby => {
                 if visual_referee_proceed_to_ready {
                     FilteredGameState::Ready {
-                        kicking_team: Some(game_controller_state.kicking_team),
+                        kicking_team_known: Some(game_controller_state.kicking_team),
                     }
                 } else {
                     FilteredGameState::Standby
                 }
             }
             State::Ready => FilteredGameState::Ready {
-                kicking_team: Some(game_controller_state.kicking_team),
+                kicking_team_known: Some(game_controller_state.kicking_team),
             },
             State::Set => FilteredGameState::Set,
             State::WhistleInSet {
@@ -484,7 +484,9 @@ impl State {
                 ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
                 kick_off: false,
             },
-            State::WhistleInPlaying { .. } => FilteredGameState::Ready { kicking_team: None },
+            State::WhistleInPlaying { .. } => FilteredGameState::Ready {
+                kicking_team_known: None,
+            },
             State::Finished => match game_controller_state.game_phase {
                 GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
                 _ => FilteredGameState::Finished,

@@ -19,7 +19,7 @@ pub enum FilteredGameState {
     #[default]
     Initial,
     Ready {
-        kicking_team: Option<Team>,
+        kicking_team_known: bool,
     },
     Set,
     Playing {
