@@ -15,7 +15,7 @@ use hulk_behavior_simulator::{
 };
 
 #[scenario]
-fn golden_goal(app: &mut App) {
+fn deny_keeper_ballsearch(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
