@@ -10,5 +10,5 @@ jobs:
       - v3
     steps:
       - uses: actions/checkout@v4
-      - run: docker build --tag 134.28.57.223:5000/hulk:1.78.0 tools/ci/github-runners
-      - run: docker push 134.28.57.223:5000/hulk:1.78.0
+      - run: docker build --tag 134.28.57.223:5000/hulk:1.80.0 tools/ci/github-runners
+      - run: docker push 134.28.57.223:5000/hulk:1.80.0
