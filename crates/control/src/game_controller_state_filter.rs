@@ -182,8 +182,9 @@ impl GameControllerStateFilter {
             })
             .unwrap_or(false);
 
-        let filtered_game_state = self.state.construct_hulks_filtered_game_state(
+        let filtered_game_state = self.state.construct_filtered_game_state_for_team(
             game_controller_state,
+            Team::Hulks,
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             config,
@@ -191,8 +192,9 @@ impl GameControllerStateFilter {
         );
 
         let filtered_opponent_game_state =
-            self.opponent_state.construct_opponent_filtered_game_state(
+            self.opponent_state.construct_filtered_game_state_for_team(
                 game_controller_state,
+                Team::Opponent,
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
                 config,
@@ -399,57 +401,17 @@ impl State {
         }
     }
 
-    fn construct_hulks_filtered_game_state(
+    fn construct_filtered_game_state_for_team(
         &self,
         game_controller_state: &GameControllerState,
-        cycle_start_time: SystemTime,
-        ball_detected_far_from_kick_off_point: bool,
-        config: &GameStateFilterParameters,
-        visual_referee_proceed_to_ready: bool,
-    ) -> FilteredGameState {
-        let opponent_is_kicking_team = matches!(
-            game_controller_state.kicking_team,
-            Team::Opponent | Team::Uncertain
-        );
-        self.construct_filtered_game_state(
-            game_controller_state,
-            opponent_is_kicking_team,
-            cycle_start_time,
-            ball_detected_far_from_kick_off_point,
-            config,
-            visual_referee_proceed_to_ready,
-        )
-    }
-
-    fn construct_opponent_filtered_game_state(
-        &self,
-        game_controller_state: &GameControllerState,
-        cycle_start_time: SystemTime,
-        ball_detected_far_from_kick_off_point: bool,
-        config: &GameStateFilterParameters,
-        visual_referee_proceed_to_ready: bool,
-    ) -> FilteredGameState {
-        let hulks_is_kicking_team = matches!(game_controller_state.kicking_team, Team::Hulks);
-        self.construct_filtered_game_state(
-            game_controller_state,
-            hulks_is_kicking_team,
-            cycle_start_time,
-            ball_detected_far_from_kick_off_point,
-            config,
-            visual_referee_proceed_to_ready,
-        )
-    }
-
-    fn construct_filtered_game_state(
-        &self,
-        game_controller_state: &GameControllerState,
-        opponent_is_kicking_team: bool,
+        team: Team,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
         visual_referee_proceed_to_ready: bool,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
+        let opponent_is_kicking_team = game_controller_state.kicking_team != team;
 
         match self {
             State::Initial => FilteredGameState::Initial,
@@ -478,6 +440,7 @@ impl State {
                     && kick_off_grace_period
                     && !ball_detected_far_from_kick_off_point;
                 let opponent_sub_state = opponent_is_kicking_team && is_in_sub_state;
+
                 FilteredGameState::Playing {
                     ball_is_free: !opponent_kick_off && !opponent_sub_state,
                     kick_off: !is_in_sub_state,
