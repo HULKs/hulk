@@ -1,6 +1,5 @@
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::Team;
 
 #[derive(
     Clone,
@@ -19,7 +18,7 @@ pub enum FilteredGameState {
     #[default]
     Initial,
     Ready {
-        kicking_team: Option<Team>,
+        kicking_team_known: bool,
     },
     Set,
     Playing {
