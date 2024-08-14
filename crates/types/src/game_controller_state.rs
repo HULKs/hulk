@@ -14,7 +14,6 @@ pub struct GameControllerState {
     pub last_game_state_change: SystemTime,
     pub penalties: Players<Option<Penalty>>,
     pub opponent_penalties: Players<Option<Penalty>>,
-    pub remaining_amount_of_messages: u16,
     pub sub_state: Option<SubState>,
     pub hulks_team_is_home_after_coin_toss: bool,
     pub hulks_team: TeamState,
