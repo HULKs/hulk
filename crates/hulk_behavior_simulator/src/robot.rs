@@ -26,6 +26,7 @@ use projection::camera_matrix::CameraMatrix;
 use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_position::BallPosition,
+    filtered_whistle::FilteredWhistle,
     hardware::Ids,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
@@ -40,6 +41,7 @@ use crate::{
     game_controller::GameController,
     interfake::{FakeDataInterface, Interfake},
     structs::Parameters,
+    whistle::WhistleResource,
 };
 
 #[derive(Component)]
@@ -176,6 +178,10 @@ impl Robot {
             .ground_to_field
             .as_mut()
             .expect("simulated robots should always have a ground to field")
+    }
+
+    pub fn whistle_mut(&mut self) -> &mut FilteredWhistle {
+        &mut self.database.main_outputs.filtered_whistle
     }
 }
 
@@ -331,6 +337,7 @@ pub struct Messages {
 pub fn cycle_robots(
     mut robots: Query<&mut Robot>,
     ball: Res<BallResource>,
+    whistle: Res<WhistleResource>,
     mut game_controller: ResMut<GameController>,
     time: Res<Time>,
     mut messages: ResMut<Messages>,
@@ -367,6 +374,12 @@ pub fn cycle_robots(
             } else {
                 None
             };
+        *robot.whistle_mut() = FilteredWhistle {
+            is_detected: Some(time.elapsed()) == whistle.last_whistle,
+            last_detection: whistle
+                .last_whistle
+                .map(|last_whistle| SystemTime::UNIX_EPOCH + last_whistle),
+        };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
         robot.cycle(&messages_sent_last_cycle).unwrap();

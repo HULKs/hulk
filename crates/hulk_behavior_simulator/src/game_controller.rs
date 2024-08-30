@@ -7,6 +7,8 @@ use spl_network_messages::{
 };
 use types::{game_controller_state::GameControllerState, players::Players};
 
+use crate::{autoref::autoref, whistle::WhistleResource};
+
 #[derive(Resource, Default)]
 struct GameControllerControllerState {
     last_state_change: Time,
@@ -15,6 +17,7 @@ struct GameControllerControllerState {
 #[derive(Clone, Copy, Event)]
 pub enum GameControllerCommand {
     SetGameState(GameState),
+    SetKickingTeam(Team),
     Goal(Team),
     Penalize(PlayerNumber, Penalty),
     Unpenalize(PlayerNumber),
@@ -24,6 +27,7 @@ fn game_controller_controller(
     mut commands: EventReader<GameControllerCommand>,
     mut state: ResMut<GameControllerControllerState>,
     mut game_controller: ResMut<GameController>,
+    whistle: ResMut<WhistleResource>,
     time: ResMut<Time>,
 ) {
     for command in commands.read() {
@@ -32,10 +36,20 @@ fn game_controller_controller(
                 game_controller.state.game_state = game_state;
                 state.last_state_change = time.as_generic();
             }
+            GameControllerCommand::SetKickingTeam(team) => {
+                game_controller.state.kicking_team = team;
+                state.last_state_change = time.as_generic();
+            }
             GameControllerCommand::Goal(team) => {
                 match team {
-                    Team::Hulks => &mut game_controller.state.hulks_team,
-                    Team::Opponent => &mut game_controller.state.opponent_team,
+                    Team::Hulks => {
+                        game_controller.state.kicking_team = Team::Opponent;
+                        &mut game_controller.state.hulks_team
+                    }
+                    Team::Opponent => {
+                        game_controller.state.kicking_team = Team::Hulks;
+                        &mut game_controller.state.opponent_team
+                    }
                 }
                 .score += 1;
                 game_controller.state.game_state = GameState::Ready;
@@ -68,7 +82,7 @@ fn game_controller_controller(
             }
         }
         GameState::Set => {
-            if time.elapsed_seconds() - state.last_state_change.elapsed_seconds() > 3.0 {
+            if Some(time.elapsed()) == whistle.last_whistle {
                 game_controller.state.game_state = GameState::Playing;
                 state.last_state_change = time.as_generic();
             }
@@ -123,7 +137,7 @@ impl Default for GameController {
 }
 
 pub fn game_controller_plugin(app: &mut App) {
-    app.add_systems(Update, game_controller_controller);
+    app.add_systems(Update, game_controller_controller.after(autoref));
     app.init_resource::<GameControllerControllerState>();
     app.init_resource::<Events<GameControllerCommand>>();
 }
