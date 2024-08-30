@@ -12,6 +12,7 @@ pub mod scenario;
 pub mod server;
 pub mod simulator;
 pub mod time;
+pub mod whistle;
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 

@@ -69,7 +69,6 @@ impl WhistleFilter {
             filtered_whistle: FilteredWhistle {
                 is_detected,
                 last_detection: self.last_detection,
-                started_this_cycle,
             }
             .into(),
         })
