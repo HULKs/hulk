@@ -34,7 +34,15 @@ impl Default for Side {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct SupportFoot {
     pub support_side: Option<Side>,

@@ -1,13 +1,13 @@
 use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::Result;
-use linear_algebra::Isometry2;
-use projection::camera_matrices::CameraMatrices;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, Robot};
 use framework::MainOutput;
+use linear_algebra::{Isometry2, Isometry3, Orientation3, Point2};
+use projection::camera_matrices::CameraMatrices;
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -18,9 +18,11 @@ use types::{
     filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState,
     joints::head::HeadJoints,
+    obstacle_avoiding_arms::ArmCommands,
     obstacles::Obstacle,
     parameters::{BallFilterParameters, CameraMatrixParameters},
     sensor_data::SensorData,
+    support_foot::SupportFoot,
 };
 
 use crate::interfake::FakeDataInterface;
@@ -67,6 +69,12 @@ pub struct MainOutputs {
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub camera_matrices: MainOutput<Option<CameraMatrices>>,
+    pub robot_to_ground: MainOutput<Option<Isometry3<Robot, Ground>>>,
+    pub robot_orientation: MainOutput<Option<Orientation3<Field>>>,
+    pub obstacle_avoiding_arms: MainOutput<ArmCommands>,
+    pub zero_moment_point: MainOutput<Point2<Ground>>,
+    pub number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: MainOutput<i32>,
+    pub support_foot: MainOutput<SupportFoot>,
 }
 
 impl FakeData {
@@ -107,6 +115,14 @@ impl FakeData {
                 .into(),
             calibration_command: last_database.calibration_command.into(),
             camera_matrices: last_database.camera_matrices.clone().into(),
+            robot_to_ground: last_database.robot_to_ground.into(),
+            robot_orientation: last_database.robot_orientation.into(),
+            obstacle_avoiding_arms: last_database.obstacle_avoiding_arms.into(),
+            zero_moment_point: last_database.zero_moment_point.into(),
+            number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: last_database
+                .number_of_consecutive_cycles_zero_moment_point_outside_support_polygon
+                .into(),
+            support_foot: last_database.support_foot.into(),
         })
     }
 }

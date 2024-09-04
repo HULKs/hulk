@@ -7,7 +7,15 @@ use splines::Interpolate;
 use crate::joints::{arm::ArmJoints, mirror::Mirror};
 
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub enum ArmCommand {
     #[default]
@@ -53,7 +61,15 @@ impl ArmCommand {
 }
 
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct ArmCommands {
     pub left_arm: ArmCommand,

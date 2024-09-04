@@ -1837,6 +1837,7 @@ dependencies = [
  "hula_types",
  "indicatif",
  "ittapi",
+ "kinematics",
  "linear_algebra",
  "log",
  "nalgebra",
