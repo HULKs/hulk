@@ -1,14 +1,16 @@
-use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
+use std::fs::read_dir;
+
 use color_eyre::eyre::{Result, WrapErr};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+
+use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
 use source_analyzer::{
     cyclers::{CyclerKind, Cyclers},
     manifest::{CyclerManifest, FrameworkManifest},
     pretty::to_string_pretty,
     structs::Structs,
 };
-use std::fs::read_dir;
 
 fn main() -> Result<()> {
     let manifest = FrameworkManifest {
@@ -22,16 +24,23 @@ fn main() -> Result<()> {
                     "control::active_vision",
                     "control::ball_state_composer",
                     "control::behavior::node",
-                    "control::game_controller_state_filter",
-                    "control::kick_selector",
+                    "control::center_of_mass_provider",
                     "control::filtered_game_controller_state_timer",
-                    "control::primary_state_filter",
+                    "control::game_controller_state_filter",
+                    "control::ground_provider",
+                    "control::kick_selector",
+                    "control::kinematics_provider",
                     "control::motion::look_around",
                     "control::motion::motion_selector",
+                    "control::motion::step_planner",
+                    "control::motion::walk_manager",
+                    "control::motion::walking_engine",
+                    "control::primary_state_filter",
                     "control::referee_position_provider",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
                     "control::search_suggestor",
+                    "control::support_foot_estimation",
                     "control::time_to_reach_kick_position",
                     "control::world_state_composer",
                 ],

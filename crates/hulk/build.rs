@@ -1,5 +1,6 @@
-use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
 use color_eyre::eyre::{Result, WrapErr};
+
+use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
 use hulk_manifest::collect_hulk_cyclers;
 use source_analyzer::{pretty::to_string_pretty, structs::Structs};
 

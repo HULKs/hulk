@@ -23,11 +23,13 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 ittapi = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
+paste = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 scenario = { workspace = true }
@@ -38,7 +40,6 @@ spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
-paste = { workspace = true }
 walking_engine = { workspace = true }
 
 [build-dependencies]

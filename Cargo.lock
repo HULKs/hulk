@@ -4188,6 +4188,7 @@ dependencies = [
  "geometry",
  "hardware",
  "ittapi",
+ "kinematics",
  "linear_algebra",
  "log",
  "nalgebra",

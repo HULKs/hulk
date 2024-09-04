@@ -17,10 +17,12 @@ use color_eyre::{eyre::WrapErr, Result};
 
 use buffered_watch::Receiver;
 use control::localization::generate_initial_pose;
-use coordinate_systems::{Field, Ground, Head};
+use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
+use linear_algebra::{
+    vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Rotation2, Vector2,
+};
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
 use spl_network_messages::{HulkMessage, PlayerNumber};
@@ -28,10 +30,13 @@ use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
     hardware::Ids,
+    joints::Joints,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     motion_selection::MotionSafeExits,
     planned_path::PathSegment,
+    robot_dimensions::RobotDimensions,
+    sensor_data::Foot,
     support_foot::Side,
 };
 
@@ -319,6 +324,12 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         robot.database.main_outputs.sensor_data.positions.head.yaw += movement;
         if let Some(new_ground_to_field) = ground_to_field_update {
             *robot.ground_to_field_mut() = new_ground_to_field;
+            let orientation = new_ground_to_field.as_pose().orientation();
+            robot.database.main_outputs.robot_orientation = Some(Orientation3::from_euler_angles(
+                0.0,
+                0.0,
+                orientation.angle(),
+            ));
         }
     }
 }
@@ -347,6 +358,7 @@ pub fn cycle_robots(
 
     for mut robot in &mut robots {
         robot.database.main_outputs.cycle_time.start_time = now;
+        robot.database.main_outputs.cycle_time.last_cycle_duration = time.delta();
 
         let ball_visible = ball.state.as_ref().is_some_and(|ball| {
             let ball_in_ground = robot.ground_to_field().inverse() * ball.position;
@@ -384,6 +396,73 @@ pub fn cycle_robots(
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
         robot.cycle(&messages_sent_last_cycle).unwrap();
 
+        // Walking physics
+        let target = robot.database.main_outputs.walk_motor_commands.positions;
+        robot.database.main_outputs.sensor_data.positions.left_leg =
+            robot.database.main_outputs.sensor_data.positions.left_leg
+                + (target.left_leg - robot.database.main_outputs.sensor_data.positions.left_leg)
+                    * time.delta_seconds()
+                    * 10.0;
+        robot.database.main_outputs.sensor_data.positions.right_leg =
+            robot.database.main_outputs.sensor_data.positions.right_leg
+                + (target.right_leg - robot.database.main_outputs.sensor_data.positions.right_leg)
+                    * time.delta_seconds()
+                    * 10.0;
+        let way_to_go = (robot.database.main_outputs.sensor_data.positions.left_leg
+            - target.left_leg)
+            .into_iter()
+            .map(|x| x.abs())
+            .sum::<f32>()
+            + (robot.database.main_outputs.sensor_data.positions.right_leg - target.right_leg)
+                .into_iter()
+                .map(|x| x.abs())
+                .sum::<f32>();
+
+        let (left_sole_height, right_sole_height) =
+            sole_heights(&robot.database.main_outputs.sensor_data.positions);
+        let floor_height = right_sole_height.min(left_sole_height);
+        let grass_height = 0.001;
+
+        let support_foot = robot
+            .database
+            .main_outputs
+            .support_foot
+            .support_side
+            .unwrap();
+        let step_ended = way_to_go < 0.01;
+        let (left_step_end_bonus, right_step_end_bonus) = match (step_ended, support_foot) {
+            (false, _) => (0.0, 0.0),
+            (true, Side::Left) => (0.0, 0.5),
+            (true, Side::Right) => (0.5, 0.0),
+        };
+
+        let left_sink = sole_sink(
+            left_sole_height,
+            floor_height,
+            grass_height,
+            left_step_end_bonus,
+        );
+        let right_sink = sole_sink(
+            right_sole_height,
+            floor_height,
+            grass_height,
+            right_step_end_bonus,
+        );
+        let left_pressure = left_sink / (left_sink + right_sink) * 3.0;
+        let right_pressure = right_sink / (left_sink + right_sink) * 3.0;
+        robot
+            .database
+            .main_outputs
+            .sensor_data
+            .force_sensitive_resistors
+            .left = Foot::fill(left_pressure);
+        robot
+            .database
+            .main_outputs
+            .sensor_data
+            .force_sensitive_resistors
+            .right = Foot::fill(right_pressure);
+
         for message in robot.interface.take_outgoing_messages() {
             if let OutgoingMessage::Spl(message) = message {
                 messages.messages.push(Message {
@@ -397,4 +476,44 @@ pub fn cycle_robots(
             }
         }
     }
+}
+
+fn sole_sink(sole_height: f32, floor_height: f32, grass_height: f32, step_end_bonus: f32) -> f32 {
+    (sole_height - floor_height - grass_height).clamp(-grass_height, 0.0) + step_end_bonus
+}
+
+fn sole_heights(joint_positions: &Joints) -> (f32, f32) {
+    use kinematics::forward::*;
+    // left leg
+    let left_pelvis_to_robot = left_pelvis_to_robot(&joint_positions.left_leg);
+    let left_hip_to_robot =
+        left_pelvis_to_robot * left_hip_to_left_pelvis(&joint_positions.left_leg);
+    let left_thigh_to_robot = left_hip_to_robot * left_thigh_to_left_hip(&joint_positions.left_leg);
+    let left_tibia_to_robot =
+        left_thigh_to_robot * left_tibia_to_left_thigh(&joint_positions.left_leg);
+    let left_ankle_to_robot =
+        left_tibia_to_robot * left_ankle_to_left_tibia(&joint_positions.left_leg);
+    let left_foot_to_robot =
+        left_ankle_to_robot * left_foot_to_left_ankle(&joint_positions.left_leg);
+    let left_sole_to_robot: Isometry3<LeftSole, RobotCoordinates> =
+        left_foot_to_robot * Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE);
+    // right leg
+    let right_pelvis_to_robot = right_pelvis_to_robot(&joint_positions.right_leg);
+    let right_hip_to_robot =
+        right_pelvis_to_robot * right_hip_to_right_pelvis(&joint_positions.right_leg);
+    let right_thigh_to_robot =
+        right_hip_to_robot * right_thigh_to_right_hip(&joint_positions.right_leg);
+    let right_tibia_to_robot =
+        right_thigh_to_robot * right_tibia_to_right_thigh(&joint_positions.right_leg);
+    let right_ankle_to_robot =
+        right_tibia_to_robot * right_ankle_to_right_tibia(&joint_positions.right_leg);
+    let right_foot_to_robot =
+        right_ankle_to_robot * right_foot_to_right_ankle(&joint_positions.right_leg);
+    let right_sole_to_robot: Isometry3<RightSole, RobotCoordinates> =
+        right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE);
+
+    (
+        left_sole_to_robot.as_pose().position().z(),
+        right_sole_to_robot.as_pose().position().z(),
+    )
 }
