@@ -59,21 +59,22 @@ async fn timeline_server(
         let (_, parameters) = &*parameters_reader.borrow_and_mark_as_seen();
 
         {
-            let (_, outputs) = &mut *outputs_writer.borrow_mut();
+            let (time, outputs) = &mut *outputs_writer.borrow_mut();
             outputs.main_outputs.frame_count = frames.len();
             let frame = &frames[parameters.selected_frame];
             outputs.main_outputs.ball.clone_from(&frame.ball);
             outputs.main_outputs.databases = frame.robots.clone();
+            *time = frame.timestamp;
         }
 
         {
-            let (_, control) = &mut *control_writer.borrow_mut();
+            let (time, control) = &mut *control_writer.borrow_mut();
+            let frame = &frames[parameters.selected_frame];
             *control = to_player_number(parameters.selected_robot)
                 .ok()
-                .and_then(|player_number| {
-                    frames[parameters.selected_frame].robots[player_number].clone()
-                })
+                .and_then(|player_number| frame.robots[player_number].clone())
                 .unwrap_or_default();
+            *time = frame.timestamp;
         }
     }
 }
