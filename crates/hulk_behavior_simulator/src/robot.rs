@@ -19,10 +19,9 @@ use buffered_watch::Receiver;
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
-use geometry::line_segment::LineSegment;
 use linear_algebra::{
-    vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Point3, Pose3, Rotation2,
-    Vector2,
+    vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3, Rotation2,
+    Rotation3, Vector2,
 };
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
@@ -33,9 +32,8 @@ use types::{
     hardware::Ids,
     joints::Joints,
     messages::{IncomingMessage, OutgoingMessage},
-    motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
+    motion_command::HeadMotion,
     motion_selection::MotionSafeExits,
-    planned_path::PathSegment,
     robot_dimensions::RobotDimensions,
     sensor_data::Foot,
     support_foot::Side,
@@ -57,7 +55,8 @@ pub struct Robot {
     pub parameters: Parameters,
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
-    pub movement: Isometry2<Ground, Ground>,
+    pub anchor: Pose2<Field>,
+    pub anchor_side: Side,
 
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
@@ -128,7 +127,8 @@ impl Robot {
             parameters,
             last_kick_time: Duration::default(),
             ball_last_seen: None,
-            movement: Isometry2::identity(),
+            anchor: Pose2::zero(),
+            anchor_side: Side::Left,
 
             cycler,
             control_receiver,
@@ -223,7 +223,7 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
 pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>, time: Res<Time>) {
     for mut robot in &mut robots {
         let parameters = &robot.parameters;
-        let mut ground_to_field_update: Option<Isometry2<Ground, Field>> = None;
+        let mut ground_to_field_change: Option<Isometry2<Ground, Ground>> = None;
 
         // let head_motion = match robot.database.main_outputs.motion_command.clone() {
         //     MotionCommand::Walk {
@@ -305,6 +305,21 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
         let (left_sole, right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
+        let support_foot = robot
+            .database
+            .main_outputs
+            .support_foot
+            .support_side
+            .unwrap();
+        if robot.anchor_side != support_foot {
+            robot.anchor_side = support_foot;
+            let support_sole = match support_foot {
+                Side::Left => left_sole,
+                Side::Right => right_sole,
+            };
+            let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
+            robot.anchor = robot.ground_to_field() * to2dp(ground);
+        }
 
         let target = robot.database.main_outputs.walk_motor_commands.positions;
         robot.database.main_outputs.sensor_data.positions.left_leg =
@@ -320,26 +335,42 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
         let (new_left_sole, new_right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        let step = match robot
-            .database
-            .main_outputs
-            .support_foot
-            .support_side
-            .unwrap()
+        robot.anchor_side = support_foot;
+        let support_sole = match support_foot {
+            Side::Left => left_sole,
+            Side::Right => right_sole,
+        };
+        let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
+        let new_anchor = robot.ground_to_field() * to2dp(ground);
+        let correction = robot.anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
+        let step = robot.ground_to_field().inverse() * correction * robot.ground_to_field();
+        // let step = match robot
+        //     .database
+        //     .main_outputs
+        //     .support_foot
+        //     .support_side
+        //     .unwrap()
+        // {
+        //     Side::Left => to2d(
+        //         new_left_sole.as_transform::<Ground>().inverse()
+        //             * left_sole.as_transform::<Ground>(),
+        //     ),
+        //     Side::Right => to2d(
+        //         new_right_sole.as_transform::<Ground>().inverse()
+        //             * right_sole.as_transform::<Ground>(),
+        //     ),
+        // };
+        // if let Some(movement) = robot
+        //     .database
+        //     .main_outputs
+        //     .current_odometry_to_last_odometry
+        //     .map(Isometry2::<Ground, Ground>::wrap)
         {
-            Side::Left => left_sole.as_transform::<Ground>().inverse() * new_left_sole,
-            Side::Right => right_sole.as_transform::<Ground>().inverse() * new_right_sole,
+            ground_to_field_change = Some(Isometry2::from_parts(
+                step.translation().coords(),
+                step.orientation().angle(),
+            ));
         }
-        .as_transform::<Ground>()
-        .inverse()
-        .as_pose();
-        let movement = Isometry2::from_parts(
-            step.position().coords().xy(),
-            step.orientation().inner.euler_angles().2,
-        );
-        let old_ground_to_field = robot.ground_to_field();
-        let new_ground_to_field = old_ground_to_field * movement;
-        ground_to_field_update = Some(new_ground_to_field);
 
         let head_motion = HeadMotion::Center;
         let desired_head_yaw = match head_motion {
@@ -364,14 +395,19 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
 
         robot.database.main_outputs.sensor_data.positions.head.yaw += movement;
-        if let Some(new_ground_to_field) = ground_to_field_update {
+        if let Some(movement) = ground_to_field_change {
+            let old_ground_to_field = robot.ground_to_field();
+            let new_ground_to_field = old_ground_to_field * movement;
+
             *robot.ground_to_field_mut() = new_ground_to_field;
-            let orientation = new_ground_to_field.as_pose().orientation();
-            robot.database.main_outputs.robot_orientation = Some(Orientation3::from_euler_angles(
-                0.0,
-                0.0,
-                orientation.angle(),
-            ));
+            let orientation = robot
+                .database
+                .main_outputs
+                .robot_orientation
+                .as_mut()
+                .unwrap();
+            // *orientation = Rotation3::from_euler_angles(0.0, 0.0, -movement.orientation().angle())
+            //     * *orientation;
         }
     }
 }
@@ -436,6 +472,13 @@ pub fn cycle_robots(
         };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
+        robot.database.main_outputs.robot_orientation = Some(
+            robot
+                .database
+                .main_outputs
+                .robot_orientation
+                .unwrap_or_default(),
+        );
         robot.cycle(&messages_sent_last_cycle).unwrap();
 
         // Walking physics
@@ -545,4 +588,18 @@ fn sole_positions(joint_positions: &Joints) -> (Pose3<RobotCoordinates>, Pose3<R
         right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE);
 
     (left_sole_to_robot.as_pose(), right_sole_to_robot.as_pose())
+}
+
+fn to2d<From, To>(iso: Isometry3<From, To>) -> Isometry2<From, To> {
+    Isometry2::from_parts(
+        iso.translation().coords().xy(),
+        iso.rotation().inner.euler_angles().2,
+    )
+}
+
+fn to2dp<To>(iso: Pose3<To>) -> Pose2<To> {
+    Pose2::from_parts(
+        iso.position().xy(),
+        Orientation2::new(iso.orientation().inner.euler_angles().2),
+    )
 }

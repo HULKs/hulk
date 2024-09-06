@@ -29,6 +29,7 @@ fn main() -> Result<()> {
                     "control::game_controller_state_filter",
                     "control::ground_provider",
                     "control::kick_selector",
+                    "control::odometry",
                     "control::kinematics_provider",
                     "control::motion::look_around",
                     "control::motion::motion_selector",

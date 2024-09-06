@@ -691,7 +691,7 @@
     "hypothesis_score_base_increase": 0.1
   },
   "odometry": {
-    "odometry_scale_factor": [1.075, 1.125]
+    "odometry_scale_factor": [1.0, 1.0]
   },
   "orientation_filter": {
     "filter_gain": 0.01,
