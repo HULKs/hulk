@@ -88,11 +88,15 @@ Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhove
 
 Ball Candidates debug view showing the 32x32 pixel samples used by the preclassifier.
 
-## Robot Detection
+## Feet Detection
 
-Warning: This node is still work in progress.
+For detecting robots, a clustering algorithm iterates over each vertical scanline of the filtered image segments, ignoring segments that have been previously used by the ball detection or line detection.
+The last (bottom most) cluster border in each scanline is then projected to the ground and clustered using the distance between each new cluster point and the cluster mean.
+These clusters are then filtered again for a minimum cluster width and a minimum number of points in the cluster.
 
-For detecting robots, a clustering algorithm runs through each vertical scanline of the filtered image segments, ignoring segments that have been previously used by the ball detection or line detection.
-The last (bottom most) cluster in each scanline is then projected to the ground and clustered first using the score-weighted distance and then again using cones.
+A major disadvantage of this approach is that it relies heavily on the number of segments and their size, which is influenced by lighting conditions and vision tuning.
+On the other hand, it is very lightweight and can be quite effective if properly tuned.
 
-TODO: What does this mean? Why do we do this?
+![Feet Detection Image View](./feet_detection_image_view.jpg)
+![Feet Detection Map View](./feet_detection_map_view.jpg)
+Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
