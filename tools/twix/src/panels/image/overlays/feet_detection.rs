@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use coordinate_systems::Pixel;
-use eframe::epaint::Color32;
+use eframe::{egui::Stroke, epaint::Color32};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::detected_feet::{ClusterPoint, DetectedFeet};
 
@@ -34,24 +34,32 @@ impl Overlay for FeetDetection {
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
+        let Some(detected_feet) = self.detected_feet.get_last_value()? else {
+            return Ok(());
+        };
+        let Some(camera_matrix) = self.camera_matrix.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        for foot in detected_feet.positions.iter() {
+            let foot_in_pixel = camera_matrix.ground_to_pixel(foot.map(|x| x as f32))?;
+            painter.ellipse(
+                foot_in_pixel,
+                35.0,
+                10.0,
+                0.0,
+                Stroke {
+                    width: 0.0,
+                    color: Color32::BLACK,
+                },
+                Color32::YELLOW,
+            )
+        }
+
         let Some(cluster_points) = self.cluster_points.get_last_value()?.flatten() else {
             return Ok(());
         };
         for point in cluster_points {
             painter.circle_filled(point.pixel_coordinates.map(|x| x as f32), 3.0, Color32::RED)
-        }
-
-        let Some(detected_feet) = self.detected_feet.get_last_value()? else {
-            return Ok(());
-        };
-
-        let Some(camera_matrix) = self.camera_matrix.get_last_value()?.flatten() else {
-            return Ok(());
-        };
-
-        for foot in detected_feet.positions.iter() {
-            let foot_in_pixel = camera_matrix.ground_to_pixel(foot.map(|x| x as f32))?;
-            painter.circle_filled(foot_in_pixel, 12.0, Color32::YELLOW);
         }
         Ok(())
     }
