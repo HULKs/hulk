@@ -3,8 +3,8 @@
 TODO: Mention all nodes or just the important ones?
 Nodes of questionable importance:
 
-- Field color detection
-- Camera matrix provider
+-   Field color detection
+-   Camera matrix provider
 
 TODO: Add images
 
@@ -69,19 +69,24 @@ If the preclassifier claims to have found a ball, a larger and more accurate net
 Once the classifier finds a ball, a third neural network, the "positioner", is used to determine the location and size of the ball within the sample.
 These values are then transformed back into the coordinate frame of the image and then projected onto the field to determine the final location of the detected ball.
 
-TODO: Clustering
+!!! todo
+
+    Clustering
+
+### Image Debug View
 
 ![Ball Detection Debug View](./ball_candidates.jpg)
+Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
 
-TODO: Implement this view in twix and update screenshot
+-   blue circles and boxes: candidates from the perspective grid
+-   green circle: positioner network output
+-   red circle: current ball model, see [filters](./filters.md)
 
-Debug view showing:
+### Ball Candidates Debug View
 
- - blue circle: candidates from the perspective grid
- - green circle: positioner network output
- - white circle: clustered ball location
- - red circle: current ball model, see [filters](./filters.md)
- - black text: preclassifier confidence
+![Raw Ball Candidates](./raw_ball_candidates.jpg)
+
+Ball Candidates debug view showing the 32x32 pixel samples used by the preclassifier.
 
 ## Robot Detection
 
@@ -91,4 +96,3 @@ For detecting robots, a clustering algorithm runs through each vertical scanline
 The last (bottom most) cluster in each scanline is then projected to the ground and clustered first using the score-weighted distance and then again using cones.
 
 TODO: What does this mean? Why do we do this?
-
