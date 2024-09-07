@@ -328,7 +328,6 @@ impl Client {
                     }
                 }
             }
-            let _ = self.change_watch.send(());
         }
         // TODO: properly shut down open tasks, like the protocol
     }
