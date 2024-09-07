@@ -41,7 +41,7 @@ impl Overlay for FeetDetection {
             return Ok(());
         };
         for foot in detected_feet.positions.iter() {
-            let foot_in_pixel = camera_matrix.ground_to_pixel(foot.map(|x| x as f32))?;
+            let foot_in_pixel = camera_matrix.ground_to_pixel(*foot)?;
             painter.ellipse(
                 foot_in_pixel,
                 35.0,
