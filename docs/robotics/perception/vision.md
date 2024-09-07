@@ -100,3 +100,6 @@ On the other hand, it is very lightweight and can be quite effective if properly
 ![Feet Detection Image View](./feet_detection_image_view.jpg)
 ![Feet Detection Map View](./feet_detection_map_view.jpg)
 Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
+
+-   red dots: cluster points
+-   yellow ellipses / circles: detected feet
