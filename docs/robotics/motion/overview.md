@@ -12,7 +12,7 @@ Here the current motion is chosen based on the previous motion, if it is finishe
 ## Motion Execution
 
 In the next step, all nodes for all motions are executed.
-The nodes, whose motion is not selected, are finished early.
+The nodes, whose motion is not selected, may exit early.
 
 ## Command Sending
 
