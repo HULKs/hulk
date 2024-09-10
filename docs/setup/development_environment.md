@@ -41,7 +41,7 @@ Use your distribution's package manager to install the following dependencies:
     sudo apt install git git-lfs clang python3 zstd xz-utils file rsync
     ```
 
-### OpenVino:tm: runtime for Neural Networks
+### OpenVINO™ runtime for Neural Networks
 
 You will also need to install the OpenVino:tm: runtime for Webots. The HULKs SDK already contains the runtime for use with the NAOs.
 
