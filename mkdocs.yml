@@ -76,8 +76,9 @@ nav:
           - Audio: robotics/perception/audio.md
           - Filters: robotics/perception/filters.md
           - SPL Network: robotics/perception/spl_network.md
-      - Behavior: robotics/behavior/behavior.md
+      - Behavior: robotics/behavior/overview.md
       - Motion:
+          - Overview: robotics/motion/overview.md
           - Step planning: robotics/motion/step_planning.md
           - Walking: robotics/motion/walking.md
           - Kicking: robotics/motion/kicking.md
