@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime, joints::body::BodyJoints, motion_command::KickVariant,
     motor_commands::MotorCommands, obstacle_avoiding_arms::ArmCommands,
-    sensor_data::ForceSensitiveResistors, step_plan::Step, support_foot::Side,
+    sensor_data::ForceSensitiveResistors, step::Step, support_foot::Side,
 };
 
 mod anatomic_constraints;

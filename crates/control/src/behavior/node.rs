@@ -23,7 +23,7 @@ use types::{
     planned_path::PathSegment,
     primary_state::PrimaryState,
     roles::Role,
-    step_plan::Step,
+    step::Step,
     world_state::WorldState,
 };
 

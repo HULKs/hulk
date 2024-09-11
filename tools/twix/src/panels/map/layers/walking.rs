@@ -7,7 +7,7 @@ use coordinate_systems::{Ground, Robot, UpcomingSupport, Walk};
 use linear_algebra::{point, Isometry2, Isometry3, Point2, Point3, Pose2, Pose3};
 use types::{
     field_dimensions::FieldDimensions, joints::body::BodyJoints, robot_kinematics::RobotKinematics,
-    step_plan::Step, support_foot::Side,
+    step::Step, support_foot::Side,
 };
 use walking_engine::{
     mode::{
@@ -26,7 +26,7 @@ pub struct Walking {
     robot_kinematics: BufferHandle<RobotKinematics>,
     walking_engine: BufferHandle<Option<Engine>>,
     last_actuated_joints: BufferHandle<Option<BodyJoints>>,
-    step_plan: BufferHandle<Step>,
+    planned_step: BufferHandle<Step>,
     center_of_mass: BufferHandle<Point3<Robot>>,
     robot_to_walk: BufferHandle<Option<Isometry3<Robot, Walk>>>,
     zero_moment_point: BufferHandle<Point2<Ground>>,
@@ -43,7 +43,7 @@ impl Layer<Ground> for Walking {
         let walking_engine = nao.subscribe_value("Control.additional_outputs.walking.engine");
         let last_actuated_joints =
             nao.subscribe_value("Control.additional_outputs.walking.last_actuated_joints");
-        let step_plan = nao.subscribe_value("Control.main_outputs.step_plan");
+        let planned_step = nao.subscribe_value("Control.main_outputs.planned_step");
         let center_of_mass = nao.subscribe_value("Control.main_outputs.center_of_mass");
         let robot_to_walk = nao.subscribe_value("Control.additional_outputs.walking.robot_to_walk");
         let zero_moment_point = nao.subscribe_value("Control.main_outputs.zero_moment_point");
@@ -54,7 +54,7 @@ impl Layer<Ground> for Walking {
             robot_kinematics,
             walking_engine,
             last_actuated_joints,
-            step_plan,
+            planned_step,
             center_of_mass,
             robot_to_walk,
             zero_moment_point,
@@ -84,7 +84,7 @@ impl Layer<Ground> for Walking {
         else {
             return Ok(());
         };
-        let Some(step_plan) = self.step_plan.get_last_value()? else {
+        let Some(planned_step) = self.planned_step.get_last_value()? else {
             return Ok(());
         };
         let Some(center_of_mass) = self.center_of_mass.get_last_value()? else {
@@ -150,7 +150,7 @@ impl Layer<Ground> for Walking {
             Stroke::new(0.001, Color32::BLACK),
         );
 
-        paint_step_plan(painter, step_plan, ground_to_upcoming_support);
+        paint_planned_step(painter, planned_step, ground_to_upcoming_support);
         Ok(())
     }
 }
@@ -327,9 +327,9 @@ fn paint_sole_polygon(
     );
 }
 
-fn paint_step_plan(
+fn paint_planned_step(
     painter: &TwixPainter<Ground>,
-    step_plan: Step,
+    planned_step: Step,
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 ) {
     painter.pose(
@@ -341,7 +341,10 @@ fn paint_step_plan(
     );
     painter.pose(
         ground_to_upcoming_support.inverse()
-            * Pose2::new(point![step_plan.forward, step_plan.left], step_plan.turn),
+            * Pose2::new(
+                point![planned_step.forward, planned_step.left],
+                planned_step.turn,
+            ),
         0.02,
         0.03,
         Color32::RED,

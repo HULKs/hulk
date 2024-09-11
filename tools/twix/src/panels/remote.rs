@@ -7,7 +7,7 @@ use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
-use types::{joints::head::HeadJoints, step_plan::Step};
+use types::{joints::head::HeadJoints, step::Step};
 
 use crate::{nao::Nao, panel::Panel};
 
