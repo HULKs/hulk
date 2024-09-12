@@ -77,7 +77,7 @@ We use Git to manage all our software.
 git clone https://github.com/hulks/hulk.git
 ```
 
-## Build Pepsi
+## Build [Pepsi](../tooling/pepsi.md)
 
 Pepsi is our main tool to interact with the repository, configure NAOs, and upload the software to the robot.
 For a more in depth overview and introduction to Pepsi, consult [../tooling/pepsi.md].
@@ -95,10 +95,12 @@ This downloads and builds all dependencies for the workspace and displays the he
 
 !!! tip
 
-    You can also install Pepsi into your local system to conviniently use it without rebuilding:
+    You can also install Pepsi into your local system to conveniently use it without rebuilding:
 
     ```
     cargo install --path tools/pepsi
     ```
 
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
+    Don't forget to update it from time to time by reinstalling it to get the latest features and bugfixes. <br> <br>
+    The same can also be done for [twix](../tooling/twix.md), our debug tool.
