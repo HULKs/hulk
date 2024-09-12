@@ -102,5 +102,5 @@ This downloads and builds all dependencies for the workspace and displays the he
     ```
 
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.
-    Don't forget to update it from time to time with `cargo update pepsi` to get the latest features and bugfixes. <br> <br>
+    Don't forget to update it from time to time by reinstalling it to get the latest features and bugfixes. <br> <br>
     The same can also be done for [twix](../tooling/twix.md), our debug tool.

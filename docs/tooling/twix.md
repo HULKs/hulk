@@ -11,7 +11,7 @@ Twix is subsequently installed at `~/.cargo/bin/twix`. <br>
 
 !!! tip
 
-    Don't forget to update it from time to time with `cargo update twix` to get the latest features and bugfixes.
+    Don't forget to update it from time to time by reinstalling it to get the latest features and bugfixes.
 
 # Configuration
 
