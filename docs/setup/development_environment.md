@@ -73,9 +73,14 @@ We use Git to manage all our software.
     You can follow this [guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) to generate and add a key to GitHub.
     If you already have a key, you can skip the part about generating a new one, and simply add your existing key to GitHub.
 
-```sh
-git clone https://github.com/hulks/hulk.git
-```
+To download the repository, run `git clone https://github.com/hulks/hulk.git` in the terminal.
+
+!!! tip
+
+    It's common to not do this in your home directory, but in a separate folder.
+    Most people use a `~/worktree` directory for this.
+    To create this, run `mkdir ~/worktree` and then `cd ~/worktree`.
+    Now you can execute the `git clone` command from above.
 
 ## Build [Pepsi](../tooling/pepsi.md)
 
