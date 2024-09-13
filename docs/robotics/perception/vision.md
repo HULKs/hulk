@@ -27,12 +27,27 @@ Each segment contains it's location, color, edge types, and a pre-calculated cla
 
 ### Image Segments Debug View
 
-![Image Segments Debug View](./segmented_image.jpg)
+=== "Overview"
 
--   red border: rising edge
--   blue border: falling edge
--   golden border: image border
--   black border: limb border
+    ![Image Segments Debug View](./segmented_image.jpg)
+
+=== "Details: Image Border"
+
+    ![Image Segments Debug View Image](./image_segments_border_light.jpg#only-light)
+    ![Image Segments Debug View Image](./image_segments_border_dark.jpg#only-dark)
+
+    -   red border: rising edge
+    -   blue border: falling edge
+    -   golden border: image border
+
+=== "Details: Limbs Border"
+
+    ![Image Segments Debug View Limb](./image_segments_limbs_light.jpg#only-light)
+    ![Image Segments Debug View Limb](./image_segments_limbs_dark.jpg#only-dark)
+
+    -   red border: rising edge
+    -   blue border: falling edge
+    -   black border: limb border
 
 ??? "Image source"
 
