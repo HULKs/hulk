@@ -126,5 +126,5 @@ By adding an issue number behind the `Fixes #` line, you can automatically link 
 
 Then create the pull request.
 
-After creating your PR, our [Continuouse Integration (CI)](./development.md) will start running.
+After creating your PR, our [Continuous Integration (CI)](./development.md) will start running.
 If it generates findings, you need to fix the issues on your branch and push again.
