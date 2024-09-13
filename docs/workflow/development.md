@@ -69,12 +69,6 @@ The _In Progress_ section contains:
     The issue must then be mentioned with the [`fixes` keyword](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests#linking-a-pull-request-to-an-issue) in the pull requests description.
 -   **pull requests** that are not ready for review yet and are currently wip.
 
-!!! note
-
-    `fixes #Issue_NO` is a keyword on Github.
-    Github will automatically close the mentioned issue whenever the corresponding pull request is merged.
-    Do **not** close issues that have not being fixed in the main yet (even if there is a pull request for it)!
-
 Move a pull request into _Request for Review_ when you have finished your work **and** tested the pull request yourself on relevant platforms.
 At this stage a pull requests' description should be finalized (fill out the template properly).
 
