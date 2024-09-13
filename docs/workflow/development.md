@@ -85,7 +85,7 @@ The _Request for Review_ section contains pull requests that are ready to be rev
 !!! warning "Attention"
 
     This section is a prioritized FIFO queue. Add new cards at the bottom.
-    The head of development might decide to move it further up if the pull request is rather important.
+    The dev-leads might decide to move it further up if the pull request is rather important.
 
 !!! tip
 
