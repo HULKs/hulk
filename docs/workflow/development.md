@@ -71,7 +71,7 @@ The _In Progress_ section contains:
 
 !!! note
 
-    `fixes #Issue_NO` is a keyword on github.
+    `fixes #Issue_NO` is a keyword on Github.
     Github will automatically close the mentioned issue whenever the corresponding pull request is merged.
     Do **not** close issues that have not being fixed in the main yet (even if there is a pull request for it)!
 
