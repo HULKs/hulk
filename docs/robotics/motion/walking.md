@@ -7,7 +7,7 @@ The whole process to let the robot walk is organized in three steps.
 
         This is subject to change, as there are currently plans to not only plan an individual step, but a whole step sequence, which could increase speed when planning around obstacles or similar.
 
-2.  The walk manager uses the planned step and the motion command to create the walk command, which defines the walking mode, such as standing, walking or others.
+2.  The walk manager uses the planned step and the motion command to create the walk command, which defines the walking mode, such as standing, walking, or others.
 
 3.  The walking engine uses the walk command and computes the according motor comamands.
 
