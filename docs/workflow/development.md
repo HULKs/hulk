@@ -66,7 +66,7 @@ The _In Progress_ section contains:
 
 -   **issues** that have an assignee, but no open pull request.
     As soon as there is an open pull request fixing this issue, the issue card should be replaced by this pull request card (removing the Issue from the Project but not closing it as it is not fixed in the main yet).
-    The issue must then be mentioned with the `fixes #Issue_NO` in the pull requests description.
+    The issue must then be mentioned with the [`fixes` keyword](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests#linking-a-pull-request-to-an-issue) in the pull requests description.
 -   **pull requests** that are not ready for review yet and are currently wip.
 
 !!! note
