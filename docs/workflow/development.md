@@ -58,7 +58,7 @@ The _Open_ section contains by the dev-leads selected **issues** that are import
     If you want to work on issues that are not in _Open_:
     Feel free to do so, but please create and issue beforehand and assign yourself to it, so that others know that you are working on it.
 
-Move (or add) an issue into _In Progress_ **and** assign yourself when you started working on it.
+Move or add an issue to _In Progress_ **and** assign yourself when you start working on it.
 
 #### In Progress
 
