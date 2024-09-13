@@ -43,7 +43,7 @@ Our project board is divided into the following four columns:
 | -------- | ------------------------ | ----------------------- | -------- |
 | -------- | Developer is responsible | Reviewer is responsible | -------- |
 
-??? question "The _hidden_ column"
+??? info "The _hidden_ column"
 
     The _hidden_ column is a special column that is not visible on the project board.
     It contains all open issues, that are not in _Open_ and that currently should not be worked on.
