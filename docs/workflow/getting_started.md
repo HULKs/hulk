@@ -1,4 +1,4 @@
-# Getting Started programming at HULKs
+# Getting Started Programming at HULKs
 
 If you haven't setup your development environment yet or haven't cloned the repository, please follow the instructions given in [Setup](../setup/overview.md) to setup [`rust`](../setup/development_environment.md) on your machine and download the code.
 The tool used for compiling, uploading or changing the robot state otherwise is called [`pepsi`](../tooling/pepsi.md).

@@ -27,11 +27,12 @@ Decides which code is deployed.
 
 Merge-squashes different branches and deploys the code to the robots.
 
-??? note "Requirements"
+??? note "Good to know"
 
     The deployer should have the necessary hardware or setup for fast deployment.
-    I.e. a fast laptop or a working remote build setup.
-    Strong nerves are also a plus.
+    I.e. a fast laptop or a working remote build setup using the HULKs infrastructure.
+    Strong nerves are also a plus, as well as the ability to cope with sudden merge conflicts.
+    This however can be learned and trained.
 
 ### Logführer
 
