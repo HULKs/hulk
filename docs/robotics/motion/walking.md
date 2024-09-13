@@ -1,7 +1,7 @@
 The whole process to let the robot walk is organized in three steps.
 
 1.  The step planner creates the planned step.
-    This incldues x, y and rotation depending on the motion command.
+    This includes x, y, and rotation depending on the motion command.
 
     !!! warning
 
