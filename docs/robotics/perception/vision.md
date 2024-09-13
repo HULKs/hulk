@@ -1,23 +1,18 @@
-# Vision
-
-TODO: Mention all nodes or just the important ones?
-Nodes of questionable importance:
-
--   Field color detection
--   Camera matrix provider
-
-TODO: Add images
+Vision is the by far most important aspect of the robot's perception.
+The NAO has two cameras, one on the top and one on the bottom of the head, which both can operate at a resolution of 640x480 at 30 fps or at 2560x1080 at 1fps.
+For more details, have a look at the [documentation](http://doc.aldebaran.com/2-8/family/nao_technical/video_naov6.html) by Aldebaran.
 
 The vision cycler runs twice in two separate threads to process the images from the top and bottom camera in parallel.
 
-Image resolution is determined by the hardware interface, but is currently set to 640x480 pixels for performance reasons.
-Most of the vision pipeline happens on a segmented version of the image for the same reason.
+Image resolution is determined by the hardware interface and is currently set to 640x480 pixels, since the higher refresh rate is more important than the higher resolution and to decrease the required processing power.
+Most of the vision pipeline happens on a segmented version of the image, to decrease required processing power even further.
 
-Each cycler instance waits for the hardware interface to deliver it's respective camera image and then begins executing the nodes listed below.
+Each cycler starts by waiting for the hardware interface to deliver it's respective camera image and then begins to execute the pipeline.
 
-## Camera Matrix Provider
+!!! note
 
-## Field Color Detection
+    Some less important nodes are not mentioned here.
+    To see the complete list, have a look in the vision crate in the source code or in the `hulk_manifest`, where all cyclers are defined and configured.
 
 ## Image Segmenter
 
@@ -30,9 +25,44 @@ Furthermore, segments which are above the horizon or overlap the robots limbs ar
 
 Each segment contains it's location, color, edge types, and a pre-calculated classification of field color intensity.
 
+### Image Segments Debug View
+
+=== "Overview"
+
+    ![Image Segments Debug View](./segmented_image.jpg)
+
+=== "Details: Image Border"
+
+    ![Image Segments Debug View Image](./image_segments_border_light.jpg#only-light)
+    ![Image Segments Debug View Image](./image_segments_border_dark.jpg#only-dark)
+
+    -   red border: rising edge
+    -   blue border: falling edge
+    -   golden border: image border
+
+=== "Details: Limbs Border"
+
+    ![Image Segments Debug View Limb](./image_segments_limbs_light.jpg#only-light)
+    ![Image Segments Debug View Limb](./image_segments_limbs_dark.jpg#only-dark)
+
+    -   red border: rising edge
+    -   blue border: falling edge
+    -   black border: limb border
+
+??? "Image source"
+
+    All images are taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
+
 ## Field Border Detection
 
 Estimates the location of the upper field border in the image by finding the first pixels from the top that are roughly field-colored and fitting a line through them.
+
+### Image Debug View with Field Border Overlay
+
+![Field Border Detection Debug View](./field_border.jpg)
+
+-   pink line: field border
+-   blue points: candidates
 
 ## Segment Filter
 
@@ -48,7 +78,15 @@ The segment is discarded if the gradients are not sufficiently steep upwards and
 The center of each remaining segment is then used in a [RANSAC](https://en.wikipedia.org/wiki/Ransac) line fitting algorithm.
 Found lines are projected onto the ground and then checked against those found previously to see if they are either parallel or orthogonal to each other.
 
-TODO: Why check parallelism and orthogonality? What do we do with this information?
+### Image Debug View with Line Overlay
+
+![Line Detection Debug View](./line_detection.jpg)
+
+-   blue lines: detected lines
+-   yellow lines: discarded lines
+-   red circles: segment centers
+-   blue dots: rising edges of candidate segments
+-   red dots: falling edges of candidate segments
 
 ## Perspective Grid Candidate Provider
 
@@ -58,7 +96,7 @@ Candidates are only generated when the center of at least one filtered segment i
 
 ## Ball Detection
 
-For each perspective grid candidate a series of artifical neural networks is used to determine whether it contains a ball as well as the balls location and radius.
+For each perspective grid candidate a series of artificial neural networks is used to determine whether it contains a ball as well as the balls location and radius.
 First, a slightly larger sample centered around the candidate is extracted from the raw image.
 This sample is scaled up or down to 32x32 pixels, regardless of the size in the raw image.
 
@@ -76,7 +114,6 @@ These values are then transformed back into the coordinate frame of the image an
 ### Image Debug View
 
 ![Ball Detection Debug View](./ball_candidates.jpg)
-Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
 
 -   blue circles and boxes: candidates from the perspective grid
 -   green circle: positioner network output
@@ -84,7 +121,8 @@ Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhove
 
 ### Ball Candidates Debug View
 
-![Raw Ball Candidates](./raw_ball_candidates.jpg)
+![Raw Ball Candidates](./raw_ball_candidates_light.jpg#only-light)
+![Raw Ball Candidates](./raw_ball_candidates_dark.jpg#only-dark)
 
 Ball Candidates debug view showing the 32x32 pixel samples used by the preclassifier.
 
@@ -99,7 +137,6 @@ On the other hand, it is very lightweight and can be quite effective if properly
 
 ![Feet Detection Image View](./feet_detection_image_view.jpg)
 ![Feet Detection Map View](./feet_detection_map_view.jpg)
-Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
 
 -   red dots: cluster points
 -   yellow ellipses / circles: detected feet
