@@ -88,8 +88,8 @@ nav:
   - Workflow:
       - Overview: workflow/overview.md
       - Getting Started: workflow/getting_started.md
-      - Competition: workflow/competition.md
       - Development: workflow/development.md
+      - Competition: workflow/competition.md
       - Engineering: workflow/engineering.md
       - GitHub Webhooks: workflow/github_webhooks.md
       - Leadership: workflow/leadership.md
