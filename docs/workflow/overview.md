@@ -19,3 +19,5 @@ To stay in the loop, it's a good idea to subscribe the Nextcloud calendar, ideal
     Ask somebody in the team for the link.
 
 To keep other team members up to date, [set up a github webhook](./github_webhooks.md) to automatically post your pushes to the _HULKs Pushes_ chat.
+
+To start developing, continue with the [Getting Started](./getting_started.md) guide.
