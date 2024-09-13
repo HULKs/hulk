@@ -34,6 +34,10 @@ Each segment contains it's location, color, edge types, and a pre-calculated cla
 -   golden border: image border
 -   black border: limb border
 
+??? "Image source"
+
+    All images are taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
+
 ## Field Border Detection
 
 Estimates the location of the upper field border in the image by finding the first pixels from the top that are roughly field-colored and fitting a line through them.
@@ -118,7 +122,6 @@ On the other hand, it is very lightweight and can be quite effective if properly
 
 ![Feet Detection Image View](./feet_detection_image_view.jpg)
 ![Feet Detection Map View](./feet_detection_map_view.jpg)
-Image taken from the game HULKs vs. SPQR, 2024-07-20 at RoboCup 2024 in Eindhoven.
 
 -   red dots: cluster points
 -   yellow ellipses / circles: detected feet
