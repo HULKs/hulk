@@ -13,6 +13,10 @@ pepsi upload <NAO>
 Pepsi takes care of downloading and installing the SDK, calling `cargo` to trigger compilation, and uploading the software to the robot.
 When successful, you are presented with a green tick in your shell, and the robot is showing rotating rainbow eyes.
 
+!!! tip
+
+    Continue reading [here](../workflow/overview.md) about our workflow and how to contribute to the project.
+
 ## SDK Management
 
 Pepsi automatically checks for the latest SDK configured in the repository and installs it if necessary.
