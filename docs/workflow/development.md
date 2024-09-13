@@ -30,7 +30,7 @@ The assignee's job depends on the Kanban column:
     Github distinguishes between _reviewers_ and _assignees_.
     We also do that.
     While the _assignee_ (in most cases one person) is responsible for the card and bring the branch into the main, the _reviewer(s)_ (can be more than one) can review the code at any time in addition to the notes that were given by the _assignee_.
-    In general: The more reviewers the better the resulting code (That being said: feel free to review code).
+    In general: More reviewers results in better code, so feel free to review anything you like.
 
 **Author:** The person that created this card (issue/pull request).
 Responsible for answering questions (issues/pull requests) and implement/discuss requested changes (pull requests).
