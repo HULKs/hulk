@@ -18,7 +18,7 @@ The [_List_](https://github.com/orgs/HULKs/projects/2/views/1) is mainly for org
 
 ### Terms
 
-**Assignee:** The person that is responsible for a card (has the **exclusive** right to move a card(!) as soon as there is one).
+**Assignee:** The person that is responsible for a card; has the **exclusive** right to move a card as soon as there is one.
 The assignee's job depends on the Kanban column:
 
 -   No assignee: _Open_, _Done_
