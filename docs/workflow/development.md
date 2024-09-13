@@ -72,7 +72,7 @@ The _In Progress_ section contains:
 !!! note
 
     `fixes #Issue_NO` is a keyword on github.
-    Github will automatically close the mentioned issue whenever the corresponding pull request was merged.
+    Github will automatically close the mentioned issue whenever the corresponding pull request is merged.
     Do **not** close issues that have not being fixed in the main yet (even if there is a pull request for it)!
 
 Move a pull request into _Request for Review_ when you have finished your work **and** tested the pull request yourself on relevant platforms.
