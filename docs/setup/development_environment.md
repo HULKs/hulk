@@ -2,6 +2,17 @@
 
 This section will guide you through the setup of your development environment to build software for the NAO robot and test your algorithms using our various tools.
 
+## Operating System
+
+At HULKs, we mainly use Linux for development.
+If you're new to Linux, don't worry, at HULKs there are many people who can help you getting started.
+
+??? info "Choosing the correct Linux Distribution"
+
+    ![How-To-Chose-Os](./how_to_choose_os.jpg)
+
+    All joking aside, don't be persuaded to install Arch Linux, unless of course you want to delve into the depths of Linux and broaden your horizons.
+
 ## Installing Rust
 
 We require a latest stable release of the Rust toolchain to build our tools.
