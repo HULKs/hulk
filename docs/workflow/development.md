@@ -95,7 +95,7 @@ The _Request for Review_ section contains pull requests that are ready to be rev
 
     Enable _auto-merge_ if your pull request is not a _draft pull request_
 
-Assign yourself if you want to review this pull request.
+Assign yourself if you want to review a pull request.
 
 #### Conversation-Resolve-Policy
 
