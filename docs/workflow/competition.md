@@ -35,7 +35,7 @@ Merge-squashes different branches and deploys the code to the robots.
 
 ### Logführer
 
-Is responsible during the game for observing the game and noting down important events and things that need to be improved.
+Is responsible for observing the game and noting down important events and things that need to be improved.
 
 ### Head-of-Robots (HoR)
 
