@@ -4,7 +4,7 @@ For more details, have a look at the [documentation](http://doc.aldebaran.com/2-
 
 The vision cycler runs twice in two separate threads to process the images from the top and bottom camera in parallel.
 
-Image resolution is determined by the hardware interface and is currently set to 640x480 pixels, since the higher refresh rate is more important than the higher resolution and to decrease the reuquired processing power.
+Image resolution is determined by the hardware interface and is currently set to 640x480 pixels, since the higher refresh rate is more important than the higher resolution and to decrease the required processing power.
 Most of the vision pipeline happens on a segmented version of the image, to decrease required processing power even further.
 
 Each cycler starts by waiting for the hardware interface to deliver it's respective camera image and then begins to execute the pipeline.
