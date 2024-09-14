@@ -59,3 +59,13 @@ For games, a strict schedule is created, which looks like this:
     Sometimes parameter changes are still made after this stage.
 -   30 minutes prior: Golden Goal <br>
     A kick-off against an empty field is performed. This is the final test before the game.
+
+## Game Rules
+
+Every team member should be familiar with the [SPL rules](https://spl.robocup.org/wp-content/uploads/SPL-Rules-master.pdf).
+
+Generally speaking, one goal of the SPL is to stay as close to the official soccer rules as possible, however, there are some key differences.
+
+!!! note
+
+    It's a good idea to read the rules before the competition, even if you are not refereeing yourself.
