@@ -26,3 +26,14 @@ where
     pub dispatch_time: CycleTime,
     pub measurement: Option<Measurement>,
 }
+
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct CalibrationFeatureDetectorOutput<Feature>
+where
+    Feature: Default,
+{
+    pub detected_feature: Option<Feature>,
+    pub cycle_skipped: bool,
+}
