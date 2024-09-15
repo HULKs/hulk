@@ -5,7 +5,10 @@ Each node is characterized by a `new()` function which is called once at creatio
 The function gets other node's inputs as parameters to the `cycle()` function and computes an output from that.
 In addition, nodes contain a state which is preserved between cycles.
 
-![node](./node.drawio.png)
+<figure markdown="span">
+    ![node](./node.drawio-light.png#only-light)
+    ![node](./node.drawio-dark.png#only-dark)
+</figure>
 
 Nodes are normal Rust structs where the struct's fields represent the state and a method called `cycle()` in the `impl` of the node represents the `cycle()` function.
 This concept allows to write nodes in a very Rusty way.
