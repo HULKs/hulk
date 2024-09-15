@@ -238,7 +238,7 @@ fn get_best_candidate<Frame>(
                 })
                 .sum::<f32>();
 
-            Some((candidate_circle, score as f32))
+            Some((candidate_circle, score))
         })
         .max_by_key(|scored_circle| NotNan::new(scored_circle.1).unwrap_or_default());
 
