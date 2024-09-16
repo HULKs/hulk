@@ -47,8 +47,7 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
                 .get_last_value()
                 .ok()
                 .flatten()
-                .map(|value| serde_json::from_value::<Corrections>(value).ok())
-                .flatten()
+                .and_then(|value| serde_json::from_value::<Corrections>(value).ok())
             {
                 let top_angles = value.correction_in_camera_top.clone().euler_angles();
                 let bottom_angles = value.correction_in_camera_bottom.euler_angles();
@@ -102,9 +101,9 @@ fn draw_group(ui: &mut Ui, label: &str, rotations: (f32, f32, f32), nao: &Nao, p
 }
 
 fn draw_angles_from_buffer(ui: &mut Ui, current_values: &BufferHandle<Vector3<f32>>) {
-    current_values.get_last_value().ok().flatten().map(|value| {
+    if let Some(value) = current_values.get_last_value().ok().flatten() {
         draw_angles(ui, (value.x, value.y, value.z), "Current");
-    });
+    }
 }
 fn draw_angles(ui: &mut Ui, rotations: (f32, f32, f32), sublabel: &str) {
     ui.label(format!(
