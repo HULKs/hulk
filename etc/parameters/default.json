@@ -78,6 +78,7 @@
     }
   },
   "camera_matrix_parameters": {
+    "robot_rotation": [0.0, 0.0, 0.0],
     "vision_top": {
       "camera_pitch": -1.2,
       "extrinsic_rotations": [0, 0, 0],
