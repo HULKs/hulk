@@ -1,3 +1,4 @@
+mod automatic_camera_calibration_export;
 mod ball_candidates;
 mod behavior_simulator;
 mod enum_plot;
@@ -13,6 +14,7 @@ mod remote;
 mod text;
 mod vision_tuner;
 
+pub use automatic_camera_calibration_export::AutomaticCameraCalibrationExportPanel;
 pub use ball_candidates::BallCandidatePanel;
 pub use behavior_simulator::BehaviorSimulatorPanel;
 pub use enum_plot::EnumPlotPanel;
