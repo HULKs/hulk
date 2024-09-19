@@ -2,7 +2,7 @@ use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
+use spl_network_messages::{HulkMessage, StrikerMessage, VisualRefereeMessage};
 use types::messages::IncomingMessage;
 
 #[derive(Deserialize, Serialize)]
@@ -14,7 +14,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     message: Input<IncomingMessage, "message">,
-    player_number: Parameter<PlayerNumber, "player_number">,
+    jersey_number: Parameter<usize, "jersey_number">,
 }
 
 #[context]
@@ -33,11 +33,11 @@ impl MessageFilter {
                 IncomingMessage::GameController(*source_address, message.clone()),
             ),
             IncomingMessage::Spl(
-                message @ (HulkMessage::Striker(StrikerMessage { player_number, .. })
+                message @ (HulkMessage::Striker(StrikerMessage { jersey_number, .. })
                 | HulkMessage::VisualReferee(VisualRefereeMessage {
-                    player_number, ..
+                    jersey_number, ..
                 })),
-            ) if player_number != context.player_number => Some(IncomingMessage::Spl(*message)),
+            ) if jersey_number != context.jersey_number => Some(IncomingMessage::Spl(*message)),
             _ => None,
         };
         Ok(MainOutputs {

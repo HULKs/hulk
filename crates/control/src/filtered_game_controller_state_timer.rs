@@ -4,11 +4,9 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::Penalty;
 use types::{
     cycle_time::CycleTime, filtered_game_controller_state::FilteredGameControllerState,
     last_filtered_game_controller_state_change::LastFilteredGameControllerStateChanges,
-    players::Players,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -82,58 +80,50 @@ impl FilteredGameControllerStateTimer {
             &mut self.filtered_game_controller_state_changes.kicking_team,
             cycle_start_time,
         );
+
         if context.filtered_game_controller_state.penalties
             != self.last_filtered_game_controller_state.penalties
         {
-            fn update_player_penalty(
-                new_penalty: Option<Penalty>,
-                current_penalty: Option<SystemTime>,
-                cycle_start_time: SystemTime,
-            ) -> Option<SystemTime> {
-                if new_penalty.is_some() {
-                    Some(cycle_start_time)
-                } else {
-                    current_penalty
+            for (jersey_number, penalty) in &context.filtered_game_controller_state.penalties {
+                match (
+                    penalty,
+                    self.filtered_game_controller_state_changes
+                        .penalties
+                        .contains_key(jersey_number),
+                ) {
+                    (None, false) => {
+                        self.filtered_game_controller_state_changes
+                            .penalties
+                            .insert(*jersey_number, None);
+                    }
+                    (Some(_), _) => {
+                        self.filtered_game_controller_state_changes
+                            .penalties
+                            .insert(*jersey_number, Some(cycle_start_time));
+                    }
+                    _ => (),
                 }
             }
-            self.filtered_game_controller_state_changes.penalties = Players {
-                one: update_player_penalty(
-                    context.filtered_game_controller_state.penalties.one,
-                    self.filtered_game_controller_state_changes.penalties.one,
-                    cycle_start_time,
-                ),
-                two: update_player_penalty(
-                    context.filtered_game_controller_state.penalties.two,
-                    self.filtered_game_controller_state_changes.penalties.two,
-                    cycle_start_time,
-                ),
-                three: update_player_penalty(
-                    context.filtered_game_controller_state.penalties.three,
-                    self.filtered_game_controller_state_changes.penalties.three,
-                    cycle_start_time,
-                ),
-                four: update_player_penalty(
-                    context.filtered_game_controller_state.penalties.four,
-                    self.filtered_game_controller_state_changes.penalties.four,
-                    cycle_start_time,
-                ),
-                five: update_player_penalty(
-                    context.filtered_game_controller_state.penalties.five,
-                    self.filtered_game_controller_state_changes.penalties.five,
-                    cycle_start_time,
-                ),
-                six: update_player_penalty(
-                    context.filtered_game_controller_state.penalties.six,
-                    self.filtered_game_controller_state_changes.penalties.six,
-                    cycle_start_time,
-                ),
-                seven: update_player_penalty(
-                    context.filtered_game_controller_state.penalties.seven,
-                    self.filtered_game_controller_state_changes.penalties.seven,
-                    cycle_start_time,
-                ),
-            };
+            let players_to_remove: Vec<usize> = self
+                .filtered_game_controller_state_changes
+                .penalties
+                .keys()
+                .filter(|&&player_number| {
+                    !&context
+                        .filtered_game_controller_state
+                        .penalties
+                        .contains_key(&player_number)
+                })
+                .cloned()
+                .collect();
+
+            for player_number in players_to_remove {
+                self.last_filtered_game_controller_state
+                    .penalties
+                    .remove(&player_number);
+            }
         }
+
         if context.filtered_game_controller_state.sub_state
             != self.last_filtered_game_controller_state.sub_state
         {
@@ -144,7 +134,7 @@ impl FilteredGameControllerStateTimer {
 
         Ok(MainOutputs {
             last_filtered_game_controller_state_changes: Some(
-                self.filtered_game_controller_state_changes,
+                self.filtered_game_controller_state_changes.clone(),
             )
             .into(),
         })

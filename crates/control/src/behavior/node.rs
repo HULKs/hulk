@@ -7,7 +7,7 @@ use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
-use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
+use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
@@ -62,7 +62,7 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
-
+    //todo! filtered_game_controller_state
     parameters: Parameter<BehaviorParameters, "behavior">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -158,8 +158,8 @@ impl Behavior {
             }
         }
 
-        if matches!(world_state.robot.player_number, PlayerNumber::One)
-            && matches!(world_state.robot.role, Role::Keeper)
+        if matches!(world_state.robot.jersey_number, 1)
+        //#todo! context.filtered_game_controller_state.goalkeeper_jersey_number
         {
             actions.push(Action::WideStance);
         }

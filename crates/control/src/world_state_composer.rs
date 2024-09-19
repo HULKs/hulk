@@ -5,7 +5,6 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground, UpcomingSupport};
 use framework::MainOutput;
 use linear_algebra::{Isometry2, Point2};
-use spl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,
     calibration::CalibrationCommand,
@@ -39,8 +38,9 @@ pub struct CycleContext {
     instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
+    walk_in_position_index: Input<usize, "walk_in_position_index">,
 
-    player_number: Parameter<PlayerNumber, "player_number">,
+    jersey_number: Parameter<usize, "jersey_number">,
 
     fall_state: Input<FallState, "fall_state">,
     has_ground_contact: Input<bool, "has_ground_contact">,
@@ -70,7 +70,7 @@ impl WorldStateComposer {
             primary_state: *context.primary_state,
             fall_state: *context.fall_state,
             has_ground_contact: *context.has_ground_contact,
-            player_number: *context.player_number,
+            jersey_number: *context.jersey_number,
             ground_to_upcoming_support: *context.ground_to_upcoming_support,
         };
 
@@ -87,6 +87,7 @@ impl WorldStateComposer {
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
             calibration_command: context.calibration_command.copied(),
+            walk_in_position_index: *context.walk_in_position_index,
         };
 
         Ok(MainOutputs {

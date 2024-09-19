@@ -149,7 +149,7 @@ fn assign_search_role(world_state: &WorldState) -> Option<SearchRole> {
     let penalties = world_state
         .filtered_game_controller_state
         .as_ref()
-        .map(|state| state.penalties)?;
+        .map(|state| state.penalties.clone())?;
     let available_players = penalties
         .iter()
         .filter_map(|(number, penalty)| match penalty {
@@ -160,7 +160,7 @@ fn assign_search_role(world_state: &WorldState) -> Option<SearchRole> {
     available_players
         .zip(search_roles)
         .find_map(|(number, position)| {
-            let is_my_player_number = number == world_state.robot.player_number;
+            let is_my_player_number = *number == world_state.robot.jersey_number;
             is_my_player_number.then_some(position)
         })
 }

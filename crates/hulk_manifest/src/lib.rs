@@ -42,6 +42,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["control::sensor_data_receiver"],
                 nodes: vec![
+                    "control::active_player_filter",
                     "control::active_vision",
                     "control::ball_filter",
                     "control::ball_state_composer",

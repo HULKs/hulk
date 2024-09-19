@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Field, Ground, UpcomingSupport};
 use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use spl_network_messages::PlayerNumber;
 
 use crate::{
     ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
@@ -29,6 +28,7 @@ pub struct WorldState {
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
     pub calibration_command: Option<CalibrationCommand>,
+    pub walk_in_position_index: usize,
 }
 
 #[derive(
@@ -78,6 +78,6 @@ pub struct RobotState {
     pub primary_state: PrimaryState,
     pub fall_state: FallState,
     pub has_ground_contact: bool,
-    pub player_number: PlayerNumber,
+    pub jersey_number: usize,
     pub ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 }

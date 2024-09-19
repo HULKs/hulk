@@ -275,27 +275,13 @@ impl Default for State {
             game_phase: GamePhase::Normal,
             kicking_team: Team::Hulks,
             last_game_state_change: SystemTime::UNIX_EPOCH,
-            penalties: Players {
-                one: None,
-                two: None,
-                three: None,
-                four: None,
-                five: None,
-                six: None,
-                seven: None,
-            },
-            opponent_penalties: Players {
-                one: None,
-                two: None,
-                three: None,
-                four: None,
-                five: None,
-                six: None,
-                seven: None,
-            },
+            penalties: Players::new_with_size(20),
+            opponent_penalties: Players::new_with_size(20),
             remaining_amount_of_messages: 1200,
             sub_state: None,
             hulks_team_is_home_after_coin_toss: true,
+            goalkeeper_jersey_number: 1,
+            opponent_goalkeeper_jersey_number: 1,
         };
 
         Self {
