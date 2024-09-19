@@ -1,6 +1,5 @@
 use coordinate_systems::Field;
 use linear_algebra::Point2;
-use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
     filtered_game_state::FilteredGameState,
@@ -57,11 +56,11 @@ fn look_at_referee(
     };
 
     match (
-        world_state.robot.player_number,
+        world_state.walk_in_position_index,
         filtered_game_controller_state.own_team_is_home_after_coin_toss,
     ) {
-        (PlayerNumber::Four | PlayerNumber::Seven, true) => {}
-        (PlayerNumber::Two | PlayerNumber::Six, false) => {}
+        (3 | 5, true) => {}
+        (4 | 6, false) => {}
         _ => return None,
     }
 

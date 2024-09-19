@@ -2,9 +2,7 @@ use std::time::SystemTime;
 
 use bevy::prelude::*;
 
-use spl_network_messages::{
-    GamePhase, GameState, Penalty, PlayerNumber, SubState, Team, TeamColor, TeamState,
-};
+use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team, TeamColor, TeamState};
 use types::{game_controller_state::GameControllerState, players::Players};
 
 use crate::{autoref::autoref, whistle::WhistleResource};
@@ -21,9 +19,9 @@ pub enum GameControllerCommand {
     SetSubState(Option<SubState>, Team),
     SetKickingTeam(Team),
     Goal(Team),
-    Penalize(PlayerNumber, Penalty),
-    Unpenalize(PlayerNumber),
     BallIsFree,
+    Penalize(usize, Penalty),
+    Unpenalize(usize),
 }
 
 fn game_controller_controller(
@@ -62,11 +60,11 @@ fn game_controller_controller(
                 game_controller.state.game_state = GameState::Ready;
                 state.last_state_change = time.as_generic();
             }
-            GameControllerCommand::Penalize(player_number, penalty) => {
-                game_controller.state.penalties[player_number] = Some(penalty);
+            GameControllerCommand::Penalize(jersey_number, penalty) => {
+                game_controller.state.penalties[jersey_number] = Some(penalty);
             }
-            GameControllerCommand::Unpenalize(player_number) => {
-                game_controller.state.penalties[player_number] = None;
+            GameControllerCommand::Unpenalize(jersey_number) => {
+                game_controller.state.penalties[jersey_number] = None;
             }
             GameControllerCommand::SetSubState(sub_state, team) => {
                 game_controller.state.sub_state = sub_state;
@@ -131,15 +129,15 @@ impl Default for GameController {
                 game_phase: GamePhase::Normal,
                 kicking_team: Team::Hulks,
                 last_game_state_change: SystemTime::UNIX_EPOCH,
-                penalties: Players::new(None),
-                opponent_penalties: Players::new(None),
+                penalties: Players::new_with_size(20),
+                opponent_penalties: Players::new_with_size(20),
                 sub_state: None,
                 hulks_team_is_home_after_coin_toss: true,
                 hulks_team: TeamState {
                     team_number: 24,
                     field_player_color: TeamColor::Green,
                     goal_keeper_color: TeamColor::Red,
-                    goal_keeper_player_number: PlayerNumber::One,
+                    goal_keeper_jersey_number: 1,
                     score: 0,
                     penalty_shoot_index: 0,
                     penalty_shoots: Vec::new(),
@@ -150,7 +148,7 @@ impl Default for GameController {
                     team_number: 1,
                     field_player_color: TeamColor::Black,
                     goal_keeper_color: TeamColor::Gray,
-                    goal_keeper_player_number: PlayerNumber::One,
+                    goal_keeper_jersey_number: 1,
                     score: 0,
                     penalty_shoot_index: 0,
                     penalty_shoots: Vec::new(),

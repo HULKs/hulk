@@ -15,7 +15,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
+use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -25,7 +25,6 @@ use types::{
     line_data::LineData,
     localization::{ScoredPose, Update},
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    players::Players,
     primary_state::PrimaryState,
     support_foot::Side,
 };
@@ -63,6 +62,7 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
+    walk_in_position_index: Input<usize, "walk_in_position_index">,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -76,7 +76,7 @@ pub struct CycleContext {
     initial_hypothesis_covariance:
         Parameter<Matrix3<f32>, "localization.initial_hypothesis_covariance">,
     initial_hypothesis_score: Parameter<f32, "localization.initial_hypothesis_score">,
-    initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
+    initial_poses: Parameter<Vec<InitialPose>, "localization.initial_poses">,
     line_length_acceptance_factor: Parameter<f32, "localization.line_length_acceptance_factor">,
     line_measurement_noise: Parameter<Vector2<f32>, "localization.line_measurement_noise">,
     maximum_amount_of_gradient_descent_iterations:
@@ -85,7 +85,7 @@ pub struct CycleContext {
         Parameter<usize, "localization.maximum_amount_of_outer_iterations">,
     minimum_fit_error: Parameter<f32, "localization.minimum_fit_error">,
     odometry_noise: Parameter<Vector3<f32>, "localization.odometry_noise">,
-    player_number: Parameter<PlayerNumber, "player_number">,
+    jersey_number: Parameter<usize, "jersey_number">,
     penalized_distance: Parameter<f32, "localization.penalized_distance">,
     penalized_hypothesis_covariance:
         Parameter<Matrix3<f32>, "localization.penalized_hypothesis_covariance">,
@@ -136,11 +136,12 @@ impl Localization {
         context: &CycleContext,
         sub_state: Option<SubState>,
         kicking_team: Option<Team>,
+        goalkeeper_jersey_number: Option<usize>,
     ) {
-        if let (PlayerNumber::One, Some(SubState::PenaltyKick)) =
-            (*context.player_number, sub_state)
+        if let (Some(Team::Opponent), Some(goalkeeper_number), Some(SubState::PenaltyKick)) =
+            (kicking_team, goalkeeper_jersey_number, sub_state)
         {
-            if matches!(kicking_team, Some(Team::Opponent)) {
+            if goalkeeper_number == *context.jersey_number {
                 self.hypotheses = self
                     .hypotheses
                     .iter()
@@ -164,11 +165,12 @@ impl Localization {
         game_phase: Option<GamePhase>,
         context: &CycleContext,
         penalty: &Option<Penalty>,
+        walk_in_positin_index: usize,
     ) {
         match (self.last_primary_state, primary_state, game_phase) {
             (PrimaryState::Standby | PrimaryState::Initial, PrimaryState::Ready, _) => {
                 let initial_pose = generate_initial_pose(
-                    &context.initial_poses[*context.player_number],
+                    &context.initial_poses[walk_in_positin_index],
                     context.field_dimensions,
                 );
                 self.hypotheses = vec![ScoredPose::from_isometry(
@@ -531,11 +533,10 @@ impl Localization {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let primary_state = *context.primary_state;
-        let penalty = context
+        let penalties = context
             .filtered_game_controller_state
-            .and_then(|game_controller_state| {
-                game_controller_state.penalties[*context.player_number]
-            });
+            .map(|game_controller_state| &game_controller_state.penalties);
+        let penalty = penalties.and_then(|penalties| penalties[context.jersey_number]);
         let game_phase = context
             .filtered_game_controller_state
             .map(|game_controller_state| game_controller_state.game_phase);
@@ -545,9 +546,18 @@ impl Localization {
         let kicking_team = context
             .filtered_game_controller_state
             .map(|game_controller_state| game_controller_state.kicking_team);
+        let goalkeeper_jersey_number = context
+            .filtered_game_controller_state
+            .map(|game_controller_state| game_controller_state.goal_keeper_number);
 
-        self.reset_state(primary_state, game_phase, &context, &penalty);
-        self.modify_state(&context, sub_state, kicking_team);
+        self.reset_state(
+            primary_state,
+            game_phase,
+            &context,
+            &penalty,
+            *context.walk_in_position_index,
+        );
+        self.modify_state(&context, sub_state, kicking_team, goalkeeper_jersey_number);
         self.last_primary_state = primary_state;
 
         if primary_state == PrimaryState::Penalized && !context.has_ground_contact {
@@ -557,7 +567,7 @@ impl Localization {
         let ground_to_field = match primary_state {
             PrimaryState::Initial | PrimaryState::Standby => Some(
                 generate_initial_pose(
-                    &context.initial_poses[*context.player_number],
+                    &context.initial_poses[*context.walk_in_position_index],
                     context.field_dimensions,
                 )
                 .as_transform(),

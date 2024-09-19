@@ -4,6 +4,7 @@ use color_eyre::{eyre::Context, Result};
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Field, Ground};
+use itertools::enumerate;
 use linear_algebra::{IntoFramed, Isometry2, Point2};
 use types::{
     ball_position::SimulatorBallState, field_dimensions::FieldDimensions,
@@ -61,7 +62,7 @@ impl Layer<Field> for BehaviorSimulator {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        for (player_number, player_handle) in self.ground_to_field.0.iter() {
+        for (player_number, player_handle) in enumerate(self.ground_to_field.0.inner()) {
             let Some(ground_to_field) = player_handle
                 .get_last_value()
                 .wrap_err("ground_to_field")?
