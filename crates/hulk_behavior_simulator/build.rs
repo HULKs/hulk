@@ -22,6 +22,7 @@ fn main() -> Result<()> {
                 setup_nodes: vec!["crate::fake_data"],
                 nodes: vec![
                     "control::active_vision",
+                    "control::active_player_filter",
                     "control::ball_state_composer",
                     "control::behavior::node",
                     "control::center_of_mass_provider",

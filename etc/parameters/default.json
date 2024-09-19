@@ -641,36 +641,36 @@
       0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001
     ],
     "initial_hypothesis_score": 10.0,
-    "initial_poses": {
-      "one": {
+    "initial_poses": [
+      {
         "center_line_offset_x": -3.0,
         "side": "Left"
       },
-      "two": {
+      {
         "center_line_offset_x": -2.0,
         "side": "Left"
       },
-      "three": {
+      {
         "center_line_offset_x": -3.5,
         "side": "Right"
       },
-      "four": {
+      {
         "center_line_offset_x": -2.0,
         "side": "Right"
       },
-      "five": {
+      {
         "center_line_offset_x": -3.0,
         "side": "Right"
       },
-      "six": {
+      {
         "center_line_offset_x": -1.0,
         "side": "Left"
       },
-      "seven": {
+      {
         "center_line_offset_x": -1.0,
         "side": "Right"
       }
-    },
+    ],
     "line_length_acceptance_factor": 1.5,
     "line_measurement_noise": [1000.0, 320.0],
     "maximum_amount_of_gradient_descent_iterations": 20,

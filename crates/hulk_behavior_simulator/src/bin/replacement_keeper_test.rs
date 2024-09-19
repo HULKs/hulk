@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use scenario::scenario;
-use spl_network_messages::{GameState, Penalty, PlayerNumber};
+use spl_network_messages::{GameState, Penalty};
 
 use hulk_behavior_simulator::{
     autoref::{AutorefState, GoalMode},
@@ -24,15 +24,7 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut autoref: ResMut<AutorefState>,
 ) {
-    for number in [
-        PlayerNumber::One,
-        PlayerNumber::Two,
-        PlayerNumber::Three,
-        PlayerNumber::Four,
-        PlayerNumber::Five,
-        PlayerNumber::Six,
-        PlayerNumber::Seven,
-    ] {
+    for number in [1, 2, 3, 4, 5, 6, 7] {
         commands.spawn(Robot::new(number));
     }
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
@@ -56,7 +48,7 @@ fn update(
             exit.send(AppExit::from_code(1));
         }
         game_controller_commands.send(GameControllerCommand::Penalize(
-            PlayerNumber::One,
+            1,
             Penalty::Manual {
                 remaining: Duration::from_secs(5),
             },
@@ -68,7 +60,7 @@ fn update(
             println!("No robot became replacement keeper");
             exit.send(AppExit::from_code(1));
         }
-        game_controller_commands.send(GameControllerCommand::Unpenalize(PlayerNumber::One));
+        game_controller_commands.send(GameControllerCommand::Unpenalize(1));
     }
 
     if time.ticks() >= 10_000 {

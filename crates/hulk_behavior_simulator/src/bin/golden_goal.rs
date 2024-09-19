@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use spl_network_messages::GameState;
 
 use hulk_behavior_simulator::{
     game_controller::{GameController, GameControllerCommand},
@@ -19,15 +19,7 @@ fn startup(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
-    for number in [
-        PlayerNumber::One,
-        PlayerNumber::Two,
-        PlayerNumber::Three,
-        PlayerNumber::Four,
-        PlayerNumber::Five,
-        PlayerNumber::Six,
-        PlayerNumber::Seven,
-    ] {
+    for number in [1, 2, 3, 4, 5, 6, 7] {
         commands.spawn(Robot::new(number));
     }
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));

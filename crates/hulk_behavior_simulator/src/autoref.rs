@@ -128,7 +128,7 @@ pub fn auto_assistant_referee(
             GameControllerCommand::SetGameState(_) => {}
             GameControllerCommand::SetKickingTeam(_) => {}
             GameControllerCommand::Goal(_) => {}
-            GameControllerCommand::Penalize(player_number, penalty) => match penalty {
+            GameControllerCommand::Penalize(jersey_number, penalty) => match penalty {
                 Penalty::IllegalMotionInStandby { .. } | Penalty::IllegalMotionInSet { .. } => {
                     // Robots are penalized in place
                 }
@@ -145,17 +145,17 @@ pub fn auto_assistant_referee(
                 | Penalty::Manual { .. } => {
                     if let Some(mut robot) = robots
                         .iter_mut()
-                        .find(|robot| robot.parameters.player_number == player_number)
+                        .find(|robot| robot.parameters.jersey_number == jersey_number)
                     {
                         *robot.ground_to_field_mut() =
                             Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
                     }
                 }
             },
-            GameControllerCommand::Unpenalize(player_number) => {
+            GameControllerCommand::Unpenalize(jersey_number) => {
                 if let Some(mut robot) = robots
                     .iter_mut()
-                    .find(|robot| robot.parameters.player_number == player_number)
+                    .find(|robot| robot.parameters.jersey_number == jersey_number)
                 {
                     *robot.ground_to_field_mut() =
                         Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);

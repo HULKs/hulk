@@ -31,7 +31,7 @@ pub fn frame_recorder(
 ) {
     let mut players = Players::<Option<Database>>::default();
     for robot in &robots {
-        players[robot.parameters.player_number] = Some(robot.database.clone())
+        players[robot.parameters.jersey_number] = Some(robot.database.clone())
     }
     recording.frames.push(Frame {
         timestamp: UNIX_EPOCH + time.elapsed(),

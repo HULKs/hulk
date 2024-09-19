@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use spl_network_messages::{HulkMessage, PlayerNumber, VisualRefereeMessage};
+use spl_network_messages::{HulkMessage, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
     messages::{IncomingMessage, OutgoingMessage},
@@ -46,7 +46,7 @@ pub struct CycleContext {
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
     minimum_above_head_arms_detections:
         Parameter<usize, "referee_pose_detection_filter.minimum_above_head_arms_detections">,
-    player_number: Parameter<PlayerNumber, "player_number">,
+    jersey_number: Parameter<usize, "jersey_number">,
     referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
     minimum_number_poses_before_message:
         Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
@@ -86,7 +86,7 @@ impl RefereePoseDetectionFilter {
             self.update(&context)?;
 
         let majority_vote_is_referee_ready_pose_detected = decide(
-            self.detection_times,
+            &self.detection_times,
             cycle_start_time,
             *context.initial_message_grace_period,
             *context.minimum_above_head_arms_detections,
@@ -94,7 +94,7 @@ impl RefereePoseDetectionFilter {
 
         context
             .player_referee_detection_times
-            .fill_if_subscribed(|| self.detection_times);
+            .fill_if_subscribed(|| self.detection_times.clone());
 
         context
             .referee_pose_queue
@@ -113,7 +113,7 @@ impl RefereePoseDetectionFilter {
             unpack_message_tree(&context.network_message.persistent);
 
         for (time, message) in time_tagged_persistent_messages {
-            self.detection_times[message.player_number] = Some(time);
+            self.detection_times[message.jersey_number] = Some(time);
         }
         let own_detected_pose_times =
             unpack_own_detection_tree(&context.referee_pose_kind.persistent);
@@ -137,9 +137,9 @@ impl RefereePoseDetectionFilter {
             .count();
 
         if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
-            self.detection_times[*context.player_number] = Some(context.cycle_time.start_time);
+            self.detection_times[*context.jersey_number] = Some(context.cycle_time.start_time);
 
-            send_own_detection_message(context.hardware_interface.clone(), *context.player_number)?;
+            send_own_detection_message(context.hardware_interface.clone(), *context.jersey_number)?;
         }
 
         Ok((
@@ -150,14 +150,15 @@ impl RefereePoseDetectionFilter {
 }
 
 fn decide(
-    pose_detection_times: Players<Option<SystemTime>>,
+    pose_detection_times: &Players<Option<SystemTime>>,
     cycle_start_time: SystemTime,
     initial_message_grace_period: Duration,
     minimum_above_head_arms_detections: usize,
 ) -> bool {
     let detected_above_head_arms_poses = pose_detection_times
+        .inner
         .iter()
-        .filter(|(_, detection_time)| match detection_time {
+        .filter(|detection_time| match detection_time {
             Some(detection_time) => is_in_grace_period(
                 cycle_start_time,
                 *detection_time,
@@ -210,9 +211,9 @@ fn unpack_own_detection_tree(
 
 fn send_own_detection_message<T: NetworkInterface>(
     hardware_interface: Arc<T>,
-    player_number: PlayerNumber,
+    jersey_number: usize,
 ) -> Result<()> {
     hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
-        VisualRefereeMessage { player_number },
+        VisualRefereeMessage { jersey_number },
     )))
 }

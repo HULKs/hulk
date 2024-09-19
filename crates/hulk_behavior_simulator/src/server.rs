@@ -14,7 +14,7 @@ use types::{
     players::Players,
 };
 
-use crate::{cyclers::control::Database, recorder::Frame, robot::to_player_number};
+use crate::{cyclers::control::Database, recorder::Frame};
 
 #[derive(Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 struct Parameters {
@@ -70,9 +70,8 @@ async fn timeline_server(
         {
             let (time, control) = &mut *control_writer.borrow_mut();
             let frame = &frames[parameters.selected_frame];
-            *control = to_player_number(parameters.selected_robot)
-                .ok()
-                .and_then(|player_number| frame.robots[player_number].clone())
+            *control = frame.robots[parameters.selected_robot]
+                .clone()
                 .unwrap_or_default();
             *time = frame.timestamp;
         }

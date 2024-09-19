@@ -1,10 +1,10 @@
 use std::time::SystemTime;
 
+use crate::players::Players;
+
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team, TeamState};
-
-use crate::players::Players;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct GameControllerState {

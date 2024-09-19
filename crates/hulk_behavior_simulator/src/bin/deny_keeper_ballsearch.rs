@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use spl_network_messages::GameState;
 use types::action::Action;
 
 use hulk_behavior_simulator::{
@@ -24,7 +24,7 @@ fn startup(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
-    for number in [PlayerNumber::One, PlayerNumber::Seven] {
+    for number in [1, 7] {
         commands.spawn(Robot::new(number));
     }
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
@@ -46,19 +46,12 @@ fn update(
         let penalty = spl_network_messages::Penalty::Manual {
             remaining: Duration::from_secs(5),
         };
-        for player_numer in [
-            PlayerNumber::Two,
-            PlayerNumber::Three,
-            PlayerNumber::Four,
-            PlayerNumber::Five,
-            PlayerNumber::Six,
-            PlayerNumber::Seven,
-        ] {
-            game_controller_commands.send(GameControllerCommand::Penalize(player_numer, penalty));
+        for jersey_number in [2, 3, 4, 5, 6, 7] {
+            game_controller_commands.send(GameControllerCommand::Penalize(jersey_number, penalty));
         }
         robots
             .iter_mut()
-            .find(|robot| robot.parameters.player_number == PlayerNumber::Seven)
+            .find(|robot| robot.parameters.jersey_number == 7)
             .unwrap()
             .database
             .main_outputs
@@ -67,7 +60,7 @@ fn update(
 
     if robots
         .iter_mut()
-        .find(|robot| robot.parameters.player_number == PlayerNumber::One)
+        .find(|robot| robot.parameters.jersey_number == 1)
         .and_then(|robot| robot.database.additional_outputs.active_action)
         == Some(Action::Search)
     {

@@ -20,8 +20,7 @@ use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
 use linear_algebra::{
-    vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3, Rotation2,
-    Rotation3, Vector2,
+    vector, Isometry2, Isometry3, Orientation2, Point2, Pose2, Pose3, Rotation2, Vector2,
 };
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
@@ -64,21 +63,21 @@ pub struct Robot {
 }
 
 impl Robot {
-    pub fn new(player_number: PlayerNumber) -> Self {
-        Self::try_new(player_number).expect("failed to create robot")
+    pub fn new(jersey_number: usize) -> Self {
+        Self::try_new(jersey_number).expect("failed to create robot")
     }
 
-    pub fn try_new(player_number: PlayerNumber) -> Result<Self> {
+    pub fn try_new(jersey_number: usize) -> Result<Self> {
         let mut parameters: Parameters = deserialize(
             "etc/parameters",
             &Ids {
-                body_id: format!("behavior_simulator.{}", from_player_number(player_number)),
-                head_id: format!("behavior_simulator.{}", from_player_number(player_number)),
+                body_id: format!("behavior_simulator.{}", jersey_number),
+                head_id: format!("behavior_simulator.{}", jersey_number),
             },
             true,
         )
         .wrap_err("could not load initial parameters")?;
-        parameters.player_number = player_number;
+        parameters.jersey_number = jersey_number;
 
         let interface: Arc<_> = Interfake::default().into();
 
@@ -108,7 +107,7 @@ impl Robot {
 
         database.main_outputs.ground_to_field = Some(
             generate_initial_pose(
-                &parameters.localization.initial_poses[player_number],
+                &parameters.localization.initial_poses[0],
                 &parameters.field_dimensions,
             )
             .as_transform(),
@@ -138,7 +137,7 @@ impl Robot {
 
     pub fn cycle(&mut self, messages: &[Message]) -> Result<()> {
         for Message { sender, payload } in messages {
-            let source_is_other = *sender != self.parameters.player_number;
+            let source_is_other = *sender != self.parameters.jersey_number;
             let message = IncomingMessage::Spl(*payload);
             self.spl_network_sender.announce();
             self.spl_network_sender
@@ -193,7 +192,7 @@ impl Robot {
     }
 }
 
-pub fn to_player_number(value: usize) -> Result<PlayerNumber, String> {
+pub fn to_jersey_number(value: usize) -> Result<PlayerNumber, String> {
     let number = match value {
         1 => PlayerNumber::One,
         2 => PlayerNumber::Two,
@@ -208,7 +207,7 @@ pub fn to_player_number(value: usize) -> Result<PlayerNumber, String> {
     Ok(number)
 }
 
-pub fn from_player_number(val: PlayerNumber) -> usize {
+pub fn from_jersey_number(val: PlayerNumber) -> usize {
     match val {
         PlayerNumber::One => 1,
         PlayerNumber::Two => 2,
@@ -414,7 +413,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
 #[derive(Event, Clone, Copy)]
 pub struct Message {
-    pub sender: PlayerNumber,
+    pub sender: usize,
     pub payload: HulkMessage,
 }
 
@@ -541,7 +540,7 @@ pub fn cycle_robots(
         for message in robot.interface.take_outgoing_messages() {
             if let OutgoingMessage::Spl(message) = message {
                 messages.messages.push(Message {
-                    sender: robot.parameters.player_number,
+                    sender: robot.parameters.jersey_number,
                     payload: message,
                 });
                 game_controller
