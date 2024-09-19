@@ -19,7 +19,6 @@ fn main() -> Result<()> {
                 nodes: vec![
                     "control::active_player_filter",
                     "control::active_vision",
-                    "control::active_player_filter",
                     "control::ball_state_composer",
                     "control::behavior::node",
                     "control::game_controller_state_filter",
