@@ -1259,7 +1259,7 @@
       "nanos": 0,
       "secs": 15
     },
-    "sacrificial_nao_playernumber": "Three"
+    "sacrificial_nao_position_number": 4
   },
   "ground_contact_detector": {
     "pressure_threshold": 0.6,
