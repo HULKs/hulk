@@ -38,7 +38,6 @@ pub struct CycleContext {
         Input<Option<Point2<Field>>, "Control", "expected_referee_position?">,
     fall_state: Input<FallState, "Control", "fall_state">,
 
-    player_number: Parameter<PlayerNumber, "player_number">,
     maximum_distance_to_referee_position:
         Parameter<f32, "pose_detection.maximum_distance_to_referee_position">,
     foot_z_offset: Parameter<f32, "pose_detection.foot_z_offset">,
