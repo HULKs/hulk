@@ -19,6 +19,7 @@ fn main() -> Result<()> {
                 instances: vec![""],
                 setup_nodes: vec!["crate::fake_data"],
                 nodes: vec![
+                    "control::active_player_filter",
                     "control::active_vision",
                     "control::ball_state_composer",
                     "control::behavior::node",
