@@ -61,7 +61,7 @@ pub struct CycleContext {
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
-    keeper_replacementkeeper_switch_time:
+    _keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
     initial_poses: Parameter<Vec<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
