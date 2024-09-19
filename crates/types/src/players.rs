@@ -45,12 +45,9 @@ impl<T> Index<usize> for Players<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        print!("{}", index);
-        self.inner.get(index - 1).expect(&format!(
-            "Players index out of bounds: {}. inner has size of {}",
-            index,
-            self.inner.capacity()
-        ))
+        self.inner
+            .get(index - 1)
+            .expect("Players index out of bounds")
     }
 }
 
