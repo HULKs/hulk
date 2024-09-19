@@ -7,7 +7,7 @@ use std::{
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GameControllerStateMessage, Penalty, PlayerNumber};
+use spl_network_messages::{GameControllerStateMessage, Penalty};
 use types::{cycle_time::CycleTime, messages::IncomingMessage, pose_detection::VisualRefereeState};
 
 #[derive(Deserialize, Serialize)]
