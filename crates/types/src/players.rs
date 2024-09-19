@@ -19,7 +19,10 @@ use spl_network_messages::{Penalty, TeamState};
 pub struct Players<T> {
     pub inner: Vec<T>,
 }
-impl<T> Players<T> {
+impl<T> Players<T>
+where
+    T: Clone,
+{
     pub fn new() -> Self {
         Players { inner: Vec::new() }
     }
@@ -31,15 +34,23 @@ impl<T> Players<T> {
             inner: Vec::with_capacity(size),
         }
     }
+    pub fn new_with_size_and_content(size: usize, content: T) -> Self {
+        Players {
+            inner: vec![content; size],
+        }
+    }
 }
 
 impl<T> Index<usize> for Players<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        self.inner
-            .get(index - 1)
-            .expect("Players index out of bounds")
+        print!("{}", index);
+        self.inner.get(index - 1).expect(&format!(
+            "Players index out of bounds: {}. inner has size of {}",
+            index,
+            self.inner.capacity()
+        ))
     }
 }
 
