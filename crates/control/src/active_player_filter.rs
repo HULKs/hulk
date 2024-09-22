@@ -33,26 +33,23 @@ impl ActivePlayerFilter {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let penalties = context
-            .game_controller_state
-            .map(|game_controller_state| &game_controller_state.penalties);
-
-        let mut walk_in_position_index = if let Some(list) = penalties {
-            list.inner()
+        let mut walk_in_position_index = 0;
+        let mut replacement_keeper_priority = Some(0);
+        let mut striker_priority = Some(0);
+        if let Some(game_controller_state) = context.game_controller_state {
+            let penalties = &game_controller_state.penalties;
+            walk_in_position_index = penalties
+                .inner()
                 .keys()
                 .sorted()
                 .position(|&key| key == *context.jersey_number)
-        } else {
-            None
-        }
-        .unwrap_or(7);
+                .unwrap_or(7);
 
-        let goal_keeper_jersey_number =
-            context.game_controller_state.map(|game_controller_state| {
-                game_controller_state.hulks_team.goal_keeper_jersey_number
-            });
-        if let Some(goal_keeper_number) = goal_keeper_jersey_number {
-            match goal_keeper_number.cmp(context.jersey_number) {
+            match game_controller_state
+                .hulks_team
+                .goal_keeper_jersey_number
+                .cmp(context.jersey_number)
+            {
                 Ordering::Equal => {
                     walk_in_position_index = 0;
                 }
@@ -61,44 +58,38 @@ impl ActivePlayerFilter {
                 }
                 _ => {}
             }
-        }
-
-        let available_field_players =
-            if let Some(game_controller_state) = context.game_controller_state {
-                game_controller_state
+            let available_field_players = penalties
+                .inner()
+                .iter()
+                .filter(|(&jersey_number, penalty)| {
+                    penalty.is_none()
+                        && jersey_number
+                            != game_controller_state.hulks_team.goal_keeper_jersey_number
+                })
+                .map(|(&jersey_number, _)| jersey_number)
+                .sorted()
+                .collect::<Vec<_>>();
+            replacement_keeper_priority = available_field_players
+                .iter()
+                .position(|&jersey_number| jersey_number == *context.jersey_number);
+            if let (Some(game_controller_state), Some(keeper_priority)) =
+                (context.game_controller_state, replacement_keeper_priority)
+            {
+                match game_controller_state
                     .penalties
                     .inner()
-                    .iter()
-                    .filter(|(&jersey_number, penalty)| {
-                        penalty.is_none()
-                            && jersey_number
-                                != game_controller_state.hulks_team.goal_keeper_jersey_number
-                    })
-                    .map(|(&jersey_number, _)| jersey_number)
-                    .sorted()
-                    .collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            };
-        let mut replacement_keeper_priority = available_field_players
-            .iter()
-            .position(|&jersey_number| jersey_number == *context.jersey_number);
-        if let (Some(game_controller_state), Some(keeper_priority)) =
-            (context.game_controller_state, replacement_keeper_priority)
-        {
-            match game_controller_state
-                .penalties
-                .inner()
-                .get(&game_controller_state.hulks_team.goal_keeper_jersey_number)
-            {
-                Some(_penalty) => {}
-                None => replacement_keeper_priority = Some(keeper_priority + 1),
+                    .get(&game_controller_state.hulks_team.goal_keeper_jersey_number)
+                    .expect("ffailed to find goal keeper penalty")
+                {
+                    Some(_penalty) => {}
+                    None => replacement_keeper_priority = Some(keeper_priority + 1),
+                }
             }
+            striker_priority = available_field_players
+                .iter()
+                .rev()
+                .position(|&jersey_number| jersey_number == *context.jersey_number);
         }
-        let striker_priority = available_field_players
-            .iter()
-            .rev()
-            .position(|&jersey_number| jersey_number == *context.jersey_number);
 
         Ok(MainOutputs {
             walk_in_position_index: walk_in_position_index.into(),
@@ -107,14 +98,3 @@ impl ActivePlayerFilter {
         })
     }
 }
-// fn filter_penalties(
-//     penalties: &HashMap<usize, Option<Penalty>>,
-// ) -> HashMap<usize, Option<Penalty>> {
-//     penalties
-//         .iter()
-//         .filter_map(|(index, penalty_option)| match penalty_option {
-//             Some(Penalty::Substitute { .. }) => None,
-//             _ => Some((*index, *penalty_option)),
-//         })
-//         .collect()
-// }
