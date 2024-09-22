@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
         Command::Ping(arguments) => ping(arguments).await,
         Command::Jerseynumber(arguments) => jersey_number(arguments, &repository?)
             .await
-            .wrap_err("failed to execute player_number command")?,
+            .wrap_err("failed to execute jersey_number command")?,
         Command::Postgame(arguments) => post_game(arguments)
             .await
             .wrap_err("failed to execute post_game command")?,

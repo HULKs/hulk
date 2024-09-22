@@ -84,7 +84,8 @@ impl FilteredGameControllerStateTimer {
         if context.filtered_game_controller_state.penalties
             != self.last_filtered_game_controller_state.penalties
         {
-            for (jersey_number, penalty) in &context.filtered_game_controller_state.penalties {
+            for (jersey_number, penalty) in context.filtered_game_controller_state.penalties.inner()
+            {
                 match (
                     penalty,
                     self.filtered_game_controller_state_changes
@@ -112,6 +113,7 @@ impl FilteredGameControllerStateTimer {
                     !&context
                         .filtered_game_controller_state
                         .penalties
+                        .inner()
                         .contains_key(&player_number)
                 })
                 .cloned()

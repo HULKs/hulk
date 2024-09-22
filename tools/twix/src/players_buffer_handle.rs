@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 
+use spl_network_messages::bindings::MAX_NUM_PLAYERS;
 use types::players::Players;
 
 use crate::{nao::Nao, value_buffer::BufferHandle};
@@ -14,10 +15,12 @@ where
 {
     pub fn try_new(nao: Arc<Nao>, prefix: &str, path: &str) -> Result<Self> {
         let mut buffers = Players::new();
-        buffers
-            .inner
-            .insert(0, nao.subscribe_value(format!("{prefix}.one.{path}")));
-
+        for player in 1..=MAX_NUM_PLAYERS {
+            buffers.inner.insert(
+                player.into(),
+                nao.subscribe_value(format!("{prefix}.{player}.{path}")),
+            );
+        }
         Ok(Self(buffers))
     }
 }

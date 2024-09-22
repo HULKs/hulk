@@ -536,7 +536,7 @@ impl Localization {
         let penalties = context
             .filtered_game_controller_state
             .map(|game_controller_state| &game_controller_state.penalties);
-        let penalty = penalties.and_then(|penalties| penalties[context.jersey_number]);
+        let penalty = penalties.and_then(|penalties| penalties[*context.jersey_number]);
         let game_phase = context
             .filtered_game_controller_state
             .map(|game_controller_state| game_controller_state.game_phase);

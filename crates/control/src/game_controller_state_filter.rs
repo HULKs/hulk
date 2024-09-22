@@ -98,10 +98,8 @@ impl GameControllerStateFilter {
             opponent_game_state: game_states.opponent,
             game_phase: context.game_controller_state.game_phase,
             kicking_team: context.game_controller_state.kicking_team,
-            penalties: filter_penalties(&context.game_controller_state.penalties.inner),
-            opponent_penalties: filter_penalties(
-                &context.game_controller_state.opponent_penalties.inner,
-            ),
+            penalties: context.game_controller_state.penalties.clone(),
+            opponent_penalties: context.game_controller_state.opponent_penalties.clone(),
             goal_keeper_number: context
                 .game_controller_state
                 .hulks_team
@@ -482,31 +480,18 @@ fn penalty_diff(
         current
             .inner
             .iter()
-            .enumerate()
             .fold(HashMap::new(), |mut map, (player, penalty)| {
                 if let Some(penalty) = *penalty {
-                    map.insert(player, penalty);
+                    map.insert(*player, penalty);
                 }
                 map
             });
     last.inner
         .iter()
-        .enumerate()
         .fold(current_penalties, |mut map, (player, penalty)| {
             if penalty.is_some() {
-                map.remove(&player);
+                map.remove(player);
             }
             map
         })
-}
-
-fn filter_penalties(penalties: &[Option<Penalty>]) -> HashMap<usize, Option<Penalty>> {
-    penalties
-        .iter()
-        .enumerate()
-        .filter_map(|(index, penalty_option)| match penalty_option {
-            Some(Penalty::Substitute { .. }) => None,
-            _ => Some((index + 1, *penalty_option)),
-        })
-        .collect()
 }

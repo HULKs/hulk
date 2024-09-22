@@ -107,7 +107,7 @@ impl Robot {
 
         database.main_outputs.ground_to_field = Some(
             generate_initial_pose(
-                &parameters.localization.initial_poses[jersey_number-1],
+                &parameters.localization.initial_poses[jersey_number - 1],
                 &parameters.field_dimensions,
             )
             .as_transform(),

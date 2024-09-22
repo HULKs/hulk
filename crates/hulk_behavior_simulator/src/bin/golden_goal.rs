@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 
 use scenario::scenario;
@@ -19,6 +21,14 @@ fn startup(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
+    for number in 8..=20 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            spl_network_messages::Penalty::Substitute {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
     for number in [1, 2, 3, 4, 5, 6, 7] {
         commands.spawn(Robot::new(number));
     }

@@ -10,7 +10,6 @@ use framework::{AdditionalOutput, MainOutput};
 use hardware::{NetworkInterface, PathsInterface};
 use linear_algebra::{center, distance, Isometry2, Point2, Rotation2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
-use spl_network_messages::PlayerNumber;
 use types::{
     fall_state::FallState,
     pose_detection::{HumanPose, Keypoints, RefereePoseCandidate},

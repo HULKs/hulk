@@ -52,7 +52,7 @@ impl PrimaryStateFilter {
     ) -> Result<MainOutputs> {
         let is_penalized = match context.filtered_game_controller_state {
             Some(game_controller_state) => {
-                game_controller_state.penalties[context.jersey_number].is_some()
+                game_controller_state.penalties[*context.jersey_number].is_some()
             }
             None => false,
         };
