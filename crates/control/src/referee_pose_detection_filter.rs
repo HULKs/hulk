@@ -157,7 +157,7 @@ fn decide(
 ) -> bool {
     let detected_above_head_arms_poses = pose_detection_times
         .inner
-        .iter()
+        .values()
         .filter(|detection_time| match detection_time {
             Some(detection_time) => is_in_grace_period(
                 cycle_start_time,

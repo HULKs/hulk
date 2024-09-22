@@ -4,7 +4,6 @@ use framework::MainOutput;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use types::filtered_game_controller_state::FilteredGameControllerState;
-
 #[derive(Deserialize, Serialize)]
 pub struct ActivePlayerFilter {}
 
@@ -36,8 +35,10 @@ impl ActivePlayerFilter {
         let penalties = context
             .filtered_game_controller_state
             .map(|game_controller_state| &game_controller_state.penalties);
+
         let mut walk_in_position_index = if let Some(list) = penalties {
-            list.keys()
+            list.inner()
+                .keys()
                 .sorted()
                 .position(|&key| key == *context.jersey_number)
         } else {
@@ -61,6 +62,7 @@ impl ActivePlayerFilter {
         {
             game_controller_state
                 .penalties
+                .inner()
                 .iter()
                 .filter(|(&jersey_number, penalty)| {
                     penalty.is_none() && jersey_number != game_controller_state.goal_keeper_number
@@ -80,6 +82,7 @@ impl ActivePlayerFilter {
         ) {
             match game_controller_state
                 .penalties
+                .inner()
                 .get(&game_controller_state.goal_keeper_number)
             {
                 Some(_penalty) => {}
@@ -98,3 +101,14 @@ impl ActivePlayerFilter {
         })
     }
 }
+// fn filter_penalties(
+//     penalties: &HashMap<usize, Option<Penalty>>,
+// ) -> HashMap<usize, Option<Penalty>> {
+//     penalties
+//         .iter()
+//         .filter_map(|(index, penalty_option)| match penalty_option {
+//             Some(Penalty::Substitute { .. }) => None,
+//             _ => Some((*index, *penalty_option)),
+//         })
+//         .collect()
+// }

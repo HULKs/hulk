@@ -24,6 +24,7 @@ pub struct Datum<T> {
 
 type TimeSeries<T> = Vec<Datum<T>>;
 
+#[derive(Clone)]
 pub struct BufferHandle<T, E = eyre::Report> {
     receiver: watch::Receiver<Result<TimeSeries<T>, E>>,
     history: Arc<Mutex<Duration>>,

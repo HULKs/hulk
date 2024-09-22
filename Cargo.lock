@@ -6780,6 +6780,7 @@ dependencies = [
  "repository",
  "serde",
  "serde_json",
+ "spl_network_messages",
  "thiserror",
  "tokio",
  "toml",

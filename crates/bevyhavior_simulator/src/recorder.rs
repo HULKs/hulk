@@ -29,15 +29,17 @@ pub fn frame_recorder(
     mut recording: ResMut<Recording>,
     time: Res<Time>,
 ) {
-    let mut players = Players::new_with_size_and_content(20, None);
+    let mut players: Players<Option<Database>> = Default::default();
     for robot in &robots {
         players[robot.parameters.jersey_number] = Some(robot.database.clone())
     }
-    recording.frames.push(Frame {
+    let frame = Frame {
         timestamp: UNIX_EPOCH + time.elapsed(),
         robots: players,
         ball: ball.state,
-    });
+    };
+    // println!("{:?}", frame.robots);
+    recording.frames.push(frame);
 }
 
 impl Recording {

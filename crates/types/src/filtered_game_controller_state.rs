@@ -4,7 +4,7 @@ use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
-use crate::filtered_game_state::FilteredGameState;
+use crate::{filtered_game_state::FilteredGameState, players::Players};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
 
@@ -13,8 +13,8 @@ pub struct FilteredGameControllerState {
     pub opponent_game_state: FilteredGameState,
     pub game_phase: GamePhase,
     pub kicking_team: Team,
-    pub penalties: HashMap<usize, Option<Penalty>>,
-    pub opponent_penalties: HashMap<usize, Option<Penalty>>,
+    pub penalties: Players<Option<Penalty>>,
+    pub opponent_penalties: Players<Option<Penalty>>,
     pub goal_keeper_number: usize,
     pub opponent_goal_keeper_number: usize,
     pub remaining_number_of_messages: u16,
