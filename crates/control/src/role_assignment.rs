@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     net::SocketAddr,
     time::{Duration, SystemTime},
 };
@@ -861,18 +862,16 @@ fn pick_role_with_penalties(
     // }
 
     // role_assignment[own_player_number].unwrap_or_default()
-    if own_jersey_number > striker_jersey_number {
-        return optional_roles
+    match own_jersey_number.cmp(&striker_jersey_number) {
+        Ordering::Greater => optional_roles
             .get(striker_priority)
             .copied()
-            .unwrap_or_default();
-    } else if own_jersey_number == striker_jersey_number {
-        return Role::Striker;
-    } else {
-        return optional_roles
+            .unwrap_or_default(),
+        Ordering::Equal => Role::Striker,
+        Ordering::Less => optional_roles
             .get(striker_priority - 1)
             .copied()
-            .unwrap_or_default();
+            .unwrap_or_default(),
     }
 }
 

@@ -1,9 +1,9 @@
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use bevy::prelude::*;
 
 use spl_network_messages::{GamePhase, GameState, Penalty, Team, TeamColor, TeamState};
-use types::{game_controller_state::GameControllerState, players::Players};
+use types::game_controller_state::GameControllerState;
 
 use crate::{autoref::autoref, whistle::WhistleResource};
 
