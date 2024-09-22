@@ -1,11 +1,10 @@
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use bevy::prelude::*;
 
-use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team, TeamColor, TeamState};
-use types::{game_controller_state::GameControllerState, players::Players};
-
 use crate::{autoref::autoref, whistle::WhistleResource};
+use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team, TeamColor, TeamState};
+use types::game_controller_state::GameControllerState;
 
 #[derive(Resource, Default)]
 struct GameControllerControllerState {

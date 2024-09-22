@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
@@ -50,10 +52,14 @@ impl ActivePlayerFilter {
             .filtered_game_controller_state
             .map(|game_controller_state| game_controller_state.goal_keeper_number);
         if let Some(goalkeeper_number) = goalkeeper_jersey_number {
-            if goalkeeper_number == *context.jersey_number {
-                walk_in_position_index = 0;
-            } else if goalkeeper_number > *context.jersey_number {
-                walk_in_position_index += 1;
+            match goalkeeper_number.cmp(context.jersey_number) {
+                Ordering::Equal => {
+                    walk_in_position_index = 0;
+                }
+                Ordering::Greater => {
+                    walk_in_position_index += 1;
+                }
+                _ => {}
             }
         }
 
