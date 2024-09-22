@@ -27,13 +27,13 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     majority_vote_is_referee_ready_pose_detected:
         Input<bool, "majority_vote_is_referee_ready_pose_detected">,
+    walk_in_position_index: Input<usize, "walk_in_position_index">,
 
     wait_for_opponent_penalties_period:
         Parameter<Duration, "sacrificial_lamb.wait_for_opponent_penalties_period">,
     wait_for_own_penalties_period:
         Parameter<Duration, "sacrificial_lamb.wait_for_own_penalties_period">,
     sacrificial_lamb: Parameter<usize, "sacrificial_lamb.sacrificial_nao_position_number">,
-    jersey_number: Parameter<usize, "jersey_number">,
 
     visual_referee_state: AdditionalOutput<VisualRefereeState, "visual_referee_state">,
 }
@@ -115,7 +115,7 @@ impl SacrificialLamb {
                     .expect("time ran backwards")
                     >= *context.wait_for_opponent_penalties_period
                 {
-                    if context.jersey_number == context.sacrificial_lamb {
+                    if context.walk_in_position_index == context.sacrificial_lamb {
                         VisualRefereeState::GoToReady
                     } else {
                         VisualRefereeState::WaitingForOwnPenalties {
