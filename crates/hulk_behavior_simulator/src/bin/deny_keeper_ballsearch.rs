@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
-use spl_network_messages::GameState;
+use spl_network_messages::{GameState, Penalty};
 use types::action::Action;
 
 use hulk_behavior_simulator::{
@@ -24,8 +24,24 @@ fn startup(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
-    for number in [1, 7] {
+    for number in 8..=20 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::Substitute {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    for number in 1..=7 {
         commands.spawn(Robot::new(number));
+    }
+    for number in 2..=6 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::RequestForPickup {
+                remaining: Duration::MAX,
+            },
+        ));
     }
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }

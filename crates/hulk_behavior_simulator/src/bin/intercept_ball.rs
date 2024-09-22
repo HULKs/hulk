@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use bevy::{ecs::system::SystemParam, prelude::*};
 
 use linear_algebra::{point, vector, Isometry2, Point2, Vector};
 use scenario::scenario;
-use spl_network_messages::GameState;
+use spl_network_messages::{GameState, Penalty};
 use types::ball_position::SimulatorBallState;
 
 use hulk_behavior_simulator::{
@@ -29,6 +31,22 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
+    for number in 8..=20 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::Substitute {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    for number in 2..=7 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::RequestForPickup {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
     let mut robot = Robot::new(1);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
     robot.parameters.step_planner.max_step_size.forward = 0.45;

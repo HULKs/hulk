@@ -24,7 +24,15 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut autoref: ResMut<AutorefState>,
 ) {
-    for number in [1, 2, 3, 4, 5, 6, 7] {
+    for number in 8..=20 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::Substitute {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    for number in 1..=7 {
         commands.spawn(Robot::new(number));
     }
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));

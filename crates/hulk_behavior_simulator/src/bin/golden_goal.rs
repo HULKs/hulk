@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use scenario::scenario;
-use spl_network_messages::GameState;
+use spl_network_messages::{GameState, Penalty};
 
 use hulk_behavior_simulator::{
     game_controller::{GameController, GameControllerCommand},
@@ -24,12 +24,12 @@ fn startup(
     for number in 8..=20 {
         game_controller_commands.send(GameControllerCommand::Penalize(
             number,
-            spl_network_messages::Penalty::Substitute {
+            Penalty::Substitute {
                 remaining: Duration::MAX,
             },
         ));
     }
-    for number in [1, 2, 3, 4, 5, 6, 7] {
+    for number in 1..=7 {
         commands.spawn(Robot::new(number));
     }
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
