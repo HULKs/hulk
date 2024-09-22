@@ -841,7 +841,9 @@ fn pick_role_with_penalties(
     //     unassigned_robots =
     //         assign_keeper_or_replacement_keeper(unassigned_robots, penalties, &mut role_assignment);
     // }
-    if replacement_keeper_priority == 0 {
+    if replacement_keeper_priority == 0
+        || (replacement_keeper_priority == 1 && own_jersey_number > striker_jersey_number)
+    {
         return Role::ReplacementKeeper;
     }
 
