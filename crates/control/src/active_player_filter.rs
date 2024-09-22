@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use types::filtered_game_controller_state::FilteredGameControllerState;
+use types::game_controller_state::GameControllerState;
 #[derive(Deserialize, Serialize)]
 pub struct ActivePlayerFilter {}
 
@@ -14,8 +14,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    filtered_game_controller_state:
-        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
 
     jersey_number: Parameter<usize, "jersey_number">,
 }
@@ -35,7 +34,7 @@ impl ActivePlayerFilter {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let penalties = context
-            .filtered_game_controller_state
+            .game_controller_state
             .map(|game_controller_state| &game_controller_state.penalties);
 
         let mut walk_in_position_index = if let Some(list) = penalties {
@@ -48,11 +47,12 @@ impl ActivePlayerFilter {
         }
         .unwrap_or(7);
 
-        let goalkeeper_jersey_number = context
-            .filtered_game_controller_state
-            .map(|game_controller_state| game_controller_state.goal_keeper_number);
-        if let Some(goalkeeper_number) = goalkeeper_jersey_number {
-            match goalkeeper_number.cmp(context.jersey_number) {
+        let goal_keeper_jersey_number =
+            context.game_controller_state.map(|game_controller_state| {
+                game_controller_state.hulks_team.goal_keeper_jersey_number
+            });
+        if let Some(goal_keeper_number) = goal_keeper_jersey_number {
+            match goal_keeper_number.cmp(context.jersey_number) {
                 Ordering::Equal => {
                     walk_in_position_index = 0;
                 }
@@ -63,33 +63,33 @@ impl ActivePlayerFilter {
             }
         }
 
-        let available_field_players = if let Some(game_controller_state) =
-            context.filtered_game_controller_state
-        {
-            game_controller_state
-                .penalties
-                .inner()
-                .iter()
-                .filter(|(&jersey_number, penalty)| {
-                    penalty.is_none() && jersey_number != game_controller_state.goal_keeper_number
-                })
-                .map(|(&jersey_number, _)| jersey_number)
-                .sorted()
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
+        let available_field_players =
+            if let Some(game_controller_state) = context.game_controller_state {
+                game_controller_state
+                    .penalties
+                    .inner()
+                    .iter()
+                    .filter(|(&jersey_number, penalty)| {
+                        penalty.is_none()
+                            && jersey_number
+                                != game_controller_state.hulks_team.goal_keeper_jersey_number
+                    })
+                    .map(|(&jersey_number, _)| jersey_number)
+                    .sorted()
+                    .collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            };
         let mut replacement_keeper_priority = available_field_players
             .iter()
             .position(|&jersey_number| jersey_number == *context.jersey_number);
-        if let (Some(game_controller_state), Some(keeper_priority)) = (
-            context.filtered_game_controller_state,
-            replacement_keeper_priority,
-        ) {
+        if let (Some(game_controller_state), Some(keeper_priority)) =
+            (context.game_controller_state, replacement_keeper_priority)
+        {
             match game_controller_state
                 .penalties
                 .inner()
-                .get(&game_controller_state.goal_keeper_number)
+                .get(&game_controller_state.hulks_team.goal_keeper_jersey_number)
             {
                 Some(_penalty) => {}
                 None => replacement_keeper_priority = Some(keeper_priority + 1),
