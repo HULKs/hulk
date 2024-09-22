@@ -158,22 +158,22 @@ impl RoleAssignment {
             //     six: context.optional_roles.get(4).copied().unwrap_or_default(),
             //     seven: Role::Striker,
             // };
-            if let Some(0) = context.replacement_keeper_priority {
-                new_role = Role::ReplacementKeeper
-            } else if let Some(0) = context.striker_priority {
-                new_role = Role::Striker
-            } else if let Some(game_controller_state) = context.filtered_game_controller_state {
-                if game_controller_state.goal_keeper_number == *context.jersey_number {
-                    new_role = Role::Keeper
-                }
-            } else {
-                new_role = match context.striker_priority {
-                    Some(index) => context
-                        .optional_roles
-                        .get(index + 1)
-                        .copied()
-                        .unwrap_or_default(),
-                    None => Role::default(),
+            if let Some(game_controller_state) = context.filtered_game_controller_state {
+                if let Some(0) = context.replacement_keeper_priority {
+                    new_role = Role::ReplacementKeeper;
+                } else if let Some(0) = context.striker_priority {
+                    new_role = Role::Striker;
+                } else if game_controller_state.goal_keeper_number == *context.jersey_number {
+                    new_role = Role::Keeper;
+                } else {
+                    new_role = match context.striker_priority {
+                        Some(index) => context
+                            .optional_roles
+                            .get(index - 1)
+                            .copied()
+                            .unwrap_or_default(),
+                        None => Role::default(),
+                    };
                 }
             }
 
