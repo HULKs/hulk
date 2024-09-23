@@ -23,7 +23,7 @@ use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
-use spl_network_messages::{HulkMessage, PlayerNumber};
+use spl_network_messages::HulkMessage;
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
@@ -182,33 +182,6 @@ impl Robot {
 
     pub fn whistle_mut(&mut self) -> &mut FilteredWhistle {
         &mut self.database.main_outputs.filtered_whistle
-    }
-}
-
-pub fn to_jersey_number(value: usize) -> Result<PlayerNumber, String> {
-    let number = match value {
-        1 => PlayerNumber::One,
-        2 => PlayerNumber::Two,
-        3 => PlayerNumber::Three,
-        4 => PlayerNumber::Four,
-        5 => PlayerNumber::Five,
-        6 => PlayerNumber::Six,
-        7 => PlayerNumber::Seven,
-        number => return Err(format!("invalid player number: {number}")),
-    };
-
-    Ok(number)
-}
-
-pub fn from_jersey_number(val: PlayerNumber) -> usize {
-    match val {
-        PlayerNumber::One => 1,
-        PlayerNumber::Two => 2,
-        PlayerNumber::Three => 3,
-        PlayerNumber::Four => 4,
-        PlayerNumber::Five => 5,
-        PlayerNumber::Six => 6,
-        PlayerNumber::Seven => 7,
     }
 }
 
