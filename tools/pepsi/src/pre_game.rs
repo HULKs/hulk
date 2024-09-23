@@ -9,7 +9,7 @@ use nao::Network;
 use repository::Repository;
 
 use crate::{
-    jersey_number::{jersey_number, Arguments as PlayerNumberArguments},
+    jersey_number::{jersey_number, Arguments as JerseyNumberArguments},
     recording::{parse_key_value, recording, Arguments as RecordingArguments},
     upload::{upload, Arguments as UploadArguments},
     wireless::{wireless, Arguments as WirelessArguments},
@@ -82,7 +82,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err_with(|| format!("failed setting location for nao to {}", arguments.location))?;
 
     jersey_number(
-        PlayerNumberArguments {
+        JerseyNumberArguments {
             assignments: arguments
                 .assignments
                 .iter()

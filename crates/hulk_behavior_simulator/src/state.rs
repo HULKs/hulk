@@ -16,7 +16,7 @@ use ball_filter::BallPosition;
 use coordinate_systems::{Field, Ground, Head};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
-use spl_network_messages::{GameState, HulkMessage, PlayerNumber};
+use spl_network_messages::{GameState, HulkMessage};
 use types::{
     messages::OutgoingMessage,
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},

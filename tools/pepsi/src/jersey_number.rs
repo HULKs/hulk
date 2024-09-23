@@ -24,8 +24,8 @@ pub async fn jersey_number(arguments: Arguments, repository: &Repository) -> Res
         .await
         .wrap_err("failed to get hardware IDs")?;
 
-    // Check if two NaoNumbers are assigned to the same PlayerNumber
-    // or if a NaoNumber is assigned to multiple PlayerNumbers
+    // Check if two NaoNumbers are assigned to the same jersey number
+    // or if a NaoNumber is assigned to multiple jersey numberss
     let mut existing_jersey_numbers = HashSet::new();
     let mut existing_nao_numbers = HashSet::new();
 

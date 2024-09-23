@@ -10,7 +10,7 @@ use communication::{communication, Arguments as CommunicationArguments};
 use completions::{completions, Arguments as CompletionArguments};
 use gammaray::{gammaray, Arguments as GammarayArguments};
 use hulk::{hulk, Arguments as HulkArguments};
-use jersey_number::{jersey_number, Arguments as PlayerNumberArguments};
+use jersey_number::{jersey_number, Arguments as JerseyNumberArguments};
 use location::{location, Arguments as LocationArguments};
 use logs::{logs, Arguments as LogsArguments};
 use ping::{ping, Arguments as PingArguments};
@@ -175,7 +175,7 @@ enum Command {
     #[command(subcommand)]
     Logs(LogsArguments),
     /// Change player numbers of the NAOs in local parameters
-    Jerseynumber(PlayerNumberArguments),
+    Jerseynumber(JerseyNumberArguments),
     /// Ping NAOs
     Ping(PingArguments),
     /// Disable NAOs after a game (downloads logs, unsets wireless network, etc.)
