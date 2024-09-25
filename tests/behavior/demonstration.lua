@@ -41,7 +41,7 @@ function on_cycle()
 
   if state.cycle_count == 5000 then
     state.game_controller_state.sub_state = nil
-    state.game_controller_state.kicking_team = "Uncertain"
+    state.game_controller_state.kicking_team = "Hulks"
     set_robot_pose(1, { 3.0, 2.5 }, 0.0)
   end
 
