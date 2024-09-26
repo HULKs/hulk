@@ -1,9 +1,3 @@
-pub mod arm;
-pub mod body;
-pub mod head;
-pub mod leg;
-pub mod mirror;
-
 use std::{
     array::IntoIter,
     f32::consts::PI,
@@ -22,6 +16,12 @@ use self::{
     leg::{LegJoint, LegJoints},
     mirror::Mirror,
 };
+
+pub mod arm;
+pub mod body;
+pub mod head;
+pub mod leg;
+pub mod mirror;
 
 #[derive(
     Clone,
