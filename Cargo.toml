@@ -1,5 +1,4 @@
 [workspace]
-resolver = "2"
 members = [
     "crates/aliveness",
     "crates/approx_derive",
@@ -21,6 +20,7 @@ members = [
     "crates/geometry",
     "crates/hardware",
     "crates/hulk",
+    "crates/hulk-widgets",
     "crates/hulk_imagine",
     "crates/hulk_manifest",
     "crates/hulk_nao",
@@ -54,6 +54,7 @@ members = [
     "tools/pepsi",
     "tools/twix",
 ]
+resolver = "2"
 # HuLA and Aliveness are built independently by yocto
 exclude = ["tools/aliveness", "tools/breeze", "tools/hula"]
 
