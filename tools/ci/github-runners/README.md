@@ -3,7 +3,7 @@
 ## Build root filesystem
 
 - Install [distrobuilder](https://linuxcontainers.org/distrobuilder/introduction/)
-- Build via `distrobuilder build-lxc --compression zstd v3.yaml`
+- Build via `distrobuilder build-lxc --compression zstd actions-runner.yaml`
 - The root filesystem is named `rootfs.tar.zst`
 
 ## Upload root filesystem to Proxmox
