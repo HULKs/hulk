@@ -1,14 +1,45 @@
-name: CI Image
+name: Build and Push CI Image
 on:
   workflow_dispatch
 
+env:
+  REGISTRY_USER: ${{ github.actor }}
+  REGISTRY_PASSWORD: ${{ github.token }}
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+
 jobs:
   build:
-    name: Build
+    name: Build and Push CI Image
     runs-on:
       - self-hosted
       - v3
+
     steps:
-      - uses: actions/checkout@v4
-      - run: docker build --tag 134.28.57.223:5000/hulk:1.78.0 tools/ci/github-runners
-      - run: docker push 134.28.57.223:5000/hulk:1.78.0
+    - uses: actions/checkout@v4
+
+    - name: Build Image
+      id: build-image
+      uses: redhat-actions/buildah-build@v2
+      with:
+        image: hulk-ci
+        tags: latest 1.78.0 ${{ github.sha }}
+        containerfiles: |
+          tools/ci/github-runners/Containerfile
+
+    - name: Log in to ghcr.io
+      uses: redhat-actions/podman-login@v1
+      with:
+        username: ${{ env.REGISTRY_USER }}
+        password: ${{ env.REGISTRY_PASSWORD }}
+        registry: ${{ env.IMAGE_REGISTRY }}
+
+    - name: Push To ghcr.io
+      id: push-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: ${{ steps.build-image.outputs.image }}
+        tags: ${{ steps.build-image.outputs.tags }}
+        registry: ${{ env.IMAGE_REGISTRY }}
+
+    - name: Print image url
+      run: echo "Image pushed to ${{ steps.push-to-ghcr.outputs.registry-paths }}"
