@@ -16,7 +16,7 @@ The whole process to let the robot walk is organized in three steps.
 
 ## Walking Engine
 
-The core of the walking engine is based on an idea by Bernhard Hengst from (UNSW Sydney), which is used by almost all RoboCup SPL teams.<br>
+The core of the walking engine is based on an idea by [Bernhard Hengst](https://www.researchgate.net/profile/Bernhard-Hengst) from ([UNSW Sydney](https://www.unsw.edu.au/)), which is used by almost all RoboCup SPL teams.<br>
 The idea is quite simple:
 
 -   There are two feet, a _support foot_ and a _swing foot_
