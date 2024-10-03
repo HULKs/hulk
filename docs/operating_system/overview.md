@@ -4,3 +4,8 @@ Additionally, Yocto provides means to construct a corresponding software develop
 
 Team HULKs automatically releases the latest HULKs-OS publicly on GitHub [here](https://github.com/hulks/meta-nao/releases).
 If you're looking to use these images or SDKs for flashing and deploying software onto your robot, you can opt for the pre-built versions and do not need to build your own image and SDK.
+
+!!! info
+
+    Currently the team number is hardcoded into the image.
+    To change it, several files need to be modified.
