@@ -2,8 +2,8 @@
 
 Nodes usually contain robotics code and are interchangeable components within cyclers.
 Each node is characterized by a `new()` function which is called once at creation and a `cycle()` function which is called in each cycle.
-The function gets other node's inputs as parameters to the `cycle()` function and computes an output from that.
-In addition, nodes contain a state which is preserved between cycles.
+The function gets other node's inputs as parameters to the `cycle()` function and may compute an output from that.
+In addition, nodes may contain a state which is preserved between cycles.
 
 <figure markdown="span">
     ![node](./node.drawio-light.png#only-light)
