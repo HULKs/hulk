@@ -1,3 +1,5 @@
 !!! warning
 
-    This is subject to change, as there are currently plans to not only plan an individual step, but a whole step sequence, which could increase speed when planning around obstacles or similar.
+    The step planning is currently under development and will be redesigned by [Narcha](https://github.com/Narcha).
+
+    At the time of writing, only individual steps are planned, but not the whole step sequence, which could lead to various improvements, such as an increase in speed when planning around obstacles.
