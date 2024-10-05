@@ -87,7 +87,7 @@ impl StepPlanner {
 
         let target_pose = match segment {
             PathSegment::LineSegment(line_segment) => {
-                let direction = line_segment.1;
+                let direction = line_segment.1 - line_segment.0;
                 let rotation = if direction.coords().norm_squared() < f32::EPSILON {
                     Orientation2::identity()
                 } else {
