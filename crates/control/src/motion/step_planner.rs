@@ -88,15 +88,7 @@ impl StepPlanner {
         let target_pose = match segment {
             PathSegment::LineSegment(line_segment) => {
                 let direction = line_segment.1 - line_segment.0;
-                let rotation = if direction.coords().norm_squared() < f32::EPSILON {
-                    Orientation2::identity()
-                } else {
-                    let normalized_direction = direction.coords().normalize();
-                    Orientation2::from_cos_sin_unchecked(
-                        normalized_direction.x(),
-                        normalized_direction.y(),
-                    )
-                };
+                let rotation = Orientation2::from_vector(direction);
                 Pose2::from_parts(line_segment.1, rotation)
             }
             PathSegment::Arc(arc, orientation) => {
