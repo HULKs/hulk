@@ -407,10 +407,7 @@ impl State {
         config: &GameStateFilterParameters,
         visual_referee_proceed_to_ready: bool,
     ) -> FilteredGameState {
-        let opponent_is_kicking_team = matches!(
-            game_controller_state.kicking_team,
-            Team::Opponent | Team::Uncertain
-        );
+        let opponent_is_kicking_team = game_controller_state.kicking_team == Team::Opponent;
         self.construct_filtered_game_state(
             game_controller_state,
             opponent_is_kicking_team,
@@ -456,14 +453,14 @@ impl State {
             State::Standby => {
                 if visual_referee_proceed_to_ready {
                     FilteredGameState::Ready {
-                        kicking_team: game_controller_state.kicking_team,
+                        kicking_team_known: true,
                     }
                 } else {
                     FilteredGameState::Standby
                 }
             }
             State::Ready => FilteredGameState::Ready {
-                kicking_team: game_controller_state.kicking_team,
+                kicking_team_known: true,
             },
             State::Set => FilteredGameState::Set,
             State::WhistleInSet {
@@ -488,7 +485,7 @@ impl State {
                 kick_off: false,
             },
             State::WhistleInPlaying { .. } => FilteredGameState::Ready {
-                kicking_team: Team::Uncertain,
+                kicking_team_known: false,
             },
             State::Finished => match game_controller_state.game_phase {
                 GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
