@@ -643,32 +643,32 @@
     "initial_hypothesis_score": 10.0,
     "initial_poses": [
       {
-        "center_line_offset_x": -3.0,
-        "side": "Left"
-      },
-      {
-        "center_line_offset_x": -2.0,
-        "side": "Left"
-      },
-      {
         "center_line_offset_x": -3.5,
-        "side": "Right"
-      },
-      {
-        "center_line_offset_x": -2.0,
-        "side": "Right"
+        "side": "Left"
       },
       {
         "center_line_offset_x": -3.0,
         "side": "Right"
       },
       {
-        "center_line_offset_x": -1.0,
+        "center_line_offset_x": -3.0,
+        "side": "Left"
+      },
+      {
+        "center_line_offset_x": -2.0,
+        "side": "Right"
+      },
+      {
+        "center_line_offset_x": -2.0,
         "side": "Left"
       },
       {
         "center_line_offset_x": -1.0,
         "side": "Right"
+      },
+      {
+        "center_line_offset_x": -1.0,
+        "side": "Left"
       }
     ],
     "line_length_acceptance_factor": 1.5,
@@ -1123,13 +1123,14 @@
     "walk_to_penalty_kick": "Normal"
   },
   "behavior": {
-    "optional_roles": [
-      "DefenderLeft",
-      "DefenderRight",
+    "offense_optional_roles": [
       "StrikerSupporter",
+      "MidfielderLeft",
       "MidfielderRight",
-      "MidfielderLeft"
+      "DefenderLeft",
+      "DefenderRight"
     ],
+    "number_of_defensive_players": 2,
     "injected_motion_command": null,
     "role_positions": {
       "defender_aggressive_ring_radius": 2.0,

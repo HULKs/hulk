@@ -65,7 +65,8 @@ pub struct CycleContext {
     _keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
     initial_poses: Parameter<Vec<InitialPose>, "localization.initial_poses">,
-    optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
+    offense_optional_roles: Parameter<Vec<Role>, "behavior.offense_optional_roles">,
+    number_of_defensive_players: Parameter<usize, "behavior.number_of_defensive_players">,
     jersey_number: Parameter<usize, "jersey_number">,
     spl_network: Parameter<SplNetworkParameters, "spl_network">,
 
@@ -121,6 +122,8 @@ impl RoleAssignment {
                     _ => Default::default(),
                 });
 
+        let mut defense_optional_roles = context.offense_optional_roles.clone();
+        defense_optional_roles.reverse();
         // let available_field_players = if let Some(game_controller_state) =
         //     context.filtered_game_controller_state
         // {
@@ -148,16 +151,6 @@ impl RoleAssignment {
             || primary_state == PrimaryState::Ready
             || primary_state == PrimaryState::Set
         {
-            // #[allow(clippy::get_first)]
-            // let mut player_roles = Players {
-            //     one: Role::Keeper,
-            //     two: context.optional_roles.get(0).copied().unwrap_or_default(),
-            //     three: context.optional_roles.get(1).copied().unwrap_or_default(),
-            //     four: context.optional_roles.get(2).copied().unwrap_or_default(),
-            //     five: context.optional_roles.get(3).copied().unwrap_or_default(),
-            //     six: context.optional_roles.get(4).copied().unwrap_or_default(),
-            //     seven: Role::Striker,
-            // };
             if let Some(game_controller_state) = context.filtered_game_controller_state {
                 if let Some(0) = context.replacement_keeper_priority {
                     new_role = Role::ReplacementKeeper;
@@ -166,13 +159,34 @@ impl RoleAssignment {
                 } else if game_controller_state.goal_keeper_number == *context.jersey_number {
                     new_role = Role::Keeper;
                 } else {
-                    new_role = match context.striker_priority {
-                        Some(index) => context
-                            .optional_roles
-                            .get(index - 1)
+                    new_role = match (
+                        context.striker_priority,
+                        context.replacement_keeper_priority,
+                    ) {
+                        (None, None) => Default::default(),
+                        (None, Some(replacement_keeper_index)) => defense_optional_roles
+                            .get(replacement_keeper_index - 1)
                             .copied()
                             .unwrap_or_default(),
-                        None => Role::default(),
+                        (Some(striker_index), None) => context
+                            .offense_optional_roles
+                            .get(striker_index - 1)
+                            .copied()
+                            .unwrap_or_default(),
+                        (Some(striker_index), Some(replacement_keeper_index)) => {
+                            if replacement_keeper_index <= context.number_of_defensive_players {
+                                defense_optional_roles
+                                    .get(replacement_keeper_index - 1)
+                                    .copied()
+                                    .unwrap_or_default()
+                            } else {
+                                context
+                                    .offense_optional_roles
+                                    .get(striker_index - 1)
+                                    .copied()
+                                    .unwrap_or_default()
+                            }
+                        }
                     };
                 }
             }
@@ -309,7 +323,9 @@ impl RoleAssignment {
                 cycle_start_time,
                 context.filtered_game_controller_state,
                 context.spl_network.striker_trusts_team_ball,
-                context.optional_roles,
+                context.offense_optional_roles,
+                &defense_optional_roles,
+                *context.number_of_defensive_players,
                 context.replacement_keeper_priority.copied(),
                 context.striker_priority.copied(),
                 *context.jersey_number,
@@ -333,7 +349,9 @@ impl RoleAssignment {
                     cycle_start_time,
                     context.filtered_game_controller_state,
                     context.spl_network.striker_trusts_team_ball,
-                    context.optional_roles,
+                    context.offense_optional_roles,
+                    &defense_optional_roles,
+                    *context.number_of_defensive_players,
                     context.replacement_keeper_priority.copied(),
                     context.striker_priority.copied(),
                     *context.jersey_number,
@@ -439,7 +457,9 @@ fn process_role_state_machine(
     cycle_start_time: SystemTime,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     striker_trusts_team_ball: Duration,
-    optional_roles: &[Role],
+    offense_optional_roles: &[Role],
+    defense_optional_roles: &[Role],
+    number_of_defensive_players: usize,
     replacement_keeper_priority: Option<usize>,
     striker_priority: Option<usize>,
     own_jersey_number: usize,
@@ -514,7 +534,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -539,7 +561,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -556,7 +580,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -585,7 +611,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -602,7 +630,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -628,7 +658,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -652,7 +684,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -685,7 +719,9 @@ fn process_role_state_machine(
                 spl_message,
                 time_to_reach_kick_position,
                 cycle_start_time,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
                 replacement_keeper_priority,
                 striker_priority,
                 goal_keeper_number,
@@ -699,7 +735,9 @@ fn decide_if_claiming_striker_or_other_role(
     spl_message: &StrikerMessage,
     time_to_reach_kick_position: Option<Duration>,
     cycle_start_time: SystemTime,
-    optional_roles: &[Role],
+    offense_optional_roles: &[Role],
+    defense_optional_roles: &[Role],
+    number_of_defensive_players: usize,
     replacement_keeper_priority: Option<usize>,
     striker_priority: Option<usize>,
     goal_keeper_number: Option<usize>,
@@ -721,7 +759,9 @@ fn decide_if_claiming_striker_or_other_role(
                 goal_keeper_number,
                 spl_message.jersey_number,
                 own_jersey_number,
-                optional_roles,
+                offense_optional_roles,
+                defense_optional_roles,
+                number_of_defensive_players,
             ),
             false,
             team_ball_from_spl_message(cycle_start_time, spl_message),
@@ -788,13 +828,16 @@ fn team_ball_from_seen_ball(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn generate_role(
     replacement_keeper_priority: Option<usize>,
     striker_priority: Option<usize>,
     goal_keeper_number: Option<usize>,
     striker_jersey_number: usize,
     own_jersey_number: usize,
-    optional_roles: &[Role],
+    offense_optional_roles: &[Role],
+    defense_optional_roles: &[Role],
+    number_of_defensive_players: usize,
 ) -> Role {
     if replacement_keeper_priority.is_some() || striker_priority.is_some() {
         pick_role_with_penalties(
@@ -802,7 +845,9 @@ fn generate_role(
             striker_priority.unwrap(),
             striker_jersey_number,
             own_jersey_number,
-            optional_roles,
+            offense_optional_roles,
+            defense_optional_roles,
+            number_of_defensive_players,
         )
     } else if Some(own_jersey_number) == goal_keeper_number {
         return Role::Keeper;
@@ -817,7 +862,9 @@ fn pick_role_with_penalties(
     striker_priority: usize,
     striker_jersey_number: usize,
     own_jersey_number: usize,
-    optional_roles: &[Role],
+    offense_optional_roles: &[Role],
+    defense_optional_roles: &[Role],
+    number_of_defensive_players: usize,
 ) -> Role {
     // let mut role_assignment: Players<Option<Role>> = Players {
     //     one: None,
@@ -847,7 +894,7 @@ fn pick_role_with_penalties(
         return Role::ReplacementKeeper;
     }
 
-    // for &optional_role in optional_roles.iter().take(unassigned_robots) {
+    // for &optional_role in offense_optional_roles.iter().take(unassigned_robots) {
     //     if needs_assignment(PlayerNumber::Two, penalties, &role_assignment) {
     //         role_assignment[PlayerNumber::Two] = Some(optional_role);
     //     } else if needs_assignment(PlayerNumber::Three, penalties, &role_assignment) {
@@ -864,16 +911,23 @@ fn pick_role_with_penalties(
     // }
 
     // role_assignment[own_player_number].unwrap_or_default()
-    match own_jersey_number.cmp(&striker_jersey_number) {
-        Ordering::Greater => optional_roles
-            .get(striker_priority)
+    if replacement_keeper_priority <= number_of_defensive_players {
+        defense_optional_roles
+            .get(replacement_keeper_priority)
             .copied()
-            .unwrap_or_default(),
-        Ordering::Equal => Role::Striker,
-        Ordering::Less => optional_roles
-            .get(striker_priority - 1)
-            .copied()
-            .unwrap_or_default(),
+            .unwrap_or_default()
+    } else {
+        match own_jersey_number.cmp(&striker_jersey_number) {
+            Ordering::Greater => offense_optional_roles
+                .get(striker_priority)
+                .copied()
+                .unwrap_or_default(),
+            Ordering::Equal => Role::Striker,
+            Ordering::Less => offense_optional_roles
+                .get(striker_priority - 1)
+                .copied()
+                .unwrap_or_default(),
+        }
     }
 }
 
