@@ -3,6 +3,7 @@ use std::sync::Arc;
 use communication::messages::TextOrBinary;
 use eframe::egui::{Color32, Response, Slider, Ui, Widget};
 use serde_json::{json, Value};
+use spl_network_messages::bindings::MAX_NUM_PLAYERS;
 
 use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
@@ -101,7 +102,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
                     if ui
                         .add_sized(
                             ui.available_size(),
-                            Slider::new(&mut self.selected_robot, 1..=7)
+                            Slider::new(&mut self.selected_robot, 1..=MAX_NUM_PLAYERS as usize)
                                 .smart_aim(false)
                                 .text("Robot"),
                         )
