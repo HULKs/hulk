@@ -1,8 +1,10 @@
 [package]
-name = "hulk-widgets"
+name = "widget_gallery"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+eframe.workspace = true
+hulk_widgets.workspace = true

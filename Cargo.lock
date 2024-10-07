@@ -3427,10 +3427,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hulk-widgets"
-version = "0.1.0"
-
-[[package]]
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
@@ -3564,6 +3560,15 @@ dependencies = [
  "tokio-util",
  "types",
  "webots",
+]
+
+[[package]]
+name = "hulk_widgets"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "egui_extras",
+ "nucleo-matcher",
 ]
 
 [[package]]
@@ -4617,6 +4622,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1df031e117bca634c262e9bd3173776844b6c17a90b3741c9163663b4385af76"
 dependencies = [
  "windows-sys 0.45.0",
+]
+
+[[package]]
+name = "nucleo-matcher"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
+dependencies = [
+ "memchr",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -7440,6 +7455,14 @@ name = "widestring"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7219d36b6eac893fa81e84ebe06485e7dcbb616177469b142df14f1f4deb1311"
+
+[[package]]
+name = "widget_gallery"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "hulk_widgets",
+]
 
 [[package]]
 name = "winapi"

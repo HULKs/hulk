@@ -20,7 +20,7 @@ members = [
     "crates/geometry",
     "crates/hardware",
     "crates/hulk",
-    "crates/hulk-widgets",
+    "crates/hulk_widgets",
     "crates/hulk_imagine",
     "crates/hulk_manifest",
     "crates/hulk_nao",
@@ -53,6 +53,7 @@ members = [
     "tools/hula/types",
     "tools/pepsi",
     "tools/twix",
+    "tools/widget_gallery",
 ]
 resolver = "2"
 # HuLA and Aliveness are built independently by yocto
@@ -101,6 +102,7 @@ ctrlc = { version = "3.2.3", features = ["termination"] }
 derive_more = "0.99.17"
 dirs = "5.0.1"
 eframe = { version = "0.28.1", features = ["persistence"] }
+egui = { version = "0.28.1", features = ["persistence"] }
 egui_dock = { version = "0.13.0", features = ["serde"] }
 egui_extras = { version = "0.28.1", features = ["image"] }
 egui_plot = "0.28.1"
@@ -121,6 +123,7 @@ home = "0.5.4"
 hula-types = { path = "tools/hula/types" }
 hulk = { path = "crates/hulk" }
 hulk_manifest = { path = "crates/hulk_manifest" }
+hulk_widgets = { path = "crates/hulk_widgets" }
 i2cdev = "0.5.1"
 image = "0.24.4"
 indicatif = "0.17.2"
@@ -139,6 +142,7 @@ nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
 ndarray = { version = "0.15.6", features = ["serde"] }
 nix = { version = "0.28", features = ["ioctl"] }
+nucleo-matcher = "0.3.1"
 num-derive = "0.4.2"
 num-traits = "0.2"
 object_detection = { path = "crates/object_detection" }
