@@ -1,8 +1,7 @@
-use std::{f32::consts::FRAC_PI_2, time::Duration};
+use std::time::Duration;
 
 use bevy::prelude::*;
 
-use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
 use spl_network_messages::GameState;
 use types::action::Action;
@@ -22,8 +21,8 @@ fn deny_keeper_ballsearch(app: &mut App) {
 }
 
 fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameControllerCommand>) {
-    let active_field_players = vec![1];
-    let picked_up_players = vec![2, 3, 4, 5, 6, 7];
+    let active_field_players = vec![1, 2, 3, 4, 5, 6, 7];
+    let picked_up_players = vec![];
     let goal_keeper_jersey_number = 1;
     hulks_aufstellung(
         active_field_players,
@@ -48,19 +47,12 @@ fn update(
 
     // Penalize all except golkipör
     if time.ticks() == 4000 {
-        let penalty = spl_network_messages::Penalty::Manual {
+        let penalty = spl_network_messages::Penalty::RequestForPickup {
             remaining: Duration::from_secs(5),
         };
         for jersey_number in [2, 3, 4, 5, 6, 7] {
             game_controller_commands.send(GameControllerCommand::Penalize(jersey_number, penalty));
         }
-        robots
-            .iter_mut()
-            .find(|robot| robot.parameters.jersey_number == 7)
-            .unwrap()
-            .database
-            .main_outputs
-            .ground_to_field = Some(Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2));
     }
 
     if robots
