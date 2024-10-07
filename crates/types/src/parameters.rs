@@ -40,7 +40,8 @@ pub struct StepPlannerParameters {
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
     pub lost_ball: LostBallParameters,
-    pub optional_roles: Vec<Role>,
+    pub offense_optional_roles: Vec<Role>,
+    pub number_of_defensive_players: usize,
     pub path_planning: PathPlanningParameters,
     pub role_positions: RolePositionsParameters,
     pub walk_and_stand: WalkAndStandParameters,
