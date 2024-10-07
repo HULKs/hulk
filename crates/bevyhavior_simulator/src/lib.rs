@@ -8,6 +8,7 @@ pub mod ball;
 pub mod fake_data;
 pub mod field_dimensions;
 pub mod game_controller;
+pub mod aufstellung;
 pub mod interfake;
 pub mod recorder;
 pub mod robot;

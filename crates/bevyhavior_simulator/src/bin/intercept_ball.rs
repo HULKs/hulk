@@ -47,7 +47,7 @@ fn startup(
             },
         ));
     }
-    let mut robot = Robot::new(1);
+    let mut robot = Robot::new(1, 0);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
     robot.parameters.step_planner.max_step_size.forward = 0.45;
     commands.spawn(robot);
