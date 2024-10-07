@@ -61,7 +61,7 @@ impl Layer<Field> for BehaviorSimulator {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        for (player_number, player_handle) in &self.ground_to_field.0.inner {
+        for (jersey_number, player_handle) in &self.ground_to_field.0.inner {
             let Some(ground_to_field) = player_handle
                 .get_last_value()
                 .wrap_err("ground_to_field")?
@@ -76,7 +76,7 @@ impl Layer<Field> for BehaviorSimulator {
                 color: Color32::BLACK,
             };
 
-            if let Some(MotionCommand::Walk { path, .. }) = self.motion_command.0[*player_number]
+            if let Some(MotionCommand::Walk { path, .. }) = self.motion_command.0[*jersey_number]
                 .get_last_value()
                 .wrap_err("motion_command")?
             {
@@ -84,7 +84,7 @@ impl Layer<Field> for BehaviorSimulator {
                 ground_painter.path(path, TRANSPARENT_BLUE, TRANSPARENT_LIGHT_BLUE, 0.025);
             }
 
-            if let Some(head_yaw) = self.head_yaw.0[*player_number]
+            if let Some(head_yaw) = self.head_yaw.0[*jersey_number]
                 .get_last_value()
                 .wrap_err("head_yaw")?
             {
