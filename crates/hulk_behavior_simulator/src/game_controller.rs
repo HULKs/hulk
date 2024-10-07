@@ -19,6 +19,7 @@ pub enum GameControllerCommand {
     Goal(Team),
     Penalize(usize, Penalty),
     Unpenalize(usize),
+    SetKeeperNumber(usize, Team),
 }
 
 fn game_controller_controller(
@@ -59,6 +60,17 @@ fn game_controller_controller(
             GameControllerCommand::Unpenalize(jersey_number) => {
                 game_controller.state.penalties[jersey_number] = None;
             }
+            GameControllerCommand::SetKeeperNumber(jersey_number, team) => match team {
+                Team::Hulks => {
+                    game_controller.state.hulks_team.goal_keeper_jersey_number = jersey_number
+                }
+                Team::Opponent => {
+                    game_controller
+                        .state
+                        .opponent_team
+                        .goal_keeper_jersey_number = jersey_number
+                }
+            },
         }
     }
 

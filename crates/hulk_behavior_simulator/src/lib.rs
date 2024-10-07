@@ -5,6 +5,7 @@ pub mod autoref;
 pub mod ball;
 pub mod fake_data;
 pub mod game_controller;
+pub mod aufstellung;
 pub mod interfake;
 pub mod recorder;
 pub mod robot;

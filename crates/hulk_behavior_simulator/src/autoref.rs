@@ -161,6 +161,7 @@ pub fn auto_assistant_referee(
                         Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
                 }
             }
+            GameControllerCommand::SetKeeperNumber(..) => {}
         }
     }
 }

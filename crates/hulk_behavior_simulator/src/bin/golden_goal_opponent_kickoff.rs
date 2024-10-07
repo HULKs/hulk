@@ -1,13 +1,11 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
 
 use scenario::scenario;
-use spl_network_messages::{GameState, Penalty, Team};
+use spl_network_messages::{GameState, Team};
 
 use hulk_behavior_simulator::{
+    aufstellung::hulks_aufstellung,
     game_controller::{GameController, GameControllerCommand},
-    robot::Robot,
     time::{Ticks, TicksTime},
 };
 
@@ -17,21 +15,17 @@ fn golden_goal_opponent_kickoff(app: &mut App) {
     app.add_systems(Update, update);
 }
 
-fn startup(
-    mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
-) {
-    for number in 8..=20 {
-        game_controller_commands.send(GameControllerCommand::Penalize(
-            number,
-            Penalty::Substitute {
-                remaining: Duration::MAX,
-            },
-        ));
-    }
-    for number in 1..=7 {
-        commands.spawn(Robot::new(number));
-    }
+fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameControllerCommand>) {
+    let active_field_players = vec![1, 2, 3, 4, 5, 6, 7];
+    let picked_up_players = vec![];
+    let goal_keeper_jersey_number = 1;
+    hulks_aufstellung(
+        active_field_players,
+        picked_up_players,
+        goal_keeper_jersey_number,
+        commands,
+        &mut game_controller_commands,
+    );
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
     game_controller_commands.send(GameControllerCommand::SetKickingTeam(Team::Opponent));
 }

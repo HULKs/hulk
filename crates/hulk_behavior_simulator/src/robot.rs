@@ -63,11 +63,11 @@ pub struct Robot {
 }
 
 impl Robot {
-    pub fn new(jersey_number: usize) -> Self {
-        Self::try_new(jersey_number).expect("failed to create robot")
+    pub fn new(jersey_number: usize, walk_in_position_index: usize) -> Self {
+        Self::try_new(jersey_number, walk_in_position_index).expect("failed to create robot")
     }
 
-    pub fn try_new(jersey_number: usize) -> Result<Self> {
+    pub fn try_new(jersey_number: usize, walk_in_position_index: usize) -> Result<Self> {
         let mut parameters: Parameters = deserialize(
             "etc/parameters",
             &Ids {
@@ -107,7 +107,7 @@ impl Robot {
 
         database.main_outputs.ground_to_field = Some(
             generate_initial_pose(
-                &parameters.localization.initial_poses[jersey_number - 1],
+                &parameters.localization.initial_poses[walk_in_position_index],
                 &parameters.field_dimensions,
             )
             .as_transform(),
