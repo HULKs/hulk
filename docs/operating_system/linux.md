@@ -5,4 +5,6 @@ The Nao uses a Linux 5.4 real time kernel for intel processors ([linux-intel/pre
 Most of the kernel configuration is done by the `meta-intel` layer for yocto.
 Special modifications for the Nao robot are contained in the `meta-nao` layer and mainly consist of patches and kernel modules by aldebaran for chestboard communication.
 
+!!! tip
 
+    For building an image, have a look at [instructions](../setup/nao_image_and_sdk.md) in the setup section.
