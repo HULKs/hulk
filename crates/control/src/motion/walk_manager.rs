@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     motion_command::MotionCommand,
     motion_selection::{MotionSelection, MotionType},
-    step_plan::Step,
+    step::Step,
     walk_command::WalkCommand,
 };
 
@@ -19,7 +19,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     motion_command: Input<MotionCommand, "motion_command">,
     motion_selection: Input<MotionSelection, "motion_selection">,
-    step_plan: Input<Step, "step_plan">,
+    planned_step: Input<Step, "planned_step">,
 }
 
 #[context]
@@ -42,7 +42,7 @@ impl WalkManager {
 
         let command = match context.motion_command {
             MotionCommand::Walk { .. } => WalkCommand::Walk {
-                step: *context.step_plan,
+                step: *context.planned_step,
             },
             MotionCommand::InWalkKick {
                 kick,

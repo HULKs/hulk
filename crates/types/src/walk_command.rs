@@ -1,7 +1,7 @@
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use crate::{motion_command::KickVariant, step_plan::Step, support_foot::Side};
+use crate::{motion_command::KickVariant, step::Step, support_foot::Side};
 
 #[derive(
     Default,

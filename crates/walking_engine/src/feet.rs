@@ -3,7 +3,7 @@ use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
 use linear_algebra::{point, Isometry3, Orientation3, Pose3, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use types::{joints::body::BodyJoints, step_plan::Step, support_foot::Side};
+use types::{joints::body::BodyJoints, step::Step, support_foot::Side};
 
 use crate::parameters::Parameters;
 

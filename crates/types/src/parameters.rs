@@ -10,7 +10,7 @@ use crate::{
     joints::head::HeadJoints,
     motion_command::{KickVariant, MotionCommand},
     roles::Role,
-    step_plan::Step,
+    step::Step,
 };
 
 #[derive(

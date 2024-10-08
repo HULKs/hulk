@@ -4,7 +4,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
-    step_plan::Step, support_foot::Side,
+    step::Step, support_foot::Side,
 };
 
 use crate::{
