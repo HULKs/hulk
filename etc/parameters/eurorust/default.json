@@ -1,0 +1,32 @@
+{
+  "field_color_detection": {
+    "vision_bottom": {
+      "hue": {
+        "start": 77
+      },
+      "luminance": {
+        "end": 141,
+        "start": 0
+      },
+      "saturation": {
+        "start": 45
+      }
+    },
+    "vision_top": {
+      "green_chromaticity": {
+        "start": 0.375
+      },
+      "hue": {
+        "end": 162,
+        "start": 32
+      },
+      "luminance": {
+        "end": 90,
+        "start": 0
+      },
+      "saturation": {
+        "start": 60
+      }
+    }
+  }
+}
