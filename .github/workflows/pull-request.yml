@@ -17,7 +17,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.78.0
+      image: ghcr.io/hulks/hulk-ci:1.80.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,13 @@ jobs:
       - self-hosted
       - v3
     container:
+<<<<<<< HEAD
       image: ghcr.io/hulks/hulk-ci:1.78.0
+||||||| parent of 6aacf9c6c (Use rust 1.80 CI image)
+      image: 134.28.57.223:5000/hulk:1.78.0
+=======
+      image: 134.28.57.223:5000/hulk:1.80.0
+>>>>>>> 6aacf9c6c (Use rust 1.80 CI image)
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +64,13 @@ jobs:
       - self-hosted
       - v3
     container:
+<<<<<<< HEAD
       image: ghcr.io/hulks/hulk-ci:1.78.0
+||||||| parent of 6aacf9c6c (Use rust 1.80 CI image)
+      image: 134.28.57.223:5000/hulk:1.78.0
+=======
+      image: 134.28.57.223:5000/hulk:1.80.0
+>>>>>>> 6aacf9c6c (Use rust 1.80 CI image)
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +86,13 @@ jobs:
       - self-hosted
       - v3
     container:
+<<<<<<< HEAD
       image: ghcr.io/hulks/hulk-ci:1.78.0
+||||||| parent of 6aacf9c6c (Use rust 1.80 CI image)
+      image: 134.28.57.223:5000/hulk:1.78.0
+=======
+      image: 134.28.57.223:5000/hulk:1.80.0
+>>>>>>> 6aacf9c6c (Use rust 1.80 CI image)
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +108,13 @@ jobs:
       - self-hosted
       - v3
     container:
+<<<<<<< HEAD
       image: ghcr.io/hulks/hulk-ci:1.78.0
+||||||| parent of 6aacf9c6c (Use rust 1.80 CI image)
+      image: 134.28.57.223:5000/hulk:1.78.0
+=======
+      image: 134.28.57.223:5000/hulk:1.80.0
+>>>>>>> 6aacf9c6c (Use rust 1.80 CI image)
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +135,13 @@ jobs:
       - self-hosted
       - v3
     container:
+<<<<<<< HEAD
       image: ghcr.io/hulks/hulk-ci:1.78.0
+||||||| parent of 6aacf9c6c (Use rust 1.80 CI image)
+      image: 134.28.57.223:5000/hulk:1.78.0
+=======
+      image: 134.28.57.223:5000/hulk:1.80.0
+>>>>>>> 6aacf9c6c (Use rust 1.80 CI image)
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -140,7 +170,13 @@ jobs:
       - self-hosted
       - v3
     container:
+<<<<<<< HEAD
       image: ghcr.io/hulks/hulk-ci:1.78.0
+||||||| parent of 6aacf9c6c (Use rust 1.80 CI image)
+      image: 134.28.57.223:5000/hulk:1.78.0
+=======
+      image: 134.28.57.223:5000/hulk:1.80.0
+>>>>>>> 6aacf9c6c (Use rust 1.80 CI image)
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4

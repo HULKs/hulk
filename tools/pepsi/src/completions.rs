@@ -104,7 +104,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 }
             }
 
-            const ASSIGNEMNT_COMPLETION_SUBCOMMANDS: [&str; 2] = ["playernumber", "pregame"];
+            const ASSIGNEMNT_COMPLETION_SUBCOMMANDS: [&str; 2] = ["jerseynumber", "pregame"];
             for subcommand in ASSIGNEMNT_COMPLETION_SUBCOMMANDS {
                 println!(
                     "complete -c pepsi -n \"__fish_seen_subcommand_from {subcommand}\" \

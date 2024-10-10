@@ -93,6 +93,7 @@ fn generate_database_struct() -> TokenStream {
             serde::Deserialize,
             path_serde::PathSerialize,
             path_serde::PathIntrospect,
+            Debug,
         )]
         pub struct Database {
             pub main_outputs: MainOutputs,

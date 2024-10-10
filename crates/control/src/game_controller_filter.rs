@@ -92,7 +92,7 @@ impl GameControllerFilter {
             .map(|(address, _time)| *address);
 
         Ok(MainOutputs {
-            game_controller_state: self.game_controller_state.into(),
+            game_controller_state: self.game_controller_state.clone().into(),
             game_controller_address: last_address.into(),
         })
     }
@@ -116,9 +116,10 @@ impl GameControllerFilter {
             last_game_state_change: self.last_game_state_change.unwrap(),
             penalties: message.hulks_team.clone().into(),
             opponent_penalties: message.opponent_team.clone().into(),
-            remaining_amount_of_messages: message.hulks_team.remaining_amount_of_messages,
             sub_state: message.sub_state,
             hulks_team_is_home_after_coin_toss: message.hulks_team_is_home_after_coin_toss,
+            hulks_team: message.hulks_team.clone(),
+            opponent_team: message.opponent_team.clone(),
         });
     }
 
