@@ -1,74 +1,113 @@
 # Nodes
 
 Nodes usually contain robotics code and are interchangeable components within cyclers.
-Each node is characterized by a `cycle()` function which is called in each cycle.
-The function gets node's inputs as parameters to the `cycle()` function and returns node's outputs from it.
-In addition, nodes consist of a state which is perserved between cycles.
+Each node is characterized by a `new()` function which is called once at creation and a `cycle()` function which is called in each cycle.
+The function gets other node's inputs as parameters to the `cycle()` function and may compute an output from that.
+In addition, nodes may contain a state which is preserved between cycles.
 
-![node](./node.drawio.png)
+<figure markdown="span">
+    ![node](./node.drawio-light.png#only-light)
+    ![node](./node.drawio-dark.png#only-dark)
+</figure>
 
 Nodes are normal Rust structs where the struct's fields represent the state and a method called `cycle()` in the `impl` of the node represents the `cycle()` function.
 This concept allows to write nodes in a very Rusty way.
 A node may have multiple inputs of different kinds which can be annotated to the node.
-Here is an example node, but for more information see [Macros](./macros.md):
 
-```rust
-pub struct SolePressureFilter { // (1)
-    left_sole_pressure: LowPassFilter<f32>,
-    right_sole_pressure: LowPassFilter<f32>,
-}
+!!! example
 
-#[node(control)] // (2)
-#[parameter(path = low_pass_alpha, data_type = f32)] // (3)
-#[input(path = sensor_data, data_type = SensorData)] // (4)
-#[main_output(data_type = SolePressure)] // (5)
-impl SolePressureFilter {} // (6)
+    ```rust
+    use std::{collections::VecDeque, time::SystemTime};
 
-impl SolePressureFilter {
-    fn new(context: NewContext) -> anyhow::Result<Self> { // (7)
-        Ok(Self {
-            left_sole_pressure: LowPassFilter::with_alpha(
-                0.0,
-                *context.low_pass_alpha, // (8)
-            ),
-            right_sole_pressure: LowPassFilter::with_alpha(
-                0.0,
-                *context.low_pass_alpha,
-            ),
-        })
+    use color_eyre::Result;
+    use context_attribute::context;
+    use framework::{MainOutput, PerceptionInput};
+    use serde::{Deserialize, Serialize};
+    use types::{cycle_time::CycleTime, filtered_whistle::FilteredWhistle, whistle::Whistle};
+
+    #[derive(Deserialize, Serialize)]
+    pub struct WhistleFilter { // (1)
+        detection_buffer: VecDeque<bool>,
+        was_detected_last_cycle: bool,
+        last_detection: Option<SystemTime>,
     }
 
-    fn cycle(&mut self, context: CycleContext) -> anyhow::Result<MainOutputs> { // (9)
-        let force_sensitive_resistors =
-            &require_some!(context.sensor_data).force_sensitive_resistors;
+    #[context]
+    pub struct CreationContext {} // (2)
 
-        let left_sole_pressure = force_sensitive_resistors.left.sum();
-        self.left_sole_pressure.update(left_sole_pressure);
-        let right_sole_pressure = force_sensitive_resistors.right.sum();
-        self.right_sole_pressure.update(right_sole_pressure);
+    #[context]
+    pub struct CycleContext { // (3)
+        buffer_length: Parameter<usize, "whistle_filter.buffer_length">, // (4)
+        minimum_detections: Parameter<usize, "whistle_filter.minimum_detections">,
 
-        Ok(MainOutputs {
-            sole_pressure: Some(SolePressure {
-                left: self.left_sole_pressure.state(),
-                right: self.right_sole_pressure.state(),
-            }),
-        })
+        cycle_time: Input<CycleTime, "cycle_time">, // (5)
+        detected_whistle: PerceptionInput<Whistle, "Audio", "detected_whistle">, // (6)
     }
-}
-```
 
-1. Node's state
-2. Node declaration with `node` [macro](./macros.md)
-3. Configuration parameter of type `f32`
-4. Input of type `SensorData`
-5. Output of type `SolePressure`
-6. Empty `impl` to improve usability of language servers and code linters. If the node declaration would be attached to the `impl` below, when writing incomplete code, the macros would produce errors. This happens a lot if writing node implementation code.
-7. Will be called at construction of the node
-8. Use declared configuration parameter. Since it is a reference, we need to dereference it with `*`.
-9. Will be called every cycle
+    #[context]
+    #[derive(Default)]
+    pub struct MainOutputs {
+        pub filtered_whistle: MainOutput<FilteredWhistle>,
+    }
 
-This node consumes the type `SensorData` as input and produces the output `SolePressure`.
-It has two state variables `left_sole_pressure` and `right_sole_pressure`.
+    impl WhistleFilter {
+        pub fn new(_context: CreationContext) -> Result<Self> { // (7)
+            Ok(Self {
+                detection_buffer: Default::default(),
+                was_detected_last_cycle: false,
+                last_detection: None,
+            })
+        }
 
-This specification of node inputs and outputs leads to a dependency graph which allows to topologically sort nodes s.t. all dependencies are met before executing the node's `cycle()`.
+        pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> { // (9)
+            let cycle_start_time = context.cycle_time.start_time;
+
+            for &is_detected in context
+                .detected_whistle
+                .persistent
+                .values()
+                .flatten()
+                .flat_map(|whistle| &whistle.is_detected)
+            {
+                self.detection_buffer.push_front(is_detected);
+            }
+            self.detection_buffer.truncate(*context.buffer_length); // (8)
+            let number_of_detections = self
+                .detection_buffer
+                .iter()
+                .filter(|&&was_detected| was_detected)
+                .count();
+            let is_detected = number_of_detections > *context.minimum_detections;
+            let started_this_cycle = is_detected && !self.was_detected_last_cycle;
+            if started_this_cycle {
+                self.last_detection = Some(cycle_start_time);
+            }
+            self.was_detected_last_cycle = is_detected;
+
+            Ok(MainOutputs {
+                filtered_whistle: FilteredWhistle {
+                    is_detected,
+                    last_detection: self.last_detection,
+                    started_this_cycle,
+                }
+                .into(),
+            })
+        }
+    }
+    ```
+
+    1. Node's state
+    2. Creation context. Its contents are available in the `new(context: CreationContext) -> Result<Self>` function
+    3. Cycle context. Its contents are available in the `cycle(&mut self, context: CycleContext) -> Result<MainOutputs>` function
+    4. Parameter from the `default.json`. Can be changed during runtime by e.g. using [twix](../tooling/twix.md).
+    5. Input from another node of type `CycleTime`.
+    6. Input from another node, but with persistent and transient data.
+    7. Will be called at construction of the node
+    8. Use declared configuration parameter. Since it is a reference, we need to dereference it with `*`.
+    9. Will be called every cycle
+
+    This node consumes the types `CycleTime` and `Whistle` as inputs and produces the output `FilteredWhistle`.
+    It has three state variables; `detection_buffer`, `was_detected_last_cycle` and `last_detection`.
+
+The specification of node inputs and outputs leads to a dependency graph which allows to topologically sort nodes s.t. all dependencies are met before executing the node's `cycle()`.
 The `build.rs` file automatically sorts nodes based on this graph.
