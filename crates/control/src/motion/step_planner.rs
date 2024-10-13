@@ -8,7 +8,7 @@ use linear_algebra::{Isometry2, Orientation2, Pose2};
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     planned_path::PathSegment,
-    step_plan::Step,
+    step::Step,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -39,7 +39,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub step_plan: MainOutput<Step>,
+    pub planned_step: MainOutput<Step>,
 }
 
 impl StepPlanner {
@@ -61,7 +61,7 @@ impl StepPlanner {
             } => (path, orientation_mode, speed),
             _ => {
                 return Ok(MainOutputs {
-                    step_plan: Step {
+                    planned_step: Step {
                         forward: 0.0,
                         left: 0.0,
                         turn: 0.0,
@@ -143,7 +143,7 @@ impl StepPlanner {
         );
 
         Ok(MainOutputs {
-            step_plan: step.into(),
+            planned_step: step.into(),
         })
     }
 }

@@ -1,4 +1,4 @@
-use types::{step_plan::Step, support_foot::Side};
+use types::{step::Step, support_foot::Side};
 
 pub trait AnatomicConstraints {
     fn clamp_to_anatomic_constraints(self, support_side: Side, maximum_inside_turn: f32) -> Step;

@@ -6,7 +6,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{arm::ArmJoints, leg::LegJoints},
-    step_plan::Step,
+    step::Step,
 };
 
 #[derive(

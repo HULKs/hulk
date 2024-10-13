@@ -4,7 +4,7 @@ use coordinate_systems::Walk;
 use linear_algebra::Vector2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use types::{step_plan::Step, support_foot::Side};
+use types::{step::Step, support_foot::Side};
 
 use crate::Context;
 

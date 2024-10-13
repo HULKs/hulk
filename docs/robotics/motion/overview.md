@@ -1,6 +1,6 @@
 # Overview
 
-!!! warning
+!!! note
 
     This structure in three steps is only conceptionally, in the code, there is no differentiation between these steps, and all nodes are automatically sorted during compile time depending on their inputs and outputs.
 
