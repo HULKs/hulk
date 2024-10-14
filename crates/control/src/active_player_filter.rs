@@ -5,6 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use spl_network_messages::Penalty;
 use types::game_controller_state::GameControllerState;
 #[derive(Deserialize, Serialize)]
 pub struct ActivePlayerFilter {}
@@ -40,9 +41,11 @@ impl ActivePlayerFilter {
             let penalties = &game_controller_state.penalties;
             walk_in_position_index = penalties
                 .inner()
-                .keys()
+                .iter()
+                .filter(|&(_, penalty)| !matches!(penalty, Some(Penalty::Substitute { .. })))
+                .map(|(&key, _)| key)
                 .sorted()
-                .position(|&key| key == *context.jersey_number)
+                .position(|key| key == *context.jersey_number)
                 .unwrap_or(7);
 
             match game_controller_state
