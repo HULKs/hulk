@@ -59,8 +59,8 @@ fn look_at_referee(
         world_state.walk_in_position_index,
         filtered_game_controller_state.own_team_is_home_after_coin_toss,
     ) {
-        (3 | 5, true) => {}
-        (4 | 6, false) => {}
+        (4 | 6, true) => {}
+        (3 | 5, false) => {}
         _ => return None,
     }
 
