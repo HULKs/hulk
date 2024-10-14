@@ -326,11 +326,11 @@ impl Simulator {
     }
 
     fn execute_event_callback(&self, name: &str) -> Result<(), LuaError> {
-        if let Ok(on_goal) = self.lua.globals().get::<_, Function>(name) {
-            on_goal.call(())?;
-        }
+        let Ok(on_goal) = self.lua.globals().get::<_, Function>(name) else {
+            return Ok(());
+        };
 
-        Ok(())
+        on_goal.call(())
     }
 
     fn serialze_state(&mut self) -> Result<()> {
