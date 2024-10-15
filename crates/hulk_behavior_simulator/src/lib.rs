@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use hardware::{NetworkInterface, RecordingInterface, SpeakerInterface, TimeInterface};
 use interfake::FakeDataInterface;
 

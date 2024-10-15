@@ -132,8 +132,8 @@ impl Widget for &mut RemotePanel {
             }
 
             ui.vertical(|ui| {
-                let label_1 = ui.label(&format!("{:#?}", step));
-                let label_2 = ui.label(&format!("{:#?}", injected_head_joints));
+                let label_1 = ui.label(format!("{step:#?}"));
+                let label_2 = ui.label(format!("{injected_head_joints:#?}"));
 
                 label_1.union(label_2)
             })

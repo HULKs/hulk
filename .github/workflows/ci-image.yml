@@ -5,7 +5,7 @@ on:
 env:
   REGISTRY_USER: ${{ github.actor }}
   REGISTRY_PASSWORD: ${{ github.token }}
-  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  IMAGE_REGISTRY: ghcr.io/hulks
 
 jobs:
   build:
@@ -20,7 +20,7 @@ jobs:
       uses: redhat-actions/buildah-build@v2
       with:
         image: hulk-ci
-        tags: latest 1.78.0 ${{ github.sha }}
+        tags: latest 1.81.0 ${{ github.sha }}
         containerfiles: |
           tools/ci/github-runners/Containerfile
 
