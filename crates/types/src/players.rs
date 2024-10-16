@@ -81,7 +81,7 @@ impl From<TeamState> for Players<Option<Penalty>> {
 
         for (i, player) in team_state.players.iter().enumerate() {
             if i < MAX_NUM_PLAYERS as usize {
-                inner.insert(i+1, player.penalty);
+                inner.insert(i + 1, player.penalty);
             }
         }
 
