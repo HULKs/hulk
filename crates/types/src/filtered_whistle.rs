@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct FilteredWhistle {
     pub is_detected: bool,
-    pub started_this_cycle: bool,
     #[path_serde(leaf)]
     pub last_detection: Option<SystemTime>,
 }

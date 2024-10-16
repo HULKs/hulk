@@ -26,7 +26,7 @@ use crate::{
         STATE_PLAYING, STATE_READY, STATE_SET, STATE_STANDBY, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN,
         TEAM_GRAY, TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE, TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
     },
-    PlayerNumber, HULKS_TEAM_NUMBER,
+    HULKS_TEAM_NUMBER,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect)]
@@ -118,7 +118,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 message.playersPerTeam
             );
         }
-        let hulks_players = (0..message.playersPerTeam)
+        let hulks_players = (0..MAX_NUM_PLAYERS)
             .map(|player_index| {
                 message.teams[hulks_team_index].players[player_index as usize].try_into()
             })
@@ -128,6 +128,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 message.teams[opponent_team_index].players[player_index as usize].try_into()
             })
             .collect::<Result<Vec<_>>>()?;
+
         Ok(GameControllerStateMessage {
             competition_phase: CompetitionPhase::try_from(message.competitionPhase)?,
             competition_type: CompetitionType::try_from(message.competitionType)?,
@@ -145,19 +146,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 goal_keeper_color: message.teams[hulks_team_index]
                     .goalkeeperColour
                     .try_into()?,
-                goal_keeper_player_number: match message.teams[hulks_team_index].goalkeeper {
-                    1 => PlayerNumber::One,
-                    2 => PlayerNumber::Two,
-                    3 => PlayerNumber::Three,
-                    4 => PlayerNumber::Four,
-                    5 => PlayerNumber::Five,
-                    6 => PlayerNumber::Six,
-                    7 => PlayerNumber::Seven,
-                    _ => bail!(
-                        "unexpected goal keeper player number {}",
-                        message.teams[hulks_team_index].goalkeeper
-                    ),
-                },
+                goal_keeper_jersey_number: message.teams[hulks_team_index].goalkeeper as usize,
                 score: message.teams[hulks_team_index].score,
                 penalty_shoot_index: message.teams[hulks_team_index].penaltyShot,
                 penalty_shoots: hulks_penalty_shoots,
@@ -172,22 +161,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 goal_keeper_color: message.teams[opponent_team_index]
                     .goalkeeperColour
                     .try_into()?,
-                goal_keeper_player_number: match message.teams[opponent_team_index].goalkeeper {
-                    1 => PlayerNumber::One,
-                    2 => PlayerNumber::Two,
-                    3 => PlayerNumber::Three,
-                    4 => PlayerNumber::Four,
-                    5 => PlayerNumber::Five,
-                    6 => PlayerNumber::Six,
-                    7 => PlayerNumber::Seven,
-                    _ => {
-                        eprintln!(
-                            "unexpected goal keeper player number {}, defaulting to PlayerNumber::One",
-                            message.teams[opponent_team_index].goalkeeper
-                        );
-                        PlayerNumber::One
-                    }
-                },
+                goal_keeper_jersey_number: message.teams[opponent_team_index].goalkeeper as usize,
                 score: message.teams[opponent_team_index].score,
                 penalty_shoot_index: message.teams[opponent_team_index].penaltyShot,
                 penalty_shoots: opponent_penalty_shoots,
@@ -311,7 +285,6 @@ impl GameState {
 }
 
 #[derive(
-    Default,
     Clone,
     Copy,
     Debug,
@@ -326,8 +299,6 @@ impl GameState {
 pub enum Team {
     Hulks,
     Opponent,
-    #[default]
-    Uncertain,
 }
 
 impl Team {
@@ -410,7 +381,7 @@ pub struct TeamState {
     pub team_number: u8,
     pub field_player_color: TeamColor,
     pub goal_keeper_color: TeamColor,
-    pub goal_keeper_player_number: PlayerNumber,
+    pub goal_keeper_jersey_number: usize,
     pub score: u8,
     pub penalty_shoot_index: u8,
     pub penalty_shoots: Vec<PenaltyShoot>,

@@ -641,36 +641,36 @@
       0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001
     ],
     "initial_hypothesis_score": 10.0,
-    "initial_poses": {
-      "one": {
-        "center_line_offset_x": -3.0,
-        "side": "Left"
-      },
-      "two": {
-        "center_line_offset_x": -2.0,
-        "side": "Left"
-      },
-      "three": {
+    "initial_poses": [
+      {
         "center_line_offset_x": -3.5,
-        "side": "Right"
+        "side": "Left"
       },
-      "four": {
-        "center_line_offset_x": -2.0,
-        "side": "Right"
-      },
-      "five": {
+      {
         "center_line_offset_x": -3.0,
         "side": "Right"
       },
-      "six": {
-        "center_line_offset_x": -1.0,
+      {
+        "center_line_offset_x": -3.0,
         "side": "Left"
       },
-      "seven": {
+      {
+        "center_line_offset_x": -2.0,
+        "side": "Right"
+      },
+      {
+        "center_line_offset_x": -2.0,
+        "side": "Left"
+      },
+      {
         "center_line_offset_x": -1.0,
         "side": "Right"
+      },
+      {
+        "center_line_offset_x": -1.0,
+        "side": "Left"
       }
-    },
+    ],
     "line_length_acceptance_factor": 1.5,
     "line_measurement_noise": [1000.0, 320.0],
     "maximum_amount_of_gradient_descent_iterations": 20,
@@ -1123,13 +1123,14 @@
     "walk_to_penalty_kick": "Normal"
   },
   "behavior": {
-    "optional_roles": [
-      "DefenderLeft",
-      "DefenderRight",
+    "offense_optional_roles": [
       "StrikerSupporter",
+      "MidfielderLeft",
       "MidfielderRight",
-      "MidfielderLeft"
+      "DefenderLeft",
+      "DefenderRight"
     ],
+    "number_of_defensive_players": 2,
     "injected_motion_command": null,
     "role_positions": {
       "defender_aggressive_ring_radius": 2.0,
@@ -1259,7 +1260,7 @@
       "nanos": 0,
       "secs": 15
     },
-    "sacrificial_nao_playernumber": "Three"
+    "sacrificial_nao_position_number": 4
   },
   "ground_contact_detector": {
     "pressure_threshold": 0.6,
@@ -1372,7 +1373,7 @@
     "goal_post_diameter": 0.1,
     "goal_depth": 0.5
   },
-  "player_number": "Seven",
+  "jersey_number": 7,
   "recorded_primary_states": ["Standby", "Ready", "Set", "Playing"],
   "spl_network": {
     "game_controller_return_message_interval": {

@@ -1,26 +1,20 @@
-use std::{
-    path::Path,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::{
-    cyclers::control::Database,
-    robot::to_player_number,
-    simulator::{Frame, Simulator},
-};
 use color_eyre::{
     eyre::{Context, Error},
-    owo_colors::OwoColorize,
     Result,
 };
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use tokio::{net::ToSocketAddrs, select, time::interval};
 use tokio_util::sync::CancellationToken;
+
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use types::{
     ball_position::SimulatorBallState, field_dimensions::FieldDimensions, hardware::Ids,
     players::Players,
 };
+
+use crate::{cyclers::control::Database, recorder::Frame};
 
 #[derive(Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 struct Parameters {
@@ -65,29 +59,29 @@ async fn timeline_server(
         let (_, parameters) = &*parameters_reader.borrow_and_mark_as_seen();
 
         {
-            let (_, outputs) = &mut *outputs_writer.borrow_mut();
+            let (time, outputs) = &mut *outputs_writer.borrow_mut();
             outputs.main_outputs.frame_count = frames.len();
             let frame = &frames[parameters.selected_frame];
             outputs.main_outputs.ball.clone_from(&frame.ball);
             outputs.main_outputs.databases = frame.robots.clone();
+            *time = frame.timestamp;
         }
 
         {
-            let (_, control) = &mut *control_writer.borrow_mut();
-            *control = to_player_number(parameters.selected_robot)
-                .ok()
-                .and_then(|player_number| {
-                    frames[parameters.selected_frame].robots[player_number].clone()
-                })
+            let (time, control) = &mut *control_writer.borrow_mut();
+            let frame = &frames[parameters.selected_frame];
+            *control = frame.robots[parameters.selected_robot]
+                .clone()
                 .unwrap_or_default();
+            *time = frame.timestamp;
         }
     }
 }
 
 pub fn run(
+    frames: Vec<Frame>,
     addresses: impl ToSocketAddrs + Send + Sync + 'static,
     keep_running: CancellationToken,
-    scenario_file: impl AsRef<Path>,
 ) -> Result<()> {
     let ids = Ids {
         body_id: "behavior_simulator".to_string(),
@@ -111,18 +105,6 @@ pub fn run(
 
     let (subscribed_control_writer, _subscribed_control_reader) =
         buffered_watch::channel(Default::default());
-
-    let mut simulator = Simulator::try_new()?;
-    simulator.execute_script(scenario_file)?;
-
-    let start = Instant::now();
-    if let Err(error) = simulator.run() {
-        eprintln!("{}", format!("{:#?}", error).bright_red())
-    }
-    let duration = Instant::now() - start;
-    println!("Took {:.2} seconds", duration.as_secs_f32());
-
-    let frames = simulator.frames;
 
     let runtime = tokio::runtime::Runtime::new()?;
     let communication_server = {

@@ -1,0 +1,15 @@
+[package]
+name = "scenario"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+proc-macro-error = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+
+[lib]
+proc-macro = true

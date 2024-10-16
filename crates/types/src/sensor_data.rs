@@ -42,6 +42,15 @@ pub struct Foot {
 }
 
 impl Foot {
+    pub fn fill(value: f32) -> Self {
+        Self {
+            front_left: value,
+            front_right: value,
+            rear_left: value,
+            rear_right: value,
+        }
+    }
+
     pub fn sum(&self) -> f32 {
         self.front_left + self.front_right + self.rear_left + self.rear_right
     }
