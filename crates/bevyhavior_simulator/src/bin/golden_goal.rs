@@ -16,7 +16,7 @@ fn golden_goal(app: &mut App) {
 }
 
 fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameControllerCommand>) {
-    let active_field_players = vec![5,7,9,13,15,17,20];
+    let active_field_players = vec![5, 7, 9, 13, 15, 17, 20];
     let picked_up_players = vec![];
     let goal_keeper_jersey_number = 17;
     hulks_aufstellung(
