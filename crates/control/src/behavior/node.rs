@@ -159,6 +159,7 @@ impl Behavior {
         }
 
         if matches!(world_state.robot.jersey_number, 1)
+            && matches!(world_state.robot.role, Role::Keeper)
         //#todo! context.filtered_game_controller_state.goalkeeper_jersey_number
         {
             actions.push(Action::WideStance);
