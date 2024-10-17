@@ -165,12 +165,12 @@ impl Localization {
         game_phase: Option<GamePhase>,
         context: &CycleContext,
         penalty: &Option<Penalty>,
-        walk_in_positin_index: usize,
+        walk_in_position_index: usize,
     ) {
         match (self.last_primary_state, primary_state, game_phase) {
             (PrimaryState::Standby | PrimaryState::Initial, PrimaryState::Ready, _) => {
                 let initial_pose = generate_initial_pose(
-                    &context.initial_poses[walk_in_positin_index],
+                    &context.initial_poses[walk_in_position_index],
                     context.field_dimensions,
                 );
                 self.hypotheses = vec![ScoredPose::from_isometry(
