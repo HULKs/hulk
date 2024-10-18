@@ -24,6 +24,7 @@ pub struct CycleContext {
         AdditionalOutput<Option<Duration>, "time_to_reach_kick_position_output">,
 
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
+    own_ball_contact_count: CyclerState<usize, "own_ball_contact_count">,
 
     configuration: Parameter<BehaviorParameters, "behavior">,
 
@@ -89,6 +90,7 @@ impl TimeToReachKickPosition {
                 .half_rotation
                 .mul_f32(angle * FRAC_1_PI)
         });
+        let ball_contacts_penalty = Duration::from_secs_f32(*context.own_ball_contact_count as f32);
         let time_to_reach_kick_position = walk_time.map(|walk_time| {
             [
                 walk_time,
@@ -99,6 +101,7 @@ impl TimeToReachKickPosition {
                     .stand_up_front_estimated_remaining_duration
                     .unwrap_or(&Duration::ZERO),
                 time_to_turn,
+                ball_contacts_penalty,
             ]
             .into_iter()
             .fold(Duration::ZERO, Duration::saturating_add)
