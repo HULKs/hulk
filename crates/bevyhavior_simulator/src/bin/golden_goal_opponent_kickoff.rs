@@ -26,15 +26,18 @@ fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameCon
         commands,
         &mut game_controller_commands,
     );
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
     game_controller_commands.send(GameControllerCommand::SetKickingTeam(Team::Opponent));
 }
 
 fn update(
     game_controller: ResMut<GameController>,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
 ) {
+    if time.ticks() == 2 {
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    }
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
         exit.send(AppExit::Success);

@@ -52,7 +52,6 @@ fn startup(
     robot.parameters.step_planner.max_step_size.forward = 0.45;
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
     ball.state = Some(SimulatorBallState {
         position: Point2::origin(),
         velocity: vector![2.0, 0.1],
@@ -63,12 +62,16 @@ fn startup(
 #[allow(clippy::too_many_arguments)]
 fn update(
     game_controller: ResMut<GameController>,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: ResMut<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
     mut state: State,
 ) {
+    if time.ticks() == 2 {
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    }
     if let Some(ball) = ball.state.as_mut() {
         let mut robot = robots.single_mut();
         let field_dimensions = robot.parameters.field_dimensions;

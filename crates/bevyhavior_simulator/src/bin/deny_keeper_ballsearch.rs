@@ -31,7 +31,6 @@ fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameCon
         commands,
         &mut game_controller_commands,
     );
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -41,6 +40,9 @@ fn update(
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
 ) {
+    if time.ticks() == 2 {
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    }
     if time.ticks() == 3000 {
         ball.state = None;
     }

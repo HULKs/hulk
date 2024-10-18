@@ -45,6 +45,9 @@ fn update(
     time: Res<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
 ) {
+    if time.ticks() == 2 {
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    }
     let replacement_keeper_count = robots
         .iter_mut()
         .filter(|robot| robot.database.main_outputs.role == Role::ReplacementKeeper)

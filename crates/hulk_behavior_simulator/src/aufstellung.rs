@@ -14,28 +14,9 @@ pub fn hulks_aufstellung(
 ) {
     let mut active_players_in_game_controller = active_field_players.clone();
     active_players_in_game_controller.append(&mut picked_up_players.clone());
-    active_players_in_game_controller.sort();
-    let mut index_array: Vec<usize> = Vec::with_capacity(active_field_players.len());
 
-    for &jersey_number in &active_field_players {
-        let mut index = active_players_in_game_controller
-            .iter()
-            .position(|&x| x == jersey_number)
-            .unwrap();
-
-        if jersey_number == goal_keeper_jersey_number {
-            index_array.push(0);
-        } else {
-            if jersey_number < goal_keeper_jersey_number {
-                index += 1;
-            }
-            index_array.push(index);
-        }
-    }
-    for (jersey_number, walk_in_position_index) in
-        active_field_players.iter().zip(index_array.iter())
-    {
-        commands.spawn(Robot::new(*jersey_number, *walk_in_position_index));
+    for jersey_number in active_field_players.iter() {
+        commands.spawn(Robot::new(*jersey_number, 0));
     }
 
     for jersey_number in picked_up_players {
