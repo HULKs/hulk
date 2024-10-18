@@ -14,7 +14,7 @@ use hulk_behavior_simulator::{
 use types::roles::Role;
 
 #[scenario]
-fn replacement_keeper_test(app: &mut App) {
+fn two_replacement_keepers(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }

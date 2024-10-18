@@ -9,8 +9,8 @@ use bevy::{
     },
     time::{Time, Timer, TimerMode},
 };
-use linear_algebra::{vector, Isometry2};
-use spl_network_messages::{GameState, Penalty, Team};
+use linear_algebra::{point, vector, Isometry2};
+use spl_network_messages::{GameState, Penalty, SubState, Team};
 use types::{
     ball_position::SimulatorBallState, motion_command::MotionCommand, planned_path::PathSegment,
 };
@@ -122,10 +122,81 @@ fn ball_in_goal(ball: SimulatorBallState) -> Option<Team> {
 pub fn auto_assistant_referee(
     mut game_controller_commands: EventReader<GameControllerCommand>,
     mut robots: Query<&mut Robot>,
+    mut ball: ResMut<BallResource>,
 ) {
     for command in game_controller_commands.read() {
         match *command {
             GameControllerCommand::SetGameState(_) => {}
+            GameControllerCommand::SetSubState(Some(SubState::CornerKick), team) => {
+                let side = if let Some(ball) = ball.state.as_mut() {
+                    if ball.position.x() >= 0.0 {
+                        3.0
+                    } else {
+                        -3.0
+                    }
+                } else {
+                    3.0
+                };
+                let half = match team {
+                    Team::Hulks => 4.5,
+                    Team::Opponent => -4.5,
+                };
+                ball.state = Some(SimulatorBallState {
+                    position: point!(half, side),
+                    velocity: vector![0.0, 0.0],
+                });
+            }
+            GameControllerCommand::SetSubState(Some(SubState::PenaltyKick), team) => {
+                let half = match team {
+                    Team::Hulks => 3.2,
+                    Team::Opponent => -3.2,
+                };
+                ball.state = Some(SimulatorBallState {
+                    position: point!(half, 0.0),
+                    velocity: vector![0.0, 0.0],
+                });
+            }
+            GameControllerCommand::SetSubState(Some(SubState::GoalKick), team) => {
+                let side = if let Some(ball) = ball.state.as_mut() {
+                    if ball.position.x() >= 0.0 {
+                        1.1
+                    } else {
+                        -1.1
+                    }
+                } else {
+                    1.1
+                };
+                let half = match team {
+                    Team::Hulks => -3.9,
+                    Team::Opponent => 3.9,
+                };
+                ball.state = Some(SimulatorBallState {
+                    position: point!(half, side),
+                    velocity: vector![0.0, 0.0],
+                });
+            }
+            GameControllerCommand::SetSubState(Some(SubState::KickIn), _) => {
+                let x = if let Some(ball) = ball.state.as_mut() {
+                    ball.position.x()
+                } else {
+                    0.0
+                };
+                let side = if let Some(ball) = ball.state.as_mut() {
+                    if ball.position.x() >= 0.0 {
+                        3.0
+                    } else {
+                        -3.0
+                    }
+                } else {
+                    3.0
+                };
+                ball.state = Some(SimulatorBallState {
+                    position: point!(x, side),
+                    velocity: vector![0.0, 0.0],
+                });
+            }
+            GameControllerCommand::SetSubState(..) => {}
+            GameControllerCommand::BallisFree => {}
             GameControllerCommand::SetKickingTeam(_) => {}
             GameControllerCommand::Goal(_) => {}
             GameControllerCommand::Penalize(player_number, penalty) => match penalty {

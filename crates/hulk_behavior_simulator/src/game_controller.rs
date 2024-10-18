@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use bevy::prelude::*;
 
 use spl_network_messages::{
-    GamePhase, GameState, Penalty, PlayerNumber, Team, TeamColor, TeamState,
+    GamePhase, GameState, Penalty, PlayerNumber, SubState, Team, TeamColor, TeamState,
 };
 use types::{game_controller_state::GameControllerState, players::Players};
 
@@ -17,10 +17,12 @@ struct GameControllerControllerState {
 #[derive(Clone, Copy, Event)]
 pub enum GameControllerCommand {
     SetGameState(GameState),
+    SetSubState(Option<SubState>, Team),
     SetKickingTeam(Team),
     Goal(Team),
     Penalize(PlayerNumber, Penalty),
     Unpenalize(PlayerNumber),
+    BallisFree,
 }
 
 fn game_controller_controller(
@@ -61,6 +63,18 @@ fn game_controller_controller(
             GameControllerCommand::Unpenalize(player_number) => {
                 game_controller.state.penalties[player_number] = None;
             }
+            GameControllerCommand::SetSubState(sub_state, team) => {
+                game_controller.state.sub_state = sub_state;
+                game_controller.state.kicking_team = team;
+                if sub_state == Some(SubState::PenaltyKick) {
+                    game_controller.state.game_state = GameState::Ready;
+                }
+                state.last_state_change = time.as_generic();
+            }
+            GameControllerCommand::BallisFree => {
+                game_controller.state.sub_state = None;
+                state.last_state_change = time.as_generic();
+            }
         }
     }
 
@@ -89,6 +103,13 @@ fn game_controller_controller(
         }
         GameState::Playing => {}
         GameState::Finished => {}
+    }
+
+    if game_controller.state.sub_state.is_some()
+        && time.elapsed_seconds() - state.last_state_change.elapsed_seconds() > 30.0
+    {
+        game_controller.state.sub_state = None;
+        state.last_state_change = time.as_generic();
     }
 }
 
