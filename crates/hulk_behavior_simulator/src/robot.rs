@@ -260,6 +260,9 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                     let obstacle_in_field = old_ground_to_field * obstacle.position;
                     obstacle.position = new_ground_to_field.inverse() * obstacle_in_field;
                 }
+                if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
+                    ball.position = movement.inverse() * ball.position;
+                }
 
                 head
             }
