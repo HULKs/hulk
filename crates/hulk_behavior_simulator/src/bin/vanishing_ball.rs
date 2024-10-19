@@ -5,7 +5,7 @@ use spl_network_messages::{GameState, PlayerNumber};
 
 use hulk_behavior_simulator::{
     ball::BallResource,
-    game_controller::{GameController, GameControllerCommand},
+    game_controller::GameControllerCommand,
     robot::Robot,
     time::{Ticks, TicksTime},
 };
@@ -34,11 +34,7 @@ fn startup(
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
-fn update(
-    time: Res<Time<Ticks>>,
-    mut ball: ResMut<BallResource>,
-    mut exit: EventWriter<AppExit>,
-) {
+fn update(time: Res<Time<Ticks>>, mut ball: ResMut<BallResource>, mut exit: EventWriter<AppExit>) {
     if time.ticks() == 2800 {
         ball.state = None;
     }
