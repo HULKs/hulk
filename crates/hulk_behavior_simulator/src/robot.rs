@@ -372,7 +372,7 @@ pub fn cycle_robots(
         }
         if !robot.ball_last_seen.is_some_and(|last_seen| {
             now.duration_since(last_seen).expect("time ran backwards")
-                < robot.parameters.ball_filter.hypothesis_timeout
+                < robot.parameters.ball_filter.hypothesis_timeout.mul_f32(0.1)
         }) {
             robot.database.main_outputs.ball_position = None
         };
