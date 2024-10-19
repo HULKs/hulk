@@ -360,20 +360,19 @@ pub fn cycle_robots(
         });
         if ball_visible {
             robot.ball_last_seen = Some(now);
-        }
-        robot.database.main_outputs.ball_position =
-            if robot.ball_last_seen.is_some_and(|last_seen| {
-                now.duration_since(last_seen).expect("time ran backwards")
-                    < robot.parameters.ball_filter.hypothesis_timeout
-            }) {
+            robot.database.main_outputs.ball_position =
                 ball.state.as_ref().map(|ball| BallPosition {
                     position: robot.ground_to_field().inverse() * ball.position,
                     velocity: robot.ground_to_field().inverse() * ball.velocity,
                     last_seen: now,
-                })
-            } else {
-                None
-            };
+                });
+        }
+        if !robot.ball_last_seen.is_some_and(|last_seen| {
+            now.duration_since(last_seen).expect("time ran backwards")
+                < robot.parameters.ball_filter.hypothesis_timeout
+        }) {
+            robot.database.main_outputs.ball_position = None
+        };
         *robot.whistle_mut() = FilteredWhistle {
             is_detected: Some(time.elapsed()) == whistle.last_whistle,
             last_detection: whistle
