@@ -25,7 +25,7 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
-    let mut robot = Robot::new(PlayerNumber::One);
+    let mut robot = Robot::new(PlayerNumber::Two);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-4.5, 0.0], 0.0);
     commands.spawn(robot);
     ball.state = Some(SimulatorBallState {
