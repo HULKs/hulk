@@ -19,7 +19,6 @@ use types::{
     joints::head::HeadJoints,
     obstacles::Obstacle,
     parameters::{BallFilterParameters, CameraMatrixParameters},
-    penalty_shot_direction::PenaltyShotDirection,
     sensor_data::SensorData,
 };
 
@@ -65,7 +64,6 @@ pub struct MainOutputs {
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
     pub is_localization_converged: MainOutput<bool>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
-    pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
@@ -100,7 +98,6 @@ impl FakeData {
             hypothetical_ball_positions: last_database.hypothetical_ball_positions.clone().into(),
             is_localization_converged: last_database.is_localization_converged.into(),
             obstacles: last_database.obstacles.clone().into(),
-            penalty_shot_direction: last_database.penalty_shot_direction.into(),
             ground_to_field: last_database.ground_to_field.into(),
             sensor_data: last_database.sensor_data.clone().into(),
             stand_up_front_estimated_remaining_duration: last_database

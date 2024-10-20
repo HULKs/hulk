@@ -17,6 +17,7 @@ struct GameControllerControllerState {
 #[derive(Clone, Copy, Event)]
 pub enum GameControllerCommand {
     SetGameState(GameState),
+    SetGamePhase(GamePhase),
     SetSubState(Option<SubState>, Team),
     SetKickingTeam(Team),
     Goal(Team),
@@ -36,6 +37,10 @@ fn game_controller_controller(
         match *command {
             GameControllerCommand::SetGameState(game_state) => {
                 game_controller.state.game_state = game_state;
+                state.last_state_change = time.as_generic();
+            }
+            GameControllerCommand::SetGamePhase(game_phase) => {
+                game_controller.state.game_phase = game_phase;
                 state.last_state_change = time.as_generic();
             }
             GameControllerCommand::SetKickingTeam(team) => {
