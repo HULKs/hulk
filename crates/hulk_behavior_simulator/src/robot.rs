@@ -214,6 +214,10 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
 
 pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>, time: Res<Time>) {
     for mut robot in &mut robots {
+        if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
+            ball.position += ball.velocity * time.delta_seconds();
+        }
+
         let parameters = &robot.parameters;
         let mut ground_to_field_update: Option<Isometry2<Ground, Field>> = None;
 
