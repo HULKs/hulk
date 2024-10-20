@@ -1389,7 +1389,7 @@ version = "0.1.0"
 dependencies = [
  "lazy_static",
  "serde",
- "serde_json",
+ "toml",
 ]
 
 [[package]]
@@ -4564,15 +4564,18 @@ dependencies = [
  "constants",
  "futures-util",
  "indicatif",
+ "lazy_static",
  "nao",
  "opn",
  "regex",
  "repository",
+ "serde",
  "serde_json",
  "source_analyzer",
  "spl_network_messages",
  "thiserror",
  "tokio",
+ "toml",
 ]
 
 [[package]]

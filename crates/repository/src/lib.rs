@@ -35,7 +35,7 @@ use tokio::{
     process::Command,
 };
 
-use constants::{OS_IS_NOT_LINUX, SDK_VERSION};
+use constants::{Team, OS_IS_NOT_LINUX, SDK_VERSION};
 use spl_network_messages::PlayerNumber;
 use types::hardware::Ids;
 
@@ -423,26 +423,15 @@ impl Repository {
         Ok((upload_directory, hulk_directory))
     }
 
-    pub async fn get_hardware_ids(&self) -> Result<HashMap<u8, Ids>> {
-        let hardware_ids_path = self.root.join("etc/parameters/hardware_ids.json");
-        let mut hardware_ids = File::open(&hardware_ids_path)
+    pub async fn get_configured_team(&self) -> Result<Team> {
+        let team_toml = self.root.join("etc/parameters/team.toml");
+        let mut team_file = File::open(&team_toml)
             .await
-            .wrap_err_with(|| format!("failed to open {}", hardware_ids_path.display()))?;
+            .wrap_err_with(|| format!("failed to open {}", team_toml.display()))?;
         let mut contents = vec![];
-        hardware_ids.read_to_end(&mut contents).await?;
-        let hardware_ids_with_string_keys: HashMap<String, Ids> = from_slice(&contents)?;
-        let hardware_ids_with_nao_number_keys = hardware_ids_with_string_keys
-            .into_iter()
-            .map(|(nao_number, hardware_ids)| {
-                Ok((
-                    nao_number
-                        .parse()
-                        .wrap_err_with(|| format!("failed to parse NAO number: {nao_number:?}"))?,
-                    hardware_ids,
-                ))
-            })
-            .collect::<Result<HashMap<_, _>>>()?;
-        Ok(hardware_ids_with_nao_number_keys)
+        team_file.read_to_end(&mut contents).await?;
+        let team: Team = from_slice(&contents).wrap_err("failed to parse team.toml")?;
+        Ok(team)
     }
 
     pub async fn get_configured_locations(&self) -> Result<BTreeMap<String, Option<String>>> {
