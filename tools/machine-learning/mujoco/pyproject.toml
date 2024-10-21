@@ -5,14 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "gymnasium[classic-control,mujoco]==0.28.1",
     "ipykernel>=6.29.5",
     "mediapy>=1.2.2",
-    "mujoco>=3.2.4",
+    "mujoco==2.3.5",
     "numpy>=2.1.2",
     "scipy>=1.14.1",
     "moviepy>=1.0.3",
     "stable-baselines3>=2.3.2",
+    "gymnasium[classic-control,mujoco]",
 ]
 
 [tool.ruff]
