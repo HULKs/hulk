@@ -98,7 +98,7 @@ jobs:
           lfs: true
       - name: Test
         run: |
-          cargo test --all-features --workspace
+          cargo test --profile incremental --all-features --workspace
 
   build:
     name: Build
