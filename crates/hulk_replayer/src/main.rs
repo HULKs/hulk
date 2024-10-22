@@ -1,13 +1,4 @@
 #![recursion_limit = "256"]
-mod coordinate_systems;
-mod frames;
-mod labels;
-mod replayer;
-mod ticks;
-mod timeline;
-mod window;
-mod worker_thread;
-
 use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
@@ -25,6 +16,15 @@ use types::{
     sensor_data::SensorData,
     ycbcr422_image::YCbCr422Image,
 };
+
+mod coordinate_systems;
+mod frames;
+mod labels;
+mod replayer;
+mod ticks;
+mod timeline;
+mod window;
+mod worker_thread;
 
 pub trait HardwareInterface:
     ActuatorInterface

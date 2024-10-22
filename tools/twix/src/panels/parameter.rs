@@ -38,6 +38,7 @@ impl Panel for ParameterPanel {
             parameter_value: Err(eyre!("no subscription yet")),
         }
     }
+
     fn save(&self) -> Value {
         json!({
             "path": self.path.clone()

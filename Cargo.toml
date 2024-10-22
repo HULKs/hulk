@@ -48,6 +48,7 @@ members = [
   "crates/walking_engine",
   "tools/annotato",
   "tools/camera_matrix_extractor",
+  "tools/checky",
   "tools/depp",
   "tools/fanta",
   "tools/hula/types",
@@ -68,6 +69,7 @@ aliveness = { path = "crates/aliveness" }
 alsa = "0.7.0"
 approx = "0.5.1"
 approx_derive = { path = "crates/approx_derive" }
+ariadne = { version = "0.4.1", features = ["auto-color"] }
 argument_parsers = { path = "crates/argument_parsers" }
 audio = { path = "crates/audio" }
 awaitgroup = "0.6.0"
