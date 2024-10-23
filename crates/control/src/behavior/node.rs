@@ -165,11 +165,6 @@ impl Behavior {
         }
         actions.push(Action::InterceptBall);
 
-        let filtered_game_state = world_state
-            .filtered_game_controller_state
-            .as_ref()
-            .map(|filtered_game_controller_state| filtered_game_controller_state.game_state);
-
         match world_state.robot.role {
             Role::DefenderLeft => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
@@ -208,32 +203,36 @@ impl Behavior {
             Role::MidfielderRight => actions.push(Action::SupportRight),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
-            Role::Striker => match filtered_game_state {
+            Role::Striker => match world_state.filtered_game_controller_state {
                 None
-                | Some(FilteredGameState::Playing {
-                    ball_is_free: true, ..
+                | Some(FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: true, ..
+                        },
+                    ..
                 }) => {
                     actions.push(Action::Dribble);
                 }
-                Some(FilteredGameState::Ready {
+                Some(FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Ready {
+                            kicking_team_known: true,
+                        },
                     kicking_team: Team::Hulks,
-                }) => match world_state.filtered_game_controller_state {
-                    Some(FilteredGameControllerState {
-                        sub_state: Some(SubState::PenaltyKick),
-                        ..
-                    }) => actions.push(Action::WalkToPenaltyKick),
+                    sub_state,
+                    ..
+                }) => match sub_state {
+                    Some(SubState::PenaltyKick) => actions.push(Action::WalkToPenaltyKick),
                     _ => actions.push(Action::WalkToKickOff),
                 },
-                _ => match world_state.filtered_game_controller_state {
-                    Some(FilteredGameControllerState {
-                        game_state:
-                            FilteredGameState::Ready { .. } | FilteredGameState::Playing { .. },
-                        sub_state: Some(SubState::PenaltyKick),
-                        kicking_team: Team::Opponent,
-                        ..
-                    }) => actions.push(Action::DefendPenaltyKick),
-                    _ => actions.push(Action::DefendKickOff),
-                },
+                Some(FilteredGameControllerState {
+                    game_state: FilteredGameState::Ready { .. } | FilteredGameState::Playing { .. },
+                    sub_state: Some(SubState::PenaltyKick),
+                    kicking_team: Team::Opponent,
+                    ..
+                }) => actions.push(Action::DefendPenaltyKick),
+                _ => actions.push(Action::DefendKickOff),
             },
             Role::StrikerSupporter => actions.push(Action::SupportStriker),
         };

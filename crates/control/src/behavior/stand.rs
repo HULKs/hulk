@@ -19,39 +19,34 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let ground_to_field = world_state.robot.ground_to_field?;
-            let (fallback_target, is_opponent_penalty_kick) = match world_state
-                .filtered_game_controller_state
-            {
-                Some(FilteredGameControllerState {
-                    sub_state: Some(SubState::PenaltyKick),
-                    kicking_team,
-                    ..
-                })
-                | Some(FilteredGameControllerState {
-                    game_phase: GamePhase::PenaltyShootout { .. },
-                    kicking_team,
-                    ..
-                }) => {
-                    let (half, is_opponent_penalty_kick) = match kicking_team {
-                        Team::Hulks => (Half::Opponent, false),
-                        Team::Opponent => (Half::Own, true),
-                        Team::Uncertain => {
-                            eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
-                            (Half::Opponent, true)
-                        }
-                    };
-                    (
-                        world_state
-                            .rule_ball
-                            .map(|rule_ball| rule_ball.ball_in_ground)
-                            .unwrap_or({
-                                ground_to_field.inverse() * field_dimensions.penalty_spot(half)
-                            }),
-                        is_opponent_penalty_kick,
-                    )
-                }
-                _ => (ground_to_field.inverse().as_pose().position(), false),
-            };
+            let (fallback_target, is_opponent_penalty_kick) =
+                match world_state.filtered_game_controller_state {
+                    Some(FilteredGameControllerState {
+                        sub_state: Some(SubState::PenaltyKick),
+                        kicking_team,
+                        ..
+                    })
+                    | Some(FilteredGameControllerState {
+                        game_phase: GamePhase::PenaltyShootout { .. },
+                        kicking_team,
+                        ..
+                    }) => {
+                        let (half, is_opponent_penalty_kick) = match kicking_team {
+                            Team::Hulks => (Half::Opponent, false),
+                            Team::Opponent => (Half::Own, true),
+                        };
+                        (
+                            world_state
+                                .rule_ball
+                                .map(|rule_ball| rule_ball.ball_in_ground)
+                                .unwrap_or({
+                                    ground_to_field.inverse() * field_dimensions.penalty_spot(half)
+                                }),
+                            is_opponent_penalty_kick,
+                        )
+                    }
+                    _ => (ground_to_field.inverse().as_pose().position(), false),
+                };
             let target = world_state
                 .ball
                 .map(|state| state.ball_in_ground)
@@ -100,10 +95,6 @@ pub fn execute(
                     let half = match kicking_team {
                         Team::Hulks => Half::Opponent,
                         Team::Opponent => Half::Own,
-                        Team::Uncertain => {
-                            eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
-                            Half::Opponent
-                        }
                     };
                     let target = world_state
                         .ball
