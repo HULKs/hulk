@@ -8,6 +8,7 @@ use calibration::{
     goal_box::{measurement::Measurement, residuals::GoalBoxResiduals},
     solve,
 };
+
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
@@ -276,16 +277,16 @@ fn collect_filtered_values(
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
 fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
     let look_at_points: Vec<Point2<Ground>> = vec![
+        point![1.0, -0.5],
+        point![2.5, -0.5],
+        point![2.5, 0.0],
+        point![2.5, 0.5],
+        point![1.0, 0.5],
         point![1.0, 0.0],
-        point![1.0, -0.5],
-        point![3.0, -0.5],
-        point![3.0, 0.0],
-        point![3.0, 0.5],
-        point![1.0, -0.5],
     ];
 
-    look_at_points
+    [CameraPosition::Top, CameraPosition::Bottom]
         .iter()
-        .map(|&point| (point, CameraPosition::Top))
+        .flat_map(|&position| look_at_points.iter().map(move |&point| (point, position)))
         .collect()
 }
