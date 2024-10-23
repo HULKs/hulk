@@ -6,13 +6,10 @@ use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
-use constants::OS_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
-use repository::Repository;
 
 use crate::{
-    cargo::{cargo, Arguments as CargoArguments, Command},
     communication::communication,
     communication::Arguments as CommunicationArguments,
     progress_indicator::{ProgressIndicator, Task},
@@ -66,9 +63,9 @@ async fn upload_with_progress(
             .get_os_version()
             .await
             .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
-        if os_version != OS_VERSION {
-            bail!("mismatched OS versions: Expected {OS_VERSION}, found {os_version}");
-        }
+        //if os_version != OS_VERSION {
+        //    bail!("mismatched OS versions: Expected {OS_VERSION}, found {os_version}");
+        //}
     }
 
     progress.set_message("Stopping HULK...");
@@ -96,65 +93,65 @@ async fn upload_with_progress(
     Ok(())
 }
 
-pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
-    if !arguments.no_build {
-        cargo(
-            CargoArguments {
-                workspace: false,
-                profile: arguments.profile.clone(),
-                target: "nao".to_string(),
-                no_sdk_installation: arguments.no_sdk_installation,
-                features: None,
-                passthrough_arguments: Vec::new(),
-                remote: arguments.remote,
-            },
-            repository,
-            Command::Build,
-        )
-        .await
-        .wrap_err("failed to build the code")?;
-    }
-
-    let (_temporary_directory, hulk_directory) = repository
-        .create_upload_directory(arguments.profile.as_str())
-        .await
-        .wrap_err("failed to create upload directory")?;
-
-    communication(
-        match arguments.no_communication {
-            true => CommunicationArguments::Disable,
-            false => CommunicationArguments::Enable,
-        },
-        repository,
-    )
-    .await
-    .wrap_err("failed to set communication")?;
-
-    let multi_progress = ProgressIndicator::new();
-
-    if arguments.prepare {
-        eprintln!("WARNING: This upload was only prepared, no actual upload was performed!")
-    } else {
-        arguments
-            .naos
-            .iter()
-            .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
-            .map(|(nao_address, progress)| {
-                let arguments = &arguments;
-                let hulk_directory = hulk_directory.clone();
-
-                progress.enable_steady_tick();
-                async move {
-                    progress.finish_with(
-                        upload_with_progress(nao_address, hulk_directory, arguments, &progress)
-                            .await,
-                    )
-                }
-            })
-            .collect::<FuturesUnordered<_>>()
-            .collect::<Vec<_>>()
-            .await;
-    }
+pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+    //if !arguments.no_build {
+    //    cargo(
+    //        CargoArguments {
+    //            workspace: false,
+    //            profile: arguments.profile.clone(),
+    //            target: "nao".to_string(),
+    //            no_sdk_installation: arguments.no_sdk_installation,
+    //            features: None,
+    //            passthrough_arguments: Vec::new(),
+    //            remote: arguments.remote,
+    //        },
+    //        repository,
+    //        Command::Build,
+    //    )
+    //    .await
+    //    .wrap_err("failed to build the code")?;
+    //}
+    //
+    //let (_temporary_directory, hulk_directory) = repository
+    //    .create_upload_directory(arguments.profile.as_str())
+    //    .await
+    //    .wrap_err("failed to create upload directory")?;
+    //
+    //communication(
+    //    match arguments.no_communication {
+    //        true => CommunicationArguments::Disable,
+    //        false => CommunicationArguments::Enable,
+    //    },
+    //    repository,
+    //)
+    //.await
+    //.wrap_err("failed to set communication")?;
+    //
+    //let multi_progress = ProgressIndicator::new();
+    //
+    //if arguments.prepare {
+    //    eprintln!("WARNING: This upload was only prepared, no actual upload was performed!")
+    //} else {
+    //    arguments
+    //        .naos
+    //        .iter()
+    //        .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
+    //        .map(|(nao_address, progress)| {
+    //            let arguments = &arguments;
+    //            let hulk_directory = hulk_directory.clone();
+    //
+    //            progress.enable_steady_tick();
+    //            async move {
+    //                progress.finish_with(
+    //                    upload_with_progress(nao_address, hulk_directory, arguments, &progress)
+    //                        .await,
+    //                )
+    //            }
+    //        })
+    //        .collect::<FuturesUnordered<_>>()
+    //        .collect::<Vec<_>>()
+    //        .await;
+    //}
 
     Ok(())
 }

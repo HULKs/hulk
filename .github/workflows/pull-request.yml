@@ -34,8 +34,9 @@ jobs:
         path:
           [
             .,
-            tools/aliveness,
-            tools/hula,
+            services/aliveness,
+            services/breeze,
+            services/hula,
           ]
     runs-on:
       - self-hosted
@@ -127,14 +128,15 @@ jobs:
       matrix:
         path:
           [
-            aliveness,
-            annotato,
-            camera_matrix_extractor,
-            depp,
-            fanta,
-            hula,
-            pepsi,
-            twix,
+            services/aliveness,
+            services/breeze,
+            services/hula,
+            tools/annotato,
+            tools/camera_matrix_extractor,
+            tools/depp,
+            tools/fanta,
+            tools/pepsi,
+            tools/twix,
           ]
     runs-on:
       - self-hosted
@@ -148,5 +150,5 @@ jobs:
           lfs: true
       - name: Build
         run: |
-          cd tools/${{ matrix.path }}
+          cd ${{ matrix.path }}
           cargo build --release

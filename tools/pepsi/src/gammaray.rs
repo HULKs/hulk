@@ -1,13 +1,12 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::NaoAddress;
-use constants::OS_VERSION;
 use nao::Nao;
 use opn::verify_image;
-use repository::{get_image_path, Repository};
+use repository::{configuration::get_os_version, data_home::get_data_home, image::download_image};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,23 +17,31 @@ pub struct Arguments {
     image_path: Option<PathBuf>,
     /// Alternative HULKs-OS version e.g. 3.3
     #[arg(long)]
-    os_version: Option<String>,
+    version: Option<String>,
     /// The NAOs to flash the image to, e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     naos: Vec<NaoAddress>,
 }
 
-pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let version = arguments.os_version.as_deref().unwrap_or(OS_VERSION);
+pub async fn gammaray(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+    let version = match arguments.version {
+        Some(version) => version,
+        None => get_os_version(&repository_root)
+            .await
+            .wrap_err("failed to get OS version")?,
+    };
+    let data_home = get_data_home()?;
     let image_path = match arguments.image_path {
         Some(image_path) => image_path,
-        None => get_image_path(version).await?,
+        None => download_image(&version, data_home).await?,
     };
     let image_path = image_path.as_path();
 
     verify_image(image_path).wrap_err("image verification failed")?;
 
-    let hardware_ids = &repository.parameters_root().join("hardware_ids.json");
+    let hardware_ids = &repository_root
+        .as_ref()
+        .join("etc/parameters/hardware_ids.json");
 
     ProgressIndicator::map_tasks(
         arguments.naos,
@@ -48,7 +55,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
             .wrap_err_with(|| format!("failed to flash image to {nao_address}"))?;
             progress_bar.set_message("Uploading hardware ids...");
             nao.rsync_with_nao(false)
-                .arg(hardware_ids.to_str().unwrap())
+                .arg(hardware_ids)
                 .arg(format!("{}:/media/internal/", nao.host))
                 .spawn()
                 .wrap_err("failed to upload hardware ids")?;

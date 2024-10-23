@@ -6,9 +6,10 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{bail, eyre, WrapErr},
+    eyre::{self, bail, eyre, WrapErr},
     Result,
 };
+use serde::Deserialize;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, Command},
@@ -16,6 +17,23 @@ use tokio::{
 };
 
 pub const PING_TIMEOUT_SECONDS: u32 = 2;
+
+#[derive(Debug, Deserialize, Hash, Eq, PartialEq)]
+#[serde(try_from = "String")]
+pub struct NaoNumber {
+    pub id: u8,
+}
+
+impl TryFrom<String> for NaoNumber {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        let id = value
+            .parse()
+            .wrap_err_with(|| format!("failed to parse `{value}` into Nao number"))?;
+        Ok(Self { id })
+    }
+}
 
 pub struct Nao {
     pub host: Ipv4Addr,

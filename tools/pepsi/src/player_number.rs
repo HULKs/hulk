@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Path};
 
 use clap::Args;
 use color_eyre::{
@@ -7,7 +7,7 @@ use color_eyre::{
 };
 
 use argument_parsers::NaoNumberPlayerAssignment;
-use repository::Repository;
+use repository::{hardware_ids::get_hardware_ids, player_number::set_player_number};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,9 +18,9 @@ pub struct Arguments {
     pub assignments: Vec<NaoNumberPlayerAssignment>,
 }
 
-pub async fn player_number(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let hardware_ids = repository
-        .get_hardware_ids()
+pub async fn player_number(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+    let repository_root = repository_root.as_ref();
+    let hardware_ids = get_hardware_ids(repository_root)
         .await
         .wrap_err("failed to get hardware IDs")?;
 
@@ -49,10 +49,13 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
             let hardware_id = hardware_ids
                 .get(&number)
                 .ok_or_else(|| eyre!("NAO with Hardware ID {number} does not exist"))?;
-            repository
-                .set_player_number(&hardware_id.head_id, assignment.player_number)
-                .await
-                .wrap_err_with(|| format!("failed to set player number for {assignment}"))
+            set_player_number(
+                &hardware_id.head_id,
+                assignment.player_number,
+                repository_root,
+            )
+            .await
+            .wrap_err_with(|| format!("failed to set player number for {assignment}"))
         },
     )
     .await;

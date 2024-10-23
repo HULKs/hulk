@@ -7,14 +7,15 @@ homepage.workspace = true
 
 [dependencies]
 aliveness = { workspace = true }
+argument_parsers = { workspace = true }
 bat = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
-argument_parsers = { workspace = true }
 color-eyre = { workspace = true }
-constants = { workspace = true }
 futures-util = { workspace = true }
+glob = { workspace = true }
 indicatif = { workspace = true }
+log = { workspace = true }
 nao = { workspace = true }
 opn = { workspace = true }
 regex = { workspace = true }
@@ -23,4 +24,6 @@ serde_json = { workspace = true }
 source_analyzer = { workspace = true }
 spl_network_messages = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 tokio = { workspace = true }

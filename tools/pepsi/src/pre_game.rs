@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use clap::{
     builder::{PossibleValuesParser, TypedValueParser},
     Args,
@@ -6,7 +8,6 @@ use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::{parse_network, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES};
 use nao::Network;
-use repository::Repository;
 
 use crate::{
     player_number::{player_number, Arguments as PlayerNumberArguments},
@@ -60,72 +61,72 @@ pub struct Arguments {
     pub remote: bool,
 }
 
-pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let naos: Vec<_> = arguments
-        .assignments
-        .iter()
-        .map(|assignment| assignment.nao_address)
-        .collect();
-
-    recording(
-        RecordingArguments {
-            recording_intervals: arguments.recording_intervals,
-        },
-        repository,
-    )
-    .await
-    .wrap_err("failed to set cyclers to be recorded")?;
-
-    repository
-        .set_location("nao", &arguments.location)
-        .await
-        .wrap_err_with(|| format!("failed setting location for nao to {}", arguments.location))?;
-
-    player_number(
-        PlayerNumberArguments {
-            assignments: arguments
-                .assignments
-                .iter()
-                .copied()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()
-                .wrap_err("failed to convert NAO address assignments into NAO number assignments for player number setting")?
-        },
-        repository
-    )
-    .await
-    .wrap_err("failed to set player numbers")?;
-
-    if !arguments.prepare {
-        wireless(WirelessArguments::Scan { naos: naos.clone() })
-            .await
-            .wrap_err("failed to scan for networks")?;
-
-        wireless(WirelessArguments::Set {
-            network: arguments.network,
-            naos: naos.clone(),
-        })
-        .await
-        .wrap_err("failed to set wireless network")?;
-    }
-
-    upload(
-        UploadArguments {
-            profile: arguments.profile,
-            no_sdk_installation: arguments.no_sdk_installation,
-            no_build: arguments.no_build,
-            no_restart: arguments.no_restart,
-            no_clean: arguments.no_clean,
-            no_communication: !arguments.with_communication,
-            prepare: arguments.prepare,
-            skip_os_check: arguments.skip_os_check,
-            naos,
-            remote: arguments.remote,
-        },
-        repository,
-    )
-    .await
-    .wrap_err("failed to upload")?;
+pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+    //let naos: Vec<_> = arguments
+    //    .assignments
+    //    .iter()
+    //    .map(|assignment| assignment.nao_address)
+    //    .collect();
+    //
+    //recording(
+    //    RecordingArguments {
+    //        recording_intervals: arguments.recording_intervals,
+    //    },
+    //    repository,
+    //)
+    //.await
+    //.wrap_err("failed to set cyclers to be recorded")?;
+    //
+    //repository
+    //    .set_location("nao", &arguments.location)
+    //    .await
+    //    .wrap_err_with(|| format!("failed setting location for nao to {}", arguments.location))?;
+    //
+    //player_number(
+    //    PlayerNumberArguments {
+    //        assignments: arguments
+    //            .assignments
+    //            .iter()
+    //            .copied()
+    //            .map(TryFrom::try_from)
+    //            .collect::<Result<Vec<_>, _>>()
+    //            .wrap_err("failed to convert NAO address assignments into NAO number assignments for player number setting")?
+    //    },
+    //    repository
+    //)
+    //.await
+    //.wrap_err("failed to set player numbers")?;
+    //
+    //if !arguments.prepare {
+    //    wireless(WirelessArguments::Scan { naos: naos.clone() })
+    //        .await
+    //        .wrap_err("failed to scan for networks")?;
+    //
+    //    wireless(WirelessArguments::Set {
+    //        network: arguments.network,
+    //        naos: naos.clone(),
+    //    })
+    //    .await
+    //    .wrap_err("failed to set wireless network")?;
+    //}
+    //
+    //upload(
+    //    UploadArguments {
+    //        profile: arguments.profile,
+    //        no_sdk_installation: arguments.no_sdk_installation,
+    //        no_build: arguments.no_build,
+    //        no_restart: arguments.no_restart,
+    //        no_clean: arguments.no_clean,
+    //        no_communication: !arguments.with_communication,
+    //        prepare: arguments.prepare,
+    //        skip_os_check: arguments.skip_os_check,
+    //        naos,
+    //        remote: arguments.remote,
+    //    },
+    //    repository,
+    //)
+    //.await
+    //.wrap_err("failed to upload")?;
 
     Ok(())
 }

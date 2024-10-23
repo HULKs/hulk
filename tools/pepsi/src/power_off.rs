@@ -1,10 +1,12 @@
+use std::path::Path;
+
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::{number_to_ip, Connection, NaoAddress};
-use constants::HARDWARE_IDS;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
+use repository::hardware_ids::get_hardware_ids;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,9 +20,16 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn power_off(arguments: Arguments) -> Result<()> {
+pub async fn power_off(
+    arguments: Arguments,
+    repository_root: Result<impl AsRef<Path>>,
+) -> Result<()> {
     if arguments.all {
-        let addresses = HARDWARE_IDS
+        let repository_root = repository_root?;
+        let hardware_ids = get_hardware_ids(repository_root)
+            .await
+            .wrap_err("failed to get hardware IDs")?;
+        let addresses = hardware_ids
             .keys()
             .map(|&nao_number| async move {
                 let host = number_to_ip(nao_number, Connection::Wired)?;
