@@ -1,4 +1,32 @@
 {
+  "field_color_detection": {
+    "vision_bottom": {
+      "hue": {
+        "end": 168,
+        "start": 43
+      },
+      "luminance": {
+        "end": 255,
+        "start": 23
+      },
+      "saturation": {
+        "start": 65
+      }
+    },
+    "vision_top": {
+      "hue": {
+        "end": 232,
+        "start": 50
+      },
+      "luminance": {
+        "end": 255,
+        "start": 43
+      },
+      "saturation": {
+        "end": 248
+      }
+    }
+  },
   "field_dimensions": {
     "ball_radius": 0.05,
     "length": 7.5,
