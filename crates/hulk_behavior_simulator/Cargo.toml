@@ -5,11 +5,9 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
-[[bin]]
-name = "hulk_behavior_simulator"
-
 [dependencies]
 ball_filter = { workspace = true }
+bevy = { workspace = true }
 bincode = { workspace = true }
 buffered_watch = { workspace = true }
 chrono = { workspace = true }
@@ -27,12 +25,12 @@ hardware = { workspace = true }
 ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
-mlua = { workspace = true }
 nalgebra = { workspace = true }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
+scenario = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 spl_network = { workspace = true }
@@ -40,6 +38,8 @@ spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
+paste = { workspace = true }
+walking_engine = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

@@ -28,6 +28,7 @@ fn main() -> Result<()> {
                     "control::primary_state_filter",
                     "control::motion::look_around",
                     "control::motion::motion_selector",
+                    "control::penalty_shot_direction_estimation",
                     "control::referee_position_provider",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",

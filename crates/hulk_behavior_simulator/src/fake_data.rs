@@ -19,9 +19,10 @@ use types::{
     joints::head::HeadJoints,
     obstacles::Obstacle,
     parameters::{BallFilterParameters, CameraMatrixParameters},
-    penalty_shot_direction::PenaltyShotDirection,
     sensor_data::SensorData,
 };
+
+use walking_engine::parameters::Parameters as WalkingEngineParameters;
 
 use crate::interfake::FakeDataInterface;
 
@@ -35,13 +36,14 @@ pub struct CreationContext {
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
     ball_filter: Parameter<BallFilterParameters, "ball_filter">,
+    glance_angle: Parameter<f32, "look_at.glance_angle">,
+    parameters: Parameter<WalkingEngineParameters, "walking_engine">,
 }
 
 #[context]
 #[allow(dead_code)]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
-    glance_angle: Parameter<f32, "look_at.glance_angle">,
 }
 
 #[context]
@@ -62,7 +64,6 @@ pub struct MainOutputs {
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
     pub is_localization_converged: MainOutput<bool>,
     pub obstacles: MainOutput<Vec<Obstacle>>,
-    pub penalty_shot_direction: MainOutput<Option<PenaltyShotDirection>>,
     pub sensor_data: MainOutput<SensorData>,
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
@@ -86,7 +87,7 @@ impl FakeData {
             cycle_time: last_database.cycle_time.into(),
             fall_state: last_database.fall_state.into(),
             filtered_whistle: last_database.filtered_whistle.clone().into(),
-            game_controller_state: last_database.game_controller_state.into(),
+            game_controller_state: last_database.game_controller_state.clone().into(),
             game_controller_address: last_database.game_controller_address.into(),
             has_ground_contact: last_database.has_ground_contact.into(),
             hulk_messages: last_database.hulk_messages.clone().into(),
@@ -97,7 +98,6 @@ impl FakeData {
             hypothetical_ball_positions: last_database.hypothetical_ball_positions.clone().into(),
             is_localization_converged: last_database.is_localization_converged.into(),
             obstacles: last_database.obstacles.clone().into(),
-            penalty_shot_direction: last_database.penalty_shot_direction.into(),
             ground_to_field: last_database.ground_to_field.into(),
             sensor_data: last_database.sensor_data.clone().into(),
             stand_up_front_estimated_remaining_duration: last_database

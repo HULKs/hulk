@@ -216,7 +216,7 @@ impl Behavior {
                     actions.push(Action::Dribble);
                 }
                 Some(FilteredGameState::Ready {
-                    kicking_team: Team::Hulks,
+                    kicking_team: Some(Team::Hulks),
                 }) => match world_state.filtered_game_controller_state {
                     Some(FilteredGameControllerState {
                         sub_state: Some(SubState::PenaltyKick),
