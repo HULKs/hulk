@@ -17,7 +17,7 @@ pub enum BallSearchLookAround {
 impl Default for BallSearchLookAround {
     fn default() -> Self {
         Self::Center {
-            moving_towards: Side::Left,
+            moving_towards: Side::default(),
         }
     }
 }
@@ -38,17 +38,20 @@ pub struct QuickLookAround {
 }
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub enum InitialLookAround {
+    #[default]
     Left,
     Right,
-}
-
-impl Default for InitialLookAround {
-    fn default() -> Self {
-        Self::Left
-    }
 }
 
 #[derive(

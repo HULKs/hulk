@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
     Clone,
     Copy,
     Debug,
+    Default,
     Deserialize,
     Eq,
     PartialEq,
@@ -14,6 +15,7 @@ use serde::{Deserialize, Serialize};
     PathIntrospect,
 )]
 pub enum Side {
+    #[default]
     Left,
     Right,
 }
@@ -24,12 +26,6 @@ impl Side {
             Side::Left => Self::Right,
             Side::Right => Self::Left,
         }
-    }
-}
-
-impl Default for Side {
-    fn default() -> Self {
-        Self::Left
     }
 }
 

@@ -15,6 +15,7 @@ pub struct MotionSelection {
     Clone,
     Copy,
     Debug,
+    Default,
     Deserialize,
     Eq,
     PartialEq,
@@ -40,15 +41,10 @@ pub enum MotionType {
     StandUpBack,
     StandUpFront,
     StandUpSitting,
+    #[default]
     Unstiff,
     Walk,
     WideStance,
-}
-
-impl Default for MotionType {
-    fn default() -> Self {
-        Self::Unstiff
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
