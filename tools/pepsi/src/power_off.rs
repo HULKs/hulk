@@ -2,7 +2,7 @@ use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::{number_to_ip, Connection, NaoAddress};
-use constants::HARDWARE_IDS;
+use constants::TEAM;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
 
@@ -20,14 +20,15 @@ pub struct Arguments {
 
 pub async fn power_off(arguments: Arguments) -> Result<()> {
     if arguments.all {
-        let addresses = HARDWARE_IDS
-            .keys()
-            .map(|&nao_number| async move {
-                let host = number_to_ip(nao_number, Connection::Wired)?;
+        let addresses = TEAM
+            .naos
+            .iter()
+            .map(|nao| async move {
+                let host = number_to_ip(nao.number, Connection::Wired)?;
                 match Nao::try_new_with_ping(host).await {
                     Ok(nao) => Ok(nao),
                     Err(_) => {
-                        let host = number_to_ip(nao_number, Connection::Wireless)?;
+                        let host = number_to_ip(nao.number, Connection::Wireless)?;
                         Nao::try_new_with_ping(host).await
                     }
                 }

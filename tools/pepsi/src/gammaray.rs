@@ -34,7 +34,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
 
     verify_image(image_path).wrap_err("image verification failed")?;
 
-    let hardware_ids = &repository.parameters_root().join("hardware_ids.json");
+    let team_toml = &repository.parameters_root().join("team.toml");
 
     ProgressIndicator::map_tasks(
         arguments.naos,
@@ -46,12 +46,12 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
             })
             .await
             .wrap_err_with(|| format!("failed to flash image to {nao_address}"))?;
-            progress_bar.set_message("Uploading hardware ids...");
+            progress_bar.set_message("Uploading team configuration...");
             nao.rsync_with_nao(false)
-                .arg(hardware_ids.to_str().unwrap())
+                .arg(team_toml.to_str().unwrap())
                 .arg(format!("{}:/media/internal/", nao.host))
                 .spawn()
-                .wrap_err("failed to upload hardware ids")?;
+                .wrap_err("failed to upload team configuration")?;
             nao.reboot()
                 .await
                 .wrap_err_with(|| format!("failed to reboot {nao_address}"))

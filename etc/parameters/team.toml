@@ -1,0 +1,121 @@
+team_number = 24
+
+[[naos]]
+number = 21
+hostname = "tuhhnao21"
+body_id = "P0000073A03S84A00012"
+head_id = "P0000074A03S84400010"
+
+[[naos]]
+number = 22
+hostname = "tuhhnao22"
+body_id = "P0000073A03S83I00015"
+head_id = "P0000074A03S84A00011"
+
+[[naos]]
+number = 23
+hostname = "tuhhnao23"
+body_id = "P0000073A03S85B00002"
+head_id = "P0000074A03S85B00016"
+
+[[naos]]
+number = 25
+hostname = "tuhhnao25"
+body_id = "P0000073A06S8CP00043"
+head_id = "P0000074A04S8CP00042"
+
+[[naos]]
+number = 26
+hostname = "tuhhnao26"
+body_id = "P0000073A06S8CP00038"
+head_id = "P0000074A04S8CP00040"
+
+[[naos]]
+number = 27
+hostname = "tuhhnao27"
+body_id = "P0000073A06S8CP00035"
+head_id = "P0000074A04S8CP00037"
+
+[[naos]]
+number = 28
+hostname = "tuhhnao28"
+body_id = "P0000073A06S8CP00054"
+head_id = "P0000074A04S8CP00056"
+
+[[naos]]
+number = 29
+hostname = "tuhhnao29"
+body_id = "P0000073A10S99M00002"
+head_id = "P0000074A05S99M00009"
+
+[[naos]]
+number = 30
+hostname = "tuhhnao30"
+body_id = "P0000073A10S9A900011"
+head_id = "P0000074A06S9A900031"
+
+[[naos]]
+number = 31
+hostname = "tuhhnao31"
+body_id = "P0000073A10S9A900008"
+head_id = "P0000074A06S9A900006"
+
+[[naos]]
+number = 32
+hostname = "tuhhnao32"
+body_id = "P0000073A10S98U00008"
+head_id = "P0000074A05S98U00019"
+
+[[naos]]
+number = 33
+hostname = "tuhhnao33"
+body_id = "P0000073A19S31C00021"
+head_id = "P0000074A09S31C00023"
+
+[[naos]]
+number = 34
+hostname = "tuhhnao34"
+body_id = "P0000073A19S31C00028"
+head_id = "P0000074A09S31C00028"
+
+[[naos]]
+number = 35
+hostname = "tuhhnao35"
+body_id = "P0000073A19S31C00037"
+head_id = "P0000074A09S31C00037"
+
+[[naos]]
+number = 36
+hostname = "tuhhnao36"
+body_id = "P0000073A19S31C00029"
+head_id = "P0000074A09S31C00029"
+
+[[naos]]
+number = 37
+hostname = "tuhhnao37"
+body_id = "P0000073A19S31T00003"
+head_id = "P0000074A09S31T00003"
+
+[[naos]]
+number = 38
+hostname = "tuhhnao38"
+body_id = "P0000073A20S41M00046"
+head_id = "P0000074A10S41M00047"
+
+[[naos]]
+number = 39
+hostname = "hannelore"
+body_id = "P0000073A19S28J00025"
+head_id = "P0000074A09S28J00025"
+
+[[naos]]
+number = 40
+hostname = "tuhhnao40"
+body_id = "P0000073A20S41M00048"
+head_id = "P0000074A10S41M00048"
+
+[[naos]]
+number = 41
+hostname = "tuhhnao41"
+body_id = "P0000073A20S41M00042"
+head_id = "P0000074A10S41M00040"
