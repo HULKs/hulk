@@ -85,7 +85,6 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
                     .ctx()
                     .animate_bool(self.id.with("vline").with(idx), show_line);
 
-                let line_rect = rect.shrink(2.0);
                 let height = vec2(0.0, rect.height() - 4.0);
                 let center = rect.left_center();
 

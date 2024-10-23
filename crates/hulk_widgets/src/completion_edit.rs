@@ -165,17 +165,18 @@ impl<'a, 'b, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, 'b, T> {
         let popup_id = self.id.with("popup");
         let text_size = ui.text_style_height(&TextStyle::Body);
 
-        popup_below_widget(
+        let should_close_popup = popup_below_widget(
             ui,
             popup_id,
             &edit_output.response,
             PopupCloseBehavior::CloseOnClickOutside,
             |ui| {
+                let mut close_me = false;
                 ui.set_max_height(text_size * 20.0);
 
                 if matching_items.is_empty() {
                     ui.label("No results");
-                    return;
+                    return close_me;
                 }
 
                 ScrollArea::vertical().show(ui, |ui| {
@@ -197,20 +198,29 @@ impl<'a, 'b, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, 'b, T> {
                             state.user_state = UserState::Selecting {
                                 index: visual_index,
                             };
+                            close_me = true;
                         }
                     }
                 });
+
+                close_me
             },
         );
 
-        let changed_focus =
-            edit_output.response.gained_focus() || edit_output.response.lost_focus();
+        let gained_focus = edit_output.response.gained_focus();
+        let close_popup = matches!(should_close_popup, Some(true))
+            || edit_output.response.lost_focus()
+                && ui.input(|reader| reader.key_pressed(Key::Enter));
 
         ui.memory_mut(|memory| {
-            if changed_focus {
+            if gained_focus {
                 memory.toggle_popup(popup_id);
             }
+            if close_popup {
+                memory.close_popup();
+            }
         });
+
         if let UserState::Selecting { index } = state.user_state {
             let (actual_index, _) = matching_items[index];
             *self.selected = self.items.get(actual_index);
