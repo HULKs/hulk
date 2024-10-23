@@ -1,5 +1,5 @@
 use egui::{
-    vec2, Align2, Context, Id, InnerResponse, Rect, Response, Rounding, Sense, TextStyle, Ui,
+    vec2, Align2, Context, Id, InnerResponse, Key, Rect, Response, Rounding, Sense, TextStyle, Ui,
     Widget,
 };
 
@@ -52,6 +52,15 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
             .unwrap_or(ui.style().noninteractive().rounding);
 
         let (response, painter) = ui.allocate_painter(vec2(width, 2.0 * text_size), Sense::hover());
+        if response.contains_pointer() {
+            ui.input(|reader| {
+                if reader.key_pressed(Key::ArrowLeft) {
+                    state.selected = state.selected.saturating_sub(1);
+                } else if reader.key_pressed(Key::ArrowRight) {
+                    state.selected = (state.selected + 1).min(self.selectables.len() - 1);
+                }
+            })
+        }
         painter.rect_filled(response.rect, rounding, ui.style().visuals.extreme_bg_color);
 
         let text_rects = text_rects(response.rect, self.selectables.len());
@@ -70,10 +79,21 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
             let response = ui.interact(rect, self.id.with(idx), Sense::click());
             let style = ui.style().interact(&response);
 
-            if idx > 0 && state.selected != idx && state.selected + 1 != idx {
+            let show_line = idx > 0 && state.selected != idx && state.selected + 1 != idx;
+            {
+                let animated_height = ui
+                    .ctx()
+                    .animate_bool(self.id.with("vline").with(idx), show_line);
+
                 let line_rect = rect.shrink(2.0);
+                let height = vec2(0.0, rect.height() - 4.0);
+                let center = rect.left_center();
+
                 painter.line_segment(
-                    [line_rect.left_top(), line_rect.left_bottom()],
+                    [
+                        center - 0.5 * animated_height * height,
+                        center + 0.5 * animated_height * height,
+                    ],
                     noninteractive_style.bg_stroke,
                 );
             }
