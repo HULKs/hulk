@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use eframe::epaint::Color32;
+use filtering::mean_clustering::MeanClustering;
 
 use coordinate_systems::Ground;
 use types::{
@@ -48,13 +49,13 @@ impl Layer<Ground> for FeetDetection {
         if let Some(clusters) = self.cluster_bottom.get_last_value()?.flatten() {
             for cluster in clusters {
                 let radius = 0.1;
-                painter.circle_filled(cluster.mean, radius, Color32::YELLOW);
+                painter.circle_filled(cluster.mean(), radius, Color32::YELLOW);
             }
         }
         if let Some(clusters) = self.cluster_top.get_last_value()?.flatten() {
             for cluster in clusters {
                 let radius = 0.1;
-                painter.circle_filled(cluster.mean, radius, Color32::YELLOW);
+                painter.circle_filled(cluster.mean(), radius, Color32::YELLOW);
             }
         }
 
