@@ -1,10 +1,7 @@
 import numpy as np
-
 from gymnasium import utils
 from gymnasium.envs.mujoco import MujocoEnv
-# from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
-
 
 DEFAULT_CAMERA_CONFIG = {
     "trackbodyid": 1,
@@ -15,16 +12,14 @@ DEFAULT_CAMERA_CONFIG = {
 
 
 class NaoStandup(MujocoEnv, utils.EzPickle):
-    """
-    ## Description
+    """## Description.
 
     This environment is based on the environment introduced by Tassa, Erez and Todorov
     in ["Synthesis and stabilization of complex behaviors through online trajectory optimization"](https://ieeexplore.ieee.org/document/6386025).
-    The 3D bipedal robot is designed to simulate a human. It has a torso (abdomen) with a
-    pair of legs and arms. The legs each consist of two links, and so the arms (representing the
-    knees and elbows respectively). The environment starts with the humanoid laying on the ground,
-    and then the goal of the environment is to make the humanoid standup and then keep it standing
-    by applying torques on the various hinges.
+    The 3D bipedal robot is designed to simulate a NAO. It has a torso (abdomen) with a
+    pair of legs and arms. The environment starts with the humanoid laying on the
+    ground, and then the goal of the environment is to make the humanoid standup and
+    then keep it standing by applying torques on the various hinges.
 
     ## Action Space
     The agent take a 17-element vector for actions.
@@ -125,8 +120,8 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
     adds another 84 elements in the state space
     - *qfrc_actuator:* Constraint force generated as the actuator force. This has shape
     `(23,)`  *(nv * 1)* and hence adds another 23 elements to the state space.
-    - *cfrc_ext:* This is the center of mass based external force on the body.  It has shape
-    14 * 6 (*nbody * 6*) and hence adds to another 84 elements in the state space.
+    - *cfrc_ext:* This is the center of mass based external force on the body.  It has
+    shape 14 * 6 (*nbody * 6*) and hence adds to another 84 elements in the state space.
     where *nbody* stands for the number of bodies in the robot and *nv* stands for the
     number of degrees of freedom (*= dim(qvel)*)
 
@@ -219,30 +214,6 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
     1. Truncation: The episode duration reaches a 1000 timesteps
     2. Termination: Any of the state space values is no longer finite
 
-    ## Arguments
-
-    No additional arguments are currently supported.
-
-    ```python
-    import gymnasium as gym
-    env = gym.make('HumanoidStandup-v4')
-    ```
-
-    There is no v3 for HumanoidStandup, unlike the robot environments where a v3 and
-    beyond take gymnasium.make kwargs such as xml_file, ctrl_cost_weight, reset_noise_scale etc.
-
-    ```python
-    import gymnasium as gym
-    env = gym.make('HumanoidStandup-v2')
-    ```
-
-    ## Version History
-
-    * v4: All MuJoCo environments now use the MuJoCo bindings in mujoco >= 2.1.3
-    * v3: Support for `gymnasium.make` kwargs such as `xml_file`, `ctrl_cost_weight`, `reset_noise_scale`, etc. rgb rendering comes from tracking camera (so agent does not run away from screen)
-    * v2: All continuous control environments now use mujoco-py >= 1.50
-    * v1: max_time_steps raised to 1000 for robot based tasks. Added reward_threshold to environments.
-    * v0: Initial versions release (1.0.0)
     """
 
     metadata = {
@@ -254,14 +225,18 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         "render_fps": 67,
     }
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         observation_space = Box(
-            low=-np.inf, high=np.inf, shape=(376,), dtype=np.float64
+            low=-np.inf,
+            high=np.inf,
+            shape=(419,),
+            dtype=np.float64,
         )
-        
+
         import pathlib
+
         current_dir = pathlib.Path(__file__).parent.resolve()
-        
+
         MujocoEnv.__init__(
             self,
             f"{current_dir}/nao.xml",
@@ -272,7 +247,7 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         )
         utils.EzPickle.__init__(self, **kwargs)
 
-    def _get_obs(self):
+    def _get_obs(self) -> list:
         data = self.data
         return np.concatenate(
             [
@@ -282,7 +257,7 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
                 data.cvel.flat,
                 data.qfrc_actuator.flat,
                 data.cfrc_ext.flat,
-            ]
+            ],
         )
 
     def step(self, a):
@@ -303,14 +278,14 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             reward,
             False,
             False,
-            dict(
-                reward_linup=uph_cost,
-                reward_quadctrl=-quad_ctrl_cost,
-                reward_impact=-quad_impact_cost,
-            ),
+            {
+                "reward_linup": uph_cost,
+                "reward_quadctrl": -quad_ctrl_cost,
+                "reward_impact": -quad_impact_cost,
+            },
         )
 
-    def reset_model(self):
+    def reset_model(self) -> list:
         c = 0.01
         self.set_state(
             self.init_qpos + self.np_random.uniform(low=-c, high=c, size=self.model.nq),

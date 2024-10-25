@@ -1,6 +1,7 @@
-<mujoco model="NaoV6">
-  <option integrator="implicitfast" timestep="0.003">
-  <!-- <option integrator="RK4" iterations="50" solver="PGS" timestep="0.003"> -->
+<mujoco model="naoV6">
+  <compiler angle="degree" inertiafromgeom="true"/>
+  <!-- <option integrator="implicitfast" timestep="0.003"> -->
+  <option integrator="RK4" iterations="50" solver="PGS" timestep="0.003">
     <!-- <flag solverstat="enable" energy="enable"/> -->
     <!--<flag gravity="disable"/>-->
   </option>
@@ -19,13 +20,13 @@
   <default>
     <joint armature="1" damping="1" limited="true"/>
     <geom conaffinity="1" condim="1" contype="1" margin="0.001" rgba="0.8 0.6 .4 1"/>
-    <!-- <geom rgba="0.5 0.5 0.5 0.5"/> -->
-    <motor ctrllimited="false"/>
+    <!-- <geom conaffinity="1" condim="1" contype="1" margin="0.001" material="geom" rgba="0.8 0.6 .4 1"/> -->
+    <motor ctrllimited="true" ctrlrange="-1 1"/>
   </default>
 
   <worldbody>
     <geom name="floor" size="0 0 .05" type="plane" material="grid" condim="3"/>
-    <light name="top" pos="0 0 2" mode="trackcom"/>
+    <light cutoff="100" diffuse="1 1 1" dir="-0 0 -1.3" directional="true" exponent="1" pos="0 0 1.3" specular=".1 .1 .1"/>
 
     <body name="torso" pos="0 0 2" euler="0 0 0">
       <freejoint name="root"/>
@@ -172,34 +173,63 @@
   </sensor>
 
   <actuator>
-    <position name="head_yaw" joint="head_yaw" kv="0.2"/> 
-    <position name="head_pitch" joint="head_pitch" kv="0.2"/>
+    <!-- <position name="head_yaw" joint="head_yaw" kv="0.2"/>  -->
+    <!-- <position name="head_pitch" joint="head_pitch" kv="0.2"/> -->
+    <!---->
+    <!-- <position name="left_shoulder_pitch" joint="left_shoulder_pitch" kv="0.2"/> -->
+    <!-- <position name="left_shoulder_roll" joint="left_shoulder_roll" kv="0.2"/> -->
+    <!-- <position name="left_elbow_yaw" joint="left_elbow_yaw" kv="0.2"/> -->
+    <!-- <position name="left_elbow_roll" joint="left_elbow_roll" kv="0.2"/> -->
+    <!-- <position name="left_wrist_yaw" joint="left_wrist_yaw" kv="0.2"/> -->
+    <!---->
+    <!-- <position name="right_shoulder_pitch" joint="right_shoulder_pitch" kv="0.2"/> -->
+    <!-- <position name="right_shoulder_roll" joint="right_shoulder_roll" kv="0.2"/> -->
+    <!-- <position name="right_elbow_yaw" joint="right_elbow_yaw" kv="0.2"/> -->
+    <!-- <position name="right_elbow_roll" joint="right_elbow_roll" kv="0.2"/> -->
+    <!-- <position name="right_wrist_yaw" joint="right_wrist_yaw" kv="0.2"/> -->
+    <!---->
+    <!-- <position name="left_hip_yaw_pitch" joint="left_hip_yaw_pitch" kv="0.2"/> -->
+    <!-- <position name="left_hip_roll" joint="left_hip_roll" kv="0.2"/> -->
+    <!-- <position name="left_hip_pitch" joint="left_hip_pitch" kv="0.2"/> -->
+    <!-- <position name="left_knee_pitch" joint="left_knee_pitch" kv="0.2"/> -->
+    <!-- <position name="left_ankle_pitch" joint="left_ankle_pitch" kv="0.2"/> -->
+    <!-- <position name="left_ankle_roll" joint="left_ankle_roll" kv="0.2"/> -->
+    <!---->
+    <!-- <position name="right_hip_yaw_pitch" joint="right_hip_yaw_pitch" kv="0.2"/> -->
+    <!-- <position name="right_hip_roll" joint="right_hip_roll" kv="0.2"/> -->
+    <!-- <position name="right_hip_pitch" joint="right_hip_pitch" kv="0.2"/> -->
+    <!-- <position name="right_knee_pitch" joint="right_knee_pitch" kv="0.2"/> -->
+    <!-- <position name="right_ankle_pitch" joint="right_ankle_pitch" kv="0.2"/> -->
+    <!-- <position name="right_ankle_roll" joint="right_ankle_roll" kv="0.2"/> -->
+    
+    <motor name="head_yaw" joint="head_yaw" gear="100"/> 
+    <motor name="head_pitch" joint="head_pitch" gear="100"/>
 
-    <position name="left_shoulder_pitch" joint="left_shoulder_pitch" kv="0.2"/>
-    <position name="left_shoulder_roll" joint="left_shoulder_roll" kv="0.2"/>
-    <position name="left_elbow_yaw" joint="left_elbow_yaw" kv="0.2"/>
-    <position name="left_elbow_roll" joint="left_elbow_roll" kv="0.2"/>
-    <position name="left_wrist_yaw" joint="left_wrist_yaw" kv="0.2"/>
+    <motor name="left_shoulder_pitch" joint="left_shoulder_pitch" gear="100"/>
+    <motor name="left_shoulder_roll" joint="left_shoulder_roll" gear="100"/>
+    <motor name="left_elbow_yaw" joint="left_elbow_yaw" gear="100"/>
+    <motor name="left_elbow_roll" joint="left_elbow_roll" gear="100"/>
+    <motor name="left_wrist_yaw" joint="left_wrist_yaw" gear="100"/>
 
-    <position name="right_shoulder_pitch" joint="right_shoulder_pitch" kv="0.2"/>
-    <position name="right_shoulder_roll" joint="right_shoulder_roll" kv="0.2"/>
-    <position name="right_elbow_yaw" joint="right_elbow_yaw" kv="0.2"/>
-    <position name="right_elbow_roll" joint="right_elbow_roll" kv="0.2"/>
-    <position name="right_wrist_yaw" joint="right_wrist_yaw" kv="0.2"/>
+    <motor name="right_shoulder_pitch" joint="right_shoulder_pitch" gear="100"/>
+    <motor name="right_shoulder_roll" joint="right_shoulder_roll" gear="100"/>
+    <motor name="right_elbow_yaw" joint="right_elbow_yaw" gear="100"/>
+    <motor name="right_elbow_roll" joint="right_elbow_roll" gear="100"/>
+    <motor name="right_wrist_yaw" joint="right_wrist_yaw" gear="100"/>
 
-    <position name="left_hip_yaw_pitch" joint="left_hip_yaw_pitch" kv="0.2"/>
-    <position name="left_hip_roll" joint="left_hip_roll" kv="0.2"/>
-    <position name="left_hip_pitch" joint="left_hip_pitch" kv="0.2"/>
-    <position name="left_knee_pitch" joint="left_knee_pitch" kv="0.2"/>
-    <position name="left_ankle_pitch" joint="left_ankle_pitch" kv="0.2"/>
-    <position name="left_ankle_roll" joint="left_ankle_roll" kv="0.2"/>
+    <motor name="left_hip_yaw_pitch" joint="left_hip_yaw_pitch" gear="100"/>
+    <motor name="left_hip_roll" joint="left_hip_roll" gear="100"/>
+    <motor name="left_hip_pitch" joint="left_hip_pitch" gear="100"/>
+    <motor name="left_knee_pitch" joint="left_knee_pitch" gear="100"/>
+    <motor name="left_ankle_pitch" joint="left_ankle_pitch" gear="100"/>
+    <motor name="left_ankle_roll" joint="left_ankle_roll" gear="100"/>
 
-    <position name="right_hip_yaw_pitch" joint="right_hip_yaw_pitch" kv="0.2"/>
-    <position name="right_hip_roll" joint="right_hip_roll" kv="0.2"/>
-    <position name="right_hip_pitch" joint="right_hip_pitch" kv="0.2"/>
-    <position name="right_knee_pitch" joint="right_knee_pitch" kv="0.2"/>
-    <position name="right_ankle_pitch" joint="right_ankle_pitch" kv="0.2"/>
-    <position name="right_ankle_roll" joint="right_ankle_roll" kv="0.2"/>
+    <motor name="right_hip_yaw_pitch" joint="right_hip_yaw_pitch" gear="100"/>
+    <motor name="right_hip_roll" joint="right_hip_roll" gear="100"/>
+    <motor name="right_hip_pitch" joint="right_hip_pitch" gear="100"/>
+    <motor name="right_knee_pitch" joint="right_knee_pitch" gear="100"/>
+    <motor name="right_ankle_pitch" joint="right_ankle_pitch" gear="100"/>
+    <motor name="right_ankle_roll" joint="right_ankle_roll" gear="100"/>
   </actuator>
 
   <keyframe>
