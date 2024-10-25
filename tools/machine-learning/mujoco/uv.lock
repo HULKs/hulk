@@ -197,25 +197,6 @@ wheels = [
 ]
 
 [[package]]
-name = "cython"
-version = "0.29.37"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/2a/97/8cc3fe7c6de4796921236a64d00ca8a95565772e57f0d3caae68d880b592/Cython-0.29.37.tar.gz", hash = "sha256:f813d4a6dd94adee5d4ff266191d1d95bf6d4164a4facc535422c021b2504cfb", size = 2099621 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/2e/9116c533bd9fd36db3faa50d60e95305b6a6f1ed4c4d2abb214b6db78ed7/Cython-0.29.37-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.manylinux_2_24_aarch64.whl", hash = "sha256:4658499a41255431f6bbdca7e634e9c8d3a4c190bf24b4aa1646dac751d3da4d", size = 1807840 },
-    { url = "https://files.pythonhosted.org/packages/5b/b7/6e35bbbf253ff6c383eec57baab1c6814107b2b9caf26b10e9c25014bb1e/Cython-0.29.37-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_24_x86_64.whl", hash = "sha256:12192ab269e7185720f2d2f8894587bf1da4276db1b9b869e4622a093f18cae6", size = 1910402 },
-    { url = "https://files.pythonhosted.org/packages/20/88/af83962f9134a92949b8e780205d824be8aab704fdb711f379d434f3e9af/Cython-0.29.37-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_24_i686.whl", hash = "sha256:9450e0766ab65947f8a2a36f9e59079fc879c3807ec936c61725a48c97741a52", size = 1911975 },
-    { url = "https://files.pythonhosted.org/packages/45/2e/9c904296381b3afc6cd8b16f3c4cb908265c969b807cddf0b65c07449758/Cython-0.29.37-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:177481b0a7e003e5c49e2bf0dda1d6fe610c239f17642a5da9f18c2ad0c5f6b6", size = 2006645 },
-    { url = "https://files.pythonhosted.org/packages/c2/ba/eddee5c048c621607023f7438e27f9e559d4c34149d758049d50150c2b2f/Cython-0.29.37-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.manylinux_2_24_aarch64.whl", hash = "sha256:b048354fd380278f2fa096e7526973beb6e0491a9d44d7e4e29df52612d25776", size = 1808964 },
-    { url = "https://files.pythonhosted.org/packages/22/99/2b01e0164ff1ea592e3515e473517674780f0f3d49f48af30324b85ac94d/Cython-0.29.37-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_24_x86_64.whl", hash = "sha256:ea6d208be1906c5df25b674777d5905c6d8e9ef0b201b830849e0729ba08caba", size = 1910527 },
-    { url = "https://files.pythonhosted.org/packages/6a/2f/b3f3694aa2ea48a39c2ef1b218b6a25f4b0d62836495f9a65495f060969a/Cython-0.29.37-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.manylinux_2_24_i686.whl", hash = "sha256:af03854571738307a5f30cc6b724081d72db12f907699e7fdfc04c12c839158e", size = 1910933 },
-    { url = "https://files.pythonhosted.org/packages/3d/7f/f1a8ec07e0e7e2af84940c0155e6f8bb383671da34a785f441a19f2cff4e/Cython-0.29.37-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:c33508ede9172a6f6f99d5a6dadc7fee23c840423b411ef8b5a403c04e530297", size = 2006522 },
-    { url = "https://files.pythonhosted.org/packages/c9/aa/99a0eac01136c0c75feb3210d107c49f93d49d5cb97f19e99318b9ecefdd/Cython-0.29.37-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e8af5975ecfae254d8c0051204fca995dda8f93cf9f0bbf7571e3cda2b0cef4d", size = 1951525 },
-    { url = "https://files.pythonhosted.org/packages/14/5f/f5efba4409474892d650ba7e57349afa5d4c41d06f5ba3356c32891c75a6/Cython-0.29.37-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:29415d8eb2fdc1ea518ca4810c50a2d062b387d4c9fbcfb3352346e93db22c6d", size = 1950936 },
-    { url = "https://files.pythonhosted.org/packages/7e/26/9d8de10005fedb1eceabe713348d43bae1dbab1786042ca0751a2e2b0f8c/Cython-0.29.37-py2.py3-none-any.whl", hash = "sha256:95f1d6a83ef2729e67b3fa7318c829ce5b07ac64c084cd6af11c228e0364662c", size = 989503 },
-]
-
-[[package]]
 name = "debugpy"
 version = "1.8.8"
 source = { registry = "https://pypi.org/simple" }
@@ -291,15 +272,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/2e/2c/8384832b7a6b1fd6ba95bbdcae26e7137bb3eedc955c42fd5cdcc086cfbf/Farama-Notifications-0.0.4.tar.gz", hash = "sha256:13fceff2d14314cf80703c8266462ebf3733c7d165336eee998fc58e545efd18", size = 2131 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/05/2c/ffc08c54c05cdce6fbed2aeebc46348dbe180c6d2c541c7af7ba0aa5f5f8/Farama_Notifications-0.0.4-py3-none-any.whl", hash = "sha256:14de931035a41961f7c056361dc7f980762a143d05791ef5794a751a2caf05ae", size = 2511 },
-]
-
-[[package]]
-name = "fasteners"
-version = "0.19"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5f/d4/e834d929be54bfadb1f3e3b931c38e956aaa3b235a46a3c764c26c774902/fasteners-0.19.tar.gz", hash = "sha256:b4f37c3ac52d8a445af3a66bce57b33b5e90b97c696b7b984f530cf8f0ded09c", size = 24832 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/bf/fd60001b3abc5222d8eaa4a204cd8c0ae78e75adc688f33ce4bf25b7fafa/fasteners-0.19-py3-none-any.whl", hash = "sha256:758819cb5d94cdedf4e836988b74de396ceacb8e2794d21f82d131fd9ee77237", size = 18679 },
 ]
 
 [[package]]
@@ -446,14 +418,6 @@ wheels = [
 [package.optional-dependencies]
 classic-control = [
     { name = "pygame" },
-]
-mujoco = [
-    { name = "imageio" },
-    { name = "mujoco" },
-]
-mujoco-py = [
-    { name = "cython" },
-    { name = "mujoco-py" },
 ]
 
 [[package]]
@@ -928,7 +892,7 @@ name = "mujoco-env"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "gymnasium", extra = ["classic-control", "mujoco", "mujoco-py"] },
+    { name = "gymnasium", extra = ["classic-control"] },
     { name = "ipykernel" },
     { name = "mediapy" },
     { name = "moviepy" },
@@ -947,11 +911,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gymnasium", extras = ["classic-control", "mujoco", "mujoco-py"] },
+    { name = "gymnasium", extras = ["classic-control"] },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "mediapy", specifier = ">=1.2.2" },
     { name = "moviepy", specifier = ">=1.0.3" },
-    { name = "mujoco", specifier = ">=2.3.5" },
+    { name = "mujoco", specifier = ">=3.2.4" },
     { name = "neovim", specifier = ">=0.3.1" },
     { name = "numpy", specifier = ">=2.1.2" },
     { name = "scipy", specifier = ">=1.14.1" },
@@ -962,23 +926,6 @@ requires-dist = [
 dev = [
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "ruff", specifier = ">=0.7.3" },
-]
-
-[[package]]
-name = "mujoco-py"
-version = "2.1.2.14"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cffi" },
-    { name = "cython" },
-    { name = "fasteners" },
-    { name = "glfw" },
-    { name = "imageio" },
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b2/e8/858de82470a5e4f02431f582c8af431b6a13ccfa23c6990c622bb5270a8a/mujoco-py-2.1.2.14.tar.gz", hash = "sha256:eb5b14485acf80a3cf8c15f4b080c6a28a9f79e68869aa696d16cbd51ea7706f", size = 2381463 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/e5/e7504cb2ded511910c2a2e8f9c9e28af075850eb03a5c5a8daee5d7d9517/mujoco_py-2.1.2.14-py3-none-any.whl", hash = "sha256:37c0b41bc0153a8a0eb3663103a67c60f65467753f74e4ff6e68b879f3e3a71f", size = 2429511 },
 ]
 
 [[package]]
