@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
@@ -8,12 +8,12 @@ use spl_network_messages::{Penalty, TeamState};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Players<T> {
-    pub inner: HashMap<usize, T>,
+    pub inner: BTreeMap<usize, T>,
 }
 impl<T> Players<T> {
     pub fn new() -> Self {
         Players {
-            inner: HashMap::with_capacity(MAX_NUM_PLAYERS as usize),
+            inner: BTreeMap::new(),
         }
     }
 
@@ -21,14 +21,14 @@ impl<T> Players<T> {
     where
         T: Clone,
     {
-        let mut inner = HashMap::with_capacity(MAX_NUM_PLAYERS as usize);
+        let mut inner = BTreeMap::new();
         for i in 1..=MAX_NUM_PLAYERS as usize {
             inner.insert(i, content.clone());
         }
         Players { inner }
     }
 
-    pub fn inner(&self) -> &HashMap<usize, T> {
+    pub fn inner(&self) -> &BTreeMap<usize, T> {
         &self.inner
     }
 }
@@ -37,7 +37,7 @@ where
     T: Default,
 {
     fn default() -> Self {
-        let mut inner = HashMap::with_capacity(MAX_NUM_PLAYERS as usize);
+        let mut inner = BTreeMap::new();
         for i in 1..=MAX_NUM_PLAYERS as usize {
             inner.insert(i, T::default());
         }
@@ -46,7 +46,7 @@ where
 }
 
 impl<T> Deref for Players<T> {
-    type Target = HashMap<usize, T>;
+    type Target = BTreeMap<usize, T>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -77,7 +77,7 @@ impl<T> IndexMut<usize> for Players<T> {
 
 impl From<TeamState> for Players<Option<Penalty>> {
     fn from(team_state: TeamState) -> Self {
-        let mut inner = HashMap::with_capacity(MAX_NUM_PLAYERS as usize);
+        let mut inner = BTreeMap::new();
 
         for (i, player) in team_state.players.iter().enumerate() {
             if i < MAX_NUM_PLAYERS as usize {
