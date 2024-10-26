@@ -20,7 +20,7 @@ jobs:
       uses: redhat-actions/buildah-build@v2
       with:
         image: hulk-ci
-        tags: latest 1.81.0 ${{ github.sha }}
+        tags: ${{ github.sha }} 1.82.0-mold
         containerfiles: |
           tools/ci/github-runners/Containerfile
 

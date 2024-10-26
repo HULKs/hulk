@@ -1,4 +1,4 @@
-FROM docker.io/rust:1.81.0
+FROM docker.io/rust:1.82.0
 
 RUN apt-get update && apt-get install --no-install-recommends --yes \
   buildah \
@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
   lua-inspect \
   mkdocs \
   mkdocs-material \
+  mold \
   ninja-build \
   python3 \
   python3-click \
