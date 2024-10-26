@@ -11,7 +11,7 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
-    field_dimensions::{FieldDimensions, Side},
+    field_dimensions::{FieldDimensions, Half, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, WalkSpeed},
@@ -158,11 +158,17 @@ impl Behavior {
             }
         }
 
-        if matches!(world_state.robot.jersey_number, 1)
-            && matches!(world_state.robot.role, Role::Keeper)
-        //#todo! context.filtered_game_controller_state.goalkeeper_jersey_number
-        {
-            actions.push(Action::WideStance);
+        if let Some(game_controller_state) = &context.world_state.filtered_game_controller_state {
+            if game_controller_state.goal_keeper_number == context.world_state.robot.jersey_number {
+                if let Some(ground_to_field) = context.world_state.robot.ground_to_field {
+                    if context
+                        .field_dimensions
+                        .is_inside_penalty_box(ground_to_field.translation(), Half::Own)
+                    {
+                        actions.push(Action::WideStance);
+                    }
+                }
+            }
         }
         actions.push(Action::InterceptBall);
 

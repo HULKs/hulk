@@ -98,6 +98,11 @@ impl FieldDimensions {
         position.x().abs() > self.length / 2.0 && position.y().abs() < self.goal_inner_width / 2.0
     }
 
+    pub fn is_inside_penalty_box(&self, position: Point2<Field>, half: Half) -> bool {
+        position.x() < half.sign() * (self.length / 2.0 - self.penalty_area_length)
+            && position.y().abs() < self.penalty_area_width / 2.0
+    }
+
     pub fn penalty_spot(&self, half: Half) -> Point2<Field> {
         let unsigned_x = self.length / 2.0 - self.penalty_marker_distance;
         point![unsigned_x * half.sign(), 0.0]
