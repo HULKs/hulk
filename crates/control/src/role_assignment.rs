@@ -155,7 +155,10 @@ impl RoleAssignment {
         {
             if let Some(game_controller_state) = context.filtered_game_controller_state {
                 if let Some(0) = context.replacement_keeper_priority {
-                    new_role = Role::ReplacementKeeper;
+                    if let Some(0) = context.striker_priority {
+                    } else {
+                        new_role = Role::ReplacementKeeper;
+                    }
                 } else if let Some(0) = context.striker_priority {
                     new_role = Role::Striker;
                 } else if game_controller_state.goal_keeper_number == *context.jersey_number {
@@ -396,7 +399,9 @@ impl RoleAssignment {
             self.time_when_keeper_returned_to_field.take();
         }
         if let Some(return_time) = self.time_when_keeper_returned_to_field {
-            if cycle_start_time.duration_since(return_time).expect("keeper was unpenalized in the future")
+            if cycle_start_time
+                .duration_since(return_time)
+                .expect("keeper was unpenalized in the future")
                 < *context.keeper_replacementkeeper_switch_time
                 && !send_spl_striker_message
             {
