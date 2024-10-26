@@ -38,7 +38,6 @@ pub fn frame_recorder(
         robots: players,
         ball: ball.state,
     };
-    // println!("{:?}", frame.robots);
     recording.frames.push(frame);
 }
 

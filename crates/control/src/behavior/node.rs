@@ -62,7 +62,6 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
-    //todo! filtered_game_controller_state
     parameters: Parameter<BehaviorParameters, "behavior">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

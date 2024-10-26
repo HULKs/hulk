@@ -39,7 +39,6 @@ pub struct RoleAssignment {
     role_initialized: bool,
     team_ball: Option<BallPosition<Field>>,
     time_when_keeper_returned_to_field: Option<SystemTime>,
-    // last_time_player_was_penalized: Players<Option<SystemTime>>,
 }
 
 #[context]
@@ -73,8 +72,6 @@ pub struct CycleContext {
     spl_network: Parameter<SplNetworkParameters, "spl_network">,
 
     hardware: HardwareInterface,
-    // last_time_player_was_penalized:
-    //     AdditionalOutput<Players<Option<SystemTime>>, "last_time_player_penalized">,
 }
 
 #[context]
@@ -94,15 +91,7 @@ impl RoleAssignment {
             role: Role::Striker,
             role_initialized: false,
             team_ball: None,
-            time_when_keeper_returned_to_field: None, // last_time_player_was_penalized: Players {
-                                                      //     one: None,
-                                                      //     two: None,
-                                                      //     three: None,
-                                                      //     four: None,
-                                                      //     five: None,
-                                                      //     six: None,
-                                                      //     seven: None,
-                                                      // },
+            time_when_keeper_returned_to_field: None,
         })
     }
 
@@ -126,28 +115,6 @@ impl RoleAssignment {
 
         let mut defense_optional_roles = context.offense_optional_roles.clone();
         defense_optional_roles.reverse();
-        // let available_field_players = if let Some(game_controller_state) =
-        //     context.filtered_game_controller_state
-        // {
-        //     game_controller_state
-        //         .penalties
-        //         .iter()
-        //         .filter(|(&jersey_number, penalty)| {
-        //             penalty.is_none() && jersey_number != game_controller_state.goal_keeper_number
-        //         })
-        //         .map(|(&jersey_number, _)| jersey_number)
-        //         .sorted()
-        //         .collect::<Vec<_>>()
-        // } else {
-        //     Vec::new()
-        // };
-        // let replacement_keeper_order_position = available_field_players
-        //     .iter()
-        //     .position(|&jersey_number| jersey_number == *context.jersey_number);
-        // let striker_assignment_order_position = available_field_players
-        //     .iter()
-        //     .rev()
-        //     .position(|&jersey_number| jersey_number == *context.jersey_number);
 
         if !self.role_initialized
             || primary_state == PrimaryState::Ready
@@ -195,22 +162,6 @@ impl RoleAssignment {
                     };
                 }
             }
-
-            // if let Some(game_controller_state) = context.filtered_game_controller_state {
-            //     if let Some(striker) = [
-            //         PlayerNumber::Seven,
-            //         PlayerNumber::Six,
-            //         PlayerNumber::Five,
-            //         PlayerNumber::Four,
-            //     ]
-            //     .into_iter()
-            //     .find(|player| game_controller_state.penalties[*player].is_none())
-            //     {
-            //         player_roles[striker] = Role::Striker;
-            //     }
-            // }
-            // new_role = player_roles[*context.player_number];
-
             self.role_initialized = true;
             self.last_received_spl_striker_message = Some(cycle_start_time);
             self.team_ball = None;
@@ -363,30 +314,6 @@ impl RoleAssignment {
                 );
             }
         }
-        // todo! replace this with new indexing and figure out how to do since_last_penalized
-        // if self.role == Role::ReplacementKeeper {
-        //     let mut other_players_with_lower_number = self
-        //         .last_time_player_was_penalized
-        //         .iter()
-        //         .filter(|(player_number, _)| player_number < context.player_number);
-        //     let is_lowest_number_without =
-        //         other_players_with_lower_number.all(|(_, penalized_time)| {
-        //             penalized_time
-        //                 .map(|system_time| {
-        //                     let since_last_penalized = cycle_start_time
-        //                         .duration_since(system_time)
-        //                         .expect("penalty time to be in the past");
-        //                     since_last_penalized < *context.keeper_replacementkeeper_switch_time
-        //                 })
-        //                 .unwrap_or(false)
-        //         });
-        //     if !send_spl_striker_message && is_lowest_number_without {
-        //         new_role = Role::ReplacementKeeper;
-        //     }
-        // }
-        // context
-        //     .last_time_player_was_penalized
-        //     .fill_if_subscribed(|| self.last_time_player_was_penalized);
         if let (Some(0), Some(x)) = (
             context.last_replacement_keeper_priority,
             context.replacement_keeper_priority,
@@ -448,19 +375,6 @@ impl RoleAssignment {
             self.role = new_role;
         }
         self.team_ball = team_ball;
-
-        // if let Some(game_controller_state) = context.filtered_game_controller_state {
-        //     for player in self
-        //         .last_time_player_was_penalized
-        //         .clone()
-        //         .iter()
-        //         .map(|(playernumber, ..)| playernumber)
-        //     {
-        //         if game_controller_state.penalties[player].is_some() {
-        //             self.last_time_player_was_penalized[player] = Some(cycle_start_time);
-        //         }
-        //     }
-        // }
 
         Ok(MainOutputs {
             role: self.role.into(),
@@ -883,7 +797,6 @@ fn generate_role(
 }
 
 fn pick_role_with_penalties(
-    // penalties: &Players<Option<Penalty>>,
     replacement_keeper_priority: usize,
     striker_priority: usize,
     striker_jersey_number: usize,
@@ -892,51 +805,11 @@ fn pick_role_with_penalties(
     defense_optional_roles: &[Role],
     number_of_defensive_players: usize,
 ) -> Role {
-    // let mut role_assignment: Players<Option<Role>> = Players {
-    //     one: None,
-    //     two: None,
-    //     three: None,
-    //     four: None,
-    //     five: None,
-    //     six: None,
-    //     seven: None,
-    // };
-
-    // role_assignment[striker_player_number] = Some(Role::Striker);
-    // let mut unassigned_robots = 6;
-
-    // unassigned_robots -= penalties
-    //     .iter()
-    //     .filter(|(_player, &penalty)| penalty.is_some())
-    //     .count();
-
-    // if unassigned_robots > 0 {
-    //     unassigned_robots =
-    //         assign_keeper_or_replacement_keeper(unassigned_robots, penalties, &mut role_assignment);
-    // }
     if replacement_keeper_priority == 0
         || (replacement_keeper_priority == 1 && own_jersey_number > striker_jersey_number)
     {
         return Role::ReplacementKeeper;
     }
-
-    // for &optional_role in offense_optional_roles.iter().take(unassigned_robots) {
-    //     if needs_assignment(PlayerNumber::Two, penalties, &role_assignment) {
-    //         role_assignment[PlayerNumber::Two] = Some(optional_role);
-    //     } else if needs_assignment(PlayerNumber::Three, penalties, &role_assignment) {
-    //         role_assignment[PlayerNumber::Three] = Some(optional_role);
-    //     } else if needs_assignment(PlayerNumber::Four, penalties, &role_assignment) {
-    //         role_assignment[PlayerNumber::Four] = Some(optional_role);
-    //     } else if needs_assignment(PlayerNumber::Five, penalties, &role_assignment) {
-    //         role_assignment[PlayerNumber::Five] = Some(optional_role);
-    //     } else if needs_assignment(PlayerNumber::Six, penalties, &role_assignment) {
-    //         role_assignment[PlayerNumber::Six] = Some(optional_role);
-    //     } else if needs_assignment(PlayerNumber::Seven, penalties, &role_assignment) {
-    //         role_assignment[PlayerNumber::Seven] = Some(optional_role);
-    //     }
-    // }
-
-    // role_assignment[own_player_number].unwrap_or_default()
     if replacement_keeper_priority <= number_of_defensive_players {
         defense_optional_roles
             .get(replacement_keeper_priority - 1)
@@ -956,44 +829,3 @@ fn pick_role_with_penalties(
         }
     }
 }
-
-// fn needs_assignment(
-//     player_number: PlayerNumber,
-//     penalties: &Players<Option<Penalty>>,
-//     role_assignment: &Players<Option<Role>>,
-// ) -> bool {
-//     role_assignment[player_number].is_none() && penalties[player_number].is_none()
-// }
-
-// fn assign_keeper_or_replacement_keeper(
-//     unassigned_robots: usize,
-//     penalties: &Players<Option<Penalty>>,
-//     role_assignment: &mut Players<Option<Role>>,
-// ) -> usize {
-//     if needs_assignment(PlayerNumber::One, penalties, role_assignment) {
-//         role_assignment[PlayerNumber::One] = Some(Role::Keeper);
-//         return unassigned_robots - 1;
-//     }
-
-//     if needs_assignment(PlayerNumber::Two, penalties, role_assignment) {
-//         role_assignment[PlayerNumber::Two] = Some(Role::ReplacementKeeper);
-//         return unassigned_robots - 1;
-//     } else if needs_assignment(PlayerNumber::Three, penalties, role_assignment) {
-//         role_assignment[PlayerNumber::Three] = Some(Role::ReplacementKeeper);
-//         return unassigned_robots - 1;
-//     } else if needs_assignment(PlayerNumber::Four, penalties, role_assignment) {
-//         role_assignment[PlayerNumber::Four] = Some(Role::ReplacementKeeper);
-//         return unassigned_robots - 1;
-//     } else if needs_assignment(PlayerNumber::Five, penalties, role_assignment) {
-//         role_assignment[PlayerNumber::Five] = Some(Role::ReplacementKeeper);
-//         return unassigned_robots - 1;
-//     } else if needs_assignment(PlayerNumber::Six, penalties, role_assignment) {
-//         role_assignment[PlayerNumber::Six] = Some(Role::ReplacementKeeper);
-//         return unassigned_robots - 1;
-//     } else if needs_assignment(PlayerNumber::Seven, penalties, role_assignment) {
-//         role_assignment[PlayerNumber::Seven] = Some(Role::ReplacementKeeper);
-//         return unassigned_robots - 1;
-//     }
-
-//     unassigned_robots
-// }
