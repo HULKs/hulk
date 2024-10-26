@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use spl_network_messages::Penalty;
 use types::game_controller_state::GameControllerState;
 #[derive(Deserialize, Serialize)]
-pub struct ActivePlayerFilter {}
+pub struct ActivePlayerFilter {
+    last_replacement_keeper_priority: Option<usize>,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -25,12 +27,15 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub walk_in_position_index: MainOutput<usize>,
     pub replacement_keeper_priority: MainOutput<Option<usize>>,
+    pub last_replacement_keeper_priority: MainOutput<Option<usize>>,
     pub striker_priority: MainOutput<Option<usize>>,
 }
 
 impl ActivePlayerFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_replacement_keeper_priority: None,
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
@@ -93,11 +98,14 @@ impl ActivePlayerFilter {
                 .rev()
                 .position(|&jersey_number| jersey_number == *context.jersey_number);
         }
+        let output_last_replacement_keeper_priority = self.last_replacement_keeper_priority;
+        self.last_replacement_keeper_priority = replacement_keeper_priority;
 
         Ok(MainOutputs {
             walk_in_position_index: walk_in_position_index.into(),
             replacement_keeper_priority: replacement_keeper_priority.into(),
             striker_priority: striker_priority.into(),
+            last_replacement_keeper_priority: output_last_replacement_keeper_priority.into(),
         })
     }
 }

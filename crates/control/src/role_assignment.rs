@@ -38,6 +38,7 @@ pub struct RoleAssignment {
     role: Role,
     role_initialized: bool,
     team_ball: Option<BallPosition<Field>>,
+    time_when_keeper_returned_to_field: Option<SystemTime>,
     // last_time_player_was_penalized: Players<Option<SystemTime>>,
 }
 
@@ -56,13 +57,14 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     primary_state: Input<PrimaryState, "primary_state">,
     replacement_keeper_priority: Input<Option<usize>, "replacement_keeper_priority?">,
+    last_replacement_keeper_priority: Input<Option<usize>, "last_replacement_keeper_priority?">,
     striker_priority: Input<Option<usize>, "striker_priority?">,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
     walk_in_position_index: Input<usize, "walk_in_position_index">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
-    _keeper_replacementkeeper_switch_time:
+    keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
     initial_poses: Parameter<Vec<InitialPose>, "localization.initial_poses">,
     offense_optional_roles: Parameter<Vec<Role>, "behavior.offense_optional_roles">,
@@ -92,15 +94,15 @@ impl RoleAssignment {
             role: Role::Striker,
             role_initialized: false,
             team_ball: None,
-            // last_time_player_was_penalized: Players {
-            //     one: None,
-            //     two: None,
-            //     three: None,
-            //     four: None,
-            //     five: None,
-            //     six: None,
-            //     seven: None,
-            // },
+            time_when_keeper_returned_to_field: None, // last_time_player_was_penalized: Players {
+                                                      //     one: None,
+                                                      //     two: None,
+                                                      //     three: None,
+                                                      //     four: None,
+                                                      //     five: None,
+                                                      //     six: None,
+                                                      //     seven: None,
+                                                      // },
         })
     }
 
@@ -382,6 +384,25 @@ impl RoleAssignment {
         // context
         //     .last_time_player_was_penalized
         //     .fill_if_subscribed(|| self.last_time_player_was_penalized);
+        if let (Some(0), Some(x)) = (
+            context.last_replacement_keeper_priority,
+            context.replacement_keeper_priority,
+        ) {
+            if *x > 0 {
+                self.time_when_keeper_returned_to_field = Some(cycle_start_time)
+            }
+        }
+        if self.role != Role::ReplacementKeeper {
+            self.time_when_keeper_returned_to_field.take();
+        }
+        if let Some(return_time) = self.time_when_keeper_returned_to_field {
+            if cycle_start_time.duration_since(return_time).expect("keeper was unpenalized in the future")
+                < *context.keeper_replacementkeeper_switch_time
+                && !send_spl_striker_message
+            {
+                new_role = Role::ReplacementKeeper
+            }
+        }
 
         if send_spl_striker_message
             && primary_state == PrimaryState::Playing
