@@ -6,7 +6,7 @@ use scenario::scenario;
 use spl_network_messages::GameState;
 use types::action::Action;
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     aufstellung::hulks_aufstellung,
     ball::BallResource,
     game_controller::GameControllerCommand,
@@ -34,11 +34,11 @@ fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameCon
 }
 
 fn update(
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
-    time: Res<Time<Ticks>>,
-    mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut robots: Query<&mut Robot>,
+    time: Res<Time<Ticks>>,
 ) {
     if time.ticks() == 2 {
         game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));

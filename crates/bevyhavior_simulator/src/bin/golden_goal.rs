@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use scenario::scenario;
 use spl_network_messages::GameState;
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     aufstellung::hulks_aufstellung,
     game_controller::{GameController, GameControllerCommand},
     time::{Ticks, TicksTime},
@@ -30,9 +30,9 @@ fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameCon
 
 fn update(
     game_controller: ResMut<GameController>,
+    mut exit: EventWriter<AppExit>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 2 {
         game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));

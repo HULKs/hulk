@@ -3,9 +3,10 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use scenario::scenario;
-use spl_network_messages::{GameState, Penalty, PlayerNumber};
+use spl_network_messages::{GameState, Penalty};
 
 use bevyhavior_simulator::{
+    aufstellung::hulks_aufstellung,
     autoref::{AutorefState, GoalMode},
     game_controller::GameControllerCommand,
     robot::Robot,
@@ -20,31 +21,32 @@ fn two_replacement_keepers(app: &mut App) {
 }
 
 fn startup(
-    mut commands: Commands,
+    commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut autoref: ResMut<AutorefState>,
 ) {
-    for number in [
-        PlayerNumber::One,
-        PlayerNumber::Two,
-        PlayerNumber::Three,
-        PlayerNumber::Four,
-        PlayerNumber::Five,
-        PlayerNumber::Six,
-        PlayerNumber::Seven,
-    ] {
-        commands.spawn(Robot::new(number));
-    }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    let active_field_players = vec![1, 2, 3, 4, 5, 6, 7];
+    let picked_up_players = vec![];
+    let goal_keeper_jersey_number = 1;
+    hulks_aufstellung(
+        active_field_players,
+        picked_up_players,
+        goal_keeper_jersey_number,
+        commands,
+        &mut game_controller_commands,
+    );
     autoref.goal_mode = GoalMode::ReturnBall;
 }
 
 fn update(
+    mut exit: EventWriter<AppExit>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut robots: Query<&mut Robot>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
 ) {
+    if time.ticks() == 2 {
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    }
     let replacement_keeper_count = robots
         .iter_mut()
         .filter(|robot| robot.database.main_outputs.role == Role::ReplacementKeeper)
@@ -56,13 +58,13 @@ fn update(
             exit.send(AppExit::from_code(1));
         }
         game_controller_commands.send(GameControllerCommand::Penalize(
-            PlayerNumber::One,
+            1,
             Penalty::Manual {
                 remaining: Duration::from_secs(15),
             },
         ));
         game_controller_commands.send(GameControllerCommand::Penalize(
-            PlayerNumber::Two,
+            2,
             Penalty::Manual {
                 remaining: Duration::from_secs(5),
             },
@@ -74,7 +76,7 @@ fn update(
             println!("No robot became replacement keeper");
             exit.send(AppExit::from_code(1));
         }
-        game_controller_commands.send(GameControllerCommand::Unpenalize(PlayerNumber::One));
+        game_controller_commands.send(GameControllerCommand::Unpenalize(1));
     }
 
     if time.ticks() >= 10_000 {

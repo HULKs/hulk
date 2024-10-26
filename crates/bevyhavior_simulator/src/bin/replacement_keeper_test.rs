@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use scenario::scenario;
 use spl_network_messages::{GameState, Penalty};
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     aufstellung::hulks_aufstellung,
     autoref::{AutorefState, GoalMode},
     game_controller::GameControllerCommand,
@@ -40,10 +40,10 @@ fn startup(
 }
 
 fn update(
+    mut exit: EventWriter<AppExit>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut robots: Query<&mut Robot>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 2 {
         game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));

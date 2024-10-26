@@ -4,9 +4,10 @@ use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
-use spl_network_messages::{GameState, Penalty, PlayerNumber, SubState, Team};
+use spl_network_messages::{GameState, Penalty, SubState, Team};
 
 use bevyhavior_simulator::{
+    aufstellung::hulks_aufstellung,
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
@@ -20,41 +21,39 @@ fn demonstration(app: &mut App) {
     app.add_systems(Update, update);
 }
 /// Runs at the start of the behavior simulator and is used to spawn in robots and set GameStates
-fn startup(
-    mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
-) {
-    for number in [
-        PlayerNumber::One,
-        PlayerNumber::Two,
-        PlayerNumber::Three,
-        PlayerNumber::Four,
-        PlayerNumber::Five,
-        PlayerNumber::Six,
-        PlayerNumber::Seven,
-    ] {
-        commands.spawn(Robot::new(number));
-    }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameControllerCommand>) {
+    let active_field_players = vec![1, 2, 3, 4, 5, 6, 7];
+    let picked_up_players = vec![];
+    let goal_keeper_jersey_number = 1;
+    hulks_aufstellung(
+        active_field_players,
+        picked_up_players,
+        goal_keeper_jersey_number,
+        commands,
+        &mut game_controller_commands,
+    );
 }
 
 /// Allows for checks to run during the scenario such that it can be decided whether the scenario passes or fails.
 /// Not all of the parameters are always needed.
 /// For example, golden_goal only checks to see if a goal was scored within 10000 frames.
-/// * `game_controller` - gives access to the central GameController state
-/// * `game_controller_commands` - gives access to commands that are equivalent of pushing buttons on the game controller
-/// * `time` - game time, useful with .ticks() to get frame count
-/// * `exit` - used to send exit conditions in the event the scenario passes or fails
-/// * `robots` - gives access to robots' internal database
 /// * `ball` - allows manually changing the balls position and velocity
+/// * `exit` - used to send exit conditions in the event the scenario passes or fails
+/// * `game_controller_commands` - gives access to commands that are equivalent of pushing buttons on the game controller
+/// * `game_controller` - gives access to the central GameController state
+/// * `robots` - gives access to robots' internal database
+/// * `time` - game time, useful with .ticks() to get frame count
 fn update(
     game_controller: ResMut<GameController>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
-    time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
-    mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
+    mut exit: EventWriter<AppExit>,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut robots: Query<&mut Robot>,
+    time: Res<Time<Ticks>>,
 ) {
+    if time.ticks() == 2 {
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    }
     // Scenarios can pass if a certain condition is met
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
@@ -74,7 +73,7 @@ fn update(
         ));
         // Penalize robot
         game_controller_commands.send(GameControllerCommand::Penalize(
-            PlayerNumber::Four,
+            4,
             Penalty::PlayerPushing {
                 remaining: Duration::from_secs(45),
             },
@@ -82,7 +81,7 @@ fn update(
         // Manually move robot to some location on field
         robots
             .iter_mut()
-            .find(|robot| robot.parameters.player_number == PlayerNumber::Seven)
+            .find(|robot| robot.parameters.jersey_number == 7)
             .unwrap()
             .database
             .main_outputs
