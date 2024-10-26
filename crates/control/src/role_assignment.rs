@@ -913,7 +913,7 @@ fn pick_role_with_penalties(
     // role_assignment[own_player_number].unwrap_or_default()
     if replacement_keeper_priority <= number_of_defensive_players {
         defense_optional_roles
-            .get(replacement_keeper_priority)
+            .get(replacement_keeper_priority - 1)
             .copied()
             .unwrap_or_default()
     } else {
