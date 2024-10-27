@@ -286,46 +286,49 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         )
 
     def reset_model(self):
-        c = 0.01
+        half_random_offset = 0.01
+        face_down_keyframe_qpos = [
+            0,
+            0,
+            0.064,
+            0.64,
+            0.03,
+            0.77,
+            -0.02,
+            0,
+            -0.4,
+            1.33,
+            0.15,
+            0.19,
+            -0.08,
+            0.1,
+            1.31,
+            0.15,
+            0.19,
+            -0.08,
+            -0.05,
+            0,
+            0,
+            -0.07,
+            0.29,
+            -0.04,
+            0.02,
+            0,
+            0.04,
+            -0.1,
+            0.31,
+            0.04,
+            0,
+        ]
         self.set_state(
-            [
-                0,
-                0,
-                0.064,
-                0.64,
-                0.03,
-                0.77,
-                -0.02,
-                0,
-                -0.4,
-                1.33,
-                0.15,
-                0.19,
-                -0.08,
-                0.1,
-                1.31,
-                0.15,
-                0.19,
-                -0.08,
-                -0.05,
-                0,
-                0,
-                -0.07,
-                0.29,
-                -0.04,
-                0.02,
-                0,
-                0.04,
-                -0.1,
-                0.31,
-                0.04,
-                0,
-            ]
-            + self.np_random.uniform(low=-c, high=c, size=self.model.nq),
+            face_down_keyframe_qpos
+            + self.np_random.uniform(
+                low=-half_random_offset, high=half_random_offset, size=self.model.nq
+            ),
             self.init_qvel
             + self.np_random.uniform(
-                low=-c,
-                high=c,
+                low=-half_random_offset,
+                high=half_random_offset,
                 size=self.model.nv,
             ),
         )
