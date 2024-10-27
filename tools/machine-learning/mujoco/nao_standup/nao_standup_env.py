@@ -285,10 +285,43 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             },
         )
 
-    def reset_model(self) -> list:
+    def reset_model(self):
         c = 0.01
         self.set_state(
-            self.init_qpos + self.np_random.uniform(low=-c, high=c, size=self.model.nq),
+            [
+                0,
+                0,
+                0.064,
+                0.64,
+                0.03,
+                0.77,
+                -0.02,
+                0,
+                -0.4,
+                1.33,
+                0.15,
+                0.19,
+                -0.08,
+                0.1,
+                1.31,
+                0.15,
+                0.19,
+                -0.08,
+                -0.05,
+                0,
+                0,
+                -0.07,
+                0.29,
+                -0.04,
+                0.02,
+                0,
+                0.04,
+                -0.1,
+                0.31,
+                0.04,
+                0,
+            ]
+            + self.np_random.uniform(low=-c, high=c, size=self.model.nq),
             self.init_qvel
             + self.np_random.uniform(
                 low=-c,
