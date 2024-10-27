@@ -141,6 +141,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                     .show(ui);
                 if output.response.changed() {
                     *self.selected = selected;
+                    state.user_state = UserState::Typing;
                 }
                 output
             }
