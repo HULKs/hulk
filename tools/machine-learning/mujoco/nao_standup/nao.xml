@@ -173,20 +173,20 @@
   </sensor>
 
   <actuator>
-    <position name="head_yaw" joint="head_yaw" dampratio="1" kp="90.0"/> 
-    <position name="head_pitch" joint="head_pitch" dampratio="1" kp="90.0"/>
+    <position name="head_yaw" joint="head_yaw" dampratio="1" kp="9.0"/> 
+    <position name="head_pitch" joint="head_pitch" dampratio="1" kp="9.0"/>
 
-    <position name="left_shoulder_pitch" joint="left_shoulder_pitch" dampratio="1" kp="90.0"/>
-    <position name="left_shoulder_roll" joint="left_shoulder_roll" dampratio="1" kp="90.0"/>
-    <position name="left_elbow_yaw" joint="left_elbow_yaw" dampratio="1" kp="90.0"/>
-    <position name="left_elbow_roll" joint="left_elbow_roll" dampratio="1" kp="90.0"/>
-    <position name="left_wrist_yaw" joint="left_wrist_yaw" dampratio="1" kp="90.0"/>
+    <position name="left_shoulder_pitch" joint="left_shoulder_pitch" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="left_shoulder_roll" joint="left_shoulder_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="left_elbow_yaw" joint="left_elbow_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="left_elbow_roll" joint="left_elbow_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="left_wrist_yaw" joint="left_wrist_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
 
-    <position name="right_shoulder_pitch" joint="right_shoulder_pitch" dampratio="1" kp="90.0"/>
-    <position name="right_shoulder_roll" joint="right_shoulder_roll" dampratio="1" kp="90.0"/>
-    <position name="right_elbow_yaw" joint="right_elbow_yaw" dampratio="1" kp="90.0"/>
-    <position name="right_elbow_roll" joint="right_elbow_roll" dampratio="1" kp="90.0"/>
-    <position name="right_wrist_yaw" joint="right_wrist_yaw" dampratio="1" kp="90.0"/>
+    <position name="right_shoulder_pitch" joint="right_shoulder_pitch" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="right_shoulder_roll" joint="right_shoulder_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="right_elbow_yaw" joint="right_elbow_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="right_elbow_roll" joint="right_elbow_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
+    <position name="right_wrist_yaw" joint="right_wrist_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
 
     <position name="left_hip_yaw_pitch" joint="left_hip_yaw_pitch" dampratio="1" kp="90.0"/>
     <position name="left_hip_roll" joint="left_hip_roll" dampratio="1" kp="90.0"/>

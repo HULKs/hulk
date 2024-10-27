@@ -9,8 +9,8 @@ with open("nao_standup/nao.xml", "r") as f:
     xml = f.read()
 
 model = mujoco.MjModel.from_xml_string(xml)
-# data = mujoco.MjData(model)
+data = mujoco.MjData(model)
 
-# mujoco.mj_resetDataKeyframe(model, data, 2)
+mujoco.mj_resetDataKeyframe(model, data, 2)
 
-viewer.launch(model)
+viewer.launch(model, data)
