@@ -114,7 +114,7 @@ impl Widget for &mut ImageColorSelectPanel {
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("x:");
-                    ComboBox::from_id_source("x_axis")
+                    ComboBox::from_id_salt("x_axis")
                         .selected_text(format!("{:?}", self.x_axis))
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut self.x_axis, Axis::Cb, "Cb");
@@ -144,7 +144,7 @@ impl Widget for &mut ImageColorSelectPanel {
                             ui.selectable_value(&mut self.x_axis, Axis::Saturation, "Saturation");
                         });
                     ui.label("y:");
-                    ComboBox::from_id_source("y_axis")
+                    ComboBox::from_id_salt("y_axis")
                         .selected_text(format!("{:?}", self.y_axis))
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut self.y_axis, Axis::Cb, "Cb");

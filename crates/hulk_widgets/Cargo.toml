@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-egui.workspace = true
-egui_extras.workspace = true
-nucleo-matcher.workspace = true
+communication = { workspace = true }
+egui = { workspace = true }
+egui_extras = { workspace = true }
+nucleo-matcher = { workspace = true }

@@ -18,9 +18,10 @@ use eframe::{
 use itertools::Itertools;
 use serde_json::{json, Value};
 
+use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
+
 use crate::{
     change_buffer::{Change, ChangeBufferHandle},
-    completion_edit::CompletionEdit,
     nao::Nao,
     panel::Panel,
 };
@@ -154,8 +155,12 @@ impl SegmentRow {
     }
 
     fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>) {
-        let subscription_field =
-            ui.add(CompletionEdit::readable_paths(&mut self.path, nao.as_ref()));
+        let subscription_field = ui.add(NaoPathCompletionEdit::new(
+            ui.next_auto_id().with(ui.id()).with("enum-plot"),
+            nao.latest_paths(),
+            &mut self.path,
+            PathFilter::Readable,
+        ));
 
         if subscription_field.changed() {
             self.subscribe(nao);
@@ -423,8 +428,7 @@ impl Widget for &mut EnumPlotPanel {
                         Button::new(RichText::new("❌").color(Color32::WHITE).strong())
                             .fill(Color32::RED),
                     );
-
-                    segment_data.show_settings(ui, self.nao.clone());
+                    ui.scope(|ui| segment_data.show_settings(ui, self.nao.clone()));
                     !delete_button.clicked()
                 })
                 .inner

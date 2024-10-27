@@ -28,6 +28,14 @@ fn config_path() -> PathBuf {
 #[derive(Debug, Deserialize)]
 pub struct Configuration {
     pub keys: keys::Keybinds,
+    pub naos: NaoConfig,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize)]
+pub struct NaoConfig {
+    pub lowest: u8,
+    pub highest: u8,
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,7 +80,7 @@ impl Merge<RawConfiguration> for Configuration {
 
 impl Merge<Configuration> for Configuration {
     fn merge(&mut self, other: Configuration) {
-        let Configuration { keys } = other;
+        let Configuration { keys, .. } = other;
 
         self.keys.merge(keys);
     }

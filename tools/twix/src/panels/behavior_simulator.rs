@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use communication::messages::TextOrBinary;
 use eframe::egui::{Align, Color32, Layout, Response, Slider, Ui, Widget};
+use hulk_widgets::SegmentedControl;
 use serde_json::{json, Value};
 
 use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
@@ -96,15 +97,10 @@ impl Widget for &mut BehaviorSimulatorPanel {
                     };
                 });
                 ui.horizontal(|ui| {
-                    if ui
-                        .add_sized(
-                            ui.available_size(),
-                            Slider::new(&mut self.selected_robot, 1..=7)
-                                .smart_aim(false)
-                                .text("Robot"),
-                        )
-                        .changed()
-                    {
+                    let robots = (1..=7).collect::<Vec<_>>();
+                    let robot_selection = SegmentedControl::new("robot-selector", &robots).ui(ui);
+                    self.selected_robot = *robot_selection.inner;
+                    if robot_selection.response.changed() {
                         self.nao.write(
                             "parameters.selected_robot",
                             TextOrBinary::Text(self.selected_robot.into()),

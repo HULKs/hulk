@@ -114,7 +114,6 @@ fern = { version = "0.6.1", features = ["colored"] }
 filtering = { path = "crates/filtering" }
 framework = { path = "crates/framework" }
 futures-util = "0.3.24"
-fuzzy-matcher = "0.3.7"
 geometry = { path = "crates/geometry" }
 gilrs = "0.10.1"
 glob = "0.3.0"

@@ -51,13 +51,16 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
             .rounding
             .unwrap_or(ui.style().noninteractive().rounding);
 
-        let (response, painter) = ui.allocate_painter(vec2(width, 2.0 * text_size), Sense::hover());
+        let (mut response, painter) =
+            ui.allocate_painter(vec2(width, 2.0 * text_size), Sense::hover());
         if response.contains_pointer() {
             ui.input(|reader| {
                 if reader.key_pressed(Key::ArrowLeft) {
                     state.selected = state.selected.saturating_sub(1);
+                    response.mark_changed();
                 } else if reader.key_pressed(Key::ArrowRight) {
                     state.selected = (state.selected + 1).min(self.selectables.len() - 1);
+                    response.mark_changed();
                 }
             })
         }
@@ -76,7 +79,7 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
         let noninteractive_style = ui.style().noninteractive();
 
         for (idx, (&rect, text)) in text_rects.iter().zip(self.selectables.iter()).enumerate() {
-            let response = ui.interact(rect, self.id.with(idx), Sense::click());
+            let label_response = ui.interact(rect, self.id.with(idx), Sense::click());
             let style = ui.style().interact(&response);
 
             let show_line = idx > 0 && state.selected != idx && state.selected + 1 != idx;
@@ -97,8 +100,9 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
                 );
             }
 
-            if response.clicked() {
+            if label_response.clicked() {
                 state.selected = idx;
+                response.mark_changed();
             }
             painter.text(
                 rect.center(),

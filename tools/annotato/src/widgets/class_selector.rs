@@ -29,7 +29,7 @@ impl Widget for ClassSelector<'_> {
             *self.currently_selected = class;
         }
 
-        ComboBox::from_id_source(self.id)
+        ComboBox::from_id_salt(self.id)
             .selected_text(format!("{:?}", self.currently_selected))
             .show_ui(ui, |ui| {
                 Class::list().into_iter().for_each(|class| {

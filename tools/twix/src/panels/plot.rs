@@ -9,12 +9,13 @@ use eframe::{
     epaint::Color32,
 };
 use egui_plot::{Line, Plot as EguiPlot, PlotPoints};
+use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string_pretty, Value};
 
-use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 const DEFAULT_LINE_COLORS: &[Color32] = &[
     Color32::from_rgb(31, 119, 180),
@@ -118,7 +119,12 @@ impl LineData {
 
     fn show_settings(&mut self, ui: &mut Ui, id: usize, nao: &Nao, buffer_history: Duration) {
         ui.horizontal_top(|ui| {
-            let subscription_field = ui.add(CompletionEdit::readable_paths(&mut self.path, nao));
+            let subscription_field = ui.add(NaoPathCompletionEdit::new(
+                ui.id().with(id).with("plot-panel"),
+                nao.latest_paths(),
+                &mut self.path,
+                PathFilter::Readable,
+            ));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
                 let handle = nao.subscribe_buffered_json(&self.path, buffer_history);
@@ -127,9 +133,9 @@ impl LineData {
 
             ui.color_edit_button_srgba(&mut self.color);
 
-            let id_source = ui.id().with("conversion_collapse").with(id);
+            let id_salt = ui.id().with("conversion_collapse").with(id);
             CollapsingHeader::new("Conversion Function")
-                .id_source(id_source)
+                .id_salt(id_salt)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         let latest_value = self

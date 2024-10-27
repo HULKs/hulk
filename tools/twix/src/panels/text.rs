@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
+use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
 use serde_json::{json, Value};
 
-use crate::{completion_edit::CompletionEdit, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 pub struct TextPanel {
     nao: Arc<Nao>,
@@ -39,9 +40,11 @@ impl Widget for &mut TextPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         let edit_response = ui
             .horizontal(|ui| {
-                let edit_response = ui.add(CompletionEdit::readable_paths(
+                let edit_response = ui.add(NaoPathCompletionEdit::new(
+                    ui.id().with("text-panel"),
+                    self.nao.latest_paths(),
                     &mut self.path,
-                    self.nao.as_ref(),
+                    PathFilter::Readable,
                 ));
                 if edit_response.changed() {
                     self.buffer = Some(self.nao.subscribe_json(self.path.clone()));

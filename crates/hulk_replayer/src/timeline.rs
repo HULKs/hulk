@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use eframe::egui::{vec2, Align, Layout, Rect, Response, Ui, Vec2, Widget};
+use eframe::egui::{vec2, Align, Layout, Rect, Response, Ui, UiBuilder, Vec2, Widget};
 
 use framework::Timing;
 
@@ -43,8 +43,6 @@ impl Widget for Timeline<'_> {
                 ui.max_rect().left_top(),
                 vec2(ui.available_width(), ticks_height(ui)),
             );
-            let mut ticks_ui =
-                ui.child_ui(ticks_rect, Layout::top_down_justified(Align::Min), None);
             ui.advance_cursor_after_rect(ticks_rect);
 
             let response = ui.add(Frames::new(
@@ -55,7 +53,14 @@ impl Widget for Timeline<'_> {
                 original_item_spacing,
             ));
 
-            Ticks::new(self.frame_range, self.viewport_range, self.position).ui(&mut ticks_ui);
+            ui.scope_builder(
+                UiBuilder::new()
+                    .max_rect(ticks_rect)
+                    .layout(Layout::top_down_justified(Align::Min)),
+                |ui| {
+                    Ticks::new(self.frame_range, self.viewport_range, self.position).ui(ui);
+                },
+            );
 
             response
         })

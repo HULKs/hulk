@@ -193,7 +193,7 @@ impl Widget for &mut MapPanel {
                 self.obstacle_filter.checkbox(ui);
                 self.walking.checkbox(ui);
             });
-            ComboBox::from_id_source("plot_type_selector")
+            ComboBox::from_id_salt("plot_type_selector")
                 .selected_text(format!("{:?}", self.current_plot_type))
                 .show_ui(ui, |ui| {
                     ui.selectable_value(&mut self.current_plot_type, PlotType::Ground, "Ground");
