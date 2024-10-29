@@ -26,5 +26,5 @@ The tooling around our framework expects each NAO robot to have a number associa
 This number also determines the last octet of a robot's IP addresses.
 For example robot number `21` will always have the IPv4 addresses `10.0.X.21` (wireless) and `10.1.X.21` (ethernet) where X is the team number.
 
-For each robot you must determine it's head and body IDs and enter them in `etc/parameters/hardware_ids.json`.
+For each robot you must determine it's head and body IDs and enter them in `etc/parameters/team.toml`.
 This file is used by [pepsi](../tooling/pepsi.md) and other tools to find the hardware ids belonging to a robot number.

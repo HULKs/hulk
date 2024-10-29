@@ -19,10 +19,10 @@ pub struct Arguments {
 }
 
 pub async fn player_number(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let hardware_ids = repository
-        .get_hardware_ids()
+    let team = repository
+        .get_configured_team()
         .await
-        .wrap_err("failed to get hardware IDs")?;
+        .wrap_err("failed to get configured team")?;
 
     // Check if two NaoNumbers are assigned to the same PlayerNumber
     // or if a NaoNumber is assigned to multiple PlayerNumbers
@@ -40,17 +40,18 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
     ) {
         bail!("Duplication in NAO to player number assignments")
     }
-    let hardware_ids = &hardware_ids;
+    let naos = &team.naos;
     ProgressIndicator::map_tasks(
         arguments.assignments,
         "Setting player number...",
         |assignment, _progress_bar| async move {
             let number = assignment.nao_number.number;
-            let hardware_id = hardware_ids
-                .get(&number)
+            let nao = naos
+                .iter()
+                .find(|nao| nao.number == number)
                 .ok_or_else(|| eyre!("NAO with Hardware ID {number} does not exist"))?;
             repository
-                .set_player_number(&hardware_id.head_id, assignment.player_number)
+                .set_player_number(&nao.head_id, assignment.player_number)
                 .await
                 .wrap_err_with(|| format!("failed to set player number for {assignment}"))
         },
