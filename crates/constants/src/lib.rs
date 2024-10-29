@@ -13,13 +13,13 @@ pub const SDK_VERSION: &str = "7.5.0";
 #[derive(Serialize, Deserialize)]
 pub struct Team {
     pub team_number: u8,
-    pub hostname_prefix: String,
     pub naos: Vec<Nao>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Nao {
     pub number: u8,
+    pub hostname: String,
     pub body_id: String,
     pub head_id: String,
 }
