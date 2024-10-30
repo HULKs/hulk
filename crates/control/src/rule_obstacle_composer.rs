@@ -132,6 +132,14 @@ impl RuleObstacleComposer {
                 FilteredGameControllerState {
                     game_state:
                         FilteredGameState::Ready {
+                            kicking_team_known: false,
+                        },
+                    sub_state: None,
+                    ..
+                }
+                | FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Ready {
                             kicking_team_known: true,
                         },
                     sub_state: None,
