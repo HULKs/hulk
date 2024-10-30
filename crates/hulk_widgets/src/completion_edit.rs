@@ -5,7 +5,8 @@ use egui::{
     text::{CCursor, CCursorRange},
     text_edit::TextEditOutput,
     util::cache::{ComputerMut, FrameCache},
-    Context, Id, Key, PopupCloseBehavior, Response, ScrollArea, TextEdit, TextStyle, Ui, Widget,
+    Context, EventFilter, Id, Key, Modifiers, PopupCloseBehavior, Response, ScrollArea, TextEdit,
+    TextStyle, Ui, Widget,
 };
 use nucleo_matcher::{
     pattern::{CaseMatching, Normalization, Pattern},
@@ -122,12 +123,23 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             let cache = writer.caches.cache::<CachedMatcherSearch>();
             cache.get((self.selected, self.suggestions))
         });
+        let popup_id = self.id.with("popup");
+        let is_popup_open = ui.memory(|reader| reader.is_popup_open(popup_id));
 
-        let TextEditOutput {
-            mut response,
-            state: mut text_edit_state,
-            ..
-        } = match state.user_state {
+        let (pressed_up, pressed_down) = if is_popup_open {
+            ui.input_mut(|reader| {
+                (
+                    reader.consume_key(Modifiers::NONE, Key::ArrowUp)
+                        || reader.consume_key(Modifiers::SHIFT, Key::Tab),
+                    reader.consume_key(Modifiers::NONE, Key::ArrowDown)
+                        || reader.consume_key(Modifiers::NONE, Key::Tab),
+                )
+            })
+        } else {
+            (false, false)
+        };
+
+        let TextEditOutput { mut response, .. } = match state.user_state {
             UserState::Typing => TextEdit::singleline(self.selected)
                 .hint_text("Search")
                 .show(ui),
@@ -148,29 +160,26 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         };
         response.changed = false;
 
-        if !response.has_focus() {
-            return response;
+        if is_popup_open {
+            ui.ctx().memory_mut(|writer| {
+                writer.set_focus_lock_filter(
+                    response.id,
+                    EventFilter {
+                        tab: true,
+                        ..Default::default()
+                    },
+                );
+            });
+            state.user_state =
+                state
+                    .user_state
+                    .handle_arrow(pressed_down, pressed_up, matching_items.len());
         }
-
-        let pressed_down = ui.input_mut(|reader| reader.key_pressed(Key::ArrowDown));
-        let pressed_up = ui.input_mut(|reader| reader.key_pressed(Key::ArrowUp));
-        if pressed_down || pressed_up {
-            // Set the cursor to the right of the new word
-            text_edit_state
-                .cursor
-                .set_char_range(Some(CCursorRange::one(CCursor::new(usize::MAX))));
-            text_edit_state.store(ui.ctx(), response.id);
-        }
-        state.user_state =
-            state
-                .user_state
-                .handle_arrow(pressed_down, pressed_up, matching_items.len());
 
         if matching_items.is_empty() {
             state.user_state = UserState::Typing;
         }
 
-        let popup_id = self.id.with("popup");
         let text_size = ui.text_style_height(&TextStyle::Body);
 
         let selection_may_have_changed = response.changed() || pressed_down || pressed_up;
@@ -217,7 +226,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             },
         );
 
-        let has_focus = response.has_focus();
+        let has_focus = response.has_focus() && !self.selected.is_empty();
         let user_completed_search = matches!(should_close_popup, Some(true))
             || response.lost_focus() && ui.input(|reader| reader.key_pressed(Key::Enter));
 

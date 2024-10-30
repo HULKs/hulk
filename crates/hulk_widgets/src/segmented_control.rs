@@ -55,10 +55,10 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
             ui.allocate_painter(vec2(width, 2.0 * text_size), Sense::hover());
         if response.contains_pointer() {
             ui.input(|reader| {
-                if reader.key_pressed(Key::ArrowLeft) {
+                if reader.key_pressed(Key::ArrowLeft) || reader.key_pressed(Key::ArrowDown) {
                     state.selected = state.selected.saturating_sub(1);
                     response.mark_changed();
-                } else if reader.key_pressed(Key::ArrowRight) {
+                } else if reader.key_pressed(Key::ArrowRight) || reader.key_pressed(Key::ArrowUp) {
                     state.selected = (state.selected + 1).min(self.selectables.len() - 1);
                     response.mark_changed();
                 }
