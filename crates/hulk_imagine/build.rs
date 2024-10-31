@@ -7,7 +7,7 @@ fn main() -> Result<()> {
     let mut cyclers = collect_hulk_cyclers()?;
     cyclers
         .cyclers
-        .retain(|cycler| cycler.name == "Vision"|| cycler.name == "Control");
+        .retain(|cycler| cycler.name == "Vision" || cycler.name == "Control");
 
     for path in cyclers.watch_paths() {
         println!("cargo:rerun-if-changed={}", path.display());
