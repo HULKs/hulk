@@ -247,7 +247,7 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         )
         utils.EzPickle.__init__(self, **kwargs)
 
-    def _get_obs(self) -> list:
+    def _get_obs(self) -> np.ndarray:
         data = self.data
         return np.concatenate(
             [
@@ -262,9 +262,9 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
 
     def step(self, a):
         self.do_simulation(a, self.frame_skip)
-        pos_after = self.data.qpos[2]
         data = self.data
-        uph_cost = (pos_after - 0) / self.model.opt.timestep
+        head_center_z = data.site_xpos[1][2]
+        uph_cost = (head_center_z - 0) / self.model.opt.timestep
 
         quad_ctrl_cost = 0.1 * np.square(data.ctrl).sum()
         quad_impact_cost = 0.5e-6 * np.square(data.cfrc_ext).sum()

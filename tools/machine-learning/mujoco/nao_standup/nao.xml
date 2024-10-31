@@ -38,6 +38,7 @@
         <joint name="head_yaw" type="hinge" axis="0 0 1" range="-119.5 119.5"/>
         <joint name="head_pitch" type="hinge" axis="0 1 0" range="-38.5 29.5"/>
         <geom name="head" type="cylinder" size="0.053 0.0605" euler="90 0 0" pos="0 0 0.053"/>
+        <site name="head_center" pos="0 0 0.053"/>
       </body>
 
       <!--<geom name="left_shoulder" type="sphere" size="0.03" pos="0 0.098 0.1"/>-->
@@ -91,7 +92,7 @@
             <geom name="left_foot_front_right_fsr" pos="0.12 -0.015 -0.035" size="0.015 0.015 0.001" type="box"  rgba="1 0 0 1" />
             <joint name="left_ankle_pitch" type="hinge" axis="0 1 0" range="-68.15 52.86"/>
             <joint name="left_ankle_roll" type="hinge" axis="1 0 0" range="-22.79 44.06"/>
-            <geom name="left_foot" type="box" size="0.08 0.04 0.0175" pos="0.06 0.005 -0.0175"/>
+            <geom name="left_foot" type="box" size="0.08 0.04 0.0175" pos="0.025 0.005 -0.0175"/>
           </body>
         </body>
       </body>
@@ -115,7 +116,7 @@
             <geom name="right_foot_front_right_fsr" pos="0.12 -0.025 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
             <joint name="right_ankle_pitch" type="hinge" axis="0 1 0" range="-67.97 53.4"/>
             <joint name="right_ankle_roll" type="hinge" axis="1 0 0" range="-44.06 22.8"/>
-            <geom name="right_foot" type="box" size="0.08 0.04 0.0175" pos="0.06 -0.005 -0.0175"/>
+            <geom name="right_foot" type="box" size="0.08 0.04 0.0175" pos="0.025 -0.005 -0.0175"/>
           </body>
         </body>
       </body>
