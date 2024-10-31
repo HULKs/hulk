@@ -1,11 +1,13 @@
 #![recursion_limit = "256"]
+
+mod write_to_mcap;
+
 use std::collections::BTreeMap;
 use std::fs::{create_dir_all, File};
 use std::io::{BufWriter, Seek, Write};
 use std::time::SystemTime;
 use std::{env::args, path::PathBuf, sync::Arc};
 
-use color_eyre::eyre::bail;
 use color_eyre::{
     eyre::{Result, WrapErr},
     install,
@@ -17,9 +19,9 @@ use hardware::{
 use indicatif::ProgressIterator;
 use mcap::records::{system_time_to_nanos, MessageHeader};
 use mcap::{Channel, McapError, Writer};
+use path_serde::{PathIntrospect, PathSerialize};
+use rmp_serde::Serializer;
 use serde::Serialize;
-// use rmp_serde::to_vec;
-use serde_json::{to_value, Value};
 
 use types::hardware::Ids;
 use types::{
@@ -133,55 +135,24 @@ fn main() -> Result<()> {
     .wrap_err("failed to create image extractor")?;
 
     let mut control_receiver = replayer.control_receiver();
+    let mut vision_top_receiver = replayer.vision_top_receiver();
+    let mut vision_bottom_receiver = replayer.vision_bottom_receiver();
 
-    let output_folder = &output_folder.join("Control");
-    create_dir_all(output_folder).expect("failed to create output folder");
+    create_dir_all(&output_folder).expect("failed to create output folder");
 
     let output_file = output_folder.join("control_outputs.mcap");
 
     let mut mcap_converter =
         McapConverter::from_writer(BufWriter::new(File::create(output_file)?))?;
 
-    let unknown_indices_error_message = format!("could not find recording indices for `Control`");
-    let timings: Vec<_> = replayer
-        .get_recording_indices()
-        .get("Control")
-        .expect(&unknown_indices_error_message)
-        .iter()
-        .collect();
-
-    for (index, timing) in timings.iter().enumerate().progress() {
-        let frame = replayer
-            .get_recording_indices_mut()
-            .get_mut("Control")
-            .map(|index| {
-                index
-                    .find_latest_frame_up_to(timing.timestamp)
-                    .expect("failed to find latest frame")
-            })
-            .expect(&unknown_indices_error_message);
-
-        if let Some(frame) = frame {
-            replayer
-                .replay("Control", frame.timing.timestamp, &frame.data)
-                .expect("failed to replay frame");
-
-            let (_, database) = &*control_receiver.borrow_and_mark_as_seen();
-
-            let values = database_to_values(database, "Control".to_string())?;
-            values
-                .into_iter()
-                .map(|(topic, data)| {
-                    mcap_converter.add_to_mcap(topic, data, index as u32, timing.timestamp)
-                })
-                .collect::<Result<_, _>>()?;
-        }
-    }
-
-    // let buffer = to_string(&databases).expect("failed to serialize to MessagePack byte vector");
-
-    // let output_file = output_folder.join("control_outputs.json");
-    // write(output_file, buffer)?;
+    write_to_mcap![control_receiver, "Control", mcap_converter, replayer];
+    write_to_mcap![
+        vision_bottom_receiver,
+        "VisionBottom",
+        mcap_converter,
+        replayer
+    ];
+    write_to_mcap![vision_top_receiver, "VisionTop", mcap_converter, replayer];
 
     mcap_converter.finish()?;
 
@@ -219,7 +190,7 @@ impl<'a, W: Write + Seek> McapConverter<'a, W> {
     pub fn add_to_mcap(
         &mut self,
         topic: String,
-        data: Value,
+        data: &[u8],
         sequence_number: u32,
         system_time: SystemTime,
     ) -> Result<(), McapError> {
@@ -236,7 +207,7 @@ impl<'a, W: Write + Seek> McapConverter<'a, W> {
                 log_time: log_time,
                 publish_time: log_time,
             },
-            data.to_string().as_bytes(),
+            data,
         )?;
 
         Ok(())
@@ -247,29 +218,22 @@ impl<'a, W: Write + Seek> McapConverter<'a, W> {
     }
 }
 
-pub fn database_to_values<T: Serialize>(
-    database: T,
+pub fn database_to_values<T: Serialize + PathIntrospect + PathSerialize>(
+    database: &T,
     cycler_name: String,
-) -> Result<Vec<(String, Value)>> {
-    let database_values = to_value(database).expect(&format!(
-        "failed to serialize `{cycler_name}` database to serde json value"
-    ));
-
+    output_type: String,
+) -> Result<Vec<(String, Vec<u8>)>> {
     let mut map = Vec::new();
 
-    let Value::Object(outputs) = database_values else {
-        bail!("expected `Value::Object`")
-    };
+    for node_output_name in T::get_children() {
+        let mut writer = Vec::new();
+        let mut serializer = Serializer::new(&mut writer);
 
-    for (output_type, cycler_output) in outputs {
-        let Value::Object(values) = cycler_output else {
-            bail!("expected `Value::Object`")
-        };
+        let output_name = &node_output_name;
+        let key = format!("{cycler_name}.{output_type}.{node_output_name}");
 
-        for (node_output_name, node_output) in values {
-            let key = format!("{cycler_name}.{output_type}.{node_output_name}");
-            map.push((key, node_output));
-        }
+        database.serialize_path(&output_name, &mut serializer)?;
+        map.push((key, writer));
     }
 
     Ok(map)
