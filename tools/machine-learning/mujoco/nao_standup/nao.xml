@@ -31,7 +31,8 @@
     <body name="torso" pos="0 0 0.33" euler="0 0 0">
       <freejoint name="root"/>
       <camera name="robot" mode="targetbody" target="torso" pos="0 1 0"/>
-      <geom name="torso" type="sphere" size="0.0642"/>
+      <!-- <geom name="torso" type="capsule" size="0.0642"/> -->
+      <geom name="torso" type="ellipsoid" size="0.0642" fromto="0 0 -0.1 0 0 0.13"/>
       <site name="imu"/>
       <body name="head" pos="0 0 0.1265">
         <joint name="head_yaw" type="hinge" axis="0 0 1" range="-119.5 119.5"/>
@@ -78,7 +79,7 @@
         <geom name="left_upper_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
         <body name="left_lower_leg" pos="0.1 0 0">
           <joint name="left_knee_pitch" type="hinge" axis="0 1 0" range="-5.29 121.04"/>
-          <geom name="left_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
+          <geom name="left_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.102 0 0"/>
           <body name="left_foot" pos="0.1029 0 0" euler="0 -90 0">
             <site name="left_foot_back_left_fsr" pos="0 0.025 -0.035" size="0.015 0.015 0.0015"  type="box" rgba="1 0 0 1" />
             <geom name="left_foot_back_left_fsr" pos="0 0.025 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
@@ -102,7 +103,7 @@
         <geom name="right_upper_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
         <body name="right_lower_leg" pos="0.1 0 0">
         <joint name="right_knee_pitch" type="hinge" axis="0 1 0" range="-5.9 121.04"/> <!-- The Fuck?! they are not the same as the left leg? -->
-          <geom name="right_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
+          <geom name="right_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.102 0 0"/>
           <body name="right_foot" pos="0.1029 0 0" euler="0 -90 0">
             <site name="right_foot_back_left_fsr" pos="0 0.015 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
             <geom name="right_foot_back_left_fsr" pos="0 0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
