@@ -177,7 +177,7 @@ impl<'a, W: Write + Seek> McapConverter<'a, W> {
         let channel = Channel {
             topic: topic.clone(),
             schema: None,
-            message_encoding: String::from("json"),
+            message_encoding: String::from("messagepack"),
             metadata: BTreeMap::default(),
         };
 
