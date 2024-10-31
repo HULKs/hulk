@@ -5,10 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    # "gym",
     "mujoco>=3.2.4",
     "gymnasium[classic-control]",
-    # "gymnasium[classic-control]",
     "ipykernel>=6.29.5",
     "mediapy>=1.2.2",
     "mujoco>=3.2.4",
@@ -17,6 +15,7 @@ dependencies = [
     "moviepy>=1.0.3",
     "stable-baselines3>=2.3.2",
     "neovim>=0.3.1",
+    "wandb>=0.18.5",
     "tensorboard>=2.18.0",
 ]
 
