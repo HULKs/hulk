@@ -3,10 +3,10 @@ use std::{cmp::Reverse, fmt::Debug};
 use egui::{
     popup_below_widget,
     text::{CCursor, CCursorRange},
-    text_edit::TextEditOutput,
+    text_edit::{TextEditOutput, TextEditState},
     util::cache::{ComputerMut, FrameCache},
-    Context, EventFilter, Id, Key, Modifiers, PopupCloseBehavior, Response, ScrollArea, TextEdit,
-    TextStyle, Ui, Widget,
+    Color32, Context, EventFilter, Id, Key, Modifiers, PopupCloseBehavior, Response, ScrollArea,
+    TextEdit, TextStyle, Ui, Widget,
 };
 use nucleo_matcher::{
     pattern::{CaseMatching, Normalization, Pattern},
@@ -32,12 +32,16 @@ impl UserState {
     fn handle_arrow(self, pressed_down: bool, pressed_up: bool, number_of_items: usize) -> Self {
         match (pressed_up, pressed_down, self) {
             (_, true, UserState::Typing) => UserState::Selecting { index: 0 },
+            (true, _, UserState::Typing) => UserState::Selecting {
+                index: number_of_items - 1,
+            },
             (true, _, UserState::Selecting { index: 0 }) => UserState::Typing,
             (true, _, UserState::Selecting { index }) => UserState::Selecting { index: index - 1 },
-            (_, true, UserState::Selecting { index }) => UserState::Selecting {
-                index: (index + 1).min(number_of_items - 1),
-            },
-            (_, _, state) => state,
+            (_, true, UserState::Selecting { index }) if index == number_of_items - 1 => {
+                UserState::Typing
+            }
+            (_, true, UserState::Selecting { index }) => UserState::Selecting { index: index + 1 },
+            (false, false, state) => state,
         }
     }
 }
@@ -45,6 +49,7 @@ impl UserState {
 #[derive(Debug, Clone, Default)]
 struct CompletionEditState {
     user_state: UserState,
+    typed_since_focused: bool,
 }
 
 #[derive(Default)]
@@ -93,6 +98,20 @@ impl CompletionEditState {
     }
 }
 
+fn set_cursor(
+    context: &Context,
+    response: &Response,
+    mut state: TextEditState,
+    start: usize,
+    end: usize,
+) {
+    state.cursor.set_char_range(Some(CCursorRange::two(
+        CCursor::new(start),
+        CCursor::new(end),
+    )));
+    state.store(context, response.id);
+}
+
 impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
     pub fn new(id_salt: impl Into<Id>, items: &'a [T], selected: &'a mut String) -> Self {
         Self {
@@ -138,26 +157,51 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         } else {
             (false, false)
         };
-
-        let TextEditOutput { mut response, .. } = match state.user_state {
-            UserState::Typing => TextEdit::singleline(self.selected)
-                .hint_text("Search")
-                .show(ui),
-            UserState::Selecting { index } => {
-                let mut selected = matching_items
-                    .get(index)
-                    .map(|(_, value)| value.clone())
-                    .unwrap_or_default();
-                let output = TextEdit::singleline(&mut selected)
+        let TextEditOutput {
+            mut response,
+            state: text_edit_state,
+            ..
+        } = ui
+            .scope(|ui| match state.user_state {
+                UserState::Typing => TextEdit::singleline(self.selected)
                     .hint_text("Search")
-                    .show(ui);
-                if output.response.changed() {
-                    *self.selected = selected;
-                    state.user_state = UserState::Typing;
+                    .show(ui),
+                UserState::Selecting { index } => {
+                    let mut active_stroke = ui.visuals().widgets.active.bg_stroke;
+                    active_stroke.color = ui.visuals().warn_fg_color;
+                    ui.visuals_mut().widgets.inactive.bg_stroke = active_stroke;
+
+                    let mut selected = matching_items
+                        .get(index)
+                        .map(|(_, value)| value.clone())
+                        .unwrap_or_default();
+                    let output = TextEdit::singleline(&mut selected)
+                        .text_color(Color32::GRAY)
+                        .hint_text("Search")
+                        .show(ui);
+                    set_cursor(
+                        ui.ctx(),
+                        &output.response,
+                        output.state.clone(),
+                        selected.len(),
+                        selected.len(),
+                    );
+                    if output.response.changed() {
+                        *self.selected = selected;
+                        state.user_state = UserState::Typing;
+                    }
+                    output
                 }
-                output
-            }
-        };
+            })
+            .inner;
+
+        if response.changed() {
+            state.typed_since_focused = true;
+        }
+        if response.gained_focus() {
+            // Select all
+            set_cursor(ui.ctx(), &response, text_edit_state, 0, self.selected.len());
+        }
         response.changed = false;
 
         if is_popup_open {
@@ -166,6 +210,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                     response.id,
                     EventFilter {
                         tab: true,
+                        vertical_arrows: true,
                         ..Default::default()
                     },
                 );
@@ -226,19 +271,21 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             },
         );
 
-        let has_focus = response.has_focus() && !self.selected.is_empty();
+        if response.lost_focus() {
+            state.typed_since_focused = false;
+        }
+        let should_open_popup = response.has_focus() && state.typed_since_focused;
         let user_completed_search = matches!(should_close_popup, Some(true))
             || response.lost_focus() && ui.input(|reader| reader.key_pressed(Key::Enter));
 
         ui.memory_mut(|memory| {
-            if has_focus {
+            if should_open_popup {
                 memory.open_popup(popup_id);
             }
             if user_completed_search {
                 memory.close_popup();
             }
         });
-
         if user_completed_search {
             response.mark_changed();
             if let UserState::Selecting { index } = state.user_state {
