@@ -198,4 +198,7 @@ where
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         Inner::extend_with_fields(fields, prefix)
     }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        Inner::extend_with_children(fields, prefix)
+    }
 }
