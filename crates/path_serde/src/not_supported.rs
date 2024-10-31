@@ -43,6 +43,7 @@ macro_rules! implement_as_not_supported {
 
         impl PathIntrospect for $type {
             fn extend_with_fields(_fields: &mut HashSet<String>, _prefix: &str) {}
+            fn extend_with_children(_fields: &mut HashSet<String>, _prefix: &str) {}
         }
     };
     ($type:ty, $($generic:tt),*) => {
@@ -78,6 +79,7 @@ macro_rules! implement_as_not_supported {
 
         impl<$($generic),*> PathIntrospect for $type {
             fn extend_with_fields(_fields: &mut HashSet<String>, _prefix: &str) {}
+            fn extend_with_children(_fields: &mut HashSet<String>, _prefix: &str) {}
         }
     };
 }

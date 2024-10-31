@@ -53,6 +53,9 @@ where
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         T::extend_with_fields(fields, prefix)
     }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        T::extend_with_children(fields, prefix)
+    }
 }
 
 impl<T> PathSerialize for Arc<T>
@@ -77,6 +80,9 @@ where
 {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         T::extend_with_fields(fields, prefix)
+    }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        T::extend_with_children(fields, prefix)
     }
 }
 
@@ -131,6 +137,9 @@ where
 {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         T::extend_with_fields(fields, prefix)
+    }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        T::extend_with_children(fields, prefix)
     }
 }
 
@@ -204,6 +213,10 @@ where
     T: PathIntrospect,
 {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}start"));
+        fields.insert(format!("{prefix}end"));
+    }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}start"));
         fields.insert(format!("{prefix}end"));
     }
@@ -294,6 +307,10 @@ where
         fields.insert(format!("{prefix}start"));
         fields.insert(format!("{prefix}end"));
     }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}start"));
+        fields.insert(format!("{prefix}end"));
+    }
 }
 
 impl<T, const N: usize> PathSerialize for Matrix<T, Const<N>, U1, ArrayStorage<T, N, 1>>
@@ -357,6 +374,11 @@ impl<T, const N: usize> PathIntrospect for Matrix<T, Const<N>, U1, ArrayStorage<
             fields.insert(format!("{prefix}{field}"));
         }
     }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        for field in &["x", "y", "z", "w", "v", "u"][0..N] {
+            fields.insert(format!("{prefix}{field}"));
+        }
+    }
 }
 
 impl<T, const N: usize> PathSerialize for Point<T, N>
@@ -398,6 +420,9 @@ where
 {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::extend_with_fields(fields, prefix)
+    }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        Matrix::<T, Const<N>, U1, ArrayStorage<T, N, 1>>::extend_with_children(fields, prefix)
     }
 }
 
@@ -455,6 +480,11 @@ impl<T> PathDeserialize for UnitQuaternion<T> {
 
 impl<T> PathIntrospect for UnitQuaternion<T> {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}roll"));
+        fields.insert(format!("{prefix}pitch"));
+        fields.insert(format!("{prefix}yaw"));
+    }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}roll"));
         fields.insert(format!("{prefix}pitch"));
         fields.insert(format!("{prefix}yaw"));
@@ -526,6 +556,10 @@ where
 
 impl<T> PathIntrospect for UnitComplex<T> {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}rad"));
+        fields.insert(format!("{prefix}deg"));
+    }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}rad"));
         fields.insert(format!("{prefix}deg"));
     }
@@ -610,6 +644,10 @@ impl<T> PathIntrospect for Isometry2<T> {
         Vector2::<T>::extend_with_fields(fields, &format!("{prefix}translation."));
         UnitComplex::<T>::extend_with_fields(fields, &format!("{prefix}rotation."));
     }
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}translation"));
+        fields.insert(format!("{prefix}rotation"));
+    }
 }
 
 impl<T> PathSerialize for Isometry3<T>
@@ -689,6 +727,11 @@ impl<T> PathIntrospect for Isometry3<T> {
         fields.insert(format!("{prefix}rotation"));
         Vector3::<T>::extend_with_fields(fields, &format!("{prefix}translation."));
         UnitQuaternion::<T>::extend_with_fields(fields, &format!("{prefix}rotation."));
+    }
+
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}translation"));
+        fields.insert(format!("{prefix}rotation"));
     }
 }
 
