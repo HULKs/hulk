@@ -22,8 +22,6 @@ use types::{
     sensor_data::SensorData,
 };
 
-use walking_engine::parameters::Parameters as WalkingEngineParameters;
-
 use crate::interfake::FakeDataInterface;
 
 #[derive(Deserialize, Serialize)]
@@ -37,7 +35,6 @@ pub struct CreationContext {
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
     ball_filter: Parameter<BallFilterParameters, "ball_filter">,
     glance_angle: Parameter<f32, "look_at.glance_angle">,
-    parameters: Parameter<WalkingEngineParameters, "walking_engine">,
 }
 
 #[context]
