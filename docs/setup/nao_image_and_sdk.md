@@ -70,7 +70,7 @@ This script mounts the file system contained in the OPN image, retrieves all bin
 Note that mounting the OPN file system might require root privileges.
 
 ```sh
-cd meta-nao/recipes-support/aldebaran/
+cd meta-nao/meta/recipes-support/aldebaran/
 mkdir -p aldebaran-binaries
 ./extract_binaries.sh -o aldebaran-binaries/aldebaran_binaries.tar.gz nao-2.8.5.11_ROBOCUP_ONLY_with_root.opn
 ```
@@ -89,6 +89,13 @@ Reference the `kas-project.yml` of meta-nao:
 ```
 
 All BitBake and Devtool commands should be executed from within this shell.
+
+!!! hint
+
+    Your `TERM` variable may request a terminfo that is not available in the kas container image. This results in e.g. progress bars not displaying correctly. Make sure, your terminfo is supported within the container. You may be able to just override it with xterm:
+    ```sh
+    export TERM=xterm-256color
+    ```
 
 ### Building the Image
 
@@ -129,7 +136,7 @@ Once installed, you can source the build environment and use the respective cros
 #### Updating Yocto Layers
 
 The Yocto Project and the Poky reference distribution provide a Linux kernel, userland programs, libraries, and other tooling, which are regularly updated in Yocto releases.
-To ensure deterministic builds, the HULKs freeze the versions of all used layers in the `kas-project.yml` files of meta-nao.
+To ensure deterministic builds, the HULKs freeze the versions of all used layers in the kas project files of meta-nao (`base.yml`, `hulks.yml`, ...).
 
 #### Versioning of Image/SDKs Using Semantic Versioning
 
@@ -142,7 +149,7 @@ This versioning system increases version numbers based on the nature of the chan
 - Minor changes, additions, and iterations necessitate an increase in the minor version number.
 - Changes in the image that do not require SDK recreation result in an increase in the patch version number. Consequently, only a new image needs to be created, not necessarily a redistribution of new SDKs.
 
-Before building new images, the version number must be set in `meta-nao/conf/distro/HULKsOS.conf`.
+Before building new images, the version number must be set in `meta-nao/meta-hulks/conf/distro/HULKs-OS.conf`.
 Only modify the `DISTROVERSION`; the `SDKVERSION` is automatically derived from the `DISTRO_VERSION`.
 
 After releasing a new image and/or SDK, update the `OSVERSION` and/or `SDKVERSION` variables in `crates/constants/src/lib.rs`.
