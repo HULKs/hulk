@@ -88,14 +88,14 @@ and adding `~/.cargo/bin` to the `PATH`.
 ## Remote Compile
 
 To use the remote compilation you need to create an account on the remote-compiler.
-Open an ssh connection to ```root@134.28.57.226```.
+Open an ssh connection to ```root@remote-compiler.hulks.dev```.
 There create a new account by ```adduser {name}``` and set a password with ```passwd {name}```.
 
-Terminate the root ssh session and log in with your new user ```{name}@134.28.57.226```.
+Terminate the root ssh session and log in with your new user ```{name}@remote-compiler.hulks.dev```.
 There clone the HULKs repository using https: ```https://github.com/HULKs/hulk.git```
 
-Back on your local machine do ```ssh-copy-id {name}@134.28.57.226``` to allow passwordless login.
-In the hulk repo, create a `.REMOTE_WORKSPACE` file containing the username, IP, and path, e.g. `{name}@134.28.57.226:hulk`.
+Back on your local machine do ```ssh-copy-id {name}@remote-compiler.hulks.dev``` to allow passwordless login.
+In the hulk repo, create a `.REMOTE_WORKSPACE` file containing the username, IP, and path, e.g. `{name}@remote-compiler.hulks.dev:hulk`.
 
 Now you can use the pepsi remote features:
 
@@ -108,11 +108,4 @@ Other pepsi commands such as `run`, `upload`, or `pregame` also have a `--remote
 
 To use the remote compile functionality from outside the lab, you need a VPN connection.
 Ask one of the older team members to provide you a `.ovpn` file. Create a new VPN client with this configuration file.
-This allows you to use the remote compiler, however it is not possible to upload to the robots from the VPN.
-To solve this, you can either delete the routes to the robots, e.g. using
-```bash
-ip route delete 10.1.24.0/24 via 10.2.24.1 dev tun0
-```
-or manually configure the routes of the VPN.
-In gnome-settings, this looks like the following
-![](./gnome-settings-vpn-manual.png)
+Using the VPN, you can access the remote compiler and all other internal services from outside the lab.
