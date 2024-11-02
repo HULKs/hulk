@@ -184,7 +184,7 @@ impl<'state> Frames<'state> {
     }
 }
 
-impl<'state> Widget for Frames<'state> {
+impl Widget for Frames<'_> {
     fn ui(mut self, ui: &mut Ui) -> Response {
         let (mut response, painter) =
             ui.allocate_painter(ui.available_size(), Sense::click_and_drag());

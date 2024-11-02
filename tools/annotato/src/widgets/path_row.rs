@@ -24,7 +24,7 @@ impl<'a> Row<'a> {
     }
 }
 
-impl<'a> Widget for Row<'a> {
+impl Widget for Row<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let filename = self.paths.image_path.display().to_string();
         let is_labelled = self.paths.label_present;

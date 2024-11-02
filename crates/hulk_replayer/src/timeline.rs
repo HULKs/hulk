@@ -33,7 +33,7 @@ impl<'state> Timeline<'state> {
     }
 }
 
-impl<'state> Widget for Timeline<'state> {
+impl Widget for Timeline<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let original_item_spacing = ui.spacing().item_spacing;
         ui.spacing_mut().item_spacing = Vec2::ZERO;

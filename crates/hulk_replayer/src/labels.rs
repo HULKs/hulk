@@ -26,7 +26,7 @@ impl<'state> Labels<'state> {
     }
 }
 
-impl<'state> Widget for Labels<'state> {
+impl Widget for Labels<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let spacing = ui.spacing().item_spacing.y;
         let total_spacing = spacing * (self.labels.len() - 1) as f32;

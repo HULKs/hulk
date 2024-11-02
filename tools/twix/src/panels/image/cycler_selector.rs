@@ -46,7 +46,7 @@ impl<'a> VisionCyclerSelector<'a> {
     }
 }
 
-impl<'a> Widget for &mut VisionCyclerSelector<'a> {
+impl Widget for &mut VisionCyclerSelector<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut selection_changed = false;
         let mut combo_box = ComboBox::from_label("Cycler")

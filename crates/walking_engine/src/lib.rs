@@ -33,7 +33,6 @@ mod stiffness;
 /// The algorithm to compute the feet trajectories is loosely based on the work of Bernhard Hengst
 /// at the team rUNSWift. An explanation of this algorithm can be found in the team's research
 /// report from 2014 (<http://cgi.cse.unsw.edu.au/~robocup/2014ChampionTeamPaperReports/20140930-Bernhard.Hengst-Walk2014Report.pdf>).
-
 pub struct Context<'a> {
     pub parameters: &'a Parameters,
     pub kick_steps: &'a KickSteps,
