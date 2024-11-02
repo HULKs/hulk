@@ -140,7 +140,7 @@ fn main() -> Result<()> {
 
     create_dir_all(&output_folder).expect("failed to create output folder");
 
-    let output_file = output_folder.join("control_outputs.mcap");
+    let output_file = output_folder.join("outputs.mcap");
 
     let mut mcap_converter =
         McapConverter::from_writer(BufWriter::new(File::create(output_file)?))?;
@@ -227,7 +227,7 @@ pub fn database_to_values<T: Serialize + PathIntrospect + PathSerialize>(
 
     for node_output_name in T::get_children() {
         let mut writer = Vec::new();
-        let mut serializer = Serializer::new(&mut writer);
+        let mut serializer = Serializer::new(&mut writer).with_struct_map();
 
         let output_name = &node_output_name;
         let key = format!("{cycler_name}.{output_type}.{node_output_name}");
