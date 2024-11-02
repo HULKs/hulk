@@ -35,7 +35,7 @@ macro_rules! write_to_mcap {
                 )?;
 
                 let additional_outputs = database_to_values(
-                    &database.main_outputs,
+                    &database.additional_outputs,
                     $cycler_name.to_string(),
                     "additional_outputs".to_string(),
                 )?;
