@@ -1,25 +1,33 @@
 # NAO Image & SDK
 
 The HULKs team utilizes the [Yocto Project](https://yoctoproject.org) to create a custom Linux distribution referred to as HULKs-OS.
-The toolchain compiles all essential dependencies, tools, and the kernel to produce flashable OPN images for the NAO robot.
-Yocto also facilitates the creation of a comprehensive software development kit (SDK) that includes a complete cross-compilation toolchain.
+This framework is not a Linux distribution itself but provides a comprehensive set of tools and processes to build tailored operating systems, especially for embedded devices such as the NAO robot.
+Yocto enables the creation of a versatile toolchain that compiles all necessary dependencies, tools, and the Linux kernel to produce flashable OPN image files for the NAO robot.
+Alongside the image files, Yocto facilitates the generation of a comprehensive Software Development Kit (SDK), inclusive of a full cross-compilation toolchain designed specifically for the NAO's architecture.
 
-The latest version of HULKs-OS is automatically released publicly on GitHub [here](https://github.com/hulks/meta-nao/releases).
-If you want to flash these images or deploy software onto your robot, you can use the pre-built versions without needing to create your own image and SDK.
+The latest iteration of HULKs-OS is released on GitHub [here](https://github.com/hulks/meta-nao/releases), enabling users to flash images or deploy software onto their robots without constructing their own builds.
+When powered up, this custom image automatically configures both wired and wireless network interfaces.
+Each NAO robot is distinguished by a unique Head-ID, which is instrumental in assigning a specific IP address.
+The mapping between Head-IDs and their corresponding IPs is defined in the `team.toml` file, accessible [here](https://github.com/HULKs/hulk/tree/main/etc/parameters/team.toml), and is uploaded to the NAO during the `pepsi gammaray` deployment process.
 
-When the NAO boots up, the image automatically configures both wired and wireless network devices.
-Each robot is identified by its unique Head-ID, which is used to assign a specific IP address.
-The mapping between Head-IDs and IP addresses is defined in the `team.toml` file, available [here](https://github.com/HULKs/hulk/tree/main/etc/parameters/team.toml), and is uploaded to the NAO during `pepsi gammaray`.
+For robots not specified in the `team.toml`, the image defaults to configuring its wired network interface via DHCP, allowing users to identify the robot's IP address by checking DHCP leases or consulting with your IT administrator.
 
-For any robots that aren’t listed, the image defaults to configuring its wired network device using DHCP.
-Thus, you're free to flash the HULKs-OS image onto a robot and find its IP address by inspecting your DHCP leases or asking your IT administrator.
+## Yocto Project Fundamentals
+
+The [Yocto Project](https://yoctoproject.org) is an industry-standard framework, extensively applied in building custom Linux-based systems for embedded applications.
+It manages tasks with [BitBake](https://en.wikipedia.org/wiki/BitBake), a task execution engine responsible for building packages and handling complex dependencies through defined recipes.
+Recipes dictate how software should be fetched, compiled, packaged, and installed.
+
+To enhance functionality, Yocto projects utilize [OpenEmbedded](https://www.openembedded.org/wiki/Main_Page), a collection of metadata, recipes, and configuration files providing foundational support to BitBake in building robust packages.
+Developers typically use [Poky](https://git.yoctoproject.org/poky/), Yocto's reference distribution, as a prototype to create customized distributions.
+
+Tools like [siemens/kas](https://github.com/siemens/kas) assist in simplifying the setup of Yocto environments with multiple layers and repositories, ensuring consistent and reproducible build processes.
 
 ## Creating the Image & SDK
 
-The Yocto Project employs [BitBake](https://en.wikipedia.org/wiki/BitBake) as a task execution engine and provides an abstraction layer for modifying and extending existing build configurations.
-Combined with [OpenEmbedded](https://www.openembedded.org/wiki/Main_Page), the entire work environment is organized into several layers that configure the distribution and provide support for dependencies or services.
 The foundational NAO support for creating a minimal NAO robot operating system for use in SPL is set up using the root `meta` layer in the [`meta-nao`](https://github.com/hulks/meta-nao) repository.
-The HULKs overlay this configuration with an additional `meta-hulks` layer for their specific use case.
+It includes necessary recipes and configurations, automatically releasing updates via continuous integration (CI).
+For specific adaptations related to the competition and the HULKs' unique requirements, an additional `meta-hulks` layer is applied to further customize the distribution.
 
 ### Setting Up the Working Directory
 
@@ -119,6 +127,12 @@ The image can be directly flashed to a NAO as detailed in the [NAO setup](./nao_
 
 To compile software targeting the NAO platform, the code needs to be cross-compiled for the NAO target.
 When you only change configuration for the NAO image, you may still maintain compatibility with the publicly released SDK at [meta-nao](https://github.com/hulks/meta-nao/releases) and opt for this SDK instead of building your own.
+
+![Cross Canadian Compilation](./cross-canadian-light.svg#only-light)
+![Cross Canadian Compilation](./cross-canadian-dark.svg#only-dark)
+/// caption
+Cross Canadian Compilation
+///
 
 Within the build shell, execute the following command to build a complete SDK:
 
