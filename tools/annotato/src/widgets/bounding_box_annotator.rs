@@ -120,7 +120,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
     }
 }
 
-impl<'a> Widget for BoundingBoxAnnotator<'a> {
+impl Widget for BoundingBoxAnnotator<'_> {
     fn ui(mut self, ui: &mut Ui) -> Response {
         let response = Plot::new(self.id)
             .data_aspect(1.)

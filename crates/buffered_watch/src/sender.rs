@@ -72,7 +72,7 @@ pub struct SenderGuard<'lock, T> {
     buffer: &'lock mut T,
 }
 
-impl<'lock, T> Deref for SenderGuard<'lock, T> {
+impl<T> Deref for SenderGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -80,13 +80,13 @@ impl<'lock, T> Deref for SenderGuard<'lock, T> {
     }
 }
 
-impl<'lock, T> DerefMut for SenderGuard<'lock, T> {
+impl<T> DerefMut for SenderGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
         self.buffer.deref_mut()
     }
 }
 
-impl<'lock, T> Drop for SenderGuard<'lock, T> {
+impl<T> Drop for SenderGuard<'_, T> {
     fn drop(&mut self) {
         {
             let mut states = self.shared.states.lock();

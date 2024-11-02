@@ -144,7 +144,7 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
     }
 }
 
-impl<'a, T> DoubleEndedIterator for PlayersIterator<'a, T> {
+impl<T> DoubleEndedIterator for PlayersIterator<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let result = self.next_back.map(|number| (number, &self.data[number]));
         if self.next_forward == self.next_back {
@@ -165,7 +165,7 @@ impl<'a, T> DoubleEndedIterator for PlayersIterator<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for PlayersIterator<'a, T> {
+impl<T> ExactSizeIterator for PlayersIterator<'_, T> {
     // The default implementation only requires `Iterator::size_hint()` to be exact
 }
 

@@ -286,12 +286,12 @@ mod tests {
         struct Reader<'buffer> {
             reversed_items: Vec<Option<Item<'buffer>>>,
         }
-        impl<'buffer> AsRawFd for Reader<'buffer> {
+        impl AsRawFd for Reader<'_> {
             fn as_raw_fd(&self) -> RawFd {
                 FIXED_FILE_DESCRIPTOR
             }
         }
-        impl<'buffer> Read for Reader<'buffer> {
+        impl Read for Reader<'_> {
             fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
                 match self.reversed_items.pop() {
                     Some(Some(item)) => {
@@ -344,12 +344,12 @@ mod tests {
         struct Reader<'buffer> {
             reversed_items: Vec<Option<Item<'buffer>>>,
         }
-        impl<'buffer> AsRawFd for Reader<'buffer> {
+        impl AsRawFd for Reader<'_> {
             fn as_raw_fd(&self) -> RawFd {
                 FIXED_FILE_DESCRIPTOR
             }
         }
-        impl<'buffer> Read for Reader<'buffer> {
+        impl Read for Reader<'_> {
             fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
                 match self.reversed_items.pop() {
                     Some(Some(item)) => {
@@ -407,12 +407,12 @@ mod tests {
         struct Reader<'buffer> {
             reversed_items: Vec<Option<Item<'buffer>>>,
         }
-        impl<'buffer> AsRawFd for Reader<'buffer> {
+        impl AsRawFd for Reader<'_> {
             fn as_raw_fd(&self) -> RawFd {
                 FIXED_FILE_DESCRIPTOR
             }
         }
-        impl<'buffer> Read for Reader<'buffer> {
+        impl Read for Reader<'_> {
             fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
                 match self.reversed_items.pop() {
                     Some(Some(item)) => {

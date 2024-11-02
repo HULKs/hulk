@@ -16,7 +16,7 @@ impl<'a> ImageList<'a> {
     }
 }
 
-impl<'a> Widget for ImageList<'a> {
+impl Widget for ImageList<'_> {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
         ui.vertical(|ui| {
             ui.label("Image List");

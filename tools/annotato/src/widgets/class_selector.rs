@@ -22,7 +22,7 @@ impl<'a> ClassSelector<'a> {
     }
 }
 
-impl<'a> Widget for ClassSelector<'a> {
+impl Widget for ClassSelector<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         if let Some(class) = ui.input(|i| i.keys_down.iter().find_map(|key| Class::from_key(*key)))
         {

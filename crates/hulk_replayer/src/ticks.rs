@@ -151,7 +151,7 @@ impl<'state> Ticks<'state> {
     }
 }
 
-impl<'state> Widget for Ticks<'state> {
+impl Widget for Ticks<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut size = ui.available_size();
         size.y = ticks_height(ui);
