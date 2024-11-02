@@ -110,6 +110,10 @@ mod tests {
                 [keys]
                 C-a = "focus_left"
                 C-S-a = "reconnect"
+
+                [naos]
+                lowest = 1
+                highest = 2
             "#,
         )
         .unwrap();
@@ -119,6 +123,10 @@ mod tests {
                 [keys]
                 C-b = "focus_left"
                 C-A = "focus_right"
+
+                [naos]
+                lowest = 3
+                highest = 4
             "#,
         )
         .unwrap();
@@ -133,6 +141,10 @@ mod tests {
                     C-a = "focus_left"
                     C-A = "focus_right"
                     C-b = "focus_left"
+
+                    [naos]
+                    lowest = 1
+                    highest = 2
                 "#
             )
             .unwrap()
