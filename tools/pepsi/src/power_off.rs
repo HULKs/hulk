@@ -1,10 +1,12 @@
+use std::path::Path;
+
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::{number_to_ip, Connection, NaoAddress};
-use constants::TEAM;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
+use repository::team::get_team_configuration;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,9 +20,16 @@ pub struct Arguments {
     pub naos: Vec<NaoAddress>,
 }
 
-pub async fn power_off(arguments: Arguments) -> Result<()> {
+pub async fn power_off(
+    arguments: Arguments,
+    repository_root: Result<impl AsRef<Path>>,
+) -> Result<()> {
     if arguments.all {
-        let addresses = TEAM
+        let repository_root = repository_root?;
+        let team = get_team_configuration(repository_root)
+            .await
+            .wrap_err("failed to get team configuration")?;
+        let addresses = team
             .naos
             .iter()
             .map(|nao| async move {

@@ -12,7 +12,8 @@ use super::{
     double_buffered_reader::{DoubleBufferedReader, SelectPoller},
     hula::{read_from_hula, write_to_hula, ControlStorage, StateStorage},
 };
-use constants::HULA_SOCKET_PATH;
+
+pub const HULA_SOCKET_PATH: &str = "/tmp/hula";
 
 pub struct HulaWrapper {
     now: RwLock<SystemTime>,

@@ -11,7 +11,6 @@ ball_filter = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
-constants = { workspace = true }
 ctrlc = { workspace = true }
 enum-iterator = { workspace = true }
 fern = { workspace = true }
