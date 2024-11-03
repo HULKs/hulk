@@ -1,9 +1,8 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, path::Path};
 
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
-
-use repository::Repository;
+use repository::recording::set_recording_intervals;
 
 #[derive(Args)]
 pub struct Arguments {
@@ -13,11 +12,13 @@ pub struct Arguments {
     pub recording_intervals: Vec<(String, usize)>,
 }
 
-pub async fn recording(arguments: Arguments, repository: &Repository) -> Result<()> {
-    repository
-        .set_recording_intervals(HashMap::from_iter(arguments.recording_intervals))
-        .await
-        .wrap_err("failed to set recording enablement")
+pub async fn recording(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+    set_recording_intervals(
+        HashMap::from_iter(arguments.recording_intervals),
+        repository_root,
+    )
+    .await
+    .wrap_err("failed to set recording settings")
 }
 
 pub fn parse_key_value<T, U>(string: &str) -> Result<(T, U), Box<dyn Error + Send + Sync + 'static>>
