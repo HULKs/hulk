@@ -1,105 +1,47 @@
+use std::path::Path;
+
 use clap::Args;
-use color_eyre::{
-    eyre::{bail, WrapErr},
-    Result,
+use color_eyre::{eyre::WrapErr, Result};
+use repository::{
+    cargo::{run_shell, Cargo, Environment, Executor},
+    configuration::get_sdk_version,
+    data_home::get_data_home,
+    sdk::download_and_install,
 };
-use tokio::process::Command as TokioCommand;
 
-use constants::OS_IS_NOT_LINUX;
-use repository::Repository;
-
-#[derive(Args)]
+#[derive(Args, Clone)]
 pub struct Arguments {
-    /// Apply to entire workspace (only valid for build/check/clippy)
-    #[arg(long)]
-    pub workspace: bool,
     #[arg(long, default_value = "incremental")]
     pub profile: String,
-    #[arg(long, default_value = "webots")]
-    pub target: String,
-    #[arg(long)]
-    pub no_sdk_installation: bool,
     #[arg(long, default_value = None, num_args = 1..)]
     pub features: Option<Vec<String>>,
-    /// Pass through arguments to cargo ... -- PASSTHROUGH_ARGUMENTS
+    #[arg(default_value = "nao")]
+    pub target: String,
+    #[arg(long)]
+    pub workspace: bool,
+    /// Pass through arguments to cargo
     #[arg(last = true, value_parser)]
     pub passthrough_arguments: Vec<String>,
-    /// Use a remote machine for compilation, see ./scripts/remote for details
+    /// Use the SDK (automatically set when target is `nao`)
+    #[arg(long)]
+    pub sdk: bool,
+    /// Use docker for execution, only relevant when using the SDK
+    #[arg(long)]
+    pub docker: bool,
+    /// Use a remote machine for execution, see ./scripts/remote for details
     #[arg(long)]
     pub remote: bool,
 }
 
-#[derive(Debug)]
-pub enum Command {
-    Build,
-    Check,
-    Clippy,
-    Run,
-}
-
-pub async fn cargo(arguments: Arguments, repository: &Repository, command: Command) -> Result<()> {
+pub async fn cargo(
+    command: &str,
+    arguments: Arguments,
+    repository_root: impl AsRef<Path>,
+) -> Result<()> {
     if arguments.remote {
-        return remote(arguments, command).await;
-    }
-
-    if !arguments.no_sdk_installation && arguments.target == "nao" {
-        let installation_directory = repository
-            .link_sdk_home(None)
-            .await
-            .wrap_err("failed to link SDK home")?;
-
-        let use_docker = OS_IS_NOT_LINUX;
-        if !use_docker {
-            repository
-                .install_sdk(None, installation_directory)
-                .await
-                .wrap_err("failed to install SDK")?;
-        }
-    }
-
-    match command {
-        Command::Build => repository
-            .build(
-                arguments.workspace,
-                &arguments.profile,
-                &arguments.target,
-                arguments.features,
-                &arguments.passthrough_arguments,
-            )
-            .await
-            .wrap_err("failed to build")?,
-        Command::Check => repository
-            .check(arguments.workspace, &arguments.profile, &arguments.target)
-            .await
-            .wrap_err("failed to check")?,
-        Command::Clippy => repository
-            .clippy(arguments.workspace, &arguments.profile, &arguments.target)
-            .await
-            .wrap_err("failed to run clippy")?,
-        Command::Run => {
-            if arguments.workspace {
-                println!("INFO: Found --workspace with run subcommand, ignoring...")
-            }
-            repository
-                .run(
-                    &arguments.profile,
-                    &arguments.target,
-                    arguments.features,
-                    &arguments.passthrough_arguments,
-                )
-                .await
-                .wrap_err("failed to run")?
-        }
-    }
-
-    Ok(())
-}
-
-pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
-    match command {
-        Command::Build => {
-            let mut command = TokioCommand::new("./scripts/remoteWorkspace");
-
+        let remote_script = "./scripts/remoteWorkspace";
+        let mut remote_command = remote_script.to_string();
+        if command == "build" {
             let profile_name = match arguments.profile.as_str() {
                 "dev" => "debug",
                 other => other,
@@ -108,44 +50,93 @@ pub async fn remote(arguments: Arguments, command: Command) -> Result<()> {
                 "nao" => "x86_64-aldebaran-linux-gnu/",
                 _ => "",
             };
-            command.args([
-                "--return-file",
-                &format!(
-                    "target/{toolchain_name}{profile_name}/hulk_{}",
-                    arguments.target
-                ),
-            ]);
-
-            command
-                .arg("./pepsi")
-                .arg("build")
-                .arg("--profile")
-                .arg(arguments.profile)
-                .arg("--target")
-                .arg(arguments.target);
-
-            if arguments.workspace {
-                command.arg("--workspace");
-            }
-            if arguments.no_sdk_installation {
-                command.arg("--no-sdk-installation");
-            }
-            command.arg("--");
-            command.args(arguments.passthrough_arguments);
-
-            let status = command
-                .status()
-                .await
-                .wrap_err("failed to execute remote script")?;
-
-            if !status.success() {
-                bail!("remote script exited with code {}", status.code().unwrap())
-            }
-
-            Ok(())
+            remote_command.push_str(&format!(
+                " --return-file target/{toolchain_name}{profile_name}/hulk_{target}",
+                profile_name = profile_name,
+                toolchain_name = toolchain_name,
+                target = arguments.target
+            ));
         }
-        Command::Check | Command::Clippy | Command::Run => {
-            unimplemented!("remote option is not compatible with cargo command: {command:?}")
+        remote_command.push_str(&format!(
+            " ./pepsi {command} --profile {profile}",
+            profile = arguments.profile,
+        ));
+        if let Some(features) = &arguments.features {
+            remote_command.push_str(&format!(
+                " --features {features}",
+                features = features.join(",")
+            ));
         }
+        if arguments.workspace {
+            remote_command.push_str(" --workspace");
+        }
+        if arguments.sdk {
+            remote_command.push_str(" --sdk");
+        }
+        if arguments.docker {
+            remote_command.push_str(" --docker");
+        }
+        remote_command.push_str(&format!(" {target}", target = arguments.target));
+        if !arguments.passthrough_arguments.is_empty() {
+            remote_command.push_str(" -- ");
+            remote_command.push_str(&arguments.passthrough_arguments.join(" "));
+        }
+        run_shell(&remote_command)
+            .await
+            .wrap_err("failed to run remote script")?;
+    } else {
+        let sdk_version = get_sdk_version(&repository_root)
+            .await
+            .wrap_err("failed to get HULK OS version")?;
+        let data_home = get_data_home().wrap_err("failed to get data home")?;
+        let use_sdk = arguments.sdk || (command == "build" && arguments.target == "nao");
+        let cargo = if use_sdk {
+            if arguments.docker || !cfg!(target_os = "linux") {
+                Cargo::sdk(Environment {
+                    executor: Executor::Docker,
+                    version: sdk_version,
+                })
+            } else {
+                download_and_install(&sdk_version, data_home)
+                    .await
+                    .wrap_err("failed to install SDK")?;
+                Cargo::sdk(Environment {
+                    executor: Executor::Native,
+                    version: sdk_version,
+                })
+            }
+        } else {
+            Cargo::native()
+        };
+
+        let mut cargo_command = cargo.command(command, repository_root.as_ref())?;
+
+        cargo_command.profile(&arguments.profile);
+
+        if let Some(features) = &arguments.features {
+            cargo_command.features(features);
+        }
+
+        let manifest_path = format!(
+            "./crates/hulk_{target}/Cargo.toml",
+            target = arguments.target
+        );
+        cargo_command.manifest_path(Path::new(&manifest_path))?;
+
+        if !arguments.passthrough_arguments.is_empty() {
+            cargo_command.passthrough_arguments(&arguments.passthrough_arguments);
+        }
+
+        if arguments.workspace {
+            cargo_command.workspace();
+            cargo_command.all_targets();
+            cargo_command.all_features();
+        }
+
+        let shell_command = cargo_command.shell_command()?;
+        run_shell(&shell_command)
+            .await
+            .wrap_err("failed to run cargo build")?;
     }
+    Ok(())
 }
