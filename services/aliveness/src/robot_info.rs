@@ -1,10 +1,11 @@
 use color_eyre::eyre::{eyre, Context, Result};
 use configparser::ini::Ini;
-use constants::OS_RELEASE_PATH;
 use hula_types::{Battery, JointsArray};
 
 use tokio::process::Command;
 use zbus::{dbus_proxy, zvariant::Optional, Connection};
+
+const OS_RELEASE_PATH: &str = "/etc/os-release";
 
 #[dbus_proxy(
     default_service = "org.hulks.hula",

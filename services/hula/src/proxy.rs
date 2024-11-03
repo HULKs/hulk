@@ -25,8 +25,8 @@ use crate::{
     idle::{charging_skull, send_idle},
     SharedState,
 };
-use constants::HULA_SOCKET_PATH;
 
+const HULA_SOCKET_PATH: &str = "/tmp/hula";
 const LOLA_SOCKET_PATH: &str = "/tmp/robocup";
 const LOLA_SOCKET_RETRY_COUNT: usize = 60;
 const LOLA_SOCKET_RETRY_INTERVAL: Duration = Duration::from_secs(1);

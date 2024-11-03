@@ -7,7 +7,7 @@ env:
   CARGO_HOME: /__w/hulk/cargo
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
-  NAOSDK_HOME: /__w/hulk/naosdk
+  HULK_DATA_HOME: /__w/hulk/data
   NAOSDK_AUTOMATIC_YES: 1
 
 jobs:
@@ -31,7 +31,11 @@ jobs:
     name: Check Cargo.lock
     strategy:
       matrix:
-        path: [., tools/aliveness, tools/hula]
+        path:
+          - .
+          - services/aliveness
+          - services/breeze
+          - services/hula
     runs-on:
       - self-hosted
       - v3
@@ -130,22 +134,17 @@ jobs:
           lfs: true
       - name: Build
         run: |
-          ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }}
+          ./pepsi build --profile ${{ matrix.profile }} ${{ matrix.target }}
 
-  build_tools:
+  build_services:
     name: Build
     strategy:
       matrix:
         path:
           [
-            aliveness,
-            annotato,
-            camera_matrix_extractor,
-            depp,
-            fanta,
-            hula,
-            pepsi,
-            twix,
+            services/aliveness,
+            services/breeze,
+            services/hula,
           ]
     runs-on:
       - self-hosted
@@ -159,7 +158,37 @@ jobs:
           lfs: true
       - name: Build
         run: |
-          cd tools/${{ matrix.path }}
+          ./pepsi sdk install
+          . $(./pepsi sdk path)/environment-setup-corei7-64-aldebaran-linux
+          cd ${{ matrix.path }}
+          cargo build --release
+
+  build_tools:
+    name: Build
+    strategy:
+      matrix:
+        path:
+          [
+            tools/annotato,
+            tools/camera_matrix_extractor,
+            tools/depp,
+            tools/fanta,
+            tools/pepsi,
+            tools/twix,
+          ]
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Build
+        run: |
+          cd ${{ matrix.path }}
           cargo build --release
 
   build_mkdocs:

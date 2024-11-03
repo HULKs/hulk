@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Path};
 
 use clap::Args;
 use color_eyre::{
@@ -7,7 +7,7 @@ use color_eyre::{
 };
 
 use argument_parsers::NaoNumberPlayerAssignment;
-use repository::Repository;
+use repository::{player_number::set_player_number, team::get_team_configuration};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,29 +18,17 @@ pub struct Arguments {
     pub assignments: Vec<NaoNumberPlayerAssignment>,
 }
 
-pub async fn player_number(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let team = repository
-        .get_configured_team()
+pub async fn player_number(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+    let repository_root = repository_root.as_ref();
+    let team = get_team_configuration(repository_root)
         .await
-        .wrap_err("failed to get configured team")?;
+        .wrap_err("failed to get team configuration")?;
 
-    // Check if two NaoNumbers are assigned to the same PlayerNumber
-    // or if a NaoNumber is assigned to multiple PlayerNumbers
-    let mut existing_player_numbers = HashSet::new();
-    let mut existing_nao_numbers = HashSet::new();
+    check_for_duplication(&arguments.assignments)?;
 
-    if arguments.assignments.iter().any(
-        |NaoNumberPlayerAssignment {
-             nao_number,
-             player_number,
-         }| {
-            !existing_nao_numbers.insert(nao_number)
-                || !existing_player_numbers.insert(player_number)
-        },
-    ) {
-        bail!("Duplication in NAO to player number assignments")
-    }
+    // reborrows the team to avoid moving it into the closure
     let naos = &team.naos;
+
     ProgressIndicator::map_tasks(
         arguments.assignments,
         "Setting player number...",
@@ -50,13 +38,32 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
                 .iter()
                 .find(|nao| nao.number == number)
                 .ok_or_else(|| eyre!("NAO with Hardware ID {number} does not exist"))?;
-            repository
-                .set_player_number(&nao.head_id, assignment.player_number)
+            set_player_number(&nao.head_id, assignment.player_number, repository_root)
                 .await
                 .wrap_err_with(|| format!("failed to set player number for {assignment}"))
         },
     )
     .await;
 
+    Ok(())
+}
+
+fn check_for_duplication(assignments: &[NaoNumberPlayerAssignment]) -> Result<()> {
+    // Check if two NaoNumbers are assigned to the same PlayerNumber
+    // or if a NaoNumber is assigned to multiple PlayerNumbers
+    let mut existing_player_numbers = HashSet::new();
+    let mut existing_nao_numbers = HashSet::new();
+
+    if assignments.iter().any(
+        |NaoNumberPlayerAssignment {
+             nao_number,
+             player_number,
+         }| {
+            !existing_nao_numbers.insert(nao_number)
+                || !existing_player_numbers.insert(player_number)
+        },
+    ) {
+        bail!("duplication in NAO to player number assignments")
+    }
     Ok(())
 }

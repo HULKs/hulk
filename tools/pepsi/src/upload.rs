@@ -6,25 +6,20 @@ use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
-use constants::OS_VERSION;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
-use repository::Repository;
+use repository::{configuration::get_os_version, upload::populate_upload_directory};
+use tempfile::tempdir;
 
 use crate::{
-    cargo::{cargo, Arguments as CargoArguments, Command},
-    communication::communication,
-    communication::Arguments as CommunicationArguments,
+    cargo::{cargo, Arguments as CargoArguments},
     progress_indicator::{ProgressIndicator, Task},
 };
 
 #[derive(Args)]
 pub struct Arguments {
-    #[arg(long, default_value = "incremental")]
-    pub profile: String,
-    /// Do not update nor install SDK
-    #[arg(long)]
-    pub no_sdk_installation: bool,
+    #[command(flatten)]
+    pub cargo: CargoArguments,
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
@@ -34,40 +29,35 @@ pub struct Arguments {
     /// Do not remove existing remote files during uploading
     #[arg(long)]
     pub no_clean: bool,
-    /// Do not enable communication
-    #[arg(long)]
-    pub no_communication: bool,
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
-    /// Prepare everything for the upload without performing the actual one
-    #[arg(long)]
-    pub prepare: bool,
     /// The NAOs to upload to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     pub naos: Vec<NaoAddress>,
-    /// Use a remote machine for compilation, see ./scripts/remote for details
-    #[arg(long)]
-    pub remote: bool,
 }
 
 async fn upload_with_progress(
     nao_address: &NaoAddress,
-    hulk_directory: impl AsRef<Path>,
+    upload_directory: impl AsRef<Path>,
     arguments: &Arguments,
     progress: &Task,
+    repository_root: impl AsRef<Path>,
 ) -> Result<()> {
     progress.set_message("Pinging NAO...");
     let nao = Nao::try_new_with_ping(nao_address.ip).await?;
 
     if !arguments.skip_os_check {
         progress.set_message("Checking OS version...");
-        let os_version = nao
+        let nao_os_version = nao
             .get_os_version()
             .await
             .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
-        if os_version != OS_VERSION {
-            bail!("mismatched OS versions: Expected {OS_VERSION}, found {os_version}");
+        let expected_os_version = get_os_version(repository_root)
+            .await
+            .wrap_err("failed to get configured OS version")?;
+        if nao_os_version != expected_os_version {
+            bail!("mismatched OS versions: Expected {expected_os_version}, found {nao_os_version}");
         }
     }
 
@@ -77,7 +67,7 @@ async fn upload_with_progress(
         .wrap_err_with(|| format!("failed to stop HULK service on {nao_address}"))?;
 
     progress.set_message("Uploading: ...");
-    nao.upload(hulk_directory, !arguments.no_clean, |status| {
+    nao.upload(upload_directory, "hulk", !arguments.no_clean, |status| {
         progress.set_message(format!("Uploading: {}", status))
     })
     .await
@@ -96,65 +86,46 @@ async fn upload_with_progress(
     Ok(())
 }
 
-pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
+pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+    let repository_root = repository_root.as_ref();
+
     if !arguments.no_build {
-        cargo(
-            CargoArguments {
-                workspace: false,
-                profile: arguments.profile.clone(),
-                target: "nao".to_string(),
-                no_sdk_installation: arguments.no_sdk_installation,
-                features: None,
-                passthrough_arguments: Vec::new(),
-                remote: arguments.remote,
-            },
-            repository,
-            Command::Build,
-        )
-        .await
-        .wrap_err("failed to build the code")?;
+        cargo("build", arguments.cargo.clone(), repository_root)
+            .await
+            .wrap_err("failed to build the code")?;
     }
 
-    let (_temporary_directory, hulk_directory) = repository
-        .create_upload_directory(arguments.profile.as_str())
+    let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
+    populate_upload_directory(&upload_directory, &arguments.cargo.profile, repository_root)
         .await
-        .wrap_err("failed to create upload directory")?;
+        .wrap_err("failed to populate upload directory")?;
 
-    communication(
-        match arguments.no_communication {
-            true => CommunicationArguments::Disable,
-            false => CommunicationArguments::Enable,
-        },
-        repository,
-    )
-    .await
-    .wrap_err("failed to set communication")?;
+    let arguments = &arguments;
+    let upload_directory = &upload_directory;
 
     let multi_progress = ProgressIndicator::new();
-
-    if arguments.prepare {
-        eprintln!("WARNING: This upload was only prepared, no actual upload was performed!")
-    } else {
-        arguments
-            .naos
-            .iter()
-            .map(|nao_address| (nao_address, multi_progress.task(nao_address.to_string())))
-            .map(|(nao_address, progress)| {
-                let arguments = &arguments;
-                let hulk_directory = hulk_directory.clone();
-
-                progress.enable_steady_tick();
-                async move {
-                    progress.finish_with(
-                        upload_with_progress(nao_address, hulk_directory, arguments, &progress)
-                            .await,
+    arguments
+        .naos
+        .iter()
+        .map(|nao_address| {
+            let progress = multi_progress.task(nao_address.to_string());
+            progress.enable_steady_tick();
+            async move {
+                progress.finish_with(
+                    upload_with_progress(
+                        nao_address,
+                        upload_directory,
+                        arguments,
+                        &progress,
+                        repository_root,
                     )
-                }
-            })
-            .collect::<FuturesUnordered<_>>()
-            .collect::<Vec<_>>()
-            .await;
-    }
+                    .await,
+                )
+            }
+        })
+        .collect::<FuturesUnordered<_>>()
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(())
 }

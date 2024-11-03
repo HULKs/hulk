@@ -1,9 +1,17 @@
-use std::{iter::once, net::Ipv4Addr, str::FromStr, sync::Arc, time::SystemTime};
+use std::{
+    env::current_dir,
+    fmt::{self, Display, Formatter},
+    net::IpAddr,
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use argument_parsers::NaoAddress;
 use clap::Parser;
 use color_eyre::{
-    eyre::{bail, eyre},
+    eyre::{bail, eyre, Context as _, ContextCompat},
     Result,
 };
 
@@ -24,7 +32,7 @@ use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
 use hulk_widgets::CompletionEdit;
 use itertools::chain;
-use log::error;
+use log::{error, warn};
 use nao::Nao;
 use panel::Panel;
 use panels::{
@@ -34,7 +42,7 @@ use panels::{
 };
 
 use reachable_naos::ReachableNaos;
-use repository::{get_repository_root, Repository};
+use repository::{find_root::find_repository_root, inspect_version::check_for_update};
 use serde_json::{from_str, to_string, Value};
 use tokio::runtime::Runtime;
 use visuals::Visuals;
@@ -57,7 +65,9 @@ mod zoom_and_pan;
 struct Arguments {
     /// Nao address to connect to (overrides the address saved in the configuration file)
     pub address: Option<String>,
-
+    /// Alternative repository root
+    #[arg(long)]
+    repository_root: Option<PathBuf>,
     /// Delete the current panel setup
     #[arg(long)]
     pub clear: bool,
@@ -81,13 +91,28 @@ fn setup_logger() -> Result<(), InitError> {
 
 fn main() -> Result<(), eframe::Error> {
     setup_logger().unwrap();
-    let arguments = Arguments::parse();
 
-    let runtime = Runtime::new().unwrap();
-    if let Ok(repository_root) = runtime.block_on(get_repository_root()) {
-        Repository::new(repository_root)
-            .check_new_version_available(env!("CARGO_PKG_VERSION"), "tools/twix")
-            .unwrap();
+    let arguments = Arguments::parse();
+    let repository_root = arguments
+        .repository_root
+        .clone()
+        .map(Ok)
+        .unwrap_or_else(|| {
+            let current_directory = current_dir().wrap_err("failed to get current directory")?;
+            find_repository_root(current_directory).wrap_err("failed to find repository root")
+        });
+    match &repository_root {
+        Ok(repository_root) => {
+            if let Err(error) = check_for_update(
+                env!("CARGO_PKG_VERSION"),
+                repository_root.join("tools/pepsi/Cargo.toml"),
+            ) {
+                error!("{error:#?}");
+            }
+        }
+        Err(error) => {
+            warn!("{error:#?}");
+        }
     }
 
     let configuration = Configuration::load()
@@ -102,6 +127,7 @@ fn main() -> Result<(), eframe::Error> {
                 creation_context,
                 arguments,
                 configuration,
+                repository_root.ok(),
             )))
         }),
     )
@@ -141,6 +167,7 @@ impl TwixApp {
         creation_context: &CreationContext,
         arguments: Arguments,
         configuration: Configuration,
+        repository_root: Option<PathBuf>,
     ) -> Self {
         let nao_range = configuration.naos.lowest..=configuration.naos.highest;
         let possible_addresses: Vec<_> = chain!(
@@ -159,14 +186,15 @@ impl TwixApp {
             .or_else(|| creation_context.storage?.get_string("address"))
             .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
 
-        let nao = Arc::new(Nao::new(match address.split_once(":") {
+        let address = match address.split_once(":") {
             None | Some((_, "")) => {
                 format!("ws://{address}:1337")
             }
             Some((ip, port)) => {
                 format!("ws://{ip}:{port}")
             }
-        }));
+        };
+        let nao = Arc::new(Nao::new(address, repository_root));
 
         let connection_intent = creation_context
             .storage

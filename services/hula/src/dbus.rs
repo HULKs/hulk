@@ -8,7 +8,9 @@ use zbus::{
 };
 
 use crate::SharedState;
-use constants::{HULA_DBUS_PATH, HULA_DBUS_SERVICE};
+
+const HULA_DBUS_SERVICE: &str = "org.hulks.hula";
+const HULA_DBUS_PATH: &str = "/org/hulks/HuLA";
 
 struct RobotInfo {
     shared_state: Arc<Mutex<SharedState>>,
