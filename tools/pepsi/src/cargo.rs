@@ -4,7 +4,7 @@ use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 use repository::{
     cargo::{run_shell, Cargo, Environment, Executor},
-    configuration::get_sdk_version,
+    configuration::read_sdk_version,
     data_home::get_data_home,
     sdk::download_and_install,
 };
@@ -85,7 +85,7 @@ pub async fn cargo(
             .await
             .wrap_err("failed to run remote script")?;
     } else {
-        let sdk_version = get_sdk_version(&repository_root)
+        let sdk_version = read_sdk_version(&repository_root)
             .await
             .wrap_err("failed to get HULK OS version")?;
         let data_home = get_data_home().wrap_err("failed to get data home")?;

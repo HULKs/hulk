@@ -194,7 +194,7 @@ impl<'a> CargoCommand<'a> {
                     repository_root=self.repository_root.to_str().wrap_err("failed to convert repository root to string")?,
                     cargo_home=cargo_home.to_str().wrap_err("failed to convert cargo home to string")?,
                     command=self.sub_command,
-)
+                )
             }
         };
         Ok(shell_command)
