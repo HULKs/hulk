@@ -16,8 +16,8 @@ use indicatif::ProgressBar;
 use log::warn;
 use nao::{Nao, Network, SystemctlAction};
 use repository::{
-    communication::set_communication, configuration::get_os_version, location::set_location,
-    recording::set_recording_intervals, upload::populate_upload_directory,
+    communication::configure_communication, configuration::read_os_version, location::set_location,
+    recording::configure_recording_intervals, upload::populate_upload_directory,
 };
 use tempfile::tempdir;
 
@@ -81,7 +81,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         .map(|assignment| assignment.nao_address)
         .collect();
 
-    set_recording_intervals(
+    configure_recording_intervals(
         HashMap::from_iter(arguments.recording_intervals.clone()),
         repository_root,
     )
@@ -92,7 +92,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         .await
         .wrap_err_with(|| format!("failed setting location for nao to {}", arguments.location))?;
 
-    set_communication(arguments.with_communication, repository_root)
+    configure_communication(arguments.with_communication, repository_root)
         .await
         .wrap_err("failed to set communication")?;
 
@@ -165,7 +165,7 @@ async fn setup_nao(
             .get_os_version()
             .await
             .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
-        let expected_os_version = get_os_version(repository_root)
+        let expected_os_version = read_os_version(repository_root)
             .await
             .wrap_err("failed to get configured OS version")?;
         if nao_os_version != expected_os_version {

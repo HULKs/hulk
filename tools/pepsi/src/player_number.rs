@@ -7,7 +7,7 @@ use color_eyre::{
 };
 
 use argument_parsers::NaoNumberPlayerAssignment;
-use repository::{player_number::set_player_number, team::get_team_configuration};
+use repository::{player_number::configure_player_number, team::read_team_configuration};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -20,7 +20,7 @@ pub struct Arguments {
 
 pub async fn player_number(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
     let repository_root = repository_root.as_ref();
-    let team = get_team_configuration(repository_root)
+    let team = read_team_configuration(repository_root)
         .await
         .wrap_err("failed to get team configuration")?;
 
@@ -38,7 +38,7 @@ pub async fn player_number(arguments: Arguments, repository_root: impl AsRef<Pat
                 .iter()
                 .find(|nao| nao.number == number)
                 .ok_or_else(|| eyre!("NAO with Hardware ID {number} does not exist"))?;
-            set_player_number(&nao.head_id, assignment.player_number, repository_root)
+            configure_player_number(&nao.head_id, assignment.player_number, repository_root)
                 .await
                 .wrap_err_with(|| format!("failed to set player number for {assignment}"))
         },

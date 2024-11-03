@@ -4,7 +4,7 @@ use clap::Subcommand;
 use color_eyre::{eyre::Context, Result};
 
 use repository::{
-    configuration::get_sdk_version, data_home::get_data_home, sdk::download_and_install,
+    configuration::read_sdk_version, data_home::get_data_home, sdk::download_and_install,
 };
 
 #[derive(Subcommand)]
@@ -23,14 +23,14 @@ pub async fn sdk(arguments: Arguments, repository_root: impl AsRef<Path>) -> Res
             let data_home = get_data_home()?;
             let version = match version {
                 Some(version) => version,
-                None => get_sdk_version(repository_root)
+                None => read_sdk_version(repository_root)
                     .await
                     .wrap_err("failed to get OS version")?,
             };
             download_and_install(&version, data_home).await?;
         }
         Arguments::Path => {
-            let sdk_version = get_sdk_version(&repository_root)
+            let sdk_version = read_sdk_version(&repository_root)
                 .await
                 .wrap_err("failed to get HULK OS version")?;
             let data_home = get_data_home().wrap_err("failed to get data home")?;

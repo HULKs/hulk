@@ -1,3 +1,8 @@
+//! Tools and utilities for managing development workflows in the repository.
+//!
+//! This crate simplifies tasks like building for specific targets, handling SDKs, and setting up
+//! configurations, making it easier to develop, configure, and deploy for NAO robots.
+
 pub mod cargo;
 pub mod communication;
 pub mod configuration;

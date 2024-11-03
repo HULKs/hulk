@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, path::Path};
 
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
-use repository::recording::set_recording_intervals;
+use repository::recording::configure_recording_intervals;
 
 #[derive(Args)]
 pub struct Arguments {
@@ -13,7 +13,7 @@ pub struct Arguments {
 }
 
 pub async fn recording(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
-    set_recording_intervals(
+    configure_recording_intervals(
         HashMap::from_iter(arguments.recording_intervals),
         repository_root,
     )

@@ -3,6 +3,7 @@ use std::{
     net::Ipv4Addr,
     path::Path,
     process::Stdio,
+    time::Duration,
 };
 
 use color_eyre::{
@@ -16,7 +17,7 @@ use tokio::{
     select,
 };
 
-pub const PING_TIMEOUT_SECONDS: u32 = 2;
+const PING_TIMEOUT: Duration = Duration::from_secs(2);
 
 const NAO_SSH_FLAGS: &[&str] = &[
     "-lnao",
@@ -47,17 +48,17 @@ pub struct Nao {
 }
 
 impl Nao {
-    pub fn new(host: Ipv4Addr) -> Self {
-        Self { address: host }
+    pub fn new(address: Ipv4Addr) -> Self {
+        Self { address }
     }
 
     pub async fn try_new_with_ping(host: Ipv4Addr) -> Result<Self> {
-        Self::try_new_with_ping_and_arguments(host, PING_TIMEOUT_SECONDS).await
+        Self::try_new_with_ping_and_arguments(host, PING_TIMEOUT).await
     }
 
     pub async fn try_new_with_ping_and_arguments(
         host: Ipv4Addr,
-        timeout_seconds: u32,
+        timeout: Duration,
     ) -> Result<Self> {
         #[cfg(target_os = "macos")]
         const TIMEOUT_FLAG: &str = "-t";
@@ -68,7 +69,7 @@ impl Nao {
             .arg("-c")
             .arg("1")
             .arg(TIMEOUT_FLAG)
-            .arg(timeout_seconds.to_string())
+            .arg(timeout.as_secs().to_string())
             .arg(host.to_string())
             .output()
             .await

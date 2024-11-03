@@ -2,7 +2,7 @@ use std::path::Path;
 
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
-use repository::location::{get_configured_locations, list_available_locations, set_location};
+use repository::location::{list_available_locations, list_configured_locations, set_location};
 
 #[derive(Subcommand)]
 pub enum Arguments {
@@ -39,7 +39,7 @@ pub async fn location(arguments: Arguments, repository_root: impl AsRef<Path>) -
         }
         Arguments::Status {} => {
             println!("Configured Locations:");
-            for (target, location) in get_configured_locations(repository_root)
+            for (target, location) in list_configured_locations(repository_root)
                 .await
                 .wrap_err("failed to get configured locations")?
             {

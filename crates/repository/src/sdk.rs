@@ -67,7 +67,9 @@ async fn download(version: &str, sdk_home: impl AsRef<Path>) -> Result<PathBuf> 
         format!("http://bighulk.hulks.dev/sdk/{installer_name}"),
         format!("https://github.com/HULKs/meta-nao/releases/download/{version}/{installer_name}"),
     ];
-    download_with_fallback(urls, &download_path, CONNECT_TIMEOUT).await?;
+    download_with_fallback(urls, &download_path, CONNECT_TIMEOUT)
+        .await
+        .wrap_err("failed to download SDK")?;
 
     set_permissions(&download_path, Permissions::from_mode(0o755))
         .await

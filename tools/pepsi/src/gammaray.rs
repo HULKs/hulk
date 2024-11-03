@@ -6,7 +6,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use argument_parsers::NaoAddress;
 use nao::Nao;
 use opn::verify_image;
-use repository::{configuration::get_os_version, data_home::get_data_home, image::download_image};
+use repository::{configuration::read_os_version, data_home::get_data_home, image::download_image};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -26,7 +26,7 @@ pub struct Arguments {
 pub async fn gammaray(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
     let version = match arguments.version {
         Some(version) => version,
-        None => get_os_version(&repository_root)
+        None => read_os_version(&repository_root)
             .await
             .wrap_err("failed to get OS version")?,
     };

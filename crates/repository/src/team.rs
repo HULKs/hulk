@@ -18,12 +18,12 @@ pub struct Nao {
     pub head_id: String,
 }
 
-pub async fn get_team_configuration(repository_root: impl AsRef<Path>) -> Result<Team> {
+pub async fn read_team_configuration(repository_root: impl AsRef<Path>) -> Result<Team> {
     let team_toml = repository_root.as_ref().join("etc/parameters/team.toml");
 
     let content = read_to_string(&team_toml)
         .await
-        .wrap_err_with(|| format!("failed to open {}", team_toml.display()))?;
+        .wrap_err_with(|| format!("failed to read {}", team_toml.display()))?;
 
     let team = toml::from_str(&content).wrap_err("failed to parse team.toml")?;
     Ok(team)

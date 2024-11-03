@@ -6,7 +6,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use argument_parsers::{number_to_ip, Connection, NaoAddress};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::Nao;
-use repository::team::get_team_configuration;
+use repository::team::read_team_configuration;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -26,7 +26,7 @@ pub async fn power_off(
 ) -> Result<()> {
     if arguments.all {
         let repository_root = repository_root?;
-        let team = get_team_configuration(repository_root)
+        let team = read_team_configuration(repository_root)
             .await
             .wrap_err("failed to get team configuration")?;
         let addresses = team
