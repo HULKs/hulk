@@ -5,7 +5,7 @@ use serde_json::{to_value, Value};
 
 use crate::modify_json::modify_json_inplace;
 
-pub async fn set_recording_intervals(
+pub async fn configure_recording_intervals(
     recording_intervals: HashMap<String, usize>,
     repository_root: impl AsRef<Path>,
 ) -> Result<()> {
@@ -15,11 +15,17 @@ pub async fn set_recording_intervals(
     let serialized_intervals =
         to_value(recording_intervals).wrap_err("failed to convert recording intervals to JSON")?;
 
-    modify_json_inplace(framework_json, |mut hardware_json: Value| {
+    modify_json_inplace(&framework_json, |mut hardware_json: Value| {
         hardware_json["recording_intervals"] = serialized_intervals;
         hardware_json
     })
-    .await?;
+    .await
+    .wrap_err_with(|| {
+        format!(
+            "failed to configure recording intervals in {}",
+            framework_json.display()
+        )
+    })?;
 
     Ok(())
 }

@@ -9,71 +9,33 @@ use serde::Deserialize;
 struct Cargo {
     package: Package,
 }
+
 #[derive(Deserialize, Debug)]
 struct Package {
     version: String,
 }
 
-/// Inspects and returns the version of a Cargo package from its `Cargo.toml` file.
-///
-/// This function takes a path to a `Cargo.toml` file, reads the file,
-/// parses the contents to extract the package version, and returns the version.
-///
-/// # Errors
-///
-/// This function will return an error if:
-///
-/// * The `Cargo.toml` file cannot be read.
-/// * The contents of the `Cargo.toml` file cannot be parsed.
-/// * The version string extracted from the `Cargo.toml` file cannot be parsed into a `Version` object.
-///
-/// # Example
-///
-/// ```no_run
-/// let version = inspect_version(Path::new("path/to/Cargo.toml")).expect("failed to inspect version");
-/// println!("Package version: {}", version);
-/// ```
-pub fn inspect_version(path: impl AsRef<Path>) -> Result<Version> {
-    let path = path.as_ref();
-    let cargo_toml_text = read_to_string(path)
-        .wrap_err_with(|| format!("failed to load Cargo.toml at {}", path.display()))?;
-    let cargo_toml: Cargo = toml::from_str(&cargo_toml_text)
-        .wrap_err_with(|| format!("failed to parse package version from {}", path.display()))?;
-    let version = Version::parse(&cargo_toml.package.version).wrap_err_with(|| {
-        format!(
-            "failed to parse package version '{}' from {}",
-            cargo_toml.package.version,
-            path.display()
-        )
-    })?;
+/// Inspects and returns the version of a package from its `Cargo.toml` file.
+pub fn inspect_version(toml_path: impl AsRef<Path>) -> Result<Version> {
+    let toml_path = toml_path.as_ref();
+    let cargo_toml_text = read_to_string(toml_path).wrap_err("failed to read file")?;
+    let cargo_toml: Cargo = toml::from_str(&cargo_toml_text).wrap_err("failed to parse content")?;
+    let raw_version = &cargo_toml.package.version;
+    let version = Version::parse(raw_version)
+        .wrap_err_with(|| format!("failed to parse version '{raw_version}' as SemVer"))?;
     Ok(version)
 }
 
-/// Checks if there is a new version of the crate available.
-///
-/// This function takes the current version of a package and the path to a `Cargo.toml` file,
-/// reads and parses the version from the `Cargo.toml` file, and compares it with the current version.
-/// If the version in the `Cargo.toml` file is newer, it prints a message indicating that a new version
-/// is available and provides the command to install the new version.
-///
-/// # Errors
-///
-/// This function will return an error if:
-///
-/// * The `own_version` string cannot be parsed into a `Version` object.
-/// * The `Cargo.toml` file cannot be read or parsed to extract the package version.
-///
-/// # Example
-///
-/// ```no_run
-/// let current_version = "1.0.0";
-/// let cargo_toml_path = Path::new("path/to/Cargo.toml");
-///
-/// check_for_update(current_version, &cargo_toml_path).expect("failed to check for update");
-/// ```
+/// Checks whether the package has a newer version than the provided version.
 pub fn check_for_update(own_version: &str, cargo_toml: impl AsRef<Path>) -> Result<()> {
-    let own_version = Version::parse(own_version)?;
-    let cargo_toml_version = inspect_version(&cargo_toml)?;
+    let own_version = Version::parse(own_version)
+        .wrap_err_with(|| format!("failed to parse own version '{own_version}' as SemVer"))?;
+    let cargo_toml_version = inspect_version(&cargo_toml).wrap_err_with(|| {
+        format!(
+            "failed to inspect version of package at {}",
+            cargo_toml.as_ref().display()
+        )
+    })?;
     if own_version < cargo_toml_version {
         let crate_path = cargo_toml.as_ref().parent().unwrap();
         warn!(

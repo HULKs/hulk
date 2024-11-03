@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    io::ErrorKind,
-    path::Path,
-};
+use std::{io::ErrorKind, path::Path};
 
 use color_eyre::{
     eyre::{bail, eyre, Context},
@@ -15,9 +11,9 @@ use tokio::{
     io,
 };
 
-pub async fn get_configured_locations(
+pub async fn list_configured_locations(
     repository_root: impl AsRef<Path>,
-) -> Result<HashMap<String, Option<String>>> {
+) -> Result<Vec<(String, Option<String>)>> {
     let parameters_root = &repository_root.as_ref().join("etc/parameters");
     let results: Vec<_> = [
         "nao_location",
@@ -66,8 +62,13 @@ pub async fn set_location(
     repository_root: impl AsRef<Path>,
 ) -> Result<()> {
     let parameters_root = repository_root.as_ref().join("etc/parameters");
-    if !try_exists(parameters_root.join(location)).await? {
-        let location_set = list_available_locations(&repository_root).await?;
+    if !try_exists(parameters_root.join(location))
+        .await
+        .wrap_err_with(|| format!("failed checking if location '{location}' exists"))?
+    {
+        let location_set = list_available_locations(&repository_root)
+            .await
+            .unwrap_or_default();
         let available_locations: String = intersperse(
             location_set
                 .into_iter()
@@ -76,29 +77,28 @@ pub async fn set_location(
         )
         .collect();
         bail!(
-            "location {location} does not exist. \navailable locations are:\n{available_locations}"
+            "location {location} does not exist.\navailable locations are:\n{available_locations}"
         );
     }
     let target_location = parameters_root.join(format!("{target}_location"));
     let _ = remove_file(&target_location).await;
-    symlink(location, &target_location)
-            .await
-            .wrap_err_with(|| {
-                format!("failed creating symlink named {target_location:?} pointing to {location:?}, does the location exist?")
-            })
+    symlink(location, &target_location).await.wrap_err_with(|| {
+        format!(
+            "failed creating symlink named {target_location} pointing to {location}",
+            target_location = target_location.display()
+        )
+    })
 }
 
-pub async fn list_available_locations(
-    repository_root: impl AsRef<Path>,
-) -> Result<HashSet<String>> {
+pub async fn list_available_locations(repository_root: impl AsRef<Path>) -> Result<Vec<String>> {
     let parameters_root = repository_root.as_ref().join("etc/parameters");
     let mut locations = read_dir(parameters_root)
         .await
         .wrap_err("failed to read parameters directory")?;
-    let mut results = HashSet::new();
+    let mut results = Vec::new();
     while let Ok(Some(entry)) = locations.next_entry().await {
         if entry.path().is_dir() && !entry.path().is_symlink() {
-            results.insert(
+            results.push(
                 entry
                     .path()
                     .file_name()

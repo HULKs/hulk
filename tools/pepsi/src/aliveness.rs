@@ -14,7 +14,7 @@ use aliveness::{
     AlivenessError, AlivenessState, Battery, JointsArray,
 };
 use argument_parsers::NaoAddress;
-use repository::configuration::get_os_version;
+use repository::configuration::read_os_version;
 
 #[derive(Args)]
 pub struct Arguments {
@@ -52,7 +52,7 @@ pub async fn aliveness(
         print_verbose(&states);
     } else {
         let expected_os_version = match repository_root {
-            Ok(repository_root) => match get_os_version(repository_root).await {
+            Ok(repository_root) => match read_os_version(repository_root).await {
                 Ok(version) => Some(version),
                 Err(error) => {
                     error!("{error:#?}");
