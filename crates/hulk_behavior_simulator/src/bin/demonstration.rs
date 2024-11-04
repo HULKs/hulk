@@ -13,13 +13,13 @@ use hulk_behavior_simulator::{
     time::{Ticks, TicksTime},
 };
 
-///Is used to generate the test functions for cargo test
+/// Is used to generate the test functions for cargo test
 #[scenario]
 fn demonstration(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
-///Runs at the start of the behavior simulator and is used to spawn in robots and set GameStates
+/// Runs at the start of the behavior simulator and is used to spawn in robots and set GameStates
 fn startup(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
@@ -38,7 +38,7 @@ fn startup(
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
-///Allows for checks to run during the scenario such that it can be decided whether the scenario passes or fails.
+/// Allows for checks to run during the scenario such that it can be decided whether the scenario passes or fails.
 /// Not all of the parameters are always needed.
 /// For example, golden_goal only checks to see if a goal was scored within 10000 frames.
 /// * `game_controller` - gives access to the central GameController state
