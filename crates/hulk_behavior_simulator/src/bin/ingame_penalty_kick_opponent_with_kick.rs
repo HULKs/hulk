@@ -49,7 +49,7 @@ fn update(
         ));
     }
     if time.ticks() == 6000 {
-        game_controller_commands.send(GameControllerCommand::BallisFree);
+        game_controller_commands.send(GameControllerCommand::BallIsFree);
         if let Some(ball) = ball.state.as_mut() {
             ball.velocity = vector![-2.0, 0.0];
         }

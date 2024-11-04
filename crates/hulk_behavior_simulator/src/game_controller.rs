@@ -23,7 +23,7 @@ pub enum GameControllerCommand {
     Goal(Team),
     Penalize(PlayerNumber, Penalty),
     Unpenalize(PlayerNumber),
-    BallisFree,
+    BallIsFree,
 }
 
 fn game_controller_controller(
@@ -76,7 +76,7 @@ fn game_controller_controller(
                 }
                 state.last_state_change = time.as_generic();
             }
-            GameControllerCommand::BallisFree => {
+            GameControllerCommand::BallIsFree => {
                 game_controller.state.sub_state = None;
                 state.last_state_change = time.as_generic();
             }

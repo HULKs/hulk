@@ -197,7 +197,7 @@ pub fn auto_assistant_referee(
                 });
             }
             GameControllerCommand::SetSubState(..) => {}
-            GameControllerCommand::BallisFree => {}
+            GameControllerCommand::BallIsFree => {}
             GameControllerCommand::SetKickingTeam(_) => {}
             GameControllerCommand::Goal(_) => {}
             GameControllerCommand::Penalize(player_number, penalty) => match penalty {
