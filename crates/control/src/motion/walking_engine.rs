@@ -18,7 +18,7 @@ use types::{
     support_foot::Side,
     walk_command::WalkCommand,
 };
-use walking_engine::{kick_steps::KickSteps, parameters::Parameters, Context, Engine};
+use walking_engine::{kick_steps::KickSteps, mode::Mode, parameters::Parameters, Context, Engine};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalkingEngine {
@@ -56,6 +56,7 @@ pub struct CycleContext {
     debug_output: AdditionalOutput<Engine, "walking.engine">,
     last_actuated_joints: AdditionalOutput<BodyJoints, "walking.last_actuated_joints">,
     robot_to_walk: AdditionalOutput<Isometry3<Robot, Walk>, "walking.robot_to_walk">,
+    walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
 }
 
 #[context]
