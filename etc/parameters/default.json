@@ -657,11 +657,11 @@
       },
       {
         "center_line_offset_x": -2.0,
-        "side": "Right"
+        "side": "Left"
       },
       {
         "center_line_offset_x": -2.0,
-        "side": "Left"
+        "side": "Right"
       },
       {
         "center_line_offset_x": -1.0,
@@ -1126,8 +1126,8 @@
   "behavior": {
     "offense_optional_roles": [
       "StrikerSupporter",
-      "MidfielderLeft",
       "MidfielderRight",
+      "MidfielderLeft",
       "DefenderLeft",
       "DefenderRight"
     ],
