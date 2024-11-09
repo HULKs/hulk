@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class HeadJoints:
     def __init__(self, getter, setter):
         self.getter = getter
@@ -152,13 +155,9 @@ class Nao:
         self.data = data
         self.actuators = NaoJoints(
             lambda joint_name: self.data.actuator(joint_name).ctrl,
-            lambda joint_name, value: self.data.actuator(joint_name).__setattr__(
-                "ctrl", value
-            ),
+            lambda joint_name, value: self.data.actuator(joint_name).__setattr__("ctrl", value),
         )
         self.positions = NaoJoints(
             lambda joint_name: self.data.joint(joint_name).qpos,
-            lambda joint_name, value: self.data.joint(joint_name).__setattr__(
-                "qpos", value
-            ),
+            lambda joint_name, value: self.data.joint(joint_name).__setattr__("qpos", value),
         )
