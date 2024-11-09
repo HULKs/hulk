@@ -13,6 +13,7 @@ from transforms import (
 )
 
 ROBOT_TO_LEFT_PELVIS = np.array([0.0, 0.05, 0.0])
+ROBOT_TO_RIGHT_PELVIS = np.array([0.0, -0.05, 0.0])
 LEFT_HIP_TO_LEFT_KNEE = np.array([0.0, 0.0, -0.1])
 LEFT_KNEE_TO_LEFT_ANKLE = np.array([0.0, 0.0, -0.1029])
 
@@ -37,7 +38,7 @@ def leg_angles(
     ) @ isometry_from_translation(-ROBOT_TO_LEFT_PELVIS)
     robot_to_right_pelvis = isometry_from_euler(
         np.pi / 4, 0.0, 0.0
-    ) @ isometry_from_translation(-ROBOT_TO_LEFT_PELVIS)
+    ) @ isometry_from_translation(-ROBOT_TO_RIGHT_PELVIS)
 
     left_foot_to_left_pelvis = robot_to_left_pelvis @ left_foot
     right_foot_to_right_pelvis = robot_to_right_pelvis @ right_foot
