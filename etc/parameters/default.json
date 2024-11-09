@@ -9,7 +9,8 @@
     "minimum_shoulder_angle": 0.2,
     "foot_z_offset": 0.025,
     "referee_pose_queue_length": 8,
-    "minimum_number_poses_before_message": 3
+    "minimum_number_poses_before_message": 3,
+    "override_pose_detection": false
   },
   "feet_detection": {
     "vision_top": {
