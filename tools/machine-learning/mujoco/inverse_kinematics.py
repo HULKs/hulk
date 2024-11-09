@@ -27,6 +27,18 @@ class LegJoints:
     ankle_pitch: float
     ankle_roll: float
 
+    def to_numpy(self) -> NDArray[np.float64]:
+        return np.array(
+            [
+                self.hip_yaw_pitch,
+                self.hip_roll,
+                self.hip_pitch,
+                self.knee_pitch,
+                self.ankle_pitch,
+                self.ankle_roll,
+            ]
+        )
+
 
 def leg_angles(
     left_foot: NDArray[np.float64],
@@ -176,7 +188,7 @@ def leg_angles(
         ankle_roll=np.arcsin(-left_foot_rotation_c2[1]),
     )
     right_leg = LegJoints(
-        hip_yaw_pitch=-left_hip_yaw_pitch_combined,
+        hip_yaw_pitch=left_hip_yaw_pitch_combined,
         hip_roll=right_hip_roll_in_hip - np.pi / 4.0,
         hip_pitch=right_hip_pitch_minus_alpha + right_alpha,
         knee_pitch=-right_alpha - right_beta,
