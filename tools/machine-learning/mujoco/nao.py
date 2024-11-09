@@ -1,10 +1,11 @@
-from __future__ import annotations
-
-
 class HeadJoints:
     def __init__(self, getter, setter):
         self.getter = getter
         self.setter = setter
+
+    def from_json(self, json):
+        for k, v in json.items():
+            self.setter(k, v)
 
     @property
     def yaw(self):
@@ -27,6 +28,10 @@ class LegJoints:
     def __init__(self, getter, setter):
         self.getter = getter
         self.setter = setter
+
+    def from_json(self, json):
+        for k, v in json.items():
+            self.setter(k, v)
 
     @property
     def ankle_pitch(self):
@@ -81,6 +86,12 @@ class ArmJoints:
     def __init__(self, getter, setter):
         self.getter = getter
         self.setter = setter
+
+    def from_json(self, json):
+        for k, v in json.items():
+            # TODO: remove once hands are implemented
+            if not k == "hand":
+                self.setter(k, v)
 
     @property
     def elbow_roll(self):
@@ -148,6 +159,20 @@ class NaoJoints:
             lambda joint_name, value: setter(f"right_{joint_name}", value),
         )
 
+    def from_json(self, json):
+        for k, v in json.items():
+            match k:
+                case "head":
+                    self.head.from_json(v)
+                case "left_arm":
+                    self.left_arm.from_json(v)
+                case "left_leg":
+                    self.left_leg.from_json(v)
+                case "right_arm":
+                    self.right_arm.from_json(v)
+                case "right_leg":
+                    self.right_leg.from_json(v)
+
 
 class Nao:
     def __init__(self, model, data):
@@ -155,9 +180,13 @@ class Nao:
         self.data = data
         self.actuators = NaoJoints(
             lambda joint_name: self.data.actuator(joint_name).ctrl,
-            lambda joint_name, value: self.data.actuator(joint_name).__setattr__("ctrl", value),
+            lambda joint_name, value: self.data.actuator(joint_name).__setattr__(
+                "ctrl", value
+            ),
         )
         self.positions = NaoJoints(
             lambda joint_name: self.data.joint(joint_name).qpos,
-            lambda joint_name, value: self.data.joint(joint_name).__setattr__("qpos", value),
+            lambda joint_name, value: self.data.joint(joint_name).__setattr__(
+                "qpos", value
+            ),
         )
