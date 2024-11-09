@@ -71,8 +71,16 @@
         <geom name="left_upper_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
         <body name="left_lower_leg" pos="0.1 0 0">
           <joint name="left_knee_pitch" type="hinge" axis="0 1 0" range="-5.29 121.04"/>
-          <geom name="left_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
+          <geom name="left_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.09 0 0"/>
           <body name="left_foot" pos="0.1029 0 0" euler="0 -90 0">
+            <site name="left_foot_back_left_fsr" pos="0 0.025 -0.035" size="0.015 0.015 0.0015"  type="box" rgba="1 0 0 1" />
+            <geom name="left_foot_back_left_fsr" pos="0 0.025 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
+            <site name="left_foot_back_right_fsr" pos="0 -0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
+            <geom name="left_foot_back_right_fsr" pos="0 -0.015 -0.035" size="0.015 0.015 0.001" type="box"  rgba="1 0 0 1" />
+            <site name="left_foot_front_left_fsr" pos="0.12 0.025 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
+            <geom name="left_foot_front_left_fsr" pos="0.12 0.025 -0.035" size="0.015 0.015 0.001" type="box"  rgba="1 0 0 1" />
+            <site name="left_foot_front_right_fsr" pos="0.12 -0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
+            <geom name="left_foot_front_right_fsr" pos="0.12 -0.015 -0.035" size="0.015 0.015 0.001" type="box"  rgba="1 0 0 1" />
             <joint name="left_ankle_pitch" type="hinge" axis="0 1 0" range="-68.15 52.86"/>
             <joint name="left_ankle_roll" type="hinge" axis="1 0 0" range="-22.79 44.06"/>
             <geom name="left_foot" type="box" size="0.08 0.045 0.0175" pos="0.06 0.005 -0.0175"/>
@@ -87,8 +95,16 @@
         <geom name="right_upper_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
         <body name="right_lower_leg" pos="0.1 0 0">
         <joint name="right_knee_pitch" type="hinge" axis="0 1 0" range="-5.9 121.04"/> <!-- The Fuck?! they are not the same as the left leg? -->
-          <geom name="right_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
+          <geom name="right_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.09 0 0"/>
           <body name="right_foot" pos="0.1029 0 0" euler="0 -90 0">
+            <site name="right_foot_back_left_fsr" pos="0 0.015 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
+            <geom name="right_foot_back_left_fsr" pos="0 0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
+            <site name="right_foot_back_right_fsr" pos="0 -0.025 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
+            <geom name="right_foot_back_right_fsr" pos="0 -0.025 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
+            <site name="right_foot_front_left_fsr" pos="0.12 0.015 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
+            <geom name="right_foot_front_left_fsr" pos="0.12 0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
+            <site name="right_foot_front_right_fsr" pos="0.12 -0.025 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
+            <geom name="right_foot_front_right_fsr" pos="0.12 -0.025 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
             <joint name="right_ankle_pitch" type="hinge" axis="0 1 0" range="-67.97 53.4"/>
             <joint name="right_ankle_roll" type="hinge" axis="1 0 0" range="-44.06 22.8"/>
             <geom name="right_foot" type="box" size="0.08 0.045 0.0175" pos="0.06 -0.005 -0.0175"/>
@@ -110,6 +126,15 @@
   <sensor>
     <accelerometer name="accelerometer" site="imu"/>
     <gyro name="gyroscope" site="imu"/>
+
+    <touch name="left_foot_back_left_fsr" site="left_foot_back_left_fsr"/>
+    <touch name="left_foot_back_right_fsr" site="left_foot_back_right_fsr"/>
+    <touch name="left_foot_front_left_fsr" site="left_foot_front_left_fsr"/>
+    <touch name="left_foot_front_right_fsr" site="left_foot_front_right_fsr"/>
+    <touch name="right_foot_back_left_fsr" site="right_foot_back_left_fsr"/>
+    <touch name="right_foot_back_right_fsr" site="right_foot_back_right_fsr"/>
+    <touch name="right_foot_front_left_fsr" site="right_foot_front_left_fsr"/>
+    <touch name="right_foot_front_right_fsr" site="right_foot_front_right_fsr"/>
 
     <jointpos name="head_yaw" joint="head_yaw"/>
     <jointpos name="head_pitch" joint="head_pitch"/>
