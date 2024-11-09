@@ -16,8 +16,8 @@ dependencies = [
 ]
 
 [tool.ruff]
-target-version = "py39"
-line-length = 120
+target-version = "py310"
+line-length = 80
 fix = true
 
 [tool.ruff.lint]
@@ -41,7 +41,8 @@ select = [
     # mccabe
     "C90",
     # pycodestyle
-    "E", "W",
+    "E",
+    "W",
     # pyflakes
     "F",
     # pygrep-hooks
@@ -65,3 +66,6 @@ ignore = [
 
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
+
+[tool.uv]
+dev-dependencies = ["pytest>=8.3.3", "ruff>=0.7.3"]
