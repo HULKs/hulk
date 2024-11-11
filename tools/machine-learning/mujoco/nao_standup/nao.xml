@@ -1,245 +1,404 @@
-<mujoco model="naoV6">
-  <compiler angle="degree" inertiafromgeom="true"/>
-  <!-- <option integrator="implicitfast" timestep="0.003"> -->
-  <option integrator="RK4" iterations="50" solver="PGS" timestep="0.003">
-    <!-- <flag solverstat="enable" energy="enable"/> -->
-    <!--<flag gravity="disable"/>-->
-  </option>
-
-  <asset>
-    <texture type="skybox" builtin="gradient" rgb1=".3 .5 .7" rgb2="0 0 0" width="32" height="512"/>
-    <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1=".1 .2 .3" rgb2=".2 .3 .4"/>
-    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
-  </asset>
-
-  <visual>
-    <global offwidth="1280" offheight="720"/>
-    <map fogend="5" fogstart="3"/>
-  </visual>
+<mujoco model="NaoV6H25">
+  <compiler meshdir="meshes" texturedir="textures"/>
+  <option timestep="0.012" integrator="RK4"/>
 
   <default>
-    <joint armature="1" damping="1" limited="true"/>
-    <geom conaffinity="1" condim="1" contype="1" margin="0.001" rgba="0.8 0.6 .4 1"/>
-    <!-- <geom conaffinity="1" condim="1" contype="1" margin="0.001" material="geom" rgba="0.8 0.6 .4 1"/> -->
-    <motor ctrllimited="true" ctrlrange="-1 1"/>
+    <geom type="mesh" solref=".004 1"/>
+    <joint damping="1.084" armature="0.045" frictionloss="0.03"/>
+    <position kp="21.1" ctrlrange="-1.57 1.57" ctrllimited="true" forcerange="-5 5" forcelimited="true"/>
+    <!-- <general ctrllimited="false" forcelimited="true" forcerange="-30 30"/> -->
   </default>
 
+  <asset>
+    <texture name="ChestButton" type="2d" file="nao_torso_button_nao.png"/>
+    <texture name="Ear" type="2d" file="textures-ear.png"/>
+
+    <mesh file="naoHeadYaw_0.obj"/>
+    <mesh file="naoLAnklePitch_0.obj"/>
+    <mesh file="naoLAnkleRollV6_0.obj"/>
+    <mesh file="naoLAnkleRollV6_1.obj"/>
+    <mesh file="naoLAnkleRollV6_2.obj"/>
+    <mesh file="naoLAnkleRollV6_3.obj"/>
+    <mesh file="naoLElbowRoll_0.obj"/>
+    <mesh file="naoLHipPitch_0.obj"/>
+    <mesh file="naoLHipPitch_1.obj"/>
+    <mesh file="naoLHipRoll_0.obj"/>
+    <mesh file="naoLHipYawPitch_0.obj"/>
+    <mesh file="naoLHipYawPitch_1.obj"/>
+    <mesh file="naoLKneePitchV6_0.obj"/>
+    <mesh file="naoLKneePitchV6_1.obj"/>
+    <mesh file="naoLKneePitchV6_2.obj"/>
+    <mesh file="naoLShoulderPitch_0.obj"/>
+    <mesh file="naoLShoulderRollV6_0.obj"/>
+    <mesh file="naoLShoulderRollV6_1.obj"/>
+    <mesh file="naoLShoulderRollV6_2.obj"/>
+    <mesh file="naoRAnklePitch_0.obj"/>
+    <mesh file="naoRAnkleRollV6_0.obj"/>
+    <mesh file="naoRAnkleRollV6_1.obj"/>
+    <mesh file="naoRAnkleRollV6_2.obj"/>
+    <mesh file="naoRAnkleRollV6_3.obj"/>
+    <mesh file="naoRElbowRoll_0.obj"/>
+    <mesh file="naoRHipPitch_0.obj"/>
+    <mesh file="naoRHipPitch_1.obj"/>
+    <mesh file="naoRHipRoll_0.obj"/>
+    <mesh file="naoRHipYawPitch_0.obj"/>
+    <mesh file="naoRHipYawPitch_1.obj"/>
+    <mesh file="naoRKneePitchV6_0.obj"/>
+    <mesh file="naoRKneePitchV6_1.obj"/>
+    <mesh file="naoRKneePitchV6_2.obj"/>
+    <mesh file="naoRShoulderPitch_0.obj"/>
+    <mesh file="naoRShoulderRollV6_0.obj"/>
+    <mesh file="naoRShoulderRollV6_1.obj"/>
+    <mesh file="naoRShoulderRollV6_2.obj"/>
+    <mesh file="naoWristYawV6_0.obj"/>
+    <mesh file="naoWristYawV6_1.obj"/>
+    <mesh file="naoWristYawV6_2.obj"/>
+    <mesh file="naoHeadPitchV6_0.obj"/>
+    <mesh file="naoHeadPitchV6_1.obj"/>
+    <mesh file="naoHeadPitchV6_2.obj"/>
+    <mesh file="naoHeadPitchV6_3.obj"/>
+    <mesh file="naoHeadPitchV6_4.obj"/>
+    <mesh file="naoHeadPitchV6_5.obj"/>
+    <mesh file="naoTorsoV6_0.obj"/>
+    <mesh file="naoTorsoV6_jersey.obj"/>
+    <mesh file="naoTorsoV6_1.obj"/>
+    <mesh file="naoTorsoV6_2.obj"/>
+    <mesh file="naoTorsoV6_3.obj"/>
+    <mesh file="naoTorsoV6_4.obj"/>
+
+    <material name="nao-skin" rgba="0.5 0.5 0.5 1"/>
+    <material name="NaoMat_SecondarySkin_pantone445C" rgba="0.31 0.34 0.35 1" shininess="0.1"/>
+    <material name="NaoMat_Buton_nao_pantone445C" texture="ChestButton" shininess="0.1"/>
+    <material name="NaoMat_Structure" rgba="0.4 0.4 0.4 1" shininess="0.1"/>
+    <material name="NaoMat_MainSkin" rgba="0.6 0.6 0.6 1"/>
+    <material name="NaoMat_Sonar" rgba="0 0 0 1" shininess="0.1"/>
+    <material name="NaoMat_Reye" emission="1"/>
+    <material name="NaoMat_Leye" emission="1"/>
+    <material name="NaoMat_Pupil" rgba="0 0 0 1"/>
+    <material name="NaoMat_Hear" texture="Ear"/>
+  </asset>
+
   <worldbody>
-    <geom name="floor" size="0 0 .05" type="plane" material="grid" condim="3"/>
-    <light cutoff="100" diffuse="1 1 1" dir="-0 0 -1.3" directional="true" exponent="1" pos="0 0 1.3" specular=".1 .1 .1"/>
+    <body name="Nao" pos="0 0 0.4">
+      <geom type="mesh" material="NaoMat_MainSkin" mesh="naoTorsoV6_0"/>
+      <!-- <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoTorsoV6_1"/> -->
+      <geom type="mesh" material="nao-skin" mesh="naoTorsoV6_jersey"/>
+      <geom type="mesh" material="NaoMat_Structure" mesh="naoTorsoV6_2"/>
+      <geom type="mesh" material="NaoMat_Buton_nao_pantone445C" mesh="naoTorsoV6_3"/>
+      <!-- <geom type="mesh" material="NaoMat_Sonar" mesh="naoTorsoV6_4"/> -->
 
-    <body name="torso" pos="0 0 0.33" euler="0 0 0">
-      <freejoint name="root"/>
-      <camera name="robot" mode="targetbody" target="torso" pos="0 1 0"/>
-      <!-- <geom name="torso" type="capsule" size="0.0642"/> -->
-      <geom name="torso" type="ellipsoid" size="0.0642" fromto="0 0 -0.1 0 0 0.13"/>
-      <site name="imu"/>
-      <body name="head" pos="0 0 0.1265">
-        <joint name="head_yaw" type="hinge" axis="0 0 1" range="-119.5 119.5"/>
-        <joint name="head_pitch" type="hinge" axis="0 1 0" range="-38.5 29.5"/>
-        <geom name="head" type="cylinder" size="0.053 0.0605" euler="90 0 0" pos="0 0 0.053"/>
-        <site name="head_center" pos="0 0 0.053"/>
+      <inertial pos="-0.00413 0 0.04342" mass="1.04956" fullinertia="5062341.69e-9 4880133.93e-9 1610302.24e-9 14311.6e-9 155190.83e-9 -27079.3e-9"/>
+      <freejoint/>
+
+      <site name="IMU" pos="-0.008 0.006 0.029"/>
+      <site name="Origin" pos="0 0 -0.085"/>
+
+      <body name="Neck" pos="0 0 .1265">
+        <geom type="mesh" material="NaoMat_Structure" mesh="naoHeadYaw_0"/>
+
+        <inertial pos="-0.00001 0 -0.02742" mass="0.07842" fullinertia="74992.98e-9 75999.99e-9 5533.73e-9 1.57e-9 -18.34e-9 -52.95e-9"/>
+        <joint name="HeadYaw" axis="0 0 1" range="-119.5 119.5" limited="true"/>
+
+        <body name="Head" pos="0 0 0">
+          <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoHeadPitchV6_0"/>
+          <geom type="mesh" material="NaoMat_Pupil" mesh="naoHeadPitchV6_1"/>
+          <geom type="mesh" material="NaoMat_Hear" mesh="naoHeadPitchV6_2"/>
+          <geom type="mesh" material="NaoMat_Reye" mesh="naoHeadPitchV6_3"/>
+          <geom type="mesh" material="NaoMat_Leye" mesh="naoHeadPitchV6_4"/>
+          <geom type="mesh" material="NaoMat_MainSkin" mesh="naoHeadPitchV6_5"/>
+
+          <inertial pos="0.00109 0.00146 0.05719" mass="0.65973" fullinertia="2929818.72e-9 2838592.56e-9 716895.93e-9 3717.1e-9 -31446.71e-9 -73773.31e-9"/>
+          <joint name="HeadPitch" axis="0 1 0" range="-38.5 29.5" limited="true"/>
+        </body>
       </body>
 
-      <!--<geom name="left_shoulder" type="sphere" size="0.03" pos="0 0.098 0.1"/>-->
-      <body name="left_shoulder" pos="0 0.098 0.1">
-        <joint name="left_shoulder_pitch" type="hinge" axis="0 1 0" range="-119.5 119.5"/>
-        <joint name="left_shoulder_roll" type="hinge" axis="1 0 0" range="-18 76"/>
-        <geom name="left_upper_arm" type="capsule" size="0.036" fromto="0 0 0 0.105 0.015 0"/>
-        <body name="left_elbow" pos="0.105 0.015 0">
-          <joint name="left_elbow_yaw" type="hinge" axis="1 0 0" range="-119.5 119.5"/>
-          <joint name="left_elbow_roll" type="hinge" axis="0 0 1" range="-88.5 -2"/>
-          <geom name="left_lower_arm" type="capsule" size="0.036" fromto="0 0 0 0.05595 0 0"/>
-          <body name="left_wrist" pos="0.05595 0 0">
-            <joint name="left_wrist_yaw" type="hinge" axis="1 0 0" range="-104.5 104.5"/>
-            <geom name="left_wrist" type="capsule" size="0.036" fromto="0 0 0 0.05775 0 0"/>
+      <body name="LHip1" pos="0 0.05 -0.085">
+        <geom type="mesh" material="NaoMat_Structure" mesh="naoLHipYawPitch_0"/>
+        <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLHipYawPitch_1"/>
+
+        <inertial pos="-0.00781 -0.01114 0.02661" mass="0.06981" fullinertia="81502.27e-9 101325.27e-9 62623.96e-9 -4994.62e-9 12748.2e-9 23455.01e-9"/>
+        <joint name="LHipYawPitch" axis="0 1 -1" range="-65.62 42.44" limited="true"/>
+
+        <body name="LHip2" pos="0 0 0">
+          <geom type="mesh" material="NaoMat_Structure" mesh="naoLHipRoll_0"/>
+
+          <inertial pos="-0.01549 0.00029 -0.00515" mass="0.14053" fullinertia="27583.44e-9 98270.59e-9 88099.78e-9 -22.3e-9 -4081.53e-9 -4.18e-9"/>
+          <joint name="LHipRoll" axis="1 0 0" range="-21.74 45.29" limited="true"/>
+
+          <body name="LThigh" pos="0 0 0">
+            <geom type="mesh" material="NaoMat_Structure" mesh="naoLHipPitch_0"/>
+            <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLHipPitch_1"/>
+
+            <inertial pos="0.00138 0.00221 -0.05373" mass="0.38968" fullinertia="1636719.24e-9 1591072.67e-9 303743.22e-9 924.45e-9 85310.79e-9 38357.47e-9"/>
+            <joint name="LHipPitch" axis="0 1 0" range="-88 27.73" limited="true"/>
+
+            <body name="LTibia" pos="0 0 -0.1">
+              <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLKneePitchV6_0"/>
+              <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoLKneePitchV6_1"/>
+              <geom type="mesh" material="NaoMat_Structure" mesh="naoLKneePitchV6_2"/>
+
+              <inertial pos="0.00453 0.00225 -0.04936" mass="0.30142" fullinertia="1182079.03e-9 1128652.24e-9 193227.6e-9 633.74e-9 36499.64e-9 39492.53e-9"/>
+              <joint name="LKneePitch" axis="0 1 0" range="-5.29 121.04" limited="true"/>
+
+              <body name="LAnkle" pos="0 0 -0.1029">
+                <geom type="mesh" material="NaoMat_Structure" mesh="naoLAnklePitch_0"/>
+
+                <inertial pos="0.00045 0.00029 0.00685" mass="0.13416" fullinertia="38509.81e-9 74265.29e-9 54865.35e-9 -26.34e-9 3861.96e-9 18.32e-9"/>
+                <joint name="LAnklePitch" axis="0 1 0" range="-68.15 52.86" limited="true"/>
+
+                <body name="LFoot">
+                  <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLAnkleRollV6_0"/>
+                  <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoLAnkleRollV6_1"/>
+                  <geom type="mesh" material="NaoMat_Structure" mesh="naoLAnkleRollV6_2"/>
+                  <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLAnkleRollV6_3"/>
+
+                  <inertial pos="0.02542 0.0033 -0.03239" mass="0.17184" fullinertia="269442.9e-9 644342.28e-9 525755.35e-9 -5696.02e-9 139379.2e-9 18741.43e-9"/>
+                  <joint name="LAnkleRoll" axis="1 0 0" range="-22.79 44.06" limited="true"/>
+                </body>
+              </body>
+            </body>
           </body>
         </body>
       </body>
 
-      <!--<geom name="right_shoulder" type="sphere" size="0.03"/>-->
-      <body name="right_shoulder" pos="0 -0.098 0.1">
-        <joint name="right_shoulder_pitch" type="hinge" axis="0 1 0" range="-119.5 119.5"/>
-        <joint name="right_shoulder_roll" type="hinge" axis="1 0 0" range="-76 18"/>
-        <geom name="right_upper_arm" type="capsule" size="0.036" fromto="0 0 0 0.105 -0.015 0"/>
-        <body name="right_elbow" pos="0.105 -0.015 0">
-          <joint name="right_elbow_yaw" type="hinge" axis="1 0 0" range="-119.5 119.5"/>
-          <joint name="right_elbow_roll" type="hinge" axis="0 0 1" range="2 88.5"/>
-          <geom name="right_lower_arm" type="capsule" size="0.036" fromto="0 0 0 0.05595 0 0"/>
-          <body name="right_wrist" pos="0.05595 0 0">
-            <joint name="right_wrist_yaw" type="hinge" axis="1 0 0" range="-104.5 104.5"/>
-            <geom name="right_wrist" type="capsule" size="0.036" fromto="0 0 0 0.05775 0 0"/>
+      <body name="RHip1" pos="0 -0.05 -0.085">
+        <geom type="mesh" material="NaoMat_Structure" mesh="naoRHipYawPitch_0"/>
+        <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRHipYawPitch_1"/>
+
+        <inertial pos="-0.00781 0.01114 0.02661" mass="0.06981" fullinertia="89971.87e-9 105526.06e-9 66887.37e-9 5002.25e-9 12735.31e-9 -27700.88e-9"/>
+        <joint name="RHipYawPitch" axis="0 1 1" range="-65.62 42.44" limited="true"/>
+
+        <body name="RHip2" pos="0 0 0">
+          <geom type="mesh" material="NaoMat_Structure" mesh="naoRHipRoll_0"/>
+
+          <inertial pos="-0.01549 -0.00029 -0.00515" mass="0.14053" fullinertia="27586.44e-9 98269.99e-9 88103.38e-9 -19.16e-9 -4108.11e-9 2.52e-9"/>
+          <joint name="RHipRoll" axis="1 0 0" range="-45.29 21.74" limited="true"/>
+
+          <body name="RThigh" pos="0 0 0">
+            <geom type="mesh" material="NaoMat_Structure" mesh="naoRHipPitch_0"/>
+            <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRHipPitch_1"/>
+
+            <inertial pos="0.00138 -0.00221 -0.05373" mass="0.38968" fullinertia="1637482.24e-9 1592213.99e-9 303978.89e-9 -839.27e-9 85887.18e-9 -39180.38e-9"/>
+            <joint name="RHipPitch" axis="0 1 0" range="-88 27.73" limited="true"/>
+
+            <body name="RTibia" pos="0 0 -0.1">
+              <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRKneePitchV6_0"/>
+              <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoRKneePitchV6_1"/>
+              <geom type="mesh" material="NaoMat_Structure" mesh="naoRKneePitchV6_2"/>
+
+              <inertial pos="0.00453 -0.00225 -0.04936" mass="0.30142" fullinertia="1182829.03e-9 1128278.75e-9 191453.09e-9 -896.13e-9 27999.52e-9 -38478.73e-9"/>
+              <joint name="RKneePitch" axis="0 1 0" range="-5.9 121.47" limited="true"/>
+
+              <body name="RAnkle" pos="0 0 -0.1029">
+                <geom type="mesh" material="NaoMat_Structure" mesh="naoRAnklePitch_0"/>
+
+                <inertial pos="0.00045 -0.00029 0.00685" mass="0.13416" fullinertia="38508.11e-9 74310.79e-9 54913.15e-9 64.34e-9 3874.68e-9 -4.6e-9"/>
+                <joint name="RAnklePitch" axis="0 1 0" range="-67.97 53.4" limited="true"/>
+
+                <body name="RFoot">
+                  <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRAnkleRollV6_0"/>
+                  <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoRAnkleRollV6_1"/>
+                  <geom type="mesh" material="NaoMat_Structure" mesh="naoRAnkleRollV6_2"/>
+                  <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRAnkleRollV6_3"/>
+
+                  <inertial pos="0.02542 -0.0033 -0.03239" mass="0.17184" fullinertia="269303.1e-9 643474.47e-9 525034.16e-9 5874.62e-9 139133.06e-9 -18848.77e-9"/>
+                  <joint name="RAnkleRoll" axis="1 0 0" range="-44.06 22.8" limited="true"/>
+                </body>
+              </body>
+            </body>
           </body>
         </body>
       </body>
 
-      <body name="left_upper_leg" pos="0 0.05 -0.085" euler="0 90 0">
-        <joint name="left_hip_yaw_pitch" type="hinge" axis="-1 -1 0" range="-65.62 42.44"/>
-        <joint name="left_hip_roll" type="hinge" axis="0 0 1" range="-21.74 45.29"/>
-        <joint name="left_hip_pitch" type="hinge" axis="0 1 0" range="-88 27.73"/>
-        <geom name="left_upper_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
-        <body name="left_lower_leg" pos="0.1 0 0">
-          <joint name="left_knee_pitch" type="hinge" axis="0 1 0" range="-5.29 121.04"/>
-          <geom name="left_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.102 0 0"/>
-          <body name="left_foot" pos="0.1029 0 0" euler="0 -90 0">
-            <site name="left_foot_back_left_fsr" pos="0 0.025 -0.035" size="0.015 0.015 0.0015"  type="box" rgba="1 0 0 1" />
-            <geom name="left_foot_back_left_fsr" pos="0 0.025 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
-            <site name="left_foot_back_right_fsr" pos="0 -0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
-            <geom name="left_foot_back_right_fsr" pos="0 -0.015 -0.035" size="0.015 0.015 0.001" type="box"  rgba="1 0 0 1" />
-            <site name="left_foot_front_left_fsr" pos="0.12 0.025 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
-            <geom name="left_foot_front_left_fsr" pos="0.12 0.025 -0.035" size="0.015 0.015 0.001" type="box"  rgba="1 0 0 1" />
-            <site name="left_foot_front_right_fsr" pos="0.12 -0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
-            <geom name="left_foot_front_right_fsr" pos="0.12 -0.015 -0.035" size="0.015 0.015 0.001" type="box"  rgba="1 0 0 1" />
-            <joint name="left_ankle_pitch" type="hinge" axis="0 1 0" range="-68.15 52.86"/>
-            <joint name="left_ankle_roll" type="hinge" axis="1 0 0" range="-22.79 44.06"/>
-            <geom name="left_foot" type="box" size="0.08 0.04 0.0175" pos="0.025 0.005 -0.0175"/>
+      <body name="LShoulder" pos="0 0.098 0.1">
+        <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLShoulderPitch_0"/>
+
+        <inertial pos="-0.00165 -0.02663 0.00014" mass="0.09304" fullinertia="84284.28e-9 14155.63e-9 86419.46e-9 -2028.02e-9 23.39e-9 -19.48e-9"/>
+        <joint name="LShoulderPitch" axis="0 1 0" range="-119.5 119.5" limited="true"/>
+
+        <body name="LUpperArm" pos="0 0 0">
+          <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoLShoulderRollV6_0"/>
+          <geom type="mesh" material="NaoMat_Structure" mesh="naoLShoulderRollV6_1"/>
+          <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLShoulderRollV6_2"/>
+
+          <inertial pos="0.02455 0.00563 0.0033" mass="0.15777" fullinertia="93900.1e-9 371518.33e-9 341901.19e-9 -47144.85e-9 -26994.73e-9 -2459.82e-9"/>
+          <joint name="LShoulderRoll" axis="0 0 1" range="-18 76" limited="true"/>
+
+          <body name="LElbow" pos="0.105 0.015 0">
+            <inertial pos="-0.02744 0 -0.00014" mass="0.06483" fullinertia="5597.15e-9 75433.15e-9 76443.38e-9 4.39e-9 43.19e-9 -1.84e-9"/>
+            <joint name="LElbowYaw" axis="1 0 0" range="-119.5 119.5" limited="true"/>
+
+            <body name="LLowerArm" pos="0 0 0">
+              <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLElbowRoll_0"/>
+
+              <inertial pos="0.02556 0.00281 0.00076" mass="0.07761" fullinertia="25332.28e-9 89132.16e-9 87287.28e-9 -2342.89e-9 74.59e-9 -26.56e-9"/>
+              <joint name="LElbowRoll" axis="0 0 1" range="-88.5 -2" limited="true"/>
+
+              <body name="LWrist" pos=".05595 0 0">
+                <geom type="mesh" material="NaoMat_MainSkin" mesh="naoWristYawV6_0"/>
+                <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoWristYawV6_1"/>
+                <geom type="mesh" material="NaoMat_Structure" mesh="naoWristYawV6_2"/>
+
+                <inertial pos="0.03434 -0.00088 0.00308" mass="0.18533" fullinertia="70549.38e-9 356061.81e-9 351919.25e-9 5716.67e-9 -22474.41e-9 3177.77e-9"/>
+                <joint name="LWristYaw" axis="1 0 0" range="-104.5 104.5" limited="true"/>
+              </body>
+            </body>
           </body>
         </body>
       </body>
 
-      <body name="right_upper_leg" pos="0 -0.05 -0.085" euler="0 90 0">
-        <joint name="right_hip_yaw_pitch" type="hinge" axis="-1 1 0" range="-65.62 42.44" />
-        <joint name="right_hip_roll" type="hinge" axis="0 0 1" range="-45.29 21.74 "/>
-        <joint name="right_hip_pitch" type="hinge" axis="0 1 0" range="-88 27.73"/>
-        <geom name="right_upper_leg" type="capsule" size="0.036" fromto="0 0 0 0.105 0 0"/>
-        <body name="right_lower_leg" pos="0.1 0 0">
-        <joint name="right_knee_pitch" type="hinge" axis="0 1 0" range="-5.9 121.04"/> <!-- The Fuck?! they are not the same as the left leg? -->
-          <geom name="right_lower_leg" type="capsule" size="0.036" fromto="0 0 0 0.102 0 0"/>
-          <body name="right_foot" pos="0.1029 0 0" euler="0 -90 0">
-            <site name="right_foot_back_left_fsr" pos="0 0.015 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
-            <geom name="right_foot_back_left_fsr" pos="0 0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
-            <site name="right_foot_back_right_fsr" pos="0 -0.025 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
-            <geom name="right_foot_back_right_fsr" pos="0 -0.025 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
-            <site name="right_foot_front_left_fsr" pos="0.12 0.015 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
-            <geom name="right_foot_front_left_fsr" pos="0.12 0.015 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
-            <site name="right_foot_front_right_fsr" pos="0.12 -0.025 -0.035" size="0.015 0.015 0.001" type="box" rgba="1 0 0 1" />
-            <geom name="right_foot_front_right_fsr" pos="0.12 -0.025 -0.035" size="0.015 0.015 0.0015" type="box" rgba="1 0 0 1" />
-            <joint name="right_ankle_pitch" type="hinge" axis="0 1 0" range="-67.97 53.4"/>
-            <joint name="right_ankle_roll" type="hinge" axis="1 0 0" range="-44.06 22.8"/>
-            <geom name="right_foot" type="box" size="0.08 0.04 0.0175" pos="0.025 -0.005 -0.0175"/>
+      <body name="RShoulder" pos="0 -0.098 0.1">
+        <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRShoulderPitch_0"/>
+
+        <inertial pos="-0.00165 0.02663 0.00014" mass="0.09304" fullinertia="84284.28e-9 14155.62e-9 86419.46e-9 2028.02e-9 23.37e-9 19.96e-9"/>
+        <joint name="RShoulderPitch" axis="0 1 0" range="-119.5 119.5" limited="true"/>
+
+        <body name="RUpperArm" pos="0 0 0">
+          <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoRShoulderRollV6_0"/>
+          <geom type="mesh" material="NaoMat_Structure" mesh="naoRShoulderRollV6_1"/>
+          <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRShoulderRollV6_2"/>
+
+          <inertial pos="0.02455 -0.00563 0.0033" mass="0.15777" fullinertia="110119.78e-9 367576.65e-9 354618.19e-9 76690.99e-9 -26046.05e-9 12098.23e-9"/>
+          <joint name="RShoulderRoll" axis="0 0 1" range="-76 18" limited="true"/>
+
+          <body name="RElbow" pos="0.105 -0.015 0">
+            <inertial pos="-0.02744 0 -0.00014" mass="0.06483" fullinertia="5597.15e-9 75433.15e-9 76443.38e-9 4.39e-9 43.19e-9 -1.84e-9"/>
+            <joint name="RElbowYaw" axis="1 0 0" range="-119.5 119.5" limited="true"/>
+
+            <body name="RLowerArm" pos="0 0 0">
+              <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRElbowRoll_0"/>
+
+              <inertial pos="0.02556 -0.00281 0.00076" mass="0.07761" fullinertia="25390.7e-9 89220.44e-9 87248.38e-9 2332.25e-9 -601.17e-9 26.93e-9"/>
+              <joint name="RElbowRoll" axis="0 0 1" range="2 88.5" limited="true"/>
+
+              <body name="RWrist" pos=".05595 0 0">
+                <geom type="mesh" material="NaoMat_MainSkin" mesh="naoWristYawV6_0"/>
+                <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoWristYawV6_1"/>
+                <geom type="mesh" material="NaoMat_Structure" mesh="naoWristYawV6_2"/>
+
+                <inertial pos="0.03434 0.00088 0.00308" mass="0.18533" fullinertia="70549.29e-9 356061.88e-9 351919.26e-9 5716.66e-9 -22474.34e-9 3177.77e-9"/>
+                <joint name="RWristYaw" axis="1 0 0" range="-104.5 104.5" limited="true"/>
+              </body>
+            </body>
           </body>
         </body>
       </body>
     </body>
   </worldbody>
 
-  <equality>
-    <joint joint1="left_hip_yaw_pitch" joint2="right_hip_yaw_pitch" polycoef="0 -1 0 0 0"/>
-  </equality>
-
   <contact>
-    <exclude body1="left_wrist" body2="left_shoulder"/>
-    <exclude body1="right_wrist" body2="right_shoulder"/>
+    <exclude body1="Nao" body2="Neck"/>
+    <exclude body1="Nao" body2="Head"/>
+    <exclude body1="Neck" body2="Head"/>
+    <exclude body1="Nao" body2="LHip1"/>
+    <exclude body1="Nao" body2="LHip2"/>
+    <exclude body1="Nao" body2="LThigh"/>
+    <exclude body1="Nao" body2="RHip1"/>
+    <exclude body1="Nao" body2="RHip2"/>
+    <exclude body1="Nao" body2="RThigh"/>
+    <exclude body1="LHip1" body2="LHip2"/>
+    <exclude body1="LHip1" body2="LThigh"/>
+    <exclude body1="LHip2" body2="LThigh"/>
+    <exclude body1="LThigh" body2="LTibia"/>
+    <exclude body1="LTibia" body2="LAnkle"/>
+    <exclude body1="LTibia" body2="LFoot"/>
+    <exclude body1="LAnkle" body2="LFoot"/>
+    <exclude body1="RHip1" body2="RHip2"/>
+    <exclude body1="RHip1" body2="RThigh"/>
+    <exclude body1="RHip2" body2="RThigh"/>
+    <exclude body1="RThigh" body2="RTibia"/>
+    <exclude body1="RTibia" body2="RAnkle"/>
+    <exclude body1="RTibia" body2="RFoot"/>
+    <exclude body1="RAnkle" body2="RFoot"/>
+    <exclude body1="Nao" body2="LShoulder"/>
+    <exclude body1="Nao" body2="LUpperArm"/>
+    <exclude body1="Nao" body2="LElbow"/>
+    <exclude body1="LShoulder" body2="LUpperArm"/>
+    <exclude body1="LShoulder" body2="LElbow"/>
+    <exclude body1="LShoulder" body2="LLowerArm"/>
+    <exclude body1="LShoulder" body2="LWrist"/>
+    <exclude body1="LUpperArm" body2="LElbow"/>
+    <exclude body1="LUpperArm" body2="LLowerArm"/>
+    <exclude body1="LUpperArm" body2="LWrist"/>
+    <exclude body1="LElbow" body2="LLowerArm"/>
+    <exclude body1="LElbow" body2="LWrist"/>
+    <exclude body1="LLowerArm" body2="LWrist"/>
+    <exclude body1="Nao" body2="RShoulder"/>
+    <exclude body1="Nao" body2="RUpperArm"/>
+    <exclude body1="Nao" body2="RElbow"/>
+    <exclude body1="RShoulder" body2="RUpperArm"/>
+    <exclude body1="RShoulder" body2="RElbow"/>
+    <exclude body1="RShoulder" body2="RLowerArm"/>
+    <exclude body1="RShoulder" body2="RWrist"/>
+    <exclude body1="RUpperArm" body2="RElbow"/>
+    <exclude body1="RUpperArm" body2="RLowerArm"/>
+    <exclude body1="RUpperArm" body2="RWrist"/>
+    <exclude body1="RElbow" body2="RLowerArm"/>
+    <exclude body1="RElbow" body2="RWrist"/>
+    <exclude body1="RLowerArm" body2="RWrist"/>
   </contact>
 
-  <sensor>
-    <accelerometer name="accelerometer" site="imu"/>
-    <gyro name="gyroscope" site="imu"/>
-
-    <touch name="left_foot_back_left_fsr" site="left_foot_back_left_fsr"/>
-    <touch name="left_foot_back_right_fsr" site="left_foot_back_right_fsr"/>
-    <touch name="left_foot_front_left_fsr" site="left_foot_front_left_fsr"/>
-    <touch name="left_foot_front_right_fsr" site="left_foot_front_right_fsr"/>
-    <touch name="right_foot_back_left_fsr" site="right_foot_back_left_fsr"/>
-    <touch name="right_foot_back_right_fsr" site="right_foot_back_right_fsr"/>
-    <touch name="right_foot_front_left_fsr" site="right_foot_front_left_fsr"/>
-    <touch name="right_foot_front_right_fsr" site="right_foot_front_right_fsr"/>
-
-    <jointpos name="head_yaw" joint="head_yaw"/>
-    <jointpos name="head_pitch" joint="head_pitch"/>
-    <jointpos name="left_shoulder_pitch" joint="left_shoulder_pitch"/>
-    <jointpos name="left_shoulder_roll" joint="left_shoulder_roll"/>
-    <jointpos name="left_elbow_yaw" joint="left_elbow_yaw"/>
-    <jointpos name="left_elbow_roll" joint="left_elbow_roll"/>
-    <jointpos name="left_wrist_yaw" joint="left_wrist_yaw"/>
-
-    <jointpos name="right_shoulder_pitch" joint="right_shoulder_pitch"/>
-    <jointpos name="right_shoulder_roll" joint="right_shoulder_roll"/>
-    <jointpos name="right_elbow_yaw" joint="right_elbow_yaw"/>
-    <jointpos name="right_elbow_roll" joint="right_elbow_roll"/>
-    <jointpos name="right_wrist_yaw" joint="right_wrist_yaw"/>
-
-    <jointpos name="left_hip_yaw_pitch" joint="left_hip_yaw_pitch"/>
-    <jointpos name="left_hip_roll" joint="left_hip_roll"/>
-    <jointpos name="left_hip_pitch" joint="left_hip_pitch"/>
-    <jointpos name="left_knee_pitch" joint="left_knee_pitch"/>
-    <jointpos name="left_ankle_pitch" joint="left_ankle_pitch"/>
-    <jointpos name="left_ankle_roll" joint="left_ankle_roll"/>
-
-    <jointpos name="right_hip_yaw_pitch" joint="right_hip_yaw_pitch"/>
-    <jointpos name="right_hip_roll" joint="right_hip_roll"/>
-    <jointpos name="right_hip_pitch" joint="right_hip_pitch"/>
-    <jointpos name="right_knee_pitch" joint="right_knee_pitch"/>
-    <jointpos name="right_ankle_pitch" joint="right_ankle_pitch"/>
-    <jointpos name="right_ankle_roll" joint="right_ankle_roll"/>
-  </sensor>
+  <equality>
+    <joint joint1="LHipYawPitch" joint2="RHipYawPitch" polycoef="0 1 0 0 0"/>
+  </equality>
 
   <actuator>
-    <position name="head_yaw" joint="head_yaw" dampratio="1" kp="9.0"/> 
-    <position name="head_pitch" joint="head_pitch" dampratio="1" kp="9.0"/>
-
-    <position name="left_shoulder_pitch" joint="left_shoulder_pitch" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="left_shoulder_roll" joint="left_shoulder_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="left_elbow_yaw" joint="left_elbow_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="left_elbow_roll" joint="left_elbow_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="left_wrist_yaw" joint="left_wrist_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
-
-    <position name="right_shoulder_pitch" joint="right_shoulder_pitch" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="right_shoulder_roll" joint="right_shoulder_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="right_elbow_yaw" joint="right_elbow_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="right_elbow_roll" joint="right_elbow_roll" dampratio="1" kp="15.0" forcerange="-6 6"/>
-    <position name="right_wrist_yaw" joint="right_wrist_yaw" dampratio="1" kp="15.0" forcerange="-6 6"/>
-
-    <position name="left_hip_yaw_pitch" joint="left_hip_yaw_pitch" dampratio="1" kp="90.0"/>
-    <position name="left_hip_roll" joint="left_hip_roll" dampratio="1" kp="90.0"/>
-    <position name="left_hip_pitch" joint="left_hip_pitch" dampratio="1" kp="90.0"/>
-    <position name="left_knee_pitch" joint="left_knee_pitch" dampratio="1" kp="90.0"/>
-    <position name="left_ankle_pitch" joint="left_ankle_pitch" dampratio="1" kp="90.0"/>
-    <position name="left_ankle_roll" joint="left_ankle_roll" dampratio="1" kp="90.0"/>
-
-    <!-- <position name="right_hip_yaw_pitch" joint="right_hip_yaw_pitch" dampratio="1" kp="90.0"/> --> <!-- Is controlled indirectly through left_hip_yaw_pitch -->
-    <position name="right_hip_roll" joint="right_hip_roll" dampratio="1" kp="90.0"/>
-    <position name="right_hip_pitch" joint="right_hip_pitch" dampratio="1" kp="90.0"/>
-    <position name="right_knee_pitch" joint="right_knee_pitch" dampratio="1" kp="90.0"/>
-    <position name="right_ankle_pitch" joint="right_ankle_pitch" dampratio="1" kp="90.0"/>
-    <position name="right_ankle_roll" joint="right_ankle_roll" dampratio="1" kp="90.0"/>
-    
+    <position name="HeadYaw" joint="HeadYaw"/>
+    <position name="HeadPitch" joint="HeadPitch"/>
+    <position name="LHipYawPitch" joint="LHipYawPitch"/>
+    <position name="LHipRoll" joint="LHipRoll"/>
+    <position name="LHipPitch" joint="LHipPitch"/>
+    <position name="LKneePitch" joint="LKneePitch"/>
+    <position name="LAnklePitch" joint="LAnklePitch"/>
+    <position name="LAnkleRoll" joint="LAnkleRoll"/>
+    <!-- <position name="RHipYawPitch" joint="RHipYawPitch"/> -->
+    <position name="RHipRoll" joint="RHipRoll"/>
+    <position name="RHipPitch" joint="RHipPitch"/>
+    <position name="RKneePitch" joint="RKneePitch"/>
+    <position name="RAnklePitch" joint="RAnklePitch"/>
+    <position name="RAnkleRoll" joint="RAnkleRoll"/>
+    <position name="LShoulderPitch" joint="LShoulderPitch"/>
+    <position name="LShoulderRoll" joint="LShoulderRoll"/>
+    <position name="LElbowYaw" joint="LElbowYaw"/>
+    <position name="LElbowRoll" joint="LElbowRoll"/>
+    <position name="LWristYaw" joint="LWristYaw"/>
+    <position name="RShoulderPitch" joint="RShoulderPitch"/>
+    <position name="RShoulderRoll" joint="RShoulderRoll"/>
+    <position name="RElbowYaw" joint="RElbowYaw"/>
+    <position name="RElbowRoll" joint="RElbowRoll"/>
+    <position name="RWristYaw" joint="RWristYaw"/>
   </actuator>
 
+  <sensor>
+    <accelerometer name="Accelerometer" site="IMU"/>
+    <gyro name="Gyroscope" site="IMU"/>
+    <jointpos name="HeadYaw" joint="HeadYaw"/>
+    <jointpos name="HeadPitch" joint="HeadPitch"/>
+    <jointpos name="LHipYawPitch" joint="LHipYawPitch"/>
+    <jointpos name="LHipRoll" joint="LHipRoll"/>
+    <jointpos name="LHipPitch" joint="LHipPitch"/>
+    <jointpos name="LKneePitch" joint="LKneePitch"/>
+    <jointpos name="LAnklePitch" joint="LAnklePitch"/>
+    <jointpos name="LAnkleRoll" joint="LAnkleRoll"/>
+    <!-- <jointpos name="RHipYawPitch" joint="RHipYawPitch"/> -->
+    <jointpos name="RHipRoll" joint="RHipRoll"/>
+    <jointpos name="RHipPitch" joint="RHipPitch"/>
+    <jointpos name="RKneePitch" joint="RKneePitch"/>
+    <jointpos name="RAnklePitch" joint="RAnklePitch"/>
+    <jointpos name="RAnkleRoll" joint="RAnkleRoll"/>
+    <jointpos name="LShoulderPitch" joint="LShoulderPitch"/>
+    <jointpos name="LShoulderRoll" joint="LShoulderRoll"/>
+    <jointpos name="LElbowYaw" joint="LElbowYaw"/>
+    <jointpos name="LElbowRoll" joint="LElbowRoll"/>
+    <jointpos name="LWristYaw" joint="LWristYaw"/>
+    <jointpos name="RShoulderPitch" joint="RShoulderPitch"/>
+    <jointpos name="RShoulderRoll" joint="RShoulderRoll"/>
+    <jointpos name="RElbowYaw" joint="RElbowYaw"/>
+    <jointpos name="RElbowRoll" joint="RElbowRoll"/>
+    <jointpos name="RWristYaw" joint="RWristYaw"/>
+  </sensor>
+
   <keyframe>
-    <!--
-    The values below are split into rows for readability:
-      torso position
-      torso orientation
-      head
-      left arm
-      right arm
-      left leg
-      right leg
-    -->
-    <key name="zero"
-         qpos="0 0 2.0
-               1 0 0 0
-               0 0
-               0 0 0 0 0
-               0 0 0 0 0
-               0 0 0 0 0 0
-               0 0 0 0 0 0"/>
-    <key name="ready"
-         qpos="0 0 0.3
-               1 0 0 0
-               0 0
-               1.57 0.1 0 0 0
-               1.57 0.1 0 0 0
-               0 0 -0.25 0.35 -0.1 0
-               0 0 -0.25 0.35 -0.1 0"/>
-    <key name="face-down"
-         qpos="0 0 0.064
-               0.64 0.03 0.77 -0.02
-               0 -0.4
-               1.33 0.15 0.19 -0.08 0.1
-               1.31 0.15 0.19 -0.08 -0.05
-               0 0 -0.07 0.29 -0.04 0.02
-               0 0.04 -0.1 0.31 0.04 0"/>
+    <key name="stand" qpos="0 0 0.34 1 0 0 0   0 0     0 0 0 0 0 0 0 0 0 0 0 0   1.57 0.1 0 0 0   1.57 -0.1 0 0 0" ctrl="0 0  0 0 0 0 0 0 0 0 0 0 0    1.57 0.1 0 0 0   1.57 -0.1 0 0 0"/>
   </keyframe>
 </mujoco>

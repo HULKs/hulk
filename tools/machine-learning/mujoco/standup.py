@@ -1,17 +1,17 @@
 import os
-import time
 
 import gymnasium as gym
 import wandb
+
+import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
+from stable_baselines3.common.utils import get_device
 from wandb.integration.sb3 import WandbCallback
 
-RENDER_MODE = "rgb_array"
-USE_GPU = False
-
-if USE_GPU:
+if get_device() != torch.device("cpu"):
+    print("Using GPU")
     NVIDIA_ICD_CONFIG_PATH = "/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
     if not os.path.exists(NVIDIA_ICD_CONFIG_PATH):
         with open(NVIDIA_ICD_CONFIG_PATH, "w") as f:
@@ -24,6 +24,9 @@ if USE_GPU:
 
     # Configure MuJoCo to use the EGL rendering backend (requires GPU)
     os.environ["MUJOCO_GL"] = "egl"
+
+else:
+    print("Using CPU")
 
 
 # taken from https://gymnasium.farama.org/main/_modules/gymnasium/wrappers/record_video/
@@ -50,12 +53,15 @@ gym.register(
     max_episode_steps=2500,
 )
 
+
 config = {
     "policy_type": "MlpPolicy",
     "total_timesteps": 1000000,
     "env_name": "NaoStandup-v1",
     "render_mode": "rgb_array",
 }
+
+
 run = wandb.init(
     project="nao_standup",
     config=config,
@@ -78,7 +84,9 @@ env = VecVideoRecorder(
     record_video_trigger=capped_cubic_video_schedule,
     video_length=200,
 )
-model = PPO(config["policy_type"], env, verbose=1, tensorboard_log=f"runs/{run.id}")
+model = PPO(
+    config["policy_type"], env, verbose=1, tensorboard_log=f"runs/{run.id}"
+)
 model.learn(
     total_timesteps=config["total_timesteps"],
     callback=WandbCallback(
@@ -88,29 +96,3 @@ model.learn(
     ),
 )
 run.finish()
-
-#
-# model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./logs")
-# model.learn(total_timesteps=1000000, callback=WandbCallback())
-#
-# vec_env = model.get_env()
-# assert vec_env is not None
-# "vec_env is None!"
-#
-# if RENDER_MODE == "rgb_array":
-#     env.start_video_recorder()
-#
-# obs = vec_env.reset()
-# for i in range(10000):
-#     action, _states = model.predict(obs, deterministic=True)
-#     obs, reward, done, info = vec_env.step(action)
-#     vec_env.render()
-#
-#     # VecEnv resets automatically
-#     if done:
-#         obs = vec_env.reset()
-#
-# if RENDER_MODE == "rgb_array":
-#     env.close_video_recorder()
-#
-# env.close()

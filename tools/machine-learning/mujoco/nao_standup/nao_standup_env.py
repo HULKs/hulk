@@ -222,14 +222,14 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             "rgb_array",
             "depth_array",
         ],
-        "render_fps": 67,
     }
+    # "render_fps": 67,
 
     def __init__(self, **kwargs) -> None:
         observation_space = Box(
             low=-np.inf,
             high=np.inf,
-            shape=(419,),
+            shape=(661,),
             dtype=np.float64,
         )
 
@@ -239,7 +239,7 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
 
         MujocoEnv.__init__(
             self,
-            f"{current_dir}/nao.xml",
+            f"{current_dir}/scene.xml",
             5,
             observation_space=observation_space,
             default_camera_config=DEFAULT_CAMERA_CONFIG,
@@ -286,43 +286,43 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         )
 
     def reset_model(self):
-        half_random_offset = 0.01
-        face_down_keyframe_qpos = [
-            0,
-            0,
-            0.064,
-            0.64,
-            0.03,
-            0.77,
-            -0.02,
-            0,
-            -0.4,
-            1.33,
-            0.15,
-            0.19,
-            -0.08,
-            0.1,
-            1.31,
-            0.15,
-            0.19,
-            -0.08,
-            -0.05,
-            0,
-            0,
-            -0.07,
-            0.29,
-            -0.04,
-            0.02,
-            0,
-            0.04,
-            -0.1,
-            0.31,
-            0.04,
-            0,
-        ]
+        half_random_offset = 0.03
+        # face_down_keyframe_qpos = [
+        #     0,
+        #     0,
+        #     0.064,
+        #     0.64,
+        #     0.03,
+        #     0.77,
+        #     -0.02,
+        #     0,
+        #     -0.4,
+        #     1.33,
+        #     0.15,
+        #     0.19,
+        #     -0.08,
+        #     0.1,
+        #     1.31,
+        #     0.15,
+        #     0.19,
+        #     -0.08,
+        #     -0.05,
+        #     0,
+        #     0,
+        #     -0.07,
+        #     0.29,
+        #     -0.04,
+        #     0.02,
+        #     0,
+        #     0.04,
+        #     -0.1,
+        #     0.31,
+        #     0.04,
+        #     0,
+        # ]
         self.set_state(
-            face_down_keyframe_qpos
-            + self.np_random.uniform(
+            # face_down_keyframe_qpos +
+            self.np_random.uniform(
                 low=-half_random_offset, high=half_random_offset, size=self.model.nq
             ),
             self.init_qvel
