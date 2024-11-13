@@ -2,11 +2,16 @@
 
 mod write_to_mcap;
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fs::{create_dir_all, File};
 use std::io::{BufWriter, Seek, Write};
 use std::time::SystemTime;
-use std::{env::args, path::PathBuf, sync::Arc};
+use std::{
+    env::args,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use color_eyre::{
     eyre::{Result, WrapErr},
@@ -18,11 +23,13 @@ use hardware::{
 };
 use indicatif::ProgressIterator;
 use mcap::records::{system_time_to_nanos, MessageHeader};
-use mcap::{Channel, McapError, Writer};
+use mcap::{records::Metadata, Attachment, Channel, McapError, Writer};
 use path_serde::{PathIntrospect, PathSerialize};
-use rmp_serde::Serializer;
+use rmp_serde::{to_vec_named, Serializer};
 use serde::Serialize;
 
+use serde_json::from_str;
+use structs::Parameters;
 use types::hardware::Ids;
 use types::{
     audio::SpeakerRequest,
@@ -110,7 +117,7 @@ impl HardwareInterface for ExtractorHardwareInterface {}
 fn main() -> Result<()> {
     install()?;
 
-    let replay_path = args()
+    let replay_path_string = args()
         .nth(1)
         .expect("expected replay path as first parameter");
 
@@ -120,17 +127,31 @@ fn main() -> Result<()> {
             .expect("expected output path as second parameter"),
     );
 
-    let parameters_directory = args().nth(3).unwrap_or(replay_path.clone());
+    let parameters_directory = args().nth(3).unwrap_or(replay_path_string.clone());
     let ids = Ids {
         body_id: "replayer".into(),
         head_id: "replayer".into(),
     };
 
+    let replay_path = replay_path_string.clone();
+    let replay_path = Path::new(&replay_path);
+
+    let parameters = std::fs::read_to_string(replay_path.join("default.json"))
+        .wrap_err("failed to open framework parameters")?;
+
+    let ip_address = replay_path
+        .parent()
+        .expect("expected replay path to have parent directory")
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap();
+
     let mut replayer = Replayer::new(
         Arc::new(ExtractorHardwareInterface),
         parameters_directory,
         ids,
-        replay_path,
+        replay_path_string,
     )
     .wrap_err("failed to create image extractor")?;
 
@@ -144,6 +165,34 @@ fn main() -> Result<()> {
 
     let mut mcap_converter =
         McapConverter::from_writer(BufWriter::new(File::create(output_file)?))?;
+
+    let metadata = Metadata {
+        name: String::from("robot data"),
+        metadata: BTreeMap::from([(String::from("IP address"), String::from(ip_address))]),
+    };
+    mcap_converter.writer.write_metadata(&metadata)?;
+
+    let framework_start_time = replayer
+        .get_recording_indices()
+        .first_key_value()
+        .expect("could not find recording indices for `$cycler_name`")
+        .1
+        .first_timing()
+        .unwrap()
+        .timestamp;
+
+    let parameter_data: Parameters =
+        from_str(&parameters).wrap_err("failed to parse parameters")?;
+    let parameters = to_vec_named(&parameter_data)?;
+
+    let attachment = Attachment {
+        log_time: system_time_to_nanos(&framework_start_time),
+        create_time: system_time_to_nanos(&framework_start_time),
+        name: String::from("parameters"),
+        media_type: String::from("messagepack"),
+        data: Cow::Owned(parameters),
+    };
+    mcap_converter.writer.attach(&attachment)?;
 
     write_to_mcap![control_receiver, "Control", mcap_converter, replayer];
     write_to_mcap![
@@ -204,7 +253,7 @@ impl<'a, W: Write + Seek> McapConverter<'a, W> {
             &MessageHeader {
                 channel_id,
                 sequence: sequence_number,
-                log_time: log_time,
+                log_time,
                 publish_time: log_time,
             },
             data,
@@ -232,7 +281,7 @@ pub fn database_to_values<T: Serialize + PathIntrospect + PathSerialize>(
         let output_name = &node_output_name;
         let key = format!("{cycler_name}.{output_type}.{node_output_name}");
 
-        database.serialize_path(&output_name, &mut serializer)?;
+        database.serialize_path(output_name, &mut serializer)?;
         map.push((key, writer));
     }
 
