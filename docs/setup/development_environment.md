@@ -57,13 +57,15 @@ Use your distribution's package manager to install the following dependencies:
     sudo apt install git git-lfs clang cmake python3 zstd xz-utils file rsync libasound2-dev libopusfile-dev libhdf5-dev libsystemd-dev libluajit-5.1-dev
     ```
 
-### OpenVINO™ runtime for Neural Networks
-
-You will also need to install the OpenVino:tm: runtime for Webots. The HULKs SDK already contains the runtime for use with the NAOs.
-
--   [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
-
 If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
+
+??? "If you want to use our simulator Webots"
+
+    Usually, the Webots simulator is **not needed** for normal development.
+    If you want to use it, you can install it with your packet manager or download it from the [official website](https://cyberbotics.com/).
+    You will also need to install the OpenVino™ runtime. The HULKs SDK already contains the runtime for use with the NAOs.
+
+    -   [Installation Instructions (Linux)](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-linux.html)
 
 ## Cloning the Repository
 
