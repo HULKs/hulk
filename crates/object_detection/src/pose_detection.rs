@@ -60,6 +60,7 @@ pub struct CycleContext {
         Parameter<f32, "pose_detection.maximum_intersection_over_union">,
     minimum_bounding_box_confidence:
         Parameter<f32, "pose_detection.minimum_bounding_box_confidence">,
+    override_pose_detection: Parameter<bool, "pose_detection.override_pose_detection">,
 }
 
 #[context]
@@ -117,7 +118,7 @@ impl PoseDetection {
                 ..
             }
         );
-        if !behavior_requests_pose_detection {
+        if !behavior_requests_pose_detection && !context.override_pose_detection {
             return Ok(MainOutputs::default());
         };
 
