@@ -3,6 +3,7 @@ macro_rules! write_to_mcap {
     ($receiver: expr, $cycler_name: expr, $mcap_converter: expr, $replayer: expr) => {
         let unknown_indices_error_message =
             format!("could not find recording indices for `$cycler_name`");
+
         let timings: Vec<_> = $replayer
             .get_recording_indices()
             .get($cycler_name)
@@ -43,10 +44,9 @@ macro_rules! write_to_mcap {
                 main_outputs
                     .into_iter()
                     .chain(additional_outputs)
-                    .map(|(topic, data)| {
+                    .try_for_each(|(topic, data)| {
                         $mcap_converter.add_to_mcap(topic, &data, index as u32, timing.timestamp)
-                    })
-                    .collect::<Result<_, _>>()?;
+                    })?;
             }
         }
     };
