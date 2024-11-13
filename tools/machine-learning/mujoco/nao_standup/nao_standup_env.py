@@ -263,7 +263,7 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
     def step(self, a):
         self.do_simulation(a, self.frame_skip)
         data = self.data
-        head_center_z = data.site_xpos[1][2]
+        head_center_z = data.site_xpos[3][2]
         uph_cost = (head_center_z - 0) / self.model.opt.timestep
 
         quad_ctrl_cost = 0.1 * np.square(data.ctrl).sum()
