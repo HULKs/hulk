@@ -85,9 +85,9 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 ("reboot", ""),
                 ("shell", ""),
                 ("upload", ""),
-                ("wireless", "list"),
-                ("wireless", "set"),
-                ("wireless", "status"),
+                ("wifi", "list"),
+                ("wifi", "set"),
+                ("wifi", "status"),
             ];
             for (first, second) in COMPLETION_SUBCOMMANDS {
                 if second.is_empty() {

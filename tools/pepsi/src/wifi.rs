@@ -43,7 +43,7 @@ pub enum Arguments {
     },
 }
 
-pub async fn wireless(arguments: Arguments) -> Result<()> {
+pub async fn wifi(arguments: Arguments) -> Result<()> {
     match arguments {
         Arguments::Status { naos } => status(naos).await,
         Arguments::Scan { naos } => scan(naos).await,
@@ -102,7 +102,7 @@ async fn set(naos: Vec<NaoAddress>, network: Network) {
         "Setting network...",
         |nao_address, _progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-            nao.set_network(network)
+            nao.set_wifi(network)
                 .await
                 .wrap_err_with(|| format!("failed to set network on {nao_address}"))
         },

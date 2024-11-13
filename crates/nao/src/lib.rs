@@ -3,36 +3,62 @@ use std::{
     net::Ipv4Addr,
     path::Path,
     process::Stdio,
+    time::Duration,
 };
 
 use color_eyre::{
-    eyre::{bail, eyre, WrapErr},
+    eyre::{self, bail, eyre, WrapErr},
     Result,
 };
+use serde::Deserialize;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, Command},
     select,
 };
 
-pub const PING_TIMEOUT_SECONDS: u32 = 2;
+const PING_TIMEOUT: Duration = Duration::from_secs(2);
+
+const NAO_SSH_FLAGS: &[&str] = &[
+    "-lnao",
+    "-oLogLevel=quiet",
+    "-oStrictHostKeyChecking=no",
+    "-oUserKnownHostsFile=/dev/null",
+];
+
+#[derive(Debug, Deserialize, Hash, Eq, PartialEq)]
+#[serde(try_from = "String")]
+pub struct NaoNumber {
+    pub id: u8,
+}
+
+impl TryFrom<String> for NaoNumber {
+    type Error = eyre::Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        let id = value
+            .parse()
+            .wrap_err_with(|| format!("failed to parse `{value}` into Nao number"))?;
+        Ok(Self { id })
+    }
+}
 
 pub struct Nao {
-    pub host: Ipv4Addr,
+    pub address: Ipv4Addr,
 }
 
 impl Nao {
-    pub fn new(host: Ipv4Addr) -> Self {
-        Self { host }
+    pub fn new(address: Ipv4Addr) -> Self {
+        Self { address }
     }
 
     pub async fn try_new_with_ping(host: Ipv4Addr) -> Result<Self> {
-        Self::try_new_with_ping_and_arguments(host, PING_TIMEOUT_SECONDS).await
+        Self::try_new_with_ping_and_arguments(host, PING_TIMEOUT).await
     }
 
     pub async fn try_new_with_ping_and_arguments(
         host: Ipv4Addr,
-        timeout_seconds: u32,
+        timeout: Duration,
     ) -> Result<Self> {
         #[cfg(target_os = "macos")]
         const TIMEOUT_FLAG: &str = "-t";
@@ -43,7 +69,7 @@ impl Nao {
             .arg("-c")
             .arg("1")
             .arg(TIMEOUT_FLAG)
-            .arg(timeout_seconds.to_string())
+            .arg(timeout.as_secs().to_string())
             .arg(host.to_string())
             .output()
             .await
@@ -65,27 +91,18 @@ impl Nao {
         extract_version_number(&stdout).ok_or_else(|| eyre!("could not extract version number"))
     }
 
-    fn get_ssh_flags(&self) -> Vec<String> {
-        vec![
-            "-lnao".to_string(),
-            "-oLogLevel=quiet".to_string(),
-            "-oStrictHostKeyChecking=no".to_string(),
-            "-oUserKnownHostsFile=/dev/null".to_string(),
-        ]
-    }
-
     fn ssh_to_nao(&self) -> Command {
         let mut command = Command::new("ssh");
-        for flag in self.get_ssh_flags() {
+        for flag in NAO_SSH_FLAGS {
             command.arg(flag);
         }
-        command.arg(self.host.to_string());
+        command.arg(self.address.to_string());
         command
     }
 
     pub fn rsync_with_nao(&self, mkpath: bool) -> Command {
         let mut command = Command::new("rsync");
-        let ssh_flags = self.get_ssh_flags().join(" ");
+        let ssh_flags = NAO_SSH_FLAGS.join(" ");
         command
             .stdout(Stdio::piped())
             .arg("--recursive")
@@ -183,7 +200,7 @@ impl Nao {
         let rsync = self
             .rsync_with_nao(true)
             .arg("--info=progress2")
-            .arg(format!("{}:hulk/logs/", self.host))
+            .arg(format!("{}:hulk/logs/", self.address))
             .arg(local_directory.as_ref().to_str().unwrap())
             .spawn()
             .wrap_err("failed to execute rsync command")?;
@@ -259,6 +276,7 @@ impl Nao {
     pub async fn upload(
         &self,
         local_directory: impl AsRef<Path>,
+        remote_directory: impl AsRef<Path>,
         delete_remaining: bool,
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
@@ -268,7 +286,11 @@ impl Nao {
             .arg("--copy-links")
             .arg("--info=progress2")
             .arg(format!("{}/", local_directory.as_ref().display()))
-            .arg(format!("{}:hulk/", self.host));
+            .arg(format!(
+                "{}:{}/",
+                self.address,
+                remote_directory.as_ref().display()
+            ));
 
         if delete_remaining {
             command.arg("--delete").arg("--delete-excluded");
@@ -335,7 +357,7 @@ impl Nao {
         Ok(())
     }
 
-    pub async fn set_network(&self, network: Network) -> Result<()> {
+    pub async fn set_wifi(&self, network: Network) -> Result<()> {
         let command_string = [
             Network::SplA,
             Network::SplB,
@@ -389,7 +411,7 @@ impl Nao {
             .arg("--copy-links")
             .arg("--info=progress2")
             .arg(image_path.as_ref().to_str().unwrap())
-            .arg(format!("{}:/data/.image/", self.host))
+            .arg(format!("{}:/data/.image/", self.address))
             .spawn()
             .wrap_err("failed to execute rsync command")?;
 
@@ -400,7 +422,7 @@ impl Nao {
 
 impl Display for Nao {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.host, formatter)
+        Display::fmt(&self.address, formatter)
     }
 }
 
