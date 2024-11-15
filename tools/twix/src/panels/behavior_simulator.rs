@@ -111,16 +111,13 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         );
                     };
 
-                    ui.with_layout(
-                        Layout::right_to_left(Align::Min),
-                        |ui| {
-                            ui.add(
-                                Slider::new(&mut self.playback_speed, -10.0..=10.0)
-                                    .step_by(0.1)
-                                    .text("Playback Speed"),
-                            )
-                        },
-                    );
+                    ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                        ui.add(
+                            Slider::new(&mut self.playback_speed, -10.0..=10.0)
+                                .step_by(0.1)
+                                .text("Playback Speed"),
+                        )
+                    });
                 });
                 ui.checkbox(&mut self.playing, "Play")
             })
