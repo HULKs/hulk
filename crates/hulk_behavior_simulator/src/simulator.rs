@@ -7,14 +7,22 @@ use bevy::{
     },
     time::Time,
 };
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{
+    eyre::{eyre, Context},
+    Result,
+};
+use repository::get_repository_root;
+use tokio::runtime::Runtime;
+use types::hardware::Ids;
 
 use crate::{
     autoref::{autoref, autoref_plugin},
     ball::{move_ball, BallResource},
+    field_dimensions::SimulatorFieldDimenstions,
     game_controller::{game_controller_plugin, GameController},
     recorder::Recording,
     robot::{cycle_robots, move_robots, Messages},
+    server::Parameters,
     time::{update_time, Ticks},
     whistle::WhistleResource,
 };
@@ -34,6 +42,8 @@ impl SimulatorPlugin {
 
 impl Plugin for SimulatorPlugin {
     fn build(&self, app: &mut App) {
+        let parameters = load_parameters().expect("failed to load parameters");
+
         app.add_plugins((
             TaskPoolPlugin::default(),
             TypeRegistrationPlugin,
@@ -41,6 +51,7 @@ impl Plugin for SimulatorPlugin {
         ))
         .add_plugins(autoref_plugin)
         .add_plugins(game_controller_plugin)
+        .insert_resource(SimulatorFieldDimenstions::from(parameters.field_dimensions))
         .insert_resource(GameController::default())
         .insert_resource(BallResource::default())
         .insert_resource(WhistleResource::default())
@@ -85,4 +96,19 @@ impl AppExt for App {
             AppExit::Error(code) => Err(eyre!("Scenario exited with error code {code}")),
         }
     }
+}
+
+fn load_parameters() -> Result<Parameters> {
+    let ids = Ids {
+        body_id: "behavior_simulator".to_string(),
+        head_id: "behavior_simulator".to_string(),
+    };
+    let runtime = Runtime::new().wrap_err("failed to build async runtime")?;
+    let repository_root = runtime
+        .block_on(get_repository_root())
+        .wrap_err("failed to get repository root")?;
+    let parameters_path = repository_root.join("crates/hulk_behavior_simulator");
+
+    parameters::directory::deserialize(parameters_path, &ids, true)
+        .wrap_err("failed to parse initial parameters")
 }

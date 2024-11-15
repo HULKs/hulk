@@ -7,16 +7,21 @@ use bevy::{
         schedule::IntoSystemConfigs,
         system::{Query, ResMut, Resource},
     },
+    prelude::Res,
     time::{Time, Timer, TimerMode},
 };
 use linear_algebra::{point, vector, Isometry2};
 use spl_network_messages::{GameState, Penalty, SubState, Team};
 use types::{
-    ball_position::SimulatorBallState, motion_command::MotionCommand, planned_path::PathSegment,
+    ball_position::SimulatorBallState,
+    field_dimensions::{FieldDimensions, Half, Side},
+    motion_command::MotionCommand,
+    planned_path::PathSegment,
 };
 
 use crate::{
     ball::BallResource,
+    field_dimensions::SimulatorFieldDimenstions,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     whistle::WhistleResource,
@@ -45,9 +50,11 @@ impl Default for AutorefState {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn autoref(
     mut state: ResMut<AutorefState>,
     mut ball: ResMut<BallResource>,
+    field_dimensions: Res<SimulatorFieldDimenstions>,
     mut referee_whistle: ResMut<WhistleResource>,
     game_controller: ResMut<GameController>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
@@ -91,7 +98,10 @@ pub fn autoref(
             referee_whistle.whistle(*time);
         }
         GameState::Playing => {
-            if let Some(scoring_team) = ball.state.and_then(ball_in_goal) {
+            if let Some(scoring_team) = ball
+                .state
+                .and_then(|ball| ball_in_goal(ball, **field_dimensions))
+            {
                 match state.goal_mode {
                     GoalMode::GoToReady => {
                         game_controller_commands.send(GameControllerCommand::Goal(scoring_team));
@@ -108,19 +118,20 @@ pub fn autoref(
     }
 }
 
-fn ball_in_goal(ball: SimulatorBallState) -> Option<Team> {
-    if ball.position.x() > 4.5 && ball.position.y().abs() < 0.75 {
-        return Some(Team::Hulks);
+fn ball_in_goal(ball: SimulatorBallState, field_dimensions: FieldDimensions) -> Option<Team> {
+    if field_dimensions.is_inside_any_goal(ball.position) {
+        if ball.position.x() > 0.0 {
+            return Some(Team::Hulks);
+        } else {
+            return Some(Team::Opponent);
+        }
     }
-    if ball.position.x() < -4.5 && ball.position.y().abs() < 0.75 {
-        return Some(Team::Opponent);
-    }
-
     None
 }
 
 pub fn auto_assistant_referee(
     mut game_controller_commands: EventReader<GameControllerCommand>,
+    field_dimensions: Res<SimulatorFieldDimenstions>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
 ) {
@@ -131,48 +142,48 @@ pub fn auto_assistant_referee(
             GameControllerCommand::SetSubState(Some(SubState::CornerKick), team) => {
                 let side = if let Some(ball) = ball.state.as_mut() {
                     if ball.position.x() >= 0.0 {
-                        3.0
+                        Side::Left
                     } else {
-                        -3.0
+                        Side::Right
                     }
                 } else {
-                    3.0
+                    Side::Right
                 };
                 let half = match team {
-                    Team::Hulks => 4.5,
-                    Team::Opponent => -4.5,
+                    Team::Hulks => Half::Opponent,
+                    Team::Opponent => Half::Own,
                 };
                 ball.state = Some(SimulatorBallState {
-                    position: point!(half, side),
+                    position: field_dimensions.corner(half, side),
                     velocity: vector![0.0, 0.0],
                 });
             }
             GameControllerCommand::SetSubState(Some(SubState::PenaltyKick), team) => {
                 let half = match team {
-                    Team::Hulks => 3.2,
-                    Team::Opponent => -3.2,
+                    Team::Hulks => Half::Opponent,
+                    Team::Opponent => Half::Own,
                 };
                 ball.state = Some(SimulatorBallState {
-                    position: point!(half, 0.0),
+                    position: field_dimensions.penalty_spot(half),
                     velocity: vector![0.0, 0.0],
                 });
             }
             GameControllerCommand::SetSubState(Some(SubState::GoalKick), team) => {
                 let side = if let Some(ball) = ball.state.as_mut() {
                     if ball.position.x() >= 0.0 {
-                        1.1
+                        Side::Left
                     } else {
-                        -1.1
+                        Side::Right
                     }
                 } else {
-                    1.1
+                    Side::Left
                 };
                 let half = match team {
-                    Team::Hulks => -3.9,
-                    Team::Opponent => 3.9,
+                    Team::Hulks => Half::Own,
+                    Team::Opponent => Half::Opponent,
                 };
                 ball.state = Some(SimulatorBallState {
-                    position: point!(half, side),
+                    position: field_dimensions.goal_box_corner(half, side),
                     velocity: vector![0.0, 0.0],
                 });
             }
@@ -184,12 +195,12 @@ pub fn auto_assistant_referee(
                 };
                 let side = if let Some(ball) = ball.state.as_mut() {
                     if ball.position.x() >= 0.0 {
-                        3.0
+                        field_dimensions.width / 2.0
                     } else {
-                        -3.0
+                        -field_dimensions.width / 2.0
                     }
                 } else {
-                    3.0
+                    field_dimensions.width / 2.0
                 };
                 ball.state = Some(SimulatorBallState {
                     position: point!(x, side),

@@ -3413,6 +3413,7 @@ dependencies = [
  "proc-macro2",
  "projection",
  "quote",
+ "repository",
  "scenario",
  "serde",
  "serde_json",

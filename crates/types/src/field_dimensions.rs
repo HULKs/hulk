@@ -94,9 +94,9 @@ impl FieldDimensions {
         position.x().abs() < self.length / 2.0 && position.y().abs() < self.width / 2.0
     }
 
-    pub fn is_inside_any_goal_box(&self, position: Point2<Field>) -> bool {
-        position.x().abs() > self.length / 2.0 - self.goal_box_area_length
-            && position.y().abs() < self.goal_box_area_width / 2.0
+    pub fn is_inside_any_goal(&self, position: Point2<Field>) -> bool {
+        position.x().abs() > self.length / 2.0
+            && position.y().abs() < self.goal_inner_width / 2.0
     }
 
     pub fn penalty_spot(&self, half: Half) -> Point2<Field> {

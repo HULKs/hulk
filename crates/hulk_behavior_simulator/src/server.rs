@@ -17,10 +17,10 @@ use types::{
 use crate::{cyclers::control::Database, recorder::Frame, robot::to_player_number};
 
 #[derive(Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
-struct Parameters {
+pub struct Parameters {
     selected_frame: usize,
     selected_robot: usize,
-    field_dimensions: FieldDimensions,
+    pub field_dimensions: FieldDimensions,
 }
 
 #[derive(Clone, Default, Serialize, PathSerialize, PathIntrospect)]
