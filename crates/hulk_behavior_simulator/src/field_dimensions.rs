@@ -4,6 +4,9 @@ use bevy::prelude::Resource;
 
 use types::field_dimensions::FieldDimensions;
 
+/// Field dimensions only for simulation logic!
+/// Each robot has its own parameters and field dimensions
+/// which are not aufomatically synchronized.
 #[derive(Resource, Default)]
 pub struct SimulatorFieldDimenstions {
     field_dimensions: FieldDimensions,
