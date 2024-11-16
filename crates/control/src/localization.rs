@@ -85,7 +85,7 @@ pub struct CycleContext {
         Parameter<usize, "localization.maximum_amount_of_outer_iterations">,
     minimum_fit_error: Parameter<f32, "localization.minimum_fit_error">,
     odometry_noise: Parameter<Vector3<f32>, "localization.odometry_noise">,
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
     penalized_distance: Parameter<f32, "localization.penalized_distance">,
     penalized_hypothesis_covariance:
         Parameter<Matrix3<f32>, "localization.penalized_hypothesis_covariance">,
@@ -136,7 +136,7 @@ impl Localization {
         context: &CycleContext,
         sub_state: Option<SubState>,
         kicking_team: Option<Team>,
-        goalkeeper_jersey_number: Option<usize>,
+        goalkeeper_jersey_number: Option<u8>,
     ) {
         if let (Some(Team::Opponent), Some(goalkeeper_number), Some(SubState::PenaltyKick)) =
             (kicking_team, goalkeeper_jersey_number, sub_state)

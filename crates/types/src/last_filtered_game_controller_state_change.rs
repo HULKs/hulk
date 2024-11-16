@@ -11,8 +11,8 @@ pub struct LastFilteredGameControllerStateChanges {
     pub opponent_game_state: SystemTime,
     pub game_phase: SystemTime,
     pub kicking_team: SystemTime,
-    pub penalties: HashMap<usize, Option<SystemTime>>,
-    pub opponent_penalties: HashMap<usize, Option<Penalty>>,
+    pub penalties: HashMap<u8, Option<SystemTime>>,
+    pub opponent_penalties: HashMap<u8, Option<Penalty>>,
     pub sub_state: Option<SystemTime>,
 }
 

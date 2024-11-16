@@ -19,9 +19,9 @@ pub enum GameControllerCommand {
     SetKickingTeam(Team),
     Goal(Team),
     BallIsFree,
-    Penalize(usize, Penalty),
-    Unpenalize(usize),
-    SetKeeperNumber(usize, Team),
+    Penalize(u8, Penalty),
+    Unpenalize(u8),
+    SetKeeperNumber(u8, Team),
 }
 
 fn game_controller_controller(

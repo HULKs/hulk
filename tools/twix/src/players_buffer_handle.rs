@@ -17,7 +17,7 @@ where
         let mut buffers = Players::new();
         for player in 1..=MAX_NUM_PLAYERS {
             buffers.inner.insert(
-                player.into(),
+                player,
                 nao.subscribe_value(format!("{prefix}.{player}.{path}")),
             );
         }

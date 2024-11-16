@@ -27,7 +27,7 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
     recorded_primary_states: Parameter<HashSet<PrimaryState>, "recorded_primary_states">,
 
     hardware_interface: HardwareInterface,

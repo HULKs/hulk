@@ -38,7 +38,7 @@ pub struct CycleContext {
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
 
@@ -140,7 +140,7 @@ impl GameControllerStateFilter {
         filtered_whistle: &FilteredWhistle,
         cycle_time: &CycleTime,
         visual_referee_proceed_to_ready: bool,
-        jersey_number: usize,
+        jersey_number: u8,
         did_receive_motion_in_set_penalty: bool,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
@@ -477,7 +477,7 @@ impl State {
 fn penalty_diff(
     last: &Players<Option<Penalty>>,
     current: &Players<Option<Penalty>>,
-) -> HashMap<usize, Penalty> {
+) -> HashMap<u8, Penalty> {
     let current_penalties =
         current
             .inner

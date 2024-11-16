@@ -19,7 +19,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
 
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
 }
 
 #[context]

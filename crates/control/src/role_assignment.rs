@@ -68,7 +68,7 @@ pub struct CycleContext {
     initial_poses: Parameter<Vec<InitialPose>, "localization.initial_poses">,
     offense_optional_roles: Parameter<Vec<Role>, "behavior.offense_optional_roles">,
     number_of_defensive_players: Parameter<usize, "behavior.number_of_defensive_players">,
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
     spl_network: Parameter<SplNetworkParameters, "spl_network">,
 
     hardware: HardwareInterface,
@@ -402,7 +402,7 @@ fn process_role_state_machine(
     number_of_defensive_players: usize,
     replacement_keeper_priority: Option<usize>,
     striker_priority: Option<usize>,
-    own_jersey_number: usize,
+    own_jersey_number: u8,
 ) -> (Role, bool, Option<BallPosition<Field>>) {
     if let Some(game_controller_state) = filtered_game_controller_state {
         match game_controller_state.game_phase {
@@ -680,8 +680,8 @@ fn decide_if_claiming_striker_or_other_role(
     number_of_defensive_players: usize,
     replacement_keeper_priority: Option<usize>,
     striker_priority: Option<usize>,
-    goal_keeper_number: Option<usize>,
-    own_jersey_number: usize,
+    goal_keeper_number: Option<u8>,
+    own_jersey_number: u8,
 ) -> (Role, bool, Option<BallPosition<Field>>) {
     if time_to_reach_kick_position < spl_message.time_to_reach_kick_position
         && time_to_reach_kick_position.is_some_and(|duration| duration < Duration::from_secs(1200))
@@ -772,9 +772,9 @@ fn team_ball_from_seen_ball(
 fn generate_role(
     replacement_keeper_priority: Option<usize>,
     striker_priority: Option<usize>,
-    goal_keeper_number: Option<usize>,
-    striker_jersey_number: usize,
-    own_jersey_number: usize,
+    goal_keeper_number: Option<u8>,
+    striker_jersey_number: u8,
+    own_jersey_number: u8,
     offense_optional_roles: &[Role],
     defense_optional_roles: &[Role],
     number_of_defensive_players: usize,
@@ -799,8 +799,8 @@ fn generate_role(
 fn pick_role_with_penalties(
     replacement_keeper_priority: usize,
     striker_priority: usize,
-    striker_jersey_number: usize,
-    own_jersey_number: usize,
+    striker_jersey_number: u8,
+    own_jersey_number: u8,
     offense_optional_roles: &[Role],
     defense_optional_roles: &[Role],
     number_of_defensive_players: usize,

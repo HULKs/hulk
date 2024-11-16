@@ -46,7 +46,7 @@ pub struct CycleContext {
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
     minimum_above_head_arms_detections:
         Parameter<usize, "referee_pose_detection_filter.minimum_above_head_arms_detections">,
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
     referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
     minimum_number_poses_before_message:
         Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
@@ -211,7 +211,7 @@ fn unpack_own_detection_tree(
 
 fn send_own_detection_message<T: NetworkInterface>(
     hardware_interface: Arc<T>,
-    jersey_number: usize,
+    jersey_number: u8,
 ) -> Result<()> {
     hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
         VisualRefereeMessage { jersey_number },

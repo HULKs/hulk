@@ -8,7 +8,7 @@ use spl_network_messages::{Penalty, TeamState};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Players<T> {
-    pub inner: BTreeMap<usize, T>,
+    pub inner: BTreeMap<u8, T>,
 }
 impl<T> Players<T> {
     pub fn new() -> Self {
@@ -22,13 +22,13 @@ impl<T> Players<T> {
         T: Clone,
     {
         let mut inner = BTreeMap::new();
-        for i in 1..=MAX_NUM_PLAYERS as usize {
+        for i in 1..=MAX_NUM_PLAYERS {
             inner.insert(i, content.clone());
         }
         Players { inner }
     }
 
-    pub fn inner(&self) -> &BTreeMap<usize, T> {
+    pub fn inner(&self) -> &BTreeMap<u8, T> {
         &self.inner
     }
 }
@@ -38,7 +38,7 @@ where
 {
     fn default() -> Self {
         let mut inner = BTreeMap::new();
-        for i in 1..=MAX_NUM_PLAYERS as usize {
+        for i in 1..=MAX_NUM_PLAYERS {
             inner.insert(i, T::default());
         }
         Players { inner }
@@ -46,7 +46,7 @@ where
 }
 
 impl<T> Deref for Players<T> {
-    type Target = BTreeMap<usize, T>;
+    type Target = BTreeMap<u8, T>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -59,16 +59,16 @@ impl<T> DerefMut for Players<T> {
     }
 }
 
-impl<T> Index<usize> for Players<T> {
+impl<T> Index<u8> for Players<T> {
     type Output = T;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index(&self, index: u8) -> &Self::Output {
         self.inner.get(&index).expect("Players index out of bounds")
     }
 }
 
-impl<T> IndexMut<usize> for Players<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+impl<T> IndexMut<u8> for Players<T> {
+    fn index_mut(&mut self, index: u8) -> &mut Self::Output {
         self.inner
             .get_mut(&index)
             .expect("Players index out of bounds")
@@ -79,9 +79,11 @@ impl From<TeamState> for Players<Option<Penalty>> {
     fn from(team_state: TeamState) -> Self {
         let mut inner = BTreeMap::new();
 
-        for (i, player) in team_state.players.iter().enumerate() {
-            if i < MAX_NUM_PLAYERS as usize {
-                inner.insert(i + 1, player.penalty);
+        for (index, player) in team_state.players.iter().enumerate() {
+            if let Ok(u8_index) = u8::try_from(index) {
+                if u8_index < MAX_NUM_PLAYERS {
+                    inner.insert(u8_index + 1, player.penalty);
+                }
             }
         }
 
@@ -115,21 +117,19 @@ where
         let split = path.split_once('.');
         match (path, split) {
             (_, Some((index, suffix))) => {
-                let index: usize =
-                    index
-                        .parse()
-                        .map_err(|_| serialize::Error::PathDoesNotExist {
-                            path: path.to_owned(),
-                        })?;
+                let index: u8 = index
+                    .parse()
+                    .map_err(|_| serialize::Error::PathDoesNotExist {
+                        path: path.to_owned(),
+                    })?;
                 self.index(index).serialize_path(suffix, serializer)
             }
             (index, None) => {
-                let index: usize =
-                    index
-                        .parse()
-                        .map_err(|_| serialize::Error::PathDoesNotExist {
-                            path: path.to_owned(),
-                        })?;
+                let index: u8 = index
+                    .parse()
+                    .map_err(|_| serialize::Error::PathDoesNotExist {
+                        path: path.to_owned(),
+                    })?;
                 self.index(index)
                     .serialize(serializer)
                     .map_err(serialize::Error::SerializationFailed)
@@ -154,7 +154,7 @@ where
         let split = path.split_once('.');
         match (path, split) {
             (_, Some((index, suffix))) => {
-                let index: usize =
+                let index: u8 =
                     index
                         .parse()
                         .map_err(|_| deserialize::Error::PathDoesNotExist {
@@ -163,7 +163,7 @@ where
                 self.index_mut(index).deserialize_path(suffix, deserializer)
             }
             (index, None) => {
-                let index: usize =
+                let index: u8 =
                     index
                         .parse()
                         .map_err(|_| deserialize::Error::PathDoesNotExist {

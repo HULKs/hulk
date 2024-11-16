@@ -58,11 +58,11 @@ pub struct Robot {
 }
 
 impl Robot {
-    pub fn new(jersey_number: usize, walk_in_position_index: usize) -> Self {
+    pub fn new(jersey_number: u8, walk_in_position_index: usize) -> Self {
         Self::try_new(jersey_number, walk_in_position_index).expect("failed to create robot")
     }
 
-    pub fn try_new(jersey_number: usize, walk_in_position_index: usize) -> Result<Self> {
+    pub fn try_new(jersey_number: u8, walk_in_position_index: usize) -> Result<Self> {
         let mut parameters: Parameters = deserialize(
             "etc/parameters",
             &Ids {
@@ -306,7 +306,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
 #[derive(Event, Clone, Copy)]
 pub struct Message {
-    pub sender: usize,
+    pub sender: u8,
     pub payload: HulkMessage,
 }
 

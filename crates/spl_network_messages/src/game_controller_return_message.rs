@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct GameControllerReturnMessage {
-    pub jersey_number: usize,
+    pub jersey_number: u8,
     pub fallen: bool,
     pub pose: Pose2<Field>,
     pub ball: Option<BallPosition<Ground>>,
@@ -51,7 +51,7 @@ impl TryFrom<RoboCupGameControlReturnData> for GameControllerReturnMessage {
             bail!("unexpected team number != {}", HULKS_TEAM_NUMBER);
         }
         Ok(Self {
-            jersey_number: message.playerNum as usize,
+            jersey_number: message.playerNum,
             fallen: match message.fallen {
                 1 => true,
                 0 => false,
@@ -106,7 +106,7 @@ impl From<GameControllerReturnMessage> for RoboCupGameControlReturnData {
                 GAMECONTROLLER_RETURN_STRUCT_HEADER[3] as c_char,
             ],
             version: GAMECONTROLLER_RETURN_STRUCT_VERSION,
-            playerNum: message.jersey_number as u8,
+            playerNum: message.jersey_number,
             teamNum: HULKS_TEAM_NUMBER,
             fallen: u8::from(message.fallen),
             pose: [

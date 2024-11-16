@@ -78,6 +78,6 @@ pub struct RobotState {
     pub primary_state: PrimaryState,
     pub fall_state: FallState,
     pub has_ground_contact: bool,
-    pub jersey_number: usize,
+    pub jersey_number: u8,
     pub ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 }

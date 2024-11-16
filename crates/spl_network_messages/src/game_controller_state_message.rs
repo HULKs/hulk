@@ -146,7 +146,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 goal_keeper_color: message.teams[hulks_team_index]
                     .goalkeeperColour
                     .try_into()?,
-                goal_keeper_jersey_number: message.teams[hulks_team_index].goalkeeper as usize,
+                goal_keeper_jersey_number: message.teams[hulks_team_index].goalkeeper,
                 score: message.teams[hulks_team_index].score,
                 penalty_shoot_index: message.teams[hulks_team_index].penaltyShot,
                 penalty_shoots: hulks_penalty_shoots,
@@ -161,7 +161,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 goal_keeper_color: message.teams[opponent_team_index]
                     .goalkeeperColour
                     .try_into()?,
-                goal_keeper_jersey_number: message.teams[opponent_team_index].goalkeeper as usize,
+                goal_keeper_jersey_number: message.teams[opponent_team_index].goalkeeper,
                 score: message.teams[opponent_team_index].score,
                 penalty_shoot_index: message.teams[opponent_team_index].penaltyShot,
                 penalty_shoots: opponent_penalty_shoots,
@@ -381,7 +381,7 @@ pub struct TeamState {
     pub team_number: u8,
     pub field_player_color: TeamColor,
     pub goal_keeper_color: TeamColor,
-    pub goal_keeper_jersey_number: usize,
+    pub goal_keeper_jersey_number: u8,
     pub score: u8,
     pub penalty_shoot_index: u8,
     pub penalty_shoots: Vec<PenaltyShoot>,

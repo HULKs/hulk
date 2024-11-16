@@ -40,7 +40,7 @@ pub struct CycleContext {
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
     walk_in_position_index: Input<usize, "walk_in_position_index">,
 
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
 
     fall_state: Input<FallState, "fall_state">,
     has_ground_contact: Input<bool, "has_ground_contact">,

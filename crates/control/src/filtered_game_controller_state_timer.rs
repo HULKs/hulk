@@ -105,7 +105,7 @@ impl FilteredGameControllerStateTimer {
                     _ => (),
                 }
             }
-            let players_to_remove: Vec<usize> = self
+            let players_to_remove: Vec<u8> = self
                 .filtered_game_controller_state_changes
                 .penalties
                 .keys()

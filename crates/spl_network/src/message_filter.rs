@@ -14,7 +14,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     message: Input<IncomingMessage, "message">,
-    jersey_number: Parameter<usize, "jersey_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
 }
 
 #[context]

@@ -29,7 +29,7 @@ impl Default for HulkMessage {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct StrikerMessage {
-    pub jersey_number: usize,
+    pub jersey_number: u8,
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
@@ -37,7 +37,7 @@ pub struct StrikerMessage {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct VisualRefereeMessage {
-    pub jersey_number: usize,
+    pub jersey_number: u8,
 }
 
 #[derive(
