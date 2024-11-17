@@ -100,6 +100,7 @@
         <joint name="HeadYaw" axis="0 0 1" range="-119.5 119.5" limited="true"/>
 
         <body name="Head" pos="0 0 0">
+          <site name="head_center" pos="0 0 0.053"/>
           <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoHeadPitchV6_0"/>
           <geom type="mesh" material="NaoMat_Pupil" mesh="naoHeadPitchV6_1"/>
           <geom type="mesh" material="NaoMat_Hear" mesh="naoHeadPitchV6_2"/>
