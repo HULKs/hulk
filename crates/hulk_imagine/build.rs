@@ -8,7 +8,7 @@ fn main() -> Result<()> {
     cyclers.cyclers.retain(|cycler| cycler.name == "Vision");
 
     for path in cyclers.watch_paths() {
-        println!("cargo:rerun-if-changed={}", path.display());
+        println!("cargo::rerun-if-changed={}", path.display());
     }
 
     println!();

@@ -11,7 +11,7 @@ fn main() -> Result<()> {
         .cyclers
         .retain(|cycler| cycler.name != "ObjectDetection");
     for path in cyclers.watch_paths() {
-        println!("cargo:rerun-if-changed={}", path.display());
+        println!("cargo::rerun-if-changed={}", path.display());
     }
 
     println!();
