@@ -8,7 +8,7 @@ use types::{
     motion_command::{JumpDirection, MotionCommand},
 };
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,

@@ -12,9 +12,9 @@ pub fn scenario(_attribute: TokenStream, item: TokenStream) -> TokenStream {
 
         fn main() -> color_eyre::Result<()> {
             use clap::Parser;
-            use hulk_behavior_simulator::simulator::{AppExt, SimulatorPlugin};
+            use bevyhavior_simulator::simulator::{AppExt, SimulatorPlugin};
 
-            let args = hulk_behavior_simulator::scenario::Arguments::parse();
+            let args = bevyhavior_simulator::scenario::Arguments::parse();
 
             App::new()
                 .add_plugins(SimulatorPlugin::default().with_recording(!args.run))
@@ -26,7 +26,7 @@ pub fn scenario(_attribute: TokenStream, item: TokenStream) -> TokenStream {
         mod test {
             #[test]
             fn #function_name() -> color_eyre::Result<()> {
-                use hulk_behavior_simulator::simulator::{AppExt, SimulatorPlugin};
+                use bevyhavior_simulator::simulator::{AppExt, SimulatorPlugin};
 
                 bevy::app::App::new()
                     .add_plugins(SimulatorPlugin::default())

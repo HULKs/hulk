@@ -237,7 +237,7 @@ dependencies = [
 name = "annotato"
 version = "0.1.0"
 dependencies = [
- "clap 4.5.20",
+ "clap 4.5.21",
  "color-eyre",
  "eframe",
  "egui_extras",
@@ -475,7 +475,7 @@ dependencies = [
  "futures-lite 2.5.0",
  "parking",
  "polling 3.7.4",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "slab",
  "tracing",
  "windows-sys 0.59.0",
@@ -520,7 +520,7 @@ dependencies = [
  "cfg-if",
  "event-listener 3.1.0",
  "futures-lite 1.13.0",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "windows-sys 0.48.0",
 ]
 
@@ -547,7 +547,7 @@ dependencies = [
  "cfg-if",
  "futures-core",
  "futures-io",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "signal-hook-registry",
  "slab",
  "windows-sys 0.59.0",
@@ -1050,6 +1050,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevyhavior_simulator"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "bevy",
+ "bincode",
+ "buffered_watch",
+ "chrono",
+ "clap 4.5.21",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "context_attribute",
+ "control",
+ "coordinate_systems",
+ "ctrlc",
+ "fern",
+ "framework",
+ "geometry",
+ "hardware",
+ "ittapi",
+ "linear_algebra",
+ "log",
+ "nalgebra",
+ "parameters",
+ "parking_lot",
+ "path_serde",
+ "proc-macro2",
+ "projection",
+ "quote",
+ "repository",
+ "scenario",
+ "serde",
+ "serde_json",
+ "source_analyzer",
+ "spl_network",
+ "spl_network_messages",
+ "tokio",
+ "tokio-util",
+ "types",
+ "walking_engine",
+]
+
+[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1248,9 +1292,9 @@ dependencies = [
 
 [[package]]
 name = "bstr"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40723b8fb387abc38f4f4a37c09073622e41dd12327033091ef8950659e6dc0c"
+checksum = "1a68f1f47cdf0ec8ee4b941b2eee2a80cb796db73118c0dd09ac63fbe405be22"
 dependencies = [
  "memchr",
  "regex-automata 0.4.9",
@@ -1346,7 +1390,7 @@ dependencies = [
  "bitflags 2.6.0",
  "log",
  "polling 3.7.4",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "slab",
  "thiserror",
 ]
@@ -1360,7 +1404,7 @@ dependencies = [
  "bitflags 2.6.0",
  "log",
  "polling 3.7.4",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "slab",
  "thiserror",
 ]
@@ -1372,7 +1416,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f0ea9b9476c7fad82841a8dbb380e2eae480c21910feba80725b46931ed8f02"
 dependencies = [
  "calloop 0.12.4",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "wayland-backend",
  "wayland-client",
 ]
@@ -1384,7 +1428,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95a66a987056935f7efce4ab5668920b5d0dac4a7c99991a67395f13702ddd20"
 dependencies = [
  "calloop 0.13.0",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "wayland-backend",
  "wayland-client",
 ]
@@ -1402,9 +1446,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aeb932158bd710538c73702db6945cb68a8fb08c519e6e12706b94263b36db8"
+checksum = "fd9de9f2205d5ef3fd67e685b0df337994ddd4495e2a28d185500d0e1edfea47"
 dependencies = [
  "jobserver",
  "libc",
@@ -1495,9 +1539,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.20"
+version = "4.5.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97f376d85a664d5837dbae44bf546e6477a679ff6610010f17276f686d867e8"
+checksum = "fb3b4b9e5a7c7514dfa52869339ee98b3156b0bfb4e8a77c4ff4babb64b1604f"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1505,9 +1549,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.20"
+version = "4.5.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19bc80abd44e4bed93ca373a0704ccbd1b710dc5749406201bb018272808dc54"
+checksum = "b17a95aa67cc7b5ebd32aa5370189aa0d79069ef1c64ce893bd30fb24bff20ec"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1517,11 +1561,11 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.37"
+version = "4.5.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11611dca53440593f38e6b25ec629de50b14cdfa63adc0fb856115a2c6d97595"
+checksum = "d9647a559c112175f17cf724dc72d3645680a883c58481332779192b0d8e7a01"
 dependencies = [
- "clap 4.5.20",
+ "clap 4.5.21",
 ]
 
 [[package]]
@@ -1538,9 +1582,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.7.2"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
+checksum = "afb84c814227b90d6895e01398aee0d8033c00e7466aca416fb6a8e0eb19d8a7"
 
 [[package]]
 name = "clipboard-win"
@@ -2624,7 +2668,7 @@ dependencies = [
 name = "fanta"
 version = "0.1.0"
 dependencies = [
- "clap 4.5.20",
+ "clap 4.5.21",
  "color-eyre",
  "communication",
  "fern",
@@ -2707,9 +2751,9 @@ checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "flate2"
-version = "1.0.34"
+version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1b589b4dc103969ad3cf85c950899926ec64300a1a46d76c03a6072957036f0"
+checksum = "c936bfdafb507ebbf50b8074c54fa31c5be9a1e7e5f467dd659697041407d07c"
 dependencies = [
  "crc32fast",
  "miniz_oxide 0.8.0",
@@ -3012,7 +3056,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15f1ce686646e7f1e19bf7d5533fe443a45dbfb990e00629110797578b42fb19"
 dependencies = [
  "aho-corasick",
- "bstr 1.10.0",
+ "bstr 1.11.0",
  "log",
  "regex-automata 0.4.9",
  "regex-syntax 0.8.5",
@@ -3153,7 +3197,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47f1288f0e06f279f84926fa4c17e3fcd2a22b357927a82f2777f7be26e4cec0"
 dependencies = [
- "bstr 1.10.0",
+ "bstr 1.11.0",
  "globset",
  "libc",
  "log",
@@ -3383,50 +3427,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hulk_behavior_simulator"
-version = "0.1.0"
-dependencies = [
- "ball_filter",
- "bevy",
- "bincode",
- "buffered_watch",
- "chrono",
- "clap 4.5.20",
- "code_generation",
- "color-eyre",
- "communication",
- "context_attribute",
- "control",
- "coordinate_systems",
- "ctrlc",
- "fern",
- "framework",
- "geometry",
- "hardware",
- "ittapi",
- "linear_algebra",
- "log",
- "nalgebra",
- "parameters",
- "parking_lot",
- "path_serde",
- "proc-macro2",
- "projection",
- "quote",
- "repository",
- "scenario",
- "serde",
- "serde_json",
- "source_analyzer",
- "spl_network",
- "spl_network_messages",
- "tokio",
- "tokio-util",
- "types",
- "walking_engine",
-]
-
-[[package]]
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
@@ -3467,7 +3467,7 @@ dependencies = [
  "alsa",
  "ball_filter",
  "chrono",
- "clap 4.5.20",
+ "clap 4.5.21",
  "color-eyre",
  "constants",
  "ctrlc",
@@ -4084,9 +4084,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.162"
+version = "0.2.164"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18d287de67fe55fd7e1581fe933d965a5a9477b38e949cfa9f8574ef01506398"
+checksum = "433bfe06b8c75da9b2e3fbea6e5329ff87748f0b144ef75306e674c3f6f7c13f"
 
 [[package]]
 name = "libloading"
@@ -5162,7 +5162,7 @@ dependencies = [
  "aliveness",
  "argument_parsers",
  "bat",
- "clap 4.5.20",
+ "clap 4.5.21",
  "clap_complete",
  "color-eyre",
  "constants",
@@ -5279,7 +5279,7 @@ dependencies = [
  "concurrent-queue",
  "hermit-abi 0.4.0",
  "pin-project-lite",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -5743,9 +5743,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.40"
+version = "0.38.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99e4ea3e1cdc4b559b8e5650f9c8e5998e3e5c1343b4eaf034565f32318d63c0"
+checksum = "d7f649912bc1495e167a6edee79151c84b1bad49748cb4f1f1167f459f6224f6"
 dependencies = [
  "bitflags 2.6.0",
  "errno",
@@ -5799,9 +5799,9 @@ dependencies = [
 
 [[package]]
 name = "schannel"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01227be5826fa0690321a2ba6c5cd57a19cf3f6a09e76973b58e61de6ab9d1c1"
+checksum = "1f29ebaa345f945cec9fbbc532eb307f0fdad8161f281b6369539c8d84876b3d"
 dependencies = [
  "windows-sys 0.59.0",
 ]
@@ -5889,9 +5889,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.132"
+version = "1.0.133"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d726bfaff4b320266d395898905d0eba0345aae23b54aee3a737e260fd46db03"
+checksum = "c7fceb2473b9166b2294ef05efcb65a3db80803f0b03ef86a5fc88a2b85ee377"
 dependencies = [
  "itoa",
  "memchr",
@@ -6051,7 +6051,7 @@ dependencies = [
  "libc",
  "log",
  "memmap2",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "thiserror",
  "wayland-backend",
  "wayland-client",
@@ -6076,7 +6076,7 @@ dependencies = [
  "libc",
  "log",
  "memmap2",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "thiserror",
  "wayland-backend",
  "wayland-client",
@@ -6364,7 +6364,7 @@ dependencies = [
  "cfg-if",
  "fastrand 2.2.0",
  "once_cell",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "windows-sys 0.59.0",
 ]
 
@@ -6753,7 +6753,7 @@ dependencies = [
  "bincode",
  "buffered_watch",
  "chrono",
- "clap 4.5.20",
+ "clap 4.5.21",
  "color-eyre",
  "communication",
  "convert_case 0.6.0",
@@ -7104,7 +7104,7 @@ checksum = "056535ced7a150d45159d3a8dc30f91a2e2d588ca0b23f70e56033622b8016f6"
 dependencies = [
  "cc",
  "downcast-rs",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "scoped-tls",
  "smallvec",
  "wayland-sys",
@@ -7117,7 +7117,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b66249d3fc69f76fd74c82cc319300faa554e9d865dab1f7cd66cc20db10b280"
 dependencies = [
  "bitflags 2.6.0",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "wayland-backend",
  "wayland-scanner",
 ]
@@ -7139,7 +7139,7 @@ version = "0.31.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32b08bc3aafdb0035e7fe0fdf17ba0c09c268732707dca4ae098f60cb28c9e4c"
 dependencies = [
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "wayland-client",
  "xcursor",
 ]
@@ -7417,7 +7417,7 @@ dependencies = [
  "either",
  "home",
  "once_cell",
- "rustix 0.38.40",
+ "rustix 0.38.41",
 ]
 
 [[package]]
@@ -7827,7 +7827,7 @@ dependencies = [
  "raw-window-handle 0.5.2",
  "raw-window-handle 0.6.2",
  "redox_syscall 0.3.5",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "sctk-adwaita",
  "smithay-client-toolkit 0.18.1",
  "smol_str",
@@ -7908,7 +7908,7 @@ dependencies = [
  "libc",
  "libloading 0.8.5",
  "once_cell",
- "rustix 0.38.40",
+ "rustix 0.38.41",
  "x11rb-protocol",
 ]
 

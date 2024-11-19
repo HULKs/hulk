@@ -4,7 +4,7 @@ use linear_algebra::point;
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,

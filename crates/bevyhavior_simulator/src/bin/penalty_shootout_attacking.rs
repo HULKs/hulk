@@ -5,7 +5,7 @@ use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber, Team};
 use types::ball_position::SimulatorBallState;
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,

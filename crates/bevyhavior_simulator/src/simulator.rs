@@ -107,7 +107,7 @@ fn load_parameters() -> Result<Parameters> {
     let repository_root = runtime
         .block_on(get_repository_root())
         .wrap_err("failed to get repository root")?;
-    let parameters_path = repository_root.join("crates/hulk_behavior_simulator");
+    let parameters_path = repository_root.join("crates/bevyhavior_simulator");
 
     parameters::directory::deserialize(parameters_path, &ids, true)
         .wrap_err("failed to parse initial parameters")

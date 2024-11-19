@@ -1,5 +1,5 @@
 [package]
-name = "hulk_behavior_simulator"
+name = "bevyhavior_simulator"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

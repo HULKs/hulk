@@ -8,7 +8,7 @@ use types::{
     obstacles::{Obstacle, ObstacleKind},
 };
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,

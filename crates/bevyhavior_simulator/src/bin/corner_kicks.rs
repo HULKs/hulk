@@ -1,18 +1,16 @@
 use bevy::prelude::*;
 
-use linear_algebra::point;
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use spl_network_messages::{GameState, PlayerNumber, SubState, Team};
 
-use hulk_behavior_simulator::{
-    ball::BallResource,
+use bevyhavior_simulator::{
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     time::{Ticks, TicksTime},
 };
 
 #[scenario]
-fn reappearing_ball_in_front_of_keeper(app: &mut App) {
+fn corner_kicks(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
@@ -37,20 +35,27 @@ fn startup(
 
 fn update(
     game_controller: ResMut<GameController>,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
-    mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
 ) {
-    if time.ticks() == 2800 {
-        if let Some(ball) = ball.state.as_mut() {
-            ball.position = point![-3.8, 0.0];
-        }
+    if time.ticks() == 3000 {
+        game_controller_commands.send(GameControllerCommand::SetSubState(
+            Some(SubState::CornerKick),
+            Team::Hulks,
+        ));
+    }
+    if time.ticks() == 5000 {
+        game_controller_commands.send(GameControllerCommand::SetSubState(
+            Some(SubState::CornerKick),
+            Team::Opponent,
+        ));
     }
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
         exit.send(AppExit::Success);
     }
-    if time.ticks() >= 10_000 {
+    if time.ticks() >= 15_000 {
         println!("No goal was scored :(");
         exit.send(AppExit::from_code(1));
     }

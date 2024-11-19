@@ -3,14 +3,14 @@ use bevy::prelude::*;
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber, SubState, Team};
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     time::{Ticks, TicksTime},
 };
 
 #[scenario]
-fn kick_in(app: &mut App) {
+fn ingame_penalty_kick_opponent(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
@@ -41,22 +41,16 @@ fn update(
 ) {
     if time.ticks() == 3000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
-            Some(SubState::KickIn),
-            Team::Hulks,
-        ));
-    }
-    if time.ticks() == 4800 {
-        game_controller_commands.send(GameControllerCommand::SetSubState(
-            Some(SubState::KickIn),
+            Some(SubState::PenaltyKick),
             Team::Opponent,
         ));
     }
-    if game_controller.state.hulks_team.score > 0 {
-        println!("Done");
-        exit.send(AppExit::Success);
+    if game_controller.state.opponent_team.score > 0 {
+        println!("Failed to prevent opponent from scoring!");
+        exit.send(AppExit::from_code(1));
     }
     if time.ticks() >= 10_000 {
-        println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        println!("Done");
+        exit.send(AppExit::Success);
     }
 }

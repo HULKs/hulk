@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use scenario::scenario;
 use spl_network_messages::{GameState, Penalty, PlayerNumber};
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     autoref::{AutorefState, GoalMode},
     game_controller::GameControllerCommand,
     robot::Robot,
@@ -14,7 +14,7 @@ use hulk_behavior_simulator::{
 use types::roles::Role;
 
 #[scenario]
-fn two_replacement_keepers(app: &mut App) {
+fn replacement_keeper_test(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
@@ -57,12 +57,6 @@ fn update(
         }
         game_controller_commands.send(GameControllerCommand::Penalize(
             PlayerNumber::One,
-            Penalty::Manual {
-                remaining: Duration::from_secs(15),
-            },
-        ));
-        game_controller_commands.send(GameControllerCommand::Penalize(
-            PlayerNumber::Two,
             Penalty::Manual {
                 remaining: Duration::from_secs(5),
             },

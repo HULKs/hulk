@@ -6,7 +6,7 @@ use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
 use spl_network_messages::{GameState, Penalty, PlayerNumber, SubState, Team};
 
-use hulk_behavior_simulator::{
+use bevyhavior_simulator::{
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
