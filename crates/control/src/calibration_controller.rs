@@ -50,8 +50,7 @@ pub struct CycleContext {
     max_retries_per_capture: Parameter<u32, "calibration_controller.max_retries_per_capture">,
 
     calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_inner.measurements">,
-    last_calibration_corrections:
-        AdditionalOutput<Option<Corrections>, "last_calibration_corrections">,
+    last_calibration_corrections: AdditionalOutput<Corrections, "last_calibration_corrections">,
 }
 
 #[context]
@@ -186,9 +185,16 @@ impl CalibrationController {
         context
             .calibration_measurements
             .fill_if_subscribed(|| self.inner_states.measurements.clone());
+
         context
             .last_calibration_corrections
-            .fill_if_subscribed(|| self.corrections);
+            .mutate_if_subscribed(|data| {
+                if let Some(corrections) = self.corrections {
+                    data.replace(corrections);
+                } else {
+                    data.take();
+                }
+            });
 
         Ok(MainOutputs {
             calibration_command: self
