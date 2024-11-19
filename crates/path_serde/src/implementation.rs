@@ -748,7 +748,7 @@ impl PathDeserialize for Duration {
 
 impl PathIntrospect for Duration {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-        fields.insert(format!("{prefix}nanos"));
-        fields.insert(format!("{prefix}secs"));
+        fields.insert(format!("{prefix}secsf32"));
+        fields.insert(format!("{prefix}millis"));
     }
 }
