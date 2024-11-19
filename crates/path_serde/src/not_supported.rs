@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     net::SocketAddr,
     path::PathBuf,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
@@ -98,7 +98,6 @@ implement_as_not_supported!(Rotation3<f32>);
 implement_as_not_supported!(SMatrix<f32, 3, 3>);
 implement_as_not_supported!(SMatrix<f32, 3, 4>);
 // stdlib
-implement_as_not_supported!(Duration);
 implement_as_not_supported!(HashMap<K, V>, K, V);
 implement_as_not_supported!(HashSet<T>, T);
 implement_as_not_supported!(PathBuf);

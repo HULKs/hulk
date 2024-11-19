@@ -2,6 +2,7 @@ use std::{
     collections::HashSet,
     ops::{Deref, DerefMut, Range, RangeInclusive},
     sync::Arc,
+    time::Duration,
 };
 
 use nalgebra::{
@@ -688,5 +689,66 @@ impl<T> PathIntrospect for Isometry3<T> {
         fields.insert(format!("{prefix}rotation"));
         Vector3::<T>::extend_with_fields(fields, &format!("{prefix}translation."));
         UnitQuaternion::<T>::extend_with_fields(fields, &format!("{prefix}rotation."));
+    }
+}
+
+impl PathSerialize for Duration {
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match path {
+            "secsf32" => self
+                .as_secs_f32()
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            "millis" => self
+                .as_millis()
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathDeserialize for Duration {
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        match path {
+            "secsf32" => {
+                let secsf32 = f32::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                *self = Duration::from_secs_f32(secsf32);
+                Ok(())
+            }
+            "millis" => {
+                let millis = u64::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                *self = Duration::from_millis(millis);
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathIntrospect for Duration {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}nanos"));
+        fields.insert(format!("{prefix}secs"));
     }
 }
