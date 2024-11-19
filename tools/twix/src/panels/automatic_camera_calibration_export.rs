@@ -6,6 +6,7 @@ use nalgebra::Vector3;
 use serde_json::Value;
 
 use calibration::corrections::Corrections;
+use communication::messages::TextOrBinary;
 use parameters::directory::Scope;
 
 use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
@@ -83,18 +84,31 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
     }
 }
 
+fn serialize_and_call<V: serde::Serialize, T: FnOnce(serde_json::Value) -> ()>(
+    data: V,
+    callback: T,
+) {
+    match serde_json::to_value(data) {
+        Ok(value) => {
+            callback(value);
+        }
+        Err(error) => error!("failed to serialize parameter value: {error:#?}"),
+    }
+}
+
 fn draw_group(ui: &mut Ui, label: &str, rotations: (f32, f32, f32), nao: &Nao, path: &str) {
     ui.horizontal(|ui| {
         ui.label(label);
-        if ui.button("Save to Head").clicked() {
-            let serialized = serde_json::to_value(rotations);
-            match serialized {
-                Ok(value) => {
-                    nao.store_parameters(path, value, Scope::default_head())
-                        .log_err();
-                }
-                Err(error) => error!("failed to serialize parameter value: {error:#?}"),
-            }
+        if ui.button("Save to repo").clicked() {
+            serialize_and_call(rotations, |value| {
+                nao.store_parameters(path, value, Scope::default_head())
+                    .log_err();
+            });
+        }
+        if ui.button("Set in Nao").clicked() {
+            serialize_and_call(rotations, |value| {
+                nao.write(path, TextOrBinary::Text(value));
+            });
         }
     });
     draw_angles(ui, rotations, "Calibrated");
