@@ -19246,7 +19246,7 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="1071" name="1525" type="Concat" version="opset1">
+		<layer id="1071" name="detections" type="Concat" version="opset1">
 			<data axis="1" />
 			<input>
 				<port id="0" precision="FP32">
@@ -19266,57 +19266,18 @@
 				</port>
 			</input>
 			<output>
-				<port id="3" precision="FP32" names="1525">
+				<port id="3" precision="FP32" names="detections">
 					<dim>1</dim>
 					<dim>56</dim>
 					<dim>1890</dim>
 				</port>
 			</output>
 		</layer>
-		<layer id="1072" name="1525/sink_port_0" type="Result" version="opset1">
+		<layer id="1072" name="detections/sink_port_0" type="Result" version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
 					<dim>56</dim>
-					<dim>1890</dim>
-				</port>
-			</input>
-		</layer>
-		<layer id="913" name="onnx::Reshape_1077/sink_port_0" type="Result" version="opset1">
-			<input>
-				<port id="0" precision="FP32">
-					<dim>1</dim>
-					<dim>65</dim>
-					<dim>60</dim>
-					<dim>24</dim>
-				</port>
-			</input>
-		</layer>
-		<layer id="857" name="onnx::Reshape_1104/sink_port_0" type="Result" version="opset1">
-			<input>
-				<port id="0" precision="FP32">
-					<dim>1</dim>
-					<dim>65</dim>
-					<dim>30</dim>
-					<dim>12</dim>
-				</port>
-			</input>
-		</layer>
-		<layer id="801" name="onnx::Reshape_1131/sink_port_0" type="Result" version="opset1">
-			<input>
-				<port id="0" precision="FP32">
-					<dim>1</dim>
-					<dim>65</dim>
-					<dim>15</dim>
-					<dim>6</dim>
-				</port>
-			</input>
-		</layer>
-		<layer id="745" name="kpt/sink_port_0" type="Result" version="opset1">
-			<input>
-				<port id="0" precision="FP32">
-					<dim>1</dim>
-					<dim>51</dim>
 					<dim>1890</dim>
 				</port>
 			</input>

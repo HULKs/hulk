@@ -29,7 +29,7 @@ const DETECTION_IMAGE_HEIGHT: usize = 480;
 const DETECTION_IMAGE_WIDTH: usize = 192;
 const DETECTION_IMAGE_START_X: usize = (640 - DETECTION_IMAGE_WIDTH) / 2;
 
-const EXPECTED_OUTPUT_NAME: &str = "1525";
+const EXPECTED_OUTPUT_NAME: &str = "detections";
 
 const MAX_DETECTIONS: usize = 1890;
 
@@ -101,7 +101,7 @@ impl PoseDetection {
         let output_name = network.get_output_by_index(0)?.get_name()?;
         if number_of_inputs != 1 || output_name != EXPECTED_OUTPUT_NAME {
             bail!(
-                "expected exactly one input and output name to be {}",
+                "expected exactly one input and output name to be '{}'",
                 EXPECTED_OUTPUT_NAME
             );
         }
