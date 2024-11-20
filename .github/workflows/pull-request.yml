@@ -100,7 +100,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        target: [behavior_simulator, imagine, nao, replayer, webots]
+        target: [imagine, nao, replayer, webots]
         profile: [release, dev]
     runs-on:
       - self-hosted

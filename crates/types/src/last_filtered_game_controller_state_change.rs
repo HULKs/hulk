@@ -18,10 +18,10 @@ pub struct LastFilteredGameControllerStateChanges {
 impl Default for LastFilteredGameControllerStateChanges {
     fn default() -> Self {
         Self {
-            game_state: SystemTime::now(),
-            opponent_game_state: SystemTime::now(),
-            game_phase: SystemTime::now(),
-            kicking_team: SystemTime::now(),
+            game_state: SystemTime::UNIX_EPOCH,
+            opponent_game_state: SystemTime::UNIX_EPOCH,
+            game_phase: SystemTime::UNIX_EPOCH,
+            kicking_team: SystemTime::UNIX_EPOCH,
             penalties: Players {
                 one: None,
                 two: None,

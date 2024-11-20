@@ -64,6 +64,7 @@ impl GameControllerStateFilter {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycle) = self
             .last_game_controller_state
+            .as_ref()
             .map(|last| {
                 (
                     penalty_diff(last.penalties, context.game_controller_state.penalties),
@@ -100,6 +101,7 @@ impl GameControllerStateFilter {
             penalties: context.game_controller_state.penalties,
             remaining_number_of_messages: context
                 .game_controller_state
+                .hulks_team
                 .remaining_amount_of_messages,
             sub_state: context.game_controller_state.sub_state,
             own_team_is_home_after_coin_toss: context
@@ -112,7 +114,7 @@ impl GameControllerStateFilter {
             .whistle_in_set_ball_position
             .fill_if_subscribed(|| self.whistle_in_set_ball_position);
 
-        self.last_game_controller_state = Some(*context.game_controller_state);
+        self.last_game_controller_state = Some(context.game_controller_state.clone());
         Ok(MainOutputs {
             filtered_game_controller_state: Some(filtered_game_controller_state).into(),
         })
