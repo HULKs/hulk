@@ -21,7 +21,7 @@ use types::{
 
 use crate::{
     ball::BallResource,
-    field_dimensions::SimulatorFieldDimenstions,
+    field_dimensions::SimulatorFieldDimensions,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     whistle::WhistleResource,
@@ -54,7 +54,7 @@ impl Default for AutorefState {
 pub fn autoref(
     mut state: ResMut<AutorefState>,
     mut ball: ResMut<BallResource>,
-    field_dimensions: Res<SimulatorFieldDimenstions>,
+    field_dimensions: Res<SimulatorFieldDimensions>,
     mut referee_whistle: ResMut<WhistleResource>,
     game_controller: ResMut<GameController>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
@@ -131,7 +131,7 @@ fn ball_in_goal(ball: SimulatorBallState, field_dimensions: FieldDimensions) -> 
 
 pub fn auto_assistant_referee(
     mut game_controller_commands: EventReader<GameControllerCommand>,
-    field_dimensions: Res<SimulatorFieldDimenstions>,
+    field_dimensions: Res<SimulatorFieldDimensions>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
 ) {

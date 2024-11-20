@@ -8,11 +8,11 @@ use types::field_dimensions::FieldDimensions;
 /// Each robot has its own parameters and field dimensions
 /// which are not aufomatically synchronized.
 #[derive(Resource, Default)]
-pub struct SimulatorFieldDimenstions {
+pub struct SimulatorFieldDimensions {
     field_dimensions: FieldDimensions,
 }
 
-impl Deref for SimulatorFieldDimenstions {
+impl Deref for SimulatorFieldDimensions {
     type Target = FieldDimensions;
 
     fn deref(&self) -> &Self::Target {
@@ -20,13 +20,13 @@ impl Deref for SimulatorFieldDimenstions {
     }
 }
 
-impl DerefMut for SimulatorFieldDimenstions {
+impl DerefMut for SimulatorFieldDimensions {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.field_dimensions
     }
 }
 
-impl From<FieldDimensions> for SimulatorFieldDimenstions {
+impl From<FieldDimensions> for SimulatorFieldDimensions {
     fn from(field_dimensions: FieldDimensions) -> Self {
         Self { field_dimensions }
     }

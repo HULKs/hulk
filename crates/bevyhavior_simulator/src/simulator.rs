@@ -18,7 +18,7 @@ use types::hardware::Ids;
 use crate::{
     autoref::{autoref, autoref_plugin},
     ball::{move_ball, BallResource},
-    field_dimensions::SimulatorFieldDimenstions,
+    field_dimensions::SimulatorFieldDimensions,
     game_controller::{game_controller_plugin, GameController},
     recorder::Recording,
     robot::{cycle_robots, move_robots, Messages},
@@ -51,7 +51,7 @@ impl Plugin for SimulatorPlugin {
         ))
         .add_plugins(autoref_plugin)
         .add_plugins(game_controller_plugin)
-        .insert_resource(SimulatorFieldDimenstions::from(parameters.field_dimensions))
+        .insert_resource(SimulatorFieldDimensions::from(parameters.field_dimensions))
         .insert_resource(GameController::default())
         .insert_resource(BallResource::default())
         .insert_resource(WhistleResource::default())
