@@ -31,12 +31,7 @@ jobs:
     name: Check Cargo.lock
     strategy:
       matrix:
-        path:
-          [
-            .,
-            tools/aliveness,
-            tools/hula,
-          ]
+        path: [., tools/aliveness, tools/hula]
     runs-on:
       - self-hosted
       - v3
@@ -150,3 +145,15 @@ jobs:
         run: |
           cd tools/${{ matrix.path }}
           cargo build --release
+
+  build_mkdocs:
+    name: Build mkdocs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install mkdocs
+        run: pip install mkdocs-material
+      - name: Build docs
+        run: mkdocs build --strict
