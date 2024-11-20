@@ -702,7 +702,7 @@ impl PathSerialize for Duration {
         S: Serializer,
     {
         match path {
-            "secsf32" => self
+            "secs_f32" => self
                 .as_secs_f32()
                 .serialize(serializer)
                 .map_err(serialize::Error::SerializationFailed),
@@ -727,10 +727,10 @@ impl PathDeserialize for Duration {
         D: Deserializer<'de>,
     {
         match path {
-            "secsf32" => {
-                let secsf32 = f32::deserialize(deserializer)
+            "secs_f32" => {
+                let secs_f32 = f32::deserialize(deserializer)
                     .map_err(deserialize::Error::DeserializationFailed)?;
-                *self = Duration::from_secs_f32(secsf32);
+                *self = Duration::from_secs_f32(secs_f32);
                 Ok(())
             }
             "millis" => {
@@ -748,7 +748,7 @@ impl PathDeserialize for Duration {
 
 impl PathIntrospect for Duration {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-        fields.insert(format!("{prefix}secsf32"));
+        fields.insert(format!("{prefix}secs_f32"));
         fields.insert(format!("{prefix}millis"));
     }
 }
