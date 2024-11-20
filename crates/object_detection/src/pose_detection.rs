@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 
 use color_eyre::{
     eyre::{bail, eyre, Context, ContextCompat},
@@ -31,6 +28,8 @@ use types::{
 const DETECTION_IMAGE_HEIGHT: usize = 480;
 const DETECTION_IMAGE_WIDTH: usize = 192;
 const DETECTION_IMAGE_START_X: usize = (640 - DETECTION_IMAGE_WIDTH) / 2;
+
+const EXPECTED_OUTPUT_NAME: &str = "detections";
 
 const MAX_DETECTIONS: usize = 1890;
 
@@ -74,10 +73,12 @@ impl PoseDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_xml_name = PathBuf::from("yolov8n-pose-ov.xml");
+        let model_xml_name = "yolo11n-pose-ov.xml";
 
-        let model_path = neural_network_folder.join(&model_xml_name);
-        let weights_path = neural_network_folder.join(model_xml_name.with_extension("bin"));
+        let model_path = neural_network_folder.join(model_xml_name);
+        let weights_path = neural_network_folder
+            .join(model_xml_name)
+            .with_extension("bin");
 
         let mut core = Core::new()?;
         let network = core
@@ -97,12 +98,12 @@ impl PoseDetection {
         let number_of_inputs = network
             .get_inputs_len()
             .wrap_err("failed to get number of inputs")?;
-        let number_of_outputs = network
-            .get_outputs_len()
-            .wrap_err("failed to get number of outputs")?;
-
-        if number_of_inputs != 1 || number_of_outputs != 1 {
-            bail!("expected exactly one input and one output");
+        let output_name = network.get_output_by_index(0)?.get_name()?;
+        if number_of_inputs != 1 || output_name != EXPECTED_OUTPUT_NAME {
+            bail!(
+                "expected exactly one input and output name to be '{}'",
+                EXPECTED_OUTPUT_NAME
+            );
         }
 
         Ok(Self {
@@ -151,7 +152,7 @@ impl PoseDetection {
                     .expect("time ran backwards")
             });
         }
-        let prediction = infer_request.get_output_tensor()?;
+        let prediction = infer_request.get_output_tensor_by_index(0)?;
         let prediction =
             ArrayView::from_shape((56, MAX_DETECTIONS), prediction.get_data::<f32>()?)?;
 
