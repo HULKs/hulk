@@ -84,10 +84,7 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
     }
 }
 
-fn serialize_and_call<V: serde::Serialize, T: FnOnce(serde_json::Value) -> ()>(
-    data: V,
-    callback: T,
-) {
+fn serialize_and_call<V: serde::Serialize, T: FnOnce(serde_json::Value)>(data: V, callback: T) {
     match serde_json::to_value(data) {
         Ok(value) => {
             callback(value);
