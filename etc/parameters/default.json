@@ -1470,7 +1470,7 @@
       "nanos": 0,
       "secs": 1
     },
-    "use_stand_head_unstiff_calibration": true
+    "use_stand_head_unstiff_calibration": false
   },
   "calibration_center_circle_detection": {
     "vision_top": {
