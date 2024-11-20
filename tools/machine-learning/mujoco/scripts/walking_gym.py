@@ -1,6 +1,8 @@
-import numpy as np
+from __future__ import annotations
+from pathlib import Path
 
 import gymnasium as gym
+import numpy as np
 from gymnasium import utils
 from gymnasium.envs.mujoco import MujocoEnv
 from gymnasium.spaces import Box
@@ -75,7 +77,7 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
 
         MujocoEnv.__init__(
             self,
-            "/home/mystery/hulks/hulk/tools/machine-learning/mujoco/nao.xml",
+            str(Path(__file__).parent.joinpath("nao.xml")),
             1,
             observation_space=observation_space,
             **kwargs,

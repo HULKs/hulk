@@ -143,20 +143,20 @@ class NaoJoints:
             lambda joint_name, value: setter(f"head_{joint_name}", value),
         )
         self.left_leg = LegJoints(
-            lambda joint_name: getter(f"left_{joint_name}"),
-            lambda joint_name, value: setter(f"left_{joint_name}", value),
+            lambda joint_name: getter(f"left_leg.{joint_name}"),
+            lambda joint_name, value: setter(f"left_leg.{joint_name}", value),
         )
         self.right_leg = LegJoints(
-            lambda joint_name: getter(f"right_{joint_name}"),
-            lambda joint_name, value: setter(f"right_{joint_name}", value),
+            lambda joint_name: getter(f"right_leg.{joint_name}"),
+            lambda joint_name, value: setter(f"right_leg.{joint_name}", value),
         )
         self.left_arm = ArmJoints(
-            lambda joint_name: getter(f"left_{joint_name}"),
-            lambda joint_name, value: setter(f"left_{joint_name}", value),
+            lambda joint_name: getter(f"left_arm.{joint_name}"),
+            lambda joint_name, value: setter(f"left_arm.{joint_name}", value),
         )
         self.right_arm = ArmJoints(
-            lambda joint_name: getter(f"right_{joint_name}"),
-            lambda joint_name, value: setter(f"right_{joint_name}", value),
+            lambda joint_name: getter(f"right_arm.{joint_name}"),
+            lambda joint_name, value: setter(f"right_arm.{joint_name}", value),
         )
 
     def from_json(self, json):

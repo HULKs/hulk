@@ -9,12 +9,15 @@ from transforms import (
     rotation_from_euler,
     rotation_from_isometry,
     translation_from_isometry,
+    Pose2,
 )
 
-ROBOT_TO_LEFT_PELVIS = np.array([0.0, 0.05, 0.0])
-ROBOT_TO_RIGHT_PELVIS = np.array([0.0, -0.05, 0.0])
-LEFT_HIP_TO_LEFT_KNEE = np.array([0.0, 0.0, -0.1])
-LEFT_KNEE_TO_LEFT_ANKLE = np.array([0.0, 0.0, -0.1029])
+from robot_dimensions import (
+    ROBOT_TO_LEFT_PELVIS,
+    ROBOT_TO_RIGHT_PELVIS,
+    HIP_TO_KNEE,
+    KNEE_TO_ANKLE,
+)
 
 
 @dataclass
@@ -37,6 +40,15 @@ class LegJoints:
                 self.ankle_roll,
             ]
         )
+
+
+def foot_to_isometry(
+    foot: Pose2,
+    lift: float,
+) -> np.ndarray:
+    return isometry_from_euler(
+        0.0, 0.0, foot.theta
+    ) @ isometry_from_translation(np.array([foot.x, foot.y, lift]))
 
 
 def leg_angles(
@@ -140,17 +152,16 @@ def leg_angles(
         rotation_from_euler(0.0, -left_hip_pitch_minus_alpha, 0.0)
         @ rotation_from_euler(-left_hip_roll_in_hip, 0.0, 0.0)
         @ rotation_from_isometry(left_foot_to_left_hip)
-        @ np.array([0.0, 0.0, 1.0])
-    )
+    )[..., 2]
+
     right_foot_rotation_c2 = (
         rotation_from_euler(0.0, -right_hip_pitch_minus_alpha, 0.0)
         @ rotation_from_euler(-right_hip_roll_in_hip, 0.0, 0.0)
         @ rotation_from_isometry(right_foot_to_right_hip)
-        @ np.array([0.0, 0.0, 1.0])
-    )
+    )[..., 2]
 
-    upper_leg = np.abs(LEFT_HIP_TO_LEFT_KNEE[2])
-    lower_leg = np.abs(LEFT_KNEE_TO_LEFT_ANKLE[2])
+    upper_leg = np.abs(HIP_TO_KNEE[2])
+    lower_leg = np.abs(KNEE_TO_ANKLE[2])
     left_height = np.linalg.norm(
         translation_from_isometry(left_foot_to_left_hip)
     )
@@ -184,7 +195,7 @@ def leg_angles(
             left_foot_rotation_c2[0], left_foot_rotation_c2[2]
         )
         + left_beta,
-        ankle_roll=np.arcsin(-left_foot_rotation_c2[1]),
+        ankle_roll=np.arcsin(-np.clip(left_foot_rotation_c2[1], -1.0, 1.0)),
     )
     right_leg = LegJoints(
         hip_yaw_pitch=left_hip_yaw_pitch_combined,
@@ -195,7 +206,7 @@ def leg_angles(
             right_foot_rotation_c2[0], right_foot_rotation_c2[2]
         )
         + right_beta,
-        ankle_roll=np.arcsin(-right_foot_rotation_c2[1]),
+        ankle_roll=np.arcsin(-np.clip(right_foot_rotation_c2[1], -1.0, 1.0)),
     )
 
     return left_leg, right_leg
