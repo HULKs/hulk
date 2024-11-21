@@ -11,6 +11,9 @@ use parameters::directory::Scope;
 
 use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
+const TOP_CAMERA_EXTRINSICS_PATH: &str = "camera_matrix_parameters.vision_top.extrinsic_rotations";
+const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
+    "camera_matrix_parameters.vision_bottom.extrinsic_rotations";
 pub struct AutomaticCameraCalibrationExportPanel {
     nao: Arc<Nao>,
     top_camera: BufferHandle<Vector3<f32>>,
@@ -22,11 +25,9 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
     const NAME: &'static str = "Automatic Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let top_camera = nao
-            .subscribe_value("parameters.camera_matrix_parameters.vision_top.extrinsic_rotations");
-        let bottom_camera = nao.subscribe_value(
-            "parameters.camera_matrix_parameters.vision_bottom.extrinsic_rotations",
-        );
+        let top_camera = nao.subscribe_value(format!("parameters.{TOP_CAMERA_EXTRINSICS_PATH}"));
+        let bottom_camera =
+            nao.subscribe_value(format!("parameters.{BOTTOM_CAMERA_EXTRINSICS_PATH}"));
         let calibration_corrections =
             nao.subscribe_json("Control.additional_outputs.last_calibration_corrections");
 
@@ -54,13 +55,7 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
                 let bottom_angles = value.correction_in_camera_bottom.euler_angles();
                 let body_angles = value.correction_in_robot.euler_angles();
 
-                draw_group(
-                    ui,
-                    "Top",
-                    top_angles,
-                    &self.nao,
-                    "camera_matrix_parameters.vision_top.extrinsic_rotations",
-                );
+                draw_group(ui, "Top", top_angles, &self.nao, TOP_CAMERA_EXTRINSICS_PATH);
                 draw_angles_from_buffer(ui, &self.top_camera);
                 ui.separator();
 
@@ -69,12 +64,18 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
                     "Bottom",
                     bottom_angles,
                     &self.nao,
-                    "camera_matrix_parameters.vision_bottom.extrinsic_rotations",
+                    BOTTOM_CAMERA_EXTRINSICS_PATH,
                 );
                 draw_angles_from_buffer(ui, &self.bottom_camera);
                 ui.separator();
 
-                ui.label("Body");
+                draw_group(
+                    ui,
+                    "Body",
+                    body_angles,
+                    &self.nao,
+                    "camera_matrix_parameters.robot_rotation",
+                );
                 draw_angles(ui, body_angles, "Calibrated");
             } else {
                 ui.label("Not yet calibrated");
@@ -104,7 +105,7 @@ fn draw_group(ui: &mut Ui, label: &str, rotations: (f32, f32, f32), nao: &Nao, p
         }
         if ui.button("Set in Nao").clicked() {
             serialize_and_call(rotations, |value| {
-                nao.write(path, TextOrBinary::Text(value));
+                nao.write(format!("parameters.{path}"), TextOrBinary::Text(value));
             });
         }
     });
