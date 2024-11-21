@@ -1,7 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
-use nalgebra::UnitQuaternion;
+use nalgebra::{UnitQuaternion, Vector3 as NalVec3};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,7 @@ use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector3};
+use linear_algebra::{point, vector, IntoTransform, Isometry3, Rotation3, Vector3};
 use types::{
     field_dimensions::FieldDimensions, field_lines::ProjectedFieldLines,
     parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
@@ -34,6 +34,7 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
+    robot_rotation_parameters: Parameter<NalVec3<f32>, "camera_matrix_parameters.robot_rotation">,
 }
 
 #[context]
@@ -64,6 +65,14 @@ impl CameraMatrixCalculator {
             context.robot_to_ground.inverse(),
             context.robot_kinematics.head.head_to_robot.inverse(),
             head_to_top_camera,
+        )
+        .to_corrected(
+            Rotation3::from_euler_angles(
+                context.robot_rotation_parameters.x,
+                context.robot_rotation_parameters.y,
+                context.robot_rotation_parameters.z,
+            ),
+            Rotation3::default(),
         );
 
         let head_to_bottom_camera = head_to_camera(
@@ -81,6 +90,14 @@ impl CameraMatrixCalculator {
             context.robot_to_ground.inverse(),
             context.robot_kinematics.head.head_to_robot.inverse(),
             head_to_bottom_camera,
+        )
+        .to_corrected(
+            Rotation3::from_euler_angles(
+                context.robot_rotation_parameters.x,
+                context.robot_rotation_parameters.y,
+                context.robot_rotation_parameters.z,
+            ),
+            Rotation3::default(),
         );
 
         let field_dimensions = context.field_dimensions;
