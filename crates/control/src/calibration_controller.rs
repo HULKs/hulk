@@ -283,11 +283,11 @@ fn collect_filtered_values(
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
 fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
     let look_at_points: Vec<Point2<Ground>> = vec![
-        point![1.0, -0.5],
-        point![2.5, -0.5],
-        point![2.5, 0.0],
-        point![2.5, 0.5],
-        point![1.0, 0.5],
+        point![1.0, -0.2],
+        point![2.0, -0.2],
+        point![2.0, 0.0],
+        point![2.0, 0.2],
+        point![1.0, 0.2],
         point![1.0, 0.0],
     ];
 
