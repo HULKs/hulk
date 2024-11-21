@@ -7,7 +7,13 @@ use nalgebra::Vector3;
 use parameters::directory::Scope;
 use serde_json::Value;
 
-use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    log_error::LogError,
+    nao::Nao,
+    panel::Panel,
+    panels::{BOTTOM_CAMERA_EXTRINSICS_PATH, TOP_CAMERA_EXTRINSICS_PATH},
+    value_buffer::BufferHandle,
+};
 
 pub struct ManualCalibrationPanel {
     nao: Arc<Nao>,
@@ -19,12 +25,9 @@ impl Panel for ManualCalibrationPanel {
     const NAME: &'static str = "Manual Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let top_camera = nao.subscribe_value(
-            "parameters.camera_matrix_parameters.vision_top.extrinsic_rotations".to_string(),
-        );
-        let bottom_camera = nao.subscribe_value(
-            "parameters.camera_matrix_parameters.vision_bottom.extrinsic_rotations".to_string(),
-        );
+        let top_camera = nao.subscribe_value(format!("parameters.{TOP_CAMERA_EXTRINSICS_PATH}"));
+        let bottom_camera =
+            nao.subscribe_value(format!("parameters.{BOTTOM_CAMERA_EXTRINSICS_PATH}"));
 
         Self {
             nao,
@@ -44,7 +47,7 @@ impl Widget for &mut ManualCalibrationPanel {
                     "Top Camera",
                     value,
                     &self.nao,
-                    "camera_matrix_parameters.vision_top.extrinsic_rotations",
+                    TOP_CAMERA_EXTRINSICS_PATH,
                 );
             }
             ui.separator();
@@ -54,7 +57,7 @@ impl Widget for &mut ManualCalibrationPanel {
                     "Bottom Camera",
                     value,
                     &self.nao,
-                    "camera_matrix_parameters.vision_bottom.extrinsic_rotations",
+                    BOTTOM_CAMERA_EXTRINSICS_PATH,
                 );
             }
         })
