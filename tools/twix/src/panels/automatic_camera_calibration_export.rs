@@ -11,8 +11,9 @@ use parameters::directory::Scope;
 
 use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
-const TOP_CAMERA_EXTRINSICS_PATH: &str = "camera_matrix_parameters.vision_top.extrinsic_rotations";
-const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
+pub const TOP_CAMERA_EXTRINSICS_PATH: &str =
+    "camera_matrix_parameters.vision_top.extrinsic_rotations";
+pub const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
     "camera_matrix_parameters.vision_bottom.extrinsic_rotations";
 pub struct AutomaticCameraCalibrationExportPanel {
     nao: Arc<Nao>,
