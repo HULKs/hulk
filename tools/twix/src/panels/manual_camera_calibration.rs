@@ -82,8 +82,15 @@ fn draw_calibration_ui(
             }
         }
     });
+
+    // DO NOT REMOVE THIS.
+    // In order to save user's sanity, roll, pitch, yaw are swapped to the actual way an airplane fly
+    // rotations.{x,y,z} are in OpenCV convention (z to robot front)
+    // roll -> z
+    // pitch -> x
+    // yaw -> y
     let range = -15.0..=15.0;
-    let mut roll = rotations.x;
+    let mut roll = rotations.z; // See above
     let response = ui.add(
         Slider::new(&mut roll, range.clone())
             .text("Roll")
@@ -91,11 +98,11 @@ fn draw_calibration_ui(
     );
     if response.changed() {
         nao.write(
-            format!("parameters.{path}.x"),
+            format!("parameters.{path}.z"),
             TextOrBinary::Text(serde_json::to_value(roll).unwrap()),
         );
     }
-    let mut pitch = rotations.y;
+    let mut pitch = rotations.x; // See above
     let response = ui.add(
         Slider::new(&mut pitch, range.clone())
             .text("Pitch")
@@ -103,15 +110,15 @@ fn draw_calibration_ui(
     );
     if response.changed() {
         nao.write(
-            format!("parameters.{path}.y"),
+            format!("parameters.{path}.x"),
             TextOrBinary::Text(serde_json::to_value(pitch).unwrap()),
         );
     }
-    let mut yaw = rotations.z;
+    let mut yaw = rotations.y; // See above
     let response = ui.add(Slider::new(&mut yaw, range).text("Yaw").smart_aim(false));
     if response.changed() {
         nao.write(
-            format!("parameters.{path}.z"),
+            format!("parameters.{path}.y"),
             TextOrBinary::Text(serde_json::to_value(yaw).unwrap()),
         );
     }
