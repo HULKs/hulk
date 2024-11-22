@@ -11,7 +11,6 @@ from stable_baselines3.common.utils import get_device
 from wandb.integration.sb3 import WandbCallback
 
 if get_device() != torch.device("cpu"):
-    print("Using GPU")
     NVIDIA_ICD_CONFIG_PATH = "/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
     if not os.path.exists(NVIDIA_ICD_CONFIG_PATH):
         with open(NVIDIA_ICD_CONFIG_PATH, "w") as f:
@@ -24,9 +23,6 @@ if get_device() != torch.device("cpu"):
 
     # Configure MuJoCo to use the EGL rendering backend (requires GPU)
     os.environ["MUJOCO_GL"] = "egl"
-
-else:
-    print("Using CPU")
 
 
 # taken from https://gymnasium.farama.org/main/_modules/gymnasium/wrappers/record_video/
@@ -49,10 +45,9 @@ def capped_cubic_video_schedule(episode_id: int) -> bool:
 
 gym.register(
     id="NaoStandup-v1",
-    entry_point="nao_standup:NaoStandup",
+    entry_point="nao_env:NaoStandup",
     max_episode_steps=2500,
 )
-
 
 config = {
     "policy_type": "MlpPolicy",
@@ -68,6 +63,7 @@ run = wandb.init(
     sync_tensorboard=True,
     monitor_gym=True,
     save_code=False,
+    mode="disabled",
 )
 
 
@@ -84,9 +80,7 @@ env = VecVideoRecorder(
     record_video_trigger=capped_cubic_video_schedule,
     video_length=200,
 )
-model = PPO(
-    config["policy_type"], env, verbose=1, tensorboard_log=f"runs/{run.id}"
-)
+model = PPO(config["policy_type"], env, verbose=1, tensorboard_log=f"runs/{run.id}")
 model.learn(
     total_timesteps=config["total_timesteps"],
     callback=WandbCallback(

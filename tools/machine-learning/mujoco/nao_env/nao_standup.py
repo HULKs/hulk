@@ -1,7 +1,9 @@
 import numpy as np
 from gymnasium import utils
-from gymnasium.envs.mujoco import MujocoEnv
+
+from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
+import pathlib
 
 DEFAULT_CAMERA_CONFIG = {
     "trackbodyid": 1,
@@ -232,8 +234,6 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             shape=(661,),
             dtype=np.float64,
         )
-
-        import pathlib
 
         current_dir = pathlib.Path(__file__).parent.resolve()
 
