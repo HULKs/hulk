@@ -1,4 +1,5 @@
 use super::{catching::Catching, kicking::Kicking, stopping::Stopping, Mode, WalkTransition};
+use nalgebra::RealField;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -26,10 +27,23 @@ impl Walking {
         support_side: Side,
         last_requested_step: Step,
     ) -> Self {
+        let (backward_acceleration, forward_acceleration) =
+            if last_requested_step.forward.is_sign_positive() {
+                (
+                    -last_requested_step.forward,
+                    context.parameters.max_forward_acceleration,
+                )
+            } else {
+                (
+                    -context.parameters.max_forward_acceleration,
+                    last_requested_step.forward,
+                )
+            };
+
         let requested_step = Step {
             forward: last_requested_step.forward
                 + (requested_step.forward - last_requested_step.forward)
-                    .min(context.parameters.max_forward_acceleration),
+                    .clamp(backward_acceleration, forward_acceleration),
             left: requested_step.left,
             turn: requested_step.turn,
         };
