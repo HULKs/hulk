@@ -1,7 +1,10 @@
 use std::{
-    fmt::{self, Debug, Display, Formatter},
+    env::temp_dir,
+    fmt::{self, Display, Formatter},
+    fs::{set_permissions, Permissions},
     net::Ipv4Addr,
-    path::Path,
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
     process::Stdio,
 };
 
@@ -74,8 +77,28 @@ impl Nao {
         ]
     }
 
+    fn create_login_script() -> Result<PathBuf> {
+        let path = temp_dir().join("nao_login_script");
+
+        std::fs::write(&path, b"#!/usr/bin/env sh\necho nao")
+            .wrap_err("failed to write to nao login script")?;
+
+        #[cfg(unix)]
+        {
+            set_permissions(&path, Permissions::from_mode(0o755))
+                .wrap_err("failed to set permissions")?;
+        }
+
+        Ok(path)
+    }
+
     fn ssh_to_nao(&self) -> Command {
+        let temp_file = Self::create_login_script().unwrap();
+
         let mut command = Command::new("ssh");
+        command.env("SSH_ASKPASS", temp_file.as_os_str());
+        command.env("SSH_ASKPASS_REQUIRE", "prefer");
+
         for flag in self.get_ssh_flags() {
             command.arg(flag);
         }
