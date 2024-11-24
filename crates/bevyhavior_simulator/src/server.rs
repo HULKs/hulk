@@ -20,7 +20,7 @@ use crate::{cyclers::control::Database, recorder::Frame};
 pub struct Parameters {
     selected_frame: usize,
     selected_robot: u8,
-    field_dimensions: FieldDimensions,
+    pub field_dimensions: FieldDimensions,
 }
 
 #[derive(Clone, Default, Serialize, PathSerialize, PathIntrospect)]
