@@ -29,7 +29,11 @@ impl Walking {
         let (backward_acceleration, forward_acceleration) =
             if last_requested_step.forward.is_sign_positive() {
                 (
-                    -last_requested_step.forward,
+                    if last_requested_step.forward > 0.0 {
+                        -last_requested_step.forward
+                    } else {
+                        -context.parameters.max_forward_acceleration
+                    },
                     context.parameters.max_forward_acceleration,
                 )
             } else {
