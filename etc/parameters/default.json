@@ -403,6 +403,7 @@
       "left": 0.06,
       "turn": 0.5
     },
+    "initial_side_bonus": 0.04,
     "step_size_delta_slow": {
       "forward": -0.025,
       "left": 0.0,
