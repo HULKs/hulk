@@ -12,7 +12,9 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct StepPlanner {}
+pub struct StepPlanner {
+    last_planned_step: Step,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -28,6 +30,7 @@ pub struct CycleContext {
     max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
     rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
+    initial_side_bonus: Parameter<f32, "step_planner.initial_side_bonus">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -44,7 +47,9 @@ pub struct MainOutputs {
 
 impl StepPlanner {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_planned_step: Step::default(),
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -131,11 +136,24 @@ impl StepPlanner {
             step = *injected_step;
         }
 
+        let initial_side_bonus = if self.last_planned_step.left == 0.0 {
+            Step {
+                forward: 0.0,
+                left: *context.initial_side_bonus,
+                turn: 0.0,
+            }
+        } else {
+            Step::default()
+        };
+
         let max_step_size = match speed {
             WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
-            WalkSpeed::Normal => *context.max_step_size,
-            WalkSpeed::Fast => *context.max_step_size + *context.step_size_delta_fast,
+            WalkSpeed::Normal => *context.max_step_size + initial_side_bonus,
+            WalkSpeed::Fast => {
+                *context.max_step_size + *context.step_size_delta_fast + initial_side_bonus
+            }
         };
+
         let step = clamp_step_to_walk_volume(
             step,
             &max_step_size,
@@ -143,6 +161,8 @@ impl StepPlanner {
             *context.translation_exponent,
             *context.rotation_exponent,
         );
+
+        self.last_planned_step = step;
 
         Ok(MainOutputs {
             planned_step: step.into(),
