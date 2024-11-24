@@ -1,5 +1,4 @@
 use super::{catching::Catching, kicking::Kicking, stopping::Stopping, Mode, WalkTransition};
-use nalgebra::RealField;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
