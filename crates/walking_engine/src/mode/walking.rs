@@ -26,22 +26,22 @@ impl Walking {
         support_side: Side,
         last_requested_step: Step,
     ) -> Self {
-        let (backward_acceleration, forward_acceleration) =
-            if last_requested_step.forward.is_sign_positive() {
-                (
-                    if last_requested_step.forward > 0.0 {
-                        -last_requested_step.forward
-                    } else {
-                        -context.parameters.max_forward_acceleration
-                    },
-                    context.parameters.max_forward_acceleration,
-                )
-            } else {
-                (
-                    -context.parameters.max_forward_acceleration,
-                    last_requested_step.forward,
-                )
-            };
+        let (backward_acceleration, forward_acceleration) = if last_requested_step.forward > 0.0 {
+            (
+                -last_requested_step.forward,
+                context.parameters.max_forward_acceleration,
+            )
+        } else if last_requested_step.forward == 0.0 {
+            (
+                -context.parameters.max_forward_acceleration,
+                context.parameters.max_forward_acceleration,
+            )
+        } else {
+            (
+                -context.parameters.max_forward_acceleration,
+                -last_requested_step.forward,
+            )
+        };
 
         let requested_step = Step {
             forward: last_requested_step.forward
