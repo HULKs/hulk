@@ -52,12 +52,13 @@ impl CameraMatrixCalculator {
         let image_size = vector![640.0, 480.0];
         let head_to_top_camera = head_to_camera(
             context.top_camera_matrix_parameters.extrinsic_rotations,
-            context
-                .top_camera_matrix_parameters
-                .camera_pitch
-                .to_radians(),
+            context.top_camera_matrix_parameters.camera_pitch,
             RobotDimensions::HEAD_TO_TOP_CAMERA,
         );
+        let robot_rotation_radians = context
+            .robot_rotation_parameters
+            .map(|degree: f32| degree.to_radians());
+
         let top_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             context.top_camera_matrix_parameters.focal_lengths,
             context.top_camera_matrix_parameters.cc_optical_center,
@@ -68,19 +69,16 @@ impl CameraMatrixCalculator {
         )
         .to_corrected(
             Rotation3::from_euler_angles(
-                context.robot_rotation_parameters.x,
-                context.robot_rotation_parameters.y,
-                context.robot_rotation_parameters.z,
+                robot_rotation_radians.x,
+                robot_rotation_radians.y,
+                robot_rotation_radians.z,
             ),
             Rotation3::default(),
         );
 
         let head_to_bottom_camera = head_to_camera(
             context.bottom_camera_matrix_parameters.extrinsic_rotations,
-            context
-                .bottom_camera_matrix_parameters
-                .camera_pitch
-                .to_radians(),
+            context.bottom_camera_matrix_parameters.camera_pitch,
             RobotDimensions::HEAD_TO_BOTTOM_CAMERA,
         );
         let bottom_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
@@ -93,9 +91,9 @@ impl CameraMatrixCalculator {
         )
         .to_corrected(
             Rotation3::from_euler_angles(
-                context.robot_rotation_parameters.x,
-                context.robot_rotation_parameters.y,
-                context.robot_rotation_parameters.z,
+                robot_rotation_radians.x,
+                robot_rotation_radians.y,
+                robot_rotation_radians.z,
             ),
             Rotation3::default(),
         );
@@ -163,11 +161,12 @@ fn project_penalty_area_on_images(
 }
 
 fn head_to_camera(
-    extrinsic_rotation: nalgebra::Vector3<f32>,
-    camera_pitch: f32,
+    extrinsic_rotation_degrees: nalgebra::Vector3<f32>,
+    camera_pitch_degrees: f32,
     head_to_camera: Vector3<Head>,
 ) -> Isometry3<Head, Camera> {
-    let extrinsic_angles_in_radians = extrinsic_rotation.map(|degree: f32| degree.to_radians());
+    let extrinsic_angles_in_radians =
+        extrinsic_rotation_degrees.map(|degree: f32| degree.to_radians());
     let extrinsic_rotation = UnitQuaternion::from_euler_angles(
         extrinsic_angles_in_radians.x,
         extrinsic_angles_in_radians.y,
@@ -175,7 +174,9 @@ fn head_to_camera(
     );
 
     (extrinsic_rotation
-        * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
+        * nalgebra::Isometry3::rotation(
+            nalgebra::Vector3::x() * -camera_pitch_degrees.to_radians(),
+        )
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * -FRAC_PI_2)
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
         * nalgebra::Isometry3::from(-head_to_camera.inner))
