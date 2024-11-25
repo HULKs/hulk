@@ -1467,8 +1467,8 @@
       "secs": 5
     },
     "look_at_dispatch_delay": {
-      "nanos": 0,
-      "secs": 1
+      "nanos": 500000000,
+      "secs": 0
     },
     "use_stand_head_unstiff_calibration": false
   },
