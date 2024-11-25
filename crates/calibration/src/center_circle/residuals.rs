@@ -26,8 +26,6 @@ impl CalculateResiduals for CenterCircleResiduals {
         let corrected =
             get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
 
-        let radius_squared = field_dimensions.center_circle_diameter / 2.0;
-
         let projected_center = corrected.pixel_to_ground(measurement.circle_and_points.center)?;
         let projected_points: Vec<Point2<Ground>> = measurement
             .circle_and_points
@@ -40,10 +38,17 @@ impl CalculateResiduals for CenterCircleResiduals {
             return Err(ProjectionError::NotOnProjectionPlane);
         }
 
+        let radius = field_dimensions.center_circle_diameter / 2.0;
+        let line_width_half = field_dimensions.line_width / 2.0;
+        let inner_radius = radius - line_width_half;
+        let outer_radius = radius + line_width_half;
+
         let radial_residuals = projected_points
             .into_iter()
             .map(|projected_point| {
-                (projected_point - projected_center).norm_squared() - radius_squared
+                let inner_error = (projected_point - projected_center).norm() - inner_radius;
+                let outer_error = (projected_point - projected_center).norm() - outer_radius;
+                inner_error.abs().min(outer_error.abs())
             })
             .collect();
 
