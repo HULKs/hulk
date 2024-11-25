@@ -15,10 +15,12 @@ pub const TOP_CAMERA_EXTRINSICS_PATH: &str =
     "camera_matrix_parameters.vision_top.extrinsic_rotations";
 pub const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
     "camera_matrix_parameters.vision_bottom.extrinsic_rotations";
+pub const ROBOT_BODY_ROTATION_PATH: &str = "camera_matrix_parameters.robot_rotation";
 pub struct AutomaticCameraCalibrationExportPanel {
     nao: Arc<Nao>,
     top_camera: BufferHandle<Vector3<f32>>,
     bottom_camera: BufferHandle<Vector3<f32>>,
+    robot_body_rotations: BufferHandle<Vector3<f32>>,
     calibration_corrections: BufferHandle<Value>,
 }
 
@@ -29,6 +31,7 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
         let top_camera = nao.subscribe_value(format!("parameters.{TOP_CAMERA_EXTRINSICS_PATH}"));
         let bottom_camera =
             nao.subscribe_value(format!("parameters.{BOTTOM_CAMERA_EXTRINSICS_PATH}"));
+        let body_rotations = nao.subscribe_value(format!("parameters.{ROBOT_BODY_ROTATION_PATH}"));
         let calibration_corrections =
             nao.subscribe_json("Control.additional_outputs.last_calibration_corrections");
 
@@ -36,6 +39,7 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
             nao,
             top_camera,
             bottom_camera,
+            robot_body_rotations: body_rotations,
             calibration_corrections,
         }
     }
@@ -70,14 +74,8 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
                 draw_angles_from_buffer(ui, &self.bottom_camera);
                 ui.separator();
 
-                draw_group(
-                    ui,
-                    "Body",
-                    body_angles,
-                    &self.nao,
-                    "camera_matrix_parameters.robot_rotation",
-                );
-                draw_angles(ui, body_angles, "Calibrated");
+                draw_group(ui, "Body", body_angles, &self.nao, ROBOT_BODY_ROTATION_PATH);
+                draw_angles_from_buffer(ui, &self.robot_body_rotations);
             } else {
                 ui.label("Not yet calibrated");
             }
@@ -95,34 +93,38 @@ fn serialize_and_call<V: serde::Serialize, T: FnOnce(serde_json::Value)>(data: V
     }
 }
 
-fn draw_group(ui: &mut Ui, label: &str, rotations: (f32, f32, f32), nao: &Nao, path: &str) {
+fn draw_group(ui: &mut Ui, label: &str, rotations_radians: (f32, f32, f32), nao: &Nao, path: &str) {
+    let rotations_degrees = [
+        rotations_radians.0,
+        rotations_radians.1,
+        rotations_radians.2,
+    ]
+    .map(|radians: f32| radians.to_degrees());
     ui.horizontal(|ui| {
         ui.label(label);
         if ui.button("Save to repo").clicked() {
-            serialize_and_call(rotations, |value| {
+            serialize_and_call(rotations_degrees, |value| {
                 nao.store_parameters(path, value, Scope::default_head())
                     .log_err();
             });
         }
         if ui.button("Set in Nao").clicked() {
-            serialize_and_call(rotations, |value| {
+            serialize_and_call(rotations_degrees, |value| {
                 nao.write(format!("parameters.{path}"), TextOrBinary::Text(value));
             });
         }
     });
-    draw_angles(ui, rotations, "Calibrated");
+    draw_angles(ui, &rotations_degrees, "Calibrated");
 }
 
 fn draw_angles_from_buffer(ui: &mut Ui, current_values: &BufferHandle<Vector3<f32>>) {
     if let Some(value) = current_values.get_last_value().ok().flatten() {
-        draw_angles(ui, (value.x, value.y, value.z), "Current");
+        draw_angles(ui, &[value.x, value.y, value.z], "Current");
     }
 }
-fn draw_angles(ui: &mut Ui, rotations: (f32, f32, f32), sublabel: &str) {
+fn draw_angles(ui: &mut Ui, rotations_degrees: &[f32; 3], sublabel: &str) {
     ui.label(format!(
         "{sublabel}: [{0:.2}°, {1:.2}°, {2:.2}°]",
-        rotations.0.to_degrees(),
-        rotations.1.to_degrees(),
-        rotations.2.to_degrees()
+        rotations_degrees[0], rotations_degrees[1], rotations_degrees[2]
     ));
 }
