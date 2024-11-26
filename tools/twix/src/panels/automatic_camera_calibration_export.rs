@@ -8,6 +8,7 @@ use serde_json::Value;
 use calibration::corrections::Corrections;
 use communication::messages::TextOrBinary;
 use parameters::directory::Scope;
+use types::primary_state::PrimaryState;
 
 use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
@@ -22,6 +23,7 @@ pub struct AutomaticCameraCalibrationExportPanel {
     bottom_camera: BufferHandle<Vector3<f32>>,
     robot_body_rotations: BufferHandle<Vector3<f32>>,
     calibration_corrections: BufferHandle<Value>,
+    primary_state: BufferHandle<PrimaryState>,
 }
 
 impl Panel for AutomaticCameraCalibrationExportPanel {
@@ -34,6 +36,7 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
         let body_rotations = nao.subscribe_value(format!("parameters.{ROBOT_BODY_ROTATION_PATH}"));
         let calibration_corrections =
             nao.subscribe_json("Control.additional_outputs.last_calibration_corrections");
+        let primary_state = nao.subscribe_value("Control.main_outputs.primary_state");
 
         Self {
             nao,
@@ -41,6 +44,7 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
             bottom_camera,
             robot_body_rotations: body_rotations,
             calibration_corrections,
+            primary_state,
         }
     }
 }
@@ -77,7 +81,17 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
                 draw_group(ui, "Body", body_angles, &self.nao, ROBOT_BODY_ROTATION_PATH);
                 draw_angles_from_buffer(ui, &self.robot_body_rotations);
             } else {
-                ui.label("Not yet calibrated");
+                self.primary_state
+                    .get_last_value()
+                    .ok()
+                    .flatten()
+                    .map(|primary_state| match primary_state {
+                        PrimaryState::Calibration => ui.label("Calibration in progress"),
+                        _ => ui.label(format!(
+                            "Not yet calibrated, primary state: {:?}",
+                            primary_state
+                        )),
+                    });
             }
         })
         .response
