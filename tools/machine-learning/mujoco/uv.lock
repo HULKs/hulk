@@ -1088,7 +1088,6 @@ dependencies = [
     { name = "mediapy" },
     { name = "moviepy" },
     { name = "mujoco" },
-    { name = "neovim" },
     { name = "numpy" },
     { name = "scipy" },
     { name = "stable-baselines3" },
@@ -1098,6 +1097,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "neovim" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -1109,7 +1109,6 @@ requires-dist = [
     { name = "mediapy", specifier = ">=1.2.2" },
     { name = "moviepy", specifier = ">=1.0.3" },
     { name = "mujoco", specifier = ">=3.2.4" },
-    { name = "neovim", specifier = ">=0.3.1" },
     { name = "numpy", specifier = ">=2.1.2" },
     { name = "scipy", specifier = ">=1.14.1" },
     { name = "stable-baselines3", specifier = ">=2.3.2" },
@@ -1119,6 +1118,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "neovim", specifier = ">=0.3.1" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "ruff", specifier = ">=0.7.3" },
 ]

@@ -13,7 +13,6 @@ dependencies = [
     "scipy>=1.14.1",
     "moviepy>=1.0.3",
     "stable-baselines3>=2.3.2",
-    "neovim>=0.3.1",
     "wandb>=0.18.5",
     "tensorboard>=2.18.0",
 ]
@@ -71,4 +70,9 @@ ignore = [
 required-imports = ["from __future__ import annotations"]
 
 [tool.uv]
-dev-dependencies = ["pytest>=8.3.3", "ruff>=0.7.3"]
+
+dev-dependencies = [
+    "neovim>=0.3.1",
+    "pytest>=8.3.3",
+    "ruff>=0.7.3",
+]
