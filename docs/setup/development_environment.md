@@ -54,7 +54,7 @@ Use your distribution's package manager to install the following dependencies:
 === "Ubuntu"
 
     ```sh
-    sudo apt install git git-lfs clang cmake python3 zstd xz-utils file rsync libasound2-dev libopusfile-dev libhdf5-dev libsystemd-dev libluajit-5.1-dev
+    sudo apt install git git-lfs clang cmake python3 zstd xz-utils file rsync libasound2-dev libopusfile-dev libhdf5-dev libsystemd-dev libluajit-5.1-dev pkg-config
     ```
 
 If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
