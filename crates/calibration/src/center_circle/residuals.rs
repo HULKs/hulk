@@ -46,9 +46,14 @@ impl CalculateResiduals for CenterCircleResiduals {
         let radial_residuals = projected_points
             .into_iter()
             .map(|projected_point| {
-                let inner_error = (projected_point - projected_center).norm() - inner_radius;
-                let outer_error = (projected_point - projected_center).norm() - outer_radius;
-                inner_error.abs().min(outer_error.abs())
+                let center_to_point_distance = (projected_point - projected_center).norm();
+                let inner_error = center_to_point_distance - inner_radius;
+                let outer_error = outer_radius - center_to_point_distance;
+                if inner_error.abs() < outer_error.abs() {
+                    inner_error
+                } else {
+                    outer_error
+                }
             })
             .collect();
 

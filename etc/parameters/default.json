@@ -1485,8 +1485,8 @@
     "get_edges_from_segments": false,
     "maximum_number_of_circles": 1,
     "ransac_iterations": 1500,
-    "ransac_circle_inlier_threshold": 0.1,
-    "ransac_circle_minimum_circumference_percentage": 0.54,
+    "ransac_circle_inlier_threshold": 0.08,
+    "ransac_circle_minimum_circumference_percentage": 0.45,
     "run_next_cycle_after_ms": 50,
     "skip_rgb_based_difference_image": false
   }
