@@ -19,8 +19,7 @@ use types::{
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     parameters::BallFilterParameters,
 };
-use walking_engine::mode::{kicking::Kicking, Mode};
-use crate::motion::{self, walking_engine::{CycleContext, WalkingEngine}};
+use walking_engine::mode::Mode;
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
@@ -163,10 +162,7 @@ impl BallFilter {
                 .expect("time ran backwards");
             let validity_high_enough =
                 hypothesis.validity >= filter_parameters.validity_discard_threshold;
-            let ball_kicked = match walking_engine_mode {
-                Mode::Kicking(_) => true,
-                _ => false,
-            };
+            let ball_kicked = matches!(walking_engine_mode, Mode::Kicking(_));
             is_ball_inside_field(ball, field_dimensions)
                 && validity_high_enough
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout

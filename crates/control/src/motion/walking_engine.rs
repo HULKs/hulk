@@ -157,7 +157,8 @@ impl WalkingEngine {
         cycle_context
             .robot_to_walk
             .fill_if_subscribed(|| robot_to_walk);
-
+        *cycle_context.walking_engine_mode = self.engine.mode;
+        
         Ok(MainOutputs {
             walk_motor_commands: motor_commands.into(),
         })
