@@ -194,7 +194,7 @@ fn parse_assignment(input: &str) -> Result<(&str, u8)> {
     let (prefix, jersey_number) = input.rsplit_once(':').ok_or_else(|| eyre!("missing `:`"))?;
     let jersey_number = jersey_number.parse()?;
     if !(1..=MAX_NUM_PLAYERS).contains(&jersey_number) {
-        bail!("Unexpected jersey number {jersey_number}")
+        bail!("unexpected jersey number {jersey_number}")
     }
 
     Ok((prefix, jersey_number))
