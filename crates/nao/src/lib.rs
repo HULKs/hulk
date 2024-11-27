@@ -97,7 +97,7 @@ impl Nao {
 
         let mut command = Command::new("ssh");
         command.env("SSH_ASKPASS", temp_file.as_os_str());
-        command.env("SSH_ASKPASS_REQUIRE", "prefer");
+        command.env("SSH_ASKPASS_REQUIRE", "force");
 
         for flag in self.get_ssh_flags() {
             command.arg(flag);
