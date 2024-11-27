@@ -3,7 +3,7 @@ from gymnasium import utils
 
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
-import pathlib
+from pathlib import Path
 
 DEFAULT_CAMERA_CONFIG = {
     "trackbodyid": 1,
@@ -30,11 +30,9 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             dtype=np.float64,
         )
 
-        current_dir = pathlib.Path(__file__).parent.resolve()
-
         MujocoEnv.__init__(
             self,
-            f"{current_dir}/../model/scene.xml",
+            str(Path.cwd().joinpath("model", "scene.xml")),
             5,
             observation_space=observation_space,
             default_camera_config=DEFAULT_CAMERA_CONFIG,
