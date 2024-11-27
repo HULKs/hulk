@@ -29,13 +29,13 @@ macro_rules! write_to_mcap {
 
                 let (_, database) = &*$receiver.borrow_and_mark_as_seen();
 
-                let main_outputs = crate::mcap_converter::database_to_values(
+                let main_outputs = $crate::mcap_converter::database_to_values(
                     &database.main_outputs,
                     $cycler_name.to_string(),
                     "main_outputs".to_string(),
                 )?;
 
-                let additional_outputs = crate::mcap_converter::database_to_values(
+                let additional_outputs = $crate::mcap_converter::database_to_values(
                     &database.additional_outputs,
                     $cycler_name.to_string(),
                     "additional_outputs".to_string(),
