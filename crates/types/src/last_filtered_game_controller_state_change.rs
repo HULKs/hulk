@@ -1,5 +1,6 @@
-use std::{collections::HashMap, time::SystemTime};
+use std::time::SystemTime;
 
+use crate::players::Players;
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::Penalty;
@@ -11,8 +12,8 @@ pub struct LastFilteredGameControllerStateChanges {
     pub opponent_game_state: SystemTime,
     pub game_phase: SystemTime,
     pub kicking_team: SystemTime,
-    pub penalties: HashMap<u8, Option<SystemTime>>,
-    pub opponent_penalties: HashMap<u8, Option<Penalty>>,
+    pub penalties: Players<Option<SystemTime>>,
+    pub opponent_penalties: Players<Option<Penalty>>,
     pub sub_state: Option<SystemTime>,
 }
 
@@ -23,8 +24,8 @@ impl Default for LastFilteredGameControllerStateChanges {
             opponent_game_state: SystemTime::UNIX_EPOCH,
             game_phase: SystemTime::UNIX_EPOCH,
             kicking_team: SystemTime::UNIX_EPOCH,
-            penalties: HashMap::new(),
-            opponent_penalties: HashMap::new(),
+            penalties: Players::default(),
+            opponent_penalties: Players::default(),
             sub_state: None,
         }
     }
