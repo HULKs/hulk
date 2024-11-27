@@ -298,18 +298,27 @@ fn generate_replayer_token_streams(
             .map(|(cycler, instance)| {
                 (
                     format_ident!("{}_receiver", instance.to_case(Case::Snake)),
+                    format_ident!("{}_subscriptions_sender", instance.to_case(Case::Snake)),
                     format_ident!("{}", cycler.name.to_case(Case::Snake)),
                 )
             })
             .collect();
 
-        let receiver_identifiers = receiver_tokens.iter().map(|(receiver, _cycler)| receiver);
-        let receiver_fields = receiver_tokens.iter().map(|(receiver, cycler)| {
+        let receiver_identifiers = receiver_tokens
+            .iter()
+            .map(|(receiver, _, _cycler)| receiver);
+        let receiver_fields = receiver_tokens.iter().map(|(receiver, _, cycler)| {
             quote! {
                 #receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::cyclers::#cycler::Database)>,
             }
         });
-        let receiver_accessors = receiver_tokens.iter().map(|(receiver, cycler)| {
+        let sender_identifiers = receiver_tokens.iter().map(|(_, sender, _cycler)| sender);
+        let subscription_sender_fields = receiver_tokens.iter().map(|(_, sender, _)| {
+            quote! {
+                pub #sender: buffered_watch::Sender< std::collections::HashSet<String>>,
+            }
+        });
+        let receiver_accessors = receiver_tokens.iter().map(|(receiver,_, cycler)| {
             quote! {
                 #[allow(unused)]
                 pub(crate) fn #receiver(&self) -> buffered_watch::Receiver<(std::time::SystemTime, crate::cyclers::#cycler::Database)> {
@@ -321,9 +330,11 @@ fn generate_replayer_token_streams(
         ReplayerTokenStreams {
             fields: quote! {
                 #(#receiver_fields)*
+                #(#subscription_sender_fields)*
             },
             parameters: quote! {
                 #(#receiver_identifiers,)*
+                #(#sender_identifiers,)*
             },
             accessors: quote! {
                 #(#receiver_accessors)*
