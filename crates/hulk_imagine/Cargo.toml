@@ -6,10 +6,12 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+audio = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }
 buffered_watch = { workspace = true }
 calibration = { workspace = true }
+clap = { workspace = true }
 color-eyre = { workspace = true }
 control = { workspace = true }
 coordinate_systems = { workspace = true }
@@ -20,19 +22,20 @@ hardware = { workspace = true }
 indicatif = { workspace = true }
 ittapi = { workspace = true }
 linear_algebra = { workspace = true }
+mcap = { workspace = true }
 nalgebra = { workspace = true }
 parameters = { workspace = true }
+path_serde = { workspace = true }
 projection = { workspace = true }
+rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-rmp-serde = { workspace = true }
+spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
-path_serde = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
 walking_engine = { workspace = true }
-mcap = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

@@ -3517,10 +3517,12 @@ dependencies = [
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
+ "audio",
  "ball_filter",
  "bincode",
  "buffered_watch",
  "calibration",
+ "clap 4.5.20",
  "code_generation",
  "color-eyre",
  "control",
@@ -3542,6 +3544,7 @@ dependencies = [
  "serde",
  "serde_json",
  "source_analyzer",
+ "spl_network",
  "spl_network_messages",
  "tokio",
  "types",

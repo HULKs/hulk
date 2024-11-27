@@ -794,4 +794,9 @@ impl PathIntrospect for Duration {
         fields.insert(format!("{prefix}secs_f32"));
         fields.insert(format!("{prefix}millis"));
     }
+
+    fn extend_with_children(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}secs_f32"));
+        fields.insert(format!("{prefix}millis"));
+    }
 }
