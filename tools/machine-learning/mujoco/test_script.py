@@ -5,7 +5,7 @@ DEBUG = False
 
 gym.register(
     id="NaoStandup-v1",
-    entry_point="nao_standup:NaoStandup",
+    entry_point="nao_env:NaoStandup",
     max_episode_steps=2500,
 )
 
