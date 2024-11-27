@@ -3,7 +3,7 @@
 use hardware::{NetworkInterface, RecordingInterface, SpeakerInterface, TimeInterface};
 use interfake::FakeDataInterface;
 
-pub mod aufstellung;
+pub mod hulks_setup;
 pub mod autoref;
 pub mod ball;
 pub mod fake_data;

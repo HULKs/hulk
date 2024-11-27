@@ -7,7 +7,7 @@ use scenario::scenario;
 use spl_network_messages::{GameState, Penalty, SubState, Team};
 
 use bevyhavior_simulator::{
-    aufstellung::hulks_aufstellung,
+    hulks_setup::hulks_setup,
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
@@ -25,7 +25,7 @@ fn startup(commands: Commands, mut game_controller_commands: EventWriter<GameCon
     let active_field_players = vec![1, 2, 3, 4, 5, 6, 7];
     let picked_up_players = vec![];
     let goal_keeper_jersey_number = 1;
-    hulks_aufstellung(
+    hulks_setup(
         active_field_players,
         picked_up_players,
         goal_keeper_jersey_number,

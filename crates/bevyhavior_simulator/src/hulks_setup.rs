@@ -5,7 +5,7 @@ use spl_network_messages::{bindings::MAX_NUM_PLAYERS, Penalty, Team};
 
 use crate::{game_controller::GameControllerCommand, robot::Robot};
 
-pub fn hulks_aufstellung(
+pub fn hulks_setup(
     active_field_players: Vec<u8>,
     picked_up_players: Vec<u8>,
     goal_keeper_jersey_number: u8,
