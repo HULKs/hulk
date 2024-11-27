@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 
 use linear_algebra::{point, vector, Isometry2, Vector};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber, Team};
+use spl_network_messages::{GameState, Penalty, Team};
 use types::ball_position::SimulatorBallState;
 
 use bevyhavior_simulator::{
@@ -23,7 +25,15 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
-    let mut robot = Robot::new(PlayerNumber::One);
+    for number in 2..=20 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::Substitute {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    let mut robot = Robot::new(1, 0);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![2.8, 0.0], 0.0);
     commands.spawn(robot);
     ball.state = Some(SimulatorBallState {
@@ -41,8 +51,8 @@ fn startup(
 #[allow(clippy::too_many_arguments)]
 fn update(
     game_controller: ResMut<GameController>,
-    time: ResMut<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
+    time: ResMut<Time<Ticks>>,
 ) {
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");

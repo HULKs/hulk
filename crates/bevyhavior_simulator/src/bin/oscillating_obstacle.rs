@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 
 use linear_algebra::{point, vector, Isometry2, Point2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use spl_network_messages::{GameState, Penalty};
 use types::{
     ball_position::SimulatorBallState,
     obstacles::{Obstacle, ObstacleKind},
@@ -26,7 +28,23 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
-    let mut robot = Robot::new(PlayerNumber::Seven);
+    for number in 8..=20 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::Substitute {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    for number in 1..=6 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::RequestForPickup {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    let mut robot = Robot::new(7, 0);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
@@ -40,9 +58,9 @@ fn startup(
 #[allow(clippy::too_many_arguments)]
 fn update(
     game_controller: ResMut<GameController>,
-    time: ResMut<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
+    time: Res<Time<Ticks>>,
 ) {
     let mut robot = robots.single_mut();
     let field_to_ground = robot.ground_to_field().inverse();

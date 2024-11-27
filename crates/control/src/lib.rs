@@ -1,4 +1,5 @@
 pub mod a_star;
+pub mod active_player_filter;
 pub mod active_vision;
 pub mod ball_filter;
 pub mod ball_state_composer;

@@ -10,6 +10,7 @@ use bevy::{
     prelude::Res,
     time::{Time, Timer, TimerMode},
 };
+use control::localization::generate_initial_pose;
 use linear_algebra::{point, vector, Isometry2};
 use spl_network_messages::{GameState, Penalty, SubState, Team};
 use types::{
@@ -137,7 +138,6 @@ pub fn auto_assistant_referee(
 ) {
     for command in game_controller_commands.read() {
         match *command {
-            GameControllerCommand::SetGameState(_) => {}
             GameControllerCommand::SetGamePhase(_) => {}
             GameControllerCommand::SetSubState(Some(SubState::CornerKick), team) => {
                 let side = if let Some(ball) = ball.state.as_mut() {
@@ -209,9 +209,29 @@ pub fn auto_assistant_referee(
             }
             GameControllerCommand::SetSubState(..) => {}
             GameControllerCommand::BallIsFree => {}
+            GameControllerCommand::SetGameState(game_state) => {
+                match game_state {
+                    GameState::Ready | GameState::Standby => {
+                        for mut robot in &mut robots {
+                            let parameters = &robot.parameters;
+                            let initial_pose = parameters
+                                .localization
+                                .initial_poses
+                                .get(robot.database.main_outputs.walk_in_position_index)
+                                .cloned()
+                                .unwrap_or_default();
+                            robot.database.main_outputs.ground_to_field = Some(
+                                generate_initial_pose(&initial_pose, &parameters.field_dimensions)
+                                    .as_transform(),
+                            );
+                        }
+                    }
+                    _ => {}
+                };
+            }
             GameControllerCommand::SetKickingTeam(_) => {}
             GameControllerCommand::Goal(_) => {}
-            GameControllerCommand::Penalize(player_number, penalty) => match penalty {
+            GameControllerCommand::Penalize(jersey_number, penalty) => match penalty {
                 Penalty::IllegalMotionInStandby { .. } | Penalty::IllegalMotionInSet { .. } => {
                     // Robots are penalized in place
                 }
@@ -228,22 +248,23 @@ pub fn auto_assistant_referee(
                 | Penalty::Manual { .. } => {
                     if let Some(mut robot) = robots
                         .iter_mut()
-                        .find(|robot| robot.parameters.player_number == player_number)
+                        .find(|robot| robot.parameters.jersey_number == jersey_number)
                     {
                         *robot.ground_to_field_mut() =
                             Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
                     }
                 }
             },
-            GameControllerCommand::Unpenalize(player_number) => {
+            GameControllerCommand::Unpenalize(jersey_number) => {
                 if let Some(mut robot) = robots
                     .iter_mut()
-                    .find(|robot| robot.parameters.player_number == player_number)
+                    .find(|robot| robot.parameters.jersey_number == jersey_number)
                 {
                     *robot.ground_to_field_mut() =
                         Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
                 }
             }
+            GameControllerCommand::SetKeeperNumber(..) => {}
         }
     }
 }

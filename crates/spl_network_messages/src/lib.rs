@@ -1,11 +1,8 @@
-mod bindings;
+pub mod bindings;
 mod game_controller_return_message;
 mod game_controller_state_message;
 
-use std::{
-    fmt::{self, Display, Formatter},
-    time::Duration,
-};
+use std::time::Duration;
 
 use coordinate_systems::Field;
 use linear_algebra::{Point2, Pose2};
@@ -32,7 +29,7 @@ impl Default for HulkMessage {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct StrikerMessage {
-    pub player_number: PlayerNumber,
+    pub jersey_number: u8,
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,
     pub time_to_reach_kick_position: Option<Duration>,
@@ -40,7 +37,7 @@ pub struct StrikerMessage {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct VisualRefereeMessage {
-    pub player_number: PlayerNumber,
+    pub jersey_number: u8,
 }
 
 #[derive(
@@ -61,61 +58,18 @@ pub struct BallPosition<Frame> {
 
 pub const HULKS_TEAM_NUMBER: u8 = 24;
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
-)]
-pub enum PlayerNumber {
-    One,
-    Two,
-    Three,
-    Four,
-    Five,
-    Six,
-    #[default]
-    Seven,
-}
-
-impl Display for PlayerNumber {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        let number = match self {
-            PlayerNumber::One => "1",
-            PlayerNumber::Two => "2",
-            PlayerNumber::Three => "3",
-            PlayerNumber::Four => "4",
-            PlayerNumber::Five => "5",
-            PlayerNumber::Six => "6",
-            PlayerNumber::Seven => "7",
-        };
-
-        write!(formatter, "{number}")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
     use linear_algebra::{Point, Pose2};
 
-    use crate::{BallPosition, HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
+    use crate::{BallPosition, HulkMessage, StrikerMessage, VisualRefereeMessage};
 
     #[test]
     fn hulk_striker_message_size() {
         let test_message = HulkMessage::Striker(StrikerMessage {
-            player_number: PlayerNumber::Seven,
+            jersey_number: 7,
             pose: Pose2::default(),
             ball_position: Some(BallPosition {
                 position: Point::origin(),
@@ -128,9 +82,7 @@ mod tests {
 
     #[test]
     fn hulk_visual_referee_message_size() {
-        let test_message = HulkMessage::VisualReferee(VisualRefereeMessage {
-            player_number: PlayerNumber::Four,
-        });
+        let test_message = HulkMessage::VisualReferee(VisualRefereeMessage { jersey_number: 4 });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }
 }

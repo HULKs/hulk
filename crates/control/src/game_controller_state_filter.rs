@@ -9,7 +9,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, GameState, Penalty, Team};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -38,7 +38,7 @@ pub struct CycleContext {
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    player_number: Parameter<PlayerNumber, "player_number">,
+    jersey_number: Parameter<u8, "jersey_number">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
 
@@ -67,10 +67,10 @@ impl GameControllerStateFilter {
             .as_ref()
             .map(|last| {
                 (
-                    penalty_diff(last.penalties, context.game_controller_state.penalties),
+                    penalty_diff(&last.penalties, &context.game_controller_state.penalties),
                     penalty_diff(
-                        last.opponent_penalties,
-                        context.game_controller_state.opponent_penalties,
+                        &last.opponent_penalties,
+                        &context.game_controller_state.opponent_penalties,
                     ),
                 )
             })
@@ -90,7 +90,7 @@ impl GameControllerStateFilter {
             context.filtered_whistle,
             context.cycle_time,
             *context.visual_referee_proceed_to_ready,
-            *context.player_number,
+            *context.jersey_number,
             did_receive_motion_in_set_penalty,
         );
         let filtered_game_controller_state = FilteredGameControllerState {
@@ -98,7 +98,16 @@ impl GameControllerStateFilter {
             opponent_game_state: game_states.opponent,
             game_phase: context.game_controller_state.game_phase,
             kicking_team: context.game_controller_state.kicking_team,
-            penalties: context.game_controller_state.penalties,
+            penalties: context.game_controller_state.penalties.clone(),
+            opponent_penalties: context.game_controller_state.opponent_penalties.clone(),
+            goal_keeper_number: context
+                .game_controller_state
+                .hulks_team
+                .goal_keeper_jersey_number,
+            opponent_goal_keeper_number: context
+                .game_controller_state
+                .opponent_team
+                .goal_keeper_jersey_number,
             remaining_number_of_messages: context
                 .game_controller_state
                 .hulks_team
@@ -131,7 +140,7 @@ impl GameControllerStateFilter {
         filtered_whistle: &FilteredWhistle,
         cycle_time: &CycleTime,
         visual_referee_proceed_to_ready: bool,
-        player_number: PlayerNumber,
+        jersey_number: u8,
         did_receive_motion_in_set_penalty: bool,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
@@ -168,7 +177,7 @@ impl GameControllerStateFilter {
             }
         }
         let motion_in_set = matches!(
-            game_controller_state.penalties[player_number],
+            game_controller_state.penalties[jersey_number],
             Some(Penalty::IllegalMotionInSet { .. })
         );
         if matches!(self.state, State::Playing { .. }) || motion_in_set {
@@ -466,21 +475,24 @@ impl State {
 }
 
 fn penalty_diff(
-    last: Players<Option<Penalty>>,
-    current: Players<Option<Penalty>>,
-) -> HashMap<PlayerNumber, Penalty> {
-    let current_penalties = current
+    last: &Players<Option<Penalty>>,
+    current: &Players<Option<Penalty>>,
+) -> HashMap<u8, Penalty> {
+    let current_penalties =
+        current
+            .inner
+            .iter()
+            .fold(HashMap::new(), |mut map, (player, penalty)| {
+                if let Some(penalty) = *penalty {
+                    map.insert(*player, penalty);
+                }
+                map
+            });
+    last.inner
         .iter()
-        .fold(HashMap::new(), |mut map, (player, penalty)| {
-            if let Some(penalty) = penalty {
-                map.insert(player, *penalty);
-            }
-            map
-        });
-    last.iter()
         .fold(current_penalties, |mut map, (player, penalty)| {
             if penalty.is_some() {
-                map.remove(&player);
+                map.remove(player);
             }
             map
         })

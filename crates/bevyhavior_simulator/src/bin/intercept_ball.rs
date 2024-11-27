@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use bevy::{ecs::system::SystemParam, prelude::*};
 
 use linear_algebra::{point, vector, Isometry2, Point2, Vector};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use spl_network_messages::{GameState, Penalty};
 use types::ball_position::SimulatorBallState;
 
 use bevyhavior_simulator::{
@@ -29,12 +31,27 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
-    let mut robot = Robot::new(PlayerNumber::One);
+    for number in 8..=20 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::Substitute {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    for number in 2..=7 {
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            number,
+            Penalty::RequestForPickup {
+                remaining: Duration::MAX,
+            },
+        ));
+    }
+    let mut robot = Robot::new(1, 0);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
     robot.parameters.step_planner.max_step_size.forward = 0.45;
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
     ball.state = Some(SimulatorBallState {
         position: Point2::origin(),
         velocity: vector![2.0, 0.1],
@@ -45,11 +62,11 @@ fn startup(
 #[allow(clippy::too_many_arguments)]
 fn update(
     game_controller: ResMut<GameController>,
-    time: ResMut<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
     mut state: State,
+    time: ResMut<Time<Ticks>>,
 ) {
     if let Some(ball) = ball.state.as_mut() {
         let mut robot = robots.single_mut();

@@ -7,11 +7,11 @@ use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
-use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
+use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
-    field_dimensions::{FieldDimensions, Side},
+    field_dimensions::{FieldDimensions, Half, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, WalkSpeed},
@@ -62,7 +62,6 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
-
     parameters: Parameter<BehaviorParameters, "behavior">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -158,10 +157,17 @@ impl Behavior {
             }
         }
 
-        if matches!(world_state.robot.player_number, PlayerNumber::One)
-            && matches!(world_state.robot.role, Role::Keeper)
-        {
-            actions.push(Action::WideStance);
+        if let Some(game_controller_state) = &context.world_state.filtered_game_controller_state {
+            if game_controller_state.goal_keeper_number == context.world_state.robot.jersey_number {
+                if let Some(ground_to_field) = context.world_state.robot.ground_to_field {
+                    if context
+                        .field_dimensions
+                        .is_inside_penalty_box(ground_to_field.translation(), Half::Own)
+                    {
+                        actions.push(Action::WideStance);
+                    }
+                }
+            }
         }
         actions.push(Action::InterceptBall);
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
+use spl_network_messages::{GamePhase, Penalty, SubState, Team};
 
 use crate::{filtered_game_state::FilteredGameState, players::Players};
 
@@ -14,12 +14,15 @@ pub struct FilteredGameControllerState {
     pub game_phase: GamePhase,
     pub kicking_team: Team,
     pub penalties: Players<Option<Penalty>>,
+    pub opponent_penalties: Players<Option<Penalty>>,
+    pub goal_keeper_number: u8,
+    pub opponent_goal_keeper_number: u8,
     pub remaining_number_of_messages: u16,
     pub sub_state: Option<SubState>,
     pub own_team_is_home_after_coin_toss: bool,
 
-    pub new_own_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
-    pub new_opponent_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
+    pub new_own_penalties_last_cycle: HashMap<u8, Penalty>,
+    pub new_opponent_penalties_last_cycle: HashMap<u8, Penalty>,
 }
 
 impl Default for FilteredGameControllerState {
@@ -35,6 +38,9 @@ impl Default for FilteredGameControllerState {
             own_team_is_home_after_coin_toss: Default::default(),
             new_own_penalties_last_cycle: Default::default(),
             new_opponent_penalties_last_cycle: Default::default(),
+            opponent_penalties: Default::default(),
+            goal_keeper_number: 1,
+            opponent_goal_keeper_number: 1,
         }
     }
 }
