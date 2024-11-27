@@ -3522,7 +3522,7 @@ dependencies = [
  "bincode",
  "buffered_watch",
  "calibration",
- "clap 4.5.20",
+ "clap 4.5.21",
  "code_generation",
  "color-eyre",
  "control",
