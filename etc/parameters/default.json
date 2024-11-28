@@ -421,23 +421,23 @@
   },
   "walking_engine": {
     "base": {
-      "foot_lift_apex": 0.008,
+      "foot_lift_apex": 0.013,
       "foot_lift_apex_increase": {
-        "forward": 0.11,
-        "left": 0.12,
-        "turn": 0.025
+        "forward": 0.0,
+        "left": 0.0,
+        "turn": 0.0
       },
-      "foot_offset_left": [0.0, 0.052, 0.0],
-      "foot_offset_right": [0.0, -0.052, 0.0],
-      "step_duration": { "nanos": 235000000, "secs": 0 },
+      "foot_offset_left": [0.0, 0.05, 0.0],
+      "foot_offset_right": [0.0, -0.05, 0.0],
+      "step_duration": { "nanos": 250000000, "secs": 0 },
       "step_duration_increase": {
-        "forward": 0.1,
-        "left": 0.03,
+        "forward": 0.0,
+        "left": 0.6,
         "turn": 0.0
       },
       "step_midpoint": 0.5,
-      "torso_offset": 0.0,
-      "torso_tilt": 0.055,
+      "torso_offset": -0.012,
+      "torso_tilt": 0.0,
       "walk_height": 0.23
     },
     "catching_steps": {
@@ -477,12 +477,12 @@
     "min_step_duration": { "nanos": 100000000, "secs": 0 },
     "sole_pressure_threshold": 0.4,
     "starting_step": {
-      "foot_lift_apex": 0.009,
-      "step_duration": { "nanos": 200000000, "secs": 0 }
+      "foot_lift_apex": 0.0065,
+      "step_duration": { "nanos": 250000000, "secs": 0 }
     },
     "step_midpoint": {
-      "forward": 0.45,
-      "left": 0.35,
+      "forward": 0.5,
+      "left": 0.5,
       "turn": 0.5
     },
     "stiffnesses": {
