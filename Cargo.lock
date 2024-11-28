@@ -9,7 +9,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec3672c180e71eeaaac3a541fbbc5f5ad4def8b747c595ad30d674e43049f7b0"
 dependencies = [
  "ab_glyph_rasterizer",
- "owned_ttf_parser",
+ "owned_ttf_parser 0.25.0",
 ]
 
 [[package]]
@@ -127,7 +127,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
- "getrandom",
+ "getrandom 0.2.15",
  "once_cell",
  "serde",
  "version_check",
@@ -340,7 +340,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -532,7 +532,7 @@ checksum = "3b43422f69d8ff38f95f1b2bb76517c91589a924d1559a0e935d7c8ce0274c11"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -567,7 +567,7 @@ checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -677,7 +677,7 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "path_serde",
  "serde",
  "types",
@@ -786,7 +786,7 @@ checksum = "3fbfc33a4c6b80760bb8bf850a2cc65a1e031da62fd3ca8b552189104dc98514"
 dependencies = [
  "bevy_macro_utils",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -833,7 +833,7 @@ dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -913,7 +913,7 @@ checksum = "bfc65e570012e64a21f3546df68591aaede8349e6174fb500071677f54f06630"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
  "toml_edit 0.22.22",
 ]
 
@@ -925,7 +925,7 @@ checksum = "5421792749dda753ab3718e77d27bfce38443daf1850b836b97530b6245a4581"
 dependencies = [
  "bevy_reflect",
  "glam",
- "rand",
+ "rand 0.8.5",
  "serde",
  "smallvec",
  "thiserror",
@@ -964,7 +964,7 @@ dependencies = [
  "bevy_macro_utils",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
  "uuid",
 ]
 
@@ -1015,7 +1015,7 @@ checksum = "ffb0ec333b5965771153bd746f92ffd8aeeb9d008a8620ffd9ed474859381a5e"
 dependencies = [
  "ahash",
  "bevy_utils_proc_macros",
- "getrandom",
+ "getrandom 0.2.15",
  "hashbrown 0.14.5",
  "thread_local",
  "tracing",
@@ -1030,7 +1030,7 @@ checksum = "38f1ab8f2f6f58439d260081d89a42b02690e5fdd64f814edc9417d33fcf2857"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -1073,7 +1073,7 @@ dependencies = [
  "ittapi",
  "linear_algebra",
  "log",
- "nalgebra",
+ "nalgebra 0.32.6",
  "parameters",
  "parking_lot",
  "path_serde",
@@ -1143,7 +1143,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn 2.0.87",
+ "syn 2.0.89",
  "which",
 ]
 
@@ -1166,7 +1166,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn 2.0.87",
+ "syn 2.0.89",
  "which",
 ]
 
@@ -1323,9 +1323,9 @@ checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
 name = "bytemuck"
-version = "1.19.0"
+version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8334215b81e418a0a7bdb8ef0849474f40bb10c8b71f1c4ed315cff49f32494d"
+checksum = "8b37c88a63ffd85d15b406896cc343916d7cf57838a847b3a6f2ca5d39a5695a"
 dependencies = [
  "bytemuck_derive",
 ]
@@ -1338,7 +1338,7 @@ checksum = "bcfcc3cd946cb52f0bbfdbbcfa2f4e24f75ebb6c0e1002f7c25904fada18b9ec"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -1373,7 +1373,7 @@ dependencies = [
  "geometry",
  "levenberg-marquardt",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "path_serde",
  "projection",
  "serde",
@@ -1438,7 +1438,7 @@ name = "camera_matrix_extractor"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "nalgebra",
+ "nalgebra 0.32.6",
  "serde",
  "serde_json",
  "structopt",
@@ -1577,7 +1577,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -1626,7 +1626,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "source_analyzer",
- "syn 2.0.87",
+ "syn 2.0.89",
  "thiserror",
 ]
 
@@ -1836,7 +1836,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -1860,19 +1860,28 @@ dependencies = [
  "linear_algebra",
  "log",
  "motionfile",
- "nalgebra",
+ "nalgebra 0.32.6",
  "num-traits",
  "ordered-float",
  "path_serde",
  "projection",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "serde",
  "smallvec",
  "spl_network_messages",
  "splines",
  "types",
  "walking_engine",
+]
+
+[[package]]
+name = "conv"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78ff10625fd0ac447827aa30ea8b861fead473bb60aeb73af6c1c58caf0d1299"
+dependencies = [
+ "custom_derive",
 ]
 
 [[package]]
@@ -2045,6 +2054,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
+name = "custom_derive"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef8ae57c4978a2acd8b869ce6b9ca1dfe817bff704c220209fdef2c0b75a01b9"
+
+[[package]]
 name = "data-encoding"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2088,7 +2103,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2145,7 +2160,7 @@ checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2191,6 +2206,16 @@ dependencies = [
  "bytemuck",
  "emath",
  "serde",
+]
+
+[[package]]
+name = "edge_detection"
+version = "0.1.0"
+dependencies = [
+ "image 0.24.9",
+ "imageproc",
+ "linear_algebra",
+ "types",
 ]
 
 [[package]]
@@ -2462,7 +2487,7 @@ checksum = "a1ab991c1362ac86c61ab6f556cff143daa22e5a15e4e189df818b2fd19fe65b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2483,7 +2508,7 @@ checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2495,7 +2520,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2516,7 +2541,7 @@ checksum = "de0d48a183585823424a4ce1aa132d174a6a81bd540895822eb4c8373a8e49e8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2527,7 +2552,7 @@ checksum = "2f9ed6b3789237c8a0c1c505af1c7eb2c560df6186f01b098c3a1064ea532f38"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2678,16 +2703,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fast_image_resize"
-version = "2.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc789a40040e11bbe4ba31ca319406805a12fe3f8d71314bbc4bd076602ad55a"
-dependencies = [
- "num-traits",
- "thiserror",
-]
-
-[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2728,10 +2743,10 @@ dependencies = [
  "approx",
  "coordinate_systems",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "num-traits",
- "rand",
- "rand_distr",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
  "serde",
  "thiserror",
  "types",
@@ -2792,7 +2807,7 @@ checksum = "1a5c6c585bc94aaf2c7b51dd4c2ba22680844aba4c687be581871a6f518c5742"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2884,7 +2899,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -2943,7 +2958,7 @@ dependencies = [
  "approx_derive",
  "coordinate_systems",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "path_serde",
  "serde",
 ]
@@ -2960,6 +2975,17 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "wasi 0.9.0+wasi-snapshot-preview1",
+]
+
+[[package]]
+name = "getrandom"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
@@ -2967,7 +2993,7 @@ dependencies = [
  "cfg-if",
  "js-sys",
  "libc",
- "wasi",
+ "wasi 0.11.0+wasi-snapshot-preview1",
  "wasm-bindgen",
 ]
 
@@ -3039,7 +3065,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e05e7e6723e3455f4818c7b26e855439f7546cf617ef669d1adedb8669e5cb9"
 dependencies = [
  "bytemuck",
- "rand",
+ "rand 0.8.5",
  "serde",
 ]
 
@@ -3408,7 +3434,7 @@ dependencies = [
  "libc",
  "linear_algebra",
  "log",
- "nalgebra",
+ "nalgebra 0.32.6",
  "object_detection",
  "parameters",
  "path_serde",
@@ -3479,7 +3505,7 @@ dependencies = [
  "libc",
  "linear_algebra",
  "log",
- "nalgebra",
+ "nalgebra 0.32.6",
  "nao_camera",
  "opusfile-ng",
  "parking_lot",
@@ -3519,7 +3545,7 @@ dependencies = [
  "ittapi",
  "linear_algebra",
  "log",
- "nalgebra",
+ "nalgebra 0.32.6",
  "object_detection",
  "parameters",
  "path_serde",
@@ -3550,9 +3576,9 @@ dependencies = [
  "hulk",
  "linear_algebra",
  "log",
- "nalgebra",
+ "nalgebra 0.32.6",
  "parking_lot",
- "rand",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "spl_network",
@@ -3766,7 +3792,7 @@ checksum = "1ec89e9337638ecdc08744df490b221a7399bf8d164eb52a665454e60e075ad6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -3818,6 +3844,24 @@ dependencies = [
  "byteorder-lite",
  "num-traits",
  "png",
+]
+
+[[package]]
+name = "imageproc"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6aee993351d466301a29655d628bfc6f5a35a0d062b6160ca0808f425805fd7"
+dependencies = [
+ "approx",
+ "conv",
+ "image 0.24.9",
+ "itertools 0.10.5",
+ "nalgebra 0.30.1",
+ "num",
+ "rand 0.7.3",
+ "rand_distr 0.2.2",
+ "rayon",
+ "rusttype",
 ]
 
 [[package]]
@@ -3952,9 +3996,9 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.11"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
+checksum = "540654e97a3f4470a492cd30ff187bc95d89557a903a2bbf112e2fae98104ef2"
 
 [[package]]
 name = "ittapi"
@@ -4048,7 +4092,7 @@ version = "0.1.0"
 dependencies = [
  "coordinate_systems",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "types",
 ]
 
@@ -4077,7 +4121,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1204bd21e2f239566fdebafcab83adfd0b8cb0977bb43e09abfe18041d48ad8"
 dependencies = [
  "cfg-if",
- "nalgebra",
+ "nalgebra 0.32.6",
  "num-traits",
  "rustc_version",
 ]
@@ -4151,11 +4195,11 @@ name = "linear_algebra"
 version = "0.1.0"
 dependencies = [
  "approx",
- "nalgebra",
+ "nalgebra 0.32.6",
  "num-traits",
  "path_serde",
  "serde",
- "simba",
+ "simba 0.8.1",
 ]
 
 [[package]]
@@ -4347,7 +4391,7 @@ checksum = "80e04d1dcff3aae0704555fe5fee3bcfaf3d1fdf8a7e521d5b9d2b42acb52cec"
 dependencies = [
  "hermit-abi 0.3.9",
  "libc",
- "wasi",
+ "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.52.0",
 ]
 
@@ -4405,6 +4449,21 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb2d0de08694bed883320212c18ee3008576bfe8c306f4c3c4a58b4876998be"
+dependencies = [
+ "approx",
+ "matrixmultiply",
+ "num-complex",
+ "num-rational",
+ "num-traits",
+ "simba 0.7.3",
+ "typenum",
+]
+
+[[package]]
+name = "nalgebra"
 version = "0.32.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b5c17de023a86f59ed79891b2e5d5a94c705dbe904a5b5c9c952ea6221b03e4"
@@ -4416,7 +4475,7 @@ dependencies = [
  "num-rational",
  "num-traits",
  "serde",
- "simba",
+ "simba 0.8.1",
  "typenum",
 ]
 
@@ -4428,7 +4487,7 @@ checksum = "254a5372af8fc138e36684761d3c0cdb758a4410e938babcff1c860ce14ddbfc"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -4616,6 +4675,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "num"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35bd024e8b2ff75562e5f34e7f4905839deb4b22955ef5e73d2fea1b9813cb23"
+dependencies = [
+ "num-bigint",
+ "num-complex",
+ "num-integer",
+ "num-iter",
+ "num-rational",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "num-complex"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4639,7 +4722,7 @@ checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -4652,11 +4735,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-iter"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1429034a0490724d0075ebb2bc9e875d6503c3cf69e235a8941aa757d83ef5bf"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "num-rational"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f83d14da390562dca69fc84082e73e548e1ad308d24accdedd2720017cb37824"
 dependencies = [
+ "num-bigint",
  "num-integer",
  "num-traits",
 ]
@@ -4689,7 +4784,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -4870,7 +4965,7 @@ dependencies = [
  "hardware",
  "itertools 0.10.5",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "ndarray",
  "openvino",
  "ordered-float",
@@ -4931,7 +5026,7 @@ checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -5048,11 +5143,20 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "owned_ttf_parser"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05e6affeb1632d6ff6a23d2cd40ffed138e82f1532571a26f527c8a284bb2fbb"
+dependencies = [
+ "ttf-parser 0.15.2",
+]
+
+[[package]]
+name = "owned_ttf_parser"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ec719bbf3b2a81c109a4e20b1f129b5566b7dce654bc3872f6a05abf82b2c4"
 dependencies = [
- "ttf-parser",
+ "ttf-parser 0.25.0",
 ]
 
 [[package]]
@@ -5132,7 +5236,7 @@ dependencies = [
 name = "path_serde"
 version = "0.1.0"
 dependencies = [
- "nalgebra",
+ "nalgebra 0.32.6",
  "num-traits",
  "path_serde_derive",
  "serde",
@@ -5146,7 +5250,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -5318,7 +5422,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64d1ec885c64d0457d564db4ec299b2dae3f9c02808b8ad9c3a089c591b18033"
 dependencies = [
  "proc-macro2",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -5375,9 +5479,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.89"
+version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f139b0662de085916d1fb67d2b4169d1addddda1919e696f3252b740b629986e"
+checksum = "37d3544b3f2748c54e147655edb5025752e2303145b5aefb3c3ea2c78b973bb0"
 dependencies = [
  "unicode-ident",
 ]
@@ -5395,7 +5499,7 @@ dependencies = [
  "approx",
  "coordinate_systems",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "path_serde",
  "serde",
  "thiserror",
@@ -5440,13 +5544,36 @@ dependencies = [
 
 [[package]]
 name = "rand"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a6b1679d49b24bbfe0c803429aa1874472f50d9b363131f0e89fc356b544d03"
+dependencies = [
+ "getrandom 0.1.16",
+ "libc",
+ "rand_chacha 0.2.2",
+ "rand_core 0.5.1",
+ "rand_hc",
+]
+
+[[package]]
+name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
- "rand_chacha",
- "rand_core",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4c8ed856279c9737206bf725bf36935d8666ead7aa69b52be55af369d193402"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.5.1",
 ]
 
 [[package]]
@@ -5456,8 +5583,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
- "rand_core",
+ "rand_core 0.6.4",
  "serde",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90bde5296fc891b0cef12a6d03ddccc162ce7b2aff54160af9338f8d40df6d19"
+dependencies = [
+ "getrandom 0.1.16",
 ]
 
 [[package]]
@@ -5466,7 +5602,16 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.15",
+]
+
+[[package]]
+name = "rand_distr"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96977acbdd3a6576fb1d27391900035bf3863d4a16422973a409b488cf29ffb2"
+dependencies = [
+ "rand 0.7.3",
 ]
 
 [[package]]
@@ -5476,7 +5621,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
- "rand",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "rand_hc"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
+dependencies = [
+ "rand_core 0.5.1",
 ]
 
 [[package]]
@@ -5485,11 +5639,12 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "geometry",
+ "itertools 0.10.5",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "ordered-float",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
 ]
 
 [[package]]
@@ -5554,7 +5709,7 @@ version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.15",
  "libredox",
  "thiserror",
 ]
@@ -5764,6 +5919,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusttype"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ff8374aa04134254b7995b63ad3dc41c7f7236f69528b28553da7d72efaa967"
+dependencies = [
+ "ab_glyph_rasterizer",
+ "owned_ttf_parser 0.15.2",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5794,7 +5959,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -5875,7 +6040,7 @@ source = "git+https://github.com/HULKs/serde.git?rev=73d5e8e404a874ad90023810d63
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -5907,7 +6072,7 @@ checksum = "6c64451ba24fc7a6a2d60fc75dd9c83c90903b19028d4eff35e88fc1e86564e9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -5993,6 +6158,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "simba"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3fd720c48c53cace224ae62bef1bbff363a70c68c4802a78b5cc6159618176"
+dependencies = [
+ "approx",
+ "num-complex",
+ "num-traits",
+ "paste",
+ "wide",
 ]
 
 [[package]]
@@ -6136,7 +6314,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "syn 2.0.87",
+ "syn 2.0.89",
  "thiserror",
  "threadbound",
  "toposort-scc",
@@ -6178,7 +6356,7 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "num-derive",
  "num-traits",
  "path_serde",
@@ -6273,9 +6451,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.87"
+version = "2.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25aa4ce346d03a6dcd68dd8b4010bcb74e54e62c90c573f394c46eae99aba32d"
+checksum = "44d46482f1c1c87acd84dea20c1bf5ebff4c757009ed6bf19cfd36fb10e92c4e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6296,7 +6474,7 @@ checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -6403,7 +6581,7 @@ checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -6525,7 +6703,7 @@ checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -6639,7 +6817,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -6720,6 +6898,12 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ttf-parser"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
+
+[[package]]
+name = "ttf-parser"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5902c5d130972a0000f60860bfbf46f7ca3db5391eddfedd1b8728bd9dc96c0e"
@@ -6736,7 +6920,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
- "rand",
+ "rand 0.8.5",
  "sha1",
  "thiserror",
  "url",
@@ -6752,6 +6936,7 @@ dependencies = [
  "ball_filter",
  "bincode",
  "buffered_watch",
+ "calibration",
  "chrono",
  "clap 4.5.21",
  "color-eyre",
@@ -6774,7 +6959,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "mlua",
- "nalgebra",
+ "nalgebra 0.32.6",
  "parameters",
  "projection",
  "repository",
@@ -6820,7 +7005,7 @@ dependencies = [
  "geometry",
  "image 0.24.9",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "ordered-float",
  "path_serde",
  "serde",
@@ -6847,9 +7032,9 @@ checksum = "7e51b68083f157f853b6379db119d1c1be0e6e4dec98101079dec41f6f5cf6df"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.13"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e91b56cd4cadaeb79bbf1a5645f6b4f8dc5bde8834ad5894a8db35fda9efa1fe"
+checksum = "adb9e6ca4f869e1180728b7950e35922a7fc6397f7b641499e8f3ef06e50dc83"
 
 [[package]]
 name = "unicode-segmentation"
@@ -6922,7 +7107,7 @@ version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8c5f0a0af699448548ad1a2fbf920fb4bee257eae39953ba95cb84891a0446a"
 dependencies = [
- "getrandom",
+ "getrandom 0.2.15",
 ]
 
 [[package]]
@@ -6959,18 +7144,18 @@ dependencies = [
  "compiled-nn",
  "context_attribute",
  "coordinate_systems",
- "fast_image_resize",
+ "edge_detection",
  "filtering",
  "framework",
  "geometry",
  "hardware",
  "itertools 0.10.5",
  "linear_algebra",
- "nalgebra",
+ "nalgebra 0.32.6",
  "ordered-float",
  "projection",
- "rand",
- "rand_chacha",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "ransac",
  "serde",
  "types",
@@ -7001,7 +7186,7 @@ dependencies = [
  "kinematics",
  "linear_algebra",
  "motionfile",
- "nalgebra",
+ "nalgebra 0.32.6",
  "path_serde",
  "serde",
  "splines",
@@ -7016,6 +7201,12 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
+
+[[package]]
+name = "wasi"
+version = "0.9.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
@@ -7045,7 +7236,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
  "wasm-bindgen-shared",
 ]
 
@@ -7079,7 +7270,7 @@ checksum = "26c6ab57572f7a24a4985830b120de1594465e5d500f24afe89e16b4e833ef68"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -7422,9 +7613,9 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.28"
+version = "0.7.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b828f995bf1e9622031f8009f8481a85406ce1f4d4588ff746d872043e855690"
+checksum = "58e6db2670d2be78525979e9a5f9c69d296fd7d670549fe9ebf70f8708cb5019"
 dependencies = [
  "bytemuck",
  "safe_arch",
@@ -7539,7 +7730,7 @@ checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -7561,7 +7752,7 @@ checksum = "053c4c462dc91d3b1504c6fe5a726dd15e216ba718e84a0e46a88fbe5ded3515"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -7988,7 +8179,7 @@ checksum = "28cc31741b18cb6f1d5ff12f5b7523e3d6eb0852bbbad19d73905511d9849b95"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
  "synstructure",
 ]
 
@@ -8019,7 +8210,7 @@ dependencies = [
  "nix 0.26.4",
  "once_cell",
  "ordered-stream",
- "rand",
+ "rand 0.8.5",
  "serde",
  "serde_repr",
  "sha1",
@@ -8076,7 +8267,7 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]
@@ -8096,7 +8287,7 @@ checksum = "0ea7b4a3637ea8669cedf0f1fd5c286a17f3de97b8dd5a70a6c167a1730e63a5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
  "synstructure",
 ]
 
@@ -8119,7 +8310,7 @@ checksum = "6eafa6dfb17584ea3e2bd6e76e0cc15ad7af12b09abdd1ca55961bed9b1063c6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.87",
+ "syn 2.0.89",
 ]
 
 [[package]]

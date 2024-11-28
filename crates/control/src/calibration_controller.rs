@@ -4,10 +4,11 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use calibration::{
+    center_circle::{measurement::Measurement, residuals::CenterCircleResiduals},
     corrections::Corrections,
-    goal_box::{measurement::Measurement, residuals::GoalBoxResiduals},
     solve,
 };
+
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
@@ -50,8 +51,7 @@ pub struct CycleContext {
     max_retries_per_capture: Parameter<u32, "calibration_controller.max_retries_per_capture">,
 
     calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_inner.measurements">,
-    last_calibration_corrections:
-        AdditionalOutput<Option<Corrections>, "last_calibration_corrections">,
+    last_calibration_corrections: AdditionalOutput<Corrections, "last_calibration_corrections">,
 }
 
 #[context]
@@ -186,9 +186,16 @@ impl CalibrationController {
         context
             .calibration_measurements
             .fill_if_subscribed(|| self.inner_states.measurements.clone());
+
         context
             .last_calibration_corrections
-            .fill_if_subscribed(|| self.corrections);
+            .mutate_if_subscribed(|data| {
+                if let Some(corrections) = self.corrections {
+                    data.replace(corrections);
+                } else {
+                    data.take();
+                }
+            });
 
         Ok(MainOutputs {
             calibration_command: self
@@ -231,7 +238,7 @@ impl CalibrationController {
 
     fn calibrate(&mut self, context: &CycleContext) -> CalibrationState {
         // TODO Handle not enough inner.measurements
-        let solved_result = solve::<GoalBoxResiduals>(
+        let solved_result = solve::<CenterCircleResiduals>(
             Corrections::default(),
             self.inner_states.measurements.clone(),
             *context.field_dimensions,
@@ -276,16 +283,16 @@ fn collect_filtered_values(
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
 fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
     let look_at_points: Vec<Point2<Ground>> = vec![
+        point![1.0, -0.2],
+        point![2.0, -0.2],
+        point![2.0, 0.0],
+        point![2.0, 0.2],
+        point![1.0, 0.2],
         point![1.0, 0.0],
-        point![1.0, -0.5],
-        point![3.0, -0.5],
-        point![3.0, 0.0],
-        point![3.0, 0.5],
-        point![1.0, -0.5],
     ];
 
-    look_at_points
+    [CameraPosition::Top, CameraPosition::Bottom]
         .iter()
-        .map(|&point| (point, CameraPosition::Top))
+        .flat_map(|&position| look_at_points.iter().map(move |&point| (point, position)))
         .collect()
 }

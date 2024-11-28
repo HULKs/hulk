@@ -1,10 +1,13 @@
+use ordered_float::NotNan;
+use rand::{seq::SliceRandom, Rng};
+
 use geometry::{
     line::{Line, Line2},
     Distance,
 };
 use linear_algebra::Point2;
-use ordered_float::NotNan;
-use rand::{seq::SliceRandom, Rng};
+
+pub mod circles;
 
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {
