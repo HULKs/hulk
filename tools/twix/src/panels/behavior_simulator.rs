@@ -97,22 +97,27 @@ impl Widget for &mut BehaviorSimulatorPanel {
                     };
                 });
                 ui.horizontal(|ui| {
-                    let robots = (1..=7).collect::<Vec<_>>();
-                    let robot_selection = SegmentedControl::new("robot-selector", &robots).ui(ui);
-                    self.selected_robot = *robot_selection.inner;
-                    if robot_selection.response.changed() {
-                        self.nao.write(
-                            "parameters.selected_robot",
-                            TextOrBinary::Text(self.selected_robot.into()),
-                        );
-                    };
-
                     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                        ui.add_space(50.0);
+
                         ui.add(
                             Slider::new(&mut self.playback_speed, -10.0..=10.0)
                                 .step_by(0.1)
                                 .text("Playback Speed"),
-                        )
+                        );
+
+                        ui.add_space(50.0);
+
+                        let robots = (1..=7).collect::<Vec<_>>();
+                        let robot_selection =
+                            SegmentedControl::new("robot-selector", &robots).ui(ui);
+                        self.selected_robot = *robot_selection.inner;
+                        if robot_selection.response.changed() {
+                            self.nao.write(
+                                "parameters.selected_robot",
+                                TextOrBinary::Text(self.selected_robot.into()),
+                            );
+                        };
                     });
                 });
                 ui.checkbox(&mut self.playing, "Play")
@@ -128,7 +133,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
             new_frame = Some(new_frame.unwrap_or(self.selected_frame) + 10.0);
         }
         if let Some(new_frame) = new_frame {
-            self.selected_frame = dbg!(new_frame + frame_count as f64) % frame_count as f64;
+            self.selected_frame = (new_frame + frame_count as f64) % frame_count as f64;
             self.nao.write(
                 "parameters.selected_frame",
                 TextOrBinary::Text((self.selected_frame as usize).into()),
