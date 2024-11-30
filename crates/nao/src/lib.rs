@@ -58,7 +58,7 @@ impl Nao {
 
     pub async fn get_os_version(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("cat /etc/os-release")
             .output()
             .await
@@ -92,8 +92,8 @@ impl Nao {
         Ok(path)
     }
 
-    fn ssh_to_nao(&self) -> Command {
-        let temp_file = Self::create_login_script().unwrap();
+    fn ssh_to_nao(&self) -> Result<Command> {
+        let temp_file = Self::create_login_script()?;
 
         let mut command = Command::new("ssh");
         command.env("SSH_ASKPASS", temp_file.as_os_str());
@@ -103,7 +103,8 @@ impl Nao {
             command.arg(flag);
         }
         command.arg(self.host.to_string());
-        command
+
+        Ok(command)
     }
 
     pub fn rsync_with_nao(&self, mkpath: bool) -> Command {
@@ -124,7 +125,7 @@ impl Nao {
 
     pub async fn execute_shell(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .status()
             .await
             .wrap_err("failed to execute shell ssh command")?;
@@ -138,7 +139,7 @@ impl Nao {
 
     pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("systemctl")
             .arg(match action {
                 SystemctlAction::Disable => "disable",
@@ -171,7 +172,7 @@ impl Nao {
 
     pub async fn delete_logs(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("rm")
             .arg("-r")
             .arg("-f")
@@ -193,7 +194,7 @@ impl Nao {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("sudo dmesg > /home/nao/hulk/logs/kernel.log")
             .status()
             .await
@@ -216,7 +217,7 @@ impl Nao {
 
     pub async fn list_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("ls")
             .arg("hulk/logs/*")
             .output()
@@ -232,7 +233,7 @@ impl Nao {
 
     pub async fn retrieve_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("tail")
             .arg("-n+1")
             .arg("hulk/logs/hulk.{out,err}")
@@ -249,7 +250,7 @@ impl Nao {
 
     pub async fn power_off(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("systemctl")
             .arg("poweroff")
             .status()
@@ -265,7 +266,7 @@ impl Nao {
 
     pub async fn reboot(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("systemctl")
             .arg("reboot")
             .status()
@@ -306,7 +307,7 @@ impl Nao {
 
     pub async fn get_network_status(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -324,7 +325,7 @@ impl Nao {
 
     pub async fn get_available_networks(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -342,7 +343,7 @@ impl Nao {
 
     pub async fn scan_networks(&self) -> Result<()> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -388,9 +389,9 @@ impl Nao {
                 _ => format!("connect {network}"),
             }
         );
-        let mut command = self.ssh_to_nao();
-        command.arg(command_string);
-        let status = command
+        let status = self
+            .ssh_to_nao()?
+            .arg(command_string)
             .status()
             .await
             .wrap_err("failed to execute iwctl ssh command")?;
