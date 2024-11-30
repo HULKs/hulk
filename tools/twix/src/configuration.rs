@@ -39,8 +39,28 @@ pub struct NaoConfig {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct RawNaoConfig {
+    pub lowest: Option<u8>,
+    pub highest: Option<u8>,
+}
+
+impl Merge<RawNaoConfig> for NaoConfig {
+    fn merge(&mut self, other: RawNaoConfig) {
+        self.lowest.merge(other.lowest);
+        self.highest.merge(other.highest);
+    }
+}
+
+impl Merge<NaoConfig> for NaoConfig {
+    fn merge(&mut self, other: NaoConfig) {
+        *self = other;
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct RawConfiguration {
     pub keys: Option<keys::Keybinds>,
+    pub naos: Option<RawNaoConfig>,
 }
 
 impl Configuration {
@@ -72,17 +92,15 @@ impl Configuration {
 
 impl Merge<RawConfiguration> for Configuration {
     fn merge(&mut self, other: RawConfiguration) {
-        let RawConfiguration { keys } = other;
-
-        self.keys.merge(keys);
+        self.keys.merge(other.keys);
+        self.naos.merge(other.naos);
     }
 }
 
 impl Merge<Configuration> for Configuration {
     fn merge(&mut self, other: Configuration) {
-        let Configuration { keys, .. } = other;
-
-        self.keys.merge(keys);
+        self.keys.merge(other.keys);
+        self.naos.merge(other.naos);
     }
 }
 
@@ -143,8 +161,8 @@ mod tests {
                     C-b = "focus_left"
 
                     [naos]
-                    lowest = 1
-                    highest = 2
+                    lowest = 3
+                    highest = 4
                 "#
             )
             .unwrap()
@@ -158,12 +176,18 @@ mod tests {
                 [keys]
                 C-a = "focus_left"
                 C-S-a = "reconnect"
+
+                [naos]
+                lowest = 1
+                highest = 2
             "#,
         )
         .unwrap();
 
         let user_config: RawConfiguration = toml::from_str(
             r#"
+                [keys]
+                C-a = "focus_right"
             "#,
         )
         .unwrap();
@@ -174,10 +198,14 @@ mod tests {
             default_config,
             toml::from_str(
                 r#"
-                [keys]
-                C-a = "focus_left"
-                C-S-a = "reconnect"
-            "#,
+                    [keys]
+                    C-a = "focus_right"
+                    C-S-a = "reconnect"
+
+                    [naos]
+                    lowest = 1
+                    highest = 2
+                "#,
             )
             .unwrap()
         );
