@@ -93,7 +93,8 @@ impl Nao {
     }
 
     fn ssh_to_nao(&self) -> Result<Command> {
-        let temp_file = Self::create_login_script()?;
+        let temp_file =
+            Self::create_login_script().wrap_err("failed to create ssh login script")?;
 
         let mut command = Command::new("ssh");
         command.env("SSH_ASKPASS", temp_file.as_os_str());
