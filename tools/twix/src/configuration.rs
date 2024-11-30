@@ -1,16 +1,17 @@
-use std::path::{Path, PathBuf};
-
-use serde::Deserialize;
-use thiserror::Error;
-
 pub mod keybind_plugin;
 pub mod keys;
+pub mod merge;
+
+use std::path::{Path, PathBuf};
+
+use merge::Merge;
+use serde::Deserialize;
 
 const DEFAULT_CONFIG: &str = include_str!("../config_default.toml");
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("IO error: {0}")]
+    #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
     #[error("TOML parsing error: {0}")]
     Parsing(#[from] toml::de::Error),
@@ -29,6 +30,11 @@ pub struct Configuration {
     pub keys: keys::Keybinds,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RawConfiguration {
+    pub keys: Option<keys::Keybinds>,
+}
+
 impl Configuration {
     pub fn load() -> Result<Self, Error> {
         Self::load_from_file(config_path())
@@ -38,7 +44,7 @@ impl Configuration {
         match std::fs::read_to_string(&path) {
             Ok(config_file) => {
                 let mut configuration = Self::default();
-                let user_configuration: Configuration = toml::from_str(&config_file)?;
+                let user_configuration: RawConfiguration = toml::from_str(&config_file)?;
 
                 configuration.merge(user_configuration);
 
@@ -54,9 +60,19 @@ impl Configuration {
             }
         }
     }
+}
 
-    pub fn merge(&mut self, other: Self) {
-        let Self { keys } = other;
+impl Merge<RawConfiguration> for Configuration {
+    fn merge(&mut self, other: RawConfiguration) {
+        let RawConfiguration { keys } = other;
+
+        self.keys.merge(keys);
+    }
+}
+
+impl Merge<Configuration> for Configuration {
+    fn merge(&mut self, other: Configuration) {
+        let Configuration { keys } = other;
 
         self.keys.merge(keys);
     }
@@ -70,7 +86,9 @@ impl Default for Configuration {
 
 #[cfg(test)]
 mod tests {
-    use super::{Configuration, DEFAULT_CONFIG};
+    use crate::configuration::merge::Merge;
+
+    use super::{Configuration, RawConfiguration, DEFAULT_CONFIG};
 
     #[test]
     fn parse_default_config() {
@@ -108,6 +126,38 @@ mod tests {
                     C-A = "focus_right"
                     C-b = "focus_left"
                 "#
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn merge_partial_config() {
+        let mut default_config: Configuration = toml::from_str(
+            r#"
+                [keys]
+                C-a = "focus_left"
+                C-S-a = "reconnect"
+            "#,
+        )
+        .unwrap();
+
+        let user_config: RawConfiguration = toml::from_str(
+            r#"
+            "#,
+        )
+        .unwrap();
+
+        default_config.merge(user_config);
+
+        assert_eq!(
+            default_config,
+            toml::from_str(
+                r#"
+                [keys]
+                C-a = "focus_left"
+                C-S-a = "reconnect"
+            "#,
             )
             .unwrap()
         );
