@@ -1,7 +1,9 @@
 # Setup
 
-Use [uv](https://docs.astral.sh/uv/).
-After installing uv, run `uv sync` to install all dependencies or directly execute an example from below.
+Make sure `glfw` is installed on your machine.
+
+For python use [uv](https://docs.astral.sh/uv/).
+After installing uv, run `uv sync` to install all python dependencies or directly execute an example from below.
 
 ## Example usage
 
