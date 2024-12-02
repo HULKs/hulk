@@ -1,9 +1,9 @@
+from pathlib import Path
+
 import numpy as np
 from gymnasium import utils
-
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
-from pathlib import Path
 
 DEFAULT_CAMERA_CONFIG = {
     "trackbodyid": 1,
@@ -118,7 +118,9 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         self.set_state(
             face_down_keyframe_qpos
             + self.np_random.uniform(
-                low=-half_random_offset, high=half_random_offset, size=self.model.nq
+                low=-half_random_offset,
+                high=half_random_offset,
+                size=self.model.nq,
             ),
             self.init_qvel
             + self.np_random.uniform(

@@ -1,13 +1,12 @@
 import os
 
 import gymnasium as gym
-import wandb
-
 import torch
+import wandb
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
 from stable_baselines3.common.utils import get_device
+from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
 from wandb.integration.sb3 import WandbCallback
 
 if get_device() != torch.device("cpu"):
@@ -80,7 +79,9 @@ env = VecVideoRecorder(
     record_video_trigger=capped_cubic_video_schedule,
     video_length=200,
 )
-model = PPO(config["policy_type"], env, verbose=1, tensorboard_log=f"runs/{run.id}")
+model = PPO(
+    config["policy_type"], env, verbose=1, tensorboard_log=f"runs/{run.id}"
+)
 model.learn(
     total_timesteps=config["total_timesteps"],
     callback=WandbCallback(
