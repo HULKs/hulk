@@ -5,14 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "gymnasium[classic-control,mujoco]==0.28.1",
+    "mujoco>=3.2.4",
+    "gymnasium[classic-control]",
     "ipykernel>=6.29.5",
     "mediapy>=1.2.2",
-    "mujoco>=3.2.4",
     "numpy>=2.1.2",
     "scipy>=1.14.1",
     "moviepy>=1.0.3",
     "stable-baselines3>=2.3.2",
+    "wandb>=0.18.5",
+    "tensorboard>=2.18.0",
 ]
 
 [tool.ruff]
@@ -64,8 +66,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S603"]
 
-[tool.ruff.lint.isort]
-required-imports = ["from __future__ import annotations"]
-
 [tool.uv]
-dev-dependencies = ["pytest>=8.3.3", "ruff>=0.7.3"]
+
+dev-dependencies = [
+    "neovim>=0.3.1",
+    "pytest>=8.3.3",
+    "ruff>=0.7.3",
+]
