@@ -73,8 +73,6 @@ fn main() -> Result<()> {
     let vision_top_receiver = replayer.vision_top_receiver();
     let vision_bottom_receiver = replayer.vision_bottom_receiver();
 
-    dbg!(replayer.get_recording_indices().keys().collect::<Vec<_>>());
-
     for (instance_name, mut receiver) in [
         ("VisionTop", vision_top_receiver),
         ("VisionBottom", vision_bottom_receiver),
