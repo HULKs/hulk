@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,8 @@ use crate::dribble_path_planner;
 use super::{
     animation, calibrate,
     defend::Defend,
-    dribble, fall_safely,
+    dribble::{self, is_kick_pose_reached},
+    fall_safely,
     head::LookAction,
     initial, intercept_ball, jump, look_around, lost_ball, no_ground_contact, penalize,
     prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
@@ -46,6 +47,7 @@ pub struct Behavior {
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
+    unprecise_threshold_start_time: Option<SystemTime>,
 }
 
 #[context]
@@ -62,7 +64,6 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
-
     parameters: Parameter<BehaviorParameters, "behavior">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -82,6 +83,7 @@ pub struct CycleContext {
     support_walk_speed: Parameter<WalkSpeed, "walk_speed.support">,
     walk_to_kickoff_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_kickoff">,
     walk_to_penalty_kick_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_penalty_kick">,
+    precision_kick_timeout: Parameter<Duration, "precision_kick_timeout">,
 }
 
 #[context]
@@ -98,6 +100,7 @@ impl Behavior {
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
+            unprecise_threshold_start_time: None,
         })
     }
 
@@ -275,6 +278,51 @@ impl Behavior {
             .dribble_path_obstacles_output
             .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
+        if let (Some(kick_decisions), Some(instant_kick_decisions)) = (
+            world_state.kick_decisions.as_ref(),
+            world_state.instant_kick_decisions.as_ref(),
+        ) {
+            let available_unprecise_kicks = kick_decisions
+                .iter()
+                .chain(instant_kick_decisions.iter())
+                .find(|decision| {
+                    is_kick_pose_reached(
+                        decision.kick_pose,
+                        context.in_walk_kicks[decision.variant].reached_thresholds,
+                        world_state.robot.ground_to_upcoming_support,
+                    )
+                });
+            let available_precise_kicks = kick_decisions
+                .iter()
+                .chain(instant_kick_decisions.iter())
+                .find(|decision| {
+                    is_kick_pose_reached(
+                        decision.kick_pose,
+                        context.in_walk_kicks[decision.variant].precision_kick_reached_thresholds,
+                        world_state.robot.ground_to_upcoming_support,
+                    )
+                });
+
+            match (
+                available_unprecise_kicks,
+                available_precise_kicks,
+                self.unprecise_threshold_start_time.is_none(),
+            ) {
+                (Some(available_unprecise_kicks), None, true) => {
+                    if is_kick_pose_reached(
+                        available_unprecise_kicks.kick_pose,
+                        context.in_walk_kicks[available_unprecise_kicks.variant].reached_thresholds,
+                        world_state.robot.ground_to_upcoming_support,
+                    ) {
+                        self.unprecise_threshold_start_time = Some(context.cycle_time.start_time);
+                    }
+                }
+                (_, Some(_), false) => {
+                    self.unprecise_threshold_start_time = Some(context.cycle_time.start_time);
+                }
+                _ => {}
+            }
+        }
         let (action, motion_command) = actions
             .iter()
             .find_map(|action| {
@@ -376,6 +424,9 @@ impl Behavior {
                         &context.parameters.dribbling,
                         dribble_path.clone(),
                         *context.dribble_walk_speed,
+                        *context.precision_kick_timeout,
+                        self.unprecise_threshold_start_time,
+                        context.cycle_time.start_time,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),

@@ -2,13 +2,14 @@ use coordinate_systems::{Ground, UpcomingSupport};
 use geometry::look_at::LookAt;
 use linear_algebra::{Isometry2, Point, Pose2};
 use spl_network_messages::GamePhase;
+use std::time::{Duration, SystemTime};
 use types::{
     camera_position::CameraPosition,
     filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{
         ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed,
     },
-    parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
+    parameters::{DribblingParameters, InWalkKicksParameters},
     planned_path::PathSegment,
     world_state::WorldState,
 };
@@ -23,6 +24,9 @@ pub fn execute(
     parameters: &DribblingParameters,
     dribble_path: Option<Vec<PathSegment>>,
     mut walk_speed: WalkSpeed,
+    precision_kick_timeout: Duration,
+    bigger_threshold_start_time: Option<SystemTime>,
+    cycle_start_time: SystemTime,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let distance_to_ball = ball_position.coords().norm();
@@ -39,6 +43,11 @@ pub fn execute(
     };
     let kick_decisions = world_state.kick_decisions.as_ref()?;
     let instant_kick_decisions = world_state.instant_kick_decisions.as_ref()?;
+    let abort_precision_kick = abort_precision_kick(
+        precision_kick_timeout,
+        bigger_threshold_start_time,
+        cycle_start_time,
+    );
 
     let available_kick = kick_decisions
         .iter()
@@ -46,7 +55,11 @@ pub fn execute(
         .find(|decision| {
             is_kick_pose_reached(
                 decision.kick_pose,
-                &in_walk_kicks[decision.variant],
+                if !abort_precision_kick {
+                    in_walk_kicks[decision.variant].precision_kick_reached_thresholds
+                } else {
+                    in_walk_kicks[decision.variant].reached_thresholds
+                },
                 world_state.robot.ground_to_upcoming_support,
             )
         });
@@ -102,15 +115,31 @@ pub fn execute(
     }
 }
 
-fn is_kick_pose_reached(
+pub fn is_kick_pose_reached(
     kick_pose: Pose2<Ground>,
-    kick_info: &InWalkKickInfoParameters,
+    thresholds: nalgebra::Vector3<f32>,
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 ) -> bool {
     let upcoming_kick_pose = ground_to_upcoming_support * kick_pose;
-    let is_x_reached = upcoming_kick_pose.position().x().abs() < kick_info.reached_thresholds.x;
-    let is_y_reached = upcoming_kick_pose.position().y().abs() < kick_info.reached_thresholds.y;
-    let is_orientation_reached =
-        upcoming_kick_pose.orientation().angle().abs() < kick_info.reached_thresholds.z;
+
+    let is_x_reached = upcoming_kick_pose.position().x().abs() < thresholds.x;
+    let is_y_reached = upcoming_kick_pose.position().y().abs() < thresholds.y;
+    let is_orientation_reached = upcoming_kick_pose.orientation().angle().abs() < thresholds.z;
+
     is_x_reached && is_y_reached && is_orientation_reached
+}
+
+pub fn abort_precision_kick(
+    precision_kick_timeout: Duration,
+    bigger_threshold_start_time: Option<SystemTime>,
+    cycle_start_time: SystemTime,
+) -> bool {
+    if bigger_threshold_start_time.is_some() {
+        let time_difference = cycle_start_time
+            .duration_since(bigger_threshold_start_time.unwrap())
+            .expect("Time ran back");
+        time_difference > precision_kick_timeout
+    } else {
+        false
+    }
 }

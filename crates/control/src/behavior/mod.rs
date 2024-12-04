@@ -1,7 +1,7 @@
 mod animation;
 mod calibrate;
 mod defend;
-mod dribble;
+pub mod dribble;
 mod fall_safely;
 mod head;
 mod initial;

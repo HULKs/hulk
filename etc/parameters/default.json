@@ -7,7 +7,7 @@
     "minimum_overall_keypoint_confidence": 0.5,
     "minimum_visual_referee_keypoint_confidence": 0.8,
     "minimum_shoulder_angle": 0.2,
-    "foot_z_offset": 0.025,
+    "foot_z_offset": 0.1,
     "referee_pose_queue_length": 8,
     "minimum_number_poses_before_message": 3,
     "override_pose_detection": false
@@ -1071,15 +1071,17 @@
       "position": [-0.22, -0.04],
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
-      "reached_thresholds": [0.04, 0.02, 0.05],
+      "reached_thresholds": [0.06, 0.04, 0.07],
+      "precision_kick_reached_thresholds": [0.04, 0.02, 0.05],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
-      "position": [-0.15, -0.11],
-      "position_offset": [0.0, 0.0],
+      "position": [-0.145, -0.08],
       "orientation": 0.9,
-      "reached_thresholds": [0.04, 0.04, 0.1],
+      "position_offset": [0.0, 0.0],
+      "reached_thresholds": [0.06, 0.06, 0.12],
+      "precision_kick_reached_thresholds": [0.04, 0.04, 0.1],
       "shot_distance": 3.5,
       "enabled": true
     },
@@ -1087,11 +1089,13 @@
       "position": [-0.15, 0.03],
       "position_offset": [0.0, 0.0],
       "orientation": -1.57,
-      "reached_thresholds": [0.05, 0.06, 0.1],
+      "reached_thresholds": [0.07, 0.08, 0.12],
+      "precision_kick_reached_thresholds": [0.05, 0.06, 0.1],
       "shot_distance": 0.8,
       "enabled": true
     }
   },
+  "precision_kick_timeout": 2,
   "kick_selector": {
     "distance_to_corner": 1.5,
     "corner_kick_target_distance_to_goal": 1.3,

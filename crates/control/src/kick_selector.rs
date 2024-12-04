@@ -108,6 +108,12 @@ impl KickSelector {
             context.in_walk_kicks,
         );
 
+        kick_decisions.retain(|target| match target.variant {
+            KickVariant::Forward => context.in_walk_kicks.forward.enabled,
+            KickVariant::Turn => context.in_walk_kicks.turn.enabled,
+            KickVariant::Side => context.in_walk_kicks.side.enabled,
+        });
+
         kick_decisions.sort_by(|left, right| {
             compare_decisions(
                 left,
@@ -359,6 +365,7 @@ fn generate_decisions_for_instant_kicks(
             struct TargetAlignedBall;
             struct KickPose;
             let position: Point2<TargetAlignedBall> = Point2::wrap(kick_info.position);
+
             let parameter_kick_pose =
                 Pose2::from_parts(position, Orientation2::new(kick_info.orientation));
             let target_aligned_ball_to_kick_pose = match kicking_side {
