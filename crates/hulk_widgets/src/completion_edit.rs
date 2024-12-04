@@ -50,6 +50,7 @@ impl UserState {
 struct CompletionEditState {
     user_state: UserState,
     typed_since_focused: bool,
+    textedit_was_focused: bool,
 }
 
 #[derive(Default)]
@@ -198,10 +199,11 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         if response.changed() {
             state.typed_since_focused = true;
         }
-        if response.gained_focus() {
+        if !state.textedit_was_focused && response.has_focus() {
             // Select all
             set_cursor(ui.ctx(), &response, text_edit_state, 0, self.selected.len());
         }
+        state.textedit_was_focused = response.has_focus();
         response.changed = false;
 
         if is_popup_open {
