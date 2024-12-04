@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::{Seek, Write};
 use std::time::SystemTime;
 
@@ -9,6 +9,8 @@ use mcap::{Attachment, Channel, McapError, Writer};
 use path_serde::{PathIntrospect, PathSerialize};
 use rmp_serde::Serializer;
 use serde::Serialize;
+
+use crate::serializer;
 
 type ChannelId = u16;
 pub struct McapConverter<'file, W: Write + Seek> {
@@ -77,23 +79,16 @@ impl<W: Write + Seek> McapConverter<'_, W> {
     }
 }
 
-pub fn database_to_values<D: Serialize + PathIntrospect + PathSerialize>(
+
+
+pub fn database_to_values<D: Serialize>(
     database: &D,
-    cycler_name: String,
-    output_type: String,
-) -> Result<Vec<(String, Vec<u8>)>> {
-    let mut map = Vec::new();
+) -> Result<HashMap<String, Vec<u8>>> {
+    let mut serializer = crate::serializer::Serializer::new();
 
-    for node_output_name in D::get_children() {
-        let mut writer = Vec::new();
-        let mut serializer = Serializer::new(&mut writer).with_struct_map();
+    database.serialize(&mut serializer)?;
 
-        let output_name = &node_output_name;
-        let key = format!("{cycler_name}.{output_type}.{node_output_name}");
-
-        database.serialize_path(output_name, &mut serializer)?;
-        map.push((key, writer));
-    }
+    let map = serializer.finish();
 
     Ok(map)
 }

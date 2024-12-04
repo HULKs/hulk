@@ -32,6 +32,7 @@ use crate::{
 
 mod extractor_hardware_interface;
 mod mcap_converter;
+mod serializer;
 mod write_to_mcap;
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
