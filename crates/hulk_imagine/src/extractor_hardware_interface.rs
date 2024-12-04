@@ -19,7 +19,6 @@ use types::{
 
 pub trait HardwareInterface:
     ActuatorInterface
-    + CameraInterface
     + NetworkInterface
     + PathsInterface
     + RecordingInterface
@@ -42,12 +41,7 @@ impl ActuatorInterface for ExtractorHardwareInterface {
     }
 }
 
-/// `read_from_camera` is only executed in setup nodes, which are not executed during replay
-impl CameraInterface for ExtractorHardwareInterface {
-    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<YCbCr422Image> {
-        panic!("replayer cannot produce data from hardware")
-    }
-}
+
 
 /// `read_from_network` is only executed in setup nodes, which are not executed during replay
 /// `write_to_network` is a noop during replay
