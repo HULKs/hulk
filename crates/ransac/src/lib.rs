@@ -159,6 +159,7 @@ impl<Frame> Ransac<Frame> {
         &mut self,
         random_number_generator: &mut impl Rng,
         iterations: usize,
+        fit_two_lines: bool,
         maximum_score_distance: f32,
         maximum_inclusion_distance: f32,
     ) -> RansacResult<Frame> {
@@ -184,14 +185,27 @@ impl<Frame> Ransac<Frame> {
 
         let best_feature = (0..iterations)
             .map(|_| {
-                let mut points = self
-                    .unused_points
-                    .choose_multiple(random_number_generator, 3);
-                let feature = RansacFeature::from_points(
-                    *points.next().unwrap(),
-                    *points.next().unwrap(),
-                    *points.next().unwrap(),
-                );
+                let feature = if fit_two_lines {
+                    let mut points = self
+                        .unused_points
+                        .choose_multiple(random_number_generator, 3);
+
+                    RansacFeature::from_points(
+                        *points.next().unwrap(),
+                        *points.next().unwrap(),
+                        *points.next().unwrap(),
+                    )
+                } else {
+                    let mut points = self
+                        .unused_points
+                        .choose_multiple(random_number_generator, 2);
+
+                    RansacFeature::Line(Line::from_points(
+                        *points.next().unwrap(),
+                        *points.next().unwrap(),
+                    ))
+                };
+
                 let score = feature.score(
                     self.unused_points.iter(),
                     maximum_score_distance,
@@ -232,7 +246,7 @@ mod test {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
         let mut rng = ChaChaRng::from_entropy();
         assert_eq!(
-            ransac.next_feature(&mut rng, 10, 5.0, 5.0),
+            ransac.next_feature(&mut rng, 10, false, 5.0, 5.0),
             RansacResult::default()
         );
     }
@@ -242,7 +256,7 @@ mod test {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
         let mut rng = ChaChaRng::from_entropy();
         assert_eq!(
-            ransac.next_feature(&mut rng, 10, 5.0, 5.0),
+            ransac.next_feature(&mut rng, 10, false, 5.0, 5.0),
             RansacResult::default()
         );
     }
@@ -256,7 +270,7 @@ mod test {
         let RansacResult {
             feature,
             used_points,
-        } = ransac.next_feature(&mut rng, 10, 5.0, 5.0);
+        } = ransac.next_feature(&mut rng, 10, false, 5.0, 5.0);
         println!("{feature:#?}");
         println!("{used_points:#?}");
 
@@ -282,7 +296,7 @@ mod test {
 
         let mut ransac = Ransac::<SomeFrame>::new(points.clone());
         let mut rng = ChaChaRng::from_entropy();
-        let result = ransac.next_feature(&mut rng, 15, 1.0, 1.0);
+        let result = ransac.next_feature(&mut rng, 15, false, 1.0, 1.0);
 
         if let RansacFeature::Line(line) = result.feature {
             assert_relative_eq!(line.slope(), slope, epsilon = 0.0001);
