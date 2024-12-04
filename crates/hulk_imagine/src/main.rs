@@ -15,7 +15,6 @@ use color_eyre::{
     eyre::{Result, WrapErr},
     install,
 };
-use indicatif::ProgressIterator;
 use mcap::records::system_time_to_nanos;
 use mcap::{records::Metadata, Attachment};
 use rmp_serde::to_vec_named;
@@ -28,6 +27,7 @@ use crate::execution::Replayer;
 use crate::{
     extractor_hardware_interface::{ExtractorHardwareInterface, HardwareInterface},
     mcap_converter::McapConverter,
+    write_to_mcap::write_to_mcap,
 };
 
 mod extractor_hardware_interface;
@@ -82,12 +82,6 @@ fn main() -> Result<()> {
         arguments.replay_path_string,
     )
     .wrap_err("failed to create image extractor")?;
-
-    let mut audio_receiver = replayer.audio_receiver();
-    let mut control_receiver = replayer.control_receiver();
-    let mut spl_network_receiver = replayer.spl_network_receiver();
-    let mut vision_top_receiver = replayer.vision_top_receiver();
-    let mut vision_bottom_receiver = replayer.vision_bottom_receiver();
 
     replayer
         .audio_subscriptions_sender
@@ -146,16 +140,42 @@ fn main() -> Result<()> {
     };
     mcap_converter.attach(attachment)?;
 
-    write_to_mcap![audio_receiver, "Audio", mcap_converter, replayer];
-    write_to_mcap![spl_network_receiver, "SplNetwork", mcap_converter, replayer];
-    write_to_mcap![control_receiver, "Control", mcap_converter, replayer];
-    write_to_mcap![
-        vision_bottom_receiver,
+    let audio_receiver = replayer.audio_receiver();
+    let control_receiver = replayer.control_receiver();
+    let spl_network_receiver = replayer.spl_network_receiver();
+    let vision_top_receiver = replayer.vision_top_receiver();
+    let vision_bottom_receiver = replayer.vision_bottom_receiver();
+
+    write_to_mcap(&mut replayer, "Audio", &mut mcap_converter, audio_receiver)
+        .wrap_err("failed to write audio data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
+        "Control",
+        &mut mcap_converter,
+        control_receiver,
+    )
+    .wrap_err("failed to write control data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
         "VisionBottom",
-        mcap_converter,
-        replayer
-    ];
-    write_to_mcap![vision_top_receiver, "VisionTop", mcap_converter, replayer];
+        &mut mcap_converter,
+        vision_bottom_receiver,
+    )
+    .wrap_err("failed to write vision bottom data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
+        "VisionTop",
+        &mut mcap_converter,
+        vision_top_receiver,
+    )
+    .wrap_err("failed to write vision top data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
+        "SplNetwork",
+        &mut mcap_converter,
+        spl_network_receiver,
+    )
+    .wrap_err("failed to write spl network data to mcap")?;
 
     mcap_converter.finish()?;
 
