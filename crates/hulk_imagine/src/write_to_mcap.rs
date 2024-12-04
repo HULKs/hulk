@@ -29,24 +29,18 @@ macro_rules! write_to_mcap {
 
                 let (_, database) = &*$receiver.borrow_and_mark_as_seen();
 
-                let main_outputs = $crate::mcap_converter::database_to_values(
-                    &database.main_outputs,
-                    $cycler_name.to_string(),
-                    "main_outputs".to_string(),
+                let outputs = $crate::mcap_converter::database_to_values(
+                    &database,
                 )?;
 
-                let additional_outputs = $crate::mcap_converter::database_to_values(
-                    &database.additional_outputs,
-                    $cycler_name.to_string(),
-                    "additional_outputs".to_string(),
-                )?;
-
-                main_outputs
-                    .into_iter()
-                    .chain(additional_outputs)
-                    .try_for_each(|(topic, data)| {
-                        $mcap_converter.add_to_mcap(topic, &data, index as u32, timing.timestamp)
-                    })?;
+                outputs.into_iter().try_for_each(|(topic, data)| {
+                    $mcap_converter.add_to_mcap(
+                        format!("{}.{}", $cycler_name, topic),
+                        &data,
+                        index as u32,
+                        timing.timestamp,
+                    )
+                })?;
             }
         }
     };
