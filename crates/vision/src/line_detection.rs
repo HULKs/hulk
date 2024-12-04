@@ -75,6 +75,7 @@ pub struct CycleContext {
     minimum_number_of_points_on_line:
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
     ransac_iterations: Parameter<usize, "line_detection.$cycler_instance.ransac_iterations">,
+    ransac_fit_two_lines: Parameter<bool, "line_detection.$cycler_instance.ransac_fit_two_lines">,
 
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
@@ -173,6 +174,7 @@ impl LineDetection {
             let ransac_result = ransac.next_feature(
                 &mut self.random_state,
                 *context.ransac_iterations,
+                *context.ransac_fit_two_lines,
                 *context.maximum_fit_distance_in_ground,
                 *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,
             );

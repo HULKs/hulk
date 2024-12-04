@@ -159,7 +159,8 @@
         "end": 0.1
       },
       "minimum_number_of_points_on_line": 10,
-      "ransac_iterations": 50
+      "ransac_iterations": 50,
+      "ransac_fit_two_lines": false
     },
     "vision_bottom": {
       "use_horizontal_segments": true,
@@ -186,7 +187,8 @@
         "end": 0.1
       },
       "minimum_number_of_points_on_line": 10,
-      "ransac_iterations": 50
+      "ransac_iterations": 50,
+      "ransac_fit_two_lines": false
     }
   },
   "field_border_detection": {
