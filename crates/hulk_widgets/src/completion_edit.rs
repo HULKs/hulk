@@ -236,14 +236,14 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             &response,
             PopupCloseBehavior::CloseOnClickOutside,
             |ui| {
-                let mut close_me = false;
                 ui.set_max_height(text_size * 20.0);
 
                 if matching_items.is_empty() {
                     ui.label("No results");
-                    return close_me;
+                    return false;
                 }
 
+                let mut close_me = false;
                 ScrollArea::vertical().show(ui, |ui| {
                     for (visual_index, (original_index, _)) in matching_items.iter().enumerate() {
                         let highlight = match state.user_state {
