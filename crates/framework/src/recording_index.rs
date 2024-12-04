@@ -127,7 +127,7 @@ impl RecordingIndex {
         self.frames.last().map(|frame| frame.timing)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Timing> + '_ {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = Timing> + '_ {
         self.frames.iter().map(|frame| frame.timing)
     }
 }

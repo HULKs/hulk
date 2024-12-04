@@ -6,11 +6,9 @@ use color_eyre::eyre::Result;
 use mcap::records::{system_time_to_nanos, MessageHeader};
 use mcap::write::Metadata;
 use mcap::{Attachment, Channel, McapError, Writer};
-use path_serde::{PathIntrospect, PathSerialize};
-use rmp_serde::Serializer;
 use serde::Serialize;
 
-use crate::serializer;
+use crate::serializer::Serializer;
 
 type ChannelId = u16;
 pub struct McapConverter<'file, W: Write + Seek> {
@@ -79,16 +77,9 @@ impl<W: Write + Seek> McapConverter<'_, W> {
     }
 }
 
-
-
-pub fn database_to_values<D: Serialize>(
-    database: &D,
-) -> Result<HashMap<String, Vec<u8>>> {
-    let mut serializer = crate::serializer::Serializer::new();
-
+pub fn database_to_values<D: Serialize>(database: &D) -> Result<HashMap<String, Vec<u8>>> {
+    let mut serializer = Serializer::default();
     database.serialize(&mut serializer)?;
 
-    let map = serializer.finish();
-
-    Ok(map)
+    Ok(serializer.finish())
 }

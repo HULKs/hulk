@@ -1,47 +1,74 @@
-#[macro_export]
-macro_rules! write_to_mcap {
-    ($receiver: expr, $cycler_name: expr, $mcap_converter: expr, $replayer: expr) => {
-        let unknown_indices_error_message =
-            format!("could not find recording indices for `$cycler_name`");
+use std::time::SystemTime;
 
-        let timings: Vec<_> = $replayer
-            .get_recording_indices()
-            .get($cycler_name)
-            .expect(&unknown_indices_error_message)
-            .iter()
-            .collect();
+use color_eyre::{
+    eyre::{Context, ContextCompat},
+    Result,
+};
+use indicatif::{ProgressIterator, ProgressStyle};
+use serde::Serialize;
 
-        for (index, timing) in timings.iter().enumerate().progress() {
-            let frame = $replayer
-                .get_recording_indices_mut()
-                .get_mut($cycler_name)
-                .map(|index| {
-                    index
-                        .find_latest_frame_up_to(timing.timestamp)
-                        .expect("failed to find latest frame")
-                })
-                .expect(&unknown_indices_error_message);
+use buffered_watch::Receiver;
 
-            if let Some(frame) = frame {
-                $replayer
-                    .replay($cycler_name, frame.timing.timestamp, &frame.data)
-                    .expect("failed to replay frame");
+use crate::{
+    execution::Replayer, extractor_hardware_interface::ExtractorHardwareInterface,
+    mcap_converter::McapConverter,
+};
 
-                let (_, database) = &*$receiver.borrow_and_mark_as_seen();
+pub fn write_to_mcap<W, D>(
+    replayer: &mut Replayer<ExtractorHardwareInterface>,
+    cycler_name: &str,
+    mcap_converter: &mut McapConverter<W>,
+    mut receiver: Receiver<(SystemTime, D)>,
+) -> Result<()>
+where
+    W: std::io::Write + std::io::Seek,
+    D: Serialize,
+{
+    let unknown_indices_error_message =
+        format!("could not find recording indices for `{cycler_name}`");
 
-                let outputs = $crate::mcap_converter::database_to_values(
-                    &database,
-                )?;
+    let timings: Vec<_> = replayer
+        .get_recording_indices()
+        .get(cycler_name)
+        .wrap_err_with(|| unknown_indices_error_message.clone())?
+        .iter()
+        .collect();
 
-                outputs.into_iter().try_for_each(|(topic, data)| {
-                    $mcap_converter.add_to_mcap(
-                        format!("{}.{}", $cycler_name, topic),
-                        &data,
-                        index as u32,
-                        timing.timestamp,
-                    )
-                })?;
-            }
+    let progress_style = ProgressStyle::with_template(
+        format!("[{{percent:>2}}%] {{wide_bar:.cyan/blue}} {cycler_name}").as_str(),
+    )
+    .unwrap();
+    for (index, timing) in timings
+        .iter()
+        .enumerate()
+        .progress_with_style(progress_style)
+    {
+        let frame = replayer
+            .get_recording_indices_mut()
+            .get_mut(cycler_name)
+            .wrap_err_with(|| unknown_indices_error_message.clone())?
+            .find_latest_frame_up_to(timing.timestamp)
+            .wrap_err("failed to find latest frame")?;
+
+        if let Some(frame) = frame {
+            replayer
+                .replay(cycler_name, frame.timing.timestamp, &frame.data)
+                .wrap_err("failed to replay frame")?;
+
+            let (_, database) = &*receiver.borrow_and_mark_as_seen();
+
+            let outputs = crate::mcap_converter::database_to_values(&database)?;
+
+            outputs.into_iter().try_for_each(|(topic, data)| {
+                mcap_converter.add_to_mcap(
+                    format!("{}.{}", cycler_name, topic),
+                    &data,
+                    index as u32,
+                    timing.timestamp,
+                )
+            })?;
         }
-    };
+    }
+
+    Ok(())
 }
