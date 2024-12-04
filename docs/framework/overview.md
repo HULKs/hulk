@@ -1,7 +1,5 @@
 # Overview
 
-TODO: Mention unit testing
-
 This section explains the framework of our NAO software.
 The chapters walk through various features in a top-down approach starting with a general overview.
 More advanced topics are covered later.
@@ -25,9 +23,14 @@ The framework provides the fundamentals needed to execute robotics specific code
 It has a modular design to allow for convenient development and replacement of individual nodes.
 The framework consists of four fundamental components:
 
+![overview](./overview-light.png#only-light)
+![overview](./overview-dark.png#only-dark)
+
 - [Runtime](./runtime.md): Encapsulates all subcomponents by starting and initializing them
 - [Hardware Interface](./hardware_interface.md): Abstracts hardware away and is the interaction point for cyclers with the outside world
 - [Cyclers](./cyclers.md): Cycle through nodes, process data from hardware and produce outputs (see e.g. _control_ or _vision_top_)
 - [Communication](./communication.md): Exchanges data between framework and other resources e.g. file system and network
 
-![overview](./overview.drawio.png)
+!!! Info "Todo"
+
+    Mention unit testing

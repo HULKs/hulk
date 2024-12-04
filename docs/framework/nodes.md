@@ -6,8 +6,8 @@ The function gets other node's inputs as parameters to the `cycle()` function an
 In addition, nodes may contain a state which is preserved between cycles.
 
 <figure markdown="span">
-    ![node](./node.drawio-light.png#only-light)
-    ![node](./node.drawio-dark.png#only-dark)
+    ![node](./node-light.png#only-light)
+    ![node](./node-dark.png#only-dark)
 </figure>
 
 Nodes are normal Rust structs where the struct's fields represent the state and a method called `cycle()` in the `impl` of the node represents the `cycle()` function.

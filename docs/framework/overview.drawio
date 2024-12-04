@@ -1,107 +1,135 @@
-<mxfile host="Electron" modified="2024-02-06T13:45:24.548Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/23.0.2 Chrome/120.0.6099.109 Electron/28.2.0 Safari/537.36" etag="rhLmurDGQKgQ3SXrcdRB" version="23.0.2" type="device">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0" version="25.0.1">
   <diagram id="XcJZ0W03TQX2NoV_ZfGi" name="Page-1">
-    <mxGraphModel dx="932" dy="545" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="819" dy="452" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="88ws-bJnouL_pgpodnrm-28" value="&lt;div&gt;Runtime&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;" parent="1" vertex="1">
-          <mxGeometry x="20" y="40" width="530" height="310" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-3" value="&lt;font data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot; face=&quot;Fira Code&quot;&gt;Node&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;arcSize=11;fillColor=#DEDEDE;fontColor=#333333;strokeColor=default;fillStyle=auto;gradientColor=none;glass=0;" parent="1" vertex="1">
+          <mxGeometry x="120" y="70" width="160" height="160" as="geometry" />
         </mxCell>
-        <mxCell id="W6htOilXqDYfo_NaCT0V-1" value="&lt;div&gt;control&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
-          <mxGeometry x="40" y="120" width="90" height="170" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-4" value="&lt;font style=&quot;font-size: 13px;&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot; face=&quot;Fira Code&quot;&gt;State&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=default;fillStyle=auto;" parent="1" vertex="1">
+          <mxGeometry x="140" y="100" width="120" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="W6htOilXqDYfo_NaCT0V-2" value="HardwareInterface" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=middle;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
-          <mxGeometry x="30" y="70" width="510" height="40" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;startArrow=blockThin;startFill=1;endArrow=blockThin;endFill=1;" parent="1" source="X0pXrAIt4FLZrpf-QWvW-5" target="X0pXrAIt4FLZrpf-QWvW-4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="W6htOilXqDYfo_NaCT0V-3" value="&lt;div&gt;audio&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
-          <mxGeometry x="140" y="120" width="90" height="170" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;endArrow=blockThin;endFill=1;spacingBottom=2;" parent="1" source="X0pXrAIt4FLZrpf-QWvW-5" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="310" y="190" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="W6htOilXqDYfo_NaCT0V-4" value="spl_network" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
-          <mxGeometry x="240" y="120" width="90" height="170" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;startArrow=blockThin;startFill=1;endArrow=none;endFill=0;strokeColor=default;spacingBottom=2;" parent="1" source="X0pXrAIt4FLZrpf-QWvW-5" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="90" y="190" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="W6htOilXqDYfo_NaCT0V-5" value="&lt;div&gt;vision_top&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
-          <mxGeometry x="340" y="120" width="90" height="170" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-5" value="&lt;font style=&quot;font-size: 13px;&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot; face=&quot;Fira Code&quot;&gt;cycle()&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="140" y="170" width="120" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="W6htOilXqDYfo_NaCT0V-6" value="vision_bottom" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
-          <mxGeometry x="440" y="120" width="90" height="170" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-9" value="&lt;div&gt;&lt;font data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot; face=&quot;Fira Code&quot;&gt;Inputs&lt;/font&gt;&lt;/div&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="70" y="163" width="50" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="W6htOilXqDYfo_NaCT0V-130" value="Communication" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=middle;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" parent="1" vertex="1">
-          <mxGeometry x="30" y="300" width="510" height="40" as="geometry" />
+        <mxCell id="X0pXrAIt4FLZrpf-QWvW-10" value="&lt;font data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot; face=&quot;Fira Code&quot;&gt;Outputs&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="280" y="163" width="60" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-2" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="50" y="150" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-1" value="&lt;div&gt;&lt;font style=&quot;font-size: 14px;&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot;&gt;Runtime&lt;/font&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#DEDEDE;" parent="1" vertex="1">
+          <mxGeometry x="10" y="40" width="580" height="313.5" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-3" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="50" y="180" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-2" value="&lt;div&gt;&lt;font data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot;&gt;control&lt;/font&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingTop=1;" parent="1" vertex="1">
+          <mxGeometry x="30" y="120" width="100" height="170" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-4" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="50" y="210" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-3" value="&lt;font style=&quot;font-size: 14px;&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot;&gt;HardwareInterface&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=middle;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;" parent="1" vertex="1">
+          <mxGeometry x="20" y="70" width="560" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-5" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-          <mxGeometry x="55" y="257" width="60" height="30" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-4" value="&lt;font&gt;vision_bottom&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingTop=1;" parent="1" vertex="1">
+          <mxGeometry x="470" y="120" width="100" height="170" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-6" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="50" y="240" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-5" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;Communication&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=middle;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;" parent="1" vertex="1">
+          <mxGeometry x="20" y="300" width="560" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-7" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="150" y="151.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-6" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;verticalAlign=middle;horizontal=1;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="45" y="151.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-8" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="150" y="181.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-7" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="45" y="181.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-9" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="150" y="211.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-8" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="45" y="211.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-10" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-          <mxGeometry x="155" y="258.5" width="60" height="30" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-9" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;" parent="1" vertex="1">
+          <mxGeometry x="50" y="257" width="60" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-11" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="150" y="241.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-10" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="45" y="241.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-12" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="250" y="151.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-11" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="485" y="151.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-13" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="250" y="181.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-12" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="485" y="181.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-14" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="250" y="211.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-13" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="485" y="211.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-15" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-          <mxGeometry x="255" y="258.5" width="60" height="30" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-14" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;" parent="1" vertex="1">
+          <mxGeometry x="490" y="257" width="60" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-16" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="250" y="241.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-15" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="485" y="240" width="70" height="21.5" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-17" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="350" y="151.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-16" value="audio" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingTop=1;" parent="1" vertex="1">
+          <mxGeometry x="140" y="120" width="100" height="170" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-18" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="350" y="181.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-17" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="155" y="151.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-19" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="350" y="211.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-18" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="155" y="181.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-20" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-          <mxGeometry x="355" y="258.5" width="60" height="30" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-19" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="155" y="211.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-21" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="350" y="241.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-20" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;" parent="1" vertex="1">
+          <mxGeometry x="160" y="257" width="60" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-22" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="450" y="151.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-21" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="155" y="241.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-23" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="450" y="181.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-22" value="spl_network" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingTop=1;" parent="1" vertex="1">
+          <mxGeometry x="250" y="120" width="100" height="170" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-24" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="450" y="211.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-23" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="265" y="151.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-25" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-          <mxGeometry x="455" y="258.5" width="60" height="30" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-24" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="265" y="181.5" width="70" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="88ws-bJnouL_pgpodnrm-26" value="Node" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="450" y="241.5" width="70" height="20" as="geometry" />
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-25" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="265" y="211.5" width="70" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-26" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;" parent="1" vertex="1">
+          <mxGeometry x="270" y="257" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-27" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="265" y="241.5" width="70" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-28" value="vision_top" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingTop=1;" parent="1" vertex="1">
+          <mxGeometry x="360" y="120" width="100" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-29" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="375" y="151.5" width="70" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-30" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="375" y="181.5" width="70" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-31" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="375" y="211.5" width="70" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-32" value="..." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;" parent="1" vertex="1">
+          <mxGeometry x="380" y="257" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4WtOnVnA1kwEW2kyM9zU-33" value="Node" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;spacingBottom=2;" parent="1" vertex="1">
+          <mxGeometry x="375" y="241.5" width="70" height="20" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
