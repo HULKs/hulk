@@ -3,6 +3,8 @@ use egui::{
     Widget,
 };
 
+const ANIMATION_TIME_SECONDS: f32 = 0.1;
+
 pub struct SegmentedControl<'ui, T> {
     selectables: &'ui [T],
     id: Id,
@@ -69,7 +71,11 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
         let text_rects = text_rects(response.rect, self.selectables.len());
         let offset = text_rects[0].width();
 
-        let translation = animate_to(self.id, ui.ctx(), offset * state.selected as f32);
+        let translation = ui.ctx().animate_value_with_time(
+            self.id,
+            offset * state.selected as f32,
+            ANIMATION_TIME_SECONDS,
+        );
         let selector_rect = text_rects[0].translate(vec2(translation, 0.0)).shrink(2.0);
         let selector_response =
             ui.interact(selector_rect, self.id.with("selector"), Sense::click());
@@ -132,10 +138,6 @@ fn load_state(ctx: &Context, id: Id) -> SegmentedControlState {
 
 fn save_state(ctx: &Context, id: Id, state: SegmentedControlState) {
     ctx.data_mut(|writer| writer.insert_temp(id, state));
-}
-
-fn animate_to(source: Id, context: &Context, target: f32) -> f32 {
-    context.animate_value_with_time(source, target, 0.1)
 }
 
 fn text_rects(mut rect: Rect, number_of_texts: usize) -> Vec<Rect> {
