@@ -1,20 +1,18 @@
 use std::time::SystemTime;
 
 use hardware::{
-    ActuatorInterface, CameraInterface, NetworkInterface, PathsInterface, RecordingInterface,
-    SpeakerInterface, TimeInterface,
+    ActuatorInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
+    TimeInterface,
 };
 
 use color_eyre::eyre::Result;
 
 use types::{
     audio::SpeakerRequest,
-    camera_position::CameraPosition,
     hardware::Paths,
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
-    ycbcr422_image::YCbCr422Image,
 };
 
 pub trait HardwareInterface:
@@ -40,8 +38,6 @@ impl ActuatorInterface for ExtractorHardwareInterface {
         Ok(())
     }
 }
-
-
 
 /// `read_from_network` is only executed in setup nodes, which are not executed during replay
 /// `write_to_network` is a noop during replay
