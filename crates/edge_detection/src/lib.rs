@@ -1,6 +1,10 @@
+use coordinate_systems::Pixel;
 use image::{GrayImage, Luma, RgbImage};
-use imageproc::{edges::canny, filter::gaussian_blur_f32, map::map_colors};
+use imageproc::{
+    edges::canny, filter::gaussian_blur_f32, gradients::vertical_sobel, map::map_colors,
+};
 
+use linear_algebra::{point, Point2};
 use types::ycbcr422_image::YCbCr422Image;
 
 pub enum EdgeSourceType {
@@ -18,7 +22,31 @@ pub fn get_edge_image_canny(
 ) -> GrayImage {
     let edges_source = get_edge_source_image(image, source_channel);
     let blurred = gaussian_blur_f32(&edges_source, gaussian_sigma);
+
     canny(&blurred, canny_low_threshold, canny_high_threshold)
+}
+
+pub fn get_edges_sobel(
+    gaussian_sigma: f32,
+    threshold: u16,
+    image: &YCbCr422Image,
+    source_channel: EdgeSourceType,
+) -> Vec<Point2<Pixel>> {
+    let edges_source = get_edge_source_image(image, source_channel);
+    let blurred = gaussian_blur_f32(&edges_source, gaussian_sigma);
+
+    let gradients = vertical_sobel(&blurred);
+
+    gradients
+        .enumerate_pixels()
+        .filter_map(|(x, y, color)| {
+            if color[0].unsigned_abs() < threshold {
+                Some(point![x as f32, y as f32])
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 pub fn get_edge_source_image(image: &YCbCr422Image, source_type: EdgeSourceType) -> GrayImage {
