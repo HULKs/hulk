@@ -156,7 +156,7 @@ impl SegmentRow {
 
     fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>) {
         let subscription_field = ui.add(NaoPathCompletionEdit::new(
-            ui.next_auto_id().with(ui.id()).with("enum-plot"),
+            ui.auto_id_with("enum-plot"),
             nao.latest_paths(),
             &mut self.path,
             PathFilter::Readable,
@@ -428,7 +428,7 @@ impl Widget for &mut EnumPlotPanel {
                         Button::new(RichText::new("❌").color(Color32::WHITE).strong())
                             .fill(Color32::RED),
                     );
-                    ui.scope(|ui| segment_data.show_settings(ui, self.nao.clone()));
+                    segment_data.show_settings(ui, self.nao.clone());
                     !delete_button.clicked()
                 })
                 .inner
