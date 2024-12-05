@@ -16,16 +16,11 @@ pub fn derive_path_introspect(mut input: DeriveInput) -> Result<TokenStream> {
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let extend_with_fields = generate_extend_with_fields(&container);
-    let extend_with_children = generate_extend_with_children(&container);
 
     Ok(quote! {
         impl #impl_generics path_serde::PathIntrospect for #name #ty_generics #where_clause {
             fn extend_with_fields(fields: &mut std::collections::HashSet<String>, prefix: &str)  {
                 #(#extend_with_fields)*
-            }
-
-            fn extend_with_children(fields: &mut std::collections::HashSet<String>, prefix: &str)  {
-                #(#extend_with_children)*
             }
         }
     })
@@ -55,30 +50,6 @@ fn generate_extend_with_fields(container: &Container) -> Vec<TokenStream> {
                 <#ty as path_serde::PathIntrospect>::extend_with_fields(fields, &format!("{prefix}{}.", #field_name));
             }
     }))
-        .chain(computed_leaves.map(|leaf| {
-            let field_name = &leaf.identifier.to_string();
-            quote! {
-                fields.insert(format!("{prefix}{}", #field_name));
-            }
-        }))
-        .collect()
-}
-
-fn generate_extend_with_children(container: &Container) -> Vec<TokenStream> {
-    let leaves = container
-        .fields
-        .iter()
-        .filter(|field| !field.skip_introspect);
-
-    let computed_leaves = container.computed_leaves.iter();
-
-    leaves
-        .map(|field| {
-            let field_name = &field.identifier.to_field_name();
-            quote! {
-                fields.insert(format!("{prefix}{}", #field_name));
-            }
-        })
         .chain(computed_leaves.map(|leaf| {
             let field_name = &leaf.identifier.to_string();
             quote! {
