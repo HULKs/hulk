@@ -1,8 +1,8 @@
-use std::ops::{Add, Div, Mul, MulAssign};
+use std::ops::{Div, Mul, MulAssign};
 
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
-use nalgebra::{DMatrix, DMatrixView, DVector, SMatrix, Scalar, SimdPartialOrd, Vector3};
+use nalgebra::{DMatrix, SMatrix, Scalar, SimdPartialOrd};
 
 use crate::conv::direct_convolution;
 
@@ -22,7 +22,7 @@ pub fn gaussian_blur_box_filter(image: &GrayImage, sigma: f32) -> ImageBuffer<Lu
 
     let mut output = box_filter(image, w_ideal_half, w_ideal_half);
 
-    for _ in 1..PASSES as usize {
+    for _ in 1..PASSES {
         output = box_filter(&output, w_ideal_half, w_ideal_half);
     }
 
@@ -95,7 +95,7 @@ where
 
     let kernel = SMatrix::<i16, K, K>::repeat(1);
     let mut first = direct_convolution::<K, T>(transposed_image, &kernel, Some(0));
-    for _ in 1..passes as usize {
+    for _ in 1..passes {
         first = direct_convolution::<K, i16>(&first, &kernel, Some(0));
     }
     first
