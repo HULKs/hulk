@@ -3,6 +3,7 @@ use image::GrayImage;
 use imageproc::{edges::canny, filter::gaussian_blur_f32, gradients::sobel_gradients};
 
 use edge_detection::{get_edge_source_image, EdgeSourceType};
+use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use types::ycbcr422_image::YCbCr422Image;
 
 fn main() {
@@ -11,6 +12,14 @@ fn main() {
 
 const GAUSSIAN_SIGMA: f32 = 1.4;
 const EDGE_SOURCE_TYPE: EdgeSourceType = EdgeSourceType::LumaOfYCbCr;
+
+fn get_profiler_guard() -> ProfilerGuard<'static> {
+    ProfilerGuardBuilder::default()
+        .frequency(1000)
+        .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
+        .build()
+        .unwrap()
+}
 
 fn load_test_image() -> YCbCr422Image {
     let crate_dir = env!("CARGO_MANIFEST_DIR");
@@ -193,15 +202,45 @@ mod edge_points {
     use edge_detection::{
         canny::non_maximum_suppression,
         gaussian::gaussian_blur_box_filter_nalgebra,
-        get_edge_source_image, get_edges_canny, grayimage_to_2d_transposed_matrix_view,
+        get_edge_source_image, get_edges_canny, get_edges_canny_imageproc,
+        grayimage_to_2d_transposed_matrix_view,
         sobel::{
             get_edges_sobel, get_edges_sobel_nalgebra, sobel_operator_horizontal,
             sobel_operator_vertical,
         },
     };
     use nalgebra::DMatrix;
+    use pprof::ProfilerGuardBuilder;
 
-    use crate::{load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_SIGMA};
+    use crate::{get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_SIGMA};
+
+    #[divan::bench]
+    fn our_canny(bencher: Bencher) {
+        let image = load_test_image();
+
+        let guard = ProfilerGuardBuilder::default()
+            .frequency(10000)
+            .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
+            .build()
+            .unwrap();
+        bencher.bench_local(move || {
+            black_box(get_edges_canny(
+                black_box(3.5),
+                black_box(20.0),
+                black_box(50.0),
+                black_box(&image),
+                EDGE_SOURCE_TYPE,
+            ))
+        });
+        if let Ok(report) = guard.report().build() {
+            let file = File::create(format!(
+                "{}/test_data/output/edges_our_canny.svg",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .unwrap();
+            report.flamegraph(file).unwrap();
+        };
+    }
 
     #[divan::bench]
     fn imageproc_sobel_vertical(bencher: Bencher) {
@@ -221,15 +260,12 @@ mod edge_points {
     fn direct_convolution_sobel_both_axes(bencher: Bencher) {
         let image = load_test_image();
 
-        let guard = pprof::ProfilerGuardBuilder::default()
-            .frequency(1000)
-            .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
-            .build()
-            .unwrap();
+        let guard = get_profiler_guard();
 
         bencher.bench_local(move || {
             black_box(get_edges_sobel_nalgebra(
                 black_box(3.5),
+                black_box(100),
                 black_box(100),
                 black_box(&image),
                 EDGE_SOURCE_TYPE,
@@ -256,11 +292,7 @@ mod edge_points {
         let gradients_y_transposed = sobel_operator_vertical::<3, i16>(&blurred);
         let gradients_x_transposed = sobel_operator_horizontal::<3, i16>(&blurred);
 
-        let guard = pprof::ProfilerGuardBuilder::default()
-            .frequency(1000)
-            .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
-            .build()
-            .unwrap();
+        let guard = get_profiler_guard();
 
         // let magnitudes = gradients_x_transposed.zip_map(&gradients_y_transposed, |x, y| {
         //     (x * x) as i32 + (y * y) as i32
@@ -271,6 +303,8 @@ mod edge_points {
             black_box(non_maximum_suppression(
                 &gradients_x_transposed,
                 &gradients_y_transposed,
+                10,
+                20,
             ));
         });
         if let Ok(report) = guard.report().build() {
@@ -322,7 +356,7 @@ mod edge_points {
             }
 
             for angle in angles {
-                let y_component = (radius * angle.sin());
+                let y_component = radius * angle.sin();
                 let x = (circle_center.0 + radius * angle.cos()) as usize;
                 let y = (circle_center.1 + y_component) as usize;
                 mat[(y, x)] = (y_component * 100.0) as i16;
@@ -331,7 +365,7 @@ mod edge_points {
         };
 
         bencher.bench_local(move || {
-            black_box(non_maximum_suppression(&gradients_x, &gradients_y));
+            black_box(non_maximum_suppression(&gradients_x, &gradients_y, 10, 20));
         });
     }
 
@@ -339,8 +373,13 @@ mod edge_points {
     fn imageproc_canny(bencher: Bencher) {
         let image = load_test_image();
 
+        let guard = ProfilerGuardBuilder::default()
+            .frequency(10000)
+            .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
+            .build()
+            .unwrap();
         bencher.bench_local(move || {
-            black_box(get_edges_canny(
+            black_box(get_edges_canny_imageproc(
                 black_box(3.5),
                 black_box(20.0),
                 black_box(50.0),
@@ -348,5 +387,13 @@ mod edge_points {
                 EDGE_SOURCE_TYPE,
             ))
         });
+        if let Ok(report) = guard.report().build() {
+            let file = File::create(format!(
+                "{}/test_data/output/edges_canny.svg",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .unwrap();
+            report.flamegraph(file).unwrap();
+        };
     }
 }
