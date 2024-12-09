@@ -96,10 +96,18 @@ fn rgb_pixel_to_difference(rgb: &image::Rgb<u8>) -> u8 {
 // }
 
 #[inline]
-pub fn grayimage_to_2d_transposed_matrix_view(image: &GrayImage) -> na::DMatrixView<u8> {
+pub fn grayimage_to_2d_transposed_matrix_view<T>(image: &GrayImage) -> na::DMatrix<T>
+where
+    T: Scalar + Copy + From<u8>,
+    u8: Into<T>,
+{
     let data = image.as_raw();
 
-    na::DMatrixView::from_slice(&data, image.width() as usize, image.height() as usize)
+    na::DMatrix::<T>::from_iterator(
+        image.width() as usize,
+        image.height() as usize,
+        data.iter().map(|&v| v.into()),
+    )
 }
 
 #[cfg(test)]
