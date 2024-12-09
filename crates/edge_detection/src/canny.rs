@@ -1,5 +1,5 @@
-use image::GrayImage;
-use nalgebra::DMatrix;
+use image::{flat, GrayImage};
+use nalgebra::{DMatrix, Vector4};
 
 use crate::{
     gaussian::gaussian_blur_box_filter,
@@ -16,7 +16,7 @@ pub fn canny(
     const SOBEL_KERNEL_SIZE: usize = 3;
 
     // TODO remove this
-    let blurred = gaussian_blur_box_filter(&image, sigma);
+    let blurred = gaussian_blur_box_filter(image, sigma);
     let converted = grayimage_to_2d_transposed_matrix_view::<i16>(&blurred);
 
     let gx = sobel_operator_horizontal::<SOBEL_KERNEL_SIZE, i16>(&converted);
@@ -75,8 +75,8 @@ fn approximate_direction_integer_only(y: i16, x: i16) -> u8 {
     let abs_x = x.unsigned_abs() as u32;
 
     // NOTE: u32 can work as TAN_SHIFTED_67_5 * i16::MAX < u32::MAX
-    let tan_22_5_mul_x = TAN_SHIFTED_22_5 * abs_x as u32;
-    let tan_67_5_mul_x = TAN_SHIFTED_67_5 * abs_x as u32;
+    let tan_22_5_mul_x = TAN_SHIFTED_22_5 * abs_x;
+    let tan_67_5_mul_x = TAN_SHIFTED_67_5 * abs_x;
 
     // y * 2^15
     let y_shifted = (abs_y) << 15;
@@ -107,57 +107,92 @@ pub fn non_maximum_suppression(
     upper_threshold: u16,
 ) -> DMatrix<EdgeClassification> {
     // let angles = gradients_y.zip_map(gradients_x, approximate_direction_integer_only);
-    let gradients_magnitude = get_gradient_magnitude(&gradients_x, &gradients_y);
+    let gradients_magnitude = get_gradient_magnitude(gradients_x, gradients_y);
 
     let gradients_x_slice = gradients_x.as_slice();
     let gradients_y_slice = gradients_y.as_slice();
 
-    let (xmax, ymax) = (gradients_x.nrows() - 1, gradients_x.ncols() - 1);
-    DMatrix::<EdgeClassification>::from_iterator(
+    let margin = 1;
+    let nrows = gradients_x.nrows();
+    // let ncols = gradients_x.ncols();
+    // let (xmax, ymax) = (nrows - margin, ncols - margin);
+
+    let mut out = DMatrix::<EdgeClassification>::repeat(
         gradients_x.nrows(),
         gradients_x.ncols(),
-        // angles
-        (0..gradients_magnitude.len()).map(|index| {
-            let (x, y) = gradients_magnitude.vector_to_matrix_index(index);
-            let pixel = gradients_magnitude[(x, y)];
-            if pixel < lower_threshold || x == 0 || y == 0 || x == xmax || y == ymax {
-                return EdgeClassification::NoConfidence;
-            }
-            // TODO Optimize the element access method -> take columns as slices and do the up/down shifting to avoid the bound checks, etc
-            let direction = approximate_direction_integer_only(
-                gradients_x_slice[index],
-                gradients_y_slice[index],
-            );
-            let (cmp1, cmp2) = match direction {
-                0 => (
-                    gradients_magnitude[(x - 1, y)],
-                    gradients_magnitude[(x + 1, y)],
-                ),
-                45 => (
-                    gradients_magnitude[(x + 1, y + 1)],
-                    gradients_magnitude[(x - 1, y - 1)],
-                ),
-                90 => (
-                    gradients_magnitude[(x, y - 1)],
-                    gradients_magnitude[(x, y + 1)],
-                ),
-                135 => (
-                    gradients_magnitude[(x - 1, y + 1)],
-                    gradients_magnitude[(x + 1, y - 1)],
-                ),
-                _ => unreachable!(),
-            };
+        EdgeClassification::NoConfidence,
+    );
 
-            // Suppress non-maximum pixel. low threshold is earlier handled
-            if pixel < cmp1 || pixel < cmp2 {
-                EdgeClassification::NoConfidence
-            } else if pixel > upper_threshold {
+    let flat_slice = gradients_magnitude.as_slice();
+    let out_slice = out.as_mut_slice();
+
+    for index in margin..gradients_magnitude.len() - margin {
+        let precious_column_point = index - nrows;
+        let next_column_point = index + nrows;
+
+        // for y in margin..ymax {
+        //     let stops = [
+        //         (y - 1) * nrows,
+        //         (y) * nrows,
+        //         (y + 1) * nrows,
+        //         (y + 2) * nrows,
+        //     ];
+
+        //     let earlier_col_slice = &flat_slice[stops[0]..stops[1]];
+        //     let col_slice = &flat_slice[stops[1]..stops[2]];
+        //     let later_col_slice = &flat_slice[stops[2]..stops[3]];
+
+        //     for x in margin..xmax {
+        //         let pixel = col_slice[x];
+
+        // TODO Optimize the element access method -> take columns as slices and do the up/down shifting to avoid the bound checks, etc
+        let direction =
+            approximate_direction_integer_only(gradients_x_slice[index], gradients_y_slice[index]);
+        // approximate_direction_integer_only(gradients_x[(x, y)], gradients_y[(x, y)]);
+        let (cmp1, cmp2) = match direction {
+            0 => (
+                flat_slice[index - 1],
+                flat_slice[index + 1],
+                // gradients_magnitude[(x - 1, y)],
+                // gradients_magnitude[(x + 1, y)],
+            ),
+            45 => (
+                flat_slice[precious_column_point - 1],
+                flat_slice[next_column_point + 1],
+                // gradients_magnitude[(x + 1, y + 1)],
+                // gradients_magnitude[(x - 1, y - 1)],
+            ),
+            90 => (
+                flat_slice[precious_column_point],
+                flat_slice[next_column_point],
+                // gradients_magnitude[(x, y - 1)],
+                // gradients_magnitude[(x, y + 1)],
+            ),
+            135 => (
+                flat_slice[next_column_point - 1],
+                flat_slice[precious_column_point + 1],
+                // gradients_magnitude[(x - 1, y + 1)],
+                // gradients_magnitude[(x + 1, y - 1)],
+            ),
+            _ => unreachable!(),
+        };
+
+        let pixel = flat_slice[index];
+        // if pixel < lower_threshold {
+        //     continue;
+        // }
+        // Suppress non-maximum pixel. low threshold is earlier handled
+        if pixel > lower_threshold && pixel >= cmp1 && pixel >= cmp2 {
+            out_slice[index] = if pixel > upper_threshold {
                 EdgeClassification::HighConfidence
             } else {
                 EdgeClassification::LowConfidence
-            }
-        }),
-    )
+            };
+        }
+        // }
+    }
+
+    out
 }
 
 /// Filter out edges with the thresholds.
@@ -170,7 +205,7 @@ fn hysteresis(input: &DMatrix<EdgeClassification>) -> DMatrix<EdgeClassification
         EdgeClassification::NoConfidence,
     );
     // Stack. Possible optimization: Use previously allocated memory, i.e. gx.
-    let mut edges = Vec::with_capacity(out.len() / 2 as usize);
+    let mut edges = Vec::with_capacity(out.len() / 2_usize);
 
     for y in 1..input.ncols() - 1 {
         for x in 1..input.nrows() - 1 {
