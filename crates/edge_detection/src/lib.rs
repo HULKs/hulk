@@ -1,11 +1,15 @@
 use coordinate_systems::Pixel;
 use image::{GrayImage, Luma, RgbImage};
-use imageproc::{
-    edges::canny, filter::gaussian_blur_f32, gradients::vertical_sobel, map::map_colors,
-};
-
+use imageproc::{edges::canny, map::map_colors};
 use linear_algebra::{point, Point2};
+use nalgebra::{self as na, Scalar};
+
 use types::ycbcr422_image::YCbCr422Image;
+
+pub mod canny;
+pub mod conv;
+pub mod gaussian;
+pub mod sobel;
 
 pub enum EdgeSourceType {
     DifferenceOfGrayAndRgbRange,
@@ -13,34 +17,19 @@ pub enum EdgeSourceType {
     // TODO Add HSV based approaches - https://github.com/HULKs/hulk/pull/1078, https://github.com/HULKs/hulk/pull/1081
 }
 
-pub fn get_edge_image_canny(
-    gaussian_sigma: f32,
+pub fn get_edges_canny(
+    _gaussian_sigma: f32,
     canny_low_threshold: f32,
     canny_high_threshold: f32,
     image: &YCbCr422Image,
     source_channel: EdgeSourceType,
-) -> GrayImage {
-    let edges_source = get_edge_source_image(image, source_channel);
-    let blurred = gaussian_blur_f32(&edges_source, gaussian_sigma);
-
-    canny(&blurred, canny_low_threshold, canny_high_threshold)
-}
-
-pub fn get_edges_sobel(
-    gaussian_sigma: f32,
-    threshold: u16,
-    image: &YCbCr422Image,
-    source_channel: EdgeSourceType,
 ) -> Vec<Point2<Pixel>> {
     let edges_source = get_edge_source_image(image, source_channel);
-    let blurred = gaussian_blur_f32(&edges_source, gaussian_sigma);
 
-    let gradients = vertical_sobel(&blurred);
-
-    gradients
+    canny(&edges_source, canny_low_threshold, canny_high_threshold)
         .enumerate_pixels()
         .filter_map(|(x, y, color)| {
-            if color[0].unsigned_abs() < threshold {
+            if color[0] > 127 {
                 Some(point![x as f32, y as f32])
             } else {
                 None
@@ -93,4 +82,43 @@ fn rgb_pixel_to_difference(rgb: &image::Rgb<u8>) -> u8 {
     let minimum = rgb.0.iter().min().unwrap();
     let maximum = rgb.0.iter().max().unwrap();
     maximum - minimum
+}
+
+// #[inline]
+// fn grayimage_to_2d_matrix(image: &GrayImage) -> na::DMatrix<u8> {
+//     let data = image.as_raw();
+
+//     na::DMatrix::from_iterator(
+//         image.height() as usize,
+//         image.width() as usize,
+//         data.iter().copied(),
+//     )
+// }
+
+#[inline]
+pub fn grayimage_to_2d_transposed_matrix_view(image: &GrayImage) -> na::DMatrixView<u8> {
+    let data = image.as_raw();
+
+    na::DMatrixView::from_slice(&data, image.width() as usize, image.height() as usize)
+}
+
+#[cfg(test)]
+mod tests {
+    use image::ImageBuffer;
+
+    use super::*;
+
+    #[test]
+    fn verify_matrix_view() {
+        let width = 5;
+        let height = 3;
+        let buf: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+        let image = ImageBuffer::from_vec(width, height, buf).unwrap();
+        let nalgebra_matrix_view_transposed = grayimage_to_2d_transposed_matrix_view(&image);
+
+        image.enumerate_pixels().for_each(|(x, y, pixel)| {
+            let nalgebra_pixel = nalgebra_matrix_view_transposed[(x as usize, y as usize)];
+            assert_eq!(pixel[0], nalgebra_pixel, "x: {}, y: {}", x, y);
+        });
+    }
 }

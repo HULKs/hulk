@@ -17,6 +17,7 @@ types = { workspace = true }
 
 [dev-dependencies]
 divan = { workspace = true }
+pprof = { workspace = true }
 
 [[bench]]
 name = "bench"
