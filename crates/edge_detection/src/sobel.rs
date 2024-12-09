@@ -9,7 +9,7 @@ use nalgebra::{DMatrix, Scalar, SimdPartialOrd};
 use types::ycbcr422_image::YCbCr422Image;
 
 use crate::{
-    canny::non_maximum_suppression,
+    canny::{non_maximum_suppression, EdgeClassification},
     conv::{direct_convolution, imgproc_kernel_to_matrix},
     gaussian::gaussian_blur_box_filter,
     get_edge_source_image, grayimage_to_2d_transposed_matrix_view, EdgeSourceType,
@@ -71,7 +71,8 @@ pub fn get_edges_sobel(
 
 pub fn get_edges_sobel_nalgebra(
     gaussian_sigma: f32,
-    threshold: u16,
+    low_threshold: u16,
+    high_threshold: u16,
     image: &YCbCr422Image,
     source_channel: EdgeSourceType,
 ) -> Vec<Point2<Pixel>> {
@@ -81,7 +82,7 @@ pub fn get_edges_sobel_nalgebra(
     // let gaussed = gaussian_blur_f32(&edges_source, gaussian_sigma);
     // let blurred = grayimage_to_2d_transposed_matrix_view(&gaussed);
     let blurred = gaussian_blur_box_filter(&edges_source, gaussian_sigma);
-    let converted = grayimage_to_2d_transposed_matrix_view(&blurred).clone_owned();
+    let converted = grayimage_to_2d_transposed_matrix_view(&blurred);
 
     const KERNEL_SIZE: usize = 3;
     let min_x = KERNEL_SIZE / 2;
@@ -90,13 +91,18 @@ pub fn get_edges_sobel_nalgebra(
     let gradients_y_transposed = sobel_operator_vertical::<KERNEL_SIZE, u8>(&converted);
     let gradients_x_transposed = sobel_operator_horizontal::<KERNEL_SIZE, u8>(&converted);
 
-    let suppressed = non_maximum_suppression(&gradients_x_transposed, &gradients_y_transposed);
+    let decisions = non_maximum_suppression(
+        &gradients_x_transposed,
+        &gradients_y_transposed,
+        low_threshold,
+        high_threshold,
+    );
     let mut points = Vec::new();
 
-    suppressed.column_iter().enumerate().for_each(|(y, col)| {
+    decisions.column_iter().enumerate().for_each(|(y, col)| {
         let col_slice = &col.as_slice()[min_x..max_x];
         col_slice.iter().enumerate().for_each(|(x, gradient)| {
-            if *gradient > threshold {
+            if *gradient > EdgeClassification::LowConfidence {
                 points.push(point![x as f32, y as f32]);
             }
         })
@@ -137,16 +143,21 @@ mod tests {
                         && p.y() < max_y as f32
                 })
                 .collect();
-        let output_points: Vec<Point2<Pixel>> =
-            get_edges_sobel_nalgebra(GAUSSIAN_SIGMA, THRESHOLD, &image, EDGE_SOURCE_TYPE)
-                .into_iter()
-                .filter(|p| {
-                    p.x() > min_x as f32
-                        && p.x() < max_x as f32
-                        && p.y() > min_y as f32
-                        && p.y() < max_y as f32
-                })
-                .collect();
+        let output_points: Vec<Point2<Pixel>> = get_edges_sobel_nalgebra(
+            GAUSSIAN_SIGMA,
+            THRESHOLD,
+            THRESHOLD,
+            &image,
+            EDGE_SOURCE_TYPE,
+        )
+        .into_iter()
+        .filter(|p| {
+            p.x() > min_x as f32
+                && p.x() < max_x as f32
+                && p.y() > min_y as f32
+                && p.y() < max_y as f32
+        })
+        .collect();
 
         assert_eq!(output_points.len(), expected_points.len());
         for (gradient, expected) in output_points.iter().zip(expected_points.iter()) {
@@ -160,7 +171,7 @@ mod tests {
         let blurred = gaussian_blur_box_filter(&edges_source, GAUSSIAN_SIGMA);
 
         let kernel = imgproc_kernel_to_matrix(&VERTICAL_SOBEL);
-        let image_view_transposed = grayimage_to_2d_transposed_matrix_view(&blurred).clone_owned();
+        let image_view_transposed = grayimage_to_2d_transposed_matrix_view(&blurred);
 
         let sobel_image_transposed =
             direct_convolution::<3, u8>(&image_view_transposed, &kernel, None);

@@ -130,7 +130,7 @@ mod tests {
             .expect("The image should be in this path");
 
         let luma8 = image.to_luma8();
-        let converted = grayimage_to_2d_transposed_matrix_view(&luma8).clone_owned();
+        let converted = grayimage_to_2d_transposed_matrix_view(&luma8);
         let blurred = gaussian_blur_box_filter_nalgebra::<u8>(&converted, 1.0);
 
         GrayImage::from_raw(
