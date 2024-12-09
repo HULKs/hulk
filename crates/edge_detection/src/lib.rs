@@ -1,6 +1,7 @@
+use canny::{canny, EdgeClassification};
 use coordinate_systems::Pixel;
 use image::{GrayImage, Luma, RgbImage};
-use imageproc::{edges::canny, map::map_colors};
+use imageproc::{edges::canny as imageproc_canny, map::map_colors};
 use linear_algebra::{point, Point2};
 use nalgebra::{self as na, Scalar};
 
@@ -17,6 +18,27 @@ pub enum EdgeSourceType {
     // TODO Add HSV based approaches - https://github.com/HULKs/hulk/pull/1078, https://github.com/HULKs/hulk/pull/1081
 }
 
+pub fn get_edges_canny_imageproc(
+    _gaussian_sigma: f32,
+    canny_low_threshold: f32,
+    canny_high_threshold: f32,
+    image: &YCbCr422Image,
+    source_channel: EdgeSourceType,
+) -> Vec<Point2<Pixel>> {
+    let edges_source = get_edge_source_image(image, source_channel);
+
+    imageproc_canny(&edges_source, canny_low_threshold, canny_high_threshold)
+        .enumerate_pixels()
+        .filter_map(|(x, y, color)| {
+            if color[0] > 127 {
+                Some(point![x as f32, y as f32])
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 pub fn get_edges_canny(
     _gaussian_sigma: f32,
     canny_low_threshold: f32,
@@ -26,10 +48,13 @@ pub fn get_edges_canny(
 ) -> Vec<Point2<Pixel>> {
     let edges_source = get_edge_source_image(image, source_channel);
 
-    canny(&edges_source, canny_low_threshold, canny_high_threshold)
-        .enumerate_pixels()
-        .filter_map(|(x, y, color)| {
-            if color[0] > 127 {
+    let canny_matrix = canny(&edges_source, canny_low_threshold, canny_high_threshold);
+    canny_matrix
+        .iter()
+        .enumerate()
+        .filter_map(|(index, value)| {
+            let (x, y) = canny_matrix.vector_to_matrix_index(index);
+            if *value >= EdgeClassification::LowConfidence {
                 Some(point![x as f32, y as f32])
             } else {
                 None
