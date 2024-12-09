@@ -25,7 +25,7 @@ where
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&VERTICAL_SOBEL);
 
-    direct_convolution::<K, T>(&image_view_transposed, &kernel, None)
+    direct_convolution::<K, T>(image_view_transposed, &kernel, None)
 }
 
 #[inline]
@@ -38,7 +38,7 @@ where
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&HORIZONTAL_SOBEL);
 
-    direct_convolution::<K, T>(&image_view_transposed, &kernel, None)
+    direct_convolution::<K, T>(image_view_transposed, &kernel, None)
 }
 
 pub fn get_edges_sobel(
@@ -85,8 +85,11 @@ pub fn get_edges_sobel_nalgebra(
     let converted = grayimage_to_2d_transposed_matrix_view(&blurred);
 
     const KERNEL_SIZE: usize = 3;
-    let min_x = KERNEL_SIZE / 2;
-    let max_x = image.width() as usize - min_x;
+    let (min_x, min_y) = (KERNEL_SIZE / 2, KERNEL_SIZE / 2);
+    let (max_x, max_y) = (
+        image.width() as usize - min_x,
+        image.height() as usize - min_y,
+    );
 
     let gradients_y_transposed = sobel_operator_vertical::<KERNEL_SIZE, u8>(&converted);
     let gradients_x_transposed = sobel_operator_horizontal::<KERNEL_SIZE, u8>(&converted);
@@ -97,17 +100,19 @@ pub fn get_edges_sobel_nalgebra(
         low_threshold,
         high_threshold,
     );
-    let mut points = Vec::new();
 
-    decisions.column_iter().enumerate().for_each(|(y, col)| {
-        let col_slice = &col.as_slice()[min_x..max_x];
-        col_slice.iter().enumerate().for_each(|(x, gradient)| {
-            if *gradient > EdgeClassification::LowConfidence {
-                points.push(point![x as f32, y as f32]);
+    decisions
+        .iter()
+        .enumerate()
+        .filter_map(|(index, decision)| {
+            if *decision >= EdgeClassification::LowConfidence {
+                let (x, y) = decisions.vector_to_matrix_index(index);
+                Some(point![x as f32, y as f32])
+            } else {
+                None
             }
         })
-    });
-    points
+        .collect()
 }
 
 #[cfg(test)]
@@ -143,6 +148,7 @@ mod tests {
                         && p.y() < max_y as f32
                 })
                 .collect();
+
         let output_points: Vec<Point2<Pixel>> = get_edges_sobel_nalgebra(
             GAUSSIAN_SIGMA,
             THRESHOLD,

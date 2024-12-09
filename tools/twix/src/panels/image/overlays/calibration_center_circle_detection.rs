@@ -66,13 +66,12 @@ impl Overlay for CalibrationMeasurementDetection {
             .get_last_value()
             .ok()
             .flatten()
-            .map(|value| value.detected_feature)
-            .flatten()
+            .and_then(|value| value.detected_feature)
         {
             painter.floating_text(
                 center_circle.center,
                 Align2::LEFT_BOTTOM,
-                format!("C"),
+                "C".to_string(),
                 FontId::default(),
                 Color32::BLUE,
             );
