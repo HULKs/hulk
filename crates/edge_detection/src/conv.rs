@@ -3,8 +3,9 @@ use std::ops::{Mul, MulAssign};
 use nalgebra::{self as na, Scalar, SimdPartialOrd};
 
 pub fn direct_convolution<const K: usize, T>(
-    image: &na::DMatrixView<T>,
+    image: &na::DMatrix<T>,
     kernel: &na::SMatrix<i16, K, K>,
+    _scale_value: Option<i16>,
 ) -> na::DMatrix<i16>
 where
     T: Clone + Copy + Scalar + Mul + MulAssign + SimdPartialOrd,
@@ -22,9 +23,10 @@ where
 }
 
 pub fn direct_convolution_mut<const K: usize, T>(
-    transposed_image: &na::DMatrixView<T>,
+    transposed_image: &na::DMatrix<T>,
     dst: &mut na::DMatrix<i16>,
     kernel: &na::SMatrix<i16, K, K>,
+    // scale_value: Option<i16>,
 ) where
     T: Clone + Copy + Scalar + Mul + MulAssign + SimdPartialOrd,
     i16: From<T>,
@@ -38,27 +40,30 @@ pub fn direct_convolution_mut<const K: usize, T>(
     }
 
     let (image_rows, image_cols) = transposed_image.shape();
-    let (kernel_rows, kernel_cols) = kernel.shape();
 
-    let kernel_half_rows = kernel_rows / 2;
-    let kernel_half_cols = kernel_cols / 2;
+    let kernel_half = K / 2;
+
+    // let calculated_scale_value = scale_value.unwrap_or_default() as i32;
+
+    const MAX_ALLOWED_SUM: i32 = i16::MAX as i32;
 
     // Nalgebra works on column-major order, therefore the loops are transposed.
-    for j in kernel_half_cols..image_cols - kernel_half_cols {
-        let j_top_left = j - kernel_half_cols;
-        for i in kernel_half_rows..image_rows - kernel_half_rows {
-            let i_top_left = i - kernel_half_rows;
-            let mut sum = 0;
+    for j in kernel_half..image_cols - kernel_half {
+        let j_top_left = j - kernel_half;
+        for i in kernel_half..image_rows - kernel_half {
+            let i_top_left = i - kernel_half;
+            let mut sum: i32 = 0;
             // For the kernel, seems the order didn't really matter (based on benchmarking)
-            for ki in 0..kernel_rows {
-                for kj in 0..kernel_cols {
+            for ki in 0..kernel_half {
+                for kj in 0..kernel_half {
                     let ii = ki + i_top_left;
                     let jj = kj + j_top_left;
+                    // TODO find a better way to do this!!!
                     let image_px: i16 = transposed_image[(ii, jj)].into();
-                    sum += image_px * kernel[(ki, kj)];
+                    sum += image_px as i32 * kernel[(ki, kj)] as i32;
                 }
             }
-            dst[(i, j)] = sum;
+            dst[(i, j)] = sum.min(MAX_ALLOWED_SUM) as i16;
         }
     }
 }

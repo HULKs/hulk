@@ -1,10 +1,4 @@
-use image::GrayImage;
-use nalgebra::{coordinates::X, DMatrix, Matrix3, MatrixView3, SMatrixView};
-
-use crate::{
-    gaussian::gaussian_blur_box_filter_nalgebra,
-    sobel::{sobel_operator_horizontal, sobel_operator_vertical},
-};
+use nalgebra::DMatrix;
 
 // fn canny(image: &DMatrix<u8>, low_threshold: f32, high_threshold: f32) -> GrayImage {
 //     let sigma = 1.4;
@@ -23,7 +17,9 @@ pub(crate) fn get_gradient_magnitude(
     gradients_x: &DMatrix<i16>,
     gradients_y: &DMatrix<i16>,
 ) -> DMatrix<u16> {
-    gradients_x.zip_map(gradients_y, |gx, gy| (gx * gx + gy * gy) as u16)
+    gradients_x.zip_map(gradients_y, |gx, gy| {
+        ((gx as f32).powi(2) + (gy as f32).powi(2)).sqrt() as u16
+    })
 }
 
 #[inline(always)]
@@ -55,29 +51,35 @@ fn approximate_direction(y: i16, x: i16) -> u8 {
 
 #[inline(always)]
 fn approximate_direction_integer_only(y: i16, x: i16) -> u8 {
+    if y == 0 {
+        return 0;
+    }
+    if x == 0 {
+        return 90;
+    }
+
     // This trick is taken from OpenCV's Canny implementation
-    // The idea is to perform the tan22.5 and tan67.5 boundary calculations with integers only
+    // The idea is to perform the tan22.5 and tan67.5 boundary calculations with integers only avoiding float calculations and atan2, etc
 
     // Select the case based on the following inequality
-    // check if following inequality is true
     // tan(x) > tan(22deg)
     // let t = tan(22deg)
     // -> tan(x) * 2^15 > t * 2^15
     // -> t * 2^15 > y * 2^15 / x
     // -> t * x * 2^15 > y * 2^15
 
+    // round(tan(22.5) * 2**15), tan(67.5) * 2**15 -> 22.5 = 45/2, 67.5 = 45 + 22.5
+    const TAN_SHIFTED_22_5: u32 = 13573;
+    const TAN_SHIFTED_67_5: u32 = 79109;
+
     // To grab the perpendicular two pixels to edge direction, only 4 of the 8 possible directions are needed (the opposide ones of each direction yields the same.)
     // Due to this symmetry, calculations can be done in first quadrant (-> abs values) and then check the signs only for the diagonals.
-    let abs_y = y.abs() as i32;
-    let abs_x = x.abs() as i32;
+    let abs_y = y.unsigned_abs() as u32;
+    let abs_x = x.unsigned_abs() as u32;
 
-    // round(tan(22.5) * 2**15), tan(67.5) * 2**15 -> 22.5 = 45/2, 67.5 = 45 + 22.5
-    const TAN_SHIFTED_22_5: i32 = 13573;
-    const TAN_SHIFTED_67_5: i32 = 79109;
-
-    // x * tan22.5 * 2^15
-    let tan_22_5_mul_x = TAN_SHIFTED_22_5 * abs_x;
-    let tan_67_5_mul_x = TAN_SHIFTED_67_5 * abs_x;
+    // NOTE: u32 can work as TAN_SHIFTED_67_5 * i16::MAX < u32::MAX
+    let tan_22_5_mul_x = TAN_SHIFTED_22_5 * abs_x as u32;
+    let tan_67_5_mul_x = TAN_SHIFTED_67_5 * abs_x as u32;
 
     // y * 2^15
     let y_shifted = (abs_y) << 15;
@@ -134,31 +136,31 @@ fn select_maximum_pixel(
     center_y: usize,
     gx: i16,
     gy: i16,
-    gradients_magnitude_region: &DMatrix<u16>,
+    gradients_magnitude: &DMatrix<u16>,
 ) -> u16 {
     // TODO Optimize the element access method -> take columns as slices and do the up/down shifting to avoid the bound checks, etc
 
     let direction = approximate_direction_integer_only(gx, gy);
     let (cmp1, cmp2) = match direction {
         0 => (
-            gradients_magnitude_region[(center_x - 1, center_y)],
-            gradients_magnitude_region[(center_x + 1, center_y)],
+            gradients_magnitude[(center_x - 1, center_y)],
+            gradients_magnitude[(center_x + 1, center_y)],
         ),
         45 => (
-            gradients_magnitude_region[(center_x + 1, center_y + 1)],
-            gradients_magnitude_region[(center_x - 1, center_y - 1)],
+            gradients_magnitude[(center_x + 1, center_y + 1)],
+            gradients_magnitude[(center_x - 1, center_y - 1)],
         ),
         90 => (
-            gradients_magnitude_region[(center_x, center_y - 1)],
-            gradients_magnitude_region[(center_x, center_y + 1)],
+            gradients_magnitude[(center_x, center_y - 1)],
+            gradients_magnitude[(center_x, center_y + 1)],
         ),
         135 => (
-            gradients_magnitude_region[(center_x - 1, center_y + 1)],
-            gradients_magnitude_region[(center_x + 1, center_y - 1)],
+            gradients_magnitude[(center_x - 1, center_y + 1)],
+            gradients_magnitude[(center_x + 1, center_y - 1)],
         ),
         _ => unreachable!(),
     };
-    let pixel = gradients_magnitude_region[(center_x, center_y)];
+    let pixel = gradients_magnitude[(center_x, center_y)];
     // Suppress non-maximum pixel
 
     if pixel < cmp1 || pixel < cmp2 {
@@ -170,4 +172,50 @@ fn select_maximum_pixel(
 
 fn hysteresis() {
     todo!()
+}
+
+#[cfg(test)]
+mod tests {
+
+    use std::i16;
+
+    use super::{approximate_direction, approximate_direction_integer_only};
+
+    #[test]
+    fn non_maximum_suppression_direction_approximation() {
+        let bounds = [
+            (i16::MIN, i16::MAX),
+            (i16::MAX, i16::MIN),
+            (i16::MAX, i16::MAX),
+            (i16::MIN, i16::MIN),
+            (0, 0),
+        ];
+        for (x, y) in bounds {
+            assert_eq!(
+                approximate_direction(y, x),
+                approximate_direction_integer_only(y, x),
+                "Failed! x:{x}, y:{y}"
+            );
+        }
+
+        // Radius mode
+        let angles: Vec<_> = (0..360).map(|deg| (deg as f32).to_radians()).collect();
+
+        for radius in [0, 20, 1000, 5000, i16::MAX] {
+            for angle in angles.iter() {
+                let x_component = radius as f32 * angle.cos();
+                let y_component = radius as f32 * angle.sin();
+
+                let atan_based_clamped_angle =
+                    approximate_direction(y_component as i16, x_component as i16);
+
+                let integer_approximation =
+                    approximate_direction_integer_only(y_component as i16, x_component as i16);
+                assert_eq!(
+                    atan_based_clamped_angle, integer_approximation,
+                    "Failed! x:{x_component}, y:{y_component}, radius:{radius}, angle:{angle:?}"
+                );
+            }
+        }
+    }
 }
