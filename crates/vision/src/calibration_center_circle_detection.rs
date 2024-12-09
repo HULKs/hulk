@@ -4,6 +4,12 @@ use std::{
 };
 
 use color_eyre::Result;
+use edge_detection::{
+    get_edges_canny,
+    sobel::{get_edges_sobel, get_edges_sobel_nalgebra},
+    EdgeSourceType,
+};
+use geometry::{line_segment::LineSegment, rectangle::Rectangle, Distance};
 use itertools::Itertools;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -12,9 +18,9 @@ use serde::{Deserialize, Serialize};
 use calibration::center_circle::circle_points::CenterCirclePoints;
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
-use edge_detection::{get_edge_image_canny, EdgeSourceType};
+
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
-use linear_algebra::{point, Point2};
+use linear_algebra::{point, vector, Point, Point2, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use ransac::circles::circle::{
     RansacCircleWithTransformation, RansacResultCircleWithTransformation,
@@ -81,6 +87,10 @@ pub struct CycleContext {
         Vec<f32>,
         "calibration_center_circle_detection.circles_points_pixel_scores",
     >,
+    circle_lines: AdditionalOutput<
+        Vec<LineSegment<Pixel>>,
+        "calibration_center_circle_detection.circle_lines",
+    >,
 }
 
 #[context]
@@ -116,13 +126,15 @@ impl CalibrationMeasurementDetection {
         let processing_start = Instant::now();
 
         let filtered_points = if *context.preprocessing_get_edges_from_segments {
-            get_edges_from_segments(
+            let edges = get_edges_from_segments(
                 context.filtered_segments,
                 context
                     .camera_matrix
                     .horizon
                     .map(|h| h.horizon_y_minimum() as u32),
-            )
+            );
+
+            edges
         } else {
             get_edges_from_canny_edge_detection(&context)
         };
@@ -140,6 +152,22 @@ impl CalibrationMeasurementDetection {
 
         let elapsed_time_after_all_processing = processing_start.elapsed();
 
+        context.circle_lines.fill_if_subscribed(|| {
+            filtered_calibration_circles_ground
+                .iter()
+                .flat_map(|ransac_result| {
+                    get_center_circle_lines(
+                        &ransac_result,
+                        context
+                            .camera_matrix
+                            .ground_to_pixel(ransac_result.circle.center)
+                            .expect("ground -> pixel failed"),
+                        &filtered_points,
+                        80,
+                    )
+                })
+                .collect_vec()
+        });
         context
             .detected_edge_points
             .fill_if_subscribed(|| filtered_points);
@@ -189,6 +217,112 @@ impl CalibrationMeasurementDetection {
             }
             .into(),
         })
+    }
+}
+
+fn get_center_circle_roi(
+    center_circle_points: &[Point2<Pixel>],
+    roi_padding: (f32, f32),
+) -> Rectangle<Pixel> {
+    let (x_min, x_max) = center_circle_points
+        .iter()
+        .map(|point| point.x())
+        .minmax()
+        .into_option()
+        .unwrap();
+    let (y_min, y_max) = center_circle_points
+        .iter()
+        .map(|point| point.y())
+        .minmax()
+        .into_option()
+        .unwrap();
+    Rectangle {
+        min: point![x_min - roi_padding.0, y_min - roi_padding.1],
+        max: point![x_max + roi_padding.0, y_max + roi_padding.1],
+    }
+}
+
+fn get_center_circle_lines(
+    center_circle: &RansacResultCircleWithTransformation<Pixel, Ground>,
+    circle_center: Point2<Pixel>,
+    ransac_source_points: &[Point2<Pixel>],
+    ransac_iters: usize,
+) -> Option<LineSegment<Pixel>> {
+    let circle_points_pixel = &center_circle.used_points_original;
+    let roi = get_center_circle_roi(circle_points_pixel, (5.0, 5.0));
+
+    let roi_points = ransac_source_points
+        .iter()
+        .filter(|point| {
+            point.x() >= roi.min.x()
+                && point.x() <= roi.max.x()
+                && point.y() >= roi.min.y()
+                && point.y() <= roi.max.y()
+        })
+        .cloned()
+        .collect();
+
+    let maximum_score_distance = 5.0;
+    let maximum_inclusion_distance = 5.0;
+    let mut line_ransac = ransac::Ransac::new(roi_points);
+    let mut rng = ChaChaRng::from_entropy();
+    fn best_fit_line(points: &[Point2<Pixel>]) -> LineSegment<Pixel> {
+        let half_size = points.len() / 2;
+        let line_start = find_center_of_group(&points[0..half_size]);
+        let line_end = find_center_of_group(&points[half_size..points.len()]);
+        LineSegment(line_start, line_end)
+    }
+    fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
+        group
+            .iter()
+            .map(|point| point.coords())
+            .sum::<Vector2<_>>()
+            .unscale(group.len() as f32)
+            .as_point()
+    }
+
+    let distance_threshold = ((roi.max.coords() - roi.min.coords()).norm() * 0.3).max(20.0);
+
+    let lines = (0..3)
+        .map(|_| {
+            line_ransac.next_line(
+                &mut rng,
+                ransac_iters,
+                maximum_score_distance,
+                maximum_inclusion_distance,
+            )
+        })
+        .flat_map(|result| {
+            if let Some(ransac_line) = result.line {
+                let distance = ransac_line.squared_distance_to(circle_center);
+                if distance < distance_threshold {
+                    Some((
+                        result.used_points,
+                        ransac_line,
+                        ransac_line.squared_distance_to(circle_center),
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        // .sorted_by(|a, b| b.used_points.len().cmp(&a.used_points.len()))
+        .sorted_by(|a, b| a.2.total_cmp(&b.2))
+        .collect_vec();
+
+    if lines.len() == 1 {
+        lines
+            .first()
+            .map(|(used_points, _line, _distance)| best_fit_line(used_points))
+    } else if lines.len() > 1 {
+        lines
+            .first()
+            .map(|(used_points, _line, _distance)| best_fit_line(used_points))
+        // TODO
+    } else {
+        None
     }
 }
 
@@ -256,6 +390,7 @@ fn detect_and_filter_circles(
                             used_points_transformed,
                             ransac_circle_minimum_circumference_percentage,
                         )
+                        && get_center_circle_lines(&result, center, &edge_points, 80).is_some()
                 })
         })
         .sorted_by_key(|value| input_point_count - value.used_points_original.len())
@@ -293,33 +428,34 @@ fn get_edges_from_segments(
         .collect()
 }
 
+fn get_y_exclusion_threshold(context: &CycleContext) -> u32 {
+    context
+        .camera_matrix
+        .horizon
+        .map_or(0, |h| h.horizon_y_minimum() as u32)
+}
+
 fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pixel>> {
     let canny_source_type = if *context.preprocessing_luma_without_difference {
         EdgeSourceType::LumaOfYCbCr
     } else {
         EdgeSourceType::DifferenceOfGrayAndRgbRange
     };
-    let edge_image = get_edge_image_canny(
+    let y_exclusion_threshold = get_y_exclusion_threshold(context) as f32;
+    // get_edges_canny(
+    //     *context.preprocessing_gaussian_sigma,
+    //     *context.canny_low_threshold,
+    //     *context.canny_high_threshold,
+    //     context.image,
+    //     canny_source_type,
+    // )
+    get_edges_sobel_nalgebra(
         *context.preprocessing_gaussian_sigma,
-        *context.canny_low_threshold,
-        *context.canny_high_threshold,
+        *context.canny_high_threshold as u16,
         context.image,
         canny_source_type,
-    );
-
-    let y_exclusion_threshold = context
-        .camera_matrix
-        .horizon
-        .map_or(0, |h| h.horizon_y_minimum() as u32);
-
-    edge_image
-        .enumerate_pixels()
-        .filter_map(|(x, y, color)| {
-            if color[0] > 127 && y > y_exclusion_threshold {
-                Some(point![x as f32, y as f32])
-            } else {
-                None
-            }
-        })
-        .collect()
+    )
+    .into_iter()
+    .filter(|&point| point.y() > y_exclusion_threshold)
+    .collect()
 }
