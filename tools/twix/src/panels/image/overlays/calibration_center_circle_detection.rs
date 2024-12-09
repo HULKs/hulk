@@ -6,6 +6,7 @@ use eframe::{
 
 use calibration::center_circle::circle_points::CenterCirclePoints;
 use coordinate_systems::Pixel;
+use geometry::line_segment::LineSegment;
 use linear_algebra::Point2;
 use types::calibration::CalibrationFeatureDetectorOutput;
 
@@ -18,7 +19,8 @@ use crate::{
 
 pub struct CalibrationMeasurementDetection {
     center_circle_points: BufferHandle<CalibrationFeatureDetectorOutput<CenterCirclePoints<Pixel>>>,
-    edge_points: BufferHandle<Vec<Point2<Pixel>>>,
+    edge_points: BufferHandle<Option<Vec<Point2<Pixel>>>>,
+    circle_lines: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
 }
 
 impl Overlay for CalibrationMeasurementDetection {
@@ -31,15 +33,31 @@ impl Overlay for CalibrationMeasurementDetection {
                 "{cycler_path}.main_outputs.calibration_center_circle"
             )),
             edge_points: nao.subscribe_value(format!(
-                "{cycler_path}.calibration_center_circle_detection.detected_edge_points"
+                "{cycler_path}.additional_outputs.calibration_center_circle_detection.detected_edge_points"
+            )),
+            circle_lines: nao.subscribe_value(format!(
+                "{cycler_path}.additional_outputs.calibration_center_circle_detection.circle_lines"
             )),
         }
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        if let Some(edge_points) = self.edge_points.get_last_value().ok().flatten() {
+        if let Some(edge_points) = self.edge_points.get_last_value().ok().flatten().flatten() {
             for edge_point in edge_points {
                 painter.circle_stroke(edge_point, 1.0, Stroke::new(1.0, Color32::BLUE));
+            }
+        }
+
+        if let Some(circle_lines) = self.circle_lines.get_last_value().ok().flatten().flatten() {
+            for line in circle_lines {
+                painter.line_segment(
+                    line.0,
+                    line.1,
+                    Stroke {
+                        width: 2.0,
+                        color: Color32::YELLOW,
+                    },
+                );
             }
         }
 
@@ -68,7 +86,6 @@ impl Overlay for CalibrationMeasurementDetection {
                 painter.circle_stroke(*circle_point, 2.0, Stroke::new(1.0, Color32::RED));
             }
         }
-
         Ok(())
     }
 }
