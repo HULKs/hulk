@@ -4,11 +4,7 @@ use std::{
 };
 
 use color_eyre::Result;
-use edge_detection::{
-    get_edges_canny,
-    sobel::{get_edges_sobel, get_edges_sobel_nalgebra},
-    EdgeSourceType,
-};
+use edge_detection::{get_edges_canny, EdgeSourceType};
 use geometry::{line_segment::LineSegment, rectangle::Rectangle, Distance};
 use itertools::Itertools;
 use rand::SeedableRng;
@@ -20,7 +16,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
-use linear_algebra::{point, vector, Point, Point2, Vector2};
+use linear_algebra::{point, Point2, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use ransac::circles::circle::{
     RansacCircleWithTransformation, RansacResultCircleWithTransformation,
@@ -126,15 +122,13 @@ impl CalibrationMeasurementDetection {
         let processing_start = Instant::now();
 
         let filtered_points = if *context.preprocessing_get_edges_from_segments {
-            let edges = get_edges_from_segments(
+            get_edges_from_segments(
                 context.filtered_segments,
                 context
                     .camera_matrix
                     .horizon
                     .map(|h| h.horizon_y_minimum() as u32),
-            );
-
-            edges
+            )
         } else {
             get_edges_from_canny_edge_detection(&context)
         };
@@ -157,7 +151,7 @@ impl CalibrationMeasurementDetection {
                 .iter()
                 .flat_map(|ransac_result| {
                     get_center_circle_lines(
-                        &ransac_result,
+                        ransac_result,
                         context
                             .camera_matrix
                             .ground_to_pixel(ransac_result.circle.center)
@@ -312,17 +306,14 @@ fn get_center_circle_lines(
         .sorted_by(|a, b| a.2.total_cmp(&b.2))
         .collect_vec();
 
-    if lines.len() == 1 {
-        lines
+    match lines.len() {
+        1 => lines
             .first()
-            .map(|(used_points, _line, _distance)| best_fit_line(used_points))
-    } else if lines.len() > 1 {
-        lines
+            .map(|(used_points, _line, _distance)| best_fit_line(used_points)),
+        2 => lines
             .first()
-            .map(|(used_points, _line, _distance)| best_fit_line(used_points))
-        // TODO
-    } else {
-        None
+            .map(|(used_points, _line, _distance)| best_fit_line(used_points)),
+        _ => None,
     }
 }
 
@@ -390,7 +381,7 @@ fn detect_and_filter_circles(
                             used_points_transformed,
                             ransac_circle_minimum_circumference_percentage,
                         )
-                        && get_center_circle_lines(&result, center, &edge_points, 80).is_some()
+                        && get_center_circle_lines(result, center, edge_points, 80).is_some()
                 })
         })
         .sorted_by_key(|value| input_point_count - value.used_points_original.len())
@@ -442,19 +433,19 @@ fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pix
         EdgeSourceType::DifferenceOfGrayAndRgbRange
     };
     let y_exclusion_threshold = get_y_exclusion_threshold(context) as f32;
-    // get_edges_canny(
-    //     *context.preprocessing_gaussian_sigma,
-    //     *context.canny_low_threshold,
-    //     *context.canny_high_threshold,
-    //     context.image,
-    //     canny_source_type,
-    // )
-    get_edges_sobel_nalgebra(
+    get_edges_canny(
         *context.preprocessing_gaussian_sigma,
-        *context.canny_high_threshold as u16,
+        *context.canny_low_threshold,
+        *context.canny_high_threshold,
         context.image,
         canny_source_type,
     )
+    // get_edges_sobel_nalgebra(
+    //     *context.preprocessing_gaussian_sigma,
+    //     *context.canny_high_threshold as u16,
+    //     context.image,
+    //     canny_source_type,
+    // )
     .into_iter()
     .filter(|&point| point.y() > y_exclusion_threshold)
     .collect()
