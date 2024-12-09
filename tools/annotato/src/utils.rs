@@ -5,10 +5,10 @@ use eframe::{
     egui::Ui,
     epaint::{ColorImage, TextureHandle},
 };
-use image::{io::Reader, ImageError};
+use image::{ImageError, ImageReader};
 
 pub fn load_image_from_path(path: impl AsRef<Path>) -> Result<ColorImage, ImageError> {
-    let image = Reader::open(path)?.decode()?;
+    let image = ImageReader::open(path)?.decode()?;
     let size = [image.width() as _, image.height() as _];
     let image_buffer = image.to_rgba8();
     let pixels = image_buffer.as_flat_samples();
