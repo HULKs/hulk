@@ -1,8 +1,9 @@
 use image::GrayImage;
+
 use nalgebra::DMatrix;
 
 use crate::{
-    gaussian::gaussian_blur_box_filter,
+    gaussian::gaussian_blur_box_filter_nalgebra,
     grayimage_to_2d_transposed_matrix_view,
     sobel::{sobel_operator_horizontal, sobel_operator_vertical},
 };
@@ -17,8 +18,12 @@ pub fn canny(
     const SOBEL_KERNEL_SIZE: usize = 3;
 
     // TODO remove this
-    let blurred = gaussian_blur_box_filter(image, sigma);
-    let converted = grayimage_to_2d_transposed_matrix_view::<i16>(&blurred);
+    // let blurred = gaussian_blur_f32(image, sigma);
+
+    // let converted = grayimage_to_2d_transposed_matrix_view::<i16>(&blurred);
+
+    let input = grayimage_to_2d_transposed_matrix_view::<u8>(image);
+    let converted = gaussian_blur_box_filter_nalgebra(&input, sigma);
 
     let gx = sobel_operator_horizontal::<SOBEL_KERNEL_SIZE, i16>(&converted);
     let gy = sobel_operator_vertical::<SOBEL_KERNEL_SIZE, i16>(&converted);
