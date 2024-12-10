@@ -440,12 +440,6 @@ fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pix
         context.image,
         canny_source_type,
     )
-    // get_edges_sobel_nalgebra(
-    //     *context.preprocessing_gaussian_sigma,
-    //     *context.canny_high_threshold as u16,
-    //     context.image,
-    //     canny_source_type,
-    // )
     .into_iter()
     .filter(|&point| point.y() > y_exclusion_threshold)
     .collect()

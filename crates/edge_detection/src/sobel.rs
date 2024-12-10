@@ -26,7 +26,7 @@ where
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&VERTICAL_SOBEL);
 
-    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel, None)
+    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel)
 }
 
 #[inline]
@@ -39,7 +39,7 @@ where
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&HORIZONTAL_SOBEL);
 
-    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel, None)
+    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel)
 }
 
 pub fn get_edges_sobel(
@@ -221,7 +221,7 @@ mod tests {
         let image_view_transposed = grayimage_to_2d_transposed_matrix_view::<i16>(&blurred);
 
         let sobel_image_transposed =
-            direct_convolution::<3, i16, i32, i16>(&image_view_transposed, &kernel, None);
+            direct_convolution::<3, i16, i32, i16>(&image_view_transposed, &kernel);
         let imageproc_sobel = vertical_sobel(&blurred);
 
         let kernel_size = 3;

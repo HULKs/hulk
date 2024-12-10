@@ -1,6 +1,6 @@
-use num_traits::{clamp, AsPrimitive, Bounded, PrimInt};
+use num_traits::{AsPrimitive, Bounded, PrimInt, Signed};
 use std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     ops::{Add, AddAssign, Mul, MulAssign},
 };
 
@@ -9,12 +9,18 @@ use nalgebra::{ClosedMul, DMatrix, SMatrix, Scalar};
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: &DMatrix<P>,
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
-    _scale_value: Option<i16>,
 ) -> DMatrix<S>
 where
     P: Into<KType> + PrimInt + Scalar + Mul + MulAssign + Add,
-    KType: PrimInt + Scalar + AddAssign + AsPrimitive<S> + ClosedMul,
-    S: Into<KType> + TryFrom<KType> + AsPrimitive<KType> + PrimInt + Scalar + Debug + Bounded,
+    KType: PrimInt + Scalar + AddAssign + AsPrimitive<S> + ClosedMul + Signed + Display,
+    S: Into<KType>
+        + TryFrom<KType>
+        + AsPrimitive<KType>
+        + PrimInt
+        + Scalar
+        + Debug
+        + Bounded
+        + AddAssign,
 {
     let (image_rows, image_cols) = image.shape();
     let mut result = DMatrix::<S>::zeros(image_rows, image_cols);
@@ -28,8 +34,8 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
     // scale_value: Option<i16>,
 ) where
-    InputType: Into<KType> + PrimInt + Mul + MulAssign,
-    KType: PrimInt + Scalar + AddAssign + AsPrimitive<OutputType>,
+    InputType: Into<KType> + PrimInt + Mul + MulAssign + Scalar,
+    KType: PrimInt + Scalar + AddAssign + AsPrimitive<OutputType> + Signed + Display,
     OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded,
 {
     assert!(
@@ -44,6 +50,21 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
 
     let max_allowed_sum: KType = OutputType::max_value().into();
     let min_allowed_sum: KType = OutputType::min_value().into();
+
+    // if the highest possible output by multiplying the kernel with the highest possible input is lower than the max value of the output type, we can skip clamping
+    // TODO check if we can miss by one
+    // let max_sum = kernel.iter().fold(KType::zero(), |accum, cv| {
+    //     accum + cv.abs() * InputType::max_value().into()
+    // });
+    // let skip_clamping = max_sum < OutputType::max_value().into();
+    // println!(
+    //     "skip clamping: {skip_clamping}, {:?}, {:?} \n{}",
+    //     max_sum,
+    //     OutputType::max_value(),
+    //     kernel
+    // );
+
+    // let input_mat_copy = transposed_image.map(|v| v.into());
 
     // Nalgebra works on column-major order, therefore the loops are transposed.
     for j in kernel_half..image_cols - kernel_half {
@@ -60,8 +81,13 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
                 }
             }
 
-            let clamped = clamp(sum, min_allowed_sum, max_allowed_sum);
-            dst[(i, j)] = clamped.as_();
+            // dst[(i, j)] = if skip_clamping {
+            //     sum.as_()
+            // } else {
+            //     sum.clamp(min_allowed_sum, max_allowed_sum).as_()
+            // };
+
+            dst[(i, j)] = sum.clamp(min_allowed_sum, max_allowed_sum).as_()
         }
     }
 }
@@ -74,7 +100,7 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
 ) where
     InputType: Into<KType> + PrimInt + Mul + MulAssign + Scalar,
     KType: PrimInt + AddAssign + AsPrimitive<OutputType> + Scalar + ClosedMul,
-    OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded,
+    OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign,
 {
     assert!(
         dst.shape().0 >= transposed_image.shape().0 && dst.shape().1 >= transposed_image.shape().1,
@@ -86,6 +112,9 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
     let nrows = transposed_image.nrows();
     let ncols = transposed_image.ncols();
     let ksize_floor_half = KSIZE / 2;
+
+    let max_allowed_sum: KType = OutputType::max_value().into();
+    let min_allowed_sum: KType = OutputType::min_value().into();
 
     let input_mat_copy = transposed_image.map(|v| v.into());
     let dst_as_slice = dst.as_mut_slice();
@@ -99,8 +128,21 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
                 col_index - ksize_floor_half,
             );
             let sum = input_patch.component_mul(kernel).sum();
-            dst_as_slice[middle_offset + row_index] = sum.as_();
+            dst_as_slice[middle_offset + row_index] =
+                sum.clamp(min_allowed_sum, max_allowed_sum).as_();
         }
+
+        // let input_patch = input_mat_copy.view((0, col_index - ksize_floor_half), (nrows, KSIZE));
+        // let mut col = dst.column_mut(col_index);
+        // for i in 0..KSIZE {
+        //     col.add_assign(
+        //         input_patch
+        //             .mul(&kernel.column(i))
+        //             .column_sum()
+        //             .map(|v| v.clamp(min_allowed_sum, max_allowed_sum).as_()),
+        //     );
+        // }
+        // dst_as_slice[middle_offset] = sum.clamp(min_allowed_sum, max_allowed_sum).as_();
     }
 }
 
@@ -127,7 +169,7 @@ mod tests {
         // Since these operations assume the matrix is transposed, the kernel also has to be swapped
         let kernel = imgproc_kernel_to_matrix(&HORIZONTAL_SOBEL);
 
-        let result = direct_convolution::<3, i16, i32, i16>(&image, &kernel, None);
+        let result = direct_convolution::<3, i16, i32, i16>(&image, &kernel);
 
         // taken via OpenCV
         let expected_full_result = DMatrix::<i16>::from_row_slice(
