@@ -1,5 +1,5 @@
-use image::{flat, GrayImage};
-use nalgebra::{DMatrix, Vector4};
+use image::GrayImage;
+use nalgebra::DMatrix;
 
 use crate::{
     gaussian::gaussian_blur_box_filter,
@@ -9,10 +9,11 @@ use crate::{
 
 pub fn canny(
     image: &GrayImage,
+    gaussian_sigma: Option<f32>,
     low_threshold: f32,
     high_threshold: f32,
 ) -> DMatrix<EdgeClassification> {
-    let sigma = 1.4;
+    let sigma = gaussian_sigma.unwrap_or(1.4);
     const SOBEL_KERNEL_SIZE: usize = 3;
 
     // TODO remove this
@@ -36,14 +37,16 @@ pub enum EdgeClassification {
     NoConfidence = 0,
 }
 
+fn gradient_magnitude(gx: i16, gy: i16) -> u16 {
+    ((gx as f32).powi(2) + (gy as f32).powi(2)).sqrt() as u16
+}
+
 #[inline(always)]
 pub(crate) fn get_gradient_magnitude(
     gradients_x: &DMatrix<i16>,
     gradients_y: &DMatrix<i16>,
 ) -> DMatrix<u16> {
-    gradients_x.zip_map(gradients_y, |gx, gy| {
-        ((gx as f32).powi(2) + (gy as f32).powi(2)).sqrt() as u16
-    })
+    gradients_x.zip_map(gradients_y, gradient_magnitude)
 }
 
 #[inline(always)]
@@ -106,13 +109,11 @@ pub fn non_maximum_suppression(
     lower_threshold: u16,
     upper_threshold: u16,
 ) -> DMatrix<EdgeClassification> {
-    // let angles = gradients_y.zip_map(gradients_x, approximate_direction_integer_only);
     let gradients_magnitude = get_gradient_magnitude(gradients_x, gradients_y);
 
     let gradients_x_slice = gradients_x.as_slice();
     let gradients_y_slice = gradients_y.as_slice();
 
-    let margin = 1;
     let nrows = gradients_x.nrows();
     // let ncols = gradients_x.ncols();
     // let (xmax, ymax) = (nrows - margin, ncols - margin);
@@ -126,70 +127,34 @@ pub fn non_maximum_suppression(
     let flat_slice = gradients_magnitude.as_slice();
     let out_slice = out.as_mut_slice();
 
-    for index in margin..gradients_magnitude.len() - margin {
+    for index in nrows..gradients_x_slice.len() - nrows {
         let precious_column_point = index - nrows;
         let next_column_point = index + nrows;
 
-        // for y in margin..ymax {
-        //     let stops = [
-        //         (y - 1) * nrows,
-        //         (y) * nrows,
-        //         (y + 1) * nrows,
-        //         (y + 2) * nrows,
-        //     ];
-
-        //     let earlier_col_slice = &flat_slice[stops[0]..stops[1]];
-        //     let col_slice = &flat_slice[stops[1]..stops[2]];
-        //     let later_col_slice = &flat_slice[stops[2]..stops[3]];
-
-        //     for x in margin..xmax {
-        //         let pixel = col_slice[x];
-
-        // TODO Optimize the element access method -> take columns as slices and do the up/down shifting to avoid the bound checks, etc
         let direction =
             approximate_direction_integer_only(gradients_x_slice[index], gradients_y_slice[index]);
         // approximate_direction_integer_only(gradients_x[(x, y)], gradients_y[(x, y)]);
-        let (cmp1, cmp2) = match direction {
-            0 => (
-                flat_slice[index - 1],
-                flat_slice[index + 1],
-                // gradients_magnitude[(x - 1, y)],
-                // gradients_magnitude[(x + 1, y)],
-            ),
-            45 => (
-                flat_slice[precious_column_point - 1],
-                flat_slice[next_column_point + 1],
-                // gradients_magnitude[(x + 1, y + 1)],
-                // gradients_magnitude[(x - 1, y - 1)],
-            ),
-            90 => (
-                flat_slice[precious_column_point],
-                flat_slice[next_column_point],
-                // gradients_magnitude[(x, y - 1)],
-                // gradients_magnitude[(x, y + 1)],
-            ),
-            135 => (
-                flat_slice[next_column_point - 1],
-                flat_slice[precious_column_point + 1],
+        let biggest_neighbour = match direction {
+            0 => flat_slice[index - 1].max(flat_slice[index + 1]),
+            45 => flat_slice[precious_column_point - 1].max(flat_slice[next_column_point + 1]),
+            90 => flat_slice[precious_column_point].max(flat_slice[next_column_point]),
+            135 => {
+                flat_slice[next_column_point - 1].max(flat_slice[precious_column_point + 1])
                 // gradients_magnitude[(x - 1, y + 1)],
                 // gradients_magnitude[(x + 1, y - 1)],
-            ),
+            }
             _ => unreachable!(),
         };
 
         let pixel = flat_slice[index];
-        // if pixel < lower_threshold {
-        //     continue;
-        // }
         // Suppress non-maximum pixel. low threshold is earlier handled
-        if pixel > lower_threshold && pixel >= cmp1 && pixel >= cmp2 {
+        if pixel >= biggest_neighbour && pixel >= lower_threshold {
             out_slice[index] = if pixel > upper_threshold {
                 EdgeClassification::HighConfidence
             } else {
                 EdgeClassification::LowConfidence
             };
         }
-        // }
     }
 
     out
