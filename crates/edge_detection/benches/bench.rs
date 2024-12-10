@@ -132,7 +132,7 @@ mod sobel_operator {
         let kernel_vert = imgproc_kernel_to_matrix::<3>(&VERTICAL_SOBEL);
 
         bencher.bench_local(move || {
-            black_box(direct_convolution(
+            black_box(direct_convolution::<3, u8, i32, i16>(
                 black_box(&transposed_matrix_view),
                 black_box(&kernel_vert),
                 black_box(None),
@@ -148,7 +148,7 @@ mod sobel_operator {
         let kernel_vert = imgproc_kernel_to_matrix::<3>(&HORIZONTAL_SOBEL);
 
         bencher.bench_local(move || {
-            black_box(direct_convolution(
+            black_box(direct_convolution::<3, u8, i32, i16>(
                 black_box(&transposed_matrix_view),
                 black_box(&kernel_vert),
                 black_box(None),

@@ -2395,6 +2395,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
+ "num-traits",
  "pprof",
  "types",
 ]

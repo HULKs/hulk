@@ -1,8 +1,9 @@
+use num_traits::{AsPrimitive, PrimInt};
 use std::ops::{Div, Mul, MulAssign};
 
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
-use nalgebra::{DMatrix, SMatrix, Scalar, SimdPartialOrd};
+use nalgebra::{DMatrix, SMatrix, Scalar};
 
 use crate::conv::direct_convolution;
 
@@ -29,17 +30,18 @@ pub fn gaussian_blur_box_filter(image: &GrayImage, sigma: f32) -> ImageBuffer<Lu
     output
 }
 
+type KernelType = i32;
+type OutputType = i16;
 /// Gaussian smoothing approximation with box filters
 /// - https://en.wikipedia.org/wiki/Gaussian_blur
 /// - Kovesi, Peter. "Fast almost-gaussian filtering."
 ///     2010 International Conference on Digital Image Computing: Techniques and Applications. IEEE, 2010.
-pub fn gaussian_blur_box_filter_nalgebra<T>(
-    transposed_image: &DMatrix<T>,
+pub fn gaussian_blur_box_filter_nalgebra<InputType>(
+    transposed_image: &DMatrix<InputType>,
     sigma: f32,
-) -> DMatrix<i16>
+) -> DMatrix<OutputType>
 where
-    T: Copy + Mul + MulAssign + Scalar + SimdPartialOrd,
-    i16: From<T>,
+    InputType: Into<KernelType> + AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
 {
     // average sigma = sqrt( (w**2 -1) / 12 ): w is box width, n is passes
 
@@ -53,21 +55,22 @@ where
         - 1;
 
     match w_ideal_half {
-        0 => box_filter_direct_convolve::<3, T>(transposed_image, PASSES),
-        1 => box_filter_direct_convolve::<5, T>(transposed_image, PASSES),
-        2 => box_filter_direct_convolve::<7, T>(transposed_image, PASSES),
+        0 => box_filter_direct_convolve::<3, InputType>(transposed_image, PASSES),
+        1 => box_filter_direct_convolve::<5, InputType>(transposed_image, PASSES),
+        2 => box_filter_direct_convolve::<7, InputType>(transposed_image, PASSES),
         _ => unreachable!("Box filter width must be between 3 and 11"),
     }
 }
 
 #[inline(always)]
-fn box_filter_direct_convolve<const K: usize, T>(
-    transposed_image: &DMatrix<T>,
+fn box_filter_direct_convolve<const KSIZE: usize, InputType>(
+    transposed_image: &DMatrix<InputType>,
     passes: usize,
-) -> DMatrix<i16>
+) -> DMatrix<OutputType>
 where
-    T: Copy + Mul + MulAssign + Scalar + SimdPartialOrd,
-    i16: From<T>,
+    InputType: Into<KernelType> + AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
+    KernelType: PrimInt,
+    OutputType: Into<KernelType>,
 {
     // let mut output = DMatrix::zeros(transposed_image.nrows(), transposed_image.ncols());
 
@@ -93,10 +96,18 @@ where
 
     // // output
 
-    let kernel = SMatrix::<i16, K, K>::repeat(1);
-    let mut first = direct_convolution::<K, T>(transposed_image, &kernel, Some(0));
+    let kernel = SMatrix::<KernelType, KSIZE, KSIZE>::repeat(1);
+    let mut first = direct_convolution::<KSIZE, InputType, KernelType, OutputType>(
+        transposed_image,
+        &kernel,
+        Some(0),
+    );
     for _ in 1..passes {
-        first = direct_convolution::<K, i16>(&first, &kernel, Some(0));
+        first = direct_convolution::<KSIZE, OutputType, KernelType, OutputType>(
+            &first,
+            &kernel,
+            Some(0),
+        );
     }
     first
 }

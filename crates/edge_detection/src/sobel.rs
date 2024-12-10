@@ -6,6 +6,7 @@ use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
 
 use nalgebra::{DMatrix, Scalar, SimdPartialOrd};
+use num_traits::{AsPrimitive, PrimInt};
 use types::ycbcr422_image::YCbCr422Image;
 
 use crate::{
@@ -20,12 +21,12 @@ pub fn sobel_operator_vertical<const K: usize, T>(
     image_view_transposed: &DMatrix<T>,
 ) -> DMatrix<i16>
 where
-    T: Clone + Copy + Scalar + Mul + MulAssign + SimdPartialOrd,
+    T: Into<i32> + AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
     i16: From<T>,
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&VERTICAL_SOBEL);
 
-    direct_convolution::<K, T>(image_view_transposed, &kernel, None)
+    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel, None)
 }
 
 #[inline]
@@ -33,12 +34,12 @@ pub fn sobel_operator_horizontal<const K: usize, T>(
     image_view_transposed: &DMatrix<T>,
 ) -> DMatrix<i16>
 where
-    T: Clone + Copy + Scalar + Mul + MulAssign + SimdPartialOrd,
+    T: Into<i32> + AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
     i16: From<T>,
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&HORIZONTAL_SOBEL);
 
-    direct_convolution::<K, T>(image_view_transposed, &kernel, None)
+    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel, None)
 }
 
 pub fn get_edges_sobel(
@@ -53,14 +54,27 @@ pub fn get_edges_sobel(
     let gradients_vertical = vertical_sobel(&blurred);
     let gradients_horizontal = horizontal_sobel(&blurred);
 
-    let squared_threshold = (threshold as i32).pow(2);
-    gradients_vertical
-        .enumerate_pixels()
-        .filter_map(|(x, y, gradient_vertical)| {
-            let magnitude = (gradients_horizontal[(x, y)][0] as i32).pow(2)
-                + (gradient_vertical[0] as i32).pow(2);
+    let decisions = non_maximum_suppression(
+        &DMatrix::<i16>::from_iterator(
+            image.width() as usize,
+            image.height() as usize,
+            gradients_horizontal.iter().copied(),
+        ),
+        &DMatrix::<i16>::from_iterator(
+            image.width() as usize,
+            image.height() as usize,
+            gradients_vertical.iter().copied(),
+        ),
+        threshold,
+        threshold,
+    );
 
-            if magnitude > squared_threshold {
+    decisions
+        .iter()
+        .enumerate()
+        .filter_map(|(index, decision)| {
+            if *decision >= EdgeClassification::LowConfidence {
+                let (x, y) = decisions.vector_to_matrix_index(index);
                 Some(point![x as f32, y as f32])
             } else {
                 None
@@ -85,11 +99,11 @@ pub fn get_edges_sobel_nalgebra(
     let converted = grayimage_to_2d_transposed_matrix_view(&blurred);
 
     const KERNEL_SIZE: usize = 3;
-    let (min_x, min_y) = (KERNEL_SIZE / 2, KERNEL_SIZE / 2);
-    let (max_x, max_y) = (
-        image.width() as usize - min_x,
-        image.height() as usize - min_y,
-    );
+    // let (min_x, min_y) = (KERNEL_SIZE / 2, KERNEL_SIZE / 2);
+    // let (max_x, max_y) = (
+    //     image.width() as usize - min_x,
+    //     image.height() as usize - min_y,
+    // );
 
     let gradients_y_transposed = sobel_operator_vertical::<KERNEL_SIZE, u8>(&converted);
     let gradients_x_transposed = sobel_operator_horizontal::<KERNEL_SIZE, u8>(&converted);
@@ -117,6 +131,9 @@ pub fn get_edges_sobel_nalgebra(
 
 #[cfg(test)]
 mod tests {
+
+    use image::{GrayImage, Luma};
+    use imageproc::{definitions::HasWhite, filter::gaussian_blur_f32};
 
     use super::*;
 
@@ -165,6 +182,30 @@ mod tests {
         })
         .collect();
 
+        {
+            let mut new_image = GrayImage::new(image.width(), image.height());
+            output_points.iter().for_each(|point| {
+                new_image[(point.x() as u32, point.y() as u32)] = Luma::white();
+            });
+            new_image
+                .save(format!(
+                    "{}/test_data/output/sobel_direct_points_nalgebra.png",
+                    env!("CARGO_MANIFEST_DIR")
+                ))
+                .unwrap();
+            new_image.fill(0);
+
+            expected_points.iter().for_each(|point| {
+                new_image[(point.x() as u32, point.y() as u32)] = Luma::white();
+            });
+            new_image
+                .save(format!(
+                    "{}/test_data/output/sobel_direct_points_expected.png",
+                    env!("CARGO_MANIFEST_DIR")
+                ))
+                .unwrap();
+        }
+
         assert_eq!(output_points.len(), expected_points.len());
         for (gradient, expected) in output_points.iter().zip(expected_points.iter()) {
             assert_eq!(gradient, expected);
@@ -174,13 +215,13 @@ mod tests {
     #[test]
     fn compare_imageproc_sobel_with_direct_convolution() {
         let edges_source = get_edge_source_image(&load_test_image(), EDGE_SOURCE_TYPE);
-        let blurred = gaussian_blur_box_filter(&edges_source, GAUSSIAN_SIGMA);
+        let blurred = gaussian_blur_f32(&edges_source, GAUSSIAN_SIGMA);
 
         let kernel = imgproc_kernel_to_matrix(&VERTICAL_SOBEL);
-        let image_view_transposed = grayimage_to_2d_transposed_matrix_view(&blurred);
+        let image_view_transposed = grayimage_to_2d_transposed_matrix_view::<i16>(&blurred);
 
         let sobel_image_transposed =
-            direct_convolution::<3, u8>(&image_view_transposed, &kernel, None);
+            direct_convolution::<3, i16, i32, i16>(&image_view_transposed, &kernel, None);
         let imageproc_sobel = vertical_sobel(&blurred);
 
         let kernel_size = 3;
@@ -199,6 +240,36 @@ mod tests {
             imageproc_sobel.height() as usize
         );
 
+        {
+            let mut new_image = GrayImage::new(blurred.width(), blurred.height());
+
+            sobel_image_transposed
+                .iter()
+                .enumerate()
+                .for_each(|(index, pixel)| {
+                    let (x, y) = sobel_image_transposed.vector_to_matrix_index(index);
+                    new_image[(x as u32, y as u32)][0] = pixel.abs() as u8; //(pixel >> 15).abs() as u8;
+                });
+            new_image
+                .save(format!(
+                    "{}/test_data/output/sobel_vertical_nalgebra.png",
+                    env!("CARGO_MANIFEST_DIR")
+                ))
+                .unwrap();
+            new_image.fill(0);
+
+            imageproc_sobel
+                .enumerate_pixels()
+                .for_each(|(x, y, pixel)| {
+                    new_image[(x as u32, y as u32)][0] = pixel[0].abs() as u8; //(pixel[0] >> 15).abs() as u8;
+                });
+            new_image
+                .save(format!(
+                    "{}/test_data/output/sobel_vertical_improc.png",
+                    env!("CARGO_MANIFEST_DIR")
+                ))
+                .unwrap();
+        }
         imageproc_sobel
             .enumerate_pixels()
             .for_each(|(x, y, pixel)| {

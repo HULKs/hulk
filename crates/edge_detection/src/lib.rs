@@ -40,7 +40,7 @@ pub fn get_edges_canny_imageproc(
 }
 
 pub fn get_edges_canny(
-    _gaussian_sigma: f32,
+    gaussian_sigma: f32,
     canny_low_threshold: f32,
     canny_high_threshold: f32,
     image: &YCbCr422Image,
@@ -48,7 +48,12 @@ pub fn get_edges_canny(
 ) -> Vec<Point2<Pixel>> {
     let edges_source = get_edge_source_image(image, source_channel);
 
-    let canny_matrix = canny(&edges_source, canny_low_threshold, canny_high_threshold);
+    let canny_matrix = canny(
+        &edges_source,
+        Some(gaussian_sigma),
+        canny_low_threshold,
+        canny_high_threshold,
+    );
     canny_matrix
         .iter()
         .enumerate()
