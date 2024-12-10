@@ -1,10 +1,13 @@
-use divan::{black_box, Bencher};
+use divan::{black_box, AllocProfiler, Bencher};
 use image::GrayImage;
 use imageproc::{edges::canny, filter::gaussian_blur_f32, gradients::sobel_gradients};
 
 use edge_detection::{get_edge_source_image, EdgeSourceType};
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use types::ycbcr422_image::YCbCr422Image;
+
+#[global_allocator]
+static ALLOC: AllocProfiler = AllocProfiler::system();
 
 fn main() {
     divan::main();
@@ -16,7 +19,7 @@ const EDGE_SOURCE_TYPE: EdgeSourceType = EdgeSourceType::LumaOfYCbCr;
 fn get_profiler_guard() -> ProfilerGuard<'static> {
     ProfilerGuardBuilder::default()
         .frequency(1000)
-        .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
+        .blocklist(&["pthread", "vdso"])
         .build()
         .unwrap()
 }
@@ -135,7 +138,6 @@ mod sobel_operator {
             black_box(direct_convolution::<3, u8, i32, i16>(
                 black_box(&transposed_matrix_view),
                 black_box(&kernel_vert),
-                black_box(None),
             ));
         });
     }
@@ -151,7 +153,6 @@ mod sobel_operator {
             black_box(direct_convolution::<3, u8, i32, i16>(
                 black_box(&transposed_matrix_view),
                 black_box(&kernel_vert),
-                black_box(None),
             ));
         });
     }
@@ -195,7 +196,7 @@ mod sobel_operator {
 #[divan::bench_group]
 mod edge_points {
 
-    use std::fs::File;
+    use std::{env, fs::File};
 
     use divan::{black_box, Bencher};
 
@@ -210,7 +211,6 @@ mod edge_points {
         },
     };
     use nalgebra::DMatrix;
-    use pprof::ProfilerGuardBuilder;
 
     use crate::{get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_SIGMA};
 
@@ -218,11 +218,11 @@ mod edge_points {
     fn our_canny(bencher: Bencher) {
         let image = load_test_image();
 
-        let guard = ProfilerGuardBuilder::default()
-            .frequency(10000)
-            .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
-            .build()
-            .unwrap();
+        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
+            Some(get_profiler_guard())
+        } else {
+            None
+        };
         bencher.bench_local(move || {
             black_box(get_edges_canny(
                 black_box(3.5),
@@ -232,7 +232,7 @@ mod edge_points {
                 EDGE_SOURCE_TYPE,
             ))
         });
-        if let Ok(report) = guard.report().build() {
+        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
             let file = File::create(format!(
                 "{}/test_data/output/edges_our_canny.svg",
                 env!("CARGO_MANIFEST_DIR")
@@ -260,8 +260,11 @@ mod edge_points {
     fn direct_convolution_sobel_both_axes(bencher: Bencher) {
         let image = load_test_image();
 
-        let guard = get_profiler_guard();
-
+        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
+            Some(get_profiler_guard())
+        } else {
+            None
+        };
         bencher.bench_local(move || {
             black_box(get_edges_sobel_nalgebra(
                 black_box(3.5),
@@ -271,7 +274,7 @@ mod edge_points {
                 EDGE_SOURCE_TYPE,
             ))
         });
-        if let Ok(report) = guard.report().build() {
+        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
             let file = File::create(format!(
                 "{}/test_data/output/edges_sobel.svg",
                 env!("CARGO_MANIFEST_DIR")
@@ -292,7 +295,11 @@ mod edge_points {
         let gradients_y_transposed = sobel_operator_vertical::<3, i16>(&blurred);
         let gradients_x_transposed = sobel_operator_horizontal::<3, i16>(&blurred);
 
-        let guard = get_profiler_guard();
+        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
+            Some(get_profiler_guard())
+        } else {
+            None
+        };
 
         // let magnitudes = gradients_x_transposed.zip_map(&gradients_y_transposed, |x, y| {
         //     (x * x) as i32 + (y * y) as i32
@@ -307,7 +314,7 @@ mod edge_points {
                 20,
             ));
         });
-        if let Ok(report) = guard.report().build() {
+        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
             let file = File::create(format!(
                 "{}/test_data/output/non_maximum_suppression_our_impl.svg",
                 env!("CARGO_MANIFEST_DIR")
@@ -373,11 +380,11 @@ mod edge_points {
     fn imageproc_canny(bencher: Bencher) {
         let image = load_test_image();
 
-        let guard = ProfilerGuardBuilder::default()
-            .frequency(10000)
-            .blocklist(&["libc", "libgcc", "pthread", "vdso", "divan"])
-            .build()
-            .unwrap();
+        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
+            Some(get_profiler_guard())
+        } else {
+            None
+        };
         bencher.bench_local(move || {
             black_box(get_edges_canny_imageproc(
                 black_box(3.5),
@@ -387,7 +394,7 @@ mod edge_points {
                 EDGE_SOURCE_TYPE,
             ))
         });
-        if let Ok(report) = guard.report().build() {
+        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
             let file = File::create(format!(
                 "{}/test_data/output/edges_canny.svg",
                 env!("CARGO_MANIFEST_DIR")

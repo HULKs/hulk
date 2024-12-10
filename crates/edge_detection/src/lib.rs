@@ -48,17 +48,17 @@ pub fn get_edges_canny(
 ) -> Vec<Point2<Pixel>> {
     let edges_source = get_edge_source_image(image, source_channel);
 
-    let canny_matrix = canny(
+    let canny_image_matrix = canny(
         &edges_source,
         Some(gaussian_sigma),
         canny_low_threshold,
         canny_high_threshold,
     );
-    canny_matrix
+    canny_image_matrix
         .iter()
         .enumerate()
         .filter_map(|(index, value)| {
-            let (x, y) = canny_matrix.vector_to_matrix_index(index);
+            let (x, y) = canny_image_matrix.vector_to_matrix_index(index);
             if *value >= EdgeClassification::LowConfidence {
                 Some(point![x as f32, y as f32])
             } else {
