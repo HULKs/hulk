@@ -131,16 +131,22 @@ mod blurring {
 
 #[divan::bench_group]
 mod sobel_operator {
+    use std::{env, fs::File};
+
     use divan::{black_box, Bencher};
     use edge_detection::{
-        conv::{direct_convolution, imgproc_kernel_to_matrix},
+        conv::{
+            direct_convolution, direct_convolution_mut, imgproc_kernel_to_matrix,
+            piecewise_2d_convolution_mut, piecewise_horizontal_convolution_mut,
+            piecewise_vertical_convolution_mut,
+        },
         get_edge_source_image, grayimage_to_2d_transposed_matrix_view,
         sobel::sobel_operator_vertical,
     };
     use imageproc::gradients::{vertical_sobel, HORIZONTAL_SOBEL, VERTICAL_SOBEL};
     use nalgebra::DMatrix;
 
-    use crate::{get_blurred_source_image, load_test_image, EDGE_SOURCE_TYPE};
+    use crate::{get_blurred_source_image, get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE};
 
     #[divan::bench]
     fn direct_convolution_vertical(bencher: Bencher) {
@@ -153,6 +159,93 @@ mod sobel_operator {
             black_box(direct_convolution::<3, u8, i32, i16>(
                 black_box(&transposed_matrix_view),
                 black_box(&kernel_vert),
+            ));
+        });
+    }
+
+    #[divan::bench]
+    fn direct_convolution_mut_vertical(bencher: Bencher) {
+        let image = load_test_image();
+        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
+        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let kernel_vert = imgproc_kernel_to_matrix::<3>(&VERTICAL_SOBEL);
+
+        bencher.bench_local(move || {
+            let mut out = vec![0i16; transposed_matrix_view.len()];
+            black_box(direct_convolution_mut::<3, u8, i32, i16>(
+                black_box(&transposed_matrix_view),
+                black_box(out.as_mut_slice()),
+                black_box(&kernel_vert),
+            ));
+        });
+    }
+
+    #[divan::bench]
+    fn piecewise_2d_mut_sobel(bencher: Bencher) {
+        let image = load_test_image();
+        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
+        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+
+        let kernel_vertical = [1, 2, 1];
+        let kernel_horizontal = [-1, 0, 1];
+
+        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
+            Some(get_profiler_guard())
+        } else {
+            None
+        };
+        bencher.bench_local(move || {
+            let mut out = vec![0i16; transposed_matrix_view.len()];
+            black_box(piecewise_2d_convolution_mut::<3, u8, i32, i16>(
+                black_box(&transposed_matrix_view),
+                black_box(out.as_mut_slice()),
+                black_box(&kernel_horizontal),
+                black_box(&kernel_vertical),
+            ));
+        });
+
+        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
+            let file = File::create(format!(
+                "{}/test_data/output/piecewise_horiz.svg",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .unwrap();
+            report.flamegraph(file).unwrap();
+        };
+    }
+
+    #[divan::bench]
+    fn piecewise_vertical_mut_sobel(bencher: Bencher) {
+        let image = load_test_image();
+        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
+        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+
+        let kernel_vertical = [1, 2, 1];
+
+        bencher.bench_local(move || {
+            let mut out = vec![0i16; transposed_matrix_view.len()];
+            black_box(piecewise_vertical_convolution_mut::<3, u8, i32, i16>(
+                black_box(&transposed_matrix_view),
+                black_box(out.as_mut_slice()),
+                black_box(&kernel_vertical),
+            ));
+        });
+    }
+
+    #[divan::bench]
+    fn piecewise_horizontal_mut_sobel(bencher: Bencher) {
+        let image = load_test_image();
+        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
+        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+
+        let kernel_horizontal = [-1, 0, 1];
+
+        bencher.bench_local(move || {
+            let mut out = vec![0i16; transposed_matrix_view.len()];
+            black_box(piecewise_horizontal_convolution_mut::<3, u8, i32, i16>(
+                black_box(&transposed_matrix_view),
+                black_box(out.as_mut_slice()),
+                black_box(&kernel_horizontal),
             ));
         });
     }
@@ -173,7 +266,7 @@ mod sobel_operator {
     }
 
     #[divan::bench]
-    fn direct_convolution_vertical_wrapper(bencher: Bencher) {
+    fn direct_convolution_sobel_vertical_wrapper(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view(&gray);
@@ -186,7 +279,7 @@ mod sobel_operator {
     }
 
     #[divan::bench]
-    fn direct_convolution_vertical_wrapper_i16_input(bencher: Bencher) {
+    fn direct_convolution_sobel_vertical_wrapper_i16_input(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
         let transposed_matrix_view: DMatrix<i16> =
