@@ -31,6 +31,12 @@ pub enum Mode {
     Catching(Catching),
 }
 
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Standing(Standing::default())
+    }
+}
+
 impl WalkTransition for Mode {
     fn stand(self, context: &Context) -> Mode {
         match self {
