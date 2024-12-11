@@ -63,7 +63,10 @@ fn edge_source_select(bencher: Bencher) {
 mod blurring {
     use divan::{black_box, Bencher};
     use edge_detection::{
-        gaussian::{gaussian_blur_box_filter, gaussian_blur_box_filter_nalgebra},
+        gaussian::{
+            gaussian_blur_box_filter, gaussian_blur_box_filter_nalgebra,
+            gaussian_blur_try_2_nalgebra,
+        },
         get_edge_source_image, grayimage_to_2d_transposed_matrix_view,
     };
     use imageproc::filter::gaussian_blur_f32;
@@ -99,6 +102,18 @@ mod blurring {
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
         bencher.bench_local(move || {
             black_box(gaussian_blur_box_filter_nalgebra::<i16>(
+                black_box(&transposed_matrix_view),
+                black_box(GAUSSIAN_SIGMA),
+            ))
+        });
+    }
+
+    #[divan::bench]
+    fn gaussian_blur_int_approximation(bencher: Bencher) {
+        let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
+        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
+        bencher.bench_local(move || {
+            black_box(gaussian_blur_try_2_nalgebra::<i16>(
                 black_box(&transposed_matrix_view),
                 black_box(GAUSSIAN_SIGMA),
             ))

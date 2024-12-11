@@ -11,7 +11,7 @@ pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
 ) -> DMatrix<S>
 where
-    P: Into<KType> + PrimInt + Scalar + Mul + MulAssign + Add,
+    P: Into<KType> + PrimInt + AsPrimitive<KType> + Scalar + Mul + MulAssign + Add,
     KType: PrimInt + Scalar + AddAssign + AsPrimitive<S> + ClosedMul + Signed + Display,
     S: Into<KType>
         + TryFrom<KType>
@@ -23,30 +23,34 @@ where
         + AddAssign,
 {
     let (image_rows, image_cols) = image.shape();
+
     let mut result = DMatrix::<S>::zeros(image_rows, image_cols);
-    direct_convolution_mut_try_again(image, &mut result, kernel);
+
+    direct_convolution_mut_try_again(image, &mut result.as_mut_slice(), kernel);
     result
 }
 
 pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: &DMatrix<InputType>,
-    dst: &mut DMatrix<OutputType>,
+    dst: &mut [OutputType],
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
     // scale_value: Option<i16>,
 ) where
-    InputType: Into<KType> + PrimInt + Mul + MulAssign + Scalar,
+    InputType: Into<KType> + AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar,
     KType: PrimInt + Scalar + AddAssign + AsPrimitive<OutputType> + Signed + Display,
     OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded,
 {
     assert!(
-        dst.shape().0 >= transposed_image.shape().0 && dst.shape().1 >= transposed_image.shape().1,
+        dst.len() >= transposed_image.len(),
         "dst matrix ({:?}) must have same or larger size than input: {:?}",
-        dst.shape(),
+        dst.len(),
         transposed_image.shape(),
     );
 
     let (image_rows, image_cols) = transposed_image.shape();
     let kernel_half = KSIZE / 2;
+    // let p :SVector<f32, {KSIZE.mul(KSIZE)}>=0;
+    // let kernel_elems = KSIZE * KSIZE;
 
     let max_allowed_sum: KType = OutputType::max_value().into();
     let min_allowed_sum: KType = OutputType::min_value().into();
@@ -66,83 +70,79 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
 
     // let input_mat_copy = transposed_image.map(|v| v.into());
 
+    let transposed_image_slice = transposed_image.data.as_slice();
+    // let kernel_flat = kernel.as_slice();
     // Nalgebra works on column-major order, therefore the loops are transposed.
     for j in kernel_half..image_cols - kernel_half {
         for i in kernel_half..image_rows - kernel_half {
+            // swap(x, y);
             let j_top_left = j - kernel_half;
             let i_top_left = i - kernel_half;
             let mut sum = KType::zero();
+
+            // let image_col_piece_1 = transposed_image
+            //     .fixed_view::<KSIZE, KSIZE>(i_top_left, j_top_left)
+            //     .clone_owned();
+
+            // for ki in 0..(KSIZE * KSIZE) {
+            //     sum += image_col_piece_1[ki].into() * kernel_flat[ki];
+            // }
             // For the kernel, seems the order didn't really matter (based on benchmarking)
             for kj in 0..KSIZE {
+                // let jj = kj + j_top_left;
+                let ko = kj * KSIZE;
+                let offset = (kj + j_top_left) * image_rows;
                 for ki in 0..KSIZE {
                     let ii = ki + i_top_left;
-                    let jj = kj + j_top_left;
-                    sum += transposed_image[(ii, jj)].into() * kernel[(ki, kj)];
+                    sum += transposed_image_slice[ii + offset].as_() * kernel[ki + ko];
                 }
             }
 
-            // dst[(i, j)] = if skip_clamping {
-            //     sum.as_()
-            // } else {
-            //     sum.clamp(min_allowed_sum, max_allowed_sum).as_()
-            // };
-
-            dst[(i, j)] = sum.clamp(min_allowed_sum, max_allowed_sum).as_()
+            dst[j * image_rows + i] = sum.clamp(min_allowed_sum, max_allowed_sum).as_()
         }
     }
 }
 
 pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: &DMatrix<InputType>,
-    dst: &mut DMatrix<OutputType>,
+    // dst: &mut DMatrix<OutputType>,
+    dst_as_slice: &mut [OutputType],
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
     // scale_value: Option<i16>,
 ) where
-    InputType: Into<KType> + PrimInt + Mul + MulAssign + Scalar,
+    InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar,
     KType: PrimInt + AddAssign + AsPrimitive<OutputType> + Scalar + ClosedMul,
-    OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign,
+    OutputType: AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign,
 {
     assert!(
-        dst.shape().0 >= transposed_image.shape().0 && dst.shape().1 >= transposed_image.shape().1,
+        dst_as_slice.len() >= transposed_image.len(),
         "dst matrix ({:?}) must have same or larger size than input: {:?}",
-        dst.shape(),
-        transposed_image.shape(),
+        dst_as_slice.len(),
+        transposed_image.len(),
     );
 
     let nrows = transposed_image.nrows();
     let ncols = transposed_image.ncols();
     let ksize_floor_half = KSIZE / 2;
 
-    let max_allowed_sum: KType = OutputType::max_value().into();
-    let min_allowed_sum: KType = OutputType::min_value().into();
+    let max_allowed_sum: KType = OutputType::max_value().as_();
+    let min_allowed_sum: KType = OutputType::min_value().as_();
 
-    let input_mat_copy = transposed_image.map(|v| v.into());
-    let dst_as_slice = dst.as_mut_slice();
+    let input_mat_copy = transposed_image.map(|v| v.as_());
 
     for col_index in ksize_floor_half..ncols - ksize_floor_half {
         let middle_offset = (col_index) * nrows;
-
+        let left_top = col_index - ksize_floor_half;
         for row_index in ksize_floor_half..nrows - ksize_floor_half {
-            let input_patch = input_mat_copy.fixed_view::<KSIZE, KSIZE>(
-                row_index - ksize_floor_half,
-                col_index - ksize_floor_half,
-            );
-            let sum = input_patch.component_mul(kernel).sum();
-            dst_as_slice[middle_offset + row_index] =
-                sum.clamp(min_allowed_sum, max_allowed_sum).as_();
+            dst_as_slice[middle_offset + row_index] = kernel
+                .component_mul(
+                    &input_mat_copy
+                        .fixed_view::<KSIZE, KSIZE>(row_index - ksize_floor_half, left_top),
+                )
+                .sum()
+                .clamp(min_allowed_sum, max_allowed_sum)
+                .as_();
         }
-
-        // let input_patch = input_mat_copy.view((0, col_index - ksize_floor_half), (nrows, KSIZE));
-        // let mut col = dst.column_mut(col_index);
-        // for i in 0..KSIZE {
-        //     col.add_assign(
-        //         input_patch
-        //             .mul(&kernel.column(i))
-        //             .column_sum()
-        //             .map(|v| v.clamp(min_allowed_sum, max_allowed_sum).as_()),
-        //     );
-        // }
-        // dst_as_slice[middle_offset] = sum.clamp(min_allowed_sum, max_allowed_sum).as_();
     }
 }
 
@@ -195,7 +195,11 @@ mod tests {
 
         let mut fast_result = DMatrix::<i16>::zeros(nrows, ncols);
 
-        direct_convolution_mut::<3, i16, i32, i16>(&image, &mut fast_result, &kernel);
+        direct_convolution_mut::<3, i16, i32, i16>(
+            &image,
+            &mut fast_result.as_mut_slice(),
+            &kernel,
+        );
         let fast_result_subview = fast_result
             .view((1, 1), (nrows - 2, ncols - 2))
             .clone_owned();
