@@ -143,17 +143,13 @@ pub fn non_maximum_suppression(
             0 => flat_slice[index - 1].max(flat_slice[index + 1]),
             45 => flat_slice[precious_column_point - 1].max(flat_slice[next_column_point + 1]),
             90 => flat_slice[precious_column_point].max(flat_slice[next_column_point]),
-            135 => {
-                flat_slice[next_column_point - 1].max(flat_slice[precious_column_point + 1])
-                // gradients_magnitude[(x - 1, y + 1)],
-                // gradients_magnitude[(x + 1, y - 1)],
-            }
+            135 => flat_slice[next_column_point - 1].max(flat_slice[precious_column_point + 1]),
             _ => unreachable!(),
         };
 
         let pixel = flat_slice[index];
         // Suppress non-maximum pixel. low threshold is earlier handled
-        if pixel >= biggest_neighbour && pixel >= lower_threshold {
+        if pixel > biggest_neighbour && pixel > lower_threshold {
             out_slice[index] = if pixel > upper_threshold {
                 EdgeClassification::HighConfidence
             } else {
