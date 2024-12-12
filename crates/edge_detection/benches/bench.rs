@@ -1,4 +1,6 @@
-use divan::{black_box, AllocProfiler, Bencher};
+use std::{env, fs::File};
+
+use divan::{bench, bench_group, black_box, AllocProfiler, Bencher};
 use image::GrayImage;
 use imageproc::{edges::canny, filter::gaussian_blur_f32, gradients::sobel_gradients};
 
@@ -16,12 +18,28 @@ fn main() {
 const GAUSSIAN_SIGMA: f32 = 1.4;
 const EDGE_SOURCE_TYPE: EdgeSourceType = EdgeSourceType::LumaOfYCbCr;
 
-fn get_profiler_guard() -> ProfilerGuard<'static> {
-    ProfilerGuardBuilder::default()
-        .frequency(1000)
-        .blocklist(&["pthread", "vdso"])
-        .build()
-        .unwrap()
+fn get_profiler_guard() -> Option<ProfilerGuard<'static>> {
+    if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
+        ProfilerGuardBuilder::default()
+            .frequency(1000)
+            .blocklist(&["pthread", "vdso"])
+            .build()
+            .ok()
+    } else {
+        None
+    }
+}
+
+fn get_flamegraph(file_name: &str, guard: Option<ProfilerGuard<'static>>) {
+    if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
+        let file = File::create(format!(
+            "{}/test_data/output/{}.svg",
+            env!("CARGO_MANIFEST_DIR"),
+            file_name
+        ))
+        .unwrap();
+        report.flamegraph(file).unwrap();
+    };
 }
 
 fn load_test_image() -> YCbCr422Image {
@@ -35,7 +53,7 @@ fn get_blurred_source_image(image: &YCbCr422Image) -> GrayImage {
     gaussian_blur_f32(&edges_source, 3.5)
 }
 
-#[divan::bench]
+#[bench]
 fn imageproc_sobel_gradients(bencher: Bencher) {
     let image = load_test_image();
     let blurred = get_blurred_source_image(&image);
@@ -43,7 +61,7 @@ fn imageproc_sobel_gradients(bencher: Bencher) {
     bencher.bench_local(move || sobel_gradients(black_box(&blurred)));
 }
 
-#[divan::bench]
+#[bench]
 fn imageproc_canny(bencher: Bencher) {
     let image = load_test_image();
     let mono = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
@@ -51,7 +69,7 @@ fn imageproc_canny(bencher: Bencher) {
     bencher.bench_local(move || canny(black_box(&mono), 20.0, 50.0));
 }
 
-#[divan::bench]
+#[bench]
 fn edge_source_select(bencher: Bencher) {
     let image = load_test_image();
 
@@ -59,9 +77,9 @@ fn edge_source_select(bencher: Bencher) {
         .bench_local(move || get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE)));
 }
 
-#[divan::bench_group]
+#[bench_group]
 mod blurring {
-    use divan::{black_box, Bencher};
+    use divan::{bench, black_box, Bencher};
     use edge_detection::{
         gaussian::{
             gaussian_blur_box_filter, gaussian_blur_box_filter_nalgebra,
@@ -73,7 +91,7 @@ mod blurring {
 
     use crate::{load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_SIGMA};
 
-    #[divan::bench]
+    #[bench]
     fn gaussian_blur_with_box_filter(bencher: Bencher) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
         bencher.bench_local(move || {
@@ -84,7 +102,7 @@ mod blurring {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn gaussian_blur_with_box_filter_nalgebra(bencher: Bencher) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view(&image);
@@ -96,7 +114,7 @@ mod blurring {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn gaussian_blur_with_box_filter_nalgebra_i16_input(bencher: Bencher) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
@@ -108,7 +126,7 @@ mod blurring {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn gaussian_blur_int_approximation(bencher: Bencher) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
@@ -120,7 +138,7 @@ mod blurring {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn imageproc_blurring(bencher: Bencher) {
         let image = load_test_image();
         let edges_source = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
@@ -129,11 +147,10 @@ mod blurring {
     }
 }
 
-#[divan::bench_group]
+#[bench_group]
 mod sobel_operator {
-    use std::{env, fs::File};
 
-    use divan::{black_box, Bencher};
+    use divan::{bench, black_box, Bencher};
     use edge_detection::{
         conv::{
             direct_convolution, direct_convolution_mut, imgproc_kernel_to_matrix,
@@ -146,9 +163,12 @@ mod sobel_operator {
     use imageproc::gradients::{vertical_sobel, HORIZONTAL_SOBEL, VERTICAL_SOBEL};
     use nalgebra::DMatrix;
 
-    use crate::{get_blurred_source_image, get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE};
+    use crate::{
+        get_blurred_source_image, get_flamegraph, get_profiler_guard, load_test_image,
+        EDGE_SOURCE_TYPE,
+    };
 
-    #[divan::bench]
+    #[bench]
     fn direct_convolution_vertical(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -163,7 +183,7 @@ mod sobel_operator {
         });
     }
 
-    #[divan::bench]
+    #[bench(min_time = 20)]
     fn direct_convolution_mut_vertical(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -180,7 +200,7 @@ mod sobel_operator {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn piecewise_2d_mut_sobel(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -189,11 +209,7 @@ mod sobel_operator {
         let kernel_vertical = [1, 2, 1];
         let kernel_horizontal = [-1, 0, 1];
 
-        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
-            Some(get_profiler_guard())
-        } else {
-            None
-        };
+        let guard = get_profiler_guard();
         bencher.bench_local(move || {
             let mut out = vec![0i16; transposed_matrix_view.len()];
             black_box(piecewise_2d_convolution_mut::<3, u8, i32, i16>(
@@ -204,17 +220,10 @@ mod sobel_operator {
             ));
         });
 
-        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
-            let file = File::create(format!(
-                "{}/test_data/output/piecewise_horiz.svg",
-                env!("CARGO_MANIFEST_DIR")
-            ))
-            .unwrap();
-            report.flamegraph(file).unwrap();
-        };
+        get_flamegraph("piecewise_horiz", guard);
     }
 
-    #[divan::bench]
+    #[bench]
     fn piecewise_vertical_mut_sobel(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -232,7 +241,7 @@ mod sobel_operator {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn piecewise_horizontal_mut_sobel(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -250,7 +259,7 @@ mod sobel_operator {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn direct_convolution_horizontal(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -265,7 +274,7 @@ mod sobel_operator {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn direct_convolution_sobel_vertical_wrapper(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -278,7 +287,7 @@ mod sobel_operator {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn direct_convolution_sobel_vertical_wrapper_i16_input(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -292,7 +301,7 @@ mod sobel_operator {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn imageproc_sobel_vertical(bencher: Bencher) {
         let image = load_test_image();
         let blurred = get_blurred_source_image(&image);
@@ -301,12 +310,10 @@ mod sobel_operator {
     }
 }
 
-#[divan::bench_group]
+#[bench_group]
 mod edge_points {
 
-    use std::{env, fs::File};
-
-    use divan::{black_box, Bencher};
+    use divan::{bench, black_box, Bencher};
 
     use edge_detection::{
         canny::non_maximum_suppression,
@@ -320,17 +327,15 @@ mod edge_points {
     };
     use nalgebra::DMatrix;
 
-    use crate::{get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_SIGMA};
+    use crate::{
+        get_flamegraph, get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_SIGMA,
+    };
 
-    #[divan::bench]
+    #[bench(min_time = 20)]
     fn our_canny(bencher: Bencher) {
         let image = load_test_image();
 
-        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
-            Some(get_profiler_guard())
-        } else {
-            None
-        };
+        let guard = get_profiler_guard();
         bencher.bench_local(move || {
             black_box(get_edges_canny(
                 black_box(3.5),
@@ -340,17 +345,10 @@ mod edge_points {
                 EDGE_SOURCE_TYPE,
             ))
         });
-        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
-            let file = File::create(format!(
-                "{}/test_data/output/edges_our_canny.svg",
-                env!("CARGO_MANIFEST_DIR")
-            ))
-            .unwrap();
-            report.flamegraph(file).unwrap();
-        };
+        get_flamegraph("edges_our_canny", guard);
     }
 
-    #[divan::bench]
+    #[bench]
     fn imageproc_sobel_vertical(bencher: Bencher) {
         let image = load_test_image();
 
@@ -364,15 +362,11 @@ mod edge_points {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn direct_convolution_sobel_both_axes(bencher: Bencher) {
         let image = load_test_image();
 
-        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
-            Some(get_profiler_guard())
-        } else {
-            None
-        };
+        let guard = get_profiler_guard();
         bencher.bench_local(move || {
             black_box(get_edges_sobel_nalgebra(
                 black_box(3.5),
@@ -382,18 +376,11 @@ mod edge_points {
                 EDGE_SOURCE_TYPE,
             ))
         });
-        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
-            let file = File::create(format!(
-                "{}/test_data/output/edges_sobel.svg",
-                env!("CARGO_MANIFEST_DIR")
-            ))
-            .unwrap();
-            report.flamegraph(file).unwrap();
-        };
+        get_flamegraph("edges_sobel", guard);
     }
 
-    // #[divan::bench]
-    #[divan::bench(min_time = 10)]
+    // #[bench]
+    #[bench(min_time = 10)]
     fn non_maximum_suppression_our_impl(bencher: Bencher) {
         let image = load_test_image();
 
@@ -404,11 +391,7 @@ mod edge_points {
         let gradients_y_transposed = sobel_operator_vertical::<3, i16>(&blurred);
         let gradients_x_transposed = sobel_operator_horizontal::<3, i16>(&blurred);
 
-        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
-            Some(get_profiler_guard())
-        } else {
-            None
-        };
+        let guard = get_profiler_guard();
 
         // let magnitudes = gradients_x_transposed.zip_map(&gradients_y_transposed, |x, y| {
         //     (x * x) as i32 + (y * y) as i32
@@ -423,17 +406,10 @@ mod edge_points {
                 20,
             ));
         });
-        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
-            let file = File::create(format!(
-                "{}/test_data/output/non_maximum_suppression_our_impl.svg",
-                env!("CARGO_MANIFEST_DIR")
-            ))
-            .unwrap();
-            report.flamegraph(file).unwrap();
-        };
+        get_flamegraph("non_maximum_suppression_our_impl", guard);
     }
 
-    #[divan::bench]
+    #[bench]
     fn nms_synthetic(bencher: Bencher) {
         let angles = (0..360).map(|deg| (deg as f32).to_radians());
         let (width, height) = (200, 100);
@@ -485,15 +461,11 @@ mod edge_points {
         });
     }
 
-    #[divan::bench]
+    #[bench]
     fn imageproc_canny(bencher: Bencher) {
         let image = load_test_image();
 
-        let guard = if env::var("ENABLE_FLAMEGRAPH").is_ok_and(|v| v == "1") {
-            Some(get_profiler_guard())
-        } else {
-            None
-        };
+        let guard = get_profiler_guard();
         bencher.bench_local(move || {
             black_box(get_edges_canny_imageproc(
                 black_box(3.5),
@@ -503,13 +475,6 @@ mod edge_points {
                 EDGE_SOURCE_TYPE,
             ))
         });
-        if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
-            let file = File::create(format!(
-                "{}/test_data/output/edges_canny.svg",
-                env!("CARGO_MANIFEST_DIR")
-            ))
-            .unwrap();
-            report.flamegraph(file).unwrap();
-        };
+        get_flamegraph("edges_canny", guard);
     }
 }

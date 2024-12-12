@@ -2397,6 +2397,7 @@ dependencies = [
  "nalgebra",
  "num-traits",
  "pprof",
+ "simba",
  "types",
 ]
 
