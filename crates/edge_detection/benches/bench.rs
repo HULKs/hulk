@@ -392,7 +392,8 @@ mod edge_points {
         };
     }
 
-    #[divan::bench]
+    // #[divan::bench]
+    #[divan::bench(min_time = 10)]
     fn non_maximum_suppression_our_impl(bencher: Bencher) {
         let image = load_test_image();
 
