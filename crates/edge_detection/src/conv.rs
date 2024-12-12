@@ -26,7 +26,7 @@ where
 
     let mut result = DMatrix::<S>::zeros(image_rows, image_cols);
 
-    direct_convolution_mut_try_again(image, &mut result.as_mut_slice(), kernel);
+    direct_convolution_mut_try_again(image, result.as_mut_slice(), kernel);
     result
 }
 
@@ -223,7 +223,7 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
 #[inline]
 pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: &DMatrix<InputType>,
-    mut dst: &mut [OutputType],
+    dst: &mut [OutputType],
     piecewise_kernel_horizontal: &[KType; KSIZE],
     piecewise_kernel_vertical: &[KType; KSIZE],
 ) where
@@ -239,15 +239,15 @@ pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, Output
     );
 
     piecewise_horizontal_convolution_mut::<KSIZE, InputType, KType, OutputType>(
-        &transposed_image,
-        &mut dst,
-        &piecewise_kernel_horizontal,
+        transposed_image,
+        dst,
+        piecewise_kernel_horizontal,
     );
 
     piecewise_vertical_convolution_mut::<KSIZE, OutputType, KType, OutputType>(
         &DMatrix::from_column_slice(transposed_image.nrows(), transposed_image.ncols(), dst),
-        &mut dst,
-        &piecewise_kernel_vertical,
+        dst,
+        piecewise_kernel_vertical,
     );
 
     // let result_view = DMatrixView::from_slice(&out, image.nrows(), image.ncols());

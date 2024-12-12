@@ -2328,6 +2328,7 @@ dependencies = [
  "nalgebra 0.32.6",
  "num-traits",
  "pprof",
+ "simba 0.8.1",
  "types",
 ]
 
@@ -6068,11 +6069,13 @@ name = "ransac"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "divan",
  "geometry",
  "itertools 0.10.5",
  "linear_algebra",
  "nalgebra 0.32.6",
  "ordered-float",
+ "pprof",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
 ]

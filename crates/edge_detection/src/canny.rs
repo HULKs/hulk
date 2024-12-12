@@ -17,11 +17,6 @@ pub fn canny(
     let sigma = gaussian_sigma.unwrap_or(1.4);
     const SOBEL_KERNEL_SIZE: usize = 3;
 
-    // TODO remove this
-    // let blurred = gaussian_blur_f32(image, sigma);
-
-    // let converted = grayimage_to_2d_transposed_matrix_view::<i16>(&blurred);
-
     let input = grayimage_to_2d_transposed_matrix_view::<u8>(image);
     let converted = gaussian_blur_box_filter_nalgebra(&input, sigma);
 
@@ -56,26 +51,15 @@ pub(crate) fn get_gradient_magnitude(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
-enum Octant {
-    FirstOctant0Deg,
-    SecondOctant45Deg,
-    ThirdOctant90Deg,
-    FourthOctant135Deg,
+enum OctantWithDegName {
+    FirstOctant0,
+    SecondOctant45,
+    ThirdOctant90,
+    FourthOctant135,
 }
 
 #[inline(always)]
-fn approximate_direction_integer_only(y: i16, x: i16) -> Octant {
-    // match (y, x) {
-    //     (0, _) => return 0,
-    //     (_, 0) => return 90,
-    //     _ => {}
-    // }
-    // if y == 0 {
-    //     return 0;
-    // } else if x == 0 {
-    //     return 90;
-    // }
-
+fn approximate_direction_integer_only(y: i16, x: i16) -> OctantWithDegName {
     // This trick is taken from OpenCV's Canny implementation
     // The idea is to perform the tan22.5 and tan67.5 boundary calculations with integers only avoiding float calculations and atan2, etc
     // To grab the perpendicular two pixels to edge direction, only 4 of the 8 possible directions are needed (the opposide ones of each direction yields the same.)
@@ -103,16 +87,16 @@ fn approximate_direction_integer_only(y: i16, x: i16) -> Octant {
 
     // check if the inequalities hold
     if y_shifted < tan_22_5_mul_x || y == 0 {
-        Octant::FirstOctant0Deg
+        OctantWithDegName::FirstOctant0
     } else if y_shifted >= tan_67_5_mul_x {
-        Octant::ThirdOctant90Deg
+        OctantWithDegName::ThirdOctant90
     } else {
         // let only_one_is_negative = y.is_positive() ^ x.is_positive();
         // if only_one_is_negative {
         if y.signum() == x.signum() {
-            Octant::SecondOctant45Deg
+            OctantWithDegName::SecondOctant45
         } else {
-            Octant::FourthOctant135Deg
+            OctantWithDegName::FourthOctant135
         }
     }
 }
@@ -156,18 +140,18 @@ pub fn non_maximum_suppression(
                 gradients_y_slice[index],
                 gradients_x_slice[index],
             ) {
-                Octant::FirstOctant0Deg => {
+                OctantWithDegName::FirstOctant0 => {
                     pixel > flat_slice[index - 1] && pixel > flat_slice[index + 1]
                 }
-                Octant::SecondOctant45Deg => {
+                OctantWithDegName::SecondOctant45 => {
                     pixel > flat_slice[previous_column_point - 1]
                         && pixel > flat_slice[next_column_point + 1]
                 }
-                Octant::ThirdOctant90Deg => {
+                OctantWithDegName::ThirdOctant90 => {
                     pixel > flat_slice[previous_column_point]
                         && pixel > flat_slice[next_column_point]
                 }
-                Octant::FourthOctant135Deg => {
+                OctantWithDegName::FourthOctant135 => {
                     pixel > flat_slice[previous_column_point + 1]
                         && pixel > flat_slice[next_column_point - 1]
                 }
@@ -242,7 +226,7 @@ mod tests {
 
     use std::i16;
 
-    use super::{approximate_direction_integer_only, Octant};
+    use super::{approximate_direction_integer_only, OctantWithDegName};
 
     #[test]
     fn non_maximum_suppression_direction_approximation() {
@@ -282,12 +266,12 @@ mod tests {
         }
     }
 
-    fn approximate_direction(y: i16, x: i16) -> Octant {
+    fn approximate_direction(y: i16, x: i16) -> OctantWithDegName {
         if y == 0 {
-            return Octant::FirstOctant0Deg;
+            return OctantWithDegName::FirstOctant0;
         }
         if x == 0 {
-            return Octant::ThirdOctant90Deg;
+            return OctantWithDegName::ThirdOctant90;
         }
 
         let mut angle = (y as f32).atan2(x as f32).to_degrees();
@@ -296,13 +280,13 @@ mod tests {
         }
         // Clamp angle.
         if !(22.5..157.5).contains(&angle) {
-            Octant::FirstOctant0Deg
+            OctantWithDegName::FirstOctant0
         } else if (22.5..67.5).contains(&angle) {
-            Octant::SecondOctant45Deg
+            OctantWithDegName::SecondOctant45
         } else if (67.5..112.5).contains(&angle) {
-            Octant::ThirdOctant90Deg
+            OctantWithDegName::ThirdOctant90
         } else if (112.5..157.5).contains(&angle) {
-            Octant::FourthOctant135Deg
+            OctantWithDegName::FourthOctant135
         } else {
             unreachable!()
         }

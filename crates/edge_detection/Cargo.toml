@@ -15,6 +15,7 @@ geometry = { workspace = true }
 linear_algebra = { workspace = true }
 types = { workspace = true }
 num-traits = { workspace = true }
+simba = { workspace = true }
 
 [dev-dependencies]
 divan = { workspace = true }

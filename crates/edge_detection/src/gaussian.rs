@@ -1,3 +1,4 @@
+use core::f32;
 use num_traits::{AsPrimitive, PrimInt};
 use std::ops::{Div, Mul, MulAssign};
 
@@ -28,6 +29,36 @@ pub fn gaussian_blur_box_filter(image: &GrayImage, sigma: f32) -> ImageBuffer<Lu
     }
 
     output
+}
+
+// TODO remove after int approximation work is done
+#[allow(dead_code)]
+#[inline]
+fn gaussian(x: f32, r: f32) -> f32 {
+    ((2.0 * f32::consts::PI).sqrt() * r).recip() * (-x.powi(2) / (2.0 * r.powi(2))).exp()
+}
+
+pub fn gaussian_blur_try_2_nalgebra<InputType>(
+    image: &DMatrix<InputType>,
+    _sigma: f32,
+) -> DMatrix<OutputType>
+where
+    InputType: Into<KernelType>
+        + AsPrimitive<f32>
+        + AsPrimitive<KernelType>
+        + PrimInt
+        + Scalar
+        + Mul
+        + MulAssign,
+    KernelType: PrimInt,
+    // OutputType: Into<KernelType>,
+{
+    // let kernel = imgproc_kernel_to_matrix::<3>(&GAUSSIAN_BLUR_3x3);
+
+    let kernel = SMatrix::<KernelType, 3, 3>::from_row_slice(&[1, 2, 1, 2, 4, 2, 1, 2, 1]);
+
+    let max = 16;
+    direct_convolution::<3, InputType, KernelType, OutputType>(image, &kernel) / max
 }
 
 type KernelType = i32;
@@ -117,6 +148,7 @@ mod tests {
         let converted = grayimage_to_2d_transposed_matrix_view(&luma8);
         let blurred = gaussian_blur_box_filter_nalgebra::<u8>(&converted, 3.5);
 
+        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(&converted, 3.5);
         GrayImage::from_raw(
             image.width(),
             image.height(),
@@ -125,6 +157,20 @@ mod tests {
         .unwrap()
         .save(format!(
             "{crate_dir}/test_data/output/gaussian_box_filter_nalgebra.png"
+        ))
+        .expect("The image saving should not fail");
+
+        GrayImage::from_raw(
+            image.width(),
+            image.height(),
+            blurred_int_approximation
+                .iter()
+                .map(|&v| v as u8)
+                .collect::<Vec<u8>>(),
+        )
+        .unwrap()
+        .save(format!(
+            "{crate_dir}/test_data/output/gaussian_box_filter_nalgebra_int_approx.png"
         ))
         .expect("The image saving should not fail");
     }
