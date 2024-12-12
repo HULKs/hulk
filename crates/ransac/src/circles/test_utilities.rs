@@ -9,7 +9,7 @@ use rand::{
 use linear_algebra::{point, Point2};
 
 #[allow(dead_code)]
-pub(crate) fn generate_circle<Frame, T>(
+pub fn generate_circle<Frame, T>(
     circle_center: &Point2<Frame, T>,
     point_count: usize,
     circle_radius: T,
