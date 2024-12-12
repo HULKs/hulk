@@ -14,6 +14,7 @@ members = [
     "crates/context_attribute",
     "crates/control",
     "crates/coordinate_systems",
+    "crates/edge_detection",
     "crates/energy_optimization",
     "crates/filtering",
     "crates/framework",
@@ -101,6 +102,7 @@ coordinate_systems = { path = "crates/coordinate_systems" }
 ctrlc = { version = "3.2.3", features = ["termination"] }
 derive_more = "0.99.17"
 dirs = "5.0.1"
+divan = "0.1.17"
 eframe = { version = "0.29.1", features = ["persistence"] }
 egui = { version = "0.29.1", features = ["persistence"] }
 egui_dock = { version = "0.14.0", features = ["serde"] }
@@ -125,6 +127,8 @@ hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_widgets = { path = "crates/hulk_widgets" }
 i2cdev = "0.5.1"
 image = "0.24.4"
+imageproc = "0.23.0"
+edge_detection = { path = "crates/edge_detection" }
 indicatif = "0.17.2"
 itertools = "0.10.5"
 ittapi = "0.3.3"
@@ -156,6 +160,7 @@ path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
 petgraph = "0.6.2"
 png = "0.17.6"
+pprof = { version = "0.11.0", features = ["flamegraph"] }
 prettyplease = "0.2.19"
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.44", features = ["span-locations"] }

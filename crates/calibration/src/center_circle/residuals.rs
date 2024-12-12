@@ -26,8 +26,6 @@ impl CalculateResiduals for CenterCircleResiduals {
         let corrected =
             get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
 
-        let radius_squared = field_dimensions.center_circle_diameter / 2.0;
-
         let projected_center = corrected.pixel_to_ground(measurement.circle_and_points.center)?;
         let projected_points: Vec<Point2<Ground>> = measurement
             .circle_and_points
@@ -36,22 +34,30 @@ impl CalculateResiduals for CenterCircleResiduals {
             .filter_map(|&point| corrected.pixel_to_ground(point).ok())
             .collect();
 
-        // TODO figure out a better way
-        let has_projection_error =
-            projected_points.len() != measurement.circle_and_points.points.len();
-        if has_projection_error {
+        if projected_points.len() != measurement.circle_and_points.points.len() {
             return Err(ProjectionError::NotOnProjectionPlane);
         }
-        let residual_values = projected_points
+
+        let radius = field_dimensions.center_circle_diameter / 2.0;
+        let line_width_half = field_dimensions.line_width / 2.0;
+        let inner_radius = radius - line_width_half;
+        let outer_radius = radius + line_width_half;
+
+        let radial_residuals = projected_points
             .into_iter()
             .map(|projected_point| {
-                (projected_point - projected_center).norm_squared() - radius_squared
+                let center_to_point_distance = (projected_point - projected_center).norm();
+                let inner_error = center_to_point_distance - inner_radius;
+                let outer_error = outer_radius - center_to_point_distance;
+                if inner_error.abs() < outer_error.abs() {
+                    inner_error
+                } else {
+                    outer_error
+                }
             })
             .collect();
 
-        Ok(CenterCircleResiduals {
-            radial_residuals: residual_values,
-        })
+        Ok(CenterCircleResiduals { radial_residuals })
     }
 }
 
