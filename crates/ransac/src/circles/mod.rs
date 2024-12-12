@@ -1,2 +1,2 @@
 pub mod circle;
-mod test_utilities;
+pub mod test_utilities;

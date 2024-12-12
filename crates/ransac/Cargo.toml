@@ -14,3 +14,12 @@ nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
+
+[dev-dependencies]
+divan = { workspace = true }
+pprof = { workspace = true }
+
+
+[[bench]]
+name = "bench"
+harness = false
