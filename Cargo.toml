@@ -170,6 +170,7 @@ path_serde_derive = { path = "crates/path_serde_derive" }
 pathfinding = "<=4.10.0"
 petgraph = "0.6.2"
 png = "0.17.6"
+pprof = { version = "0.11.0", features = ["flamegraph"] }
 prettyplease = "0.2.19"
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.44", features = ["span-locations"] }
