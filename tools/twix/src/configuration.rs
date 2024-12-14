@@ -1,11 +1,10 @@
 pub mod keybind_plugin;
 pub mod keys;
-pub mod merge;
 
 use std::path::{Path, PathBuf};
 
-use merge::Merge;
 use serde::Deserialize;
+use toml::{map::Entry, Value};
 
 const DEFAULT_CONFIG: &str = include_str!("../config_default.toml");
 
@@ -38,31 +37,6 @@ pub struct NaoConfig {
     pub highest: u8,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct RawNaoConfig {
-    pub lowest: Option<u8>,
-    pub highest: Option<u8>,
-}
-
-impl Merge<RawNaoConfig> for NaoConfig {
-    fn merge(&mut self, other: RawNaoConfig) {
-        self.lowest.merge(other.lowest);
-        self.highest.merge(other.highest);
-    }
-}
-
-impl Merge<NaoConfig> for NaoConfig {
-    fn merge(&mut self, other: NaoConfig) {
-        *self = other;
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RawConfiguration {
-    pub keys: Option<keys::Keybinds>,
-    pub naos: Option<RawNaoConfig>,
-}
-
 impl Configuration {
     pub fn load() -> Result<Self, Error> {
         Self::load_from_file(config_path())
@@ -71,12 +45,12 @@ impl Configuration {
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         match std::fs::read_to_string(&path) {
             Ok(config_file) => {
-                let mut configuration = Self::default();
-                let user_configuration: RawConfiguration = toml::from_str(&config_file)?;
+                let mut configuration: Value = Self::default();
+                let user_configuration: Value = toml::from_str(&config_file)?;
 
-                configuration.merge(user_configuration);
+                configuration.update(user_configuration);
 
-                Ok(configuration)
+                Ok(configuration.try_into()?)
             }
             Err(error) => {
                 log::info!(
@@ -88,33 +62,43 @@ impl Configuration {
             }
         }
     }
-}
 
-impl Merge<RawConfiguration> for Configuration {
-    fn merge(&mut self, other: RawConfiguration) {
-        self.keys.merge(other.keys);
-        self.naos.merge(other.naos);
-    }
-}
-
-impl Merge<Configuration> for Configuration {
-    fn merge(&mut self, other: Configuration) {
-        self.keys.merge(other.keys);
-        self.naos.merge(other.naos);
-    }
-}
-
-impl Default for Configuration {
-    fn default() -> Self {
+    fn default<T: for<'de> Deserialize<'de>>() -> T {
         toml::from_str(DEFAULT_CONFIG).unwrap()
+    }
+}
+
+trait Update {
+    fn update(&mut self, other: Self);
+}
+
+impl Update for Value {
+    fn update(&mut self, other: Self) {
+        match (self, other) {
+            (Value::Table(self_table), Value::Table(other_table)) => {
+                for (key, value) in other_table {
+                    match self_table.entry(key) {
+                        Entry::Vacant(entry) => {
+                            entry.insert(value);
+                        }
+                        Entry::Occupied(entry) => {
+                            entry.into_mut().update(value);
+                        }
+                    }
+                }
+            }
+            (other_self, other) => {
+                *other_self = other;
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::configuration::merge::Merge;
+    use crate::configuration::Update;
 
-    use super::{Configuration, RawConfiguration, DEFAULT_CONFIG};
+    use super::{Configuration, DEFAULT_CONFIG};
 
     #[test]
     fn parse_default_config() {
@@ -123,7 +107,7 @@ mod tests {
 
     #[test]
     fn merge_configs() {
-        let mut config_1: Configuration = toml::from_str(
+        let mut config_1: toml::Value = toml::from_str(
             r#"
                 [keys]
                 C-a = "focus_left"
@@ -136,7 +120,7 @@ mod tests {
         )
         .unwrap();
 
-        let config_2: Configuration = toml::from_str(
+        let config_2: toml::Value = toml::from_str(
             r#"
                 [keys]
                 C-b = "focus_left"
@@ -149,7 +133,7 @@ mod tests {
         )
         .unwrap();
 
-        config_1.merge(config_2);
+        config_1.update(config_2);
 
         assert_eq!(
             config_1,
@@ -157,6 +141,7 @@ mod tests {
                 r#"
                     [keys]
                     C-a = "focus_left"
+                    C-S-a = "reconnect"
                     C-A = "focus_right"
                     C-b = "focus_left"
 
@@ -171,7 +156,7 @@ mod tests {
 
     #[test]
     fn merge_partial_config() {
-        let mut default_config: Configuration = toml::from_str(
+        let mut default_config: toml::Value = toml::from_str(
             r#"
                 [keys]
                 C-a = "focus_left"
@@ -184,7 +169,7 @@ mod tests {
         )
         .unwrap();
 
-        let user_config: RawConfiguration = toml::from_str(
+        let user_config: toml::Value = toml::from_str(
             r#"
                 [keys]
                 C-a = "focus_right"
@@ -192,7 +177,7 @@ mod tests {
         )
         .unwrap();
 
-        default_config.merge(user_config);
+        default_config.update(user_config);
 
         assert_eq!(
             default_config,
