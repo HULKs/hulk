@@ -1,12 +1,15 @@
 use core::f32;
 use num_traits::{AsPrimitive, PrimInt};
-use std::ops::{Div, Mul, MulAssign};
+use std::{
+    num::NonZeroU32,
+    ops::{Div, Mul, MulAssign},
+};
 
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
 use nalgebra::{DMatrix, SMatrix, Scalar};
 
-use crate::conv::direct_convolution;
+use crate::conv::{direct_convolution, direct_convolution_mut};
 
 /// Gaussian smoothing approximation with box filters
 /// - https://en.wikipedia.org/wiki/Gaussian_blur
@@ -38,9 +41,53 @@ fn gaussian(x: f32, r: f32) -> f32 {
     ((2.0 * f32::consts::PI).sqrt() * r).recip() * (-x.powi(2) / (2.0 * r.powi(2))).exp()
 }
 
+fn gaussian_int_divisor_as_power_of_two(width: usize) -> u32 {
+    match width {
+        2 => 8,
+        3 => 10,
+        5 => 12,
+        7 => 14,
+        11 => 16,
+        _ => panic!("Unsupported kernel size"),
+    }
+}
+const fn check_kernel_size(width: usize) {
+    assert!(width % 2 == 1, "Kernel size must be odd");
+}
+
+fn gaussian_2d_integer_kernel<const S: usize>(sigma: f32) -> (SMatrix<i32, S, S>, NonZeroU32) {
+    let mut one_size = [0f32; S];
+    let k_half = S / 2;
+    check_kernel_size(S);
+
+    for i in 0..((S / 2) + 1) {
+        let v = gaussian(i as f32, sigma);
+        one_size[k_half - i] = v;
+        one_size[k_half + i] = v;
+    }
+
+    let mut kernel_float = SMatrix::<f32, S, S>::zeros();
+
+    for j in 0..S {
+        for i in 0..S {
+            kernel_float[(i, j)] = one_size[i] * one_size[j];
+        }
+    }
+
+    let int_factor_power_of_two = gaussian_int_divisor_as_power_of_two(S);
+    let sum = kernel_float.sum();
+    kernel_float = kernel_float / sum * 2.pow(int_factor_power_of_two) as f32;
+
+    (
+        kernel_float.map(|v| v as i32),
+        // int_factor_power_of_two as usize,
+        NonZeroU32::new(2.pow(int_factor_power_of_two)).unwrap(),
+    )
+}
+
 pub fn gaussian_blur_try_2_nalgebra<InputType>(
     image: &DMatrix<InputType>,
-    _sigma: f32,
+    sigma: f32,
 ) -> DMatrix<OutputType>
 where
     InputType: Into<KernelType>
@@ -53,12 +100,35 @@ where
     KernelType: PrimInt,
     // OutputType: Into<KernelType>,
 {
-    // let kernel = imgproc_kernel_to_matrix::<3>(&GAUSSIAN_BLUR_3x3);
+    let radius = (2.0 * sigma).floor() as usize;
 
-    let kernel = SMatrix::<KernelType, 3, 3>::from_row_slice(&[1, 2, 1, 2, 4, 2, 1, 2, 1]);
-
-    let max = 16;
-    direct_convolution::<3, InputType, KernelType, OutputType>(image, &kernel) / max
+    match radius {
+        // TODO remove after benchmarking!
+        // 1 => {
+        //     let (kernel, factor) = gaussian_2d_integer_kernel::<5>(sigma);
+        //     direct_convolution(image, &kernel, factor)
+        // }
+        // 2 => {
+        //     let (kernel, factor) = gaussian_2d_integer_kernel::<7>(sigma);
+        //     // direct_convolution::<5, InputType, KernelType, OutputType>(image, &kernel, factor)
+        //     let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
+        //     direct_convolution_mut(image, dst.as_mut_slice(), &kernel, factor);
+        //     dst
+        // }
+        _ => {
+            let (kernel, factor) = gaussian_2d_integer_kernel::<11>(sigma);
+            // direct_convolution::<7, InputType, KernelType, OutputType>(image, &kernel, factor)
+            let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
+            direct_convolution_mut(image, dst.as_mut_slice(), &kernel, factor);
+            dst
+        } // _ => {
+          //     let (kernel, factor) = gaussian_2d_integer_kernel::<3>(sigma);
+          //     // direct_convolution::<7, InputType, KernelType, OutputType>(image, &kernel, factor)
+          //     let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
+          //     direct_convolution_mut(image, dst.as_mut_slice(), &kernel, factor);
+          //     dst
+          // }
+    }
 }
 
 type KernelType = i32;
@@ -103,15 +173,22 @@ where
     KernelType: PrimInt,
     OutputType: Into<KernelType>,
 {
-    let scale_value = (KSIZE as OutputType).pow(2);
+    // let scale_value = (KSIZE as OutputType).pow(2);
 
     let kernel = SMatrix::<KernelType, KSIZE, KSIZE>::repeat(1);
-    let mut first =
-        direct_convolution::<KSIZE, InputType, KernelType, OutputType>(transposed_image, &kernel);
-    first /= scale_value;
+    let mut first = direct_convolution::<KSIZE, InputType, KernelType, OutputType>(
+        transposed_image,
+        &kernel,
+        // Some(scale_value as KernelType),
+        NonZeroU32::new(1).unwrap(),
+    );
+
     for _ in 1..passes {
-        first = direct_convolution::<KSIZE, OutputType, KernelType, OutputType>(&first, &kernel);
-        first /= scale_value;
+        first = direct_convolution::<KSIZE, OutputType, KernelType, OutputType>(
+            &first,
+            &kernel, // Some(scale_value as KernelType),
+            NonZeroU32::new(1).unwrap(),
+        );
     }
     first
 }
@@ -122,6 +199,7 @@ mod tests {
 
     use super::*;
     use image::open;
+    use imageproc::filter::gaussian_blur_f32;
 
     #[test]
     fn test_gaussian_box_filter() {
@@ -139,16 +217,128 @@ mod tests {
     }
 
     #[test]
+    fn test_gaussian_kernel_gen() {
+        const SIGMA: &[f32] = &[1.0, 1.4, 2.0, 3.5, 4.5];
+        const TOLERANCE: f64 = 0.02;
+
+        // For input types, will the conv. cause overflow with i32 kernels.
+        const MAX_SUMMED_VALUES: &[usize] =
+            &[u8::MAX as usize, i8::MAX as usize, i16::MAX as usize];
+        const MAX_KERNEL_TYPE: usize = i32::MAX as usize;
+
+        SIGMA.iter().for_each(|&sigma| {
+            let (kernel, factor) = gaussian_2d_integer_kernel::<3>(sigma);
+            let scaled_sum = kernel.sum() as f64 / factor.get() as f64;
+
+            assert!(
+                (1.0 - scaled_sum).abs() < TOLERANCE,
+                "Sigma:{} factor:{}, scaled_sum (ideally 1.0): {}  kernel:{}",
+                sigma,
+                factor,
+                scaled_sum,
+                kernel
+            );
+
+            for &max_value in MAX_SUMMED_VALUES {
+                let max_convolved_patch = kernel.map(|v| v as usize) * max_value;
+                let sum = max_convolved_patch.sum();
+
+                assert!(
+                    sum <= MAX_KERNEL_TYPE,
+                    "Convolution in kernel type causes overflow (before division): {sum} should be < {MAX_KERNEL_TYPE}"
+                );
+
+                let max_scaled_sum=sum/factor.get() as usize;
+                assert!(
+                    max_scaled_sum<=max_value,
+                    "Causes overflow for output type (2^{}): max_scaled_sum:{} max_value:{}",
+                    max_value.trailing_zeros(),
+                    max_scaled_sum,
+                    max_value
+                )
+            }
+        });
+
+        SIGMA.iter().for_each(|&sigma| {
+            let (kernel, factor) = gaussian_2d_integer_kernel::<5>(sigma);
+            let scaled_sum = kernel.sum() as f64 / factor.get() as f64;
+
+            assert!(
+                (1.0 - scaled_sum).abs() < TOLERANCE,
+                "Sigma:{} factor:{}, scaled_sum (ideally 1.0): {}  kernel:{}",
+                sigma,
+                factor,
+                scaled_sum,
+                kernel
+            );
+
+
+            for &max_value in MAX_SUMMED_VALUES {
+                let max_convolved_patch = kernel.map(|v| v as usize) * max_value;
+                let sum = max_convolved_patch.sum();
+
+                assert!(
+                    sum <= MAX_KERNEL_TYPE,
+                    "Convolution in kernel type causes overflow (before division): {sum} should be < {MAX_KERNEL_TYPE}"
+                );
+
+                let max_scaled_sum=sum/factor.get() as usize;
+                assert!(
+                    max_scaled_sum<=max_value,
+                    "Causes overflow for output type (2^{}): max_scaled_sum:{} max_value:{}",
+                    max_value.trailing_zeros(),
+                    max_scaled_sum,
+                    max_value
+                )
+            }
+        });
+
+        SIGMA.iter().for_each(|&sigma| {
+            let (kernel, factor) = gaussian_2d_integer_kernel::<7>(sigma);
+            let scaled_sum = kernel.sum() as f64 / factor.get() as f64;
+
+            assert!(
+                (1.0 - scaled_sum).abs() < TOLERANCE,
+                "Sigma:{} factor:{}, scaled_sum (ideally 1.0): {}  kernel:{}",
+                sigma,
+                factor,
+                scaled_sum,
+                kernel
+            );
+
+            for &max_value in MAX_SUMMED_VALUES {
+                let max_convolved_patch = kernel.map(|v| v as usize) * max_value;
+                let sum = max_convolved_patch.sum();
+
+                assert!(
+                    sum <= MAX_KERNEL_TYPE,
+                    "Convolution in kernel type causes overflow (before division): {sum} should be < {MAX_KERNEL_TYPE}"
+                );
+
+                let max_scaled_sum=sum/factor.get() as usize;
+                assert!(
+                    max_scaled_sum<=max_value,
+                    "Causes overflow for output type (2^{}): max_scaled_sum:{} max_value:{}",
+                    max_value.trailing_zeros(),
+                    max_scaled_sum,
+                    max_value
+                )
+            }
+        });
+    }
+
+    #[test]
     fn test_gaussian_box_filter_nalgebra() {
+        let sigma = 3.5;
         let crate_dir = env!("CARGO_MANIFEST_DIR");
         let image = open(format!("{crate_dir}/test_data/center_circle_webots.png"))
             .expect("The image should be in this path");
 
         let luma8 = image.to_luma8();
         let converted = grayimage_to_2d_transposed_matrix_view(&luma8);
-        let blurred = gaussian_blur_box_filter_nalgebra::<u8>(&converted, 3.5);
+        let blurred = gaussian_blur_box_filter_nalgebra::<u8>(&converted, sigma);
 
-        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(&converted, 3.5);
+        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(&converted, sigma);
         GrayImage::from_raw(
             image.width(),
             image.height(),
@@ -173,5 +363,11 @@ mod tests {
             "{crate_dir}/test_data/output/gaussian_box_filter_nalgebra_int_approx.png"
         ))
         .expect("The image saving should not fail");
+
+        gaussian_blur_f32(&luma8, sigma)
+            .save(format!(
+                "{crate_dir}/test_data/output/gaussian_imgproc_expected.png"
+            ))
+            .expect("The image saving should not fail");
     }
 }
