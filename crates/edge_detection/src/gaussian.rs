@@ -1,5 +1,6 @@
 use core::f32;
 use num_traits::{AsPrimitive, PrimInt};
+use simba::{scalar::SupersetOf, simd::PrimitiveSimdValue};
 use std::{
     num::NonZeroU32,
     ops::{Div, Mul, MulAssign},
@@ -7,7 +8,7 @@ use std::{
 
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
-use nalgebra::{DMatrix, SMatrix, Scalar};
+use nalgebra::{DMatrix, DMatrixView, SMatrix, Scalar};
 
 use crate::conv::{direct_convolution, direct_convolution_mut};
 
@@ -86,7 +87,7 @@ fn gaussian_2d_integer_kernel<const S: usize>(sigma: f32) -> (SMatrix<i32, S, S>
 }
 
 pub fn gaussian_blur_try_2_nalgebra<InputType>(
-    image: &DMatrix<InputType>,
+    image: &DMatrixView<InputType>,
     sigma: f32,
 ) -> DMatrix<OutputType>
 where
@@ -96,30 +97,47 @@ where
         + PrimInt
         + Scalar
         + Mul
-        + MulAssign,
-    KernelType: PrimInt,
+        + MulAssign
+        + PrimitiveSimdValue,
+    KernelType: PrimInt + SupersetOf<InputType>,
     // OutputType: Into<KernelType>,
 {
     let radius = (2.0 * sigma).floor() as usize;
 
     match radius {
-        // TODO remove after benchmarking!
-        // 1 => {
-        //     let (kernel, factor) = gaussian_2d_integer_kernel::<5>(sigma);
-        //     direct_convolution(image, &kernel, factor)
-        // }
-        // 2 => {
-        //     let (kernel, factor) = gaussian_2d_integer_kernel::<7>(sigma);
-        //     // direct_convolution::<5, InputType, KernelType, OutputType>(image, &kernel, factor)
-        //     let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
-        //     direct_convolution_mut(image, dst.as_mut_slice(), &kernel, factor);
-        //     dst
-        // }
+        1 => {
+            let (kernel, factor) = gaussian_2d_integer_kernel::<5>(sigma);
+            let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
+            direct_convolution_mut::<5, InputType, KernelType, i16>(
+                image,
+                dst.as_mut_slice(),
+                &kernel,
+                factor,
+            );
+            dst
+        }
+        2 => {
+            let (kernel, factor) = gaussian_2d_integer_kernel::<7>(sigma);
+            // direct_convolution::<5, InputType, KernelType, OutputType>(image, &kernel, factor)
+            let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
+            direct_convolution_mut::<7, InputType, KernelType, i16>(
+                image,
+                dst.as_mut_slice(),
+                &kernel,
+                factor,
+            );
+            dst
+        }
         _ => {
             let (kernel, factor) = gaussian_2d_integer_kernel::<11>(sigma);
             // direct_convolution::<7, InputType, KernelType, OutputType>(image, &kernel, factor)
             let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
-            direct_convolution_mut(image, dst.as_mut_slice(), &kernel, factor);
+            direct_convolution_mut::<11, InputType, KernelType, i16>(
+                image,
+                dst.as_mut_slice(),
+                &kernel,
+                factor,
+            );
             dst
         } // _ => {
           //     let (kernel, factor) = gaussian_2d_integer_kernel::<3>(sigma);
@@ -143,6 +161,7 @@ pub fn gaussian_blur_box_filter_nalgebra<InputType>(
 ) -> DMatrix<OutputType>
 where
     InputType: Into<KernelType> + AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
+    KernelType: SupersetOf<InputType>,
 {
     // average sigma = sqrt( (w**2 -1) / 12 ): w is box width, n is passes
 
@@ -170,7 +189,7 @@ fn box_filter_direct_convolve<const KSIZE: usize, InputType>(
 ) -> DMatrix<OutputType>
 where
     InputType: Into<KernelType> + AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
-    KernelType: PrimInt,
+    KernelType: PrimInt + SupersetOf<InputType>,
     OutputType: Into<KernelType>,
 {
     // let scale_value = (KSIZE as OutputType).pow(2);
@@ -338,7 +357,7 @@ mod tests {
         let converted = grayimage_to_2d_transposed_matrix_view(&luma8);
         let blurred = gaussian_blur_box_filter_nalgebra::<u8>(&converted, sigma);
 
-        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(&converted, sigma);
+        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(&converted.as_view(), sigma);
         GrayImage::from_raw(
             image.width(),
             image.height(),
