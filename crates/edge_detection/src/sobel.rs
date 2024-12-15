@@ -1,4 +1,7 @@
-use std::ops::{Mul, MulAssign};
+use std::{
+    num::NonZeroU32,
+    ops::{Mul, MulAssign},
+};
 
 use imageproc::gradients::{horizontal_sobel, vertical_sobel, HORIZONTAL_SOBEL, VERTICAL_SOBEL};
 
@@ -7,6 +10,7 @@ use linear_algebra::{point, Point2};
 
 use nalgebra::{DMatrix, Scalar, SimdPartialOrd};
 use num_traits::{AsPrimitive, PrimInt};
+use simba::scalar::SupersetOf;
 use types::ycbcr422_image::YCbCr422Image;
 
 use crate::{
@@ -21,12 +25,17 @@ pub fn sobel_operator_vertical<const K: usize, T>(
     image_view_transposed: &DMatrix<T>,
 ) -> DMatrix<i16>
 where
-    T: Into<i32> + AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
+    T: AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
     i16: From<T>,
+    i32: SupersetOf<T>,
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&VERTICAL_SOBEL);
 
-    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel)
+    direct_convolution::<K, T, i32, i16>(
+        image_view_transposed,
+        &kernel,
+        NonZeroU32::new(1).unwrap(),
+    )
 }
 
 #[inline]
@@ -34,12 +43,17 @@ pub fn sobel_operator_horizontal<const K: usize, T>(
     image_view_transposed: &DMatrix<T>,
 ) -> DMatrix<i16>
 where
-    T: Into<i32> + AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
+    T: AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
     i16: From<T>,
+    i32: SupersetOf<T>,
 {
     let kernel = imgproc_kernel_to_matrix::<K>(&HORIZONTAL_SOBEL);
 
-    direct_convolution::<K, T, i32, i16>(image_view_transposed, &kernel)
+    direct_convolution::<K, T, i32, i16>(
+        image_view_transposed,
+        &kernel,
+        NonZeroU32::new(1).unwrap(),
+    )
 }
 
 pub fn get_edges_sobel(
@@ -132,6 +146,8 @@ pub fn get_edges_sobel_nalgebra(
 #[cfg(test)]
 mod tests {
 
+    use std::num::NonZeroU32;
+
     use image::{GrayImage, Luma};
     use imageproc::{definitions::HasWhite, filter::gaussian_blur_f32};
 
@@ -220,8 +236,11 @@ mod tests {
         let kernel = imgproc_kernel_to_matrix(&VERTICAL_SOBEL);
         let image_view_transposed = grayimage_to_2d_transposed_matrix_view::<i16>(&blurred);
 
-        let sobel_image_transposed =
-            direct_convolution::<3, i16, i32, i16>(&image_view_transposed, &kernel);
+        let sobel_image_transposed = direct_convolution::<3, i16, i32, i16>(
+            &image_view_transposed,
+            &kernel,
+            NonZeroU32::new(1).unwrap(),
+        );
         let imageproc_sobel = vertical_sobel(&blurred);
 
         let kernel_size = 3;
