@@ -1,11 +1,12 @@
-use num_traits::{AsPrimitive, Bounded, PrimInt, Signed};
+use num_traits::{AsPrimitive, Bounded, PrimInt, Signed, Zero};
+use simba::{scalar::SupersetOf, simd::PrimitiveSimdValue};
 use std::{
     fmt::{Debug, Display},
     num::NonZeroU32,
     ops::{Add, AddAssign, DivAssign, Mul, MulAssign},
 };
 
-use nalgebra::{ClosedMul, DMatrix, SMatrix, Scalar};
+use nalgebra::{ClosedMul, DMatrix, DMatrixView, SMatrix, SVector, Scalar, SimdPartialOrd};
 
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: &DMatrix<P>,
@@ -13,10 +14,16 @@ pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     scale_value: NonZeroU32,
 ) -> DMatrix<S>
 where
-    P: Into<KType> + PrimInt + AsPrimitive<KType> + Scalar + Mul + MulAssign + Add,
-    KType: PrimInt + Scalar + AddAssign + AsPrimitive<S> + ClosedMul + Signed + Display,
+    P: PrimInt + AsPrimitive<KType> + Scalar + Mul + MulAssign + Add,
+    KType: PrimInt
+        + Scalar
+        + AddAssign
+        + AsPrimitive<S>
+        + ClosedMul
+        + Signed
+        + Display
+        + SupersetOf<P>,
     S: Into<KType>
-        + TryFrom<KType>
         + AsPrimitive<KType>
         + PrimInt
         + Scalar
@@ -34,23 +41,25 @@ where
     result
 }
 
-pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
-    transposed_image: &DMatrix<InputType>,
+type MyKtype = i32;
+pub fn direct_convolution_mut<const KSIZE: usize, InputType, _MyKtype, OutputType>(
+    transposed_image: &DMatrixView<InputType>,
     dst: &mut [OutputType],
-    kernel: &SMatrix<KType, KSIZE, KSIZE>,
+    kernel: &SMatrix<MyKtype, KSIZE, KSIZE>,
     scale_value: NonZeroU32,
 ) where
-    InputType: Into<KType> + AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar,
-    KType: PrimInt
+    InputType: Into<MyKtype> + AsPrimitive<MyKtype> + PrimInt + Scalar + PrimitiveSimdValue,
+    MyKtype: PrimInt
         + Scalar
         + AddAssign
         + AsPrimitive<OutputType>
-        + Signed
         + Display
-        + DivAssign
-        + MulAssign,
-    OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded + DivAssign,
-    u32: AsPrimitive<KType>,
+        + MulAssign
+        + SupersetOf<InputType>
+        + PrimitiveSimdValue
+        + Debug,
+    OutputType: AsPrimitive<MyKtype> + PrimInt + Sized + Debug + Bounded + PrimitiveSimdValue,
+    u32: AsPrimitive<MyKtype>,
 {
     assert!(
         dst.len() >= transposed_image.len(),
@@ -62,14 +71,14 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     let (image_rows, image_cols) = transposed_image.shape();
     let kernel_half = KSIZE / 2;
 
-    let max_allowed_sum: KType = OutputType::max_value().into();
-    let min_allowed_sum: KType = OutputType::min_value().into();
+    let max_allowed_sum: MyKtype = OutputType::max_value().as_();
+    let min_allowed_sum: MyKtype = OutputType::min_value().as_();
 
-    let transposed_image_slice = transposed_image.data.as_slice();
+    // let transposed_image_slice = transposed_image.data.as_slice();
 
     // scale_value.checked_next_power_of_two()
-    let divisor: KType = scale_value.get().as_();
-    let should_divide_or_shift = divisor > KType::one();
+    let divisor: MyKtype = scale_value.get().as_();
+    let should_divide_or_shift = divisor > 1; //MyKtype::one();
     let bit_shift_amount = if should_divide_or_shift {
         scale_value
             .checked_next_power_of_two()
@@ -79,29 +88,98 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
         0
     };
 
-    // let k_arr: [KType; KSIZE] = kernel.data.0;
+    // let bin_v = simba::simd::SimdValue::splat(2.pow(bit_shift_amount as u32));
+    // let min_allowed_simd = simba::simd::SimdValue::splat(min_allowed_sum);
+    // let max_allowed_simd = simba::simd::SimdValue::splat(max_allowed_sum);
 
+    const STEP: usize = 4;
     // Nalgebra works on column-major order, therefore the loops are transposed.
     for j in kernel_half..image_cols - kernel_half {
-        let j_top_left = j - kernel_half;
-        for i in kernel_half..image_rows - kernel_half {
-            let i_top_left = i - kernel_half;
-            let mut sum = KType::zero();
+        for i in (kernel_half..image_rows - (kernel_half + STEP)).step_by(STEP) {
+            // let mut sum = transposed_image[(i, j)].as_() * kernel[(kernel_half, kernel_half)];
+            let mut simd_sum = simba::simd::AutoSimd::<[MyKtype; STEP]>::zero();
 
-            for kj in 0..KSIZE {
-                // let jj = kj + j_top_left;
-                let ko = kj * KSIZE;
-                let offset = (kj + j_top_left) * image_rows;
-                for ki in 0..KSIZE {
-                    let ii = ki + i_top_left;
-                    sum += transposed_image_slice[ii + offset].as_() * kernel[ki + ko];
-                    // sum += unsafe { *image_ptr.add(ii + offset) }.as_() * kernel[ki + ko];
+            for kj in 1..kernel_half {
+                for ki in 1..kernel_half {
+                    // Why: random access of the large matrix is quite slow
+                    // Safety: Bounds are restricted by the outer i, j loops
+                    // sum += unsafe {
+                    //     SVector::<InputType, 4>::new(
+                    //         *transposed_image.get_unchecked((i + ki, j + kj)),
+                    //         *transposed_image.get_unchecked((i - ki, j + kj)),
+                    //         *transposed_image.get_unchecked((i + ki, j - kj)),
+                    //         *transposed_image.get_unchecked((i - ki, j - kj)),
+                    //     )
+                    // }
+                    // .cast()
+                    // .dot(&SVector::<MyKtype, 4>::new(
+                    //     kernel[(kernel_half + ki, kernel_half + kj)],
+                    //     kernel[(kernel_half - ki, kernel_half + kj)],
+                    //     kernel[(kernel_half + ki, kernel_half - kj)],
+                    //     kernel[(kernel_half - ki, kernel_half - kj)],
+                    // ));
+
+                    // SIMD batch processing
+                    // let ii = i - kernel_half + ki;
+                    // let jj = j - kernel_half + kj;
+
+                    // // assert!(
+                    // //     ii + STEP <= image_rows,
+                    // //     "ii:{}, image_rows:{}",
+                    // //     ii,
+                    // //     image_rows
+                    // // );
+                    // // assert!(jj < image_cols, "jj:{}, image_cols:{}", jj, image_cols);
+
+                    // for s in 0..STEP {
+                    simd_sum += simba::simd::AutoSimd::<[MyKtype; STEP]>::new(
+                        transposed_image[(i + ki, j + kj)].as_(),
+                        transposed_image[(i + ki + 1, j + kj)].as_(),
+                        transposed_image[(i + ki + 2, j + kj)].as_(),
+                        transposed_image[(i + ki + 3, j + kj)].as_(),
+                    ) * simba::simd::SimdValue::splat(
+                        kernel[(kernel_half + ki, kernel_half + kj)],
+                    ) + simba::simd::AutoSimd::<[MyKtype; STEP]>::new(
+                        transposed_image[(i - ki, j + kj)].as_(),
+                        transposed_image[(i - ki + 1, j + kj)].as_(),
+                        transposed_image[(i - ki + 2, j + kj)].as_(),
+                        transposed_image[(i - ki + 3, j + kj)].as_(),
+                    ) * simba::simd::SimdValue::splat(
+                        kernel[(kernel_half - ki, kernel_half + kj)],
+                    ) + simba::simd::AutoSimd::<[MyKtype; STEP]>::new(
+                        transposed_image[(i + ki, j - kj)].as_(),
+                        transposed_image[(i + ki + 1, j - kj)].as_(),
+                        transposed_image[(i + ki + 2, j - kj)].as_(),
+                        transposed_image[(i + ki + 3, j - kj)].as_(),
+                    ) * simba::simd::SimdValue::splat(
+                        kernel[(kernel_half + ki, kernel_half - kj)],
+                    ) + simba::simd::AutoSimd::<[MyKtype; STEP]>::new(
+                        transposed_image[(i - ki, j - kj)].as_(),
+                        transposed_image[(i - ki + 1, j - kj)].as_(),
+                        transposed_image[(i - ki + 2, j - kj)].as_(),
+                        transposed_image[(i - ki + 3, j - kj)].as_(),
+                    ) * simba::simd::SimdValue::splat(
+                        kernel[(kernel_half - ki, kernel_half - kj)],
+                    )
+                    // }
                 }
             }
 
-            dst[j * image_rows + i] = (sum >> bit_shift_amount)
-                .clamp(min_allowed_sum, max_allowed_sum)
-                .as_()
+            let start = j * image_rows + i;
+            dst[start..start + STEP][0] = (simd_sum.0[0] >> bit_shift_amount).as_();
+            // dst[start..start + STEP]
+            //     .iter_mut()
+            //     .zip(
+            //         (simd_sum / bin_v)
+            //             .simd_clamp(min_allowed_simd, max_allowed_simd)
+            //             .0
+            //             .iter(),
+            //     )
+            //     .for_each(|(dst, sum)| *dst = sum.as_());
+
+            // dst[j * image_rows + i] = (sum >> bit_shift_amount)
+            //     .clamp(min_allowed_sum, max_allowed_sum)
+            //     .as_();
         }
     }
 }
@@ -114,7 +192,8 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
     scale_value: NonZeroU32,
 ) where
     InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar,
-    KType: PrimInt + AddAssign + AsPrimitive<OutputType> + Scalar + ClosedMul,
+    KType:
+        PrimInt + AsPrimitive<OutputType> + SupersetOf<InputType> + Scalar + AddAssign + ClosedMul,
     OutputType: AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign + DivAssign,
     u32: AsPrimitive<KType>,
 {
@@ -154,7 +233,8 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
             let sum = kernel
                 .component_mul(
                     &input_mat_copy
-                        .fixed_view::<KSIZE, KSIZE>(row_index - ksize_floor_half, left_top),
+                        .fixed_view::<KSIZE, KSIZE>(row_index - ksize_floor_half, left_top), // .clone_owned()
+                                                                                             // .cast(),
                 )
                 .sum()
                 .shr(bit_shift_amount);
@@ -357,7 +437,7 @@ mod tests {
         let mut fast_result = DMatrix::<i16>::zeros(nrows, ncols);
 
         direct_convolution_mut::<3, i16, i32, i16>(
-            &image,
+            &image.as_view(),
             &mut fast_result.as_mut_slice(),
             &kernel,
             NonZeroU32::new(1).unwrap(),
