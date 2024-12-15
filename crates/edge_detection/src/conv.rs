@@ -1,7 +1,8 @@
 use num_traits::{AsPrimitive, Bounded, PrimInt, Signed};
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, AddAssign, Mul, MulAssign},
+    num::NonZeroU32,
+    ops::{Add, AddAssign, DivAssign, Mul, MulAssign},
 };
 
 use nalgebra::{ClosedMul, DMatrix, SMatrix, Scalar};
@@ -9,6 +10,7 @@ use nalgebra::{ClosedMul, DMatrix, SMatrix, Scalar};
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: &DMatrix<P>,
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
+    scale_value: NonZeroU32,
 ) -> DMatrix<S>
 where
     P: Into<KType> + PrimInt + AsPrimitive<KType> + Scalar + Mul + MulAssign + Add,
@@ -20,13 +22,15 @@ where
         + Scalar
         + Debug
         + Bounded
-        + AddAssign,
+        + AddAssign
+        + DivAssign,
+    u32: AsPrimitive<KType>,
 {
     let (image_rows, image_cols) = image.shape();
 
     let mut result = DMatrix::<S>::zeros(image_rows, image_cols);
 
-    direct_convolution_mut_try_again(image, result.as_mut_slice(), kernel);
+    direct_convolution_mut_try_again(image, result.as_mut_slice(), kernel, scale_value);
     result
 }
 
@@ -34,11 +38,19 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: &DMatrix<InputType>,
     dst: &mut [OutputType],
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
-    // scale_value: Option<i16>,
+    scale_value: NonZeroU32,
 ) where
     InputType: Into<KType> + AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar,
-    KType: PrimInt + Scalar + AddAssign + AsPrimitive<OutputType> + Signed + Display,
-    OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded,
+    KType: PrimInt
+        + Scalar
+        + AddAssign
+        + AsPrimitive<OutputType>
+        + Signed
+        + Display
+        + DivAssign
+        + MulAssign,
+    OutputType: Into<KType> + AsPrimitive<KType> + PrimInt + Debug + Bounded + DivAssign,
+    u32: AsPrimitive<KType>,
 {
     assert!(
         dst.len() >= transposed_image.len(),
@@ -55,11 +67,24 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
 
     let transposed_image_slice = transposed_image.data.as_slice();
 
+    // scale_value.checked_next_power_of_two()
+    let divisor: KType = scale_value.get().as_();
+    let should_divide_or_shift = divisor > KType::one();
+    let bit_shift_amount = if should_divide_or_shift {
+        scale_value
+            .checked_next_power_of_two()
+            .unwrap()
+            .trailing_zeros() as usize
+    } else {
+        0
+    };
+
+    // let k_arr: [KType; KSIZE] = kernel.data.0;
+
     // Nalgebra works on column-major order, therefore the loops are transposed.
     for j in kernel_half..image_cols - kernel_half {
+        let j_top_left = j - kernel_half;
         for i in kernel_half..image_rows - kernel_half {
-            // swap(x, y);
-            let j_top_left = j - kernel_half;
             let i_top_left = i - kernel_half;
             let mut sum = KType::zero();
 
@@ -74,7 +99,9 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
                 }
             }
 
-            dst[j * image_rows + i] = sum.clamp(min_allowed_sum, max_allowed_sum).as_()
+            dst[j * image_rows + i] = (sum >> bit_shift_amount)
+                .clamp(min_allowed_sum, max_allowed_sum)
+                .as_()
         }
     }
 }
@@ -84,11 +111,12 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
     // dst: &mut DMatrix<OutputType>,
     dst_as_slice: &mut [OutputType],
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
-    // scale_value: Option<i16>,
+    scale_value: NonZeroU32,
 ) where
     InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar,
     KType: PrimInt + AddAssign + AsPrimitive<OutputType> + Scalar + ClosedMul,
-    OutputType: AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign,
+    OutputType: AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign + DivAssign,
+    u32: AsPrimitive<KType>,
 {
     assert!(
         dst_as_slice.len() >= transposed_image.len(),
@@ -106,20 +134,39 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
 
     let input_mat_copy = transposed_image.map(|v| v.as_());
 
+    // scale_value.checked_next_power_of_two()
+    let divisor: KType = scale_value.get().as_();
+    let should_divide_or_shift = divisor > KType::one();
+
+    let bit_shift_amount = if should_divide_or_shift {
+        scale_value
+            .checked_next_power_of_two()
+            .unwrap()
+            .trailing_zeros() as usize
+    } else {
+        0
+    };
+
     for col_index in ksize_floor_half..ncols - ksize_floor_half {
         let middle_offset = (col_index) * nrows;
         let left_top = col_index - ksize_floor_half;
         for row_index in ksize_floor_half..nrows - ksize_floor_half {
-            dst_as_slice[middle_offset + row_index] = kernel
+            let sum = kernel
                 .component_mul(
                     &input_mat_copy
                         .fixed_view::<KSIZE, KSIZE>(row_index - ksize_floor_half, left_top),
                 )
                 .sum()
+                .shr(bit_shift_amount);
+
+            dst_as_slice[middle_offset + row_index] = (sum >> bit_shift_amount)
                 .clamp(min_allowed_sum, max_allowed_sum)
                 .as_();
         }
     }
+    // if divide {
+    //     dst_as_slice.iter_mut().for_each(|v| *v /= divisor.as_());
+    // }
 }
 
 pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
@@ -289,7 +336,8 @@ mod tests {
         // Since these operations assume the matrix is transposed, the kernel also has to be swapped
         let kernel = imgproc_kernel_to_matrix(&HORIZONTAL_SOBEL);
 
-        let result = direct_convolution::<3, i16, i32, i16>(&image, &kernel);
+        let result =
+            direct_convolution::<3, i16, i32, i16>(&image, &kernel, NonZeroU32::new(1).unwrap());
 
         // taken via OpenCV
         let expected_full_result =
@@ -312,6 +360,7 @@ mod tests {
             &image,
             &mut fast_result.as_mut_slice(),
             &kernel,
+            NonZeroU32::new(1).unwrap(),
         );
         let fast_result_subview = fast_result
             .view((1, 1), (nrows - 2, ncols - 2))
