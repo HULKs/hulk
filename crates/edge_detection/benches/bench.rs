@@ -1,6 +1,6 @@
 use std::{env, fs::File};
 
-use divan::{bench, bench_group, black_box, AllocProfiler, Bencher};
+use divan::{bench, bench_group, black_box, Bencher};
 use image::GrayImage;
 use imageproc::{edges::canny, filter::gaussian_blur_f32, gradients::sobel_gradients};
 
@@ -172,7 +172,7 @@ mod sobel_operator {
         sobel::sobel_operator_vertical,
     };
     use imageproc::gradients::{vertical_sobel, VERTICAL_SOBEL};
-    use nalgebra::DMatrix;
+    use nalgebra::{DMatrix, DMatrixView};
 
     use crate::{
         get_blurred_source_image, get_flamegraph, get_profiler_guard, load_test_image,
@@ -214,7 +214,7 @@ mod sobel_operator {
     }
 
     #[bench]
-    fn piecewise_2d_mut_sobel(bencher: Bencher) {
+    fn piecewise_2d_mut(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
@@ -223,9 +223,10 @@ mod sobel_operator {
         let kernel_horizontal = [-1, 0, 1];
 
         let guard = get_profiler_guard();
+
         bencher.bench_local(move || {
             let mut out = vec![0i16; transposed_matrix_view.len()];
-            black_box(piecewise_2d_convolution_mut::<3, u8, i32, i16>(
+            black_box(piecewise_2d_convolution_mut(
                 black_box(&transposed_matrix_view),
                 black_box(out.as_mut_slice()),
                 black_box(&kernel_horizontal),
@@ -254,22 +255,35 @@ mod sobel_operator {
         });
     }
 
-    #[bench]
-    fn piecewise_horizontal_mut_sobel(bencher: Bencher) {
+    fn _bench_with_kernel_size<const K: usize>(
+        bencher: Bencher,
+        transposed_matrix_view: &DMatrix<u8>,
+        kernel_slice: &[i32; K],
+    ) {
+        bencher.bench_local(move || {
+            let mut out = vec![0i16; transposed_matrix_view.len()];
+            black_box(piecewise_horizontal_convolution_mut::<K, u8, i32, i16>(
+                black_box(transposed_matrix_view),
+                black_box(out.as_mut_slice()),
+                black_box(kernel_slice),
+            ));
+        });
+    }
+    #[bench(args=[3,5,7,11,13,21])]
+    fn piecewise_horizontal_mut_ksizes(bencher: Bencher, ksize: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
 
-        let kernel_horizontal = [-1, 0, 1];
-
-        bencher.bench_local(move || {
-            let mut out = vec![0i16; transposed_matrix_view.len()];
-            black_box(piecewise_horizontal_convolution_mut::<3, u8, i32, i16>(
-                black_box(&transposed_matrix_view),
-                black_box(out.as_mut_slice()),
-                black_box(&kernel_horizontal),
-            ));
-        });
+        match ksize {
+            3 => _bench_with_kernel_size::<3>(bencher, &transposed_matrix_view, &[1; 3]),
+            5 => _bench_with_kernel_size::<5>(bencher, &transposed_matrix_view, &[1; 5]),
+            7 => _bench_with_kernel_size::<7>(bencher, &transposed_matrix_view, &[1; 7]),
+            11 => _bench_with_kernel_size::<11>(bencher, &transposed_matrix_view, &[1; 11]),
+            13 => _bench_with_kernel_size::<13>(bencher, &transposed_matrix_view, &[1; 13]),
+            21 => _bench_with_kernel_size::<21>(bencher, &transposed_matrix_view, &[1; 21]),
+            _ => panic!("Unsupported kernel size"),
+        }
     }
 
     #[bench]
