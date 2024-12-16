@@ -7,8 +7,6 @@ use serde::{
 };
 use thiserror::Error;
 
-use super::merge::Merge;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Error)]
 pub enum Error {
@@ -148,12 +146,6 @@ impl Keybinds {
 
     pub fn iter(&self) -> impl Iterator<Item = (&KeybindTrigger, &KeybindAction)> {
         self.keybinds.iter()
-    }
-}
-
-impl Merge<Self> for Keybinds {
-    fn merge(&mut self, other: Self) {
-        self.keybinds.merge(other.keybinds);
     }
 }
 
