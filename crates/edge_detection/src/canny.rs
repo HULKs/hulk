@@ -1,6 +1,6 @@
 use image::GrayImage;
 
-use nalgebra::{DMatrix, DMatrixView};
+use nalgebra::DMatrix;
 
 use crate::{
     gaussian::gaussian_blur_try_2_nalgebra,
@@ -16,10 +16,10 @@ pub fn canny(
     let sigma = gaussian_sigma.unwrap_or(1.4);
     const SOBEL_KERNEL_SIZE: usize = 3;
 
-    let input = DMatrixView::from_slice(
-        image.as_raw(),
+    let input = DMatrix::from_column_slice(
         image.height() as usize,
         image.width() as usize,
+        image.as_raw(),
     );
     let converted = gaussian_blur_try_2_nalgebra(&input, sigma);
 
