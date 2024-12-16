@@ -140,7 +140,7 @@ mod blurring {
         };
         bencher.bench_local(move || {
             black_box(gaussian_blur_try_2_nalgebra::<u8>(
-                black_box(&transposed_matrix_view.as_view()),
+                black_box(&transposed_matrix_view),
                 black_box(sigma),
             ))
         });
@@ -172,7 +172,7 @@ mod sobel_operator {
         sobel::sobel_operator_vertical,
     };
     use imageproc::gradients::{vertical_sobel, VERTICAL_SOBEL};
-    use nalgebra::{DMatrix, DMatrixView};
+    use nalgebra::DMatrix;
 
     use crate::{
         get_blurred_source_image, get_flamegraph, get_profiler_guard, load_test_image,
@@ -205,7 +205,7 @@ mod sobel_operator {
         bencher.bench_local(move || {
             let mut out = vec![0i16; transposed_matrix_view.len()];
             black_box(direct_convolution_mut::<3, u8, i32, i16>(
-                black_box(&transposed_matrix_view.as_view()),
+                black_box(&transposed_matrix_view),
                 black_box(out.as_mut_slice()),
                 black_box(&kernel_vert),
                 black_box(scale_factor),

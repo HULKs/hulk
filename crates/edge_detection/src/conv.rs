@@ -9,10 +9,7 @@ use std::{
     ops::{Add, AddAssign, DivAssign, Mul, MulAssign},
 };
 
-use nalgebra::{
-    ClosedMul, DMatrix, DMatrixView, SMatrix, SVector, SVectorView, SVectorViewMut, Scalar,
-    SimdPartialOrd, SimdValue,
-};
+use nalgebra::{ClosedMul, DMatrix, SMatrix, Scalar, SimdValue};
 
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: &DMatrix<P>,
@@ -49,7 +46,7 @@ where
 
 type MyKtype = i32;
 pub fn direct_convolution_mut<const KSIZE: usize, InputType, _MyKtype, OutputType>(
-    transposed_image: &DMatrixView<InputType>,
+    transposed_image: &DMatrix<InputType>,
     dst: &mut [OutputType],
     kernel: &SMatrix<MyKtype, KSIZE, KSIZE>,
     scale_value: NonZeroU32,
@@ -80,7 +77,7 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, _MyKtype, OutputTyp
     let max_allowed_sum: MyKtype = OutputType::max_value().as_();
     let min_allowed_sum: MyKtype = OutputType::min_value().as_();
 
-    // let transposed_image_slice = transposed_image.data.as_slice();
+    let transposed_image_slice = transposed_image.data.as_slice();
 
     // scale_value.checked_next_power_of_two()
     let divisor: MyKtype = scale_value.get().as_();
@@ -94,81 +91,72 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, _MyKtype, OutputTyp
         0
     };
 
-    // let bin_v = simba::simd::SimdValue::splat(2.pow(bit_shift_amount as u32));
-    // let min_allowed_simd = simba::simd::SimdValue::splat(min_allowed_sum);
-    // let max_allowed_simd = simba::simd::SimdValue::splat(max_allowed_sum);
-
-    // const STEP: usize = 8;
-    // Nalgebra works on column-major order, therefore the loops are transposed.
-
-    // for i in (kernel_half..image_rows - (kernel_half)) {
-    // for i in (kernel_half..image_rows - (kernel_half + STEP)).step_by(STEP) {
-
     for j in kernel_half..image_cols - kernel_half {
         let j_top_left = j - kernel_half;
 
-        // dst[j * image_rows + kernel_half..(j + 1) * image_rows - kernel_half]
-        //     .iter_mut()
-        //     .enumerate()
-        //     .for_each(|(i_top_left, dst_value)| {
-        for i in kernel_half..image_rows - kernel_half {
-            let i_top_left = i - kernel_half;
-            // Basic
-            // let mut sum = MyKtype::zero();
-            // for ki in 0..KSIZE {
-            //     for kj in 0..KSIZE {
-            //         sum += transposed_image[(i_top_left + ki, j_top_left + kj)].as_()
-            //             * kernel[(ki, kj)];
-            //     }
-            // }
-            // dst[j * image_rows + kernel_half + i] = (sum >> bit_shift_amount)
-            //     .clamp(min_allowed_sum, max_allowed_sum)
-            //     .as_();
+        dst[j * image_rows + kernel_half..(j + 1) * image_rows - kernel_half]
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i_top_left, dst_value)| {
+                // for i in kernel_half..image_rows - kernel_half {
+                // let i_top_left = i - kernel_half;
+                // Basic
+                // let mut sum = MyKtype::zero();
+                // for ki in 0..KSIZE {
+                //     for kj in 0..KSIZE {
+                //         sum += transposed_image[(i_top_left + ki, j_top_left + kj)].as_()
+                //             * kernel[(ki, kj)];
+                //     }
+                // }
+                // dst[j * image_rows + kernel_half + i] = (sum >> bit_shift_amount)
+                //     .clamp(min_allowed_sum, max_allowed_sum)
+                //     .as_();
 
-            // Semi-smart
-            let mut sum = MyKtype::zero();
+                // Semi-smart
+                let mut sum = MyKtype::zero();
+                for kj in 0..KSIZE {
+                    let ko = kj * KSIZE;
+                    let offset = (kj + j_top_left) * image_rows;
+                    for ki in 0..KSIZE {
+                        let ii = ki + i_top_left;
+                        sum += transposed_image_slice[ii + offset].as_() * kernel[ki + ko];
+                    }
+                }
+                *dst_value = (sum >> bit_shift_amount)
+                    .clamp(min_allowed_sum, max_allowed_sum)
+                    .as_();
+                // Semi Smart end
 
-            for kj in 0..KSIZE {
-                sum += kernel.column(kj).dot(
-                    &transposed_image
-                        .fixed_view::<KSIZE, 1>(i_top_left, j_top_left + kj)
-                        .clone_owned()
-                        .cast::<MyKtype>(),
-                );
-            }
+                // Chunking -> not fast enough
+                // const STEP: usize = 4;
+                // dst[j * image_rows + kernel_half..(j + 1) * image_rows - kernel_half.max(STEP)]
+                //     .chunks_exact_mut(STEP)
+                //     .enumerate()
+                //     .for_each(|(i_chunk, dst_row)| {
+                //         let i_top_left = i_chunk * STEP;
+                //         let mut sum_vec = SVector::<MyKtype, STEP>::zero();
+                //         for ki in 0..KSIZE {
+                //             for kj in 0..KSIZE {
+                //                 sum_vec += transposed_image
+                //                     .fixed_view::<STEP, 1>(i_top_left + ki, j_top_left + kj)
+                //                     .clone_owned()
+                //                     .cast::<MyKtype>()
+                //                     * kernel[(ki, kj)];
+                //             }
+                //         }
+                //         dst_row
+                //             .iter_mut()
+                //             .zip(sum_vec.iter())
+                //             .for_each(|(dst, sum)| {
+                //                 *dst = (sum >> bit_shift_amount)
+                //                     .clamp(min_allowed_sum, max_allowed_sum)
+                //                     .as_();
+                //             });
+                //     });
+                // Chunking end
 
-            // *dst_value = (sum >> bit_shift_amount)
-            dst[j * image_rows + i] = (sum >> bit_shift_amount)
-                .clamp(min_allowed_sum, max_allowed_sum)
-                .as_();
-
-            // Chunking -> not fast enough
-            // dst[j * image_rows + kernel_half..(j + 1) * image_rows - kernel_half.max(STEP)]
-            //     .chunks_exact_mut(STEP)
-            //     .enumerate()
-            //     .for_each(|(i_chunk, dst_row)| {
-            // let i_top_left = i_chunk * STEP;
-            // let mut sum_vec = SVector::<MyKtype, STEP>::zero();
-            // for ki in 0..KSIZE {
-            //     for kj in 0..KSIZE {
-            //         sum_vec += transposed_image
-            //             .fixed_view::<STEP, 1>(i_top_left + ki, j_top_left + kj)
-            //             .clone_owned()
-            //             .cast::<MyKtype>()
-            //             * kernel[(ki, kj)];
-            //     }
-            // }
-            // dst_row
-            //     .iter_mut()
-            //     .zip(sum_vec.iter())
-            //     .for_each(|(dst, sum)| {
-            //         *dst = (sum >> bit_shift_amount)
-            //             .clamp(min_allowed_sum, max_allowed_sum)
-            //             .as_();
-            //     });
-            // });
-        }
-        // });
+                // }
+            });
     }
 }
 
@@ -493,7 +481,7 @@ mod tests {
         let mut fast_result = DMatrix::<i16>::zeros(nrows, ncols);
 
         direct_convolution_mut::<3, i16, i32, i16>(
-            &image.as_view(),
+            &image,
             &mut fast_result.as_mut_slice(),
             &kernel,
             NonZeroU32::new(1).unwrap(),

@@ -8,7 +8,7 @@ use std::{
 
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
-use nalgebra::{DMatrix, DMatrixView, SMatrix, Scalar};
+use nalgebra::{DMatrix, SMatrix, Scalar};
 
 use crate::conv::{direct_convolution, direct_convolution_mut};
 
@@ -87,7 +87,7 @@ fn gaussian_2d_integer_kernel<const S: usize>(sigma: f32) -> (SMatrix<i32, S, S>
 }
 
 pub fn gaussian_blur_try_2_nalgebra<InputType>(
-    image: &DMatrixView<InputType>,
+    image: &DMatrix<InputType>,
     sigma: f32,
 ) -> DMatrix<OutputType>
 where
@@ -357,7 +357,7 @@ mod tests {
         let converted = grayimage_to_2d_transposed_matrix_view(&luma8);
         let blurred = gaussian_blur_box_filter_nalgebra::<u8>(&converted, sigma);
 
-        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(&converted.as_view(), sigma);
+        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(&converted, sigma);
         GrayImage::from_raw(
             image.width(),
             image.height(),
