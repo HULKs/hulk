@@ -11,7 +11,11 @@ use repository::{find_root::find_repository_root, inspect_version::check_for_upd
 
 use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
-use cargo::{cargo, Arguments as CargoArguments};
+use cargo::{
+    build::Arguments as BuildArguments, cargo, check::Arguments as CheckArguments,
+    clippy::Arguments as ClippyArguments, run::Arguments as RunArguments,
+    Arguments as CargoArguments,
+};
 use communication::{communication, Arguments as CommunicationArguments};
 use completions::{completions, Arguments as CompletionArguments};
 use gammaray::{gammaray, Arguments as GammarayArguments};
@@ -70,11 +74,11 @@ enum Command {
     /// Get aliveness information from NAOs
     Aliveness(AlivenessArguments),
     /// Builds the code for a target
-    Build(CargoArguments),
-    /// Checks the code with cargo check
-    Check(CargoArguments),
-    /// Checks the code with cargo clippy
-    Clippy(CargoArguments),
+    Build(CargoArguments<BuildArguments>),
+    ///// Checks the code with cargo check
+    Check(CargoArguments<CheckArguments>),
+    ///// Checks the code with cargo clippy
+    Clippy(CargoArguments<ClippyArguments>),
     /// Enable/disable communication
     #[command(subcommand)]
     Communication(CommunicationArguments),
@@ -105,7 +109,7 @@ enum Command {
     /// Set cycler instances to be recorded
     Recording(RecordingArguments),
     /// Runs the code for a target
-    Run(CargoArguments),
+    Run(CargoArguments<RunArguments>),
     /// Manage the NAO SDK
     #[command(subcommand)]
     Sdk(SdkArguments),
@@ -146,13 +150,13 @@ async fn main() -> Result<()> {
         Command::Aliveness(arguments) => aliveness(arguments, repository_root)
             .await
             .wrap_err("failed to execute aliveness command")?,
-        Command::Build(arguments) => cargo("build", arguments, repository_root?)
+        Command::Build(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute build command")?,
-        Command::Check(arguments) => cargo("check", arguments, repository_root?)
+        Command::Check(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute check command")?,
-        Command::Clippy(arguments) => cargo("clippy", arguments, repository_root?)
+        Command::Clippy(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute clippy command")?,
         Command::Communication(arguments) => communication(arguments, repository_root?)
@@ -192,7 +196,7 @@ async fn main() -> Result<()> {
         Command::Recording(arguments) => recording(arguments, repository_root?)
             .await
             .wrap_err("failed to execute recording command")?,
-        Command::Run(arguments) => cargo("run", arguments, repository_root?)
+        Command::Run(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute run command")?,
         Command::Sdk(arguments) => sdk(arguments, repository_root?)
