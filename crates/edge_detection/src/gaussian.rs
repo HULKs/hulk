@@ -10,7 +10,7 @@ use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
 use nalgebra::{DMatrix, SMatrix, Scalar};
 
-use crate::conv::{direct_convolution, direct_convolution_mut};
+use crate::conv::direct_convolution;
 
 /// Gaussian smoothing approximation with box filters
 /// - https://en.wikipedia.org/wiki/Gaussian_blur
@@ -104,48 +104,18 @@ where
 {
     let radius = (2.0 * sigma).floor() as usize;
 
-    match radius {
-        1 => {
-            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<5>(sigma);
-            let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
-            direct_convolution_mut::<5, InputType, KernelType, i16>(
-                image,
-                dst.as_mut_slice(),
-                &kernel,
-                factor,
-            );
-            dst
-        }
-        2 => {
-            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<7>(sigma);
-            // direct_convolution::<5, InputType, KernelType, OutputType>(image, &kernel, factor)
-            let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
-            direct_convolution_mut::<7, InputType, KernelType, i16>(
-                image,
-                dst.as_mut_slice(),
-                &kernel,
-                factor,
-            );
-            dst
-        }
-        _ => {
-            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<11>(sigma);
-            // direct_convolution::<7, InputType, KernelType, OutputType>(image, &kernel, factor)
-            let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
-            direct_convolution_mut::<11, InputType, KernelType, i16>(
-                image,
-                dst.as_mut_slice(),
-                &kernel,
-                factor,
-            );
-            dst
-        } // _ => {
-          //     let (kernel, factor) = gaussian_2d_integer_kernel::<3>(sigma);
-          //     // direct_convolution::<7, InputType, KernelType, OutputType>(image, &kernel, factor)
-          //     let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
-          //     direct_convolution_mut(image, dst.as_mut_slice(), &kernel, factor);
-          //     dst
-          // }
+    if (1..3).contains(&radius) {
+        let (kernel, factor) = gaussian_2d_integer_kernel_2d::<5>(sigma);
+
+        direct_convolution(image, &kernel, factor)
+    } else if (3..5).contains(&radius) {
+        let (kernel, factor) = gaussian_2d_integer_kernel_2d::<7>(sigma);
+
+        direct_convolution(image, &kernel, factor)
+    } else {
+        let (kernel, factor) = gaussian_2d_integer_kernel_2d::<11>(sigma);
+
+        direct_convolution(image, &kernel, factor)
     }
 }
 
