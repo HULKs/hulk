@@ -8,18 +8,26 @@ use color_eyre::{
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
-use repository::{configuration::read_os_version, upload::populate_upload_directory};
+use repository::{
+    cargo::SdkExecutor, configuration::read_os_version, upload::populate_upload_directory,
+};
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{cargo, Arguments as CargoArguments},
+    cargo::build::Arguments as BuildArguments,
     progress_indicator::{ProgressIndicator, Task},
 };
 
 #[derive(Args)]
 pub struct Arguments {
+    /// SDK execution environment to use
+    #[arg(long, default_value = "installed")]
+    pub sdk: SdkExecutor,
+    /// Use a remote machine for execution, see ./scripts/remote for details
+    #[arg(long)]
+    pub remote: bool,
     #[command(flatten)]
-    pub cargo: CargoArguments,
+    pub cargo: BuildArguments,
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
@@ -89,11 +97,7 @@ async fn upload_with_progress(
 pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
     let repository_root = repository_root.as_ref();
 
-    if !arguments.no_build {
-        cargo("build", arguments.cargo.clone(), repository_root)
-            .await
-            .wrap_err("failed to build the code")?;
-    }
+    if !arguments.no_build {}
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     populate_upload_directory(&upload_directory, &arguments.cargo.profile, repository_root)

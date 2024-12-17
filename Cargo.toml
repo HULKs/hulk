@@ -91,7 +91,7 @@ build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.4.3"
 calibration = { path = "crates/calibration" }
 chrono = "0.4.23"
-clap = { version = "4.2.4", features = ["derive"] }
+clap = { version = "4.2.4", features = ["derive", "env"] }
 clap_complete = "4.2.1"
 code_generation = { path = "crates/code_generation" }
 color-eyre = "0.6.2"
