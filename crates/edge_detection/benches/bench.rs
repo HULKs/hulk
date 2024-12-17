@@ -88,6 +88,7 @@ mod blurring {
         get_edge_source_image, grayimage_to_2d_transposed_matrix_view,
     };
     use imageproc::filter::gaussian_blur_f32;
+    use nalgebra::SimdValue;
 
     use crate::{get_flamegraph, get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE};
 
@@ -154,6 +155,64 @@ mod blurring {
 
         bencher.bench_local(move || black_box(gaussian_blur_f32(black_box(&edges_source), sigma)));
     }
+
+    #[inline(always)]
+    fn _try_hadd(v: simba::simd::AutoI32x4) -> i32 {
+        // Horizontal add using simba::simd operations (adapted)
+        let shuffled = simba::simd::AutoI32x2::new(v.extract(0), v.extract(1))
+            + simba::simd::AutoI32x2::new(v.extract(1), v.extract(2));
+        shuffled.extract(0) + shuffled.extract(1)
+    }
+
+    #[inline(always)]
+    fn _try_hadd_8_4(v: simba::simd::AutoI32x8) -> i32 {
+        // Horizontal add using simba::simd operations (adapted)
+        let a = simba::simd::AutoI32x4::new(v.extract(0), v.extract(1), v.extract(2), v.extract(3))
+            + simba::simd::AutoI32x4::new(v.extract(4), v.extract(5), v.extract(6), v.extract(7));
+
+        a.extract(0) + a.extract(1) + a.extract(2) + a.extract(3)
+    }
+
+    #[inline(always)]
+    fn _try_hadd_8_2(v: simba::simd::AutoI32x8) -> i32 {
+        // Horizontal add using simba::simd operations (adapted)
+        let a = simba::simd::AutoI32x2::new(v.extract(0), v.extract(1))
+            + simba::simd::AutoI32x2::new(v.extract(2), v.extract(3))
+            + simba::simd::AutoI32x2::new(v.extract(4), v.extract(5))
+            + simba::simd::AutoI32x2::new(v.extract(6), v.extract(7));
+
+        a.extract(0) + a.extract(1)
+    }
+
+    #[bench]
+    fn test_hadd_simd_8_4(bencher: Bencher) {
+        bencher.bench_local(move || {
+            black_box(_try_hadd_8_4(black_box(simba::simd::AutoI32x8::splat(
+                black_box(1),
+            ))))
+        });
+    }
+
+    #[bench]
+    fn test_hadd_simd_8_2(bencher: Bencher) {
+        bencher.bench_local(move || {
+            black_box(_try_hadd_8_2(black_box(simba::simd::AutoI32x8::splat(
+                black_box(1),
+            ))))
+        });
+    }
+
+    #[bench]
+    fn test_hadd_8_iter(bencher: Bencher) {
+        bencher.bench_local(move || {
+            black_box(
+                black_box(simba::simd::AutoI32x8::splat(black_box(1)))
+                    .0
+                    .iter()
+                    .sum::<i32>(),
+            )
+        });
+    }
 }
 
 #[bench_group]
@@ -213,75 +272,216 @@ mod sobel_operator {
         });
     }
 
-    #[bench]
-    fn piecewise_2d_mut(bencher: Bencher) {
-        let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
-
-        let kernel_vertical = [1, 2, 1];
-        let kernel_horizontal = [-1, 0, 1];
-
-        let guard = get_profiler_guard();
-
-        bencher.bench_local(move || {
-            let mut out = vec![0i16; transposed_matrix_view.len()];
-            black_box(piecewise_2d_convolution_mut(
-                black_box(&transposed_matrix_view),
-                black_box(out.as_mut_slice()),
-                black_box(&kernel_horizontal),
-                black_box(&kernel_vertical),
-            ));
-        });
-
-        get_flamegraph("piecewise_horiz", guard);
-    }
-
-    #[bench]
-    fn piecewise_vertical_mut_sobel(bencher: Bencher) {
-        let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
-
-        let kernel_vertical = [1, 2, 1];
-
-        bencher.bench_local(move || {
-            let mut out = vec![0i16; transposed_matrix_view.len()];
-            black_box(piecewise_vertical_convolution_mut::<3, u8, i32, i16>(
-                black_box(&transposed_matrix_view),
-                black_box(out.as_mut_slice()),
-                black_box(&kernel_vertical),
-            ));
-        });
-    }
-
-    fn _bench_with_kernel_size<const K: usize>(
+    fn _bench_with_kernel_size<const K: usize, B, O>(
         bencher: Bencher,
+        output_prefix: &str,
         transposed_matrix_view: &DMatrix<u8>,
         kernel_slice: &[i32; K],
-    ) {
+        benched: B,
+    ) where
+        B: Fn(&DMatrix<u8>, &mut [i16], &[i32; K]) -> O,
+    {
+        let guard = get_profiler_guard();
         bencher.bench_local(move || {
             let mut out = vec![0i16; transposed_matrix_view.len()];
-            black_box(piecewise_horizontal_convolution_mut::<K, u8, i32, i16>(
+            black_box(benched(
                 black_box(transposed_matrix_view),
                 black_box(out.as_mut_slice()),
                 black_box(kernel_slice),
             ));
         });
+        get_flamegraph(format!("{output_prefix}_{K}").as_str(), guard);
     }
+
+    fn _bench_with_kernel_size_piecewise<const K: usize, B, O>(
+        bencher: Bencher,
+        output_prefix: &str,
+        transposed_matrix_view: &DMatrix<u8>,
+        kernel_slice_1: &[i32; K],
+        kernel_slice_2: &[i32; K],
+        benched: B,
+    ) where
+        B: Fn(&DMatrix<u8>, &mut [i16], &[i32; K], &[i32; K]) -> O,
+    {
+        let guard = get_profiler_guard();
+        bencher.bench_local(move || {
+            let mut out = vec![0i16; transposed_matrix_view.len()];
+            black_box(benched(
+                black_box(transposed_matrix_view),
+                black_box(out.as_mut_slice()),
+                black_box(kernel_slice_1),
+                black_box(kernel_slice_2),
+            ));
+        });
+        get_flamegraph(format!("{output_prefix}_{K}").as_str(), guard);
+    }
+
+    #[bench(args=[3,5,7,11,21])]
+    fn piecewise_2d_mut(bencher: Bencher, ksize: usize) {
+        let image = load_test_image();
+        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
+        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+
+        let prefix = "piecewise_horiz_2d";
+        match ksize {
+            3 => {
+                _bench_with_kernel_size_piecewise(
+                    bencher,
+                    prefix,
+                    &transposed_matrix_view,
+                    &[1; 3],
+                    &[2; 3],
+                    piecewise_2d_convolution_mut,
+                );
+            }
+            5 => {
+                _bench_with_kernel_size_piecewise(
+                    bencher,
+                    prefix,
+                    &transposed_matrix_view,
+                    &[1; 5],
+                    &[2; 5],
+                    piecewise_2d_convolution_mut,
+                );
+            }
+            7 => {
+                _bench_with_kernel_size_piecewise(
+                    bencher,
+                    prefix,
+                    &transposed_matrix_view,
+                    &[1; 7],
+                    &[2; 7],
+                    piecewise_2d_convolution_mut,
+                );
+            }
+            11 => {
+                _bench_with_kernel_size_piecewise(
+                    bencher,
+                    prefix,
+                    &transposed_matrix_view,
+                    &[1; 11],
+                    &[2; 11],
+                    piecewise_2d_convolution_mut,
+                );
+            }
+            21 => {
+                _bench_with_kernel_size_piecewise(
+                    bencher,
+                    prefix,
+                    &transposed_matrix_view,
+                    &[1; 21],
+                    &[2; 21],
+                    piecewise_2d_convolution_mut,
+                );
+            }
+            _ => panic!("Unsupported kernel size"),
+        }
+    }
+
+    #[bench(args=[3,5,7,11,13,21])]
+    fn piecewise_vertical_mut_sobel(bencher: Bencher, ksize: usize) {
+        let image = load_test_image();
+        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
+        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+
+        let prefix = "piecewise_vert";
+        match ksize {
+            3 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 3],
+                piecewise_vertical_convolution_mut,
+            ),
+            5 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 5],
+                piecewise_vertical_convolution_mut,
+            ),
+            7 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 7],
+                piecewise_vertical_convolution_mut,
+            ),
+            11 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 11],
+                piecewise_vertical_convolution_mut,
+            ),
+            13 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 13],
+                piecewise_vertical_convolution_mut,
+            ),
+            21 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 21],
+                piecewise_vertical_convolution_mut,
+            ),
+            _ => panic!("Unsupported kernel size"),
+        }
+    }
+
     #[bench(args=[3,5,7,11,13,21])]
     fn piecewise_horizontal_mut_ksizes(bencher: Bencher, ksize: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
         let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
 
+        let prefix = "piecewise_horiz";
         match ksize {
-            3 => _bench_with_kernel_size::<3>(bencher, &transposed_matrix_view, &[1; 3]),
-            5 => _bench_with_kernel_size::<5>(bencher, &transposed_matrix_view, &[1; 5]),
-            7 => _bench_with_kernel_size::<7>(bencher, &transposed_matrix_view, &[1; 7]),
-            11 => _bench_with_kernel_size::<11>(bencher, &transposed_matrix_view, &[1; 11]),
-            13 => _bench_with_kernel_size::<13>(bencher, &transposed_matrix_view, &[1; 13]),
-            21 => _bench_with_kernel_size::<21>(bencher, &transposed_matrix_view, &[1; 21]),
+            3 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 3],
+                piecewise_horizontal_convolution_mut::<3, u8, i32, i16>,
+            ),
+            5 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 5],
+                piecewise_horizontal_convolution_mut::<5, u8, i32, i16>,
+            ),
+            7 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 7],
+                piecewise_horizontal_convolution_mut::<7, u8, i32, i16>,
+            ),
+            11 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 11],
+                piecewise_horizontal_convolution_mut::<11, u8, i32, i16>,
+            ),
+            13 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 13],
+                piecewise_horizontal_convolution_mut::<13, u8, i32, i16>,
+            ),
+            21 => _bench_with_kernel_size(
+                bencher,
+                prefix,
+                &transposed_matrix_view,
+                &[1; 21],
+                piecewise_horizontal_convolution_mut::<21, u8, i32, i16>,
+            ),
             _ => panic!("Unsupported kernel size"),
         }
     }
