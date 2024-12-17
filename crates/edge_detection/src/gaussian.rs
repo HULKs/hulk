@@ -35,13 +35,12 @@ pub fn gaussian_blur_box_filter(image: &GrayImage, sigma: f32) -> ImageBuffer<Lu
     output
 }
 
-// TODO remove after int approximation work is done
-#[allow(dead_code)]
-#[inline]
+#[inline(always)]
 fn gaussian(x: f32, r: f32) -> f32 {
     ((2.0 * f32::consts::PI).sqrt() * r).recip() * (-x.powi(2) / (2.0 * r.powi(2))).exp()
 }
 
+#[inline(always)]
 fn gaussian_int_divisor_as_power_of_two(width: usize) -> u32 {
     match width {
         2 => 8,
@@ -56,7 +55,8 @@ const fn check_kernel_size(width: usize) {
     assert!(width % 2 == 1, "Kernel size must be odd");
 }
 
-fn gaussian_2d_integer_kernel<const S: usize>(sigma: f32) -> (SMatrix<i32, S, S>, NonZeroU32) {
+#[inline(always)]
+fn gaussian_2d_integer_kernel_2d<const S: usize>(sigma: f32) -> (SMatrix<i32, S, S>, NonZeroU32) {
     let mut one_size = [0f32; S];
     let k_half = S / 2;
     check_kernel_size(S);
@@ -106,7 +106,7 @@ where
 
     match radius {
         1 => {
-            let (kernel, factor) = gaussian_2d_integer_kernel::<5>(sigma);
+            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<5>(sigma);
             let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
             direct_convolution_mut::<5, InputType, KernelType, i16>(
                 image,
@@ -117,7 +117,7 @@ where
             dst
         }
         2 => {
-            let (kernel, factor) = gaussian_2d_integer_kernel::<7>(sigma);
+            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<7>(sigma);
             // direct_convolution::<5, InputType, KernelType, OutputType>(image, &kernel, factor)
             let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
             direct_convolution_mut::<7, InputType, KernelType, i16>(
@@ -129,7 +129,7 @@ where
             dst
         }
         _ => {
-            let (kernel, factor) = gaussian_2d_integer_kernel::<11>(sigma);
+            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<11>(sigma);
             // direct_convolution::<7, InputType, KernelType, OutputType>(image, &kernel, factor)
             let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
             direct_convolution_mut::<11, InputType, KernelType, i16>(
@@ -246,7 +246,7 @@ mod tests {
         const MAX_KERNEL_TYPE: usize = i32::MAX as usize;
 
         SIGMA.iter().for_each(|&sigma| {
-            let (kernel, factor) = gaussian_2d_integer_kernel::<3>(sigma);
+            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<3>(sigma);
             let scaled_sum = kernel.sum() as f64 / factor.get() as f64;
 
             assert!(
@@ -279,7 +279,7 @@ mod tests {
         });
 
         SIGMA.iter().for_each(|&sigma| {
-            let (kernel, factor) = gaussian_2d_integer_kernel::<5>(sigma);
+            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<5>(sigma);
             let scaled_sum = kernel.sum() as f64 / factor.get() as f64;
 
             assert!(
@@ -313,7 +313,7 @@ mod tests {
         });
 
         SIGMA.iter().for_each(|&sigma| {
-            let (kernel, factor) = gaussian_2d_integer_kernel::<7>(sigma);
+            let (kernel, factor) = gaussian_2d_integer_kernel_2d::<7>(sigma);
             let scaled_sum = kernel.sum() as f64 / factor.get() as f64;
 
             assert!(

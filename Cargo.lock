@@ -2392,6 +2392,7 @@ dependencies = [
  "geometry",
  "image",
  "imageproc",
+ "itertools 0.10.5",
  "linear_algebra",
  "log",
  "nalgebra",
