@@ -254,35 +254,26 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
     let min_allowed_sum: KType = OutputType::min_value().as_();
 
     let nrows = transposed_image.nrows();
+    let image_slice = transposed_image.as_slice();
 
     // NOTE: Remember that the image is transposed! so horizontal in the image means vertical (along a col., iterating row index)in the matrix.
-    transposed_image
-        .column_iter()
+    image_slice
+        .chunks_exact(nrows)
         .enumerate()
         .for_each(|(j, col)| {
             let non_chunked_end = kernel_half;
             let out_non_chunked_begin = (j) * nrows + kernel_half;
             let out_non_chunked_end = (j + 1) * nrows - non_chunked_end;
 
-            let col_iter = col.as_slice();
-
             dst[out_non_chunked_begin..out_non_chunked_end]
                 .iter_mut()
-                .zip(col_iter.windows(KSIZE))
+                .zip(col.windows(KSIZE))
                 .for_each(|(dst, src_col_piece)| {
                     // Non chunked basic version with windowing:
                     assert!(
                         src_col_piece.len() == piecewise_kernel.len(),
                         "src_col_piece.len() == KSIZE"
                     );
-                    // Dev Validate
-                    // assert_eq!(
-                    //     &col_iter[i..i + KSIZE],
-                    //     src_col_piece,
-                    //     "col_iter[i..i + KSIZE] src_col_piece should be equal!: {:?} {:?}",
-                    //     &col_iter[i..i + KSIZE],
-                    //     src_col_piece
-                    // );
 
                     *dst = piecewise_kernel
                         .iter()
@@ -304,8 +295,15 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     piecewise_kernel: &[KType; KSIZE],
 ) where
     InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar + Display,
-    KType:
-        PrimInt + AddAssign + AsPrimitive<OutputType> + Scalar + ClosedMul + SupersetOf<InputType>,
+    KType: PrimInt
+        + AddAssign
+        + AsPrimitive<OutputType>
+        + Scalar
+        + ClosedMul
+        + SupersetOf<InputType>
+        + SimdValue
+        + PrimitiveSimdValue
+        + Sum,
     OutputType: AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign,
 {
     let kernel_half = KSIZE / 2;
@@ -315,7 +313,7 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     let ncols = transposed_image.ncols();
     let nrows = transposed_image.nrows();
 
-    const COLUMN_CHUNK_SIZE: usize = 16;
+    const COLUMN_CHUNK_SIZE: usize = 8;
 
     let image_slice = transposed_image.as_slice();
 
@@ -371,7 +369,8 @@ pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, Output
         + ClosedMul
         + Display
         + SimdValue<Element = KType, SimdBool = bool>
-        + Sum,
+        + Sum
+        + PrimitiveSimdValue,
     OutputType: AsPrimitive<KType>
         + PrimInt
         + Debug
