@@ -11,6 +11,6 @@ enum_dispatch = { workspace = true }
 itertools = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-splines ={ workspace = true }
+splines = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
