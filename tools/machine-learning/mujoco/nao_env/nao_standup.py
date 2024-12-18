@@ -20,13 +20,14 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             "rgb_array",
             "depth_array",
         ],
+        "render_fps": 67,
     }
 
     def __init__(self, **kwargs) -> None:
         observation_space = Box(
             low=-np.inf,
             high=np.inf,
-            shape=(661,),
+            shape=(37,),
             dtype=np.float64,
         )
 
@@ -42,15 +43,9 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
 
     def _get_obs(self) -> np.ndarray:
         data = self.data
-        return np.concatenate(
-            [
-                data.qpos.flat[2:],
-                data.qvel.flat,
-                data.cinert.flat,
-                data.cvel.flat,
-                data.qfrc_actuator.flat,
-                data.cfrc_ext.flat,
-            ],
+
+        return np.array(
+            data.sensordata.flat,
         )
 
     def step(self, a):
@@ -68,6 +63,7 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
 
         if self.render_mode == "human":
             self.render()
+
         return (
             self._get_obs(),
             reward,
