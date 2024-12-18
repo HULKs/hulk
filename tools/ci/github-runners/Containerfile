@@ -22,4 +22,6 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
   && rm --recursive --force /var/lib/apt/lists/*
 
 RUN rustup component add clippy rustfmt
-RUN cargo install --locked taplo-cli
+
+RUN --mount=type=cache,target=/cargo_home \
+    CARGO_HOME=/cargo_home cargo install --locked taplo-cli --root /usr/local
