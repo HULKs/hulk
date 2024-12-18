@@ -63,7 +63,6 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
-    pub removed_ball_positions: MainOutput<Vec<Point2<Ground>>>,
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
 }
 
@@ -189,7 +188,6 @@ impl BallFilter {
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout
         };
 
-        // TODO: this removes hypotheses if not one is resting and the other one is moving!
         let should_merge_hypotheses =
             |hypothesis1: &BallHypothesis, hypothesis2: &BallHypothesis| match (
                 &hypothesis1.mode,
@@ -272,17 +270,8 @@ impl BallFilter {
                 })
             });
 
-        let removed_ball_positions = removed_hypotheses
-            .into_iter()
-            .filter(|hypothesis| {
-                hypothesis.validity >= context.ball_filter_configuration.validity_output_threshold
-            })
-            .map(|hypothesis| hypothesis.position().position)
-            .collect::<Vec<_>>();
-
         Ok(MainOutputs {
             ball_position: filtered_ball.into(),
-            removed_ball_positions: removed_ball_positions.into(),
             hypothetical_ball_positions: self
                 .hypothetical_ball_positions(filter_parameters.validity_output_threshold)
                 .into(),
