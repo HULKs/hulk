@@ -1,8 +1,5 @@
-use std::time::SystemTime;
-
 use hardware::{
     ActuatorInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
-    TimeInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -16,12 +13,7 @@ use types::{
 };
 
 pub trait HardwareInterface:
-    ActuatorInterface
-    + NetworkInterface
-    + PathsInterface
-    + RecordingInterface
-    + SpeakerInterface
-    + TimeInterface
+    ActuatorInterface + NetworkInterface + PathsInterface + RecordingInterface + SpeakerInterface
 {
 }
 
@@ -72,12 +64,6 @@ impl PathsInterface for ExtractorHardwareInterface {
             neural_networks: "etc/neural_networks".into(),
             sounds: "etc/sounds".into(),
         }
-    }
-}
-
-impl TimeInterface for ExtractorHardwareInterface {
-    fn get_now(&self) -> SystemTime {
-        SystemTime::now()
     }
 }
 
