@@ -204,6 +204,12 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
     }
 }
 
+#[allow(dead_code)]
+#[inline(always)]
+fn is_kernel_symmetric<const KSIZE: usize, KType: PrimInt>(kernel: &[KType; KSIZE]) -> bool {
+    kernel[..KSIZE / 2] == kernel[KSIZE - (KSIZE / 2)..]
+}
+
 #[inline]
 pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: DMatrixView<InputType>,
@@ -224,6 +230,9 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
         AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign + Display + SubsetOf<KType>,
 {
     let kernel_half = KSIZE / 2;
+    // let kernel_half_ceil = KSIZE.div_ceil(2);
+    // let is_symmetric = is_kernel_symmetric(piecewise_kernel);
+
     let max_allowed_sum: KType = OutputType::max_value().as_();
     let min_allowed_sum: KType = OutputType::min_value().as_();
 
@@ -438,21 +447,57 @@ mod tests {
     use imageproc::gradients::HORIZONTAL_SOBEL;
     use nalgebra::{DMatrix, DMatrixView};
 
-    fn get_image() -> DMatrix<i16> {
-        let nrows = 10;
-        let ncols = 5;
+    const NROWS: usize = 10;
+    const NCOLS: usize = 5;
 
-        let mut image = DMatrix::<i16>::zeros(nrows, ncols);
+    fn get_image() -> DMatrix<i16> {
+        let mut image = DMatrix::<i16>::zeros(NROWS, NCOLS);
+
+        // Draws this (as displayed when printed)
+        // ┌                     ┐
+        // │ 255 255   0 255 255 │
+        // │ 255 255   0 255 255 │
+        // │ 255 255   0 255 255 │
+        // │   0   0   0   0   0 │
+        // │   0   0   0   0   0 │
+        // │   0   0   0   0   0 │
+        // │ 255 255   0 255 255 │
+        // │ 255 255   0 255 255 │
+        // │ 255 255   0 255 255 │
+        // │ 255 255   0 255 255 │
+        // └                     ┘
         image.view_mut((0, 0), (3, 5)).fill(255);
         image.view_mut((6, 0), (4, 5)).fill(255);
+        image.view_mut((0, 2), (NROWS, 1)).fill(0);
 
         image
     }
-    const EXPECTED_SOBEL_OUT: [i16; 50] = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1020, -1020, -1020, -1020, -1020, -1020, -1020, -1020,
-        -1020, -1020, 0, 0, 0, 0, 0, 1020, 1020, 1020, 1020, 1020, 1020, 1020, 1020, 1020, 1020, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    const EXPECTED_SOBEL_HORIZONTAL_OUT: [[i16; NROWS]; NCOLS] = [
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [
+            -1020, -765, -510, -765, -1020, -1020, -765, -510, -765, -1020,
+        ],
+        [0, 0, 0, 0, 0, 1020, 765, 510, 765, 1020],
+        [1020, 765, 510, 765, 1020, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     ];
+
+    const EXPECTED_SOBEL_VERTICAL_OUT: [[i16; NROWS]; NCOLS] = [
+        [0, -1020, 0, 1020, 0, 0, -1020, 0, 1020, 0],
+        [0, -765, 0, 765, 0, 0, -255, 0, 255, 0],
+        [0, 0, 0, 0, 0, 0, -255, 0, 255, 0],
+        [0, -765, 0, 765, 0, 0, -1020, 0, 1020, 0],
+        [0, -1020, 0, 1020, 0, 0, -1020, 0, 1020, 0],
+    ];
+
+    #[test]
+    fn test_kernel_symmetry() {
+        let symmetric = &[[1, 2, 1], [2, 4, 2], [1, 2, 1]];
+        let asymmetric = &[[1, 2, 5], [2, 4, 3], [0, 2, 1]];
+
+        assert!(symmetric.iter().map(is_kernel_symmetric).all(|v| v));
+        assert!(asymmetric.iter().map(is_kernel_symmetric).all(|v| !v));
+    }
 
     #[test]
     fn test_direct_convolution() {
@@ -470,11 +515,14 @@ mod tests {
         );
 
         // taken via OpenCV
-        let expected_full_result =
-            DMatrix::<i16>::from_row_slice(nrows, ncols, &EXPECTED_SOBEL_OUT);
+        let expected_horizontal_full_result = DMatrix::<i16>::from_row_slice(
+            NROWS,
+            NCOLS,
+            EXPECTED_SOBEL_HORIZONTAL_OUT.as_flattened(),
+        );
 
         let result_subview = result.view((1, 1), (nrows - 2, ncols - 2)).clone_owned();
-        let expected_subview = expected_full_result
+        let expected_subview = expected_horizontal_full_result
             .view((1, 1), (nrows - 2, ncols - 2))
             .clone_owned();
         // assert!(false, "{:?}\n{:?}", image, result);
@@ -498,7 +546,7 @@ mod tests {
         assert_eq!(
             fast_result_subview, expected_subview,
             "The faster version should match! {} {}",
-            fast_result, expected_full_result
+            fast_result, expected_horizontal_full_result
         );
     }
 
@@ -543,8 +591,11 @@ mod tests {
             .view((1, 1), (image.nrows() - 2, image.ncols() - 2))
             .clone_owned();
 
-        let expected_full_result =
-            DMatrix::<i16>::from_row_slice(image.nrows(), image.ncols(), &EXPECTED_SOBEL_OUT);
+        let expected_full_result = DMatrix::<i16>::from_row_slice(
+            image.nrows(),
+            image.ncols(),
+            &EXPECTED_SOBEL_HORIZONTAL_OUT.as_flattened(),
+        );
         let expected_subview = expected_full_result
             .view((1, 1), (image.nrows() - 2, image.ncols() - 2))
             .clone_owned();
