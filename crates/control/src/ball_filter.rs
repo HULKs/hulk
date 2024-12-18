@@ -8,7 +8,7 @@ use ndarray::Array2;
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
-use ball_filter::{BallFilter as BallFiltering, BallHypothesis};
+use ball_filter::{BallFilter as BallFiltering, BallHypothesis, BallMode};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
@@ -196,12 +196,14 @@ impl BallFilter {
 
         // TODO: this removes hypotheses if not one is resting and the other one is moving!
         let should_merge_hypotheses =
-            |_hypothesis1: &BallHypothesis, _hypothesis2: &BallHypothesis| {
-                // distance(
-                //     hypothesis1.position().position,
-                //     hypothesis2.position().position,
-                // ) < filter_parameters.hypothesis_merge_distance
-                false
+            |hypothesis1: &BallHypothesis, hypothesis2: &BallHypothesis| match (
+                &hypothesis1.mode,
+                &hypothesis2.mode,
+            ) {
+                (BallMode::Resting(ball1), BallMode::Resting(ball2)) => {
+                    (ball1.mean - ball2.mean).norm() < filter_parameters.hypothesis_merge_distance
+                }
+                _ => false,
             };
 
         let removed = self
