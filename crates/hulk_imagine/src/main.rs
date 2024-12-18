@@ -1,128 +1,183 @@
 #![recursion_limit = "256"]
-use std::fs::create_dir_all;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{env::args, path::PathBuf, sync::Arc};
 
+use std::borrow::Cow;
+use std::collections::BTreeMap;
+use std::fs::{create_dir_all, read_to_string, File};
+use std::io::BufWriter;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
+use clap::Parser;
+use color_eyre::eyre::{ContextCompat, OptionExt};
 use color_eyre::{
     eyre::{Result, WrapErr},
     install,
 };
-use hardware::{CameraInterface, PathsInterface, TimeInterface};
+use mcap::records::system_time_to_nanos;
+use mcap::{records::Metadata, Attachment};
+use rmp_serde::to_vec_named;
+use serde_json::from_str;
+
+use structs::Parameters;
 use types::hardware::Ids;
-use types::{camera_position::CameraPosition, hardware::Paths, ycbcr422_image::YCbCr422Image};
 
 use crate::execution::Replayer;
+use crate::{
+    extractor_hardware_interface::{ExtractorHardwareInterface, HardwareInterface},
+    mcap_converter::McapConverter,
+    write_to_mcap::write_to_mcap,
+};
 
-pub trait HardwareInterface: CameraInterface + PathsInterface + TimeInterface {}
+mod extractor_hardware_interface;
+mod mcap_converter;
+mod serializer;
+mod write_to_mcap;
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
-struct ImageExtractorHardwareInterface;
-
-impl CameraInterface for ImageExtractorHardwareInterface {
-    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<YCbCr422Image> {
-        panic!("Replayer cannot produce data from hardware")
-    }
+#[derive(Parser, Debug)]
+#[clap(name = "imagine")]
+struct CommandlineArguments {
+    #[arg(required = true)]
+    replay_path_string: String,
+    #[arg(required = true)]
+    output_folder: String,
+    parameters_directory: Option<String>,
 }
-
-impl PathsInterface for ImageExtractorHardwareInterface {
-    fn get_paths(&self) -> Paths {
-        Paths {
-            motions: "etc/motions".into(),
-            neural_networks: "etc/neural_networks".into(),
-            sounds: "etc/sounds".into(),
-        }
-    }
-}
-
-impl TimeInterface for ImageExtractorHardwareInterface {
-    fn get_now(&self) -> SystemTime {
-        SystemTime::now()
-    }
-}
-
-impl HardwareInterface for ImageExtractorHardwareInterface {}
 
 fn main() -> Result<()> {
     install()?;
 
-    let replay_path = args()
-        .nth(1)
-        .expect("expected replay path as first parameter");
+    let arguments = CommandlineArguments::parse();
 
-    let output_folder = PathBuf::from(
-        args()
-            .nth(2)
-            .expect("expected output path as second parameter"),
-    );
+    let output_folder = PathBuf::from(arguments.output_folder);
+    let parameters_directory = arguments
+        .parameters_directory
+        .unwrap_or(arguments.replay_path_string.clone());
 
-    let parameters_directory = args().nth(3).unwrap_or(replay_path.clone());
     let ids = Ids {
         body_id: "replayer".into(),
         head_id: "replayer".into(),
     };
 
+    let replay_path = arguments.replay_path_string.clone();
+    let replay_path = Path::new(&replay_path);
+
+    let parameters = read_to_string(replay_path.join("default.json"))
+        .wrap_err("failed to open framework parameters")?;
+
+    let ip_address = replay_path
+        .parent()
+        .and_then(|path| path.file_name())
+        .wrap_err("expected replay path to have parent directory")?
+        .to_str()
+        .wrap_err("replay directory name is no valid UTF-8")?;
+
     let mut replayer = Replayer::new(
-        Arc::new(ImageExtractorHardwareInterface),
+        Arc::new(ExtractorHardwareInterface),
         parameters_directory,
         ids,
-        replay_path,
+        arguments.replay_path_string,
     )
     .wrap_err("failed to create image extractor")?;
 
+    replayer
+        .audio_subscriptions_sender
+        .borrow_mut()
+        .insert("additional_outputs".to_string());
+    replayer
+        .control_subscriptions_sender
+        .borrow_mut()
+        .insert("additional_outputs".to_string());
+    replayer
+        .spl_network_subscriptions_sender
+        .borrow_mut()
+        .insert("additional_outputs".to_string());
+    replayer
+        .vision_top_subscriptions_sender
+        .borrow_mut()
+        .insert("additional_outputs".to_string());
+    replayer
+        .vision_bottom_subscriptions_sender
+        .borrow_mut()
+        .insert("additional_outputs".to_string());
+
+    create_dir_all(&output_folder).wrap_err("failed to create output folder")?;
+
+    let output_file = output_folder.join("outputs.mcap");
+
+    let mut mcap_converter =
+        McapConverter::from_writer(BufWriter::new(File::create(output_file)?))?;
+
+    let metadata = Metadata {
+        name: String::from("robot data"),
+        metadata: BTreeMap::from([(String::from("IP address"), String::from(ip_address))]),
+    };
+    mcap_converter
+        .write_metadata(metadata)
+        .wrap_err("failed to write metadata")?;
+
+    let framework_start_time = replayer
+        .get_recording_indices()
+        .get("Control")
+        .wrap_err("could not find recording indices for `Control`")?
+        .first_timing()
+        .ok_or_eyre("first timing does not exist")?
+        .timestamp;
+
+    let parameter_data: Parameters =
+        from_str(&parameters).wrap_err("failed to parse parameters")?;
+    let parameters = to_vec_named(&parameter_data)?;
+
+    let attachment = Attachment {
+        log_time: system_time_to_nanos(&framework_start_time),
+        create_time: system_time_to_nanos(&framework_start_time),
+        name: String::from("parameters"),
+        media_type: String::from("MessagePack"),
+        data: Cow::Owned(parameters),
+    };
+    mcap_converter.attach(attachment)?;
+
+    let audio_receiver = replayer.audio_receiver();
+    let control_receiver = replayer.control_receiver();
+    let spl_network_receiver = replayer.spl_network_receiver();
     let vision_top_receiver = replayer.vision_top_receiver();
     let vision_bottom_receiver = replayer.vision_bottom_receiver();
 
-    for (instance_name, mut receiver) in [
-        ("VisionTop", vision_top_receiver),
-        ("VisionBottom", vision_bottom_receiver),
-    ] {
-        let output_folder = &output_folder.join(instance_name);
-        create_dir_all(output_folder).expect("failed to create output folder");
+    write_to_mcap(&mut replayer, "Audio", &mut mcap_converter, audio_receiver)
+        .wrap_err("failed to write audio data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
+        "Control",
+        &mut mcap_converter,
+        control_receiver,
+    )
+    .wrap_err("failed to write control data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
+        "VisionBottom",
+        &mut mcap_converter,
+        vision_bottom_receiver,
+    )
+    .wrap_err("failed to write vision bottom data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
+        "VisionTop",
+        &mut mcap_converter,
+        vision_top_receiver,
+    )
+    .wrap_err("failed to write vision top data to mcap")?;
+    write_to_mcap(
+        &mut replayer,
+        "SplNetwork",
+        &mut mcap_converter,
+        spl_network_receiver,
+    )
+    .wrap_err("failed to write spl network data to mcap")?;
 
-        let unknown_indices_error_message =
-            format!("could not find recording indices for `{instance_name}`");
-        let timings: Vec<_> = replayer
-            .get_recording_indices()
-            .get(instance_name)
-            .expect(&unknown_indices_error_message)
-            .iter()
-            .collect();
-
-        for timing in timings {
-            let frame = replayer
-                .get_recording_indices_mut()
-                .get_mut(instance_name)
-                .map(|index| {
-                    index
-                        .find_latest_frame_up_to(timing.timestamp)
-                        .expect("failed to find latest frame")
-                })
-                .expect(&unknown_indices_error_message);
-
-            if let Some(frame) = frame {
-                replayer
-                    .replay(instance_name, frame.timing.timestamp, &frame.data)
-                    .expect("failed to replay frame");
-
-                let (_, database) = &*receiver.borrow_and_mark_as_seen();
-                let output_file = output_folder.join(format!(
-                    "{}.png",
-                    frame
-                        .timing
-                        .timestamp
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs()
-                ));
-                database
-                    .main_outputs
-                    .image
-                    .save_to_ycbcr_444_file(output_file)
-                    .expect("failed to write file");
-            }
-        }
-    }
+    mcap_converter.finish()?;
 
     Ok(())
 }

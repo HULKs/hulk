@@ -27,7 +27,7 @@ pub fn derive_path_introspect(mut input: DeriveInput) -> Result<TokenStream> {
 }
 
 fn generate_extend_with_fields(container: &Container) -> Vec<TokenStream> {
-    let leafs = container
+    let leaves = container
         .fields
         .iter()
         .filter(|field| !field.skip_introspect);
@@ -35,9 +35,9 @@ fn generate_extend_with_fields(container: &Container) -> Vec<TokenStream> {
         .fields
         .iter()
         .filter(|field| !field.skip_introspect && !field.is_leaf);
-    let computed_leafs = container.computed_leaves.iter();
+    let computed_leaves = container.computed_leaves.iter();
 
-    leafs.map(|field| {
+    leaves.map(|field| {
             let field_name = &field.identifier.to_field_name();
             quote! {
                 fields.insert(format!("{prefix}{}", #field_name));
@@ -50,7 +50,7 @@ fn generate_extend_with_fields(container: &Container) -> Vec<TokenStream> {
                 <#ty as path_serde::PathIntrospect>::extend_with_fields(fields, &format!("{prefix}{}.", #field_name));
             }
     }))
-        .chain(computed_leafs.map(|leaf| {
+        .chain(computed_leaves.map(|leaf| {
             let field_name = &leaf.identifier.to_string();
             quote! {
                 fields.insert(format!("{prefix}{}", #field_name));
