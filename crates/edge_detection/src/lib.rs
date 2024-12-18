@@ -152,7 +152,7 @@ mod tests {
         let height = 3;
         let buf: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
         let image = ImageBuffer::from_vec(width, height, buf).unwrap();
-        let nalgebra_matrix_view_transposed = grayimage_to_2d_transposed_matrix_view(&image);
+        let nalgebra_matrix_view_transposed = grayimage_to_2d_transposed_matrix_view::<u8>(&image);
 
         image.enumerate_pixels().for_each(|(x, y, pixel)| {
             let nalgebra_pixel = nalgebra_matrix_view_transposed[(x as usize, y as usize)];
