@@ -14,7 +14,6 @@ coordinate_systems = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
-serde = { workspace = true}
+serde = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
-
