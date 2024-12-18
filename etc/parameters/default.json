@@ -328,6 +328,7 @@
       "secs": 20
     },
     "maximum_matching_cost": 0.25,
+    "maximum_matching_cost_validity_penalty_factor": 0.14,
     "hypothesis_merge_distance": 0.1,
     "log_likelihood_of_zero_velocity_threshold": 0.9,
     "maximum_number_of_hypotheses": 10,

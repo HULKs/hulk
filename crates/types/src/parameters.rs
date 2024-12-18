@@ -332,6 +332,7 @@ pub struct BallFilterParameters {
     pub velocity_decay_factor: f32,
     pub noise: BallFilterNoise,
     pub maximum_matching_cost: f32,
+    pub maximum_matching_cost_validity_penalty_factor: f32,
 }
 
 #[derive(
