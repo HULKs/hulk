@@ -1,11 +1,11 @@
 <mujoco model="NaoV6H25">
   <compiler meshdir="meshes" texturedir="textures"/>
-  <option timestep="0.012" integrator="RK4"/>
+  <option timestep="0.003" integrator="RK4"/>
 
   <default>
     <geom type="mesh" solref=".004 1"/>
     <joint damping="1.084" armature="0.045" frictionloss="0.03"/>
-    <position kp="21.1" ctrlrange="-1.57 1.57" ctrllimited="true" forcerange="-5 5" forcelimited="true"/>
+    <position kp="21.1" ctrllimited="true" forcerange="-5 5" forcelimited="true"/>
     <!-- <general ctrllimited="false" forcelimited="true" forcerange="-30 30"/> -->
   </default>
 
@@ -364,30 +364,30 @@
   </equality>
 
   <actuator>
-    <position name="HeadYaw" joint="HeadYaw"/>
-    <position name="HeadPitch" joint="HeadPitch"/>
-    <position name="LHipYawPitch" joint="LHipYawPitch"/>
-    <position name="LHipRoll" joint="LHipRoll"/>
-    <position name="LHipPitch" joint="LHipPitch"/>
-    <position name="LKneePitch" joint="LKneePitch"/>
-    <position name="LAnklePitch" joint="LAnklePitch"/>
-    <position name="LAnkleRoll" joint="LAnkleRoll"/>
-    <!-- <position name="RHipYawPitch" joint="RHipYawPitch"/> -->
-    <position name="RHipRoll" joint="RHipRoll"/>
-    <position name="RHipPitch" joint="RHipPitch"/>
-    <position name="RKneePitch" joint="RKneePitch"/>
-    <position name="RAnklePitch" joint="RAnklePitch"/>
-    <position name="RAnkleRoll" joint="RAnkleRoll"/>
-    <position name="LShoulderPitch" joint="LShoulderPitch"/>
-    <position name="LShoulderRoll" joint="LShoulderRoll"/>
-    <position name="LElbowYaw" joint="LElbowYaw"/>
-    <position name="LElbowRoll" joint="LElbowRoll"/>
-    <position name="LWristYaw" joint="LWristYaw"/>
-    <position name="RShoulderPitch" joint="RShoulderPitch"/>
-    <position name="RShoulderRoll" joint="RShoulderRoll"/>
-    <position name="RElbowYaw" joint="RElbowYaw"/>
-    <position name="RElbowRoll" joint="RElbowRoll"/>
-    <position name="RWristYaw" joint="RWristYaw"/>
+    <position name="HeadYaw" joint="HeadYaw" ctrlrange="-2.0857 2.0857"/>
+    <position name="HeadPitch" joint="HeadPitch" ctrlrange="-0.672 0.5149"/>
+    <position name="LHipYawPitch" joint="LHipYawPitch" ctrlrange="-1.145303 0.74081"/>
+    <position name="LHipRoll" joint="LHipRoll" ctrlrange="-0.379472 0.790477"/>
+    <position name="LHipPitch" joint="LHipPitch" ctrlrange="-1.535889 0.484090"/>
+    <position name="LKneePitch" joint="LKneePitch" ctrlrange="-0.092346 2.112528"/>
+    <position name="LAnklePitch" joint="LAnklePitch" ctrlrange="-1.189516 0.922747"/>
+    <position name="LAnkleRoll" joint="LAnkleRoll" ctrlrange="-0.397880  0.769001"/>
+    <!-- <position name="RHipYawPitch" joint="RHipYawPitch" ctrlrange="-1.145303 0.740810"/> -->
+    <position name="RHipRoll" joint="RHipRoll" ctrlrange="-0.790477 0.379472"/>
+    <position name="RHipPitch" joint="RHipPitch" ctrlrange="-1.535889 0.48409"/>
+    <position name="RKneePitch" joint="RKneePitch" ctrlrange="-0.103083 2.120198"/>
+    <position name="RAnklePitch" joint="RAnklePitch" ctrlrange="-1.186448 0.932056"/>
+    <position name="RAnkleRoll" joint="RAnkleRoll" ctrlrange="-0.768992 0.397935"/>
+    <position name="LShoulderPitch" joint="LShoulderPitch" ctrlrange="-2.0857 2.0857"/>
+    <position name="LShoulderRoll" joint="LShoulderRoll" ctrlrange="-0.3142 1.3265"/>
+    <position name="LElbowYaw" joint="LElbowYaw" ctrlrange="-2.0857 2.0857"/>
+    <position name="LElbowRoll" joint="LElbowRoll" ctrlrange="-1.5446 -0.0349"/>
+    <position name="LWristYaw" joint="LWristYaw" ctrlrange="-1.8238 1.8238"/>
+    <position name="RShoulderPitch" joint="RShoulderPitch" ctrlrange="-2.0857 2.0857"/>
+    <position name="RShoulderRoll" joint="RShoulderRoll" ctrlrange="-1.3265 0.3142"/>
+    <position name="RElbowYaw" joint="RElbowYaw" ctrlrange="-2.0857 2.0857"/>
+    <position name="RElbowRoll" joint="RElbowRoll" ctrlrange="0.0349 1.5446"/>
+    <position name="RWristYaw" joint="RWristYaw" ctrlrange="-1.8238 1.8238"/>
   </actuator>
 
   <sensor>
