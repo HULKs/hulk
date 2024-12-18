@@ -214,7 +214,7 @@ opusfile-ng = "0.1.0"
 ordered-float = "3.1.0"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.1"
-pathfinding = "4.10.0"
+pathfinding = "<=4.10.0"
 path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
 petgraph = "0.6.2"
