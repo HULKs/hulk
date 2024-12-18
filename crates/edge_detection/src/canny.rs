@@ -1,6 +1,7 @@
-use image::GrayImage;
+use std::iter::from_fn;
 
-use nalgebra::DMatrix;
+use image::GrayImage;
+use nalgebra::{DMatrix, DMatrixView};
 
 use crate::{
     gaussian::gaussian_blur_try_2_nalgebra,
@@ -14,17 +15,17 @@ pub fn canny(
     high_threshold: f32,
 ) -> DMatrix<EdgeClassification> {
     let sigma = gaussian_sigma.unwrap_or(1.4);
-    const SOBEL_KERNEL_SIZE: usize = 3;
 
-    let input = DMatrix::from_column_slice(
+    let input = DMatrixView::from_slice(
+        image.as_raw(),
         image.height() as usize,
         image.width() as usize,
-        image.as_raw(),
     );
-    let converted = gaussian_blur_try_2_nalgebra(&input, sigma);
+    let converted = gaussian_blur_try_2_nalgebra::<u8>(input.as_view(), sigma);
+    let converted_view = converted.as_view();
 
-    let gx = sobel_operator_horizontal::<SOBEL_KERNEL_SIZE, i16>(&converted);
-    let gy = sobel_operator_vertical::<SOBEL_KERNEL_SIZE, i16>(&converted);
+    let gx = sobel_operator_horizontal::<i16>(converted_view);
+    let gy = sobel_operator_vertical::<i16>(converted_view);
 
     let peak_gradients =
         non_maximum_suppression(&gx, &gy, low_threshold as u16, high_threshold as u16);
@@ -40,7 +41,9 @@ pub enum EdgeClassification {
     NoConfidence = 0,
 }
 
+// TODO investigate a way to improve this, it appears on profiling.
 fn gradient_magnitude(gx: i16, gy: i16) -> u16 {
+    // (gx as u32).pow(2) + (gy as u32).pow(2)
     ((gx as f32).powi(2) + (gy as f32).powi(2)).sqrt() as u16
 }
 
@@ -104,6 +107,37 @@ fn approximate_direction_integer_only(y: i16, x: i16) -> OctantWithDegName {
     }
 }
 
+// Just to see if this is faster than chaining zips and enumerate
+// Update: Profiling says it is faster!
+fn zip_three_slices_enumerated<'a, T, U, V>(
+    mut slice1: &'a [T],
+    mut slice2: &'a [U],
+    mut slice3: &'a [V],
+) -> impl Iterator<Item = (usize, &'a T, &'a U, &'a V)> + 'a {
+    // unsafe {
+    assert!(slice1.len() == slice2.len() && slice2.len() == slice3.len());
+    let len = slice1.len();
+
+    let mut counter = 0;
+
+    from_fn(move || {
+        counter += 1;
+        if len == 0 {
+            None
+        } else if let ([a, _slice1 @ ..], [b, _slice2 @ ..], [c, _slice3 @ ..]) =
+            (slice1, slice2, slice3)
+        {
+            slice1 = _slice1;
+            slice2 = _slice2;
+            slice3 = _slice3;
+            Some((counter, a, b, c))
+        } else {
+            None
+        }
+    })
+    // }
+}
+
 /// Non-maximum suppression of edges.
 /// One major change is to classify points as high-confidence or low-confidence earlier than the canonical implementation.
 /// This will be used in hysteresis thresholding.
@@ -130,45 +164,51 @@ pub fn non_maximum_suppression(
     let flat_slice = gradients_magnitude.as_slice();
     let out_slice = out.as_mut_slice();
 
-    for index in nrows..gradients_x_slice.len() - nrows {
-        let previous_column_point = index - nrows;
-        let next_column_point = index + nrows;
+    let start = nrows;
+    let end = gradients_x_slice.len() - nrows;
 
-        let pixel = flat_slice[index];
-        let (pixel_is_larger_than_lowest_threshold, pixel_is_larger_than_higher_threshold) =
-            (pixel > lower_threshold, pixel > upper_threshold);
+    let gxs = &gradients_x_slice[start..end];
+    let gys = &gradients_y_slice[start..end];
+    let fs = &flat_slice[start..end];
 
-        let pixel_is_the_largest = pixel_is_larger_than_lowest_threshold
-            && match approximate_direction_integer_only(
-                gradients_y_slice[index],
-                gradients_x_slice[index],
-            ) {
-                OctantWithDegName::FirstOctant0 => {
-                    pixel > flat_slice[index - 1] && pixel > flat_slice[index + 1]
-                }
-                OctantWithDegName::SecondOctant45 => {
-                    pixel > flat_slice[previous_column_point - 1]
-                        && pixel > flat_slice[next_column_point + 1]
-                }
-                OctantWithDegName::ThirdOctant90 => {
-                    pixel > flat_slice[previous_column_point]
-                        && pixel > flat_slice[next_column_point]
-                }
-                OctantWithDegName::FourthOctant135 => {
-                    pixel > flat_slice[previous_column_point + 1]
-                        && pixel > flat_slice[next_column_point - 1]
-                }
-            };
+    zip_three_slices_enumerated(fs, gxs, gys).for_each(
+        |(previous_column_point, &pixel, gx, gy)| {
+            let index = previous_column_point + nrows;
 
-        // Suppress non-maximum pixel. low threshold is earlier handled
-        if pixel_is_the_largest {
-            out_slice[index] = if pixel_is_larger_than_higher_threshold {
-                EdgeClassification::HighConfidence
-            } else {
-                EdgeClassification::LowConfidence
-            };
-        }
-    }
+            let next_column_point = index + nrows;
+
+            let (pixel_is_larger_than_lowest_threshold, pixel_is_larger_than_higher_threshold) =
+                (pixel > lower_threshold, pixel > upper_threshold);
+
+            let pixel_is_the_largest = pixel_is_larger_than_lowest_threshold
+                && match approximate_direction_integer_only(*gy, *gx) {
+                    OctantWithDegName::FirstOctant0 => {
+                        pixel > flat_slice[index - 1] && pixel > flat_slice[index + 1]
+                    }
+                    OctantWithDegName::SecondOctant45 => {
+                        pixel > flat_slice[previous_column_point - 1]
+                            && pixel > flat_slice[next_column_point + 1]
+                    }
+                    OctantWithDegName::ThirdOctant90 => {
+                        pixel > flat_slice[previous_column_point]
+                            && pixel > flat_slice[next_column_point]
+                    }
+                    OctantWithDegName::FourthOctant135 => {
+                        pixel > flat_slice[previous_column_point + 1]
+                            && pixel > flat_slice[next_column_point - 1]
+                    }
+                };
+
+            // Suppress non-maximum pixel. low threshold is earlier handled
+            if pixel_is_the_largest {
+                out_slice[index] = if pixel_is_larger_than_higher_threshold {
+                    EdgeClassification::HighConfidence
+                } else {
+                    EdgeClassification::LowConfidence
+                };
+            }
+        },
+    );
 
     out
 }
