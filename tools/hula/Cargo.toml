@@ -1,9 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-  "types",
-  "proxy",
-]
+members = ["types", "proxy"]
 
 [workspace.package]
 edition = "2021"
