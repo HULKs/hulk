@@ -167,7 +167,7 @@ name = "aliveness"
 version = "0.1.0"
 dependencies = [
  "futures-util",
- "hula-types",
+ "hula_types",
  "regex",
  "serde",
  "serde_json",
@@ -1585,9 +1585,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.38"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9647a559c112175f17cf724dc72d3645680a883c58481332779192b0d8e7a01"
+checksum = "fd4db298d517d5fa00b2b84bbe044efd3fde43874a41db0d46f91994646a2da4"
 dependencies = [
  "clap 4.5.23",
 ]
@@ -1808,15 +1808,15 @@ dependencies = [
 
 [[package]]
 name = "console"
-version = "0.15.8"
+version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e1f83fc076bd6dd27517eacdf25fef6c4dfe5f1d7448bafaaf3a26f13b5e4eb"
+checksum = "ea3c6ecd8059b57859df5c69830340ed3c41d30e3da0c1cbed90a96ac853041b"
 dependencies = [
  "encode_unicode",
- "lazy_static",
  "libc",
- "unicode-width 0.1.14",
- "windows-sys 0.52.0",
+ "once_cell",
+ "unicode-width 0.2.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1834,15 +1834,6 @@ name = "const-fnv1a-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32b13ea120a812beba79e34316b3942a857c86ec1593cb34f27bb28272ce2cca"
-
-[[package]]
-name = "constants"
-version = "0.1.0"
-dependencies = [
- "lazy_static",
- "serde",
- "toml",
-]
 
 [[package]]
 name = "content_inspector"
@@ -2413,9 +2404,9 @@ dependencies = [
 
 [[package]]
 name = "encode_unicode"
-version = "0.3.6"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 
 [[package]]
 name = "encoding"
@@ -3423,11 +3414,11 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
 name = "home"
-version = "0.5.9"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
+checksum = "589533453244b0995c858700322199b2becb13b627df2851f64a2775d024abcf"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3465,7 +3456,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
-name = "hula-types"
+name = "hula_types"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -3568,7 +3559,6 @@ dependencies = [
  "chrono",
  "clap 4.5.23",
  "color-eyre",
- "constants",
  "ctrlc",
  "enum-iterator",
  "fern",
@@ -3679,9 +3669,9 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
-version = "0.14.31"
+version = "0.14.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c08302e8fa335b151b788c775ff56e7a03ae64ff85c548ee820fecb70356e85"
+checksum = "41dfc780fdec9373c01bae43289ea34c972e40ee3c9f6b3c8801a35f35586ce7"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -4587,6 +4577,7 @@ name = "nao"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "serde",
  "tokio",
 ]
 
@@ -5399,7 +5390,7 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "pepsi"
-version = "3.17.0"
+version = "4.0.0"
 dependencies = [
  "aliveness",
  "argument_parsers",
@@ -5407,10 +5398,11 @@ dependencies = [
  "clap 4.5.23",
  "clap_complete",
  "color-eyre",
- "constants",
  "futures-util",
+ "glob",
  "indicatif",
  "lazy_static",
+ "log",
  "nao",
  "opn",
  "regex",
@@ -5419,9 +5411,12 @@ dependencies = [
  "serde_json",
  "source_analyzer",
  "spl_network_messages",
+ "tempfile",
  "thiserror",
  "tokio",
  "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5893,11 +5888,11 @@ name = "repository"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "constants",
  "futures-util",
- "glob",
  "home",
  "itertools 0.10.5",
+ "log",
+ "nao",
  "parameters",
  "semver",
  "serde",
@@ -5907,6 +5902,7 @@ dependencies = [
  "tokio",
  "toml",
  "types",
+ "xdg",
 ]
 
 [[package]]
@@ -8149,6 +8145,12 @@ name = "xcursor"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ef33da6b1660b4ddbfb3aef0ade110c8b8a781a3b6382fa5f2b5b040fd55f61"
+
+[[package]]
+name = "xdg"
+version = "2.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "213b7324336b53d2414b2db8537e56544d981803139155afa84f76eeebb7a546"
 
 [[package]]
 name = "xdg-home"
