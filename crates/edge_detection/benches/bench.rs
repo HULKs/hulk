@@ -5,7 +5,7 @@ use image::GrayImage;
 use imageproc::{edges::canny, filter::gaussian_blur_f32, gradients::sobel_gradients};
 
 use edge_detection::{get_edge_source_image, EdgeSourceType};
-use nalgebra::DMatrix;
+use nalgebra::DMatrixView;
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use types::ycbcr422_image::YCbCr422Image;
 
@@ -108,10 +108,12 @@ mod blurring {
     #[bench(args=GAUSSIAN_VALUES)]
     fn gaussian_blur_with_box_filter_nalgebra(bencher: Bencher, sigma: f32) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view(&image);
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view(&image);
+        let transposed_matrix_view = transposed_matrix.as_view();
+
         bencher.bench_local(move || {
             black_box(gaussian_blur_box_filter_nalgebra::<u8>(
-                black_box(&transposed_matrix_view),
+                black_box(transposed_matrix_view),
                 black_box(sigma),
             ))
         });
@@ -120,10 +122,11 @@ mod blurring {
     #[bench(args=GAUSSIAN_VALUES)]
     fn gaussian_blur_with_box_filter_nalgebra_i16_input(bencher: Bencher, sigma: f32) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
+        let transposed_matrix_view = transposed_matrix.as_view();
         bencher.bench_local(move || {
             black_box(gaussian_blur_box_filter_nalgebra::<i16>(
-                black_box(&transposed_matrix_view),
+                black_box(transposed_matrix_view),
                 black_box(sigma),
             ))
         });
@@ -132,7 +135,8 @@ mod blurring {
     #[bench(args=GAUSSIAN_VALUES)]
     fn gaussian_blur_int_approximation(bencher: Bencher, sigma: f32) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&image);
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&image);
+        let transposed_matrix_view = transposed_matrix.as_view();
 
         let guard = if sigma == 1.0 {
             get_profiler_guard()
@@ -141,7 +145,7 @@ mod blurring {
         };
         bencher.bench_local(move || {
             black_box(gaussian_blur_try_2_nalgebra::<u8>(
-                black_box(&transposed_matrix_view),
+                black_box(transposed_matrix_view),
                 black_box(sigma),
             ))
         });
@@ -160,13 +164,13 @@ mod blurring {
 fn _bench_with_kernel_size_piecewise<const K: usize, B, O, S>(
     bencher: Bencher,
     output_prefix: &str,
-    transposed_matrix_view: &DMatrix<u8>,
+    transposed_matrix_view: DMatrixView<u8>,
     kernel_slice_1: &[i32; K],
     kernel_slice_2: &[i32; K],
     scaled_facot: S,
     benched: B,
 ) where
-    B: Fn(&DMatrix<u8>, &mut [i16], &[i32; K], &[i32; K], S) -> O,
+    B: Fn(DMatrixView<u8>, &mut [i16], &[i32; K], &[i32; K], S) -> O,
     S: Copy,
 {
     let guard = get_profiler_guard();
@@ -211,40 +215,45 @@ mod sobel_operator {
     fn direct_convolution_mut_new(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
-
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix_view = transposed_matrix.as_view();
+        let mat_len = transposed_matrix.len();
         let output_prefix = "direct_convolution_mut_try_again_";
 
         match kernel_size {
             3 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 3, 3>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 3, 3>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut_try_again,
             ),
             5 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 5, 5>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 5, 5>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut_try_again,
             ),
             7 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 7, 7>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 7, 7>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut_try_again,
             ),
             11 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 11, 11>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 11, 11>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut_try_again,
             ),
@@ -252,8 +261,9 @@ mod sobel_operator {
             21 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 21, 21>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 21, 21>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut_try_again,
             ),
@@ -265,40 +275,45 @@ mod sobel_operator {
     fn direct_convolution_mut_old_vertical(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
-
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix_view = transposed_matrix.as_view();
+        let mat_len = transposed_matrix.len();
         let output_prefix = "direct_convolution_mut_old_";
 
         match kernel_size {
             3 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 3, 3>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 3, 3>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut,
             ),
             5 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 5, 5>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 5, 5>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut,
             ),
             7 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 7, 7>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 7, 7>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut,
             ),
             11 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 11, 11>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 11, 11>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut,
             ),
@@ -306,8 +321,9 @@ mod sobel_operator {
             21 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
-                &SMatrix::<i32, 21, 21>::one(),
+                transposed_matrix_view,
+                mat_len,
+                SMatrix::<i32, 21, 21>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut,
             ),
@@ -325,20 +341,23 @@ mod sobel_operator {
         // });
     }
 
-    fn _bench_with_kernel_size<KT, B, O, S>(
+    fn _bench_with_kernel_size<KT, B, O, F, Mat>(
         bencher: Bencher,
         output_prefix: &str,
-        transposed_matrix_view: &DMatrix<u8>,
-        kernel_slice: &KT,
-        _scale_factor: S,
+        transposed_matrix_view: Mat,
+        out_length: usize,
+        kernel_slice: KT,
+        _scale_factor: F,
         benched: B,
     ) where
-        B: Fn(&DMatrix<u8>, &mut [i16], &KT, S) -> O,
-        S: Copy,
+        B: Fn(Mat, &mut [i16], KT, F) -> O,
+        F: Copy,
+        KT: Copy,
+        Mat: Copy,
     {
         let guard = get_profiler_guard();
         bencher.bench_local(move || {
-            let mut out = vec![0i16; transposed_matrix_view.len()];
+            let mut out = vec![0i16; out_length];
             black_box(benched(
                 black_box(transposed_matrix_view),
                 black_box(out.as_mut_slice()),
@@ -353,7 +372,8 @@ mod sobel_operator {
     fn piecewise_2d_mut(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix_view = transposed_matrix.as_view();
 
         let output_prefix = "piecewise_horiz_2d";
         match kernel_size {
@@ -361,7 +381,7 @@ mod sobel_operator {
                 _bench_with_kernel_size_piecewise(
                     bencher,
                     format!("{output_prefix}_{kernel_size}").as_str(),
-                    &transposed_matrix_view,
+                    transposed_matrix_view,
                     &[1; 3],
                     &[2; 3],
                     1,
@@ -372,7 +392,7 @@ mod sobel_operator {
                 _bench_with_kernel_size_piecewise(
                     bencher,
                     format!("{output_prefix}_{kernel_size}").as_str(),
-                    &transposed_matrix_view,
+                    transposed_matrix_view,
                     &[1; 5],
                     &[2; 5],
                     1,
@@ -383,7 +403,7 @@ mod sobel_operator {
                 _bench_with_kernel_size_piecewise(
                     bencher,
                     format!("{output_prefix}_{kernel_size}").as_str(),
-                    &transposed_matrix_view,
+                    transposed_matrix_view,
                     &[1; 7],
                     &[2; 7],
                     1,
@@ -394,7 +414,7 @@ mod sobel_operator {
                 _bench_with_kernel_size_piecewise(
                     bencher,
                     format!("{output_prefix}_{kernel_size}").as_str(),
-                    &transposed_matrix_view,
+                    transposed_matrix_view,
                     &[1; 11],
                     &[2; 11],
                     1,
@@ -405,7 +425,7 @@ mod sobel_operator {
                 _bench_with_kernel_size_piecewise(
                     bencher,
                     format!("{output_prefix}_{kernel_size}").as_str(),
-                    &transposed_matrix_view,
+                    transposed_matrix_view,
                     &[1; 21],
                     &[2; 21],
                     1,
@@ -420,14 +440,17 @@ mod sobel_operator {
     fn piecewise_vertical_mut_sobel(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let mat_len = transposed_matrix.len();
 
         let output_prefix = "piecewise_vert";
         match kernel_size {
             3 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                &transposed_matrix,
+                mat_len,
                 &[1; 3],
                 1,
                 piecewise_vertical_convolution_mut::<3, _, _, _>,
@@ -435,7 +458,8 @@ mod sobel_operator {
             5 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                &transposed_matrix,
+                mat_len,
                 &[1; 5],
                 1,
                 piecewise_vertical_convolution_mut::<5, _, _, _>,
@@ -443,7 +467,8 @@ mod sobel_operator {
             7 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                &transposed_matrix,
+                mat_len,
                 &[1; 7],
                 1,
                 piecewise_vertical_convolution_mut::<7, _, _, _>,
@@ -451,7 +476,8 @@ mod sobel_operator {
             11 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                &transposed_matrix,
+                mat_len,
                 &[1; 11],
                 1,
                 piecewise_vertical_convolution_mut::<11, _, _, _>,
@@ -459,7 +485,8 @@ mod sobel_operator {
             13 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                &transposed_matrix,
+                mat_len,
                 &[1; 13],
                 1,
                 piecewise_vertical_convolution_mut::<13, _, _, _>,
@@ -467,7 +494,8 @@ mod sobel_operator {
             21 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                &transposed_matrix,
+                mat_len,
                 &[1; 21],
                 1,
                 piecewise_vertical_convolution_mut::<21, _, _, _>,
@@ -480,14 +508,16 @@ mod sobel_operator {
     fn piecewise_horizontal_mut_ksizes(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
-
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix_view = transposed_matrix.as_view();
+        let mat_len = transposed_matrix.len();
         let output_prefix = "piecewise_horiz";
         match kernel_size {
             3 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                transposed_matrix_view,
+                mat_len,
                 &[1; 3],
                 1,
                 piecewise_horizontal_convolution_mut::<3, u8, i32, i16>,
@@ -495,7 +525,8 @@ mod sobel_operator {
             5 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                transposed_matrix_view,
+                mat_len,
                 &[1; 5],
                 1,
                 piecewise_horizontal_convolution_mut::<5, u8, i32, i16>,
@@ -503,7 +534,8 @@ mod sobel_operator {
             7 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                transposed_matrix_view,
+                mat_len,
                 &[1; 7],
                 1,
                 piecewise_horizontal_convolution_mut::<7, u8, i32, i16>,
@@ -511,7 +543,8 @@ mod sobel_operator {
             11 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                transposed_matrix_view,
+                mat_len,
                 &[1; 11],
                 1,
                 piecewise_horizontal_convolution_mut::<11, u8, i32, i16>,
@@ -519,7 +552,8 @@ mod sobel_operator {
             13 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                transposed_matrix_view,
+                mat_len,
                 &[1; 13],
                 1,
                 piecewise_horizontal_convolution_mut::<13, u8, i32, i16>,
@@ -527,7 +561,8 @@ mod sobel_operator {
             21 => _bench_with_kernel_size(
                 bencher,
                 format!("{output_prefix}_{kernel_size}").as_str(),
-                &transposed_matrix_view,
+                transposed_matrix_view,
+                mat_len,
                 &[1; 21],
                 1,
                 piecewise_horizontal_convolution_mut::<21, u8, i32, i16>,
@@ -540,11 +575,11 @@ mod sobel_operator {
     fn direct_convolution_sobel_vertical_wrapper(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view = grayimage_to_2d_transposed_matrix_view(&gray);
-
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view(&gray);
+        let transposed_matrix_view = transposed_matrix.as_view();
         bencher.bench_local(move || {
-            black_box(sobel_operator_vertical::<3, u8>(black_box(
-                &transposed_matrix_view,
+            black_box(sobel_operator_vertical::<u8>(black_box(
+                transposed_matrix_view,
             )));
         });
     }
@@ -553,12 +588,11 @@ mod sobel_operator {
     fn direct_convolution_sobel_vertical_wrapper_i16_input(bencher: Bencher) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix_view: DMatrix<i16> =
-            grayimage_to_2d_transposed_matrix_view::<i16>(&gray);
-
+        let transposed_matrix: DMatrix<i16> = grayimage_to_2d_transposed_matrix_view::<i16>(&gray);
+        let transposed_matrix_view = transposed_matrix.as_view();
         bencher.bench_local(move || {
-            black_box(sobel_operator_vertical::<3, i16>(black_box(
-                &transposed_matrix_view,
+            black_box(sobel_operator_vertical::<i16>(black_box(
+                transposed_matrix_view,
             )));
         });
     }
@@ -647,11 +681,11 @@ mod edge_points {
         let image = load_test_image();
 
         let edges_source = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
-        let converted = grayimage_to_2d_transposed_matrix_view::<i16>(&edges_source);
-        let blurred = gaussian_blur_box_filter_nalgebra(&converted, GAUSSIAN_SIGMA);
-
-        let gradients_y_transposed = sobel_operator_vertical::<3, i16>(&blurred);
-        let gradients_x_transposed = sobel_operator_horizontal::<3, i16>(&blurred);
+        let converted = grayimage_to_2d_transposed_matrix_view::<u8>(&edges_source);
+        let blurred = gaussian_blur_box_filter_nalgebra(converted.as_view(), GAUSSIAN_SIGMA);
+        let blurred_view = blurred.as_view();
+        let gradients_y_transposed = sobel_operator_vertical::<i16>(blurred_view);
+        let gradients_x_transposed = sobel_operator_horizontal::<i16>(blurred_view);
 
         let guard = get_profiler_guard();
 
