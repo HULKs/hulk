@@ -44,6 +44,6 @@ walking_engine = { workspace = true }
 [build-dependencies]
 code_generation = { workspace = true }
 color-eyre = { workspace = true }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
 source_analyzer = { workspace = true }
-proc-macro2 = { workspace = true }

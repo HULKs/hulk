@@ -6,6 +6,6 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-color-eyre = { workspace = true }
 byteorder = { workspace = true }
+color-eyre = { workspace = true }
 sha2 = { workspace = true }
