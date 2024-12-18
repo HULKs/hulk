@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
-use crate::{
-    completion_edit::CompletionEdit, log_error::LogError, nao::Nao, panel::Panel,
-    value_buffer::BufferHandle,
-};
+use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 use color_eyre::{
     eyre::{eyre, Error},
     Result,
 };
 use communication::messages::TextOrBinary;
 use eframe::egui::{Response, ScrollArea, TextEdit, Ui, Widget};
+use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
 use log::error;
 use parameters::directory::Scope;
 use serde_json::{json, Value};
@@ -49,8 +47,12 @@ impl Widget for &mut ParameterPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                let path_edit =
-                    CompletionEdit::writable_paths(&mut self.path, self.nao.as_ref()).ui(ui);
+                let path_edit = ui.add(NaoPathCompletionEdit::new(
+                    ui.id().with("parameter"),
+                    self.nao.latest_paths(),
+                    &mut self.path,
+                    PathFilter::Writable,
+                ));
                 if path_edit.changed() {
                     self.buffer = Some(self.nao.subscribe_json(&self.path));
                 }

@@ -1,12 +1,5 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    net::IpAddr,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{iter::once, net::Ipv4Addr, str::FromStr, sync::Arc, time::SystemTime};
 
-use aliveness::query_aliveness;
 use argument_parsers::NaoAddress;
 use clap::Parser;
 use color_eyre::{
@@ -15,7 +8,6 @@ use color_eyre::{
 };
 
 use communication::client::Status;
-use completion_edit::CompletionEdit;
 use configuration::{
     keybind_plugin::{self, KeybindSystem},
     keys::KeybindAction,
@@ -30,6 +22,8 @@ use eframe::{
 use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 
+use hulk_widgets::CompletionEdit;
+use itertools::chain;
 use log::error;
 use nao::Nao;
 use panel::Panel;
@@ -39,22 +33,20 @@ use panels::{
     RemotePanel, TextPanel, VisionTunerPanel,
 };
 
+use reachable_naos::ReachableNaos;
 use repository::{get_repository_root, Repository};
 use serde_json::{from_str, to_string, Value};
-use tokio::{
-    runtime::{Builder, Runtime},
-    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
-};
+use tokio::runtime::Runtime;
 use visuals::Visuals;
 
 mod change_buffer;
-mod completion_edit;
 mod configuration;
 mod log_error;
 mod nao;
 mod panel;
 mod panels;
 mod players_buffer_handle;
+mod reachable_naos;
 mod selectable_panel_macro;
 mod twix_painter;
 mod value_buffer;
@@ -115,48 +107,6 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-struct ReachableNaos {
-    ips: Vec<IpAddr>,
-    tx: UnboundedSender<Vec<IpAddr>>,
-    rx: UnboundedReceiver<Vec<IpAddr>>,
-    context: Context,
-    runtime: Runtime,
-}
-
-impl ReachableNaos {
-    pub fn new(context: Context) -> Self {
-        let ips = Vec::new();
-        let (tx, rx) = unbounded_channel();
-        let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
-
-        Self {
-            ips,
-            tx,
-            rx,
-            context,
-            runtime,
-        }
-    }
-
-    pub fn query_reachability(&self) {
-        let tx = self.tx.clone();
-        let context = self.context.clone();
-        self.runtime.spawn(async move {
-            if let Ok(ips) = query_aliveness(Duration::from_millis(200), None).await {
-                let ips = ips.into_iter().map(|(ip, _)| ip).collect();
-                let _ = tx.send(ips);
-                context.request_repaint();
-            }
-        });
-    }
-
-    pub fn update(&mut self) {
-        while let Ok(ips) = self.rx.try_recv() {
-            self.ips = ips;
-        }
-    }
-}
-
 impl_selectable_panel!(
     BallCandidatePanel,
     BehaviorSimulatorPanel,
@@ -173,11 +123,13 @@ impl_selectable_panel!(
     VisionTunerPanel,
     ImageColorSelectPanel,
 );
+
 struct TwixApp {
     nao: Arc<Nao>,
+    possible_addresses: Vec<Ipv4Addr>,
+    address: String,
     reachable_naos: ReachableNaos,
     connection_intent: bool,
-    address: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
@@ -190,15 +142,22 @@ impl TwixApp {
         arguments: Arguments,
         configuration: Configuration,
     ) -> Self {
+        let nao_range = configuration.naos.lowest..=configuration.naos.highest;
+        let possible_addresses: Vec<_> = chain!(
+            once(Ipv4Addr::LOCALHOST),
+            nao_range.clone().map(|id| Ipv4Addr::new(10, 0, 24, id)),
+            nao_range.map(|id| Ipv4Addr::new(10, 1, 24, id)),
+        )
+        .collect();
         let address = arguments
             .address
-            .map(|address| {
+            .and_then(|address| {
                 NaoAddress::from_str(&address)
-                    .map(|nao| nao.to_string())
-                    .unwrap_or(address)
+                    .map(|nao| nao.ip.to_string())
+                    .ok()
             })
             .or_else(|| creation_context.storage?.get_string("address"))
-            .unwrap_or_else(|| "localhost".to_string());
+            .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
 
         let nao = Arc::new(Nao::new(format!("ws://{address}:1337")));
 
@@ -255,11 +214,12 @@ impl TwixApp {
             nao,
             reachable_naos,
             connection_intent,
-            address,
             panel_selection,
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
             visual,
+            possible_addresses,
+            address,
         }
     }
 
@@ -379,18 +339,26 @@ impl App for TwixApp {
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    let address_input = CompletionEdit::addresses(
+                    let address_input = CompletionEdit::new(
+                        ui.id().with("nao-selector"),
+                        &self.possible_addresses,
                         &mut self.address,
-                        21..=41,
-                        &self.reachable_naos.ips,
                     )
-                    .ui(ui);
+                    .ui(ui, |ui, selected, ip| {
+                        let show_green = self.reachable_naos.is_reachable(*ip);
+                        let color = if show_green {
+                            Color32::GREEN
+                        } else {
+                            Color32::WHITE
+                        };
+                        ui.selectable_label(selected, WidgetText::from(ip.to_string()).color(color))
+                    });
+
                     if address_input.gained_focus() {
                         self.reachable_naos.query_reachability();
                     }
                     if context.keybind_pressed(KeybindAction::FocusAddress) {
                         address_input.request_focus();
-                        CompletionEdit::select_all(&self.address, ui, address_input.id);
                     }
                     if address_input.changed() || address_input.lost_focus() {
                         let address = &self.address;
@@ -427,18 +395,15 @@ impl App for TwixApp {
                             self.panel_selection = name
                         }
                     }
-                    let panel_input = CompletionEdit::new(
+                    let panels = SelectablePanel::registered();
+                    let panel_input = ui.add(CompletionEdit::new(
+                        ui.id().with("panel-selector"),
+                        &panels,
                         &mut self.panel_selection,
-                        SelectablePanel::registered()
-                            .into_iter()
-                            .map(|registered| registered.into())
-                            .collect(),
-                        "Panel",
-                    )
-                    .ui(ui);
+                    ));
+
                     if context.keybind_pressed(KeybindAction::FocusPanel) {
                         panel_input.request_focus();
-                        CompletionEdit::select_all(&self.panel_selection, ui, panel_input.id);
                     }
                     if panel_input.changed() || panel_input.lost_focus() {
                         match SelectablePanel::try_from_name(
@@ -568,7 +533,7 @@ impl App for TwixApp {
                 ui.painter().rect_stroke(
                     rect,
                     Rounding::same(4.0),
-                    ui.style().visuals.widgets.active.bg_stroke,
+                    ui.visuals().widgets.active.bg_stroke,
                 );
             }
         });
@@ -578,7 +543,7 @@ impl App for TwixApp {
         let dock_state = self.dock_state.map_tabs(|tab| tab.panel.save());
 
         storage.set_string("dock_state", to_string(&dock_state).unwrap());
-        storage.set_string("address", self.address.clone());
+        storage.set_string("address", self.address.to_string());
         storage.set_string(
             "connection_intent",
             if self.connection_intent {

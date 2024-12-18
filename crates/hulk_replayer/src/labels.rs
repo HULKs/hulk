@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{
-    pos2, vec2, Align, Layout, Rect, Response, RichText, Sense, TextStyle, Ui, Widget,
+    pos2, vec2, Align, Layout, Rect, Response, RichText, Sense, TextStyle, Ui, UiBuilder, Widget,
 };
 
 use framework::Timing;
@@ -43,14 +43,20 @@ impl Widget for Labels<'_> {
                 left_top,
                 pos2(ui.max_rect().right(), left_top.y + row_height),
             );
-            let mut child_ui = ui.child_ui(child_rect, Layout::top_down(Align::Min), None);
-            child_ui.set_height(row_height);
-            child_ui.label(RichText::new(label_content.name).strong());
-            let text_height = ui.style().text_styles.get(&TextStyle::Body).unwrap().size;
-            if child_ui.available_height() >= text_height {
-                child_ui.label(format!("{} frames", label_content.number_of_frames));
-            }
-            maximum_width = maximum_width.max(child_ui.min_size().x);
+            ui.scope_builder(
+                UiBuilder::new()
+                    .max_rect(child_rect)
+                    .layout(Layout::top_down(Align::Min)),
+                |ui| {
+                    ui.set_height(row_height);
+                    ui.label(RichText::new(label_content.name).strong());
+                    let text_height = ui.style().text_styles.get(&TextStyle::Body).unwrap().size;
+                    if ui.available_height() >= text_height {
+                        ui.label(format!("{} frames", label_content.number_of_frames));
+                    }
+                    maximum_width = maximum_width.max(ui.min_size().x);
+                },
+            );
         }
 
         ui.allocate_rect(

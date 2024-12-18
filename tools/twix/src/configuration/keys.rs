@@ -144,10 +144,6 @@ impl Keybinds {
         }
     }
 
-    pub fn merge(&mut self, other: Self) {
-        self.keybinds.extend(other.keybinds);
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (&KeybindTrigger, &KeybindAction)> {
         self.keybinds.iter()
     }

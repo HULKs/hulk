@@ -7,7 +7,7 @@ use super::keys::{KeybindAction, Keybinds};
 type ActionList = Arc<Vec<KeybindAction>>;
 
 pub fn register(ctx: &Context) {
-    ctx.on_begin_frame("keybinds", Arc::new(begin_frame))
+    ctx.on_begin_pass("keybinds", Arc::new(begin_frame))
 }
 
 fn begin_frame(ctx: &Context) {
