@@ -126,8 +126,10 @@ def apply_inverse_kinematics(
     left_lift: float,
     right_lift: float,
 ):
-    left_foot_in_walk = isometry_from_translation(-ANKLE_TO_SOLE) @ foot_to_isometry(left_sole, left_lift)
-    right_foot_in_walk = isometry_from_translation(-ANKLE_TO_SOLE) @ foot_to_isometry(right_sole, right_lift)
+    left_foot_in_walk = isometry_from_translation(
+        -ANKLE_TO_SOLE) @ foot_to_isometry(left_sole, left_lift)
+    right_foot_in_walk = isometry_from_translation(
+        -ANKLE_TO_SOLE) @ foot_to_isometry(right_sole, right_lift)
 
     robot_to_origin = isometry_from_translation(nao.model.site("Robot").pos)
     walk_to_robot = isometry_from_translation(np.array([-0.02, 0.0, -0.23]))
@@ -136,10 +138,10 @@ def apply_inverse_kinematics(
         walk_to_robot @ right_foot_in_walk
     )
 
-    nao.model.site("LeftSole").pos = translation_from_isometry(
+    nao.model.site("left_sole").pos = translation_from_isometry(
         robot_to_origin @ left_foot_in_robot
     )
-    nao.model.site("RightSole").pos = translation_from_isometry(
+    nao.model.site("right_sole").pos = translation_from_isometry(
         robot_to_origin @ right_foot_in_robot
     )
 
