@@ -68,4 +68,8 @@ ignore = [
 
 [tool.uv]
 
-dev-dependencies = ["neovim>=0.3.1", "pytest>=8.3.3", "ruff>=0.7.3"]
+dev-dependencies = [
+  "neovim>=0.3.1",
+  "pytest>=8.3.3",
+  "ruff>=0.7.3",
+]
