@@ -10,9 +10,12 @@ env:
   NAOSDK_HOME: /__w/hulk/naosdk
   NAOSDK_AUTOMATIC_YES: 1
 
+
 jobs:
   check:
     name: Check
+    concurrency:
+      group: ${{ github.workflow }}-check-${{ github.ref }}
     runs-on:
       - self-hosted
       - v3
@@ -29,6 +32,8 @@ jobs:
 
   check-cargo-lock:
     name: Check Cargo.lock
+    concurrency:
+      group: ${{ github.workflow }}-check-cargo-lock-${{ matrix.path }}-${{ github.ref }}
     strategy:
       matrix:
         path: [., tools/aliveness, tools/hula]
@@ -49,6 +54,8 @@ jobs:
 
   check-parameters:
     name: Check parameters
+    concurrency:
+      group: ${{ github.workflow }}-check-parameters-${{ github.ref }}
     runs-on:
       - self-hosted
       - v3
@@ -65,6 +72,8 @@ jobs:
 
   format:
     name: Format
+    concurrency:
+      group: ${{ github.workflow }}-format-${{ github.ref }}
     runs-on:
       - self-hosted
       - v3
@@ -81,6 +90,8 @@ jobs:
 
   test:
     name: Test
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ github.ref }}
     runs-on:
       - self-hosted
       - v3
@@ -97,6 +108,8 @@ jobs:
 
   build:
     name: Build
+    concurrency:
+      group: ${{ github.workflow }}-build-${{ matrix.target }}-${{ matrix.profile }}-${{ github.ref }}
     strategy:
       fail-fast: true
       matrix:
@@ -118,6 +131,8 @@ jobs:
 
   build_tools:
     name: Build
+    concurrency:
+      group: ${{ github.workflow }}-build_tools-${{ matrix.path }}-${{ github.ref }}
     strategy:
       matrix:
         path:
