@@ -535,7 +535,7 @@
   "kick_steps": {
     "forward": [
       {
-        "base_step": { "forward": 0.04, "left": 0.0, "turn": 0.0 },
+        "base_step": { "forward": 0.02, "left": 0.0, "turn": 0.0 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.015,
         "midpoint": 0.5,
@@ -543,7 +543,7 @@
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.08, "left": 0.0, "turn": 0.0 },
+        "base_step": { "forward": 0.05, "left": 0.0, "turn": 0.0 },
         "step_duration": { "nanos": 280000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
@@ -579,7 +579,7 @@
     ],
     "turn": [
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": -0.8 },
+        "base_step": { "forward": 0.0, "left": 0.005, "turn": -0.8 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.01,
         "midpoint": 0.5,
@@ -587,7 +587,7 @@
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.06, "left": 0.0, "turn": -0.2 },
+        "base_step": { "forward": 0.03, "left": 0.0, "turn": -0.2 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
@@ -1078,7 +1078,7 @@
     "turn": {
       "position": [-0.15, -0.11],
       "position_offset": [0.0, 0.0],
-      "orientation": 0.9,
+      "orientation": 0.8,
       "reached_thresholds": [0.04, 0.04, 0.1],
       "shot_distance": 3.5,
       "enabled": true
