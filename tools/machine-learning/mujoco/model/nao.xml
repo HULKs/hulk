@@ -92,8 +92,6 @@
 
       <site name="inertial_measurement_unit" pos="-0.008 0.006 0.029" />
       <site name="Robot" pos="0 0 -0.085" />
-      <site name="left_sole" pos="0 0 1" />
-      <site name="right_sole" pos="0 0 1" />
 
       <body name="neck" pos="0 0 .1265">
         <geom type="mesh" material="NaoMat_Structure" mesh="naoHeadYaw_0" />
