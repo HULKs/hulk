@@ -1,10 +1,8 @@
 from .walking import (
-    Feet,
-    Measurements,
-    Parameters,
-    State,
     step,
 )
+from .walking_types import State, Measurements, Parameters, Side, Feet, Control
+from .joint_command import joint_command
 
 __all__ = [
     "Feet",
@@ -12,4 +10,5 @@ __all__ = [
     "Parameters",
     "State",
     "step",
+    "joint_command",
 ]

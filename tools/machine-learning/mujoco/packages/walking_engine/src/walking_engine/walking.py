@@ -6,13 +6,9 @@ from enum import Enum
 import numpy as np
 from numpy.typing import NDArray
 
-from forward_kinematics import RobotLegKinematics
+from kinematics.forward_kinematics import RobotLegKinematics
 from transforms import Pose2, project_isometry_in_z_to_pose2
-from walking_types import State
-from walking_types import Measurements
-from walking_types import Parameters
-from walking_types import Side
-from walking_types import Feet
+from .walking_types import State, Measurements, Parameters, Side, Feet, Control
 
 
 def is_support_switched(

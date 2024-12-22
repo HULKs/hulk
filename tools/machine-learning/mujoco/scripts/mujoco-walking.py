@@ -2,15 +2,12 @@ import mujoco
 from mujoco import viewer
 from numpy._typing import NDArray
 import numpy as np
-from nao import Nao
+from nao_interface import Nao
 from transforms import (
-    translation_from_isometry,
-    quaternion_from_isometry,
-    isometry_from_translation,
-    inverse,
     Pose2,
 )
-from walking_types import (
+import walking_engine
+from walking_engine import (
     Parameters,
     Measurements,
     Control,
@@ -18,12 +15,8 @@ from walking_types import (
     State,
     Side,
 )
-from walking import step
-from ground_provider import get_ground_to_robot
-from forward_kinematics import RobotLegKinematics
-from inverse_kinematics import LegJoints, leg_angles, foot_to_isometry
+from kinematics import LegJoints
 import time
-from robot_dimensions import ANKLE_TO_SOLE
 
 
 def default_parameters() -> Parameters:
@@ -96,7 +89,7 @@ def apply_walking(
     control: Control,
     dt: float,
 ):
-    state, left_sole, left_lift, right_sole, right_lift = step(
+    state, left_sole, left_lift, right_sole, right_lift = walking_engine.step(
         state,
         measurements,
         control,
@@ -114,40 +107,8 @@ def apply_walking(
     else:
         measurements.pressure_right = 0.0
 
-    apply_inverse_kinematics(
-        nao, left_sole, right_sole, left_lift, right_lift
-    )
-
-
-def apply_inverse_kinematics(
-    nao: Nao,
-    left_sole: Pose2,
-    right_sole: Pose2,
-    left_lift: float,
-    right_lift: float,
-):
-    left_foot_in_walk = isometry_from_translation(
-        -ANKLE_TO_SOLE) @ foot_to_isometry(left_sole, left_lift)
-    right_foot_in_walk = isometry_from_translation(
-        -ANKLE_TO_SOLE) @ foot_to_isometry(right_sole, right_lift)
-
-    robot_to_origin = isometry_from_translation(nao.model.site("Robot").pos)
-    walk_to_robot = isometry_from_translation(np.array([-0.02, 0.0, -0.23]))
-    left_foot_in_robot = walk_to_robot @ left_foot_in_walk
-    right_foot_in_robot = (
-        walk_to_robot @ right_foot_in_walk
-    )
-
-    nao.model.site("left_sole").pos = translation_from_isometry(
-        robot_to_origin @ left_foot_in_robot
-    )
-    nao.model.site("right_sole").pos = translation_from_isometry(
-        robot_to_origin @ right_foot_in_robot
-    )
-
-    left_leg_joints, right_leg_joints = leg_angles(
-        walk_to_robot @ left_foot_in_walk,
-        walk_to_robot @ right_foot_in_walk,
+    left_leg_joints, right_leg_joints = walking_engine.joint_command(
+        left_sole, right_sole, left_lift, right_lift
     )
 
     nao.actuators.left_leg.ankle_pitch = left_leg_joints.ankle_pitch

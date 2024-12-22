@@ -6,8 +6,12 @@ from kinematics import LegJoints, leg_angles
 
 
 def test_fuzz() -> None:
-    fuzzing_data1 = json.loads(Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text())
-    fuzzing_data2 = json.loads(Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text())
+    fuzzing_data1 = json.loads(
+        Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text()
+    )
+    fuzzing_data2 = json.loads(
+        Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text()
+    )
 
     for frame in fuzzing_data1 + fuzzing_data2:
         left_foot = np.array(frame["left_foot"]).reshape(4, 4).T

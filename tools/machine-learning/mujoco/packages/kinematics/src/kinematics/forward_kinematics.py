@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from inverse_kinematics import LegJoints
+from .inverse_kinematics import LegJoints
 import numpy as np
 from numpy.typing import NDArray
 from transforms import (
@@ -19,7 +19,7 @@ from robot_dimensions import (
     ROBOT_TO_LEFT_PELVIS,
     ROBOT_TO_RIGHT_PELVIS,
 )
-from walking_types import Side
+from walking_engine.walking_types import Side
 
 
 def left_pelvis_to_robot(angles: LegJoints) -> NDArray:
@@ -97,7 +97,7 @@ class RobotLegKinematics:
     sole_to_robot: NDArray
 
     @staticmethod
-    def from_legjoints(angles: LegJoints, side: Side) -> "Self":
+    def from_legjoints(angles: LegJoints, side: Side) -> RobotLegKinematics:
         pelvis_to_robot = (
             left_pelvis_to_robot(angles)
             if side == Side.LEFT
