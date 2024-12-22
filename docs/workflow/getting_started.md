@@ -3,6 +3,8 @@
 If you haven't setup your development environment yet or haven't cloned the repository, please follow the instructions given in [Setup](../setup/overview.md) to setup [`rust`](../setup/development_environment.md) on your machine and download the code.
 The tool used for compiling, uploading or changing the robot state otherwise is called [`pepsi`](../tooling/pepsi.md).
 Another tool often used to debug on the robot is called [`twix`](../tooling/twix.md).
+We use a number of tools to check certain aspects of our code automatically.
+More information can be found [here](./checks.md).
 
 ## Setting up Git
 
