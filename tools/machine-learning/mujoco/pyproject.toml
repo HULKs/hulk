@@ -15,7 +15,25 @@ dependencies = [
     "stable-baselines3>=2.3.2",
     "wandb>=0.18.5",
     "tensorboard>=2.18.0",
+    "kinematics",
+    "nao-interface",
+    "nao-env",
+    "transforms",
+    "walking-engine",
 ]
+
+[tool.uv.sources]
+kinematics = { workspace = true }
+nao_interface = { workspace = true }
+nao_env = { workspace = true }
+transforms = { workspace = true }
+walking_engine = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv]
+dev-dependencies = ["neovim>=0.3.1", "pytest>=8.3.3", "ruff>=0.7.3"]
 
 [tool.ruff]
 target-version = "py310"
@@ -65,11 +83,3 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S603"]
-
-[tool.uv]
-
-dev-dependencies = [
-    "neovim>=0.3.1",
-    "pytest>=8.3.3",
-    "ruff>=0.7.3",
-]

@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -191,7 +190,13 @@ def parabolic_return(x: float, midpoint: float = 0.5) -> float:
         return (
             -1.0
             / ((midpoint - 1.0) ** 3)
-            * (2.0 * (x**3) - 3.0 * (midpoint + 1.0) * (x**2) + 6.0 * midpoint * x - 3.0 * midpoint + 1.0)
+            * (
+                2.0 * (x**3)
+                - 3.0 * (midpoint + 1.0) * (x**2)
+                + 6.0 * midpoint * x
+                - 3.0 * midpoint
+                + 1.0
+            )
         )
 
 
@@ -200,82 +205,3 @@ def parabolic_step(x: float) -> float:
         return 2.0 * x * x
     else:
         return 4.0 * x - 2.0 * x * x - 1.0
-
-
-if __name__ == "__main__":
-    parameters = Parameters(
-        sole_pressure_threshold=0.5,
-        min_step_duration=0.1,
-        step_duration=0.25,
-        foot_lift_apex=0.015,
-    )
-    state = State(
-        t=1.0,
-        support_side=Side.LEFT,
-        start_feet=Feet(
-            support_sole=Pose2(),
-            swing_sole=Pose2(),
-        ),
-        end_feet=Feet(
-            support_sole=Pose2(),
-            swing_sole=Pose2(),
-        ),
-    )
-    measurements = Measurements(
-        pressure_left=0.0,
-        pressure_right=1.0,
-    )
-    control = Control(
-        forward=0.06,
-        left=0.0,
-        turn=0.0,
-    )
-    dt = 0.012
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-
-    odometry = Pose2()
-    last_left_sole = Pose2()
-    last_right_sole = Pose2()
-
-    for _ in range(100):
-        state, left_sole, left_lift, right_sole, right_lift = step(
-            state,
-            measurements,
-            control,
-            dt,
-            parameters,
-        )
-
-        moved = left_sole - last_left_sole if state.support_side == Side.LEFT else right_sole - last_right_sole
-        odometry -= moved
-        last_left_sole = left_sole
-        last_right_sole = right_sole
-
-        if left_lift < 0.001:
-            measurements.pressure_left = 1.0
-        else:
-            measurements.pressure_left = 0.0
-
-        if right_lift < 0.001:
-            measurements.pressure_right = 1.0
-        else:
-            measurements.pressure_right = 0.0
-
-        ax.plot(
-            left_sole.x + odometry.x,
-            left_sole.y + 0.02 + odometry.y,
-            left_lift,
-            "ro",
-        )
-        ax.plot(
-            right_sole.x + odometry.x,
-            right_sole.y - 0.02 + odometry.y,
-            right_lift,
-            "bo",
-        )
-
-    plt.show()

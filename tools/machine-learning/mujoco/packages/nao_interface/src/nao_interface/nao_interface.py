@@ -90,7 +90,7 @@ class ArmJoints:
     def from_json(self, json):
         for k, v in json.items():
             # TODO: remove once hands are implemented
-            if not k == "hand":
+            if k != "hand":
                 self.setter(k, v)
 
     @property
@@ -180,9 +180,9 @@ class Nao:
         self.data = data
         self.actuators = NaoJoints(
             lambda joint_name: self.data.actuator(joint_name).ctrl,
-            lambda joint_name, value: self.data.actuator(joint_name).__setattr__(
-                "ctrl", value
-            ),
+            lambda joint_name, value: self.data.actuator(
+                joint_name
+            ).__setattr__("ctrl", value),
         )
         self.positions = NaoJoints(
             lambda joint_name: self.data.joint(joint_name).qpos,

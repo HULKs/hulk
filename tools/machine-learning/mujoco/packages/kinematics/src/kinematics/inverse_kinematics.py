@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-
 from transforms import (
     inverse,
     isometry_from_euler,

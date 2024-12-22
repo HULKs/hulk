@@ -60,12 +60,18 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
 
         self._reset_noise_scale = reset_noise_scale
 
-        self._exclude_current_positions_from_observation = exclude_current_positions_from_observation
+        self._exclude_current_positions_from_observation = (
+            exclude_current_positions_from_observation
+        )
 
         if exclude_current_positions_from_observation:
-            observation_space = Box(low=-np.inf, high=np.inf, shape=(419,), dtype=np.float64)
+            observation_space = Box(
+                low=-np.inf, high=np.inf, shape=(419,), dtype=np.float64
+            )
         else:
-            observation_space = Box(low=-np.inf, high=np.inf, shape=(419,), dtype=np.float64)
+            observation_space = Box(
+                low=-np.inf, high=np.inf, shape=(419,), dtype=np.float64
+            )
 
         MujocoEnv.__init__(
             self,
@@ -77,10 +83,15 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
 
     @property
     def healthy_reward(self):
-        return float(self.is_healthy or self._terminate_when_unhealthy) * self._healthy_reward
+        return (
+            float(self.is_healthy or self._terminate_when_unhealthy)
+            * self._healthy_reward
+        )
 
     def control_cost(self, action):
-        control_cost = self._ctrl_cost_weight * np.sum(np.square(self.data.ctrl))
+        control_cost = self._ctrl_cost_weight * np.sum(
+            np.square(self.data.ctrl)
+        )
         return control_cost
 
     @property
@@ -92,7 +103,9 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
 
     @property
     def terminated(self):
-        terminated = (not self.is_healthy) if self._terminate_when_unhealthy else False
+        terminated = (
+            (not self.is_healthy) if self._terminate_when_unhealthy else False
+        )
         return terminated
 
     def _get_obs(self):
@@ -157,8 +170,12 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
         noise_low = -self._reset_noise_scale
         noise_high = self._reset_noise_scale
 
-        qpos = self.init_qpos + self.np_random.uniform(low=noise_low, high=noise_high, size=self.model.nq)
-        qvel = self.init_qvel + self.np_random.uniform(low=noise_low, high=noise_high, size=self.model.nv)
+        qpos = self.init_qpos + self.np_random.uniform(
+            low=noise_low, high=noise_high, size=self.model.nq
+        )
+        qvel = self.init_qvel + self.np_random.uniform(
+            low=noise_low, high=noise_high, size=self.model.nv
+        )
         self.set_state(qpos, qvel)
 
         observation = self._get_obs()
