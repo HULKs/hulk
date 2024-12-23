@@ -33,7 +33,7 @@ def default_parameters() -> Parameters:
 def initial_state() -> State:
     return State(
         t=1.0,
-        support_side=Side.LEFT,
+        support_side=Side.RIGHT,
         start_feet=Feet(
             support_sole=Pose2(),
             swing_sole=Pose2(),
@@ -42,13 +42,6 @@ def initial_state() -> State:
             support_sole=Pose2(),
             swing_sole=Pose2(),
         ),
-    )
-
-
-def initial_measurements() -> Measurements:
-    return Measurements(
-        pressure_left=0.0,
-        pressure_right=1.0,
     )
 
 
@@ -106,10 +99,8 @@ def apply_walking(
     else:
         measurements.pressure_right = 0.0
 
-    lower_body_joints = (
-        walking_engine.compute_lower_body_joints(
-            left_sole, right_sole, left_lift, right_lift
-        )
+    lower_body_joints = walking_engine.compute_lower_body_joints(
+        left_sole, right_sole, left_lift, right_lift
     )
 
     nao.actuators.left_leg.ankle_pitch = lower_body_joints.left.ankle_pitch
@@ -133,7 +124,6 @@ def main():
 
     parameter = default_parameters()
     state = initial_state()
-    measurements = initial_measurements()
     control = initial_control()
 
     nao = Nao(model, data)
@@ -145,7 +135,37 @@ def main():
     while handle.is_running():
         with handle.lock():
             start_time = time.time()
-            apply_walking(nao, parameter, state, measurements, control, dt)
+            fsr_positions = [
+                "rear_left",
+                "rear_right",
+                "front_left",
+                "front_right",
+            ]
+            right_pressure = (
+                sum(
+                    nao.data.sensor(
+                        f"force_sensitive_resistors.right.{pos}"
+                    ).data
+                    for pos in fsr_positions
+                )
+                / 10.0
+            )
+            left_pressure = (
+                sum(
+                    nao.data.sensor(
+                        f"force_sensitive_resistors.left.{pos}"
+                    ).data
+                    for pos in fsr_positions
+                )
+                / 10.0
+            )
+            measurements = Measurements(left_pressure, right_pressure)
+
+            if (
+                measurements.pressure_left > 0.0
+                or measurements.pressure_right > 0.0
+            ):
+                apply_walking(nao, parameter, state, measurements, control, dt)
 
             mujoco.mj_step(model, data)
             end_time = time.time()
