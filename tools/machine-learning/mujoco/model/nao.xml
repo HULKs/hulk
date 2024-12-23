@@ -156,15 +156,10 @@
                   <inertial pos="0.02542 0.0033 -0.03239" mass="0.17184" fullinertia="269442.9e-9 644342.28e-9 525755.35e-9 -5696.02e-9 139379.2e-9 18741.43e-9"/>
                   <joint name="left_leg.ankle_roll" axis="1 0 0" range="-22.79 44.06" limited="true"/>
 
-
-                  <site name="force_sensitive_resistors.left.rear_right" pos="-0.035 0.028 -0.031" size="0.015"  type="sphere"/>
-                  <geom name="force_sensitive_resistors.left.rear_right" pos="-0.035 0.028 -0.031" size="0.015" type="sphere"/>
-                  <site name="force_sensitive_resistors.left.rear_left" pos="-0.035 -0.017 -0.031" size="0.015" type="sphere"/>
-                  <geom name="force_sensitive_resistors.left.rear_left" pos="-0.035 -0.017 -0.031" size="0.015" type="sphere" />
-                  <site name="force_sensitive_resistors.left.front_left" pos="0.075 0.0225 -0.031" size="0.015" type="sphere"/>
-                  <geom name="force_sensitive_resistors.left.front_left" pos="0.075 0.0225 -0.031" size="0.015" type="sphere" />
-                  <site name="force_sensitive_resistors.left.front_right" pos="0.075 -0.0225 -0.031" size="0.015" type="sphere"/>
-                  <geom name="force_sensitive_resistors.left.front_right" pos="0.075 -0.0225 -0.031" size="0.015" type="sphere" />
+                  <site name="force_sensitive_resistors.left.rear_right" pos="-0.02 0.025 -0.04519" size="0.04 0.025 0.005" type="box" rgba="1 0 0 0.3"/>
+                  <site name="force_sensitive_resistors.left.rear_left" pos="-0.02 -0.017 -0.04519" size="0.04 0.017 0.005" type="box" rgba="1 0 0 0.3"/>
+                  <site name="force_sensitive_resistors.left.front_right" pos="0.06 0.025 -0.04519" size="0.04 0.025 0.005" type="box" rgba="1 0 0 0.3"/>
+                  <site name="force_sensitive_resistors.left.front_left" pos="0.06 -0.017 -0.04519" size="0.04 0.017 0.005" type="box" rgba="1 0 0 0.3"/>
                 </body>
               </body>
             </body>
@@ -215,15 +210,10 @@
                   <inertial pos="0.02542 -0.0033 -0.03239" mass="0.17184" fullinertia="269303.1e-9 643474.47e-9 525034.16e-9 5874.62e-9 139133.06e-9 -18848.77e-9"/>
                   <joint name="right_leg.ankle_roll" axis="1 0 0" range="-44.06 22.8" limited="true"/>
 
-
-                  <site name="force_sensitive_resistors.right.rear_left" pos="-0.035 0.017 -0.031" size="0.015"  type="sphere"/>
-                  <geom name="force_sensitive_resistors.right.rear_left" pos="-0.035 0.017 -0.031" size="0.015" type="sphere"/>
-                  <site name="force_sensitive_resistors.right.rear_right" pos="-0.035 -0.028 -0.031" size="0.015" type="sphere"/>
-                  <geom name="force_sensitive_resistors.right.rear_right" pos="-0.035 -0.028 -0.031" size="0.015" type="sphere" />
-                  <site name="force_sensitive_resistors.right.front_left" pos="0.075 0.0225 -0.031" size="0.015" type="sphere"/>
-                  <geom name="force_sensitive_resistors.right.front_left" pos="0.075 0.0225 -0.031" size="0.015" type="sphere" />
-                  <site name="force_sensitive_resistors.right.front_right" pos="0.075 -0.0225 -0.031" size="0.015" type="sphere"/>
-                  <geom name="force_sensitive_resistors.right.front_right" pos="0.075 -0.0225 -0.031" size="0.015" type="sphere" />
+                  <site name="force_sensitive_resistors.right.rear_right" pos="-0.02 -0.025 -0.04519" size="0.04 0.025 0.005" type="box" rgba="1 0 0 0.3"/>
+                  <site name="force_sensitive_resistors.right.rear_left" pos="-0.02 0.017 -0.04519" size="0.04 0.017 0.005" type="box" rgba="1 0 0 0.3"/>
+                  <site name="force_sensitive_resistors.right.front_right" pos="0.06 -0.025 -0.04519" size="0.04 0.025 0.005" type="box" rgba="1 0 0 0.3"/>
+                  <site name="force_sensitive_resistors.right.front_left" pos="0.06 0.017 -0.04519" size="0.04 0.017 0.005" type="box" rgba="1 0 0 0.3"/>
                 </body>
               </body>
             </body>
