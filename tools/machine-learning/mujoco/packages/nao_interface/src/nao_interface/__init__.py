@@ -5,6 +5,10 @@ from .nao_interface import (
     Nao,
     NaoJoints,
 )
+from .poses import (
+    PENALIZED_POSE,
+    ZERO_POSE
+)
 
 __all__ = [
     "ArmJoints",
@@ -12,4 +16,6 @@ __all__ = [
     "LegJoints",
     "Nao",
     "NaoJoints",
+    "PENALIZED_POSE",
+    "ZERO_POSE",
 ]

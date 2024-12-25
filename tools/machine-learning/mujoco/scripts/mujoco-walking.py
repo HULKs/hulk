@@ -5,6 +5,8 @@ import walking_engine
 from kinematics import LegJoints
 from mujoco import viewer
 from nao_interface import Nao
+from nao_interface.poses import PENALIZED_POSE
+from throwing import ThrowableObject
 from transforms import (
     Pose2,
 )
@@ -127,10 +129,14 @@ def main():
     control = initial_control()
 
     nao = Nao(model, data)
+    nao.reset(PENALIZED_POSE)
 
     handle = viewer.launch_passive(model, data)
 
     dt = model.opt.timestep
+    simulation_time = 0.0
+    simulation_step = 0
+    throwable = ThrowableObject(model, data, "floor", "tomato")
 
     while handle.is_running():
         with handle.lock():
@@ -159,13 +165,16 @@ def main():
             )
             measurements = Measurements(left_pressure, right_pressure)
 
-            if (
-                measurements.pressure_left > 0.0
-                or measurements.pressure_right > 0.0
-            ):
+            if throwable.throw_has_ended():
+                target = data.joint("root").qpos[:3]
+                throwable.random_throw(target, 0.2, 0.5)
+
+            if measurements.pressure_left > 0.0 or measurements.pressure_right > 0.0:
                 apply_walking(nao, parameter, state, measurements, control, dt)
 
             mujoco.mj_step(model, data)
+            simulation_time += dt
+            simulation_step += 1
             end_time = time.time()
             wait_time = max(0, dt - (end_time - start_time))
         handle.sync()

@@ -1,0 +1,8 @@
+<mujoco model="tomato">
+    <worldbody>
+        <body name="tomato" pos="2 0 0">
+            <geom type="sphere" size="0.05" mass="0.08" rgba="1 0 0 1" />
+            <freejoint />
+        </body>
+    </worldbody>
+</mujoco>
