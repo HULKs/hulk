@@ -211,7 +211,7 @@ mod sobel_operator {
         get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE,
     };
 
-    #[bench(args=[3,5,7,11,21])]
+    #[bench(args=[3,5,7])]
     fn direct_convolution_mut_new(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
@@ -245,25 +245,6 @@ mod sobel_operator {
                 transposed_matrix_view,
                 mat_len,
                 SMatrix::<i32, 7, 7>::one(),
-                NonZeroU32::new(1).unwrap(),
-                direct_convolution_mut_try_again,
-            ),
-            11 => _bench_with_kernel_size(
-                bencher,
-                format!("{output_prefix}_{kernel_size}").as_str(),
-                transposed_matrix_view,
-                mat_len,
-                SMatrix::<i32, 11, 11>::one(),
-                NonZeroU32::new(1).unwrap(),
-                direct_convolution_mut_try_again,
-            ),
-
-            21 => _bench_with_kernel_size(
-                bencher,
-                format!("{output_prefix}_{kernel_size}").as_str(),
-                transposed_matrix_view,
-                mat_len,
-                SMatrix::<i32, 21, 21>::one(),
                 NonZeroU32::new(1).unwrap(),
                 direct_convolution_mut_try_again,
             ),

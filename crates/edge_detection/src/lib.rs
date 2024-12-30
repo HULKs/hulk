@@ -1,3 +1,5 @@
+use std::iter::from_fn;
+
 use canny::{canny, EdgeClassification};
 use coordinate_systems::Pixel;
 use image::{GrayImage, Luma, RgbImage};
@@ -138,6 +140,39 @@ where
         image.height() as usize,
         data.iter().map(|&v| v.into()),
     )
+}
+
+
+// Just to see if this is faster than chaining zips and enumerate
+// Update: Profiling says it is faster!
+#[inline]
+fn zip_three_slices_enumerated<'a, T, U, V>(
+    mut slice1: &'a [T],
+    mut slice2: &'a [U],
+    mut slice3: &'a [V],
+) -> impl Iterator<Item = (usize, &'a T, &'a U, &'a V)> + 'a {
+    // unsafe {
+    assert!(slice1.len() == slice2.len() && slice2.len() == slice3.len());
+    let len = slice1.len();
+
+    let mut counter = 0;
+
+    from_fn(move || {
+        counter += 1;
+        if len == 0 {
+            None
+        } else if let ([a, _slice1 @ ..], [b, _slice2 @ ..], [c, _slice3 @ ..]) =
+            (slice1, slice2, slice3)
+        {
+            slice1 = _slice1;
+            slice2 = _slice2;
+            slice3 = _slice3;
+            Some((counter, a, b, c))
+        } else {
+            None
+        }
+    })
+    // }
 }
 
 #[cfg(test)]

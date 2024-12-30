@@ -13,6 +13,8 @@ use std::{
 
 use nalgebra::{ClosedMul, DMatrix, DMatrixView, SMatrix, SVector, Scalar};
 
+use crate::zip_three_slices_enumerated;
+
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: DMatrixView<P>,
     kernel: &SMatrix<KType, KSIZE, KSIZE>,
@@ -213,8 +215,6 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
         AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign + Display + SubsetOf<KType>,
 {
     let kernel_half = KSIZE / 2;
-    // let kernel_half_ceil = KSIZE.div_ceil(2);
-    // let is_symmetric = is_kernel_symmetric(piecewise_kernel);
 
     let max_allowed_sum: KType = OutputType::max_value().as_();
     let min_allowed_sum: KType = OutputType::min_value().as_();
@@ -264,6 +264,12 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
         });
 }
 
+/// Why? Profiling showed that the compiler optimizes this better than directly using if KSIZE % 2 == 1 { ... }
+#[inline(always)]
+const fn is_ksize_odd(ksize: usize) -> bool {
+    return ksize % 2 == 1;
+}
+
 #[inline]
 pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: &DMatrix<InputType>,
@@ -279,12 +285,15 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     let max_allowed_sum: KType = OutputType::max_value().as_();
     let min_allowed_sum: KType = OutputType::min_value().as_();
 
+    // the current implementation doesn't like an if-branch
+    let is_symmetric = is_kernel_symmetric(piecewise_kernel);
+
     let ncols = transposed_image.ncols();
     let nrows = transposed_image.nrows();
 
     let bit_shift_amount = calculate_divisor(scale_value);
 
-    const COLUMN_CHUNK_SIZE: usize = 8;
+    const COLUMN_CHUNK_SIZE: usize = 16;
     // Handle remainder
     let chunking_remainder = nrows % COLUMN_CHUNK_SIZE;
     let image_slice = transposed_image.as_slice();
@@ -306,34 +315,69 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
             .chunks_exact_mut(COLUMN_CHUNK_SIZE)
             .enumerate()
             .for_each(|(ci, dst_chunk)| {
-                let mut acccum = SVector::<KType, COLUMN_CHUNK_SIZE>::zeros();
-                piecewise_kernel
-                    .iter()
-                    .zip(column_pack_slices.iter())
-                    .for_each(|(piece, input_column)| {
-                        // assert_eq!(input_column.len(), dst_chunk.len());
-                        acccum += SVector::<KType, COLUMN_CHUNK_SIZE>::from_iterator(
-                            input_column[ci * COLUMN_CHUNK_SIZE..(ci + 1) * COLUMN_CHUNK_SIZE]
-                                .iter()
-                                .map(|v| v.as_()),
-                        ) * *piece
-                    });
+                let col_chunk_start = ci * COLUMN_CHUNK_SIZE;
+                let col_chunk_end = (ci + 1) * COLUMN_CHUNK_SIZE;
 
-                dst_chunk
-                    .iter_mut()
-                    .zip(acccum.iter())
-                    .for_each(|(dst, acc)| {
-                        // TODO bit shifting for scaling
-                        *dst = acc
-                            .shr(bit_shift_amount)
-                            .clamp(min_allowed_sum, max_allowed_sum)
-                            .as_()
+                if !is_symmetric {
+                    let mut acccum = SVector::<KType, COLUMN_CHUNK_SIZE>::zeros();
+                    piecewise_kernel
+                        .iter()
+                        .zip(column_pack_slices.iter())
+                        .for_each(|(piece, input_column)| {
+                            acccum += SVector::<KType, COLUMN_CHUNK_SIZE>::from_iterator(
+                                input_column[col_chunk_start..col_chunk_end]
+                                    .iter()
+                                    .map(|v| v.as_()),
+                            ) * *piece
+                        });
+                    dst_chunk
+                        .iter_mut()
+                        .zip(acccum.iter())
+                        .for_each(|(dst, acc)| {
+                            // TODO bit shifting for scaling
+                            *dst = acc
+                                .shr(bit_shift_amount)
+                                .clamp(min_allowed_sum, max_allowed_sum)
+                                .as_()
+                        });
+                } else {
+                    let mut accumulator = [KType::zero(); COLUMN_CHUNK_SIZE];
+                    // middle (applicable only for odd cases)
+                    if is_ksize_odd(KSIZE) {
+                        accumulator
+                            .iter_mut()
+                            .zip(
+                                column_pack_slices[kernel_half][col_chunk_start..col_chunk_end]
+                                    .iter(),
+                            )
+                            .for_each(|(acc, v)| *acc += v.as_() * piecewise_kernel[kernel_half]);
+                    }
+
+                    // both sides (except middle for odd KSIZE)
+                    (0..kernel_half).for_each(|i| {
+                        let piece = piecewise_kernel[i];
+
+                        izip!(
+                            accumulator.iter_mut(),
+                            &column_pack_slices[i][col_chunk_start..col_chunk_end],
+                            &column_pack_slices[(KSIZE - 1) - i][col_chunk_start..col_chunk_end],
+                        )
+                        .for_each(|(acc, v1, v2)| *acc += (v1.as_() + v2.as_()) * piece);
                     });
+                    dst_chunk
+                        .iter_mut()
+                        .zip(accumulator.iter())
+                        .for_each(|(dst, acc)| {
+                            *dst = acc
+                                .shr(bit_shift_amount)
+                                .clamp(min_allowed_sum, max_allowed_sum)
+                                .as_()
+                        });
+                }
             });
         // Handle remainder from chunking
         if chunking_remainder != 0 && chunking_remainder >= kernel_half {
-            //
-            let mut accum = vec![KType::zero(); chunking_remainder]; // Vec::<KType>::with_capacity(COLUMN_CHUNK_SIZE); //[KType::zero(); COLUMN_CHUNK_SIZE];
+            let mut accum = vec![KType::zero(); chunking_remainder];
             let flat_remainder_range =
                 flat_slice_column_end_position - chunking_remainder..flat_slice_column_end_position;
 
@@ -362,19 +406,6 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
                     // TODO bit shifting for scaling
                     *dst = acc_dst.as_()
                 });
-
-            // take? or some other way?
-            // &dst[remainder_range]
-            //     .iter_mut()
-            //     .for_each(|dst_value| {
-            //         dst_chunk
-            //             .iter_mut()
-            //             .zip(acccum.iter())
-            //             .for_each(|(dst, acc)| {
-            //                 // TODO bit shifting for scaling
-            //                 *dst = acc.clamp(&min_allowed_sum, &max_allowed_sum).as_()
-            //             });
-            //     });
         }
     }
 }
