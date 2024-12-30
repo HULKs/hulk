@@ -13,13 +13,19 @@ pub fn canny(
     gaussian_sigma: Option<f32>,
     low_threshold: f32,
     high_threshold: f32,
-) -> DMatrix<EdgeClassification> {
+) -> (DMatrix<EdgeClassification>, usize) {
     let sigma = gaussian_sigma.unwrap_or(1.4);
 
     let input = DMatrixView::from_slice(
         image.as_raw(),
-        image.height() as usize,
         image.width() as usize,
+        image.height() as usize,
+    );
+
+    // Transposed shape, as GrayImage is row-major while the matrix is col. major
+    assert_eq!(
+        (image.height() as usize, image.width() as usize),
+        (input.ncols(), input.nrows())
     );
     let converted = gaussian_blur_try_2_nalgebra::<u8>(input.as_view(), sigma);
     let converted_view = converted.as_view();
@@ -215,7 +221,7 @@ pub fn non_maximum_suppression(
 
 /// Filter out edges with the thresholds.
 /// Non-recursive breadth-first search.
-fn hysteresis(input: &DMatrix<EdgeClassification>) -> DMatrix<EdgeClassification> {
+fn hysteresis(input: &DMatrix<EdgeClassification>) -> (DMatrix<EdgeClassification>, usize) {
     // Init output image as all black.
     let mut out = DMatrix::<EdgeClassification>::repeat(
         input.nrows(),
@@ -225,6 +231,7 @@ fn hysteresis(input: &DMatrix<EdgeClassification>) -> DMatrix<EdgeClassification
     // Stack. Possible optimization: Use previously allocated memory, i.e. gx.
     let mut edges = Vec::with_capacity(out.len() / 2_usize);
 
+    let mut counter = 0;
     for y in 1..input.ncols() - 1 {
         for x in 1..input.nrows() - 1 {
             let inp_pix = input[(x, y)];
@@ -234,6 +241,7 @@ fn hysteresis(input: &DMatrix<EdgeClassification>) -> DMatrix<EdgeClassification
                 && out_pix == EdgeClassification::NoConfidence
             {
                 out[(x, y)] = EdgeClassification::HighConfidence;
+                counter += 1;
                 edges.push((x, y));
                 // Track neighbors until no neighbor is >= low_thresh.
                 while let Some((nx, ny)) = edges.pop() {
@@ -254,6 +262,7 @@ fn hysteresis(input: &DMatrix<EdgeClassification>) -> DMatrix<EdgeClassification
                         {
                             out[(neighbor_idx.0, neighbor_idx.1)] =
                                 EdgeClassification::HighConfidence;
+                            counter += 1;
                             edges.push((neighbor_idx.0, neighbor_idx.1));
                         }
                     }
@@ -261,7 +270,7 @@ fn hysteresis(input: &DMatrix<EdgeClassification>) -> DMatrix<EdgeClassification
             }
         }
     }
-    out
+    (out, counter)
 }
 
 #[cfg(test)]
@@ -269,8 +278,61 @@ mod tests {
 
     use std::i16;
 
-    use super::{approximate_direction_integer_only, OctantWithDegName};
+    use image::GrayImage;
+    use types::ycbcr422_image::YCbCr422Image;
 
+    use crate::{get_edge_source_image, EdgeSourceType};
+
+    use super::{approximate_direction_integer_only, canny, OctantWithDegName};
+
+    fn load_test_image() -> YCbCr422Image {
+        let crate_dir = env!("CARGO_MANIFEST_DIR");
+        YCbCr422Image::load_from_rgb_file(format!("{crate_dir}/test_data/center_circle_webots.png"))
+            .unwrap()
+    }
+
+    #[test]
+    fn test_overall() {
+        let edges_source = get_edge_source_image(&load_test_image(), EdgeSourceType::LumaOfYCbCr);
+        let (transposed_canny_image_matrix, _point_count) =
+            canny(&edges_source, Some(1.4), 20.0, 50.0);
+
+        assert_eq!(
+            (
+                transposed_canny_image_matrix.nrows(),
+                transposed_canny_image_matrix.ncols()
+            ),
+            (
+                edges_source.width() as usize,
+                edges_source.height() as usize,
+            )
+        );
+
+        let mut new_image = GrayImage::new(edges_source.width(), edges_source.height());
+        transposed_canny_image_matrix
+            .iter()
+            .enumerate()
+            .for_each(|(index, pixel)| {
+                let (x, y) = transposed_canny_image_matrix.vector_to_matrix_index(index);
+
+                assert!(
+                    x < edges_source.width() as usize && y < edges_source.height() as usize,
+                    "Starting point x:{x} y:{y}, index: {index}, shape: {:?}",
+                    (
+                        transposed_canny_image_matrix.nrows(),
+                        transposed_canny_image_matrix.ncols()
+                    )
+                );
+
+                new_image[(x as u32, y as u32)][0] = *pixel as u8; //(pixel >> 15).abs() as u8;
+            });
+        new_image
+            .save(format!(
+                "{}/test_data/output/canny_ours.png",
+                env!("CARGO_MANIFEST_DIR")
+            ))
+            .unwrap();
+    }
     #[test]
     fn non_maximum_suppression_direction_approximation() {
         let bounds = [

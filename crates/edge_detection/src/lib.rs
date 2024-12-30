@@ -48,24 +48,24 @@ pub fn get_edges_canny(
 ) -> Vec<Point2<Pixel>> {
     let edges_source = get_edge_source_image(image, source_channel);
 
-    let canny_image_matrix = canny(
+    let (canny_image_matrix, point_count) = canny(
         &edges_source,
         Some(gaussian_sigma),
         canny_low_threshold,
         canny_high_threshold,
     );
+
+    let mut points = Vec::with_capacity(point_count);
     canny_image_matrix
-        .iter()
+        .into_iter()
         .enumerate()
-        .filter_map(|(index, value)| {
-            let (x, y) = canny_image_matrix.vector_to_matrix_index(index);
-            if *value >= EdgeClassification::LowConfidence {
-                Some(point![x as f32, y as f32])
-            } else {
-                None
+        .for_each(|(index, &value)| {
+            if value >= EdgeClassification::LowConfidence {
+                let (x, y) = canny_image_matrix.vector_to_matrix_index(index);
+                points.push(point![x as f32, y as f32]);
             }
-        })
-        .collect()
+        });
+    points
 }
 
 pub fn get_edge_source_image(image: &YCbCr422Image, source_type: EdgeSourceType) -> GrayImage {

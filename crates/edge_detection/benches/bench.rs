@@ -384,7 +384,7 @@ mod sobel_operator {
                     transposed_matrix_view,
                     &[1; 3],
                     &[2; 3],
-                    1,
+                    NonZeroU32::new(1).unwrap(),
                     piecewise_2d_convolution_mut::<3, _, _, _>,
                 );
             }
@@ -395,7 +395,7 @@ mod sobel_operator {
                     transposed_matrix_view,
                     &[1; 5],
                     &[2; 5],
-                    1,
+                    NonZeroU32::new(1).unwrap(),
                     piecewise_2d_convolution_mut::<5, _, _, _>,
                 );
             }
@@ -406,7 +406,7 @@ mod sobel_operator {
                     transposed_matrix_view,
                     &[1; 7],
                     &[2; 7],
-                    1,
+                    NonZeroU32::new(1).unwrap(),
                     piecewise_2d_convolution_mut::<7, _, _, _>,
                 );
             }
@@ -417,7 +417,7 @@ mod sobel_operator {
                     transposed_matrix_view,
                     &[1; 11],
                     &[2; 11],
-                    1,
+                    NonZeroU32::new(1).unwrap(),
                     piecewise_2d_convolution_mut::<11, _, _, _>,
                 );
             }
@@ -428,7 +428,7 @@ mod sobel_operator {
                     transposed_matrix_view,
                     &[1; 21],
                     &[2; 21],
-                    1,
+                    NonZeroU32::new(1).unwrap(),
                     piecewise_2d_convolution_mut::<21, _, _, _>,
                 );
             }
@@ -452,7 +452,7 @@ mod sobel_operator {
                 &transposed_matrix,
                 mat_len,
                 &[1; 3],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_vertical_convolution_mut::<3, _, _, _>,
             ),
             5 => _bench_with_kernel_size(
@@ -461,7 +461,7 @@ mod sobel_operator {
                 &transposed_matrix,
                 mat_len,
                 &[1; 5],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_vertical_convolution_mut::<5, _, _, _>,
             ),
             7 => _bench_with_kernel_size(
@@ -470,7 +470,7 @@ mod sobel_operator {
                 &transposed_matrix,
                 mat_len,
                 &[1; 7],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_vertical_convolution_mut::<7, _, _, _>,
             ),
             11 => _bench_with_kernel_size(
@@ -479,7 +479,7 @@ mod sobel_operator {
                 &transposed_matrix,
                 mat_len,
                 &[1; 11],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_vertical_convolution_mut::<11, _, _, _>,
             ),
             13 => _bench_with_kernel_size(
@@ -488,7 +488,7 @@ mod sobel_operator {
                 &transposed_matrix,
                 mat_len,
                 &[1; 13],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_vertical_convolution_mut::<13, _, _, _>,
             ),
             21 => _bench_with_kernel_size(
@@ -497,7 +497,7 @@ mod sobel_operator {
                 &transposed_matrix,
                 mat_len,
                 &[1; 21],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_vertical_convolution_mut::<21, _, _, _>,
             ),
             _ => panic!("Unsupported kernel size"),
@@ -519,7 +519,7 @@ mod sobel_operator {
                 transposed_matrix_view,
                 mat_len,
                 &[1; 3],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_horizontal_convolution_mut::<3, u8, i32, i16>,
             ),
             5 => _bench_with_kernel_size(
@@ -528,7 +528,7 @@ mod sobel_operator {
                 transposed_matrix_view,
                 mat_len,
                 &[1; 5],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_horizontal_convolution_mut::<5, u8, i32, i16>,
             ),
             7 => _bench_with_kernel_size(
@@ -537,7 +537,7 @@ mod sobel_operator {
                 transposed_matrix_view,
                 mat_len,
                 &[1; 7],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_horizontal_convolution_mut::<7, u8, i32, i16>,
             ),
             11 => _bench_with_kernel_size(
@@ -546,7 +546,7 @@ mod sobel_operator {
                 transposed_matrix_view,
                 mat_len,
                 &[1; 11],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_horizontal_convolution_mut::<11, u8, i32, i16>,
             ),
             13 => _bench_with_kernel_size(
@@ -555,7 +555,7 @@ mod sobel_operator {
                 transposed_matrix_view,
                 mat_len,
                 &[1; 13],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_horizontal_convolution_mut::<13, u8, i32, i16>,
             ),
             21 => _bench_with_kernel_size(
@@ -564,7 +564,7 @@ mod sobel_operator {
                 transposed_matrix_view,
                 mat_len,
                 &[1; 21],
-                1,
+                NonZeroU32::new(1).unwrap(),
                 piecewise_horizontal_convolution_mut::<21, u8, i32, i16>,
             ),
             _ => panic!("Unsupported kernel size"),
