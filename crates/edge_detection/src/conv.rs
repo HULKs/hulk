@@ -1,6 +1,9 @@
 use itertools::{izip, Itertools};
 use num_traits::{AsPrimitive, Bounded, PrimInt, Signed};
-use simba::scalar::{SubsetOf, SupersetOf};
+use simba::{
+    scalar::{SubsetOf, SupersetOf},
+    simd::SimdValue,
+};
 use std::{
     fmt::{Debug, Display},
     iter::Sum,
@@ -8,7 +11,7 @@ use std::{
     ops::{Add, AddAssign, DivAssign, Mul, MulAssign},
 };
 
-use nalgebra::{ClosedMul, DMatrix, DMatrixView, SMatrix, SVector, Scalar, SimdValue};
+use nalgebra::{ClosedMul, DMatrix, DMatrixView, SMatrix, SVector, Scalar};
 
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: DMatrixView<P>,
@@ -84,16 +87,7 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, MyKtype, OutputType
     let transposed_image_slice = input_mat_copy.as_slice();
 
     // scale_value.checked_next_power_of_two()
-    let divisor: MyKtype = scale_value.get().as_();
-    let should_divide_or_shift = divisor > MyKtype::one();
-    let bit_shift_amount = if should_divide_or_shift {
-        scale_value
-            .checked_next_power_of_two()
-            .unwrap()
-            .trailing_zeros() as usize
-    } else {
-        0
-    };
+    let bit_shift_amount = calculate_divisor(scale_value);
 
     let kernel_slice = kernel.as_slice();
     for column_index in kernel_half..image_cols - kernel_half {
@@ -169,18 +163,7 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
     let min_allowed_sum: KType = OutputType::min_value().as_();
 
     let input_mat_copy = transposed_image.map(|v| v.as_());
-
-    let divisor: KType = scale_value.get().as_();
-    let should_divide_or_shift = divisor > KType::one();
-
-    let bit_shift_amount = if should_divide_or_shift {
-        scale_value
-            .checked_next_power_of_two()
-            .unwrap()
-            .trailing_zeros() as usize
-    } else {
-        0
-    };
+    let bit_shift_amount = calculate_divisor(scale_value);
 
     for column_index in kernel_half..ncols - kernel_half {
         let column_top_left = column_index - kernel_half;
@@ -215,7 +198,7 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
     transposed_image: DMatrixView<InputType>,
     dst: &mut [OutputType],
     piecewise_kernel: &[KType; KSIZE],
-    _scale_value: usize,
+    scale_value: NonZeroU32,
 ) where
     InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar + SubsetOf<KType> + Sized,
     KType: PrimInt
@@ -238,6 +221,8 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
 
     let nrows = transposed_image.nrows();
     let col_size_without_kernel_size = nrows - (kernel_half * 2);
+
+    let bit_shift_amount = calculate_divisor(scale_value);
 
     // Use this to cast the input data temporarily
     let mut temp_col = vec![KType::zero(); nrows];
@@ -270,6 +255,7 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
                         .zip(src_col_piece)
                         .map(|(k_cell, src_cell)| *src_cell * *k_cell)
                         .sum::<KType>()
+                        .shr(bit_shift_amount)
                         .clamp(min_allowed_sum, max_allowed_sum)
                         .as_();
                 });
@@ -283,7 +269,7 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     transposed_image: &DMatrix<InputType>,
     dst: &mut [OutputType],
     piecewise_kernel: &[KType; KSIZE],
-    _scale_value: usize,
+    scale_value: NonZeroU32,
 ) where
     InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar + Display + SubsetOf<KType>,
     KType: PrimInt + AddAssign + AsPrimitive<OutputType> + Scalar + ClosedMul + SimdValue + Sum,
@@ -295,6 +281,8 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
 
     let ncols = transposed_image.ncols();
     let nrows = transposed_image.nrows();
+
+    let bit_shift_amount = calculate_divisor(scale_value);
 
     const COLUMN_CHUNK_SIZE: usize = 8;
     // Handle remainder
@@ -336,11 +324,14 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
                     .zip(acccum.iter())
                     .for_each(|(dst, acc)| {
                         // TODO bit shifting for scaling
-                        *dst = acc.clamp(&min_allowed_sum, &max_allowed_sum).as_()
+                        *dst = acc
+                            .shr(bit_shift_amount)
+                            .clamp(min_allowed_sum, max_allowed_sum)
+                            .as_()
                     });
             });
         // Handle remainder from chunking
-        if chunking_remainder != 0 {
+        if chunking_remainder != 0 && chunking_remainder >= kernel_half {
             //
             let mut accum = vec![KType::zero(); chunking_remainder]; // Vec::<KType>::with_capacity(COLUMN_CHUNK_SIZE); //[KType::zero(); COLUMN_CHUNK_SIZE];
             let flat_remainder_range =
@@ -350,11 +341,12 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
                 chunking_remainder < COLUMN_CHUNK_SIZE,
                 "Remainder is larger than chunk size"
             );
+            assert_eq!(piecewise_kernel.len(), column_pack_slices.len());
             izip!(
                 piecewise_kernel,
                 column_pack_slices
                     .iter()
-                    .map(|c| { &c[chunking_remainder..] }),
+                    .map(|c| { &c[nrows - chunking_remainder..] }),
             )
             .for_each(|(piece, src): (&KType, &[InputType])| {
                 accum
@@ -394,7 +386,9 @@ pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, Output
     piecewise_kernel_horizontal: &[KType; KSIZE],
     piecewise_kernel_vertical: &[KType; KSIZE],
     // TODO implement
-    _scale_value: usize,
+    // _scale_value: usize,
+    scale_value: NonZeroU32,
+    // scale_value: u32,
 ) where
     InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar + SubsetOf<KType>,
     KType: PrimInt
@@ -425,7 +419,7 @@ pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, Output
         transposed_image,
         dst,
         piecewise_kernel_horizontal,
-        1,
+        scale_value,
     );
 
     // TODO see if we can avoid this allocation
@@ -433,8 +427,24 @@ pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, Output
         &DMatrix::from_column_slice(transposed_image.nrows(), transposed_image.ncols(), dst),
         dst,
         piecewise_kernel_vertical,
-        1,
+        scale_value,
     );
+}
+
+#[inline(always)]
+fn calculate_divisor(scale_value: NonZeroU32) -> usize {
+    // scale_value.checked_next_power_of_two()
+    let divisor: u32 = scale_value.get();
+    let should_divide_or_shift = divisor > 1;
+    let bit_shift_amount = if should_divide_or_shift {
+        scale_value
+            .checked_next_power_of_two()
+            .unwrap()
+            .trailing_zeros() as usize
+    } else {
+        0
+    };
+    bit_shift_amount
 }
 
 pub fn imgproc_kernel_to_matrix<const K: usize>(kernel: &[i32]) -> SMatrix<i32, K, K> {
@@ -570,14 +580,14 @@ mod tests {
             image.as_view(),
             &mut out,
             &kernel_horizontal,
-            1,
+            NonZeroU32::new(1).unwrap(),
         );
 
         piecewise_vertical_convolution_mut::<3, i16, i32, i16>(
             &DMatrix::from_column_slice(image.nrows(), image.ncols(), &out),
             &mut out,
             &kernel_vertical,
-            1,
+            NonZeroU32::new(1).unwrap(),
         );
 
         let result_view = DMatrixView::from_slice(&out, image.nrows(), image.ncols());
