@@ -1,11 +1,10 @@
-use std::iter::from_fn;
-
 use image::GrayImage;
 use nalgebra::{DMatrix, DMatrixView};
 
 use crate::{
     gaussian::gaussian_blur_try_2_nalgebra,
     sobel::{sobel_operator_horizontal, sobel_operator_vertical},
+    zip_three_slices_enumerated,
 };
 
 pub fn canny(
@@ -70,7 +69,7 @@ enum OctantWithDegName {
     FourthOctant135,
 }
 
-#[inline(always)]
+#[inline]
 fn approximate_direction_integer_only(y: i16, x: i16) -> OctantWithDegName {
     // This trick is taken from OpenCV's Canny implementation
     // The idea is to perform the tan22.5 and tan67.5 boundary calculations with integers only avoiding float calculations and atan2, etc
@@ -98,7 +97,7 @@ fn approximate_direction_integer_only(y: i16, x: i16) -> OctantWithDegName {
     let y_shifted = (abs_y) << 15;
 
     // check if the inequalities hold
-    if y_shifted < tan_22_5_mul_x || y == 0 {
+    if y == 0 || y_shifted < tan_22_5_mul_x {
         OctantWithDegName::FirstOctant0
     } else if y_shifted >= tan_67_5_mul_x {
         OctantWithDegName::ThirdOctant90
@@ -111,37 +110,6 @@ fn approximate_direction_integer_only(y: i16, x: i16) -> OctantWithDegName {
             OctantWithDegName::FourthOctant135
         }
     }
-}
-
-// Just to see if this is faster than chaining zips and enumerate
-// Update: Profiling says it is faster!
-fn zip_three_slices_enumerated<'a, T, U, V>(
-    mut slice1: &'a [T],
-    mut slice2: &'a [U],
-    mut slice3: &'a [V],
-) -> impl Iterator<Item = (usize, &'a T, &'a U, &'a V)> + 'a {
-    // unsafe {
-    assert!(slice1.len() == slice2.len() && slice2.len() == slice3.len());
-    let len = slice1.len();
-
-    let mut counter = 0;
-
-    from_fn(move || {
-        counter += 1;
-        if len == 0 {
-            None
-        } else if let ([a, _slice1 @ ..], [b, _slice2 @ ..], [c, _slice3 @ ..]) =
-            (slice1, slice2, slice3)
-        {
-            slice1 = _slice1;
-            slice2 = _slice2;
-            slice3 = _slice3;
-            Some((counter, a, b, c))
-        } else {
-            None
-        }
-    })
-    // }
 }
 
 /// Non-maximum suppression of edges.
@@ -324,7 +292,7 @@ mod tests {
                     )
                 );
 
-                new_image[(x as u32, y as u32)][0] = *pixel as u8; //(pixel >> 15).abs() as u8;
+                new_image[(x as u32, y as u32)][0] = *pixel as u8;
             });
         new_image
             .save(format!(
