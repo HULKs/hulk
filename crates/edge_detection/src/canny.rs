@@ -187,8 +187,9 @@ pub fn non_maximum_suppression(
     out
 }
 
+/// Implementation taken from imageproc with some modifications.
+/// https://github.com/image-rs/imageproc/blob/master/src/edges.rs
 /// Filter out edges with the thresholds.
-/// Non-recursive breadth-first search.
 fn hysteresis(input: &DMatrix<EdgeClassification>) -> (DMatrix<EdgeClassification>, usize) {
     // Init output image as all black.
     let mut out = DMatrix::<EdgeClassification>::repeat(
@@ -196,19 +197,29 @@ fn hysteresis(input: &DMatrix<EdgeClassification>) -> (DMatrix<EdgeClassificatio
         input.ncols(),
         EdgeClassification::NoConfidence,
     );
+    let in_slice = input.as_slice();
+    let out_slice = out.as_mut_slice();
+    let in_out_len = in_slice.len();
     // Stack. Possible optimization: Use previously allocated memory, i.e. gx.
-    let mut edges = Vec::with_capacity(out.len() / 2_usize);
+    let mut edges = Vec::with_capacity(out_slice.len() / 2_usize);
 
     let mut counter = 0;
     for y in 1..input.ncols() - 1 {
         for x in 1..input.nrows() - 1 {
-            let inp_pix = input[(x, y)];
-            let out_pix = out[(x, y)];
+            // These need profiling
+            let flat_slice_location = y * input.nrows() + x;
+            assert!(in_out_len > flat_slice_location);
+            // let inp_pix = input[(x, y)];
+            // let out_pix = out[(x, y)];
+            let inp_pix = in_slice[flat_slice_location];
+            let out_pix = &mut out_slice[flat_slice_location];
             // If the edge strength is higher than high_thresh, mark it as an edge.
             if inp_pix == EdgeClassification::HighConfidence
-                && out_pix == EdgeClassification::NoConfidence
+                && *out_pix == EdgeClassification::NoConfidence
             {
-                out[(x, y)] = EdgeClassification::HighConfidence;
+                // out[(x, y)] = EdgeClassification::HighConfidence;
+                // out_slice[flat_slice_location] = EdgeClassification::HighConfidence;
+                *out_pix = EdgeClassification::HighConfidence;
                 counter += 1;
                 edges.push((x, y));
                 // Track neighbors until no neighbor is >= low_thresh.
@@ -223,13 +234,20 @@ fn hysteresis(input: &DMatrix<EdgeClassification>) -> (DMatrix<EdgeClassificatio
                     ];
 
                     for neighbor_idx in &neighbor_indices {
-                        let in_neighbor = input[(neighbor_idx.0, neighbor_idx.1)];
-                        let out_neighbor = out[(neighbor_idx.0, neighbor_idx.1)];
+                        // These need profiling
+                        let neighbour_flat_idx = neighbor_idx.1 * input.nrows() + neighbor_idx.0;
+                        assert!(in_out_len > flat_slice_location);
+                        // let in_neighbor = input[(neighbor_idx.0, neighbor_idx.1)];
+                        // let out_neighbor = out[(neighbor_idx.0, neighbor_idx.1)];
+                        let in_neighbor = in_slice[neighbour_flat_idx];
+                        let out_neighbor = &mut out_slice[neighbour_flat_idx];
                         if in_neighbor >= EdgeClassification::LowConfidence
-                            && out_neighbor == EdgeClassification::NoConfidence
+                            && *out_neighbor == EdgeClassification::NoConfidence
                         {
-                            out[(neighbor_idx.0, neighbor_idx.1)] =
-                                EdgeClassification::HighConfidence;
+                            // out[(neighbor_idx.0, neighbor_idx.1)] =
+                            //     EdgeClassification::HighConfidence;
+                            // out_slice[neighbour_flat_idx] = EdgeClassification::HighConfidence;
+                            *out_neighbor = EdgeClassification::HighConfidence;
                             counter += 1;
                             edges.push((neighbor_idx.0, neighbor_idx.1));
                         }
