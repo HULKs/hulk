@@ -142,7 +142,6 @@ where
     )
 }
 
-
 // Just to see if this is faster than chaining zips and enumerate
 // Update: Profiling says it is faster!
 #[inline]
@@ -173,6 +172,12 @@ fn zip_three_slices_enumerated<'a, T, U, V>(
         }
     })
     // }
+}
+
+/// Why? Profiling showed that the compiler optimizes this better than directly using if KSIZE % 2 == 1 { ... }
+#[inline(always)]
+pub(crate) const fn is_ksize_odd(ksize: usize) -> bool {
+    return ksize % 2 == 1;
 }
 
 #[cfg(test)]

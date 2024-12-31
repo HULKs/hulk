@@ -3,15 +3,14 @@ use std::{
     ops::{Mul, MulAssign},
 };
 
-use coordinate_systems::Pixel;
 use imageproc::gradients::{
     horizontal_sobel as imageproc_horizontal_sobel, vertical_sobel as imageproc_vertical_sobel,
 };
-use linear_algebra::{point, Point2};
-
-use nalgebra::{DMatrix, DMatrixView, Scalar, SimdPartialOrd};
+use nalgebra::{DMatrix, DMatrixView, Scalar};
 use num_traits::{AsPrimitive, PrimInt};
-use simba::scalar::{SubsetOf, SupersetOf};
+
+use coordinate_systems::Pixel;
+use linear_algebra::{point, Point2};
 use types::ycbcr422_image::YCbCr422Image;
 
 use crate::{
@@ -24,9 +23,8 @@ use crate::{
 #[inline]
 pub fn sobel_operator_vertical<T>(image_view_transposed: DMatrixView<T>) -> DMatrix<i16>
 where
-    T: AsPrimitive<i32> + SubsetOf<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
+    T: AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign,
     i16: From<T>,
-    i32: SupersetOf<T>,
 {
     let piecewise_kernel_horizontal = [1, 2, 1];
     let piecewise_kernel_vertical = [-1, 0, 1];
@@ -46,9 +44,8 @@ where
 #[inline]
 pub fn sobel_operator_horizontal<T>(image_view_transposed: DMatrixView<T>) -> DMatrix<i16>
 where
-    T: AsPrimitive<i32> + SubsetOf<i32> + PrimInt + Scalar + Mul + MulAssign + SimdPartialOrd,
+    T: AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign,
     i16: From<T>,
-    i32: SupersetOf<T>,
 {
     let piecewise_kernel_horizontal = [-1, 0, 1];
     let piecewise_kernel_vertical = [1, 2, 1];
