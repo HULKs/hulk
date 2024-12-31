@@ -47,16 +47,15 @@ pub enum EdgeClassification {
 }
 
 // TODO investigate a way to improve this, it appears on profiling.
-fn gradient_magnitude(gx: i16, gy: i16) -> u16 {
-    // (gx as u32).pow(2) + (gy as u32).pow(2)
-    ((gx as f32).powi(2) + (gy as f32).powi(2)).sqrt() as u16
+fn gradient_magnitude(gx: i16, gy: i16) -> u32 {
+    (gx.abs() as u32).pow(2) + (gy.abs() as u32).pow(2)
 }
 
 #[inline(always)]
 pub(crate) fn get_gradient_magnitude(
     gradients_x: &DMatrix<i16>,
     gradients_y: &DMatrix<i16>,
-) -> DMatrix<u16> {
+) -> DMatrix<u32> {
     gradients_x.zip_map(gradients_y, gradient_magnitude)
 }
 
@@ -122,6 +121,7 @@ pub fn non_maximum_suppression(
     lower_threshold: u16,
     upper_threshold: u16,
 ) -> DMatrix<EdgeClassification> {
+    // TODO try doing this in chunks.
     let gradients_magnitude = get_gradient_magnitude(gradients_x, gradients_y);
 
     let gradients_x_slice = gradients_x.as_slice();
@@ -145,14 +145,19 @@ pub fn non_maximum_suppression(
     let gys = &gradients_y_slice[start..end];
     let fs = &flat_slice[start..end];
 
+    let lower_threshold_squared = (lower_threshold as u32).pow(2);
+    let upper_threshold_squared = (upper_threshold as u32).pow(2);
+
     zip_three_slices_enumerated(fs, gxs, gys).for_each(
         |(previous_column_point, &pixel, gx, gy)| {
             let index = previous_column_point + nrows;
 
             let next_column_point = index + nrows;
 
-            let (pixel_is_larger_than_lowest_threshold, pixel_is_larger_than_higher_threshold) =
-                (pixel > lower_threshold, pixel > upper_threshold);
+            let (pixel_is_larger_than_lowest_threshold, pixel_is_larger_than_higher_threshold) = (
+                pixel > lower_threshold_squared,
+                pixel > upper_threshold_squared,
+            );
 
             let pixel_is_the_largest = pixel_is_larger_than_lowest_threshold
                 && match approximate_direction_integer_only(*gy, *gx) {
