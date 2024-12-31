@@ -1,19 +1,16 @@
 use itertools::{izip, Itertools};
-use num_traits::{AsPrimitive, Bounded, PrimInt, Signed};
-use simba::{
-    scalar::{SubsetOf, SupersetOf},
-    simd::SimdValue,
-};
+use num_traits::{AsPrimitive, Bounded, PrimInt};
+
 use std::{
     fmt::{Debug, Display},
     iter::Sum,
     num::NonZeroU32,
-    ops::{Add, AddAssign, DivAssign, Mul, MulAssign},
+    ops::{AddAssign, MulAssign},
 };
 
-use nalgebra::{ClosedMul, DMatrix, DMatrixView, SMatrix, SVector, Scalar};
+use nalgebra::{ClosedMul, DMatrix, DMatrixView, SMatrix, Scalar};
 
-use crate::zip_three_slices_enumerated;
+use crate::is_ksize_odd;
 
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: DMatrixView<P>,
@@ -21,24 +18,9 @@ pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     scale_value: NonZeroU32,
 ) -> DMatrix<S>
 where
-    P: PrimInt + AsPrimitive<KType> + Scalar + Mul + MulAssign + Add,
-    KType: PrimInt
-        + AsPrimitive<S>
-        + Scalar
-        + AddAssign
-        + ClosedMul
-        + Signed
-        + Sum<KType>
-        + SupersetOf<P>,
-    S: Into<KType>
-        + PrimInt
-        + AsPrimitive<KType>
-        + Scalar
-        + Debug
-        + Bounded
-        + AddAssign
-        + DivAssign,
-    u32: AsPrimitive<KType>,
+    P: PrimInt + AsPrimitive<KType> + Scalar,
+    KType: PrimInt + AsPrimitive<S> + Scalar + AddAssign + ClosedMul + Sum<KType>,
+    S: PrimInt + AsPrimitive<KType> + Scalar,
 {
     let (image_rows, image_cols) = image.shape();
 
@@ -60,17 +42,9 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, MyKtype, OutputType
     kernel: SMatrix<MyKtype, KSIZE, KSIZE>,
     scale_value: NonZeroU32,
 ) where
-    InputType: AsPrimitive<MyKtype> + PrimInt + Scalar,
-    MyKtype: PrimInt
-        + Scalar
-        + AddAssign
-        + AsPrimitive<OutputType>
-        + MulAssign
-        + SupersetOf<InputType>
-        + Sum<MyKtype>,
-
-    OutputType: AsPrimitive<MyKtype> + PrimInt + Sized + Debug + Bounded,
-    u32: AsPrimitive<MyKtype>,
+    InputType: PrimInt + AsPrimitive<MyKtype> + Scalar,
+    MyKtype: PrimInt + AsPrimitive<OutputType> + Scalar + AddAssign + MulAssign + Sum<MyKtype>,
+    OutputType: PrimInt + AsPrimitive<MyKtype> + Debug,
 {
     assert!(
         dst.len() >= transposed_image.len(),
@@ -82,8 +56,8 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, MyKtype, OutputType
     let (image_rows, image_cols) = transposed_image.shape();
     let kernel_half = KSIZE / 2;
 
-    // let max_allowed_sum: MyKtype = OutputType::max_value().as_();
-    // let min_allowed_sum: MyKtype = OutputType::min_value().as_();
+    let max_allowed_sum: MyKtype = OutputType::max_value().as_();
+    let min_allowed_sum: MyKtype = OutputType::min_value().as_();
 
     let input_mat_copy = transposed_image.map(|v| v.as_());
     let transposed_image_slice = input_mat_copy.as_slice();
@@ -95,39 +69,27 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, MyKtype, OutputType
     for column_index in kernel_half..image_cols - kernel_half {
         let column_top_left = column_index - kernel_half;
 
-        // let neighbour_columns = (column_top_left..column_top_left + KSIZE)
-        //     .map(|c| input_mat_copy.column(c))
-        //     .collect::<Vec<_>>();
-
         dst[column_index * image_rows + kernel_half..(column_index + 1) * image_rows - kernel_half]
             .iter_mut()
             .enumerate()
             .for_each(|(i_top_left, dst_value)| {
-                // .for_each(|dst_value| {
-                // Semi-smart
-                // let mut sum = MyKtype::zero();
-                // for kj in 0..KSIZE {
-                //     let ko = kj * KSIZE;
-                //     let column_begin = (kj + column_top_left) * image_rows;
-                //     for ki in 0..KSIZE {
-                //         sum += transposed_image_slice[ki + i_top_left + column_begin]
-                //             * kernel_slice[ki + ko];
-                //     }
-                // }
-
                 // TODO find a way to flatten this?
                 *dst_value = (0..KSIZE)
                     .map(move |kj| {
-                        // TODO optimise this
                         let ko = kj * KSIZE;
                         let column_begin_flat = ((kj + column_top_left) * image_rows) + i_top_left;
-                        let vs =
+                        let column_slice =
                             &transposed_image_slice[column_begin_flat..column_begin_flat + KSIZE];
-                        let ks = &kernel_slice[ko..ko + KSIZE];
-                        ks.iter().zip(vs).map(|(&k, &v)| k * v).sum::<MyKtype>()
+                        let kernel_column_slice = &kernel_slice[ko..ko + KSIZE];
+                        kernel_column_slice
+                            .iter()
+                            .zip(column_slice)
+                            .map(|(&k, &v)| k * v)
+                            .sum::<MyKtype>()
                     })
                     .sum::<MyKtype>()
                     .shr(bit_shift_amount)
+                    .clamp(min_allowed_sum, max_allowed_sum)
                     .as_();
             });
     }
@@ -139,16 +101,9 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
     kernel: SMatrix<KType, KSIZE, KSIZE>,
     scale_value: NonZeroU32,
 ) where
-    InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar,
-    KType: PrimInt
-        + AsPrimitive<OutputType>
-        + SupersetOf<InputType>
-        + Scalar
-        + AddAssign
-        + ClosedMul
-        + Sum,
-    OutputType: AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign + DivAssign,
-    u32: AsPrimitive<KType>,
+    InputType: PrimInt + AsPrimitive<KType> + Scalar,
+    KType: PrimInt + AsPrimitive<OutputType> + Scalar + AddAssign + ClosedMul + Sum,
+    OutputType: PrimInt + AsPrimitive<KType> + Debug,
 {
     assert!(
         dst_as_slice.len() >= transposed_image.len(),
@@ -202,17 +157,9 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
     piecewise_kernel: &[KType; KSIZE],
     scale_value: NonZeroU32,
 ) where
-    InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar + SubsetOf<KType> + Sized,
-    KType: PrimInt
-        + AddAssign
-        + AsPrimitive<OutputType>
-        + Scalar
-        + ClosedMul
-        + Display
-        + SimdValue<Element = KType, SimdBool = bool>
-        + Sum,
-    OutputType:
-        AsPrimitive<KType> + PrimInt + Debug + Bounded + AddAssign + Display + SubsetOf<KType>,
+    InputType: AsPrimitive<KType> + PrimInt,
+    KType: PrimInt + AddAssign + AsPrimitive<OutputType> + Sum,
+    OutputType: AsPrimitive<KType> + PrimInt + AddAssign,
 {
     let kernel_half = KSIZE / 2;
 
@@ -244,7 +191,6 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
                 .iter_mut()
                 .zip(temp_col.windows(KSIZE))
                 .for_each(|(dst, src_col_piece)| {
-                    // Non chunked basic version with windowing:
                     assert!(
                         src_col_piece.len() == piecewise_kernel.len(),
                         "src_col_piece.len() == KSIZE"
@@ -259,15 +205,7 @@ pub fn piecewise_horizontal_convolution_mut<const KSIZE: usize, InputType, KType
                         .clamp(min_allowed_sum, max_allowed_sum)
                         .as_();
                 });
-
-            // let mut out_chunks_remainder = dst[out_non_chunked_end..].iter_mut();
         });
-}
-
-/// Why? Profiling showed that the compiler optimizes this better than directly using if KSIZE % 2 == 1 { ... }
-#[inline(always)]
-const fn is_ksize_odd(ksize: usize) -> bool {
-    return ksize % 2 == 1;
 }
 
 #[inline]
@@ -277,15 +215,14 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     piecewise_kernel: &[KType; KSIZE],
     scale_value: NonZeroU32,
 ) where
-    InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar + Display + SubsetOf<KType>,
-    KType: PrimInt + AddAssign + AsPrimitive<OutputType> + Scalar + ClosedMul + SimdValue + Sum,
-    OutputType: AsPrimitive<KType> + SubsetOf<KType> + PrimInt + Debug + Bounded + AddAssign,
+    InputType: PrimInt + AsPrimitive<KType>,
+    KType: PrimInt + AsPrimitive<OutputType> + AddAssign + ClosedMul + Sum,
+    OutputType: PrimInt + AsPrimitive<KType>,
 {
     let kernel_half = KSIZE / 2;
     let max_allowed_sum: KType = OutputType::max_value().as_();
     let min_allowed_sum: KType = OutputType::min_value().as_();
 
-    // the current implementation doesn't like an if-branch
     let is_symmetric = is_kernel_symmetric(piecewise_kernel);
 
     let ncols = transposed_image.ncols();
@@ -294,6 +231,7 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     let bit_shift_amount = calculate_divisor(scale_value);
 
     const COLUMN_CHUNK_SIZE: usize = 16;
+
     // Handle remainder
     let chunking_remainder = nrows % COLUMN_CHUNK_SIZE;
     let image_slice = transposed_image.as_slice();
@@ -318,30 +256,27 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
                 let col_chunk_start = ci * COLUMN_CHUNK_SIZE;
                 let col_chunk_end = (ci + 1) * COLUMN_CHUNK_SIZE;
 
+                let mut accumulator = [KType::zero(); COLUMN_CHUNK_SIZE];
                 if !is_symmetric {
-                    let mut acccum = SVector::<KType, COLUMN_CHUNK_SIZE>::zeros();
                     piecewise_kernel
                         .iter()
                         .zip(column_pack_slices.iter())
                         .for_each(|(piece, input_column)| {
-                            acccum += SVector::<KType, COLUMN_CHUNK_SIZE>::from_iterator(
-                                input_column[col_chunk_start..col_chunk_end]
-                                    .iter()
-                                    .map(|v| v.as_()),
-                            ) * *piece
+                            accumulator
+                                .iter_mut()
+                                .zip(input_column[col_chunk_start..col_chunk_end].iter())
+                                .for_each(|(acc, v)| *acc += v.as_() * *piece);
                         });
                     dst_chunk
                         .iter_mut()
-                        .zip(acccum.iter())
+                        .zip(accumulator.iter())
                         .for_each(|(dst, acc)| {
-                            // TODO bit shifting for scaling
                             *dst = acc
                                 .shr(bit_shift_amount)
                                 .clamp(min_allowed_sum, max_allowed_sum)
                                 .as_()
                         });
                 } else {
-                    let mut accumulator = [KType::zero(); COLUMN_CHUNK_SIZE];
                     // middle (applicable only for odd cases)
                     if is_ksize_odd(KSIZE) {
                         accumulator
@@ -403,41 +338,26 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
                 .iter()
                 .zip(dst[flat_remainder_range].iter_mut())
                 .for_each(|(acc_dst, dst)| {
-                    // TODO bit shifting for scaling
-                    *dst = acc_dst.as_()
+                    *dst = acc_dst
+                        .shr(bit_shift_amount)
+                        .clamp(min_allowed_sum, max_allowed_sum)
+                        .as_();
                 });
         }
     }
 }
 
-#[inline]
 pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: DMatrixView<InputType>,
     dst: &mut [OutputType],
     piecewise_kernel_horizontal: &[KType; KSIZE],
     piecewise_kernel_vertical: &[KType; KSIZE],
-    // TODO implement
-    // _scale_value: usize,
+
     scale_value: NonZeroU32,
-    // scale_value: u32,
 ) where
-    InputType: AsPrimitive<KType> + PrimInt + Mul + MulAssign + Scalar + SubsetOf<KType>,
-    KType: PrimInt
-        + AddAssign
-        + AsPrimitive<OutputType>
-        + Scalar
-        + ClosedMul
-        + Display
-        + SimdValue<Element = KType, SimdBool = bool>
-        + Sum,
-    OutputType: AsPrimitive<KType>
-        + PrimInt
-        + Debug
-        + Bounded
-        + AddAssign
-        + MulAssign
-        + Display
-        + SubsetOf<KType>,
+    InputType: PrimInt + AsPrimitive<KType> + Debug,
+    KType: PrimInt + AsPrimitive<OutputType> + AddAssign + ClosedMul + Sum,
+    OutputType: PrimInt + AsPrimitive<KType> + Debug + Bounded + AddAssign + Display,
 {
     assert!(
         dst.len() >= transposed_image.len(),
@@ -478,10 +398,6 @@ fn calculate_divisor(scale_value: NonZeroU32) -> usize {
     bit_shift_amount
 }
 
-pub fn imgproc_kernel_to_matrix<const K: usize>(kernel: &[i32]) -> SMatrix<i32, K, K> {
-    SMatrix::<i32, K, K>::from_iterator(kernel.iter().copied())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -490,6 +406,10 @@ mod tests {
 
     const NROWS: usize = 10;
     const NCOLS: usize = 5;
+
+    fn imgproc_kernel_to_matrix<const K: usize>(kernel: &[i32]) -> SMatrix<i32, K, K> {
+        SMatrix::<i32, K, K>::from_iterator(kernel.iter().copied())
+    }
 
     fn get_image() -> DMatrix<i16> {
         let mut image = DMatrix::<i16>::zeros(NROWS, NCOLS);

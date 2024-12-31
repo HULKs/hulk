@@ -1,6 +1,5 @@
 use core::f32;
 use num_traits::{AsPrimitive, PrimInt};
-use simba::scalar::{SubsetOf, SupersetOf};
 use std::{
     num::NonZeroU32,
     ops::{Div, Mul, MulAssign},
@@ -94,8 +93,8 @@ pub fn gaussian_blur_try_2_nalgebra<InputType>(
     sigma: f32,
 ) -> DMatrix<OutputType>
 where
-    InputType: AsPrimitive<KernelType> + PrimInt + Mul + MulAssign + Scalar + SubsetOf<KernelType>,
-    KernelType: PrimInt + SupersetOf<InputType>,
+    InputType: PrimInt + AsPrimitive<KernelType> + Scalar,
+    KernelType: PrimInt,
     // OutputType: Into<KernelType>,
 {
     // Check if this method is accurate.
@@ -133,8 +132,7 @@ pub fn gaussian_blur_box_filter_nalgebra<InputType>(
     sigma: f32,
 ) -> DMatrix<OutputType>
 where
-    InputType: Into<KernelType> + AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
-    KernelType: SupersetOf<InputType>,
+    InputType: AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
 {
     // average sigma = sqrt( (w**2 -1) / 12 ): w is box width, n is passes
 
@@ -161,8 +159,8 @@ fn box_filter_direct_convolve<const KSIZE: usize, InputType>(
     passes: usize,
 ) -> DMatrix<OutputType>
 where
-    InputType: Into<KernelType> + AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
-    KernelType: PrimInt + SupersetOf<InputType>,
+    InputType: AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
+    KernelType: PrimInt,
     OutputType: Into<KernelType>,
 {
     // let scale_value = (KSIZE as OutputType).pow(2);
