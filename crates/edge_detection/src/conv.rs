@@ -28,9 +28,9 @@ where
 
     // direct_convolution_mut scales well while direct_convolution_mut_try_again is great for small sized kernels
     if KSIZE > 5 {
-        direct_convolution_mut(image, result.as_mut_slice(), kernel.clone(), scale_value);
+        direct_convolution_mut(image, result.as_mut_slice(), *kernel, scale_value);
     } else {
-        direct_convolution_mut_try_again(image, result.as_mut_slice(), kernel.clone(), scale_value);
+        direct_convolution_mut_try_again(image, result.as_mut_slice(), *kernel, scale_value);
     }
     result
 }
@@ -383,25 +383,24 @@ pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, Output
 }
 
 #[inline(always)]
-fn calculate_divisor(scale_value: NonZeroU32) -> usize {
+const fn calculate_divisor(scale_value: NonZeroU32) -> usize {
     // scale_value.checked_next_power_of_two()
     let divisor: u32 = scale_value.get();
     let should_divide_or_shift = divisor > 1;
-    let bit_shift_amount = if should_divide_or_shift {
+    if should_divide_or_shift {
         scale_value
             .checked_next_power_of_two()
             .unwrap()
             .trailing_zeros() as usize
     } else {
         0
-    };
-    bit_shift_amount
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use imageproc::gradients::HORIZONTAL_SOBEL;
+    use imageproc::gradients::{HORIZONTAL_SOBEL, VERTICAL_SOBEL};
     use nalgebra::{DMatrix, DMatrixView};
 
     const NROWS: usize = 10;
@@ -466,49 +465,58 @@ mod tests {
         let nrows = image.nrows();
         let ncols = image.ncols();
 
-        // Since these operations assume the matrix is transposed, the kernel also has to be swapped
-        let kernel = imgproc_kernel_to_matrix(&HORIZONTAL_SOBEL);
+        for (name, kernel_raw, expected_raw) in [
+            (
+                "horizonal sobel",
+                HORIZONTAL_SOBEL,
+                EXPECTED_SOBEL_HORIZONTAL_OUT,
+            ),
+            (
+                "vertical sobel",
+                VERTICAL_SOBEL,
+                EXPECTED_SOBEL_VERTICAL_OUT,
+            ),
+        ]
+        .iter()
+        {
+            // taken via OpenCV
+            let expected_full_result =
+                DMatrix::<i16>::from_row_slice(NROWS, NCOLS, expected_raw.as_flattened());
+            // Since these operations assume the matrix is transposed, the kernel also has to be swapped
+            let kernel = imgproc_kernel_to_matrix(kernel_raw);
 
-        let result = direct_convolution::<3, i16, i32, i16>(
-            image.as_view(),
-            &kernel,
-            NonZeroU32::new(1).unwrap(),
-        );
+            let result = direct_convolution::<3, i16, i32, i16>(
+                image.as_view(),
+                &kernel,
+                NonZeroU32::new(1).unwrap(),
+            );
 
-        // taken via OpenCV
-        let expected_horizontal_full_result = DMatrix::<i16>::from_row_slice(
-            NROWS,
-            NCOLS,
-            EXPECTED_SOBEL_HORIZONTAL_OUT.as_flattened(),
-        );
+            let result_subview = result.view((1, 1), (nrows - 2, ncols - 2)).clone_owned();
+            let expected_subview = expected_full_result
+                .view((1, 1), (nrows - 2, ncols - 2))
+                .clone_owned();
 
-        let result_subview = result.view((1, 1), (nrows - 2, ncols - 2)).clone_owned();
-        let expected_subview = expected_horizontal_full_result
-            .view((1, 1), (nrows - 2, ncols - 2))
-            .clone_owned();
-        // assert!(false, "{:?}\n{:?}", image, result);
-        assert_eq!(
-            result_subview, expected_subview,
-            "The sub-views of the results should match! {} {}",
-            result_subview, expected_subview
-        );
+            assert_eq!(
+                result_subview, expected_subview,
+                "{name}-> The sub-views of the results should match! {result_subview} {expected_subview}"
+            );
 
-        let mut fast_result = DMatrix::<i16>::zeros(nrows, ncols);
+            let mut fast_result = DMatrix::<i16>::zeros(nrows, ncols);
 
-        direct_convolution_mut::<3, i16, i32, i16>(
-            image.as_view(),
-            &mut fast_result.as_mut_slice(),
-            kernel,
-            NonZeroU32::new(1).unwrap(),
-        );
-        let fast_result_subview = fast_result
-            .view((1, 1), (nrows - 2, ncols - 2))
-            .clone_owned();
-        assert_eq!(
-            fast_result_subview, expected_subview,
-            "The faster version should match! {} {}",
-            fast_result, expected_horizontal_full_result
-        );
+            direct_convolution_mut::<3, i16, i32, i16>(
+                image.as_view(),
+                &mut fast_result.as_mut_slice(),
+                kernel,
+                NonZeroU32::new(1).unwrap(),
+            );
+            let fast_result_subview = fast_result
+                .view((1, 1), (nrows - 2, ncols - 2))
+                .clone_owned();
+            assert_eq!(
+                fast_result_subview, expected_subview,
+                "{name}-> The faster version should match! {fast_result} {expected_full_result}"
+            );
+        }
     }
 
     #[test]
