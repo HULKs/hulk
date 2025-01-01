@@ -88,7 +88,7 @@ impl BallFilter {
         field_dimensions: &FieldDimensions,
         cycle_time: &CycleTime,
         walking_engine_mode: Mode,
-    ) -> Vec<BallHypothesis> {
+    ) {
         for (detection_time, balls) in measurements {
             self.ball_filter.hypotheses.retain(|hypothesis| {
                 hypothesis.validity > filter_parameters.validity_discard_threshold
@@ -205,8 +205,7 @@ impl BallFilter {
                 _ => false,
             };
 
-        let removed = self
-            .ball_filter
+        self.ball_filter
             .remove_hypotheses(is_hypothesis_valid, should_merge_hypotheses);
         self.ball_filter
             .hypotheses
@@ -214,7 +213,6 @@ impl BallFilter {
         self.ball_filter
             .hypotheses
             .truncate(filter_parameters.maximum_number_of_hypotheses);
-        removed
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -224,7 +222,7 @@ impl BallFilter {
         );
 
         let filter_parameters = context.ball_filter_configuration;
-        let _removed_hypotheses = self.advance_all_hypotheses(
+        self.advance_all_hypotheses(
             persistent_updates,
             context.current_odometry_to_last_odometry,
             context.historic_camera_matrices,
