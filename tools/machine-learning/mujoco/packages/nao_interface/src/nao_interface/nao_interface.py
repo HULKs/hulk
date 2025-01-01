@@ -1,3 +1,4 @@
+import mujoco
 import numpy as np
 from numpy.typing import NDArray
 
@@ -196,6 +197,8 @@ class Nao:
         )
 
     def reset(self, positions: dict[str, dict[str, float]]):
+        mujoco.mj_resetData(self.model, self.data)
+
         for part, joint_values in positions.items():
             joint_data = getattr(self.positions, part)
             actuator_data = getattr(self.actuators, part)

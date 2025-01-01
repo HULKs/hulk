@@ -3,7 +3,8 @@ name = "nao-env"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.10"
-dependencies = ["gymnasium", "nao-interface", "numpy", "rewards"]
+
+dependencies = ["gymnasium", "numpy", "nao_interface", "throwing", "rewards"]
 
 [build-system]
 requires = ["hatchling"]
