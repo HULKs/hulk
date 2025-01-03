@@ -1,4 +1,5 @@
 use image::GrayImage;
+use itertools::Itertools;
 use nalgebra::{DMatrix, DMatrixView};
 
 use crate::{
@@ -35,6 +36,55 @@ pub fn canny(
     let peak_gradients =
         non_maximum_suppression(&gx, &gy, low_threshold as u16, high_threshold as u16);
     hysteresis(&peak_gradients)
+}
+
+pub fn canny_edges_with_directions(
+    image: &GrayImage,
+    gaussian_sigma: Option<f32>,
+    low_threshold: f32,
+    high_threshold: f32,
+) -> (Vec<i8>, usize) {
+    let sigma = gaussian_sigma.unwrap_or(1.4);
+
+    let input = DMatrixView::from_slice(
+        image.as_raw(),
+        image.width() as usize,
+        image.height() as usize,
+    );
+
+    // Transposed shape, as GrayImage is row-major while the matrix is col. major
+    assert_eq!(
+        (image.height() as usize, image.width() as usize),
+        (input.ncols(), input.nrows())
+    );
+    let converted = gaussian_blur_try_2_nalgebra::<u8>(input.as_view(), sigma);
+    let converted_view = converted.as_view();
+
+    let gx = sobel_operator_horizontal::<i16>(converted_view);
+    let gy = sobel_operator_vertical::<i16>(converted_view);
+
+    let peak_gradients =
+        non_maximum_suppression(&gx, &gy, low_threshold as u16, high_threshold as u16);
+    let (filterd_peak_gradients, count) = hysteresis(&peak_gradients);
+
+    (
+        filterd_peak_gradients
+            .as_slice()
+            .iter()
+            .zip(gx.as_slice().iter())
+            .zip(gy.as_slice().iter())
+            .filter_map(|((&classification, &gx), &gy)| {
+                if classification >= EdgeClassification::LowConfidence {
+                    let basic_octants = approximate_direction_integer_only(gx, gy);
+                    // This math is wrong :P
+                    Some((basic_octants as i8) * gy.signum() as i8)
+                } else {
+                    None
+                }
+            })
+            .collect_vec(),
+        count,
+    )
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
