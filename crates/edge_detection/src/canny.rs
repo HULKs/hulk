@@ -3,7 +3,7 @@ use itertools::Itertools;
 use nalgebra::{DMatrix, DMatrixView};
 
 use crate::{
-    gaussian::gaussian_blur_try_2_nalgebra,
+    gaussian::gaussian_blur_integer_approximation,
     sobel::{sobel_operator_horizontal, sobel_operator_vertical},
     zip_three_slices_enumerated,
 };
@@ -27,11 +27,11 @@ pub fn canny(
         (image.height() as usize, image.width() as usize),
         (input.ncols(), input.nrows())
     );
-    let converted = gaussian_blur_try_2_nalgebra::<u8>(input.as_view(), sigma);
+    let converted = gaussian_blur_integer_approximation::<u8, u8>(input.as_view(), sigma);
     let converted_view = converted.as_view();
 
-    let gx = sobel_operator_horizontal::<i16>(converted_view);
-    let gy = sobel_operator_vertical::<i16>(converted_view);
+    let gx = sobel_operator_horizontal(converted_view);
+    let gy = sobel_operator_vertical(converted_view);
 
     let peak_gradients =
         non_maximum_suppression(&gx, &gy, low_threshold as u16, high_threshold as u16);
@@ -57,7 +57,7 @@ pub fn canny_edges_with_directions(
         (image.height() as usize, image.width() as usize),
         (input.ncols(), input.nrows())
     );
-    let converted = gaussian_blur_try_2_nalgebra::<u8>(input.as_view(), sigma);
+    let converted = gaussian_blur_integer_approximation::<u8, _>(input.as_view(), sigma);
     let converted_view = converted.as_view();
 
     let gx = sobel_operator_horizontal::<i16>(converted_view);
@@ -98,7 +98,7 @@ pub enum EdgeClassification {
 
 // TODO investigate a way to improve this, it appears on profiling.
 fn gradient_magnitude(gx: i16, gy: i16) -> u32 {
-    (gx.abs() as u32).pow(2) + (gy.abs() as u32).pow(2)
+    (gx.unsigned_abs() as u32).pow(2) + (gy.unsigned_abs() as u32).pow(2)
 }
 
 #[inline(always)]

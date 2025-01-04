@@ -3,9 +3,6 @@ use std::{
     ops::{Mul, MulAssign},
 };
 
-use imageproc::gradients::{
-    horizontal_sobel as imageproc_horizontal_sobel, vertical_sobel as imageproc_vertical_sobel,
-};
 use nalgebra::{DMatrix, DMatrixView, Scalar};
 use num_traits::{AsPrimitive, PrimInt};
 
@@ -23,19 +20,18 @@ use crate::{
 #[inline]
 pub fn sobel_operator_vertical<T>(image_view_transposed: DMatrixView<T>) -> DMatrix<i16>
 where
-    T: AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign,
-    i16: From<T>,
+    T: PrimInt + AsPrimitive<i16> + Scalar + Mul + MulAssign,
 {
-    let piecewise_kernel_horizontal = [1, 2, 1];
-    let piecewise_kernel_vertical = [-1, 0, 1];
+    const PIECEWISE_KERNEL_HORIZONTAL: [i16; 3] = [1, 2, 1];
+    const PIECEWISE_KERNEL_VERTICAL: [i16; 3] = [-1, 0, 1];
 
     let mut out =
         DMatrix::<i16>::zeros(image_view_transposed.nrows(), image_view_transposed.ncols());
     piecewise_2d_convolution_mut(
         image_view_transposed,
         out.as_mut_slice(),
-        &piecewise_kernel_horizontal,
-        &piecewise_kernel_vertical,
+        &PIECEWISE_KERNEL_HORIZONTAL,
+        &PIECEWISE_KERNEL_VERTICAL,
         NonZeroU32::new(1).unwrap(),
     );
     out
@@ -44,66 +40,25 @@ where
 #[inline]
 pub fn sobel_operator_horizontal<T>(image_view_transposed: DMatrixView<T>) -> DMatrix<i16>
 where
-    T: AsPrimitive<i32> + PrimInt + Scalar + Mul + MulAssign,
-    i16: From<T>,
+    T: AsPrimitive<i16> + PrimInt + Scalar + Mul + MulAssign,
 {
-    let piecewise_kernel_horizontal = [-1, 0, 1];
-    let piecewise_kernel_vertical = [1, 2, 1];
+    const PIECEWISE_KERNEL_HORIZONTAL: [i16; 3] = [-1, 0, 1];
+    const PIECEWISE_KERNEL_VERTICAL: [i16; 3] = [1, 2, 1];
 
     let mut out =
         DMatrix::<i16>::zeros(image_view_transposed.nrows(), image_view_transposed.ncols());
     piecewise_2d_convolution_mut(
         image_view_transposed,
         out.as_mut_slice(),
-        &piecewise_kernel_horizontal,
-        &piecewise_kernel_vertical,
+        &PIECEWISE_KERNEL_HORIZONTAL,
+        &PIECEWISE_KERNEL_VERTICAL,
         NonZeroU32::new(1).unwrap(),
     );
     out
 }
 
-pub fn get_edges_sobel(
-    gaussian_sigma: f32,
-    threshold: u16,
-    image: &YCbCr422Image,
-    source_channel: EdgeSourceType,
-) -> Vec<Point2<Pixel>> {
-    let edges_source = get_edge_source_image(image, source_channel);
-    let blurred = gaussian_blur_box_filter(&edges_source, gaussian_sigma);
-
-    let gradients_vertical = imageproc_vertical_sobel(&blurred);
-    let gradients_horizontal = imageproc_horizontal_sobel(&blurred);
-
-    let decisions = non_maximum_suppression(
-        &DMatrix::<i16>::from_iterator(
-            image.width() as usize,
-            image.height() as usize,
-            gradients_horizontal.iter().copied(),
-        ),
-        &DMatrix::<i16>::from_iterator(
-            image.width() as usize,
-            image.height() as usize,
-            gradients_vertical.iter().copied(),
-        ),
-        threshold,
-        threshold,
-    );
-
-    decisions
-        .iter()
-        .enumerate()
-        .filter_map(|(index, decision)| {
-            if *decision >= EdgeClassification::LowConfidence {
-                let (x, y) = decisions.vector_to_matrix_index(index);
-                Some(point![x as f32, y as f32])
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-pub fn get_edges_sobel_nalgebra(
+/// This is practically canny without hysteresis.
+pub fn get_edges_sobel_and_nms(
     gaussian_sigma: f32,
     low_threshold: u16,
     high_threshold: u16,
@@ -166,6 +121,47 @@ mod tests {
             .unwrap()
     }
 
+    pub fn get_edges_with_imageproc_sobel_and_nms(
+        gaussian_sigma: f32,
+        threshold: u16,
+        image: &YCbCr422Image,
+        source_channel: EdgeSourceType,
+    ) -> Vec<Point2<Pixel>> {
+        let edges_source = get_edge_source_image(image, source_channel);
+        let blurred = gaussian_blur_box_filter(&edges_source, gaussian_sigma);
+
+        let gradients_vertical = imageproc_vertical_sobel(&blurred);
+        let gradients_horizontal = imageproc_horizontal_sobel(&blurred);
+
+        let decisions = non_maximum_suppression(
+            &DMatrix::<i16>::from_iterator(
+                image.width() as usize,
+                image.height() as usize,
+                gradients_horizontal.iter().copied(),
+            ),
+            &DMatrix::<i16>::from_iterator(
+                image.width() as usize,
+                image.height() as usize,
+                gradients_vertical.iter().copied(),
+            ),
+            threshold,
+            threshold,
+        );
+
+        decisions
+            .iter()
+            .enumerate()
+            .filter_map(|(index, decision)| {
+                if *decision >= EdgeClassification::LowConfidence {
+                    let (x, y) = decisions.vector_to_matrix_index(index);
+                    Some(point![x as f32, y as f32])
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     #[test]
     fn compare_edge_creation_imageproc_sobel_with_direct_sobel() {
         let image = load_test_image();
@@ -174,18 +170,22 @@ mod tests {
         let (min_x, min_y) = (kernel_size / 2, kernel_size / 2);
         let (max_x, max_y) = (image.width() - min_x, image.height() - min_y);
 
-        let expected_points: Vec<Point2<Pixel>> =
-            get_edges_sobel(GAUSSIAN_SIGMA, THRESHOLD, &image, EDGE_SOURCE_TYPE)
-                .into_iter()
-                .filter(|p| {
-                    p.x() > min_x as f32
-                        && p.x() < max_x as f32
-                        && p.y() > min_y as f32
-                        && p.y() < max_y as f32
-                })
-                .collect();
+        let expected_points: Vec<Point2<Pixel>> = get_edges_with_imageproc_sobel_and_nms(
+            GAUSSIAN_SIGMA,
+            THRESHOLD,
+            &image,
+            EDGE_SOURCE_TYPE,
+        )
+        .into_iter()
+        .filter(|p| {
+            p.x() > min_x as f32
+                && p.x() < max_x as f32
+                && p.y() > min_y as f32
+                && p.y() < max_y as f32
+        })
+        .collect();
 
-        let output_points: Vec<Point2<Pixel>> = get_edges_sobel_nalgebra(
+        let output_points: Vec<Point2<Pixel>> = get_edges_sobel_and_nms(
             GAUSSIAN_SIGMA,
             THRESHOLD,
             THRESHOLD,
