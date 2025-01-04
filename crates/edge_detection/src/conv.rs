@@ -1,16 +1,13 @@
 use itertools::{izip, Itertools};
 use num_traits::{AsPrimitive, Bounded, PrimInt};
-
 use std::{
-    fmt::{Debug, Display},
+    fmt::Debug,
     iter::Sum,
     num::NonZeroU32,
     ops::{AddAssign, MulAssign},
 };
 
 use nalgebra::{ClosedMul, DMatrix, DMatrixView, SMatrix, Scalar};
-
-use crate::is_ksize_odd;
 
 pub fn direct_convolution<const KSIZE: usize, P, KType, S>(
     image: DMatrixView<P>,
@@ -30,9 +27,44 @@ where
     if KSIZE > 5 {
         direct_convolution_mut(image, result.as_mut_slice(), *kernel, scale_value);
     } else {
-        direct_convolution_mut_try_again(image, result.as_mut_slice(), *kernel, scale_value);
+        direct_convolution_mut_alternative(image, result.as_mut_slice(), *kernel, scale_value);
     }
     result
+}
+
+pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
+    transposed_image: DMatrixView<InputType>,
+    dst: &mut [OutputType],
+    piecewise_kernel_horizontal: &[KType; KSIZE],
+    piecewise_kernel_vertical: &[KType; KSIZE],
+
+    scale_value: NonZeroU32,
+) where
+    InputType: PrimInt + AsPrimitive<KType> + Debug,
+    KType: PrimInt + AsPrimitive<OutputType> + AddAssign + ClosedMul + Sum,
+    OutputType: PrimInt + AsPrimitive<KType> + Debug + Bounded + AddAssign,
+{
+    assert!(
+        dst.len() >= transposed_image.len(),
+        "dst matrix ({:?}) must have same or larger size than input: {:?}",
+        dst.len(),
+        transposed_image.len(),
+    );
+
+    piecewise_horizontal_convolution_mut::<KSIZE, InputType, KType, OutputType>(
+        transposed_image,
+        dst,
+        piecewise_kernel_horizontal,
+        scale_value,
+    );
+
+    // TODO see if we can avoid this allocation
+    piecewise_vertical_convolution_mut::<KSIZE, OutputType, KType, OutputType>(
+        &DMatrix::from_column_slice(transposed_image.nrows(), transposed_image.ncols(), dst),
+        dst,
+        piecewise_kernel_vertical,
+        scale_value,
+    );
 }
 
 // This is great for larger kernels (i.e. 5x5) while direct_convolution_mut_try_again is best for smaller kernels
@@ -95,7 +127,8 @@ pub fn direct_convolution_mut<const KSIZE: usize, InputType, MyKtype, OutputType
     }
 }
 
-pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, OutputType>(
+/// This variant is simpler to implement and works faster for small kernel sizes.
+pub fn direct_convolution_mut_alternative<const KSIZE: usize, InputType, KType, OutputType>(
     transposed_image: DMatrixView<InputType>,
     dst_as_slice: &mut [OutputType],
     kernel: SMatrix<KType, KSIZE, KSIZE>,
@@ -142,12 +175,6 @@ pub fn direct_convolution_mut_try_again<const KSIZE: usize, InputType, KType, Ou
                     .as_();
             });
     }
-}
-
-#[allow(dead_code)]
-#[inline(always)]
-fn is_kernel_symmetric<const KSIZE: usize, KType: PrimInt>(kernel: &[KType; KSIZE]) -> bool {
-    kernel[..KSIZE / 2] == kernel[KSIZE - (KSIZE / 2)..]
 }
 
 #[inline]
@@ -278,7 +305,7 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
                         });
                 } else {
                     // middle (applicable only for odd cases)
-                    if is_ksize_odd(KSIZE) {
+                    if is_odd(KSIZE) {
                         accumulator
                             .iter_mut()
                             .zip(
@@ -347,41 +374,6 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     }
 }
 
-pub fn piecewise_2d_convolution_mut<const KSIZE: usize, InputType, KType, OutputType>(
-    transposed_image: DMatrixView<InputType>,
-    dst: &mut [OutputType],
-    piecewise_kernel_horizontal: &[KType; KSIZE],
-    piecewise_kernel_vertical: &[KType; KSIZE],
-
-    scale_value: NonZeroU32,
-) where
-    InputType: PrimInt + AsPrimitive<KType> + Debug,
-    KType: PrimInt + AsPrimitive<OutputType> + AddAssign + ClosedMul + Sum,
-    OutputType: PrimInt + AsPrimitive<KType> + Debug + Bounded + AddAssign + Display,
-{
-    assert!(
-        dst.len() >= transposed_image.len(),
-        "dst matrix ({:?}) must have same or larger size than input: {:?}",
-        dst.len(),
-        transposed_image.len(),
-    );
-
-    piecewise_horizontal_convolution_mut::<KSIZE, InputType, KType, OutputType>(
-        transposed_image,
-        dst,
-        piecewise_kernel_horizontal,
-        scale_value,
-    );
-
-    // TODO see if we can avoid this allocation
-    piecewise_vertical_convolution_mut::<KSIZE, OutputType, KType, OutputType>(
-        &DMatrix::from_column_slice(transposed_image.nrows(), transposed_image.ncols(), dst),
-        dst,
-        piecewise_kernel_vertical,
-        scale_value,
-    );
-}
-
 #[inline(always)]
 const fn calculate_divisor(scale_value: NonZeroU32) -> usize {
     // scale_value.checked_next_power_of_two()
@@ -395,6 +387,18 @@ const fn calculate_divisor(scale_value: NonZeroU32) -> usize {
     } else {
         0
     }
+}
+
+/// Why? Profiling showed that the compiler optimizes this better than directly using if KSIZE % 2 == 1 { ... }
+#[inline(always)]
+pub(crate) const fn is_odd(ksize: usize) -> bool {
+    ksize % 2 == 1
+}
+
+#[allow(dead_code)]
+#[inline(always)]
+fn is_kernel_symmetric<const KSIZE: usize, KType: PrimInt>(kernel: &[KType; KSIZE]) -> bool {
+    kernel[..KSIZE / 2] == kernel[KSIZE - (KSIZE / 2)..]
 }
 
 #[cfg(test)]

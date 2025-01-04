@@ -1,22 +1,113 @@
 use core::f32;
 use num_traits::{AsPrimitive, PrimInt};
 use std::{
+    iter::Sum,
     num::NonZeroU32,
-    ops::{Div, Mul, MulAssign},
+    ops::{AddAssign, Div, MulAssign},
 };
 
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
-use nalgebra::{DMatrix, DMatrixView, SMatrix, Scalar};
+use nalgebra::{DMatrix, DMatrixView, Scalar};
 
-use crate::conv::{direct_convolution, piecewise_2d_convolution_mut};
+use crate::conv::piecewise_2d_convolution_mut;
 
+type IntKernelType = i32;
+pub fn gaussian_blur_integer_approximation<InputType, OutputType>(
+    image: DMatrixView<InputType>,
+    sigma: f32,
+) -> DMatrix<OutputType>
+where
+    InputType: PrimInt + AsPrimitive<IntKernelType> + AsPrimitive<i16> + Scalar,
+    IntKernelType: PrimInt + AsPrimitive<OutputType> + Scalar + AddAssign + MulAssign + Sum,
+    OutputType: PrimInt + AsPrimitive<IntKernelType> + AsPrimitive<i16> + Scalar + AddAssign,
+    f32: AsPrimitive<IntKernelType>,
+    i16: AsPrimitive<OutputType>,
+{
+    // Check if this method is accurate.
+    let radius = (2.0 * sigma).floor() as usize;
+    let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
+
+    if sigma <= 1.0 {
+        let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<3, IntKernelType>(sigma);
+        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
+        dst
+    } else if (1..4).contains(&radius) {
+        let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<5, IntKernelType>(sigma);
+        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
+        dst
+    } else if (4..6).contains(&radius) {
+        let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<7, IntKernelType>(sigma);
+        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
+        dst
+    } else {
+        let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<11, IntKernelType>(sigma);
+        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
+        dst
+    }
+}
+
+#[inline(always)]
+fn gaussian(x: f32, r: f32) -> f32 {
+    ((2.0 * f32::consts::PI).sqrt() * r).recip() * (-x.powi(2) / (2.0 * r.powi(2))).exp()
+}
+
+#[inline(always)]
+fn gaussian_int_divisor_as_power_of_two(width: usize) -> u32 {
+    // These values are choosen by making kernels for these sizes and gettin large enough divisor.
+    match width {
+        2 => 8,
+        3 => 10,
+        5 => 12,
+        7 => 14,
+        11 => 16,
+        _ => panic!("Unsupported kernel size"),
+    }
+}
+
+const fn check_kernel_size(width: usize) {
+    assert!(width % 2 == 1, "Kernel size must be odd");
+}
+
+#[inline(always)]
+fn gaussian_2d_seperable_integer_kernel<const S: usize, KType>(
+    sigma: f32,
+) -> ([KType; S], NonZeroU32)
+where
+    f32: AsPrimitive<KType>,
+    KType: PrimInt + Copy + Scalar,
+{
+    let mut one_axis = [0f32; S];
+    let k_half = S / 2;
+    check_kernel_size(S);
+
+    for i in 0..((S / 2) + 1) {
+        let v = gaussian(i as f32, sigma);
+        one_axis[k_half - i] = v;
+        one_axis[k_half + i] = v;
+    }
+
+    let int_factor_power_of_two = if sigma > 1.0 {
+        gaussian_int_divisor_as_power_of_two(S)
+        // 10
+    } else {
+        16
+    };
+
+    let one_axis_sum: f32 = one_axis.iter().sum();
+    (
+        one_axis.map(|v| (v / one_axis_sum * 2.pow(int_factor_power_of_two) as f32).as_()),
+        NonZeroU32::new(2.pow(int_factor_power_of_two)).unwrap(),
+    )
+}
+
+/// Box filter
 /// Gaussian smoothing approximation with box filters
 /// - https://en.wikipedia.org/wiki/Gaussian_blur
 /// - Kovesi, Peter. "Fast almost-gaussian filtering."
 ///     2010 International Conference on Digital Image Computing: Techniques and Applications. IEEE, 2010.
 pub fn gaussian_blur_box_filter(image: &GrayImage, sigma: f32) -> ImageBuffer<Luma<u8>, Vec<u8>> {
-    // average sigma = sqrt( (w**2 -1) / 12 ): w is box width, n is passes
+    // TODO Implement the paper completely
 
     const PASSES: usize = 2;
     let w_ideal_half = ((12.0 * sigma.div(2.0).powi(2) / (PASSES as f32)) + 1.0)
@@ -34,154 +125,68 @@ pub fn gaussian_blur_box_filter(image: &GrayImage, sigma: f32) -> ImageBuffer<Lu
     output
 }
 
-#[inline(always)]
-fn gaussian(x: f32, r: f32) -> f32 {
-    ((2.0 * f32::consts::PI).sqrt() * r).recip() * (-x.powi(2) / (2.0 * r.powi(2))).exp()
-}
+// TODO FIX ME
+// pub fn gaussian_blur_box_filter_nalgebra<InputType, OutputType, KernelType>(
+//     transposed_image: DMatrixView<InputType>,
+//     sigma: f32,
+// ) -> DMatrix<OutputType>
+// where
+//     InputType: AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
+//     KernelType: PrimInt + AsPrimitive<OutputType> + Scalar + MulAssign + AddAssign + Sum,
+//     OutputType: PrimInt + AsPrimitive<KernelType> + Scalar + AddAssign,
+// {
+//     // TODO Implement the paper completely and match with gaussian_blur_box_filter
 
-#[inline(always)]
-fn gaussian_int_divisor_as_power_of_two(width: usize) -> u32 {
-    match width {
-        2 => 8,
-        3 => 10,
-        5 => 12,
-        7 => 14,
-        11 => 16,
-        _ => panic!("Unsupported kernel size"),
-    }
-}
-const fn check_kernel_size(width: usize) {
-    assert!(width % 2 == 1, "Kernel size must be odd");
-}
+//     const PASSES: usize = 2;
+//     let w_ideal_half = ((12.0 * sigma.div(2.0).powi(2) / (PASSES as f32)) + 1.0)
+//         .sqrt()
+//         .div(2.0)
+//         .round() as u32
+//         - 1;
 
-#[inline(always)]
-fn gaussian_2d_integer_kernel_piece<const S: usize>(sigma: f32) -> ([i32; S], NonZeroU32) {
-    let mut one_axis = [0f32; S];
-    let k_half = S / 2;
-    check_kernel_size(S);
+//     match w_ideal_half {
+//         0 => box_filter_direct_convolve::<3, InputType, OutputType, KernelType>(
+//             transposed_image,
+//             PASSES,
+//         ),
+//         1 => box_filter_direct_convolve::<5, InputType, OutputType, KernelType>(
+//             transposed_image,
+//             PASSES,
+//         ),
+//         2 => box_filter_direct_convolve::<7, InputType, OutputType, KernelType>(
+//             transposed_image,
+//             PASSES,
+//         ),
+//         _ => unreachable!("Box filter width must be between 3 and 11"),
+//     }
+// // }
 
-    for i in 0..((S / 2) + 1) {
-        let v = gaussian(i as f32, sigma);
-        one_axis[k_half - i] = v;
-        one_axis[k_half + i] = v;
-    }
+// #[inline(always)]
+// fn box_filter_direct_convolve<const KSIZE: usize, InputType, OutputType, KernelType>(
+//     transposed_image: DMatrixView<InputType>,
+//     passes: usize,
+// ) -> DMatrix<OutputType>
+// where
+//     InputType: AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
+//     KernelType: PrimInt + AsPrimitive<OutputType> + Scalar + AddAssign + MulAssign + Sum,
+//     OutputType: PrimInt + AsPrimitive<KernelType> + Scalar + AddAssign,
+// {
+//     let kernel = SMatrix::<KernelType, KSIZE, KSIZE>::repeat(KernelType::one());
+//     let mut first = direct_convolution::<KSIZE, InputType, KernelType, OutputType>(
+//         transposed_image,
+//         &kernel,
+//         NonZeroU32::new(1).unwrap(),
+//     );
 
-    // let mut kernel_float = SMatrix::<f32, S, S>::zeros();
-
-    // // Do some better math to calculate this easier.
-    // for j in 0..S {
-    //     for i in 0..S {
-    //         kernel_float[(i, j)] = one_axis[i] * one_axis[j];
-    //     }
-    // }
-
-    let int_factor_power_of_two = gaussian_int_divisor_as_power_of_two(S);
-    // let sum = kernel_float.sum();
-    // kernel_float = kernel_float / sum * 2.pow(int_factor_power_of_two) as f32;
-
-    let one_axis_sum: f32 = one_axis.iter().sum();
-    (
-        one_axis.map(|v| (v / one_axis_sum * 2.pow(int_factor_power_of_two) as f32) as i32),
-        // kernel_float.map(|v| v as i32),
-        // int_factor_power_of_two as usize,
-        NonZeroU32::new(2.pow(int_factor_power_of_two)).unwrap(),
-    )
-}
-
-pub fn gaussian_blur_try_2_nalgebra<InputType>(
-    image: DMatrixView<InputType>,
-    sigma: f32,
-) -> DMatrix<OutputType>
-where
-    InputType: PrimInt + AsPrimitive<KernelType> + Scalar,
-    KernelType: PrimInt,
-    // OutputType: Into<KernelType>,
-{
-    // Check if this method is accurate.
-    let radius = (2.0 * sigma).floor() as usize;
-
-    let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
-
-    if (1..2).contains(&radius) {
-        let (kernel, factor) = gaussian_2d_integer_kernel_piece::<5>(sigma);
-
-        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
-        dst
-        // direct_convolution(image, &kernel, factor)
-    } else if (2..6).contains(&radius) {
-        let (kernel, factor) = gaussian_2d_integer_kernel_piece::<7>(sigma);
-
-        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
-        dst
-    } else {
-        let (kernel, factor) = gaussian_2d_integer_kernel_piece::<11>(sigma);
-
-        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
-        dst
-    }
-}
-
-type KernelType = i32;
-type OutputType = i16;
-/// Gaussian smoothing approximation with box filters
-/// - https://en.wikipedia.org/wiki/Gaussian_blur
-/// - Kovesi, Peter. "Fast almost-gaussian filtering."
-///     2010 International Conference on Digital Image Computing: Techniques and Applications. IEEE, 2010.
-pub fn gaussian_blur_box_filter_nalgebra<InputType>(
-    transposed_image: DMatrixView<InputType>,
-    sigma: f32,
-) -> DMatrix<OutputType>
-where
-    InputType: AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
-{
-    // average sigma = sqrt( (w**2 -1) / 12 ): w is box width, n is passes
-
-    const PASSES: usize = 2;
-    // box_filter_direct_convolve::<3, T>(transposed_image, PASSES)
-
-    let w_ideal_half = ((12.0 * sigma.div(2.0).powi(2) / (PASSES as f32)) + 1.0)
-        .sqrt()
-        .div(2.0)
-        .round() as u32
-        - 1;
-
-    match w_ideal_half {
-        0 => box_filter_direct_convolve::<3, InputType>(transposed_image, PASSES),
-        1 => box_filter_direct_convolve::<5, InputType>(transposed_image, PASSES),
-        2 => box_filter_direct_convolve::<7, InputType>(transposed_image, PASSES),
-        _ => unreachable!("Box filter width must be between 3 and 11"),
-    }
-}
-
-#[inline(always)]
-fn box_filter_direct_convolve<const KSIZE: usize, InputType>(
-    transposed_image: DMatrixView<InputType>,
-    passes: usize,
-) -> DMatrix<OutputType>
-where
-    InputType: AsPrimitive<KernelType> + PrimInt + Scalar + Mul + MulAssign,
-    KernelType: PrimInt,
-    OutputType: Into<KernelType>,
-{
-    // let scale_value = (KSIZE as OutputType).pow(2);
-
-    let kernel = SMatrix::<KernelType, KSIZE, KSIZE>::repeat(1);
-    let mut first = direct_convolution::<KSIZE, InputType, KernelType, OutputType>(
-        transposed_image,
-        &kernel,
-        // Some(scale_value as KernelType),
-        NonZeroU32::new(1).unwrap(),
-    );
-
-    for _ in 1..passes {
-        first = direct_convolution::<KSIZE, OutputType, KernelType, OutputType>(
-            first.as_view(),
-            &kernel, // Some(scale_value as KernelType),
-            NonZeroU32::new(1).unwrap(),
-        );
-    }
-    first
-}
+//     for _ in 1..passes {
+//         first = direct_convolution::<KSIZE, OutputType, KernelType, OutputType>(
+//             first.as_view(),
+//             &kernel, // Some(scale_value as KernelType),
+//             NonZeroU32::new(1).unwrap(),
+//         );
+//     }
+//     first
+// }
 
 #[cfg(test)]
 mod tests {
@@ -190,6 +195,7 @@ mod tests {
     use super::*;
     use image::open;
     use imageproc::filter::gaussian_blur_f32;
+    use itertools::Itertools;
 
     #[test]
     fn test_gaussian_box_filter() {
@@ -208,16 +214,87 @@ mod tests {
 
     #[test]
     fn test_gaussian_kernel_gen() {
-        const SIGMA: &[f32] = &[1.0, 1.4, 2.0, 3.5, 4.5];
-        const TOLERANCE: f64 = 0.02;
+        const SIGMA: &[f32] = &[0.5, 1.0, 1.4, 2.0, 3.5, 4.5];
+        const TOLERANCE: f64 = 0.01;
 
         // For input types, will the conv. cause overflow with i32 kernels.
-        const MAX_SUMMED_VALUES: &[usize] =
+        const MAX_OUTPUT_VALUES: &[usize] =
             &[u8::MAX as usize, i8::MAX as usize, i16::MAX as usize];
         const MAX_KERNEL_TYPE: usize = i32::MAX as usize;
 
+        MAX_OUTPUT_VALUES.iter().for_each(|&max_value| {
+            println!("Trying output with max_value: {max_value}");
+            [3, 5, 7, 9, 11, 13, 15, 17, 21, 23]
+                .iter()
+                .for_each(|&ksize| {
+                    let smallest_kernel_type = [
+                        i16::MAX as usize,
+                        u16::MAX as usize,
+                        u32::MAX as usize,
+                        i32::MAX as usize,
+                    ]
+                    .iter()
+                    .flat_map(|&kernel_max| {
+                        let smallest_int_factor_power_of_two = SIGMA
+                            .iter()
+                            .map(|&sigma| {
+                                let mut one_axis = vec![0f64; ksize];
+                                let k_half = ksize / 2;
+                                check_kernel_size(ksize);
+
+                                for i in 0..((ksize / 2) + 1) {
+                                    let v = gaussian(i as f32, sigma);
+                                    one_axis[k_half - i] = v as f64;
+                                    one_axis[k_half + i] = v as f64;
+                                }
+
+                                let one_axis_sum = one_axis.iter().sum::<f64>();
+
+                                (4..16)
+                                    .filter_map(|int_factor_power_of_two| {
+                                        let factor = 2.pow(int_factor_power_of_two) as f64;
+                                        let kernel: Vec<usize> = one_axis
+                                            .iter()
+                                            .map(|v| (v / one_axis_sum * factor).as_())
+                                            .collect();
+
+                                        let max_convolved_sum: usize =
+                                            kernel.iter().map(|&v| v as usize * max_value).sum();
+
+                                        let scaled_sum =
+                                            kernel.iter().sum::<usize>() as f64 / factor;
+
+                                        if (1.0 - scaled_sum).abs() < TOLERANCE
+                                            && kernel_max >= max_convolved_sum
+                                        {
+                                            Some(int_factor_power_of_two)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect_vec()
+                            })
+                            .flatten()
+                            .min();
+
+                        smallest_int_factor_power_of_two.map(|int_factor_power_of_two| {
+                            (int_factor_power_of_two as usize, kernel_max)
+                        })
+                    })
+                    .min_by_key(|(_, kernel_max)| *kernel_max);
+
+                    if let Some((best_factor_in_tolerance, smallest_kernel)) = smallest_kernel_type
+                    {
+                        println!(
+                        "ksize: {ksize}, factor: {best_factor_in_tolerance}, best_kernel: {smallest_kernel} {max_value}"
+                        );
+                    }
+                });
+        });
+
+        assert!(false);
         SIGMA.iter().for_each(|&sigma| {
-            let (kernel, factor) = gaussian_2d_integer_kernel_piece::<3>(sigma);
+            let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<3,_>(sigma);
             let scaled_sum = kernel.iter().sum::<i32>() as f64 / factor.get() as f64;
 
             assert!(
@@ -229,7 +306,7 @@ mod tests {
                 kernel
             );
 
-            for &max_value in MAX_SUMMED_VALUES {
+            for &max_value in MAX_OUTPUT_VALUES {
                 let max_convolved_patch = kernel.map(|v| v as usize * max_value);
                 let sum:usize = max_convolved_patch.iter().sum();
 
@@ -250,7 +327,7 @@ mod tests {
         });
 
         SIGMA.iter().for_each(|&sigma| {
-            let (kernel, factor) = gaussian_2d_integer_kernel_piece::<5>(sigma);
+            let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<5,_>(sigma);
             let scaled_sum =  kernel.iter().sum::<i32>()as f64 / factor.get() as f64;
 
             assert!(
@@ -263,7 +340,7 @@ mod tests {
             );
 
 
-            for &max_value in MAX_SUMMED_VALUES {
+            for &max_value in MAX_OUTPUT_VALUES {
                 let max_convolved_patch = kernel.map(|v| v as usize* max_value) ;
                 let sum:usize = max_convolved_patch.iter().sum();
                 assert!(
@@ -283,7 +360,7 @@ mod tests {
         });
 
         SIGMA.iter().for_each(|&sigma| {
-            let (kernel, factor) = gaussian_2d_integer_kernel_piece::<7>(sigma);
+            let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<7,_>(sigma);
             let scaled_sum = kernel.iter().sum::<i32>() as f64 / factor.get() as f64;
 
             assert!(
@@ -295,7 +372,7 @@ mod tests {
                 kernel
             );
 
-            for &max_value in MAX_SUMMED_VALUES {
+            for &max_value in MAX_OUTPUT_VALUES {
                 let max_convolved_patch = kernel.map(|v| v as usize* max_value) ;
                 let sum:usize = max_convolved_patch.iter().sum();
                 assert!(
@@ -325,20 +402,22 @@ mod tests {
         let luma8 = image.to_luma8();
         let converted = grayimage_to_2d_transposed_matrix_view(&luma8);
         let converted_view = converted.as_view();
-        let blurred = gaussian_blur_box_filter_nalgebra::<u8>(converted_view, sigma);
-        let blurred_int_approximation = gaussian_blur_try_2_nalgebra(converted_view, sigma);
 
-        GrayImage::from_raw(
-            image.width(),
-            image.height(),
-            blurred.iter().map(|&v| v as u8).collect::<Vec<u8>>(),
-        )
-        .unwrap()
-        .save(format!(
-            "{crate_dir}/test_data/output/gaussian_box_filter_nalgebra.png"
-        ))
-        .expect("The image saving should not fail");
+        // TODO: Fix this test
+        // let blurred = gaussian_blur_box_filter_nalgebra::<u8, i16, i32>(converted_view, sigma);
+        // GrayImage::from_raw(
+        //     image.width(),
+        //     image.height(),
+        //     blurred.iter().map(|&v: &i16| v as u8).collect::<Vec<u8>>(),
+        // )
+        // .unwrap()
+        // .save(format!(
+        //     "{crate_dir}/test_data/output/gaussian_box_filter_nalgebra.png"
+        // ))
+        // .expect("The image saving should not fail");
 
+        let blurred_int_approximation =
+            gaussian_blur_integer_approximation::<u8, u8>(converted_view, sigma);
         GrayImage::from_raw(
             image.width(),
             image.height(),

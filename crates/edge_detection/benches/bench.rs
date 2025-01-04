@@ -9,10 +9,9 @@ use nalgebra::DMatrixView;
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use types::ycbcr422_image::YCbCr422Image;
 
-// #[global_allocator]
-// static ALLOC: AllocProfiler = AllocProfiler::system();
-
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    dbg!(args);
     divan::main();
 }
 
@@ -77,22 +76,19 @@ fn edge_source_select(bencher: Bencher) {
     bencher
         .bench_local(move || get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE)));
 }
-
+const GAUSSIAN_VALUES: &[f32] = &[0.5, 1.0, 1.4, 2.0, 3.5];
 #[bench_group]
 mod blurring {
     use divan::{bench, black_box, Bencher};
     use edge_detection::{
-        gaussian::{
-            gaussian_blur_box_filter, gaussian_blur_box_filter_nalgebra,
-            gaussian_blur_try_2_nalgebra,
-        },
+        gaussian::{gaussian_blur_box_filter, gaussian_blur_integer_approximation},
         get_edge_source_image, grayimage_to_2d_transposed_matrix_view,
     };
     use imageproc::filter::gaussian_blur_f32;
 
-    use crate::{get_flamegraph, get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE};
-
-    const GAUSSIAN_VALUES: &[f32] = &[1.0, 1.4, 2.0, 3.5];
+    use crate::{
+        get_flamegraph, get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_VALUES,
+    };
 
     #[bench(args=GAUSSIAN_VALUES)]
     fn gaussian_blur_with_box_filter(bencher: Bencher, sigma: f32) {
@@ -105,34 +101,7 @@ mod blurring {
         });
     }
 
-    #[bench(args=GAUSSIAN_VALUES)]
-    fn gaussian_blur_with_box_filter_nalgebra(bencher: Bencher, sigma: f32) {
-        let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view(&image);
-        let transposed_matrix_view = transposed_matrix.as_view();
-
-        bencher.bench_local(move || {
-            black_box(gaussian_blur_box_filter_nalgebra::<u8>(
-                black_box(transposed_matrix_view),
-                black_box(sigma),
-            ))
-        });
-    }
-
-    #[bench(args=GAUSSIAN_VALUES)]
-    fn gaussian_blur_with_box_filter_nalgebra_i16_input(bencher: Bencher, sigma: f32) {
-        let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
-        let transposed_matrix_view = transposed_matrix.as_view();
-        bencher.bench_local(move || {
-            black_box(gaussian_blur_box_filter_nalgebra::<i16>(
-                black_box(transposed_matrix_view),
-                black_box(sigma),
-            ))
-        });
-    }
-
-    #[bench(args=GAUSSIAN_VALUES)]
+    #[bench(args=GAUSSIAN_VALUES, min_time=2)]
     fn gaussian_blur_int_approximation(bencher: Bencher, sigma: f32) {
         let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
         let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&image);
@@ -144,7 +113,27 @@ mod blurring {
             None
         };
         bencher.bench_local(move || {
-            black_box(gaussian_blur_try_2_nalgebra::<u8>(
+            black_box(gaussian_blur_integer_approximation::<u8, u8>(
+                black_box(transposed_matrix_view),
+                black_box(sigma),
+            ))
+        });
+        get_flamegraph("int_approx", guard);
+    }
+
+    #[bench(args=GAUSSIAN_VALUES, min_time=2)]
+    fn gaussian_blur_int_approximation_i16_i32_i16(bencher: Bencher, sigma: f32) {
+        let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
+        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
+        let transposed_matrix_view = transposed_matrix.as_view();
+
+        let guard = if sigma == 1.0 {
+            get_profiler_guard()
+        } else {
+            None
+        };
+        bencher.bench_local(move || {
+            black_box(gaussian_blur_integer_approximation::<i16, i16>(
                 black_box(transposed_matrix_view),
                 black_box(sigma),
             ))
@@ -195,8 +184,9 @@ mod sobel_operator {
     use divan::{bench, black_box, Bencher};
     use edge_detection::{
         conv::{
-            direct_convolution_mut, direct_convolution_mut_try_again, piecewise_2d_convolution_mut,
-            piecewise_horizontal_convolution_mut, piecewise_vertical_convolution_mut,
+            direct_convolution_mut, direct_convolution_mut_alternative,
+            piecewise_2d_convolution_mut, piecewise_horizontal_convolution_mut,
+            piecewise_vertical_convolution_mut,
         },
         get_edge_source_image, grayimage_to_2d_transposed_matrix_view,
         sobel::sobel_operator_vertical,
@@ -228,7 +218,7 @@ mod sobel_operator {
                 mat_len,
                 SMatrix::<i32, 3, 3>::one(),
                 NonZeroU32::new(1).unwrap(),
-                direct_convolution_mut_try_again,
+                direct_convolution_mut_alternative,
             ),
             5 => _bench_with_kernel_size(
                 bencher,
@@ -237,7 +227,7 @@ mod sobel_operator {
                 mat_len,
                 SMatrix::<i32, 5, 5>::one(),
                 NonZeroU32::new(1).unwrap(),
-                direct_convolution_mut_try_again,
+                direct_convolution_mut_alternative,
             ),
             7 => _bench_with_kernel_size(
                 bencher,
@@ -246,7 +236,7 @@ mod sobel_operator {
                 mat_len,
                 SMatrix::<i32, 7, 7>::one(),
                 NonZeroU32::new(1).unwrap(),
-                direct_convolution_mut_try_again,
+                direct_convolution_mut_alternative,
             ),
             _ => unreachable!("Unsupported kernel size"),
         }
@@ -418,7 +408,7 @@ mod sobel_operator {
     }
 
     #[bench(args=[3,5,7,11,13,21])]
-    fn piecewise_vertical_mut_sobel(bencher: Bencher, kernel_size: usize) {
+    fn piecewise_vertical_mut_ksizes(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
         let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
 
@@ -594,28 +584,26 @@ mod edge_points {
 
     use edge_detection::{
         canny::non_maximum_suppression,
-        gaussian::gaussian_blur_box_filter_nalgebra,
+        gaussian::gaussian_blur_integer_approximation,
         get_edge_source_image, get_edges_canny, get_edges_canny_imageproc,
         grayimage_to_2d_transposed_matrix_view,
-        sobel::{
-            get_edges_sobel, get_edges_sobel_nalgebra, sobel_operator_horizontal,
-            sobel_operator_vertical,
-        },
+        sobel::{get_edges_sobel_and_nms, sobel_operator_horizontal, sobel_operator_vertical},
     };
     use nalgebra::DMatrix;
 
     use crate::{
         get_flamegraph, get_profiler_guard, load_test_image, EDGE_SOURCE_TYPE, GAUSSIAN_SIGMA,
+        GAUSSIAN_VALUES,
     };
 
-    #[bench]
-    fn our_canny(bencher: Bencher) {
+    #[bench(args=GAUSSIAN_VALUES, min_time=2)]
+    fn our_canny(bencher: Bencher, sigma: f32) {
         let image = load_test_image();
 
         let guard = get_profiler_guard();
         bencher.bench_local(move || {
             black_box(get_edges_canny(
-                black_box(3.5),
+                black_box(sigma),
                 black_box(20.0),
                 black_box(50.0),
                 black_box(&image),
@@ -626,26 +614,12 @@ mod edge_points {
     }
 
     #[bench]
-    fn imageproc_sobel_vertical(bencher: Bencher) {
-        let image = load_test_image();
-
-        bencher.bench_local(move || {
-            black_box(get_edges_sobel(
-                black_box(3.5),
-                black_box(100),
-                black_box(&image),
-                EDGE_SOURCE_TYPE,
-            ))
-        });
-    }
-
-    #[bench]
     fn direct_convolution_sobel_both_axes(bencher: Bencher) {
         let image = load_test_image();
 
         let guard = get_profiler_guard();
         bencher.bench_local(move || {
-            black_box(get_edges_sobel_nalgebra(
+            black_box(get_edges_sobel_and_nms(
                 black_box(3.5),
                 black_box(100),
                 black_box(100),
@@ -663,10 +637,12 @@ mod edge_points {
 
         let edges_source = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
         let converted = grayimage_to_2d_transposed_matrix_view::<u8>(&edges_source);
-        let blurred = gaussian_blur_box_filter_nalgebra(converted.as_view(), GAUSSIAN_SIGMA);
+        let gaussian_blur_box_filter_nalgebra =
+            gaussian_blur_integer_approximation(converted.as_view(), GAUSSIAN_SIGMA);
+        let blurred = gaussian_blur_box_filter_nalgebra;
         let blurred_view = blurred.as_view();
-        let gradients_y_transposed = sobel_operator_vertical::<i16>(blurred_view);
-        let gradients_x_transposed = sobel_operator_horizontal::<i16>(blurred_view);
+        let gradients_y_transposed = sobel_operator_vertical::<u8>(blurred_view);
+        let gradients_x_transposed = sobel_operator_horizontal::<u8>(blurred_view);
 
         let guard = get_profiler_guard();
 
