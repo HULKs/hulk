@@ -10,7 +10,7 @@ use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::box_filter;
 use nalgebra::{DMatrix, DMatrixView, Scalar};
 
-use crate::conv::piecewise_2d_convolution_mut;
+use crate::filter2d::piecewise_2d_convolution_mut;
 
 type IntKernelType = i32;
 pub fn gaussian_blur_integer_approximation<InputType, OutputType>(

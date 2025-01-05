@@ -11,7 +11,7 @@ use types::ycbcr422_image::YCbCr422Image;
 
 use crate::canny::{canny, EdgeClassification};
 pub mod canny;
-pub mod conv;
+pub mod filter2d;
 pub mod gaussian;
 pub mod sobel;
 

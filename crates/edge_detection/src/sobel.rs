@@ -12,7 +12,7 @@ use types::ycbcr422_image::YCbCr422Image;
 
 use crate::{
     canny::{non_maximum_suppression, EdgeClassification},
-    conv::piecewise_2d_convolution_mut,
+    filter2d::piecewise_2d_convolution_mut,
     gaussian::gaussian_blur_integer_approximation,
     get_edge_source_transposed_image, EdgeSourceType,
 };

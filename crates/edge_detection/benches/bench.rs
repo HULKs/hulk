@@ -212,7 +212,7 @@ mod sobel_operator {
 
     use divan::{bench, black_box, Bencher};
     use edge_detection::{
-        conv::{
+        filter2d::{
             direct_convolution_mut, direct_convolution_mut_alternative,
             piecewise_2d_convolution_mut, piecewise_horizontal_convolution_mut,
             piecewise_vertical_convolution_mut,
