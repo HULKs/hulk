@@ -1,19 +1,21 @@
 use std::iter::from_fn;
 
-use canny::{canny, EdgeClassification};
-use coordinate_systems::Pixel;
 use image::{GrayImage, Luma, RgbImage};
 use imageproc::{edges::canny as imageproc_canny, map::map_colors};
+
+use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
-use nalgebra::{self as na, Scalar};
+use nalgebra::{self as na, DMatrix, DMatrixView, Scalar};
 
 use types::ycbcr422_image::YCbCr422Image;
 
+use crate::canny::{canny, EdgeClassification};
 pub mod canny;
 pub mod conv;
 pub mod gaussian;
 pub mod sobel;
 
+#[derive(Debug, Copy, Clone)]
 pub enum EdgeSourceType {
     DifferenceOfGrayAndRgbRange,
     LumaOfYCbCr,
@@ -26,8 +28,10 @@ pub fn get_edges_canny_imageproc(
     canny_high_threshold: f32,
     image: &YCbCr422Image,
     source_channel: EdgeSourceType,
+    // exclude points above horizon_y (smaller than)
+    horizon_y: Option<u32>,
 ) -> Vec<Point2<Pixel>> {
-    let edges_source = get_edge_source_image(image, source_channel);
+    let edges_source = get_edge_source_image_old(image, source_channel, horizon_y);
 
     imageproc_canny(&edges_source, canny_low_threshold, canny_high_threshold)
         .enumerate_pixels()
@@ -47,11 +51,15 @@ pub fn get_edges_canny(
     canny_high_threshold: f32,
     image: &YCbCr422Image,
     source_channel: EdgeSourceType,
+    // exclude points above horizon_y (smaller than)
+    horizon_y: Option<u32>,
 ) -> Vec<Point2<Pixel>> {
-    let edges_source = get_edge_source_image(image, source_channel);
+    let min_y = horizon_y.unwrap_or(0) as usize;
+
+    let transposed_image = get_edge_source_transposed_image(image, source_channel, horizon_y);
 
     let (canny_image_matrix, point_count) = canny(
-        &edges_source,
+        transposed_image.as_view(),
         Some(gaussian_sigma),
         canny_low_threshold,
         canny_high_threshold,
@@ -64,68 +72,84 @@ pub fn get_edges_canny(
         .for_each(|(index, &value)| {
             if value >= EdgeClassification::LowConfidence {
                 let (x, y) = canny_image_matrix.vector_to_matrix_index(index);
-                points.push(point![x as f32, y as f32]);
+                points.push(point![x as f32, (y + min_y) as f32]);
             }
         });
     points
 }
 
-pub fn get_edge_source_image(image: &YCbCr422Image, source_type: EdgeSourceType) -> GrayImage {
+/// Column major access for Nalgebra, hence the function name "transposed" (image width = nrows, image height = ncols)
+pub fn get_edge_source_transposed_image(
+    image: &YCbCr422Image,
+    source_type: EdgeSourceType,
+    horizon_y: Option<u32>,
+) -> DMatrix<u8> {
+    let min_y = horizon_y.unwrap_or(0).clamp(0, image.height() - 1) as usize;
+    // iter_pixels() runs as row-major, so width * y gives the correct offset.
+    let flat_slice_offset = image.width() as usize * min_y..;
+    let new_height = image.height() as usize - min_y;
+
     match source_type {
         EdgeSourceType::DifferenceOfGrayAndRgbRange => {
             let rgb = RgbImage::from(image);
-
             let difference = rgb_image_to_difference(&rgb);
-
-            GrayImage::from_vec(
-                difference.width(),
-                difference.height(),
-                difference.into_vec(),
+            DMatrix::<u8>::from_column_slice(
+                image.width() as usize,
+                new_height,
+                &difference.as_raw()[flat_slice_offset],
             )
-            .expect("GrayImage construction after resize failed")
         }
         EdgeSourceType::LumaOfYCbCr => {
-            generate_luminance_image(image).expect("Generating luma image failed")
+            // iterator skip has some serious overheads.
+            let grayscale_buffer: Vec<_> = image.iter_pixels().map(|pixel| pixel.y).collect();
+            DMatrix::<u8>::from_column_slice(
+                image.width() as usize,
+                new_height,
+                &grayscale_buffer[flat_slice_offset],
+            )
         }
     }
 }
 
-fn generate_luminance_image(image: &YCbCr422Image) -> Option<GrayImage> {
-    let grayscale_buffer: Vec<_> = image.iter_pixels().map(|pixel| pixel.y).collect();
-    GrayImage::from_vec(image.width(), image.height(), grayscale_buffer)
+pub fn get_edge_source_image_old(
+    image: &YCbCr422Image,
+    source_type: EdgeSourceType,
+    horizon_y: Option<u32>,
+) -> GrayImage {
+    let min_y = horizon_y.unwrap_or(0).clamp(0, image.height() - 1) as usize;
+    // iter_pixels() runs as row-major, so width * y gives the correct offset.
+    let flat_slice_offset = image.width() as usize * min_y..;
+    let new_height = image.height() - min_y as u32;
+    let new_vec = match source_type {
+        EdgeSourceType::DifferenceOfGrayAndRgbRange => {
+            let rgb = RgbImage::from(image);
+            let difference = rgb_image_to_difference(&rgb);
+            difference.as_raw()[flat_slice_offset].to_vec()
+        }
+        EdgeSourceType::LumaOfYCbCr => {
+            let grayscale_buffer: Vec<_> = image.iter_pixels().map(|pixel| pixel.y).collect();
+
+            grayscale_buffer[flat_slice_offset].to_vec()
+        }
+    };
+    GrayImage::from_vec(image.width(), new_height, new_vec)
+        .expect("GrayImage construction after resize failed")
 }
 
 fn rgb_image_to_difference(rgb: &RgbImage) -> GrayImage {
-    map_colors(rgb, |color| {
-        Luma([
-            (rgb_pixel_to_gray(&color) - rgb_pixel_to_difference(&color) as i16).clamp(0, 255)
-                as u8,
-        ])
-    })
+    map_colors(rgb, |color| Luma([rgb_pixel_to_difference(&color)]))
 }
 
-#[inline]
-fn rgb_pixel_to_gray(rgb: &image::Rgb<u8>) -> i16 {
-    (rgb[0] as i16 + rgb[1] as i16 + rgb[2] as i16) / 3
-}
-
-#[inline]
+#[inline(always)]
 fn rgb_pixel_to_difference(rgb: &image::Rgb<u8>) -> u8 {
-    let minimum = rgb.0.iter().min().unwrap();
-    let maximum = rgb.0.iter().max().unwrap();
-    maximum - minimum
+    let raw = &rgb.0;
+    let minimum = raw[0].min(raw[1]).min(raw[2]) as i16;
+    let maximum = raw[0].max(raw[1]).max(raw[2]) as i16;
+
+    let gray = (raw[0] as i16 + raw[1] as i16 + raw[2] as i16) / 3;
+    let diff = maximum - minimum;
+    (gray - diff).clamp(0, 255) as u8
 }
-
-// #[inline]
-// fn grayimage_to_2d_matrix(image: &GrayImage) -> na::DMatrix<u8> {
-//     let data = image.as_raw();
-
-//     na::DMatrix::from_iterator(
-//         image.height() as usize,
-//         image.width() as usize,
-//         data.iter().copied(),
-//     )
-// }
 
 #[inline]
 pub fn grayimage_to_2d_transposed_matrix_view<T>(image: &GrayImage) -> na::DMatrix<T>
@@ -140,6 +164,27 @@ where
         image.height() as usize,
         data.iter().map(|&v| v.into()),
     )
+}
+
+pub fn transposed_matrix_view_to_gray_image<T>(transposed_image: DMatrixView<T>) -> GrayImage
+where
+    T: Into<u8> + Copy,
+{
+    let (width, height) = transposed_image.shape(); // rows, columns -> width, height
+    let mut out: GrayImage = GrayImage::new(width as u32, height as u32);
+    assert!(
+        out.len() >= transposed_image.len(),
+        "The output image is too small"
+    );
+
+    out.as_mut()
+        .iter_mut()
+        .zip(transposed_image.iter())
+        .for_each(|(out, &value)| {
+            *out = value.into();
+        });
+
+    out
 }
 
 // Profiling says it is faster than enumerate + zip chain

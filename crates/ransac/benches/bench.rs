@@ -5,7 +5,7 @@ use linear_algebra::{point, Point2};
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
-use ransac::circles::{circle::RansacCircle, test_utilities::generate_circle};
+use ransac::circles::{circle::RansacCircleWithTransformation, test_utilities::generate_circle};
 
 #[global_allocator]
 static ALLOC: AllocProfiler = AllocProfiler::system();
@@ -41,12 +41,16 @@ fn get_flamegraph(file_name: &str, guard: Option<ProfilerGuard<'static>>) {
 const TYPICAL_RADIUS: f32 = 0.75;
 const GENERATION_VARIATION: f32 = 0.08;
 const ACCEPTED_RADIUS_VARIANCE: f32 = 0.1;
-const REL_ASSERT_EPSILON: f32 = 1e-5;
 const HIGH_POINT_COUNT: usize = 2000;
 const HIGH_ITERATIONS: usize = 1500;
 const RANDOM_SEED: u64 = 666;
 
 struct SomeFrame {}
+struct OtherFrame {}
+
+fn _some_to_other(v: &Point2<SomeFrame>) -> Option<Point2<OtherFrame>> {
+    Some(point![v.x() + 1.0, v.y() + 1.0])
+}
 
 #[bench(min_time = 30)]
 fn noisy_circle(bencher: Bencher) {
@@ -62,10 +66,13 @@ fn noisy_circle(bencher: Bencher) {
     let mut rng = ChaChaRng::seed_from_u64(RANDOM_SEED);
 
     let gen = bencher.with_inputs(|| {
-        let ransac = RansacCircle::<SomeFrame>::new(
+        let ransac = RansacCircleWithTransformation::<SomeFrame, OtherFrame>::new(
             TYPICAL_RADIUS,
             ACCEPTED_RADIUS_VARIANCE,
             black_box(points.clone()),
+            _some_to_other,
+            None,
+            Some(0.35),
         );
         ransac
     });

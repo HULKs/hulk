@@ -195,7 +195,6 @@ mod tests {
     use super::*;
     use image::open;
     use imageproc::filter::gaussian_blur_f32;
-    use itertools::Itertools;
 
     #[test]
     fn test_gaussian_box_filter() {
@@ -222,77 +221,6 @@ mod tests {
             &[u8::MAX as usize, i8::MAX as usize, i16::MAX as usize];
         const MAX_KERNEL_TYPE: usize = i32::MAX as usize;
 
-        MAX_OUTPUT_VALUES.iter().for_each(|&max_value| {
-            println!("Trying output with max_value: {max_value}");
-            [3, 5, 7, 9, 11, 13, 15, 17, 21, 23]
-                .iter()
-                .for_each(|&ksize| {
-                    let smallest_kernel_type = [
-                        i16::MAX as usize,
-                        u16::MAX as usize,
-                        u32::MAX as usize,
-                        i32::MAX as usize,
-                    ]
-                    .iter()
-                    .flat_map(|&kernel_max| {
-                        let smallest_int_factor_power_of_two = SIGMA
-                            .iter()
-                            .map(|&sigma| {
-                                let mut one_axis = vec![0f64; ksize];
-                                let k_half = ksize / 2;
-                                check_kernel_size(ksize);
-
-                                for i in 0..((ksize / 2) + 1) {
-                                    let v = gaussian(i as f32, sigma);
-                                    one_axis[k_half - i] = v as f64;
-                                    one_axis[k_half + i] = v as f64;
-                                }
-
-                                let one_axis_sum = one_axis.iter().sum::<f64>();
-
-                                (4..16)
-                                    .filter_map(|int_factor_power_of_two| {
-                                        let factor = 2.pow(int_factor_power_of_two) as f64;
-                                        let kernel: Vec<usize> = one_axis
-                                            .iter()
-                                            .map(|v| (v / one_axis_sum * factor).as_())
-                                            .collect();
-
-                                        let max_convolved_sum: usize =
-                                            kernel.iter().map(|&v| v as usize * max_value).sum();
-
-                                        let scaled_sum =
-                                            kernel.iter().sum::<usize>() as f64 / factor;
-
-                                        if (1.0 - scaled_sum).abs() < TOLERANCE
-                                            && kernel_max >= max_convolved_sum
-                                        {
-                                            Some(int_factor_power_of_two)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect_vec()
-                            })
-                            .flatten()
-                            .min();
-
-                        smallest_int_factor_power_of_two.map(|int_factor_power_of_two| {
-                            (int_factor_power_of_two as usize, kernel_max)
-                        })
-                    })
-                    .min_by_key(|(_, kernel_max)| *kernel_max);
-
-                    if let Some((best_factor_in_tolerance, smallest_kernel)) = smallest_kernel_type
-                    {
-                        println!(
-                        "ksize: {ksize}, factor: {best_factor_in_tolerance}, best_kernel: {smallest_kernel} {max_value}"
-                        );
-                    }
-                });
-        });
-
-        assert!(false);
         SIGMA.iter().for_each(|&sigma| {
             let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<3,_>(sigma);
             let scaled_sum = kernel.iter().sum::<i32>() as f64 / factor.get() as f64;

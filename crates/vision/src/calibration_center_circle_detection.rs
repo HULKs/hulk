@@ -62,9 +62,9 @@ pub struct CycleContext {
         f32,
         "calibration_center_circle_detection.ransac_circle_minimum_circumference_percentage",
     >,
-    ransac_circle_early_exit_fitting_score: Parameter<
-        f32,
-        "calibration_center_circle_detection.ransac_circle_early_exit_fitting_score",
+    ransac_sample_size_percentage: Parameter<
+        Option<f32>,
+        "calibration_center_circle_detection.ransac_sample_size_percentage?",
     >,
     run_next_cycle_after_ms:
         Parameter<u64, "calibration_center_circle_detection.run_next_cycle_after_ms">,
@@ -146,7 +146,8 @@ impl CalibrationMeasurementDetection {
             *context.ransac_circle_inlier_threshold,
             context.field_dimensions.center_circle_diameter / 2.0,
             *context.ransac_circle_minimum_circumference_percentage,
-            *context.ransac_circle_early_exit_fitting_score,
+            None,
+            context.ransac_sample_size_percentage.copied(),
         );
 
         let elapsed_time_after_all_processing = processing_start.elapsed();
@@ -366,7 +367,8 @@ fn detect_and_filter_circles(
     ransac_circle_inlier_threshold: f32,
     target_circle_radius: f32,
     ransac_circle_minimum_circumference_percentage: f32,
-    ransac_circle_early_exit_fitting_score: f32,
+    ransac_circle_early_exit_fitting_score: Option<f32>,
+    ransac_sample_size_percentage: Option<f32>,
 ) -> Vec<RansacResultCircleWithTransformation<Pixel, Ground>> {
     let transformer =
         |pixel_coordinates: &Point2<Pixel>| camera_matrix.pixel_to_ground(*pixel_coordinates).ok();
@@ -377,6 +379,7 @@ fn detect_and_filter_circles(
         edge_points.to_vec(),
         transformer,
         ransac_circle_early_exit_fitting_score,
+        ransac_sample_size_percentage,
     );
     let input_point_count = edge_points.len();
 
@@ -453,6 +456,10 @@ fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pix
         *context.canny_high_threshold,
         context.image,
         canny_source_type,
+        context
+            .camera_matrix
+            .horizon
+            .map(|h| h.horizon_y_minimum() as u32),
     )
     .into_iter()
     .filter(|&point| point.y() > y_exclusion_threshold)

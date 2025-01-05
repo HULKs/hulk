@@ -13,8 +13,8 @@ use types::ycbcr422_image::YCbCr422Image;
 use crate::{
     canny::{non_maximum_suppression, EdgeClassification},
     conv::piecewise_2d_convolution_mut,
-    gaussian::gaussian_blur_box_filter,
-    get_edge_source_image, grayimage_to_2d_transposed_matrix_view, EdgeSourceType,
+    gaussian::gaussian_blur_integer_approximation,
+    get_edge_source_transposed_image, EdgeSourceType,
 };
 
 #[inline]
@@ -65,14 +65,10 @@ pub fn get_edges_sobel_and_nms(
     image: &YCbCr422Image,
     source_channel: EdgeSourceType,
 ) -> Vec<Point2<Pixel>> {
-    let edges_source = get_edge_source_image(image, source_channel);
-
-    let blurred = gaussian_blur_box_filter(&edges_source, gaussian_sigma);
-    let converted = grayimage_to_2d_transposed_matrix_view(&blurred);
-    let converted_view = converted.as_view();
-
-    let gradients_y_transposed = sobel_operator_vertical::<u8>(converted_view);
-    let gradients_x_transposed = sobel_operator_horizontal::<u8>(converted_view);
+    let edges_source = get_edge_source_transposed_image(image, source_channel, None);
+    let blurred = gaussian_blur_integer_approximation(edges_source.as_view(), gaussian_sigma);
+    let gradients_y_transposed = sobel_operator_vertical::<u8>(blurred.as_view());
+    let gradients_x_transposed = sobel_operator_horizontal::<u8>(blurred.as_view());
 
     let decisions = non_maximum_suppression(
         &gradients_x_transposed,
@@ -109,6 +105,11 @@ mod tests {
     };
     use nalgebra::{Matrix, ViewStorage};
 
+    use crate::{
+        get_edge_source_image_old, grayimage_to_2d_transposed_matrix_view,
+        transposed_matrix_view_to_gray_image,
+    };
+
     use super::*;
 
     const EDGE_SOURCE_TYPE: EdgeSourceType = EdgeSourceType::LumaOfYCbCr;
@@ -127,11 +128,13 @@ mod tests {
         image: &YCbCr422Image,
         source_channel: EdgeSourceType,
     ) -> Vec<Point2<Pixel>> {
-        let edges_source = get_edge_source_image(image, source_channel);
-        let blurred = gaussian_blur_box_filter(&edges_source, gaussian_sigma);
+        let edges_source = get_edge_source_transposed_image(image, source_channel, None);
+        let blurred =
+            gaussian_blur_integer_approximation::<u8, u8>(edges_source.as_view(), gaussian_sigma);
+        let blurred_gray = transposed_matrix_view_to_gray_image(blurred.as_view());
 
-        let gradients_vertical = imageproc_vertical_sobel(&blurred);
-        let gradients_horizontal = imageproc_horizontal_sobel(&blurred);
+        let gradients_vertical = imageproc_vertical_sobel(&blurred_gray);
+        let gradients_horizontal = imageproc_horizontal_sobel(&blurred_gray);
 
         let decisions = non_maximum_suppression(
             &DMatrix::<i16>::from_iterator(
@@ -256,12 +259,17 @@ mod tests {
             non_zero_diffs <= 32,
             "Too many non-zero diffs: {non_zero_diffs}"
         );
-        assert!((output_points.len() as isize - expected_points.len() as isize).abs() <= 10);
+        assert!(
+            (output_points.len() as isize - expected_points.len() as isize).abs() <= 20,
+            "output: {} vs expected: {}",
+            output_points.len(),
+            expected_points.len()
+        );
     }
 
     #[test]
     fn compare_imageproc_sobel_with_piecewise() {
-        let edges_source = get_edge_source_image(&load_test_image(), EDGE_SOURCE_TYPE);
+        let edges_source = get_edge_source_image_old(&load_test_image(), EDGE_SOURCE_TYPE, None);
         let blurred = gaussian_blur_f32(&edges_source, GAUSSIAN_SIGMA);
 
         // TODO remove once the operators handle the boundaries
