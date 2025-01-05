@@ -62,6 +62,10 @@ pub struct CycleContext {
         f32,
         "calibration_center_circle_detection.ransac_circle_minimum_circumference_percentage",
     >,
+    ransac_circle_early_exit_fitting_score: Parameter<
+        f32,
+        "calibration_center_circle_detection.ransac_circle_early_exit_fitting_score",
+    >,
     run_next_cycle_after_ms:
         Parameter<u64, "calibration_center_circle_detection.run_next_cycle_after_ms">,
     calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
@@ -142,6 +146,7 @@ impl CalibrationMeasurementDetection {
             *context.ransac_circle_inlier_threshold,
             context.field_dimensions.center_circle_diameter / 2.0,
             *context.ransac_circle_minimum_circumference_percentage,
+            *context.ransac_circle_early_exit_fitting_score,
         );
 
         let elapsed_time_after_all_processing = processing_start.elapsed();
@@ -187,6 +192,13 @@ impl CalibrationMeasurementDetection {
                 (
                     "elapsed_time_after_all_processing_ms".to_string(),
                     (elapsed_time_after_all_processing).as_millis(),
+                ),
+                (
+                    "ransac iterations".to_string(),
+                    filtered_calibration_circles_ground
+                        .first()
+                        .map(|ransac_result| ransac_result.total_iterations as u128)
+                        .unwrap_or(0),
                 ),
             ]
         });
@@ -354,6 +366,7 @@ fn detect_and_filter_circles(
     ransac_circle_inlier_threshold: f32,
     target_circle_radius: f32,
     ransac_circle_minimum_circumference_percentage: f32,
+    ransac_circle_early_exit_fitting_score: f32,
 ) -> Vec<RansacResultCircleWithTransformation<Pixel, Ground>> {
     let transformer =
         |pixel_coordinates: &Point2<Pixel>| camera_matrix.pixel_to_ground(*pixel_coordinates).ok();
@@ -363,6 +376,7 @@ fn detect_and_filter_circles(
         ransac_circle_inlier_threshold,
         edge_points.to_vec(),
         transformer,
+        ransac_circle_early_exit_fitting_score,
     );
     let input_point_count = edge_points.len();
 
