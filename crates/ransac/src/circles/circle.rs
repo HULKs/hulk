@@ -11,6 +11,7 @@ struct Parameters {
     radius: f32,
     inlier_threshold_on_residual: f32,
     minimum_furthest_points_distance_squared: f32,
+    average_point_fitting_score: f32,
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -18,6 +19,7 @@ pub struct RansacResultCircle<Frame> {
     pub circle: Circle<Frame>,
     pub used_points: Vec<Point2<Frame>>,
     pub score: f32,
+    pub total_iterations: usize,
 }
 
 pub struct RansacCircle<Frame> {
@@ -40,6 +42,8 @@ impl<Frame> RansacCircle<Frame> {
                 radius,
                 inlier_threshold_on_residual: accepted_radius_variance,
                 minimum_furthest_points_distance_squared: minimum_furthest_points_distance.powi(2),
+                // TODO implement usage
+                average_point_fitting_score: 0.0,
             },
         }
     }
@@ -56,7 +60,9 @@ impl<Frame> RansacCircle<Frame> {
             random_number_generator,
         );
 
-        if let Some((candidate_circle, inliers_mask, score)) = best_candidate_model_option {
+        if let Some((candidate_circle, inliers_mask, score, total_iterations)) =
+            best_candidate_model_option
+        {
             let (used_points, unused_points) = inliers_mask
                 .into_iter()
                 .zip(&self.unused_points)
@@ -74,6 +80,7 @@ impl<Frame> RansacCircle<Frame> {
                 circle: candidate_circle,
                 used_points,
                 score,
+                total_iterations,
             })
         } else {
             None
@@ -95,6 +102,7 @@ pub struct RansacResultCircleWithTransformation<OriginalFrame, SearchFrame> {
     pub used_points_original: Vec<Point2<OriginalFrame>>,
     pub used_points_transformed: Vec<Point2<SearchFrame>>,
     pub score: f32,
+    pub total_iterations: usize,
 }
 
 impl<OriginalFrame, SearchFrame> RansacCircleWithTransformation<OriginalFrame, SearchFrame> {
@@ -103,6 +111,7 @@ impl<OriginalFrame, SearchFrame> RansacCircleWithTransformation<OriginalFrame, S
         accepted_radius_variance: f32,
         points: Vec<Point2<OriginalFrame>>,
         transformer_function: impl Fn(&Point2<OriginalFrame>) -> Option<Point2<SearchFrame>>,
+        early_exit_average_point_fitting_score: f32,
     ) -> Self {
         const MINIMUM_ANGLE_OF_ARC: f32 = FRAC_PI_4;
         let minimum_furthest_points_distance =
@@ -124,6 +133,7 @@ impl<OriginalFrame, SearchFrame> RansacCircleWithTransformation<OriginalFrame, S
                 radius,
                 inlier_threshold_on_residual: accepted_radius_variance,
                 minimum_furthest_points_distance_squared: minimum_furthest_points_distance.powi(2),
+                average_point_fitting_score: early_exit_average_point_fitting_score.clamp(0.0, 1.0),
             },
         }
     }
@@ -139,39 +149,42 @@ impl<OriginalFrame, SearchFrame> RansacCircleWithTransformation<OriginalFrame, S
             &self.parameters,
             random_number_generator,
         );
-        best_candidate_model_option.map(|(candidate_circle, inliers_mask, score)| {
-            let (used_points_transformed, unused_points_transformed) = inliers_mask
-                .iter()
-                .zip(&self.unused_points_transformed)
-                .partition_map(|(&is_inlier, point)| {
-                    if is_inlier {
-                        itertools::Either::Left(point)
-                    } else {
-                        itertools::Either::Right(point)
-                    }
-                });
+        best_candidate_model_option.map(
+            |(candidate_circle, inliers_mask, score, total_iterations)| {
+                let (used_points_transformed, unused_points_transformed) = inliers_mask
+                    .iter()
+                    .zip(&self.unused_points_transformed)
+                    .partition_map(|(&is_inlier, point)| {
+                        if is_inlier {
+                            itertools::Either::Left(point)
+                        } else {
+                            itertools::Either::Right(point)
+                        }
+                    });
 
-            let (used_points_original, unused_points_original) = inliers_mask
-                .into_iter()
-                .zip(&self.unused_points_original)
-                .partition_map(|(is_inlier, point)| {
-                    if is_inlier {
-                        itertools::Either::Left(point)
-                    } else {
-                        itertools::Either::Right(point)
-                    }
-                });
+                let (used_points_original, unused_points_original) = inliers_mask
+                    .into_iter()
+                    .zip(&self.unused_points_original)
+                    .partition_map(|(is_inlier, point)| {
+                        if is_inlier {
+                            itertools::Either::Left(point)
+                        } else {
+                            itertools::Either::Right(point)
+                        }
+                    });
 
-            self.unused_points_original = unused_points_original;
-            self.unused_points_transformed = unused_points_transformed;
+                self.unused_points_original = unused_points_original;
+                self.unused_points_transformed = unused_points_transformed;
 
-            RansacResultCircleWithTransformation {
-                circle: candidate_circle,
-                used_points_original,
-                used_points_transformed,
-                score,
-            }
-        })
+                RansacResultCircleWithTransformation {
+                    circle: candidate_circle,
+                    used_points_original,
+                    used_points_transformed,
+                    score,
+                    total_iterations,
+                }
+            },
+        )
     }
 }
 
@@ -180,7 +193,7 @@ fn get_best_candidate<Frame>(
     iterations: usize,
     parameters: &Parameters,
     random_number_generator: &mut impl Rng,
-) -> Option<(Circle<Frame>, Vec<bool>, f32)> {
+) -> Option<(Circle<Frame>, Vec<bool>, f32, usize)> {
     let src_point_count = src_unused_points.len();
     if src_point_count < 3 {
         return None;
@@ -199,51 +212,85 @@ fn get_best_candidate<Frame>(
 
     let radius_squared = parameters.radius.powi(2);
 
-    let best = (0..iterations)
-        .filter_map(|_| {
-            let unused_points = src_unused_points
-                .choose_multiple(random_number_generator, sampled_population_size)
-                .collect_vec();
-            let three_points = &unused_points[0..3];
+    // average_point_fitting_score
 
-            let point1 = three_points[0];
-            let point2 = three_points[1];
-            let point3 = three_points[2];
-            let ab_squared = (*point1 - *point2).norm_squared();
-            let bc_squared = (*point2 - *point3).norm_squared();
-            let ca_squared = (*point3 - *point1).norm_squared();
-            if ab_squared < parameters.minimum_furthest_points_distance_squared
-                && bc_squared < parameters.minimum_furthest_points_distance_squared
-                && ca_squared < parameters.minimum_furthest_points_distance_squared
-            {
-                return None;
-            }
-            let candidate_circle = circle_from_three_points(point1, point2, point3);
-            let initial_max_variance = 1.5 * parameters.inlier_threshold_on_residual;
-            if (candidate_circle.radius - parameters.radius).powi(2) > initial_max_variance {
-                return None;
-            }
+    let chunk_count = 10;
+    let iter_chunk_size = (iterations / chunk_count).max(100);
+    let mut best: Option<(Circle<Frame>, f32)> = None;
 
-            let score = unused_points
-                .iter()
-                .filter_map(|&&point| {
-                    let distance_squared = (point - candidate_circle.center).norm_squared();
-                    let residual_abs = (distance_squared - radius_squared).abs();
-                    let is_inlier = residual_abs <= parameters.inlier_threshold_on_residual;
-                    if is_inlier {
-                        Some(1.0 - (residual_abs / parameters.inlier_threshold_on_residual))
-                    } else {
-                        None
+    let mut total_iterations = iter_chunk_size * chunk_count;
+    for chunk in 0..chunk_count {
+        let new_best = (0..iter_chunk_size)
+            .filter_map(|_| {
+                let unused_points = src_unused_points
+                    .choose_multiple(random_number_generator, sampled_population_size)
+                    .collect_vec();
+                let three_points = &unused_points[0..3];
+
+                let point1 = three_points[0];
+                let point2 = three_points[1];
+                let point3 = three_points[2];
+                let ab_squared = (*point1 - *point2).norm_squared();
+                let bc_squared = (*point2 - *point3).norm_squared();
+                let ca_squared = (*point3 - *point1).norm_squared();
+                if ab_squared < parameters.minimum_furthest_points_distance_squared
+                    && bc_squared < parameters.minimum_furthest_points_distance_squared
+                    && ca_squared < parameters.minimum_furthest_points_distance_squared
+                {
+                    return None;
+                }
+                let candidate_circle = circle_from_three_points(point1, point2, point3);
+                let initial_max_variance = 1.5 * parameters.inlier_threshold_on_residual;
+                if (candidate_circle.radius - parameters.radius).powi(2) > initial_max_variance {
+                    return None;
+                }
+
+                let score = unused_points
+                    .iter()
+                    .filter_map(|&&point| {
+                        let distance_squared = (point - candidate_circle.center).norm_squared();
+                        let residual_abs = (distance_squared - radius_squared).abs();
+                        let is_inlier = residual_abs <= parameters.inlier_threshold_on_residual;
+
+                        if is_inlier {
+                            let cost = residual_abs / parameters.inlier_threshold_on_residual;
+                            assert!(
+                                cost <= 1.0,
+                                "The cost MUST be less than one but it is {}",
+                                cost
+                            );
+                            Some(1.0 - cost)
+                        } else {
+                            None
+                        }
+                    })
+                    .sum::<f32>();
+
+                Some((candidate_circle, score))
+            })
+            .max_by_key(|scored_circle| NotNan::new(scored_circle.1).unwrap_or_default());
+
+        // Any better way to write this?
+
+        match (&best, &new_best) {
+            (None, Some(_)) => best = new_best,
+            (Some((_, current_best_score)), Some((_, new_score))) => {
+                if new_score > current_best_score {
+                    let best_score = *new_score;
+                    best = new_best;
+                    if best_score / sampled_population_size as f32
+                        > parameters.average_point_fitting_score
+                    {
+                        total_iterations = chunk * iter_chunk_size;
+                        break;
                     }
-                })
-                .sum::<f32>();
-
-            Some((candidate_circle, score))
-        })
-        .max_by_key(|scored_circle| NotNan::new(scored_circle.1).unwrap_or_default());
-
+                }
+            }
+            _ => (),
+        }
+    }
     best.map(|(circle, _score)| {
-        let mut score = 0.0;
+        let mut total_score = 0.0;
         let center = circle.center;
 
         let inlier_points_mask = src_unused_points
@@ -253,13 +300,26 @@ fn get_best_candidate<Frame>(
                 let residual_abs = (distance_squared - radius_squared).abs();
                 let is_inlier = residual_abs <= parameters.inlier_threshold_on_residual;
                 if is_inlier {
-                    score += 1.0 - (residual_abs / parameters.inlier_threshold_on_residual);
+                    let cost = residual_abs / parameters.inlier_threshold_on_residual;
+                    assert!(
+                        cost <= 1.0,
+                        "The cost MUST be less than one but it is {}",
+                        cost
+                    );
+                    total_score += 1.0 - cost
                 }
                 is_inlier
             })
             .collect_vec();
 
-        (circle, inlier_points_mask, score / src_point_count as f32)
+        let average_score = total_score / src_point_count as f32;
+        assert!(
+            average_score <= 1.0,
+            "The average score MUST be less than one but it is {}",
+            average_score
+        );
+
+        (circle, inlier_points_mask, average_score, total_iterations)
     })
 }
 
