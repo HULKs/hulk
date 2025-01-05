@@ -66,15 +66,25 @@ pub fn get_edges_canny(
     );
 
     let mut points = Vec::with_capacity(point_count);
-    canny_image_matrix
-        .into_iter()
-        .enumerate()
-        .for_each(|(index, &value)| {
-            if value >= EdgeClassification::LowConfidence {
-                let (x, y) = canny_image_matrix.vector_to_matrix_index(index);
+    // Column major access AND transposed
+    let canny_slice = canny_image_matrix.as_slice();
+    (0..canny_image_matrix.ncols()).for_each(|y| {
+        let col_offset = y * canny_image_matrix.nrows();
+        (0..canny_image_matrix.nrows()).for_each(|x| {
+            if canny_slice[col_offset + x] == EdgeClassification::HighConfidence {
                 points.push(point![x as f32, (y + min_y) as f32]);
             }
         });
+    });
+    // canny_image_matrix
+    //     .into_iter()
+    //     .enumerate()
+    //     .for_each(|(index, &value)| {
+    //         if value == EdgeClassification::HighConfidence {
+    //             let (x, y) = canny_image_matrix.vector_to_matrix_index(index);
+    //             points.push(point![x as f32, (y + min_y) as f32]);
+    //         }
+    //     });
     points
 }
 

@@ -2,10 +2,12 @@ use std::{env, fs::File};
 
 use divan::{bench, bench_group, black_box, Bencher};
 use image::GrayImage;
-use imageproc::{edges::canny, filter::gaussian_blur_f32, gradients::sobel_gradients};
+use imageproc::{
+    edges::canny as imgproc_canny, filter::gaussian_blur_f32, gradients::sobel_gradients,
+};
 
 use edge_detection::{
-    get_edge_source_image_old, get_edge_source_transposed_image,
+    canny::canny, get_edge_source_image_old, get_edge_source_transposed_image,
     transposed_matrix_view_to_gray_image, EdgeSourceType,
 };
 use nalgebra::DMatrixView;
@@ -72,7 +74,14 @@ fn imageproc_canny(bencher: Bencher) {
         get_edge_source_transposed_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE, None);
     let edges_source = transposed_matrix_view_to_gray_image(image.as_view());
 
-    bencher.bench_local(move || canny(black_box(&edges_source), 20.0, 50.0));
+    bencher.bench_local(move || imgproc_canny(black_box(&edges_source), 20.0, 50.0));
+}
+#[bench]
+fn our_canny(bencher: Bencher) {
+    let image =
+        get_edge_source_transposed_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE, None);
+    let image_view = image.as_view();
+    bencher.bench_local(move || canny(black_box(image_view), None, 20.0, 50.0));
 }
 
 #[bench(args=[EdgeSourceType::DifferenceOfGrayAndRgbRange ,EdgeSourceType::LumaOfYCbCr])]
@@ -129,7 +138,7 @@ mod blurring {
         });
     }
 
-    #[bench(args=GAUSSIAN_VALUES, min_time=2)]
+    #[bench(args=GAUSSIAN_VALUES)]
     fn gaussian_blur_int_approximation(bencher: Bencher, sigma: f32) {
         let transposed_matrix =
             get_edge_source_transposed_image(&load_test_image(), EDGE_SOURCE_TYPE, None);
@@ -149,7 +158,7 @@ mod blurring {
         get_flamegraph("int_approx", guard);
     }
 
-    #[bench(args=GAUSSIAN_VALUES, min_time=2)]
+    #[bench(args=GAUSSIAN_VALUES)]
     fn gaussian_blur_int_approximation_i16_i32_i16(bencher: Bencher, sigma: f32) {
         let transposed_matrix =
             get_edge_source_transposed_image(&load_test_image(), EDGE_SOURCE_TYPE, None).cast();
@@ -327,16 +336,6 @@ mod sobel_operator {
             ),
             _ => unreachable!("Unsupported kernel size"),
         }
-
-        // bencher.bench_local(move || {
-        //     let mut out = vec![0i16; transposed_matrix_view.len()];
-        //     black_box(direct_convolution_mut::<3, u8, i32, i16>(
-        //         black_box(&transposed_matrix_view),
-        //         black_box(out.as_mut_slice()),
-        //         black_box(&kernel_vert),
-        //         black_box(scale_factor),
-        //     ));
-        // });
     }
 
     fn _bench_with_kernel_size<KT, B, O, F, Mat>(
@@ -617,7 +616,7 @@ mod edge_points {
     };
 
     #[bench(args=GAUSSIAN_VALUES, min_time=2)]
-    fn our_canny(bencher: Bencher, sigma: f32) {
+    fn our_canny_edge_point_list(bencher: Bencher, sigma: f32) {
         let image = load_test_image();
 
         let guard = get_profiler_guard();
@@ -632,6 +631,24 @@ mod edge_points {
             ))
         });
         get_flamegraph("edges_our_canny", guard);
+    }
+
+    #[bench]
+    fn imageproc_canny_edge_point_list(bencher: Bencher) {
+        let image = load_test_image();
+
+        let guard = get_profiler_guard();
+        bencher.bench_local(move || {
+            black_box(get_edges_canny_imageproc(
+                black_box(3.5),
+                black_box(20.0),
+                black_box(50.0),
+                black_box(&image),
+                EDGE_SOURCE_TYPE,
+                None,
+            ))
+        });
+        get_flamegraph("edges_canny", guard);
     }
 
     #[bench]
@@ -731,23 +748,5 @@ mod edge_points {
         bencher.bench_local(move || {
             black_box(non_maximum_suppression(&gradients_x, &gradients_y, 10, 20));
         });
-    }
-
-    #[bench]
-    fn imageproc_canny(bencher: Bencher) {
-        let image = load_test_image();
-
-        let guard = get_profiler_guard();
-        bencher.bench_local(move || {
-            black_box(get_edges_canny_imageproc(
-                black_box(3.5),
-                black_box(20.0),
-                black_box(50.0),
-                black_box(&image),
-                EDGE_SOURCE_TYPE,
-                None,
-            ))
-        });
-        get_flamegraph("edges_canny", guard);
     }
 }
