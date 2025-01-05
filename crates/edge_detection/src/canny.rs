@@ -9,25 +9,14 @@ use crate::{
 };
 
 pub fn canny(
-    image: &GrayImage,
+    image_transposed: DMatrixView<u8>,
     gaussian_sigma: Option<f32>,
     low_threshold: f32,
     high_threshold: f32,
 ) -> (DMatrix<EdgeClassification>, usize) {
     let sigma = gaussian_sigma.unwrap_or(1.4);
 
-    let input = DMatrixView::from_slice(
-        image.as_raw(),
-        image.width() as usize,
-        image.height() as usize,
-    );
-
-    // Transposed shape, as GrayImage is row-major while the matrix is col. major
-    assert_eq!(
-        (image.height() as usize, image.width() as usize),
-        (input.ncols(), input.nrows())
-    );
-    let converted = gaussian_blur_integer_approximation::<u8, u8>(input.as_view(), sigma);
+    let converted = gaussian_blur_integer_approximation::<u8, u8>(image_transposed, sigma);
     let converted_view = converted.as_view();
 
     let gx = sobel_operator_horizontal(converted_view);
@@ -322,7 +311,7 @@ mod tests {
     use image::GrayImage;
     use types::ycbcr422_image::YCbCr422Image;
 
-    use crate::{get_edge_source_image, EdgeSourceType};
+    use crate::{get_edge_source_transposed_image, EdgeSourceType};
 
     use super::{approximate_direction_integer_only, canny, OctantWithDegName};
 
@@ -334,22 +323,17 @@ mod tests {
 
     #[test]
     fn test_overall() {
-        let edges_source = get_edge_source_image(&load_test_image(), EdgeSourceType::LumaOfYCbCr);
+        let cropped_input =
+            get_edge_source_transposed_image(&load_test_image(), EdgeSourceType::LumaOfYCbCr, None);
+
+        assert!(cropped_input.nrows() > cropped_input.ncols());
         let (transposed_canny_image_matrix, _point_count) =
-            canny(&edges_source, Some(1.4), 20.0, 50.0);
+            canny(cropped_input.as_view(), Some(1.4), 20.0, 50.0);
 
-        assert_eq!(
-            (
-                transposed_canny_image_matrix.nrows(),
-                transposed_canny_image_matrix.ncols()
-            ),
-            (
-                edges_source.width() as usize,
-                edges_source.height() as usize,
-            )
+        let mut new_image = GrayImage::new(
+            transposed_canny_image_matrix.nrows() as u32,
+            transposed_canny_image_matrix.ncols() as u32,
         );
-
-        let mut new_image = GrayImage::new(edges_source.width(), edges_source.height());
         transposed_canny_image_matrix
             .iter()
             .enumerate()
@@ -357,7 +341,7 @@ mod tests {
                 let (x, y) = transposed_canny_image_matrix.vector_to_matrix_index(index);
 
                 assert!(
-                    x < edges_source.width() as usize && y < edges_source.height() as usize,
+                    x < new_image.width() as usize && y < new_image.height() as usize,
                     "Starting point x:{x} y:{y}, index: {index}, shape: {:?}",
                     (
                         transposed_canny_image_matrix.nrows(),

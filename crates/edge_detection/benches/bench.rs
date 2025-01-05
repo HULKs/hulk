@@ -4,7 +4,10 @@ use divan::{bench, bench_group, black_box, Bencher};
 use image::GrayImage;
 use imageproc::{edges::canny, filter::gaussian_blur_f32, gradients::sobel_gradients};
 
-use edge_detection::{get_edge_source_image, EdgeSourceType};
+use edge_detection::{
+    get_edge_source_image_old, get_edge_source_transposed_image,
+    transposed_matrix_view_to_gray_image, EdgeSourceType,
+};
 use nalgebra::DMatrixView;
 use pprof::{ProfilerGuard, ProfilerGuardBuilder};
 use types::ycbcr422_image::YCbCr422Image;
@@ -49,7 +52,9 @@ fn load_test_image() -> YCbCr422Image {
 }
 
 fn get_blurred_source_image(image: &YCbCr422Image) -> GrayImage {
-    let edges_source = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
+    let transposed_matrix =
+        get_edge_source_transposed_image(black_box(image), EDGE_SOURCE_TYPE, None);
+    let edges_source = transposed_matrix_view_to_gray_image(transposed_matrix.as_view());
     gaussian_blur_f32(&edges_source, 3.5)
 }
 
@@ -63,26 +68,46 @@ fn imageproc_sobel_gradients(bencher: Bencher) {
 
 #[bench]
 fn imageproc_canny(bencher: Bencher) {
-    let image = load_test_image();
-    let mono = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
+    let image =
+        get_edge_source_transposed_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE, None);
+    let edges_source = transposed_matrix_view_to_gray_image(image.as_view());
 
-    bencher.bench_local(move || canny(black_box(&mono), 20.0, 50.0));
+    bencher.bench_local(move || canny(black_box(&edges_source), 20.0, 50.0));
 }
 
-#[bench]
-fn edge_source_select(bencher: Bencher) {
+#[bench(args=[EdgeSourceType::DifferenceOfGrayAndRgbRange ,EdgeSourceType::LumaOfYCbCr])]
+fn edge_source_select(bencher: Bencher, source_type: EdgeSourceType) {
     let image = load_test_image();
 
-    bencher
-        .bench_local(move || get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE)));
+    bencher.bench_local(move || {
+        black_box(get_edge_source_transposed_image(
+            black_box(&image),
+            black_box(source_type),
+            black_box(None),
+        ))
+    });
 }
+
+#[bench(args=[EdgeSourceType::DifferenceOfGrayAndRgbRange ,EdgeSourceType::LumaOfYCbCr])]
+fn edge_source_select_old(bencher: Bencher, source_type: EdgeSourceType) {
+    let image = load_test_image();
+
+    bencher.bench_local(move || {
+        black_box(get_edge_source_image_old(
+            black_box(&image),
+            black_box(source_type),
+            None,
+        ))
+    });
+}
+
 const GAUSSIAN_VALUES: &[f32] = &[0.5, 1.0, 1.4, 2.0, 3.5];
 #[bench_group]
 mod blurring {
     use divan::{bench, black_box, Bencher};
     use edge_detection::{
         gaussian::{gaussian_blur_box_filter, gaussian_blur_integer_approximation},
-        get_edge_source_image, grayimage_to_2d_transposed_matrix_view,
+        get_edge_source_transposed_image, transposed_matrix_view_to_gray_image,
     };
     use imageproc::filter::gaussian_blur_f32;
 
@@ -92,10 +117,13 @@ mod blurring {
 
     #[bench(args=GAUSSIAN_VALUES)]
     fn gaussian_blur_with_box_filter(bencher: Bencher, sigma: f32) {
-        let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
+        let image =
+            get_edge_source_transposed_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE, None);
+        let gray_image = transposed_matrix_view_to_gray_image(image.as_view());
+
         bencher.bench_local(move || {
             black_box(gaussian_blur_box_filter(
-                black_box(&image),
+                black_box(&gray_image),
                 black_box(sigma),
             ))
         });
@@ -103,8 +131,8 @@ mod blurring {
 
     #[bench(args=GAUSSIAN_VALUES, min_time=2)]
     fn gaussian_blur_int_approximation(bencher: Bencher, sigma: f32) {
-        let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&image);
+        let transposed_matrix =
+            get_edge_source_transposed_image(&load_test_image(), EDGE_SOURCE_TYPE, None);
         let transposed_matrix_view = transposed_matrix.as_view();
 
         let guard = if sigma == 1.0 {
@@ -123,8 +151,8 @@ mod blurring {
 
     #[bench(args=GAUSSIAN_VALUES, min_time=2)]
     fn gaussian_blur_int_approximation_i16_i32_i16(bencher: Bencher, sigma: f32) {
-        let image = get_edge_source_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE);
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<i16>(&image);
+        let transposed_matrix =
+            get_edge_source_transposed_image(&load_test_image(), EDGE_SOURCE_TYPE, None).cast();
         let transposed_matrix_view = transposed_matrix.as_view();
 
         let guard = if sigma == 1.0 {
@@ -143,8 +171,9 @@ mod blurring {
 
     #[bench(args=GAUSSIAN_VALUES)]
     fn imageproc_blurring(bencher: Bencher, sigma: f32) {
-        let image = load_test_image();
-        let edges_source = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
+        let image =
+            get_edge_source_transposed_image(black_box(&load_test_image()), EDGE_SOURCE_TYPE, None);
+        let edges_source = transposed_matrix_view_to_gray_image(image.as_view());
 
         bencher.bench_local(move || black_box(gaussian_blur_f32(black_box(&edges_source), sigma)));
     }
@@ -188,12 +217,12 @@ mod sobel_operator {
             piecewise_2d_convolution_mut, piecewise_horizontal_convolution_mut,
             piecewise_vertical_convolution_mut,
         },
-        get_edge_source_image, grayimage_to_2d_transposed_matrix_view,
+        get_edge_source_transposed_image,
         sobel::sobel_operator_vertical,
     };
 
     use imageproc::gradients::vertical_sobel;
-    use nalgebra::{DMatrix, SMatrix};
+    use nalgebra::SMatrix;
     use num_traits::One;
 
     use crate::{
@@ -204,8 +233,7 @@ mod sobel_operator {
     #[bench(args=[3,5,7])]
     fn direct_convolution_mut_new(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let transposed_matrix_view = transposed_matrix.as_view();
         let mat_len = transposed_matrix.len();
         let output_prefix = "direct_convolution_mut_try_again_";
@@ -245,8 +273,7 @@ mod sobel_operator {
     #[bench(args=[3,5,7,11,21])]
     fn direct_convolution_mut_old_vertical(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let transposed_matrix_view = transposed_matrix.as_view();
         let mat_len = transposed_matrix.len();
         let output_prefix = "direct_convolution_mut_old_";
@@ -342,8 +369,7 @@ mod sobel_operator {
     #[bench(args=[3,5,7,11,21])]
     fn piecewise_2d_mut(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let transposed_matrix_view = transposed_matrix.as_view();
 
         let output_prefix = "piecewise_horiz_2d";
@@ -410,9 +436,7 @@ mod sobel_operator {
     #[bench(args=[3,5,7,11,13,21])]
     fn piecewise_vertical_mut_ksizes(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let mat_len = transposed_matrix.len();
 
         let output_prefix = "piecewise_vert";
@@ -478,8 +502,7 @@ mod sobel_operator {
     #[bench(args=[3,5,7,11,13,21])]
     fn piecewise_horizontal_mut_ksizes(bencher: Bencher, kernel_size: usize) {
         let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view::<u8>(&gray);
+        let transposed_matrix = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let transposed_matrix_view = transposed_matrix.as_view();
         let mat_len = transposed_matrix.len();
         let output_prefix = "piecewise_horiz";
@@ -545,8 +568,7 @@ mod sobel_operator {
     #[bench]
     fn direct_convolution_sobel_vertical_wrapper(bencher: Bencher) {
         let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix = grayimage_to_2d_transposed_matrix_view(&gray);
+        let transposed_matrix = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let transposed_matrix_view = transposed_matrix.as_view();
         bencher.bench_local(move || {
             black_box(sobel_operator_vertical::<u8>(black_box(
@@ -558,8 +580,8 @@ mod sobel_operator {
     #[bench]
     fn direct_convolution_sobel_vertical_wrapper_i16_input(bencher: Bencher) {
         let image = load_test_image();
-        let gray = get_edge_source_image(black_box(&image), black_box(EDGE_SOURCE_TYPE));
-        let transposed_matrix: DMatrix<i16> = grayimage_to_2d_transposed_matrix_view::<i16>(&gray);
+        let transposed_matrix =
+            get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None).cast();
         let transposed_matrix_view = transposed_matrix.as_view();
         bencher.bench_local(move || {
             black_box(sobel_operator_vertical::<i16>(black_box(
@@ -572,7 +594,6 @@ mod sobel_operator {
     fn imageproc_sobel_vertical(bencher: Bencher) {
         let image = load_test_image();
         let blurred = get_blurred_source_image(&image);
-
         bencher.bench_local(move || black_box(vertical_sobel(black_box(&blurred))));
     }
 }
@@ -585,8 +606,7 @@ mod edge_points {
     use edge_detection::{
         canny::non_maximum_suppression,
         gaussian::gaussian_blur_integer_approximation,
-        get_edge_source_image, get_edges_canny, get_edges_canny_imageproc,
-        grayimage_to_2d_transposed_matrix_view,
+        get_edge_source_transposed_image, get_edges_canny, get_edges_canny_imageproc,
         sobel::{get_edges_sobel_and_nms, sobel_operator_horizontal, sobel_operator_vertical},
     };
     use nalgebra::DMatrix;
@@ -608,6 +628,7 @@ mod edge_points {
                 black_box(50.0),
                 black_box(&image),
                 EDGE_SOURCE_TYPE,
+                None,
             ))
         });
         get_flamegraph("edges_our_canny", guard);
@@ -634,9 +655,7 @@ mod edge_points {
     #[bench]
     fn non_maximum_suppression_our_impl(bencher: Bencher) {
         let image = load_test_image();
-
-        let edges_source = get_edge_source_image(&image, EDGE_SOURCE_TYPE);
-        let converted = grayimage_to_2d_transposed_matrix_view::<u8>(&edges_source);
+        let converted = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let gaussian_blur_box_filter_nalgebra =
             gaussian_blur_integer_approximation(converted.as_view(), GAUSSIAN_SIGMA);
         let blurred = gaussian_blur_box_filter_nalgebra;
@@ -726,6 +745,7 @@ mod edge_points {
                 black_box(50.0),
                 black_box(&image),
                 EDGE_SOURCE_TYPE,
+                None,
             ))
         });
         get_flamegraph("edges_canny", guard);
