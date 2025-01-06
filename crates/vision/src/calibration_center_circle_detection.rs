@@ -449,19 +449,15 @@ fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pix
     } else {
         EdgeSourceType::DifferenceOfGrayAndRgbRange
     };
-    let y_exclusion_threshold = get_y_exclusion_threshold(context) as f32;
+
     get_edges_canny(
         *context.preprocessing_gaussian_sigma,
         *context.canny_low_threshold,
         *context.canny_high_threshold,
         context.image,
         canny_source_type,
-        context
-            .camera_matrix
-            .horizon
-            .map(|h| h.horizon_y_minimum() as u32),
+        Some(get_y_exclusion_threshold(context)),
     )
     .into_iter()
-    .filter(|&point| point.y() > y_exclusion_threshold)
     .collect()
 }

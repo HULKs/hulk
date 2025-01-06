@@ -75,14 +75,14 @@ impl Overlay for CalibrationMeasurementDetection {
                 FontId::default(),
                 Color32::BLUE,
             );
-            painter.circle_stroke(center_circle.center, 2.0, Stroke::new(1.0, Color32::GOLD));
+            painter.circle_stroke(center_circle.center, 1.0, Stroke::new(1.0, Color32::GOLD));
             painter.circle_stroke(
                 center_circle.center,
                 1.0,
                 Stroke::new(1.0, Color32::DARK_BLUE),
             );
             for circle_point in &center_circle.points {
-                painter.circle_stroke(*circle_point, 2.0, Stroke::new(1.0, Color32::RED));
+                painter.circle_stroke(*circle_point, 1.0, Stroke::new(1.0, Color32::RED));
             }
         }
         Ok(())
