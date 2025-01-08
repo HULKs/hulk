@@ -17,7 +17,7 @@ It can be stopped / started using standard systemd commands, such as `systemctl 
 To build HULA for the NAO,
 
 1. Source the SDK by calling `. naosdk/<version>/environment-setup-corei7-64-aldebaran-linux` from the default HULKs folder.
-   Be sure to use a posix compliant shell such as Bash (not Fish).
+   Be sure to use a POSIX compliant shell such as Bash (not Fish).
 2. Use `cargo build` with the correct manifest path.
 3. Copy the compiled binary from the target folder in the hula folder to the NAO using e.g. `scp`.
 4. Connect to the NAO using `pepsi shell`
