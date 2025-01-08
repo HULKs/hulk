@@ -125,9 +125,7 @@ impl GameControllerStateFilter {
                 .hulks_team
                 .remaining_amount_of_messages,
             sub_state: context.game_controller_state.sub_state,
-            own_team_is_home_after_coin_toss: context
-                .game_controller_state
-                .hulks_team_is_home_after_coin_toss,
+            global_field_side: context.game_controller_state.global_field_side,
             new_own_penalties_last_cycle,
             new_opponent_penalties_last_cycle,
         };
