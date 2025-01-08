@@ -55,8 +55,8 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             ]
         )
 
-    def step(self, a):
-        self.do_simulation(a, self.frame_skip)
+    def step(self, action):
+        self.do_simulation(action, self.frame_skip)
         data = self.data
 
         head_center_id = self.model.site("head_center").id

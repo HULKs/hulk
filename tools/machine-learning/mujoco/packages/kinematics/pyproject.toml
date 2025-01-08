@@ -1,0 +1,10 @@
+[project]
+name = "kinematics"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.10"
+dependencies = ["transforms", "numpy"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
