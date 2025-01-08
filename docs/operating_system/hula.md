@@ -1,11 +1,10 @@
 # HUlks Level Abstraction (HULA)
 
-HULA is an abstraction layer that connects to the chest board USB device of a NAOv6 and serves an interface for other applications.
-HULA implements the USB protocol of the chest board and of the hardware devices in the NAO.
+HULA is an abstraction layer that connects to LoLA, the by [Aldebaran Robotics](https://corporate-internal-prod.aldebaran.com/) provided Low Level Abstraction of the NAOv6 and serves an interface for other applications.
+Unlike LOLA, HULA also supports multiple clients.
 
-??? todo
-
-    Insert a nice image.
+![Overview Diagram](./hula-overview-light.svg#only-light)
+![Overview Diagram](./hula-overview-dark.svg#only-dark)
 
 ## On the Nao
 
