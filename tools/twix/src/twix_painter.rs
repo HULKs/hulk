@@ -149,11 +149,12 @@ impl<World> TwixPainter<World> {
         self.world_to_pixel.inner.scaling()
     }
 
-    pub fn arc(&self, arc: Arc<World>, orientation: Direction, stroke: Stroke) {
+    pub fn arc(&self, arc: Arc<World>, stroke: Stroke) {
         let Arc {
             circle: Circle { center, radius },
             start,
             end,
+            direction,
         } = arc;
         let start_relative = start - center;
         let end_relative = end - center;
@@ -168,7 +169,7 @@ impl<World> TwixPainter<World> {
             angle_difference
         };
 
-        let signed_angle_difference = match orientation {
+        let signed_angle_difference = match direction {
             Direction::Clockwise => -TAU + counterclockwise_angle_difference,
             Direction::Counterclockwise => counterclockwise_angle_difference,
             Direction::Colinear => 0.0,
@@ -463,9 +464,8 @@ impl TwixPainter<Ground> {
                         color: line_color,
                     },
                 ),
-                PathSegment::Arc(arc, orientation) => self.arc(
+                PathSegment::Arc(arc) => self.arc(
                     arc,
-                    orientation,
                     Stroke {
                         width,
                         color: arc_color,

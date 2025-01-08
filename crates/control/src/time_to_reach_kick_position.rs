@@ -56,7 +56,7 @@ impl TimeToReachKickPosition {
                             PathSegment::LineSegment(_) => {
                                 length / context.configuration.path_planning.line_walking_speed
                             }
-                            PathSegment::Arc(_, _) => {
+                            PathSegment::Arc(_) => {
                                 length / context.configuration.path_planning.arc_walking_speed
                             }
                         }

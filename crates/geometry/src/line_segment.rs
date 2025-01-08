@@ -139,7 +139,7 @@ impl<Frame> LineSegment<Frame> {
         }
     }
 
-    pub fn overlaps_arc(&self, arc: Arc<Frame>, orientation: Direction) -> bool {
+    pub fn overlaps_arc(&self, arc: Arc<Frame>) -> bool {
         if self.distance_to(arc.circle.center) >= arc.circle.radius {
             return false;
         }
@@ -187,7 +187,7 @@ impl<Frame> LineSegment<Frame> {
             }
 
             if (angle_start_to_obstacle < angle_start_to_end)
-                ^ (orientation == Direction::Clockwise)
+                ^ (arc.direction == Direction::Clockwise)
             {
                 return true;
             }

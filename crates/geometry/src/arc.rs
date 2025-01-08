@@ -12,7 +12,6 @@ use crate::{circle::Circle, direction::Direction};
     Clone,
     Copy,
     Debug,
-    Default,
     Deserialize,
     PartialEq,
     PathDeserialize,
@@ -24,6 +23,7 @@ pub struct Arc<Frame> {
     pub circle: Circle<Frame>,
     pub start: Point2<Frame>,
     pub end: Point2<Frame>,
+    pub direction: Direction,
 }
 
 impl<Frame> AbsDiffEq for Arc<Frame>
@@ -37,7 +37,8 @@ where
     }
 
     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        self.circle.abs_diff_eq(&other.circle, epsilon)
+        self.direction == other.direction
+            && self.circle.abs_diff_eq(&other.circle, epsilon)
             && self.start.abs_diff_eq(&other.start, epsilon)
             && self.end.abs_diff_eq(&other.end, epsilon)
     }
@@ -57,30 +58,42 @@ where
         epsilon: Self::Epsilon,
         max_relative: Self::Epsilon,
     ) -> bool {
-        self.circle
-            .relative_eq(&other.circle, epsilon, max_relative)
+        self.direction == other.direction
+            && self
+                .circle
+                .relative_eq(&other.circle, epsilon, max_relative)
             && self.start.relative_eq(&other.start, epsilon, max_relative)
             && self.end.relative_eq(&other.end, epsilon, max_relative)
     }
 }
 
 impl<Frame> Arc<Frame> {
-    pub fn new(circle: Circle<Frame>, start: Point2<Frame>, end: Point2<Frame>) -> Self {
-        Self { circle, start, end }
+    pub fn new(
+        circle: Circle<Frame>,
+        start: Point2<Frame>,
+        end: Point2<Frame>,
+        direction: Direction,
+    ) -> Self {
+        Self {
+            circle,
+            start,
+            end,
+            direction,
+        }
     }
 
-    pub fn length(&self, orientation: Direction) -> f32 {
+    pub fn length(&self) -> f32 {
         let vector_start = self.start - self.circle.center;
         let vector_end = self.end - self.circle.center;
 
         let angle_x_axis_to_start = vector_start.y().atan2(vector_start.x());
         let mut angle = vector_end.y().atan2(vector_end.x()) - angle_x_axis_to_start;
 
-        if (orientation == Direction::Clockwise) && (angle > 0.0) {
+        if (self.direction == Direction::Clockwise) && (angle > 0.0) {
             angle -= TAU;
             angle *= -1.0;
         }
-        if (orientation == Direction::Counterclockwise) && (angle < 0.0) {
+        if (self.direction == Direction::Counterclockwise) && (angle < 0.0) {
             angle += TAU;
         }
         (angle * self.circle.radius).abs()
@@ -107,9 +120,20 @@ mod tests {
             },
             start: point![1.0, 2.0],
             end: point![2.0, 1.0],
+            direction: Direction::Clockwise,
         };
-        assert_relative_eq!(arc.length(Direction::Clockwise), PI);
-        assert_relative_eq!(arc.length(Direction::Counterclockwise), 3.0 * PI);
+        assert_relative_eq!(arc.length(), PI);
+
+        let arc = Arc::<SomeFrame> {
+            circle: Circle {
+                center: point![1.0, 1.0],
+                radius: 2.0,
+            },
+            start: point![1.0, 2.0],
+            end: point![2.0, 1.0],
+            direction: Direction::Counterclockwise,
+        };
+        assert_relative_eq!(arc.length(), 3.0 * PI);
 
         let arc = Arc::<SomeFrame> {
             circle: Circle {
@@ -118,9 +142,20 @@ mod tests {
             },
             start: point![2.0, 1.0],
             end: point![1.0, 2.0],
+            direction: Direction::Clockwise,
         };
-        assert_relative_eq!(arc.length(Direction::Clockwise), 3.0 * PI);
-        assert_relative_eq!(arc.length(Direction::Counterclockwise), PI);
+        assert_relative_eq!(arc.length(), 3.0 * PI);
+
+        let arc = Arc::<SomeFrame> {
+            circle: Circle {
+                center: point![1.0, 1.0],
+                radius: 2.0,
+            },
+            start: point![2.0, 1.0],
+            end: point![1.0, 2.0],
+            direction: Direction::Counterclockwise,
+        };
+        assert_relative_eq!(arc.length(), PI);
     }
 
     #[test]
@@ -134,20 +169,25 @@ mod tests {
                     * vector![1.0, 0.0];
                 let center = point![PI, 4.20];
                 let radius = 5.0;
+
+                println!("angle: {angle} angle_distance {angle_distance}");
+
                 let arc = Arc::<SomeFrame> {
                     circle: Circle { center, radius },
                     start: center + start,
                     end: center + end,
+                    direction: Direction::Counterclockwise,
                 };
+                assert_relative_eq!(arc.length(), radius * angle_distance, epsilon = 0.001);
 
-                println!("angle: {angle} angle_distance {angle_distance}");
+                let arc = Arc::<SomeFrame> {
+                    circle: Circle { center, radius },
+                    start: center + start,
+                    end: center + end,
+                    direction: Direction::Clockwise,
+                };
                 assert_relative_eq!(
-                    arc.length(Direction::Counterclockwise),
-                    radius * angle_distance,
-                    epsilon = 0.001
-                );
-                assert_relative_eq!(
-                    arc.length(Direction::Clockwise),
+                    arc.length(),
                     radius * (TAU - angle_distance),
                     epsilon = 0.001
                 );
