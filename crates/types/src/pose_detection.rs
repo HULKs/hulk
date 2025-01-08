@@ -165,7 +165,7 @@ pub struct RefereePoseCandidate {
     PathDeserialize,
     PathIntrospect,
 )]
-pub enum VisualRefereeState {
+pub enum ReadySignalState {
     WaitingForDetections,
     WaitingForOpponentPenalties { active_since: SystemTime },
     WaitingForOwnPenalties { active_since: SystemTime },
