@@ -67,7 +67,6 @@ pub enum MotionCommand {
     },
     Initial {
         head: HeadMotion,
-        should_look_for_referee: bool,
     },
     Jump {
         direction: JumpDirection,
@@ -170,6 +169,10 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt {
         target: Point2<Ground>,
+        image_region_target: ImageRegion,
+        camera: Option<CameraPosition>,
+    },
+    LookAtReferee {
         image_region_target: ImageRegion,
         camera: Option<CameraPosition>,
     },

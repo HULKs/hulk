@@ -6,6 +6,7 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
+    field_dimensions::GlobalFieldSide,
     filtered_game_controller_state::FilteredGameControllerState,
     initial_look_around::{
         BallSearchLookAround, InitialLookAround, LookAroundMode, QuickLookAround,
@@ -63,7 +64,8 @@ impl LookAround {
                 Some(HeadMotion::LookAround) => context.filtered_game_controller_state.map_or(
                     LookAroundMode::Initial(Default::default()),
                     |filtered_game_controller_state| {
-                        if filtered_game_controller_state.own_team_is_home_after_coin_toss {
+                        if filtered_game_controller_state.global_field_side == GlobalFieldSide::Home
+                        {
                             LookAroundMode::Initial(InitialLookAround::Left)
                         } else {
                             LookAroundMode::Initial(InitialLookAround::Right)
