@@ -15,7 +15,7 @@ use types::{
     cycle_time::CycleTime,
     messages::{IncomingMessage, OutgoingMessage},
     players::Players,
-    pose_detection::VisualRefereeState,
+    pose_detection::ReadySignalState,
     pose_kinds::PoseKind,
 };
 
@@ -24,7 +24,7 @@ pub struct RefereePoseDetectionFilter {
     detection_times: Players<Option<SystemTime>>,
     detected_above_arm_poses_queue: VecDeque<bool>,
     motion_in_standby_count: usize,
-    visual_referee_state: VisualRefereeState,
+    visual_referee_state: ReadySignalState,
 }
 
 #[context]
@@ -67,7 +67,7 @@ pub struct MainOutputs {
 impl RefereePoseDetectionFilter {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            visual_referee_state: VisualRefereeState::WaitingForDetections,
+            visual_referee_state: ReadySignalState::WaitingForDetections,
             detection_times: Default::default(),
             motion_in_standby_count: 0,
             detected_above_arm_poses_queue: VecDeque::with_capacity(
