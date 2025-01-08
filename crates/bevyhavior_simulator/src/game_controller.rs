@@ -5,7 +5,9 @@ use bevy::prelude::*;
 use spl_network_messages::{
     GamePhase, GameState, Penalty, PlayerNumber, SubState, Team, TeamColor, TeamState,
 };
-use types::{game_controller_state::GameControllerState, players::Players};
+use types::{
+    field_dimensions::GlobalFieldSide, game_controller_state::GameControllerState, players::Players,
+};
 
 use crate::{autoref::autoref, whistle::WhistleResource};
 
@@ -164,7 +166,7 @@ impl Default for GameController {
                 penalties: Players::new(None),
                 opponent_penalties: Players::new(None),
                 sub_state: None,
-                hulks_team_is_home_after_coin_toss: true,
+                global_field_side: GlobalFieldSide::Home,
                 hulks_team: TeamState {
                     team_number: 24,
                     field_player_color: TeamColor::Green,

@@ -4,8 +4,12 @@ use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, FontId, Stroke};
 use linear_algebra::point;
-use types::pose_detection::{
-    HumanPose, Keypoint, OVERALL_KEYPOINT_INDEX_MASK, VISUAL_REFEREE_KEYPOINT_INDEX_MASK,
+use types::{
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
+    pose_detection::{
+        HumanPose, Keypoint, OVERALL_KEYPOINT_INDEX_MASK, VISUAL_REFEREE_KEYPOINT_INDEX_MASK,
+    },
 };
 
 use crate::{
@@ -41,6 +45,7 @@ const DETECTION_IMAGE_START_X: f32 = (IMAGE_WIDTH - DETECTION_IMAGE_WIDTH) / 2.0
 pub struct PoseDetection {
     accepted_human_poses: BufferHandle<Vec<HumanPose>>,
     rejected_human_poses: BufferHandle<Vec<HumanPose>>,
+    filtered_game_controller_state: BufferHandle<Option<FilteredGameControllerState>>,
 }
 
 impl Overlay for PoseDetection {
@@ -55,9 +60,12 @@ impl Overlay for PoseDetection {
             nao.subscribe_value(format!("{cycler}.main_outputs.accepted_human_poses"));
         let rejected_human_poses =
             nao.subscribe_value(format!("{cycler}.main_outputs.rejected_human_poses"));
+        let filtered_game_controller_state =
+            nao.subscribe_value("Control.main_outputs.filtered_game_controller_state".to_string());
         Self {
             accepted_human_poses,
             rejected_human_poses,
+            filtered_game_controller_state,
         }
     }
 
@@ -84,7 +92,13 @@ impl Overlay for PoseDetection {
             Color32::from_rgb(100, 100, 255),
         )?;
 
-        paint_detection_dead_zone(painter);
+        if let Some(Some(FilteredGameControllerState {
+            game_state: FilteredGameState::Standby,
+            ..
+        })) = self.filtered_game_controller_state.get_last_value()?
+        {
+            paint_detection_dead_zone(painter);
+        };
 
         Ok(())
     }

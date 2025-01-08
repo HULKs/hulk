@@ -30,6 +30,7 @@ pub enum Action {
     InterceptBall,
     Jump,
     LookAround,
+    LookAtReferee,
     NoGroundContact,
     Penalize,
     PrepareJump,
