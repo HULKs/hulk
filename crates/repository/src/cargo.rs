@@ -1,4 +1,9 @@
-use std::{path::Path, process::Command};
+use core::fmt;
+use std::{
+    fmt::{Display, Formatter},
+    path::Path,
+    process::Command,
+};
 
 use color_eyre::{
     eyre::{Context, ContextCompat},
@@ -12,6 +17,16 @@ pub enum Environment {
     Native,
     Sdk { version: String },
     Docker { image: String },
+}
+
+impl Display for Environment {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Environment::Native => write!(f, "Native"),
+            Environment::Sdk { version } => write!(f, "SDK ({version})"),
+            Environment::Docker { image } => write!(f, "Docker ({image})"),
+        }
+    }
 }
 
 pub enum Host {
@@ -101,6 +116,7 @@ impl Cargo {
                 command
             }
         };
+
         Ok(command)
     }
 }

@@ -66,6 +66,8 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     .await
     .wrap_err("failed to resolve enviroment")?;
 
+    eprintln!("Using cargo from {environment}");
+
     let cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {
