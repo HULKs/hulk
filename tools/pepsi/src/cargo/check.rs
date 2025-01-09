@@ -177,9 +177,9 @@ pub struct Arguments {
 }
 
 impl CargoCommand for Arguments {
-    fn apply(&self, cmd: &mut Command) {
-        cmd.arg("check");
+    const SUB_COMMAND: &'static str = "check";
 
+    fn apply(&self, cmd: &mut Command) {
         self.common.apply(cmd);
         self.check.apply(cmd);
 

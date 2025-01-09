@@ -60,9 +60,9 @@ pub struct Arguments {
 }
 
 impl CargoCommand for Arguments {
-    fn apply(&self, cmd: &mut Command) {
-        cmd.arg("run");
+    const SUB_COMMAND: &'static str = "run";
 
+    fn apply(&self, cmd: &mut Command) {
         self.common.apply(cmd);
 
         if self.release {

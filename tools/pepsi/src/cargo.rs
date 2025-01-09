@@ -38,6 +38,8 @@ pub struct Arguments<CargoArguments: Args> {
 }
 
 pub trait CargoCommand {
+    const SUB_COMMAND: &'static str;
+
     fn apply(&self, cmd: &mut Command);
     fn profile(&self) -> &str;
 }
@@ -78,13 +80,15 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
         .command(&repository_root)
         .wrap_err("failed to create cargo command")?;
 
-    // TODO: Build extension trait for readability
-    arguments.cargo.apply(&mut cargo_command);
+    cargo_command.arg(CargoArguments::SUB_COMMAND);
 
     if let Some(manifest_path) = manifest_path {
         cargo_command.arg("--manifest-path");
         cargo_command.arg(manifest_path);
     }
+
+    // TODO: Build extension trait for readability
+    arguments.cargo.apply(&mut cargo_command);
 
     cargo
         .setup()
