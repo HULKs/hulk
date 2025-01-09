@@ -1,12 +1,6 @@
 use std::{
-    env::current_dir,
-    fmt::{self, Display, Formatter},
-    iter::once,
-    net::{IpAddr, Ipv4Addr},
-    path::PathBuf,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, SystemTime},
+    env::current_dir, iter::once, net::Ipv4Addr, path::PathBuf, str::FromStr, sync::Arc,
+    time::SystemTime,
 };
 
 use argument_parsers::NaoAddress;
@@ -45,7 +39,6 @@ use panels::{
 use reachable_naos::ReachableNaos;
 use repository::{find_root::find_repository_root, inspect_version::check_for_update};
 use serde_json::{from_str, to_string, Value};
-use tokio::runtime::Runtime;
 use visuals::Visuals;
 
 mod change_buffer;
