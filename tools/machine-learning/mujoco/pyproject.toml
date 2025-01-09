@@ -5,21 +5,21 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "mujoco>=3.2.4",
-    "gymnasium[classic-control]",
-    "ipykernel>=6.29.5",
-    "mediapy>=1.2.2",
-    "numpy>=2.1.2",
-    "scipy>=1.14.1",
-    "moviepy>=1.0.3",
-    "stable-baselines3>=2.3.2",
-    "wandb>=0.18.5",
-    "tensorboard>=2.18.0",
-    "kinematics",
-    "nao-interface",
-    "nao-env",
-    "transforms",
-    "walking-engine",
+  "gymnasium[classic-control]",
+  "ipykernel>=6.29.5",
+  "mediapy>=1.2.2",
+  "moviepy>=1.0.3",
+  "mujoco>=3.2.4",
+  "numpy>=2.1.2",
+  "scipy>=1.14.1",
+  "stable-baselines3>=2.3.2",
+  "tensorboard>=2.18.0",
+  "kinematics",
+  "nao-interface",
+  "nao-env",
+  "transforms",
+  "walking-engine",
+  "wandb>=0.18.5",
 ]
 
 [tool.uv.sources]
@@ -42,43 +42,43 @@ fix = true
 
 [tool.ruff.lint]
 select = [
-    # flake8-2020
-    "YTT",
-    # flake8-bandit
-    "S",
-    # flake8-bugbear
-    "B",
-    # flake8-builtins
-    "A",
-    # flake8-comprehensions
-    "C4",
-    # flake8-debugger
-    "T10",
-    # flake8-simplify
-    "SIM",
-    # isort
-    "I",
-    # mccabe
-    "C90",
-    # pycodestyle
-    "E",
-    "W",
-    # pyflakes
-    "F",
-    # pygrep-hooks
-    "PGH",
-    # pyupgrade
-    "UP",
-    # ruff
-    "RUF",
-    # tryceratops
-    "TRY",
+  # flake8-2020
+  "YTT",
+  # flake8-bandit
+  "S",
+  # flake8-bugbear
+  "B",
+  # flake8-builtins
+  "A",
+  # flake8-comprehensions
+  "C4",
+  # flake8-debugger
+  "T10",
+  # flake8-simplify
+  "SIM",
+  # isort
+  "I",
+  # mccabe
+  "C90",
+  # pycodestyle
+  "E",
+  "W",
+  # pyflakes
+  "F",
+  # pygrep-hooks
+  "PGH",
+  # pyupgrade
+  "UP",
+  # ruff
+  "RUF",
+  # tryceratops
+  "TRY",
 ]
 ignore = [
-    # LineTooLong
-    "E501",
-    # DoNotAssignLambda
-    "E731",
+  # LineTooLong
+  "E501",
+  # DoNotAssignLambda
+  "E731",
 ]
 
 [tool.ruff.lint.per-file-ignores]

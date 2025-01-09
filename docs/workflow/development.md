@@ -100,6 +100,7 @@ The reviewer and author may use this policy to see which feedback has not been a
 
 To ensure the quality of our code, we use [continuous integration (CI)](https://en.wikipedia.org/wiki/Continuous_integration) to automatically run tests and checks on every pull request.
 If the CI fails, merging will be blocked.
+More information about the checks performed in the CI can be found [here](./checks.md).
 
 ## Test-driven development
 

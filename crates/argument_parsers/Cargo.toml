@@ -7,6 +7,6 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-regex = { workspace = true }
 nao = { workspace = true }
+regex = { workspace = true }
 spl_network_messages = { workspace = true }

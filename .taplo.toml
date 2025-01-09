@@ -1,0 +1,29 @@
+[formatting]
+
+[[rule]]
+include = ["**/Cargo.toml"]
+keys = ["workspace.dependencies", "dependencies", "*-dependencies"]
+
+[rule.formatting]
+reorder_keys = true
+
+[[rule]]
+include = ["**/Cargo.toml"]
+keys = ["workspace"]
+
+[rule.formatting]
+reorder_arrays = true
+
+[[rule]]
+include = ["**/pyproject.toml"]
+keys = ["tool.uv"]
+
+[rule.formatting]
+array_auto_collapse = false
+
+[[rule]]
+include = ["**/Cargo.toml"]
+keys = ["workspace"]
+
+[rule.formatting]
+array_auto_collapse = false

@@ -26,6 +26,7 @@ fern = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 gilrs = { workspace = true }
+hulk_widgets = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
 kinematics = { workspace = true }
@@ -43,4 +44,3 @@ tokio = { workspace = true }
 toml = { workspace = true }
 types = { workspace = true }
 walking_engine = { workspace = true }
-hulk_widgets = { workspace = true }
