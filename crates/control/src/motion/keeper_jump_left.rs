@@ -46,18 +46,6 @@ impl KeeperJumpLeft {
         })
     }
 
-    pub fn advance_interpolator(&mut self, context: CycleContext) {
-        let last_cycle_duration = context.cycle_time.last_cycle_duration;
-        let condition_input = context.condition_input;
-
-        context.motion_safe_exits[MotionType::KeeperJumpLeft] = false;
-
-        self.interpolator
-            .advance_by(last_cycle_duration, condition_input);
-
-        context.motion_safe_exits[MotionType::KeeperJumpLeft] = self.interpolator.is_finished();
-    }
-
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         if context.motion_selection.current_motion == MotionType::KeeperJumpLeft {
@@ -66,6 +54,7 @@ impl KeeperJumpLeft {
         } else {
             self.interpolator.reset();
         }
+        context.motion_safe_exits[MotionType::KeeperJumpLeft] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
             keeper_jump_left_joints_command: self.interpolator.value().mirrored().into(),

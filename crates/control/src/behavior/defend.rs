@@ -60,7 +60,7 @@ impl<'cycle> Defend<'cycle> {
         )
     }
 
-    pub fn wide_stance(&self, parameters: KeeperMotionParameters) -> Option<MotionCommand> {
+    pub fn keeper_motion(&self, parameters: KeeperMotionParameters) -> Option<MotionCommand> {
         let ball = self.world_state.ball?;
 
         let position = ball.ball_in_ground;
