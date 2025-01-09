@@ -69,51 +69,51 @@ enum Command {
     Analyze(analyze::Arguments),
     /// Get aliveness information from NAOs
     Aliveness(aliveness::Arguments),
-    /// Builds the code for a target
+    /// Compile a local package and all of its dependencies
     Build(cargo::Arguments<build::Arguments>),
-    /// Checks the code with cargo check
+    /// Check a local package and all of its dependencies for errors
     Check(cargo::Arguments<check::Arguments>),
-    /// Checks the code with cargo clippy
+    /// Check a package to catch common mistakes
     Clippy(cargo::Arguments<clippy::Arguments>),
     /// Enable/disable communication
     #[command(subcommand)]
     Communication(communication::Arguments),
-    /// Generates shell completion files
+    /// Generate shell completion files
     Completions(completions::Arguments),
     /// Flash a HULKs-OS image to NAOs
     Gammaray(gammaray::Arguments),
     /// Control the HULK service
     Hulk(hulk::Arguments),
-    /// Control the configured location
+    /// Set the parameter location
     #[command(subcommand)]
     Location(location::Arguments),
-    /// Logging on the NAO
+    /// Interact with logs on NAOs
     #[command(subcommand)]
     Logs(logs::Arguments),
-    /// Change player numbers of the NAOs in local parameters
+    /// Change player numbers of NAOs in local parameters
     Playernumber(player_number::Arguments),
     /// Ping NAOs
     Ping(ping::Arguments),
-    /// Disable NAOs after a game (downloads logs, unsets WiFi network, etc.)
+    /// Disable NAOs after a game (download logs, unset WiFi network, ...)
     Postgame(post_game::Arguments),
     /// Power NAOs off
     Poweroff(power_off::Arguments),
-    /// Get NAOs ready for a game (sets player numbers, uploads, sets WiFi network, etc.)
+    /// Get NAOs ready for a game (set player numbers, upload, set WiFi network, ...)
     Pregame(pre_game::Arguments),
     /// Reboot NAOs
     Reboot(reboot::Arguments),
     /// Set cycler instances to be recorded
     Recording(recording::Arguments),
-    /// Runs the code for a target
+    /// Run a binary or example of the local package
     Run(cargo::Arguments<run::Arguments>),
     /// Manage the NAO SDK
     #[command(subcommand)]
     Sdk(sdk::Arguments),
-    /// Opens a command line shell to a NAO
+    /// Open a command line shell to a NAO
     Shell(shell::Arguments),
     /// Upload the code to NAOs
     Upload(upload::Arguments),
-    /// Control WiFi network on the NAO
+    /// Control WiFi on NAOs
     #[command(subcommand, name = "wifi")]
     WiFi(wifi::Arguments),
 }
