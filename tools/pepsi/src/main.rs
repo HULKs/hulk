@@ -1,6 +1,6 @@
-use std::{env::current_dir, ffi::OsString, path::PathBuf};
+use std::{env::current_dir, path::PathBuf};
 
-use clap::{command, Args, CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use color_eyre::{
     config::HookBuilder,
     eyre::{ContextCompat, WrapErr},
@@ -11,7 +11,7 @@ use repository::{find_root::find_repository_root, inspect_version::check_for_upd
 
 use aliveness::aliveness;
 use analyze::analyze;
-use cargo::{build, cargo, check, clippy, environment::EnvironmentArguments, run};
+use cargo::{build, cargo, check, clippy, run};
 use communication::communication;
 use completions::completions;
 use gammaray::gammaray;
@@ -62,15 +62,6 @@ struct Arguments {
     command: Command,
 }
 
-#[derive(Args)]
-struct CargoArguments<Arguments: Args> {
-    manifest: Option<OsString>,
-    #[command(flatten)]
-    environment: EnvironmentArguments,
-    #[command(flatten)]
-    cargo: Arguments,
-}
-
 #[derive(Subcommand)]
 enum Command {
     /// Analyze source code
@@ -79,11 +70,11 @@ enum Command {
     /// Get aliveness information from NAOs
     Aliveness(aliveness::Arguments),
     /// Builds the code for a target
-    Build(CargoArguments<build::Arguments>),
+    Build(cargo::Arguments<build::Arguments>),
     /// Checks the code with cargo check
-    Check(CargoArguments<check::Arguments>),
+    Check(cargo::Arguments<check::Arguments>),
     /// Checks the code with cargo clippy
-    Clippy(CargoArguments<clippy::Arguments>),
+    Clippy(cargo::Arguments<clippy::Arguments>),
     /// Enable/disable communication
     #[command(subcommand)]
     Communication(communication::Arguments),
@@ -114,7 +105,7 @@ enum Command {
     /// Set cycler instances to be recorded
     Recording(recording::Arguments),
     /// Runs the code for a target
-    Run(CargoArguments<run::Arguments>),
+    Run(cargo::Arguments<run::Arguments>),
     /// Manage the NAO SDK
     #[command(subcommand)]
     Sdk(sdk::Arguments),

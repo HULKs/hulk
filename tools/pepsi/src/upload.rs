@@ -12,9 +12,8 @@ use repository::{configuration::read_os_version, upload::populate_upload_directo
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{build, cargo, environment::EnvironmentArguments, CargoCommand},
+    cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
     progress_indicator::{ProgressIndicator, Task},
-    CargoArguments,
 };
 
 #[derive(Args)]
@@ -100,7 +99,7 @@ pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let profile = arguments.build.profile().to_owned();
 
-    let cargo_arguments = CargoArguments {
+    let cargo_arguments = cargo::Arguments {
         manifest: Some(
             repository_root
                 .as_ref()

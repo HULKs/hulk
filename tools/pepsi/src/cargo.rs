@@ -1,5 +1,5 @@
 use std::{
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -9,9 +9,8 @@ use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
+use environment::EnvironmentArguments;
 use repository::cargo::Cargo;
-
-use crate::CargoArguments;
 
 pub mod build;
 pub mod check;
@@ -27,13 +26,23 @@ mod heading {
     pub const MANIFEST_OPTIONS: &str = "Manifest Options";
 }
 
+#[derive(Args)]
+#[group(skip)]
+pub struct Arguments<CargoArguments: Args> {
+    pub manifest: Option<OsString>,
+    #[command(flatten)]
+    pub environment: EnvironmentArguments,
+    #[command(flatten)]
+    pub cargo: CargoArguments,
+}
+
 pub trait CargoCommand {
     fn apply(&self, cmd: &mut Command);
     fn profile(&self) -> &str;
 }
 
-pub async fn cargo<Arguments: Args + CargoCommand>(
-    arguments: CargoArguments<Arguments>,
+pub async fn cargo<CargoArguments: Args + CargoCommand>(
+    arguments: Arguments<CargoArguments>,
     repository_root: impl AsRef<Path>,
 ) -> Result<()> {
     let environment = arguments

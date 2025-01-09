@@ -22,11 +22,10 @@ use repository::{
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{build, cargo, environment::EnvironmentArguments, CargoCommand},
+    cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
     player_number::{player_number, Arguments as PlayerNumberArguments},
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
-    CargoArguments,
 };
 
 #[derive(Args)]
@@ -131,7 +130,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let profile = arguments.build.profile().to_owned();
 
-    let cargo_arguments = CargoArguments {
+    let cargo_arguments = cargo::Arguments {
         manifest: Some(
             repository_root
                 .join("crates/hulk_nao/Cargo.toml")
