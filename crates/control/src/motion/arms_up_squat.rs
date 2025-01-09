@@ -47,10 +47,11 @@ impl ArmsUpSquat {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let motion_selection = context.motion_selection;
+        let condition_input = context.condition_input;
 
         if motion_selection.current_motion == MotionType::ArmsUpSquat {
             self.interpolator
-                .advance_by(last_cycle_duration, context.condition_input);
+                .advance_by(last_cycle_duration, condition_input);
         } else {
             self.interpolator.reset();
         }

@@ -65,8 +65,6 @@ impl StandUpFront {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        context.motion_safe_exits[MotionType::StandUpFront] = false;
-
         self.interpolator
             .advance_by(last_cycle_duration, condition_input);
 
