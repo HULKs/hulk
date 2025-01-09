@@ -11,6 +11,7 @@ use std::{
     ops::{Add, Div, Index, IndexMut, Mul, Sub},
 };
 
+use mirror::SwapSides;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use splines::impl_Interpolate;
@@ -359,6 +360,18 @@ impl Mirror for Joints<f32> {
             right_arm: self.left_arm.mirrored(),
             left_leg: self.right_leg.mirrored(),
             right_leg: self.left_leg.mirrored(),
+        }
+    }
+}
+
+impl SwapSides for Joints<f32> {
+    fn swapped_sides(self) -> Self {
+        Self {
+            head: self.head,
+            left_arm: self.right_arm,
+            right_arm: self.left_arm,
+            left_leg: self.right_leg,
+            right_leg: self.left_leg,
         }
     }
 }
