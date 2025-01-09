@@ -12,17 +12,20 @@ use repository::{configuration::read_os_version, upload::populate_upload_directo
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{build::Arguments as BuildArguments, cargo, CargoCommand},
+    cargo::{build, cargo, environment::EnvironmentArguments, CargoCommand},
     progress_indicator::{ProgressIndicator, Task},
     CargoArguments,
 };
 
 #[derive(Args)]
+#[group(skip)]
 pub struct Arguments {
     #[command(flatten)]
     pub upload: UploadArguments,
     #[command(flatten)]
-    pub cargo: CargoArguments<BuildArguments>,
+    pub environment: EnvironmentArguments,
+    #[command(flatten)]
+    pub build: build::Arguments,
 }
 
 #[derive(Args)]
@@ -95,10 +98,21 @@ async fn upload_with_progress(
 
 pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let profile = arguments.cargo.cargo.profile().to_owned();
+    let profile = arguments.build.profile().to_owned();
+
+    let cargo_arguments = CargoArguments {
+        manifest: Some(
+            repository_root
+                .as_ref()
+                .join("crates/hulk_nao/Cargo.toml")
+                .into_os_string(),
+        ),
+        environment: arguments.environment,
+        cargo: arguments.build,
+    };
 
     if !arguments.upload.no_build {
-        cargo(arguments.cargo, &repository_root)
+        cargo(cargo_arguments, &repository_root)
             .await
             .wrap_err("failed to build")?;
     }

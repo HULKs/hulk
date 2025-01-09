@@ -22,7 +22,7 @@ use repository::{
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{build::Arguments as BuildArguments, cargo, CargoCommand},
+    cargo::{build, cargo, environment::EnvironmentArguments, CargoCommand},
     player_number::{player_number, Arguments as PlayerNumberArguments},
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
@@ -30,11 +30,14 @@ use crate::{
 };
 
 #[derive(Args)]
+#[group(skip)]
 pub struct Arguments {
     #[command(flatten)]
-    pub pregame: PreGameArguments,
+    pub pre_game: PreGameArguments,
     #[command(flatten)]
-    pub cargo: CargoArguments<BuildArguments>,
+    pub environment: EnvironmentArguments,
+    #[command(flatten)]
+    pub build: build::Arguments,
 }
 
 #[derive(Args)]
@@ -82,35 +85,37 @@ pub struct PreGameArguments {
 pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
     let repository_root = repository_root.as_ref();
 
-    let Arguments {
-        pregame: arguments,
-        cargo: cargo_arguments,
-    } = arguments;
-
     let naos: Vec<_> = arguments
+        .pre_game
         .assignments
         .iter()
         .map(|assignment| assignment.nao_address)
         .collect();
 
     configure_recording_intervals(
-        HashMap::from_iter(arguments.recording_intervals.clone()),
+        HashMap::from_iter(arguments.pre_game.recording_intervals.clone()),
         repository_root,
     )
     .await
     .wrap_err("failed to set recording settings")?;
 
-    set_location("nao", &arguments.location, repository_root)
+    set_location("nao", &arguments.pre_game.location, repository_root)
         .await
-        .wrap_err_with(|| format!("failed setting location for nao to {}", arguments.location))?;
+        .wrap_err_with(|| {
+            format!(
+                "failed setting location for nao to {}",
+                arguments.pre_game.location
+            )
+        })?;
 
-    configure_communication(arguments.with_communication, repository_root)
+    configure_communication(arguments.pre_game.with_communication, repository_root)
         .await
         .wrap_err("failed to set communication")?;
 
     player_number(
             PlayerNumberArguments {
-                assignments: arguments
+                assignments: arguments.
+                    pre_game
                     .assignments
                     .iter()
                     .copied()
@@ -124,14 +129,24 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         .wrap_err("failed to set player numbers")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let profile = cargo_arguments.cargo.profile().to_owned();
+    let profile = arguments.build.profile().to_owned();
 
-    if !arguments.no_build {
+    let cargo_arguments = CargoArguments {
+        manifest: Some(
+            repository_root
+                .join("crates/hulk_nao/Cargo.toml")
+                .into_os_string(),
+        ),
+        environment: arguments.environment,
+        cargo: arguments.build,
+    };
+
+    if !arguments.pre_game.no_build {
         cargo(cargo_arguments, &repository_root)
             .await
             .wrap_err("failed to build")?;
     }
-    if arguments.prepare {
+    if arguments.pre_game.prepare {
         warn!("Preparation complete, skipping the rest");
         return Ok(());
     }
@@ -140,7 +155,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         .await
         .wrap_err("failed to populate upload directory")?;
 
-    let arguments = &arguments;
+    let arguments = &arguments.pre_game;
     let upload_directory = &upload_directory;
 
     ProgressIndicator::map_tasks(

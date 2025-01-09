@@ -6,8 +6,8 @@ use repository::{cargo::Environment as RepositoryEnvironment, configuration::rea
 
 #[derive(Args, Debug)]
 pub struct EnvironmentArguments {
-    /// Use an SDK execution environment (default: native)
-    #[arg(long, require_equals = true, default_value = "native")]
+    /// The execution environment (default: native)
+    #[arg(long, default_value = "native")]
     pub env: Environment,
     /// Use a remote machine for execution, see ./scripts/remote for details
     #[arg(long)]
