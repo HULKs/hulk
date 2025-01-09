@@ -45,7 +45,7 @@ impl<'ui> NaoPathCompletionEdit<'ui> {
     }
 }
 
-impl<'ui> Widget for NaoPathCompletionEdit<'ui> {
+impl Widget for NaoPathCompletionEdit<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let paths = self.list_paths();
         ui.add(CompletionEdit::new(self.id, &paths, self.path))

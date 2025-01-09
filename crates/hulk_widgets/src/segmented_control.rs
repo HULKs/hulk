@@ -122,7 +122,7 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
     }
 }
 
-impl<'ui, T: ToString> Widget for SegmentedControl<'ui, T> {
+impl<T: ToString> Widget for SegmentedControl<'_, T> {
     fn ui(self, ui: &mut Ui) -> Response {
         let mut state = load_state(ui.ctx(), self.id);
         let response = self.show(ui, &mut state);
