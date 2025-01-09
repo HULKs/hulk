@@ -68,6 +68,7 @@ struct Arguments {
 
 #[derive(Args)]
 struct CargoArguments<Arguments: Args> {
+    manifest: Option<String>,
     #[command(flatten)]
     environment: EnvironmentArguments,
     #[command(flatten)]

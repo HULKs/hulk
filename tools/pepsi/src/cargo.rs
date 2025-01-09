@@ -1,14 +1,14 @@
-use std::{path::Path, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use clap::Args;
 use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
-use repository::{
-    cargo::{Cargo, Environment},
-    configuration::read_sdk_version,
-};
+use repository::cargo::Cargo;
 
 use crate::CargoArguments;
 
@@ -54,6 +54,15 @@ pub async fn cargo<Arguments: Args + CargoCommand>(
     // TODO: Build extension trait for readability
     arguments.cargo.apply(&mut cargo_command);
 
+    if let Some(manifest) = arguments.manifest {
+        let manifest_path = resolve_manifest_path(manifest, &repository_root)
+            .await
+            .wrap_err("failed to resolve manifest path")?;
+
+        cargo_command.arg("--manifest-path");
+        cargo_command.arg(manifest_path);
+    }
+
     let status = tokio::process::Command::from(cargo_command)
         .status()
         .await
@@ -64,4 +73,31 @@ pub async fn cargo<Arguments: Args + CargoCommand>(
     }
 
     Ok(())
+}
+
+async fn resolve_manifest_path(
+    manifest: String,
+    repository_root: impl AsRef<Path>,
+) -> Result<PathBuf> {
+    let repository_root = repository_root.as_ref();
+
+    Ok(match manifest.as_str() {
+        "nao" => repository_root.join("crates/hulk_nao/Cargo.toml"),
+        "imagine" => repository_root.join("crates/hulk_imagine/Cargo.toml"),
+        "replayer" => repository_root.join("crates/hulk_replayer/Cargo.toml"),
+        "webots" => repository_root.join("crates/hulk_webots/Cargo.toml"),
+        manifest => {
+            let manifest_path = PathBuf::from(manifest);
+
+            if tokio::fs::metadata(&manifest_path)
+                .await
+                .wrap_err("failed to retrieve metadata")?
+                .is_dir()
+            {
+                manifest_path.join("Cargo.toml")
+            } else {
+                manifest_path
+            }
+        }
+    })
 }

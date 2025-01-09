@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
 
 use clap::Parser;
 
@@ -14,10 +14,6 @@ pub struct Arguments {
 
     #[command(flatten)]
     pub check: CheckOptions,
-
-    /// Path to Cargo.toml
-    #[arg(long, value_name = "PATH", help_heading = heading::MANIFEST_OPTIONS)]
-    pub manifest_path: Option<PathBuf>,
 
     /// Build artifacts in release mode, with optimizations
     #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS)]
@@ -51,9 +47,6 @@ impl CargoCommand for Arguments {
         self.common.apply(cmd);
         self.check.apply(cmd);
 
-        if let Some(path) = self.manifest_path.as_ref() {
-            cmd.arg("--manifest-path").arg(path);
-        }
         if self.release {
             cmd.arg("--release");
         }
