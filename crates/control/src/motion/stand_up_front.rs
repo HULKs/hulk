@@ -87,7 +87,7 @@ impl StandUpFront {
         positions.right_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
 
         Ok(MainOutputs {
-            stand_up_front_positions: self.interpolator.value().into(),
+            stand_up_front_positions: positions.into(),
             stand_up_front_estimated_remaining_duration:
                 stand_up_front_estimated_remaining_duration.into(),
         })

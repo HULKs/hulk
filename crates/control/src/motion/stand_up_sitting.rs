@@ -88,7 +88,7 @@ impl StandUpSitting {
         positions.right_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
 
         Ok(MainOutputs {
-            stand_up_sitting_positions: self.interpolator.value().into(),
+            stand_up_sitting_positions: positions.into(),
             stand_up_sitting_estimated_remaining_duration: estimated_remaining_duration.into(),
         })
     }
