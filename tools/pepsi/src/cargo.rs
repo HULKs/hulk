@@ -48,6 +48,7 @@ pub async fn cargo<Arguments: Args + CargoCommand>(
     } else {
         Cargo::local(environment)
     };
+
     let mut cargo_command = cargo
         .command(&repository_root)
         .wrap_err("failed to create cargo command")?;
@@ -64,10 +65,15 @@ pub async fn cargo<Arguments: Args + CargoCommand>(
         cargo_command.arg(manifest_path);
     }
 
+    cargo
+        .setup()
+        .await
+        .wrap_err("failed to set up cargo environment")?;
+
     let status = tokio::process::Command::from(cargo_command)
         .status()
         .await
-        .wrap_err("failed to run cargo build")?;
+        .wrap_err("failed to run cargo")?;
 
     if !status.success() {
         bail!("pepsi build failed with {status}");

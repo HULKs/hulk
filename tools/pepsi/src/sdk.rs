@@ -20,7 +20,7 @@ pub enum Arguments {
 pub async fn sdk(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
     match arguments {
         Arguments::Install { version } => {
-            let data_home = get_data_home()?;
+            let data_home = get_data_home().wrap_err("failed to get data home")?;
             let version = match version {
                 Some(version) => version,
                 None => read_sdk_version(repository_root)

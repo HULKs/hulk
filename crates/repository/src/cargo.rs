@@ -5,7 +5,7 @@ use color_eyre::{
     Result,
 };
 
-use crate::data_home::get_data_home;
+use crate::{data_home::get_data_home, sdk::download_and_install};
 
 #[derive(Debug, Clone)]
 pub enum Environment {
@@ -39,11 +39,23 @@ impl Cargo {
         }
     }
 
-    pub fn command(self, repository_root: impl AsRef<Path>) -> Result<Command> {
+    pub async fn setup(&self) -> Result<()> {
+        if let Environment::Sdk { version } = &self.environment {
+            let data_home = get_data_home().wrap_err("failed to get data home")?;
+
+            download_and_install(version, data_home)
+                .await
+                .wrap_err("failed to download and install SDK")?;
+        };
+
+        Ok(())
+    }
+
+    pub fn command(&self, repository_root: impl AsRef<Path>) -> Result<Command> {
         let repository_root = repository_root.as_ref();
 
         // TODO: implement remote
-        let command = match self.environment {
+        let command = match &self.environment {
             Environment::Native => Command::new("cargo"),
             Environment::Sdk { version } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
