@@ -61,25 +61,22 @@ impl StandUpBack {
         })
     }
 
-    pub fn advance_interpolator(&mut self, context: &mut CycleContext) {
-        let last_cycle_duration = context.cycle_time.last_cycle_duration;
-        let condition_input = context.condition_input;
-
-        self.interpolator
-            .advance_by(last_cycle_duration, condition_input);
-
-        context.motion_safe_exits[MotionType::StandUpBack] = self.interpolator.is_finished();
-    }
-
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let stand_up_back_estimated_remaining_duration =
             if let MotionType::StandUpBack = context.motion_selection.current_motion {
-                self.advance_interpolator(&mut context);
+                let last_cycle_duration = context.cycle_time.last_cycle_duration;
+                let condition_input = context.condition_input;
+
+                self.interpolator
+                    .advance_by(last_cycle_duration, condition_input);
+
                 Some(self.interpolator.estimated_remaining_duration())
             } else {
                 self.interpolator.reset();
                 None
             };
+        context.motion_safe_exits[MotionType::StandUpBack] = self.interpolator.is_finished();
+
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
 

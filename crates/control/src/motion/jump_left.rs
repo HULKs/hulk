@@ -56,7 +56,6 @@ impl JumpLeft {
         } else {
             self.interpolator.reset();
         }
-
         context.motion_safe_exits[MotionType::JumpLeft] = self.interpolator.is_finished();
 
         Ok(MainOutputs {

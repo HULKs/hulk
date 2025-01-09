@@ -55,7 +55,6 @@ impl CenterJump {
         } else {
             self.interpolator.reset();
         }
-
         context.motion_safe_exits[MotionType::CenterJump] = self.interpolator.is_finished();
 
         Ok(MainOutputs {

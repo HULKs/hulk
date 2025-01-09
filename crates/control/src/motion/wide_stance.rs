@@ -47,25 +47,22 @@ impl WideStance {
         })
     }
 
-    pub fn advance_interpolator(&mut self, context: CycleContext) {
-        let last_cycle_duration = context.cycle_time.last_cycle_duration;
-        let condition_input = context.condition_input;
-
-        self.interpolator
-            .advance_by(last_cycle_duration, condition_input);
-
-        context.motion_safe_exits[MotionType::WideStance] = self.interpolator.is_finished();
-    }
-
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let wide_stance_estimated_remaining_duration =
             if let MotionType::WideStance = context.motion_selection.current_motion {
-                self.advance_interpolator(context);
+                let last_cycle_duration = context.cycle_time.last_cycle_duration;
+                let condition_input = context.condition_input;
+
+                self.interpolator
+                    .advance_by(last_cycle_duration, condition_input);
+
                 Some(self.interpolator.estimated_remaining_duration())
             } else {
                 self.interpolator.reset();
                 None
             };
+        context.motion_safe_exits[MotionType::WideStance] = self.interpolator.is_finished();
+
         Ok(MainOutputs {
             wide_stance_positions: self.interpolator.value().into(),
             wide_stance_estimated_remaining_duration: wide_stance_estimated_remaining_duration
