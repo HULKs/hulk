@@ -1,11 +1,12 @@
 use image::GrayImage;
-use itertools::Itertools;
+use imageproc::filter::gaussian_blur_f32;
 use nalgebra::{DMatrix, DMatrixView};
 
 use crate::{
     gaussian::gaussian_blur_integer_approximation,
-    sobel::{sobel_operator_horizontal, sobel_operator_vertical},
-    zip_three_slices_enumerated,
+    grayimage_to_2d_transposed_matrix_view,
+    sobel::{sharr_operator, sobel_operator, DerivativeDirection},
+    transposed_matrix_view_to_gray_image, zip_three_slices_enumerated,
 };
 
 pub fn canny(
@@ -16,11 +17,16 @@ pub fn canny(
 ) -> (DMatrix<EdgeClassification>, usize) {
     let sigma = gaussian_sigma.unwrap_or(1.4);
 
-    let converted = gaussian_blur_integer_approximation::<u8, u8>(image_transposed, sigma);
+    // let converted = gaussian_blur_integer_approximation::<u8, u8>(image_transposed, sigma);
+
+    let converted = grayimage_to_2d_transposed_matrix_view::<u8>(&gaussian_blur_f32(
+        &transposed_matrix_view_to_gray_image(image_transposed),
+        sigma,
+    ));
     let converted_view = converted.as_view();
 
-    let gx = sobel_operator_horizontal(converted_view);
-    let gy = sobel_operator_vertical(converted_view);
+    let gx = sobel_operator(converted_view, DerivativeDirection::Horizontal);
+    let gy = sobel_operator(converted_view, DerivativeDirection::Vertical);
 
     let peak_gradients =
         non_maximum_suppression(&gx, &gy, low_threshold as u16, high_threshold as u16);
@@ -46,11 +52,11 @@ pub fn canny_edges_with_directions(
         (image.height() as usize, image.width() as usize),
         (input.ncols(), input.nrows())
     );
-    let converted = gaussian_blur_integer_approximation::<u8, _>(input.as_view(), sigma);
+    let converted = gaussian_blur_integer_approximation::<u8, u8>(input.as_view(), sigma);
     let converted_view = converted.as_view();
 
-    let gx = sobel_operator_horizontal::<i16>(converted_view);
-    let gy = sobel_operator_vertical::<i16>(converted_view);
+    let gx = sobel_operator(converted_view, DerivativeDirection::Horizontal);
+    let gy = sobel_operator(converted_view, DerivativeDirection::Vertical);
 
     let peak_gradients =
         non_maximum_suppression(&gx, &gy, low_threshold as u16, high_threshold as u16);
@@ -71,7 +77,7 @@ pub fn canny_edges_with_directions(
                     None
                 }
             })
-            .collect_vec(),
+            .collect(),
         count,
     )
 }

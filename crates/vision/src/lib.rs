@@ -10,3 +10,4 @@ pub mod limb_projector;
 pub mod line_detection;
 pub mod perspective_grid_candidates_provider;
 pub mod segment_filter;
+mod hough;

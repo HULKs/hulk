@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::Result;
 use edge_detection::{get_edges_canny, EdgeSourceType};
-use geometry::{line_segment::LineSegment, rectangle::Rectangle, Distance};
+use geometry::{line::Line2, line_segment::LineSegment, rectangle::Rectangle, Distance};
 use itertools::Itertools;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -16,7 +16,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
-use linear_algebra::{point, Point2, Vector2};
+use linear_algebra::{point, vector, IntoFramed, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use ransac::circles::circle::{
     RansacCircleWithTransformation, RansacResultCircleWithTransformation,
@@ -28,6 +28,8 @@ use types::{
     filtered_segments::FilteredSegments,
     ycbcr422_image::YCbCr422Image,
 };
+
+use crate::hough::get_center_circle_roi;
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationMeasurementDetection {
@@ -155,18 +157,8 @@ impl CalibrationMeasurementDetection {
         context.circle_lines.fill_if_subscribed(|| {
             filtered_calibration_circles_ground
                 .iter()
-                .flat_map(|ransac_result| {
-                    get_center_circle_lines(
-                        ransac_result,
-                        context
-                            .camera_matrix
-                            .ground_to_pixel(ransac_result.circle.center)
-                            .expect("ground -> pixel failed"),
-                        &filtered_points,
-                        80,
-                    )
-                })
-                .collect_vec()
+                .map(|(_, line, _)| *line)
+                .collect()
         });
         context
             .detected_edge_points
@@ -175,7 +167,7 @@ impl CalibrationMeasurementDetection {
         context.circles_points_pixel_scores.fill_if_subscribed(|| {
             filtered_calibration_circles_ground
                 .iter()
-                .map(|ransac_result| ransac_result.score)
+                .map(|(_, _, score)| *score)
                 .collect_vec()
         });
 
@@ -194,58 +186,20 @@ impl CalibrationMeasurementDetection {
                     "elapsed_time_after_all_processing_ms".to_string(),
                     (elapsed_time_after_all_processing).as_millis(),
                 ),
-                (
-                    "ransac iterations".to_string(),
-                    filtered_calibration_circles_ground
-                        .first()
-                        .map(|ransac_result| ransac_result.total_iterations as u128)
-                        .unwrap_or(0),
-                ),
             ]
         });
 
         self.last_processed_instance = Instant::now();
 
-        let center_circle_points: Option<CenterCirclePoints<Pixel>> =
-            filtered_calibration_circles_ground
-                .first()
-                .map(|ransac_result| CenterCirclePoints {
-                    center: context
-                        .camera_matrix
-                        .ground_to_pixel(ransac_result.circle.center)
-                        .expect("ground -> pixel failed"),
-                    points: ransac_result.used_points_original.clone(),
-                });
-
         Ok(MainOutputs {
             calibration_center_circle: CalibrationFeatureDetectorOutput {
-                detected_feature: center_circle_points,
+                detected_feature: filtered_calibration_circles_ground
+                    .first()
+                    .map(|(feature, _, _)| feature.clone()),
                 cycle_skipped: false,
             }
             .into(),
         })
-    }
-}
-
-fn get_center_circle_roi(
-    center_circle_points: &[Point2<Pixel>],
-    roi_padding: (f32, f32),
-) -> Rectangle<Pixel> {
-    let (x_min, x_max) = center_circle_points
-        .iter()
-        .map(|point| point.x())
-        .minmax()
-        .into_option()
-        .unwrap();
-    let (y_min, y_max) = center_circle_points
-        .iter()
-        .map(|point| point.y())
-        .minmax()
-        .into_option()
-        .unwrap();
-    Rectangle {
-        min: point![x_min - roi_padding.0, y_min - roi_padding.1],
-        max: point![x_max + roi_padding.0, y_max + roi_padding.1],
     }
 }
 
@@ -254,11 +208,14 @@ fn get_center_circle_lines(
     circle_center: Point2<Pixel>,
     ransac_source_points: &[Point2<Pixel>],
     ransac_iters: usize,
-) -> Option<LineSegment<Pixel>> {
+) -> Option<(CenterCirclePoints<Pixel>, LineSegment<Pixel>)> {
+    if center_circle.used_points_original.len() < 3 {
+        return None;
+    }
     let circle_points_pixel = &center_circle.used_points_original;
     let roi = get_center_circle_roi(circle_points_pixel, (5.0, 5.0));
 
-    let roi_points = ransac_source_points
+    let roi_points: Vec<_> = ransac_source_points
         .iter()
         .filter(|point| {
             point.x() >= roi.min.x()
@@ -269,24 +226,25 @@ fn get_center_circle_lines(
         .cloned()
         .collect();
 
-    let maximum_score_distance = 5.0;
-    let maximum_inclusion_distance = 5.0;
-    let mut line_ransac = ransac::Ransac::new(roi_points);
+    let maximum_score_distance = 10.0;
+    let maximum_inclusion_distance = 10.0;
+    let mut line_ransac = ransac::Ransac::new(roi_points.clone());
     let mut rng = ChaChaRng::from_entropy();
-    fn best_fit_line(points: &[Point2<Pixel>]) -> LineSegment<Pixel> {
-        let half_size = points.len() / 2;
-        let line_start = find_center_of_group(&points[0..half_size]);
-        let line_end = find_center_of_group(&points[half_size..points.len()]);
-        LineSegment(line_start, line_end)
-    }
-    fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
-        group
-            .iter()
-            .map(|point| point.coords())
-            .sum::<Vector2<_>>()
-            .unscale(group.len() as f32)
-            .as_point()
-    }
+    // fn best_fit_line(points: &[Point2<Pixel>]) -> LineSegment<Pixel> {
+    //     let half_size = points.len() / 2;
+    //     let line_start = find_center_of_group(&points[0..half_size]);
+    //     let line_end = find_center_of_group(&points[half_size..points.len()]);
+
+    //     LineSegment(line_start, line_end)
+    // }
+    // fn find_center_of_group(group: &[Point2<Pixel>]) -> Point2<Pixel> {
+    //     group
+    //         .iter()
+    //         .map(|point| point.coords())
+    //         .sum::<Vector2<_>>()
+    //         .unscale(group.len() as f32)
+    //         .as_point()
+    // }
 
     let distance_threshold = ((roi.max.coords() - roi.min.coords()).norm() * 0.3).max(20.0);
 
@@ -315,19 +273,58 @@ fn get_center_circle_lines(
                 None
             }
         })
-        // .sorted_by(|a, b| b.used_points.len().cmp(&a.used_points.len()))
         .sorted_by(|a, b| a.2.total_cmp(&b.2))
         .collect_vec();
 
-    match lines.len() {
-        1 => lines
-            .first()
-            .map(|(used_points, _line, _distance)| best_fit_line(used_points)),
-        2 => lines
-            .first()
-            .map(|(used_points, _line, _distance)| best_fit_line(used_points)),
-        _ => None,
-    }
+    // Construct the center line by clustering all lines
+    let thresh = 0.6;
+    let best_line = match lines.len() {
+        0 => None,
+        1 => lines.first().map(|(_used_points, line, _distance)| *line),
+        _ => lines.first().map(|(_used_points, first_line, _distance)| {
+            let selected_lines_and_weights = lines
+                .iter()
+                .filter(|(_used_points2, _line, _)| {
+                    first_line.direction.dot(_line.direction) > thresh
+                })
+                .map(|(_used_points2, line, _)| (line.closest_point(circle_center), line.direction))
+                .collect_vec();
+
+            let mut accum_point = point![0.0f32, 0.0f32];
+            let mut accum_direction = vector![0.0, 0.0];
+            for (point, direction) in selected_lines_and_weights {
+                accum_point += point.coords();
+                accum_direction += direction;
+            }
+
+            Line2::<Pixel> {
+                point: accum_point,
+                direction: accum_direction,
+            }
+        }),
+    };
+
+    let point_distance = 10.0;
+
+    // TODO Might be better to filter and combine the already split points by ransac
+    best_line.map(|line| {
+        let filtered_roi_points = roi_points
+            .iter()
+            .filter(|&&point| line.distance_to(point) > point_distance)
+            .copied()
+            .collect();
+
+        (
+            CenterCirclePoints {
+                center: circle_center,
+                points: filtered_roi_points,
+            },
+            LineSegment(
+                line.point,
+                line.point + line.direction, // line.point - (line_length_half * line.direction.inner).framed(),
+            ),
+        )
+    })
 }
 
 fn circle_circumference_percentage_filter(
@@ -335,7 +332,7 @@ fn circle_circumference_percentage_filter(
     circle_points: &[Point2<Ground>],
     minimum_circumference_occupancy_ratio: f32,
 ) -> bool {
-    const DEFAULT_BIN_COUNT: usize = 100;
+    const DEFAULT_BIN_COUNT: usize = 36;
     let bin_bount = if circle_points.len() / 2 < DEFAULT_BIN_COUNT {
         circle_points.len() / 2
     } else {
@@ -369,7 +366,7 @@ fn detect_and_filter_circles(
     ransac_circle_minimum_circumference_percentage: f32,
     ransac_circle_early_exit_fitting_score: Option<f32>,
     ransac_sample_size_percentage: Option<f32>,
-) -> Vec<RansacResultCircleWithTransformation<Pixel, Ground>> {
+) -> Vec<(CenterCirclePoints<Pixel>, LineSegment<Pixel>, f32)> {
     let transformer =
         |pixel_coordinates: &Point2<Pixel>| camera_matrix.pixel_to_ground(*pixel_coordinates).ok();
     let mut rng = ChaChaRng::from_entropy();
@@ -384,25 +381,51 @@ fn detect_and_filter_circles(
     let input_point_count = edge_points.len();
 
     (0..maximum_number_of_circles)
-        .filter_map(|_| ransac.next_candidate(&mut rng, ransac_iterations))
-        .filter(|result| {
-            let circle = result.circle;
-            let used_points_transformed = &result.used_points_transformed;
-            let max_y = camera_matrix.image_size.y();
-            camera_matrix
-                .ground_to_pixel(circle.center)
-                .is_ok_and(|center| {
-                    center.y() <= max_y
-                        && circle_circumference_percentage_filter(
-                            circle.center,
-                            used_points_transformed,
-                            ransac_circle_minimum_circumference_percentage,
-                        )
-                        && get_center_circle_lines(result, center, edge_points, 80).is_some()
+        .filter_map(|_| {
+            ransac
+                .next_candidate(&mut rng, ransac_iterations)
+                .and_then(|result| {
+                    let circle = result.circle;
+                    let used_points_transformed = &result.used_points_transformed;
+                    let max_y = camera_matrix.image_size.y();
+                    camera_matrix
+                        .ground_to_pixel(circle.center)
+                        .ok()
+                        .and_then(|circle_center_px| {
+                            if circle_center_px.y() <= max_y
+                                && circle_circumference_percentage_filter(
+                                    circle.center,
+                                    used_points_transformed,
+                                    ransac_circle_minimum_circumference_percentage,
+                                )
+                            {
+                                get_center_circle_lines(&result, circle_center_px, edge_points, 200)
+                                    .map(|v| (v.0, v.1, result.score))
+                            } else {
+                                None
+                            }
+                        })
                 })
         })
-        .sorted_by_key(|value| input_point_count - value.used_points_original.len())
+        .sorted_by_key(|value| input_point_count - value.0.points.len())
         .collect()
+}
+
+fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pixel>> {
+    let canny_source_type = if *context.preprocessing_luma_without_difference {
+        EdgeSourceType::LumaOfYCbCr
+    } else {
+        EdgeSourceType::DifferenceOfGrayAndRgbRange
+    };
+
+    get_edges_canny(
+        *context.preprocessing_gaussian_sigma,
+        *context.canny_low_threshold,
+        *context.canny_high_threshold,
+        context.image,
+        canny_source_type,
+        Some(get_y_exclusion_threshold(context)),
+    )
 }
 
 fn get_edges_from_segments(
@@ -441,23 +464,4 @@ fn get_y_exclusion_threshold(context: &CycleContext) -> u32 {
         .camera_matrix
         .horizon
         .map_or(0, |h| h.horizon_y_minimum() as u32)
-}
-
-fn get_edges_from_canny_edge_detection(context: &CycleContext) -> Vec<Point2<Pixel>> {
-    let canny_source_type = if *context.preprocessing_luma_without_difference {
-        EdgeSourceType::LumaOfYCbCr
-    } else {
-        EdgeSourceType::DifferenceOfGrayAndRgbRange
-    };
-
-    get_edges_canny(
-        *context.preprocessing_gaussian_sigma,
-        *context.canny_low_threshold,
-        *context.canny_high_threshold,
-        context.image,
-        canny_source_type,
-        Some(get_y_exclusion_threshold(context)),
-    )
-    .into_iter()
-    .collect()
 }

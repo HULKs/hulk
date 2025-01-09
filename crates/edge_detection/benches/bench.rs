@@ -227,7 +227,7 @@ mod sobel_operator {
             piecewise_vertical_convolution_mut,
         },
         get_edge_source_transposed_image,
-        sobel::sobel_operator_vertical,
+        sobel::{sobel_operator, DerivativeDirection},
     };
 
     use imageproc::gradients::vertical_sobel;
@@ -564,28 +564,30 @@ mod sobel_operator {
         }
     }
 
-    #[bench]
-    fn direct_convolution_sobel_vertical_wrapper(bencher: Bencher) {
+    #[bench(args=[DerivativeDirection::Horizontal,DerivativeDirection::Vertical])]
+    fn direct_convolution_sobel_wrapper(bencher: Bencher, direction: DerivativeDirection) {
         let image = load_test_image();
         let transposed_matrix = get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None);
         let transposed_matrix_view = transposed_matrix.as_view();
         bencher.bench_local(move || {
-            black_box(sobel_operator_vertical::<u8>(black_box(
-                transposed_matrix_view,
-            )));
+            black_box(sobel_operator::<u8>(
+                black_box(transposed_matrix_view),
+                black_box(direction),
+            ));
         });
     }
 
-    #[bench]
-    fn direct_convolution_sobel_vertical_wrapper_i16_input(bencher: Bencher) {
+    #[bench(args=[DerivativeDirection::Horizontal,DerivativeDirection::Vertical])]
+    fn direct_convolution_sobel_wrapper_i16(bencher: Bencher, direction: DerivativeDirection) {
         let image = load_test_image();
         let transposed_matrix =
             get_edge_source_transposed_image(&image, EDGE_SOURCE_TYPE, None).cast();
         let transposed_matrix_view = transposed_matrix.as_view();
         bencher.bench_local(move || {
-            black_box(sobel_operator_vertical::<i16>(black_box(
-                transposed_matrix_view,
-            )));
+            black_box(sobel_operator::<i16>(
+                black_box(transposed_matrix_view),
+                black_box(direction),
+            ));
         });
     }
 
@@ -606,7 +608,7 @@ mod edge_points {
         canny::non_maximum_suppression,
         gaussian::gaussian_blur_integer_approximation,
         get_edge_source_transposed_image, get_edges_canny, get_edges_canny_imageproc,
-        sobel::{get_edges_sobel_and_nms, sobel_operator_horizontal, sobel_operator_vertical},
+        sobel::{get_edges_sobel_and_nms, sobel_operator, DerivativeDirection},
     };
     use nalgebra::DMatrix;
 
@@ -677,8 +679,10 @@ mod edge_points {
             gaussian_blur_integer_approximation(converted.as_view(), GAUSSIAN_SIGMA);
         let blurred = gaussian_blur_box_filter_nalgebra;
         let blurred_view = blurred.as_view();
-        let gradients_y_transposed = sobel_operator_vertical::<u8>(blurred_view);
-        let gradients_x_transposed = sobel_operator_horizontal::<u8>(blurred_view);
+        let gradients_x_transposed =
+            sobel_operator::<u8>(blurred_view, DerivativeDirection::Horizontal);
+        let gradients_y_transposed =
+            sobel_operator::<u8>(blurred_view, DerivativeDirection::Vertical);
 
         let guard = get_profiler_guard();
 

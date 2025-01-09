@@ -1473,22 +1473,22 @@
     "use_stand_head_unstiff_calibration": false
   },
   "calibration_center_circle_detection": {
-    "canny_high_threshold": 105.0,
-    "canny_low_threshold": 80.0,
-    "gaussian_sigma": 2.5,
+    "canny_high_threshold": 220.0,
+    "canny_low_threshold": 180.0,
+    "gaussian_sigma": 1.9,
     "get_edges_from_segments": false,
-    "maximum_number_of_circles": 1,
-    "ransac_circle_inlier_threshold": 0.08,
-    "ransac_circle_minimum_circumference_percentage": 0.45,
-    "ransac_iterations": 1500,
-    "ransac_sample_size_percentage": 0.75,
+    "maximum_number_of_circles": 2,
+    "ransac_circle_inlier_threshold": 0.065,
+    "ransac_circle_minimum_circumference_percentage": 0.6,
+    "ransac_iterations": 1000,
+    "ransac_sample_size_percentage": 0.9,
     "run_next_cycle_after_ms": 5,
     "skip_rgb_based_difference_image": false,
     "vision_bottom": {
       "tuning_mode": false
     },
     "vision_top": {
-      "tuning_mode": false
+      "tuning_mode": true
     }
   }
 }

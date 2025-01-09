@@ -17,41 +17,74 @@ use crate::{
     get_edge_source_transposed_image, EdgeSourceType,
 };
 
-#[inline]
-pub fn sobel_operator_vertical<T>(image_view_transposed: DMatrixView<T>) -> DMatrix<i16>
-where
-    T: PrimInt + AsPrimitive<i16> + Scalar + Mul + MulAssign,
-{
-    const PIECEWISE_KERNEL_HORIZONTAL: [i16; 3] = [1, 2, 1];
-    const PIECEWISE_KERNEL_VERTICAL: [i16; 3] = [-1, 0, 1];
-
-    let mut out =
-        DMatrix::<i16>::zeros(image_view_transposed.nrows(), image_view_transposed.ncols());
-    piecewise_2d_convolution_mut(
-        image_view_transposed,
-        out.as_mut_slice(),
-        &PIECEWISE_KERNEL_HORIZONTAL,
-        &PIECEWISE_KERNEL_VERTICAL,
-        NonZeroU32::new(1).unwrap(),
-    );
-    out
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum DerivativeDirection {
+    Horizontal,
+    Vertical,
 }
 
 #[inline]
-pub fn sobel_operator_horizontal<T>(image_view_transposed: DMatrixView<T>) -> DMatrix<i16>
+pub fn sobel_operator<T>(
+    image_view_transposed: DMatrixView<T>,
+    direction: DerivativeDirection,
+) -> DMatrix<i16>
+where
+    T: PrimInt + AsPrimitive<i16> + Scalar + Mul + MulAssign,
+{
+    const PIECEWISE_KERNEL_VERTICAL: [i16; 3] = [1, 2, 1];
+    const PIECEWISE_KERNEL_HORIZONTAL: [i16; 3] = [-1, 0, 1];
+    derivative(
+        image_view_transposed,
+        match direction {
+            DerivativeDirection::Horizontal => {
+                (&PIECEWISE_KERNEL_HORIZONTAL, &PIECEWISE_KERNEL_VERTICAL)
+            }
+            DerivativeDirection::Vertical => {
+                (&PIECEWISE_KERNEL_VERTICAL, &PIECEWISE_KERNEL_HORIZONTAL)
+            }
+        },
+    )
+}
+
+#[inline]
+pub fn sharr_operator<T>(
+    image_view_transposed: DMatrixView<T>,
+    direction: DerivativeDirection,
+) -> DMatrix<i16>
+where
+    T: PrimInt + AsPrimitive<i16> + Scalar + Mul + MulAssign,
+{
+    const PIECEWISE_KERNEL_HORIZONTAL: [i16; 3] = [-1, 0, 1];
+    const PIECEWISE_KERNEL_VERTICAL: [i16; 3] = [3, 10, 3];
+
+    derivative(
+        image_view_transposed,
+        match direction {
+            DerivativeDirection::Horizontal => {
+                (&PIECEWISE_KERNEL_HORIZONTAL, &PIECEWISE_KERNEL_VERTICAL)
+            }
+            DerivativeDirection::Vertical => {
+                (&PIECEWISE_KERNEL_VERTICAL, &PIECEWISE_KERNEL_HORIZONTAL)
+            }
+        },
+    )
+}
+
+#[inline]
+pub fn derivative<T>(
+    image_view_transposed: DMatrixView<T>,
+    piecewise_kernels: (&[i16; 3], &[i16; 3]),
+) -> DMatrix<i16>
 where
     T: AsPrimitive<i16> + PrimInt + Scalar + Mul + MulAssign,
 {
-    const PIECEWISE_KERNEL_HORIZONTAL: [i16; 3] = [-1, 0, 1];
-    const PIECEWISE_KERNEL_VERTICAL: [i16; 3] = [1, 2, 1];
-
     let mut out =
         DMatrix::<i16>::zeros(image_view_transposed.nrows(), image_view_transposed.ncols());
     piecewise_2d_convolution_mut(
         image_view_transposed,
         out.as_mut_slice(),
-        &PIECEWISE_KERNEL_HORIZONTAL,
-        &PIECEWISE_KERNEL_VERTICAL,
+        piecewise_kernels.0,
+        piecewise_kernels.1,
         NonZeroU32::new(1).unwrap(),
     );
     out
@@ -67,8 +100,10 @@ pub fn get_edges_sobel_and_nms(
 ) -> Vec<Point2<Pixel>> {
     let edges_source = get_edge_source_transposed_image(image, source_channel, None);
     let blurred = gaussian_blur_integer_approximation(edges_source.as_view(), gaussian_sigma);
-    let gradients_y_transposed = sobel_operator_vertical::<u8>(blurred.as_view());
-    let gradients_x_transposed = sobel_operator_horizontal::<u8>(blurred.as_view());
+    let gradients_y_transposed =
+        sobel_operator::<u8>(blurred.as_view(), DerivativeDirection::Vertical);
+    let gradients_x_transposed =
+        sobel_operator::<u8>(blurred.as_view(), DerivativeDirection::Horizontal);
 
     let decisions = non_maximum_suppression(
         &gradients_x_transposed,
@@ -284,16 +319,12 @@ mod tests {
             for<'a> fn(&'a GrayImage) -> ImageBuffer<Luma<i16>, Vec<i16>>,
             for<'a> fn(Matrix<_, _, _, ViewStorage<'a, _, _, _, _, _>>) -> DMatrix<i16>,
         )] = &[
-            (
-                "horizontal",
-                imageproc_horizontal_sobel,
-                sobel_operator_horizontal::<i16>,
-            ),
-            (
-                "vertical",
-                imageproc_vertical_sobel,
-                sobel_operator_vertical::<i16>,
-            ),
+            ("horizontal", imageproc_horizontal_sobel, |v| {
+                sobel_operator::<i16>(v, DerivativeDirection::Horizontal)
+            }),
+            ("vertical", imageproc_vertical_sobel, |v| {
+                sobel_operator::<i16>(v, DerivativeDirection::Vertical)
+            }),
         ];
         for (name, imageproc_operator, our_operator) in operators {
             let sobel_image_ours = our_operator(image_view_transposed.as_view());

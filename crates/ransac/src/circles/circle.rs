@@ -125,6 +125,14 @@ impl<OriginalFrame, SearchFrame> RansacCircleWithTransformation<OriginalFrame, S
             },
         )
     }
+
+    pub fn get_unused_points_original<'a>(&'a self) -> &'a [Point2<OriginalFrame>] {
+        &self.unused_points_original
+    }
+
+    pub fn get_unused_points_transformed<'a>(&'a self) -> &'a [Point2<SearchFrame>] {
+        &self.unused_points_transformed
+    }
 }
 
 fn get_best_candidate<Frame>(

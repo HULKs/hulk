@@ -29,15 +29,15 @@ where
     let mut dst = DMatrix::<OutputType>::zeros(image.nrows(), image.ncols());
 
     if sigma <= 1.0 {
-        let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<3, IntKernelType>(sigma);
-        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
-        dst
-    } else if (1..4).contains(&radius) {
         let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<5, IntKernelType>(sigma);
         piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
         dst
-    } else if (4..6).contains(&radius) {
+    } else if (1..6).contains(&radius) {
         let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<7, IntKernelType>(sigma);
+        piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
+        dst
+    } else if (6..10).contains(&radius) {
+        let (kernel, factor) = gaussian_2d_seperable_integer_kernel::<9, IntKernelType>(sigma);
         piecewise_2d_convolution_mut(image, dst.as_mut_slice(), &kernel, &kernel, factor);
         dst
     } else {
