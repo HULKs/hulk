@@ -20,12 +20,12 @@ members = [
   "crates/geometry",
   "crates/hardware",
   "crates/hulk",
+  "crates/hulk_widgets",
   "crates/hulk_imagine",
   "crates/hulk_manifest",
   "crates/hulk_nao",
   "crates/hulk_replayer",
   "crates/hulk_webots",
-  "crates/hulk_widgets",
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/motionfile",
@@ -53,6 +53,7 @@ members = [
   "tools/hula/types",
   "tools/pepsi",
   "tools/twix",
+  "tools/vista",
   "tools/widget_gallery",
 ]
 resolver = "2"
