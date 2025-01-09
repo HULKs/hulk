@@ -89,6 +89,7 @@ impl TimeToReachKickPosition {
                 .half_rotation
                 .mul_f32(angle * FRAC_1_PI)
         });
+
         let time_to_reach_kick_position = walk_time.map(|walk_time| {
             [
                 walk_time,
@@ -108,11 +109,7 @@ impl TimeToReachKickPosition {
         context
             .time_to_reach_kick_position_output
             .fill_if_subscribed(|| time_to_reach_kick_position);
-        // 1800 seconds is 30 minutes, which is essentially maximum as it pertains to game time.
-        // Prevents Duration::MAX from breaking the behavior simulator.
-        *context.time_to_reach_kick_position = time_to_reach_kick_position
-            .unwrap_or(Duration::MAX)
-            .min(Duration::from_secs(1800));
+        *context.time_to_reach_kick_position = time_to_reach_kick_position.unwrap_or(Duration::MAX);
 
         Ok(MainOutputs {})
     }
