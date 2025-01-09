@@ -301,7 +301,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
     }
 }
 
-impl<'a, T: Clone + ToString + Debug + std::hash::Hash> Widget for CompletionEdit<'a, T> {
+impl<T: Clone + ToString + Debug + std::hash::Hash> Widget for CompletionEdit<'_, T> {
     fn ui(self, ui: &mut Ui) -> Response {
         self.ui(ui, |ui, highlight, item| {
             ui.selectable_label(highlight, item.to_string())
