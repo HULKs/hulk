@@ -292,7 +292,7 @@ impl Behavior {
                     Action::StandUp => stand_up::execute(world_state),
                     Action::NoGroundContact => no_ground_contact::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-                    Action::KeeperMotion => defend.wide_stance(context.keeper_motion.clone()),
+                    Action::KeeperMotion => defend.keeper_motion(context.keeper_motion.clone()),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
