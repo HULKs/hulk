@@ -5,7 +5,7 @@ use std::{
 
 use crate::joints::{
     body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
-    mirror::Mirror,
+    mirror::{Mirror, SwapSides},
     Joints,
 };
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -34,12 +34,12 @@ impl_Interpolate!(f32, MotorCommands<Joints<f32>>, PI);
 
 impl<T> Mirror for MotorCommands<T>
 where
-    T: Mirror,
+    T: Mirror + SwapSides,
 {
     fn mirrored(self) -> Self {
         Self {
             positions: T::mirrored(self.positions),
-            stiffnesses: T::mirrored(self.stiffnesses),
+            stiffnesses: T::swapped_sides(self.stiffnesses),
         }
     }
 }
