@@ -361,15 +361,14 @@ impl App for TwixApp {
                         address_input.request_focus();
                     }
                     if address_input.changed() || address_input.lost_focus() {
-                        match &self.address.split(':').collect::<Vec<_>>().as_slice() {
-                            [ip, port] => {
+                        match &self.address.split_once(":") {
+                            None | Some((_, "")) => {
+                                let address = &self.address;
+                                self.nao.set_address(format!("ws://{address}:1337"));
+                            }
+                            Some((ip, port)) => {
+
                                 self.nao.set_address(format!("ws://{ip}:{port}"));
-                            }
-                            [ip] => {
-                                self.nao.set_address(format!("ws://{ip}:1337"));
-                            }
-                            _ => {
-                                return;
                             }
                         }
                         self.connection_intent = true;
