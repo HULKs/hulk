@@ -1,10 +1,12 @@
+use std::path::Path;
+
 use source_analyzer::{
     cyclers::{CyclerKind, Cyclers},
     error::Error,
     manifest::{CyclerManifest, FrameworkManifest},
 };
 
-pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
+pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
@@ -123,6 +125,5 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
         ],
     };
 
-    let root = "..";
     Cyclers::try_from_manifest(manifest, root)
 }
