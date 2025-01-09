@@ -36,9 +36,9 @@ pub async fn download_and_install(version: &str, data_home: impl AsRef<Path>) ->
     }
 
     if !installation_directory.exists() {
-        let installer_path = download(version, &sdk_home)
+        let installer_path = download_and_prepare(version, &sdk_home)
             .await
-            .wrap_err("failed to download SDK")?;
+            .wrap_err("failed to download and prepare SDK")?;
 
         File::create(&incomplete_marker)
             .await
@@ -53,7 +53,7 @@ pub async fn download_and_install(version: &str, data_home: impl AsRef<Path>) ->
     Ok(())
 }
 
-async fn download(version: &str, sdk_home: impl AsRef<Path>) -> Result<PathBuf> {
+async fn download_and_prepare(version: &str, sdk_home: impl AsRef<Path>) -> Result<PathBuf> {
     let downloads_directory = sdk_home.as_ref().join("downloads");
     let installer_name = format!("HULKs-OS-{ARCH}-toolchain-{version}.sh");
     let installer_path = downloads_directory.join(&installer_name);
@@ -67,10 +67,9 @@ async fn download(version: &str, sdk_home: impl AsRef<Path>) -> Result<PathBuf> 
         .await
         .wrap_err("failed to create download directory")?;
 
-    let urls = [
-        format!("http://bighulk.hulks.dev/sdk/{installer_name}"),
-        format!("https://github.com/HULKs/meta-nao/releases/download/{version}/{installer_name}"),
-    ];
+    let urls = [format!(
+        "https://github.com/HULKs/meta-nao/releases/download/{version}/{installer_name}"
+    )];
     download_with_fallback(urls, &download_path, CONNECT_TIMEOUT)
         .await
         .wrap_err("failed to download SDK")?;
