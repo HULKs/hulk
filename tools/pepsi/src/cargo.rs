@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -55,7 +56,7 @@ pub async fn cargo<Arguments: Args + CargoCommand>(
     arguments.cargo.apply(&mut cargo_command);
 
     if let Some(manifest) = arguments.manifest {
-        let manifest_path = resolve_manifest_path(manifest, &repository_root)
+        let manifest_path = resolve_manifest_path(&manifest, &repository_root)
             .await
             .wrap_err("failed to resolve manifest path")?;
 
@@ -76,17 +77,18 @@ pub async fn cargo<Arguments: Args + CargoCommand>(
 }
 
 async fn resolve_manifest_path(
-    manifest: String,
+    manifest: impl AsRef<OsStr>,
     repository_root: impl AsRef<Path>,
 ) -> Result<PathBuf> {
+    let manifest = manifest.as_ref();
     let repository_root = repository_root.as_ref();
 
-    Ok(match manifest.as_str() {
-        "nao" => repository_root.join("crates/hulk_nao/Cargo.toml"),
-        "imagine" => repository_root.join("crates/hulk_imagine/Cargo.toml"),
-        "replayer" => repository_root.join("crates/hulk_replayer/Cargo.toml"),
-        "webots" => repository_root.join("crates/hulk_webots/Cargo.toml"),
-        manifest => {
+    Ok(match manifest.to_str() {
+        Some("nao") => repository_root.join("crates/hulk_nao/Cargo.toml"),
+        Some("imagine") => repository_root.join("crates/hulk_imagine/Cargo.toml"),
+        Some("replayer") => repository_root.join("crates/hulk_replayer/Cargo.toml"),
+        Some("webots") => repository_root.join("crates/hulk_webots/Cargo.toml"),
+        _ => {
             let manifest_path = PathBuf::from(manifest);
 
             if tokio::fs::metadata(&manifest_path)

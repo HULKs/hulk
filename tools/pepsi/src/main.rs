@@ -1,4 +1,4 @@
-use std::{env::current_dir, path::PathBuf};
+use std::{env::current_dir, ffi::OsString, path::PathBuf};
 
 use clap::{command, Args, CommandFactory, Parser, Subcommand};
 use color_eyre::{
@@ -68,7 +68,7 @@ struct Arguments {
 
 #[derive(Args)]
 struct CargoArguments<Arguments: Args> {
-    manifest: Option<String>,
+    manifest: Option<OsString>,
     #[command(flatten)]
     environment: EnvironmentArguments,
     #[command(flatten)]
