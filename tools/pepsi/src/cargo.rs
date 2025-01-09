@@ -1,11 +1,16 @@
 use std::{path::Path, process::Command};
 
-use color_eyre::{eyre::Context, Result};
-use environment::EnvironmentArguments;
+use clap::Args;
+use color_eyre::{
+    eyre::{bail, Context},
+    Result,
+};
 use repository::{
     cargo::{Cargo, Environment},
     configuration::read_sdk_version,
 };
+
+use crate::CargoArguments;
 
 pub mod build;
 pub mod check;
@@ -21,27 +26,41 @@ mod heading {
     pub const MANIFEST_OPTIONS: &str = "Manifest Options";
 }
 
-async fn cargo(
-    environment_arguments: EnvironmentArguments,
-    repository_root: impl AsRef<Path>,
-) -> Result<Command> {
-    let repository_root = repository_root.as_ref();
+pub trait CargoCommand {
+    fn apply(&self, cmd: &mut Command);
+}
 
-    let sdk_version = read_sdk_version(repository_root)
+pub async fn cargo<Arguments: Args + CargoCommand>(
+    arguments: CargoArguments<Arguments>,
+    repository_root: impl AsRef<Path>,
+) -> Result<()> {
+    let sdk_version = read_sdk_version(&repository_root)
         .await
         .wrap_err("failed to read SDK version")?;
-
-    let environment = match environment_arguments.env {
+    let environment = match arguments.environment.env {
         Some(environment) => environment,
         None => Environment::Native,
     };
-    let cargo = if environment_arguments.remote {
+    let cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {
         Cargo::local(environment)
     };
+    let mut cargo_command = cargo
+        .command(&repository_root)
+        .wrap_err("failed to create cargo command")?;
 
-    cargo
-        .command(repository_root)
-        .wrap_err("failed to create cargo command")
+    // TODO: Build extension trait for readability
+    arguments.cargo.apply(&mut cargo_command);
+
+    let status = tokio::process::Command::from(cargo_command)
+        .status()
+        .await
+        .wrap_err("failed to run cargo build")?;
+
+    if !status.success() {
+        bail!("pepsi build failed with {status}");
+    }
+
+    Ok(())
 }

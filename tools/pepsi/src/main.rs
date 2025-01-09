@@ -12,11 +12,9 @@ use repository::{find_root::find_repository_root, inspect_version::check_for_upd
 use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{
-    build::{build, Arguments as BuildArguments},
-    check::{check, Arguments as CheckArguments},
-    clippy::{clippy, Arguments as ClippyArguments},
-    environment::EnvironmentArguments,
-    run::{run, Arguments as RunArguments},
+    build::Arguments as BuildArguments, cargo, check::Arguments as CheckArguments,
+    clippy::Arguments as ClippyArguments, environment::EnvironmentArguments,
+    run::Arguments as RunArguments,
 };
 use communication::{communication, Arguments as CommunicationArguments};
 use completions::{completions, Arguments as CompletionArguments};
@@ -160,13 +158,13 @@ async fn main() -> Result<()> {
         Command::Aliveness(arguments) => aliveness(arguments, repository_root)
             .await
             .wrap_err("failed to execute aliveness command")?,
-        Command::Build(arguments) => build(arguments, repository_root?)
+        Command::Build(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute build command")?,
-        Command::Check(arguments) => check(arguments, repository_root?)
+        Command::Check(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute check command")?,
-        Command::Clippy(arguments) => clippy(arguments, repository_root?)
+        Command::Clippy(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute clippy command")?,
         Command::Communication(arguments) => communication(arguments, repository_root?)
@@ -206,7 +204,7 @@ async fn main() -> Result<()> {
         Command::Recording(arguments) => recording(arguments, repository_root?)
             .await
             .wrap_err("failed to execute recording command")?,
-        Command::Run(arguments) => run(arguments, repository_root?)
+        Command::Run(arguments) => cargo(arguments, repository_root?)
             .await
             .wrap_err("failed to execute run command")?,
         Command::Sdk(arguments) => sdk(arguments, repository_root?)
