@@ -102,7 +102,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
         .wrap_err("failed to run cargo")?;
 
     if !status.success() {
-        bail!("pepsi build failed with {status}");
+        bail!("cargo failed with {status}");
     }
 
     Ok(())
