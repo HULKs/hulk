@@ -9,30 +9,26 @@ use color_eyre::{
 use log::warn;
 use repository::{find_root::find_repository_root, inspect_version::check_for_update};
 
-use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
-use analyze::{analyze, Arguments as AnalyzeArguments};
-use cargo::{
-    build::Arguments as BuildArguments, cargo, check::Arguments as CheckArguments,
-    clippy::Arguments as ClippyArguments, environment::EnvironmentArguments,
-    run::Arguments as RunArguments,
-};
-use communication::{communication, Arguments as CommunicationArguments};
-use completions::{completions, Arguments as CompletionArguments};
-use gammaray::{gammaray, Arguments as GammarayArguments};
-use hulk::{hulk, Arguments as HulkArguments};
-use location::{location, Arguments as LocationArguments};
-use logs::{logs, Arguments as LogsArguments};
-use ping::{ping, Arguments as PingArguments};
-use player_number::{player_number, Arguments as PlayerNumberArguments};
-use post_game::{post_game, Arguments as PostGameArguments};
-use power_off::{power_off, Arguments as PoweroffArguments};
-use pre_game::{pre_game, Arguments as PreGameArguments};
-use reboot::{reboot, Arguments as RebootArguments};
-use recording::{recording, Arguments as RecordingArguments};
-use sdk::{sdk, Arguments as SdkArguments};
-use shell::{shell, Arguments as ShellArguments};
-use upload::{upload, Arguments as UploadArguments};
-use wifi::{wifi, Arguments as WiFiArguments};
+use aliveness::aliveness;
+use analyze::analyze;
+use cargo::{build, cargo, check, clippy, environment::EnvironmentArguments, run};
+use communication::communication;
+use completions::completions;
+use gammaray::gammaray;
+use hulk::hulk;
+use location::location;
+use logs::logs;
+use ping::ping;
+use player_number::player_number;
+use post_game::post_game;
+use power_off::power_off;
+use pre_game::pre_game;
+use reboot::reboot;
+use recording::recording;
+use sdk::sdk;
+use shell::shell;
+use upload::upload;
+use wifi::wifi;
 
 mod aliveness;
 mod analyze;
@@ -79,56 +75,56 @@ struct CargoArguments<Arguments: Args> {
 enum Command {
     /// Analyze source code
     #[clap(subcommand)]
-    Analyze(AnalyzeArguments),
+    Analyze(analyze::Arguments),
     /// Get aliveness information from NAOs
-    Aliveness(AlivenessArguments),
+    Aliveness(aliveness::Arguments),
     /// Builds the code for a target
-    Build(CargoArguments<BuildArguments>),
+    Build(CargoArguments<build::Arguments>),
     /// Checks the code with cargo check
-    Check(CargoArguments<CheckArguments>),
+    Check(CargoArguments<check::Arguments>),
     /// Checks the code with cargo clippy
-    Clippy(CargoArguments<ClippyArguments>),
+    Clippy(CargoArguments<clippy::Arguments>),
     /// Enable/disable communication
     #[command(subcommand)]
-    Communication(CommunicationArguments),
+    Communication(communication::Arguments),
     /// Generates shell completion files
-    Completions(CompletionArguments),
+    Completions(completions::Arguments),
     /// Flash a HULKs-OS image to NAOs
-    Gammaray(GammarayArguments),
+    Gammaray(gammaray::Arguments),
     /// Control the HULK service
-    Hulk(HulkArguments),
+    Hulk(hulk::Arguments),
     /// Control the configured location
     #[command(subcommand)]
-    Location(LocationArguments),
+    Location(location::Arguments),
     /// Logging on the NAO
     #[command(subcommand)]
-    Logs(LogsArguments),
+    Logs(logs::Arguments),
     /// Change player numbers of the NAOs in local parameters
-    Playernumber(PlayerNumberArguments),
+    Playernumber(player_number::Arguments),
     /// Ping NAOs
-    Ping(PingArguments),
+    Ping(ping::Arguments),
     /// Disable NAOs after a game (downloads logs, unsets WiFi network, etc.)
-    Postgame(PostGameArguments),
+    Postgame(post_game::Arguments),
     /// Power NAOs off
-    Poweroff(PoweroffArguments),
+    Poweroff(power_off::Arguments),
     /// Get NAOs ready for a game (sets player numbers, uploads, sets WiFi network, etc.)
-    Pregame(PreGameArguments),
+    Pregame(pre_game::Arguments),
     /// Reboot NAOs
-    Reboot(RebootArguments),
+    Reboot(reboot::Arguments),
     /// Set cycler instances to be recorded
-    Recording(RecordingArguments),
+    Recording(recording::Arguments),
     /// Runs the code for a target
-    Run(CargoArguments<RunArguments>),
+    Run(CargoArguments<run::Arguments>),
     /// Manage the NAO SDK
     #[command(subcommand)]
-    Sdk(SdkArguments),
+    Sdk(sdk::Arguments),
     /// Opens a command line shell to a NAO
-    Shell(ShellArguments),
+    Shell(shell::Arguments),
     /// Upload the code to NAOs
-    Upload(UploadArguments),
+    Upload(upload::Arguments),
     /// Control WiFi network on the NAO
     #[command(subcommand, name = "wifi")]
-    WiFi(WiFiArguments),
+    WiFi(wifi::Arguments),
 }
 
 #[tokio::main]
