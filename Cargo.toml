@@ -227,10 +227,11 @@ serde = { git = "https://github.com/HULKs/serde.git", rev = "73d5e8e404a874ad900
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "73d5e8e404a874ad90023810d634b985bef19478" }
 
-[profile.incremental]
-inherits = "release"
-incremental = true
+[profile.dev]
+opt-level = 3
+debug = false
+codegen-units = 16 # TODO: Evaluate performance for different values
 
-[profile.release-with-debug]
-inherits = "release"
+[profile.with-debug]
+inherits = "dev"
 debug = true
