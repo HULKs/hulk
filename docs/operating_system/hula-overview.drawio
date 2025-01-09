@@ -1,0 +1,138 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0" version="26.0.4">
+  <diagram name="Page-1" id="kG0SZPOO1Mh3O8xweOjX">
+    <mxGraphModel dx="1014" dy="494" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Hvr2GWcJEUgWMbibi7ig-2" target="Hvr2GWcJEUgWMbibi7ig-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-2" value="&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px; line-height: 250%;&quot; align=&quot;center&quot;&gt;LoLA&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#66B2FF;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="310" y="160" width="60" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Hvr2GWcJEUgWMbibi7ig-3" target="Hvr2GWcJEUgWMbibi7ig-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-15" value="&lt;font face=&quot;Fira Code&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot;&gt;USB&lt;br&gt;&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=light-dark(#FFFFFF,#1E2129);" vertex="1" connectable="0" parent="Hvr2GWcJEUgWMbibi7ig-8">
+          <mxGeometry x="-0.3111" y="2" relative="1" as="geometry">
+            <mxPoint x="9" y="2" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-3" value="&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px; line-height: 250%;&quot; align=&quot;center&quot;&gt;HAL&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#66B2FF;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="410" y="160" width="60" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="Hvr2GWcJEUgWMbibi7ig-4" target="Hvr2GWcJEUgWMbibi7ig-6">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-23" value="&lt;font face=&quot;Fira Code&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot;&gt;RS485&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=light-dark(#FFFFFF,#1E2129);" vertex="1" connectable="0" parent="Hvr2GWcJEUgWMbibi7ig-10">
+          <mxGeometry x="-0.0625" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-4" value="&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px; line-height: 250%;&quot; align=&quot;center&quot;&gt;Chest Board&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#66B2FF;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="530" y="160" width="60" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-5" value="&lt;div style=&quot;line-height: 220%;&quot;&gt;Device&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#66B2FF;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="660" y="160" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-6" value="&lt;div style=&quot;line-height: 220%;&quot;&gt;Device&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#66B2FF;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="660" y="220" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-7" value="&lt;div style=&quot;line-height: 170%;&quot;&gt;...&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#66B2FF;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="660" y="280" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="299.75" as="sourcePoint" />
+            <mxPoint x="660" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="179.75" as="sourcePoint" />
+            <mxPoint x="660" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-22" value="&lt;font face=&quot;Fira Code&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot;&gt;I2C&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=light-dark(#FFFFFF,#1E2129);" vertex="1" connectable="0" parent="Hvr2GWcJEUgWMbibi7ig-12">
+          <mxGeometry x="-0.075" relative="1" as="geometry">
+            <mxPoint x="2" y="-1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-17" value="" style="edgeStyle=none;orthogonalLoop=1;jettySize=auto;html=1;rounded=0;strokeColor=default;dashed=1;endArrow=none;endFill=0;" edge="1" parent="1">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="500" y="160" as="sourcePoint" />
+            <mxPoint x="500" y="230" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-19" value="" style="edgeStyle=none;orthogonalLoop=1;jettySize=auto;html=1;rounded=0;strokeColor=default;dashed=1;endArrow=none;endFill=0;" edge="1" parent="1">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="500" y="250" as="sourcePoint" />
+            <mxPoint x="500" y="320" as="targetPoint" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Hvr2GWcJEUgWMbibi7ig-25" target="Hvr2GWcJEUgWMbibi7ig-2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="240" />
+              <mxPoint x="290" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-34" value="&lt;font face=&quot;Fira Code&quot; data-font-src=&quot;https://fonts.googleapis.com/css?family=Fira+Code&quot;&gt;Robocupper msgpack&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];rotation=90;labelBackgroundColor=light-dark(#FFFFFF,#1E2129);" vertex="1" connectable="0" parent="Hvr2GWcJEUgWMbibi7ig-26">
+          <mxGeometry x="-0.325" y="3" relative="1" as="geometry">
+            <mxPoint x="7" y="2" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-25" value="&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px;&quot; align=&quot;center&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;padding-left: 0px; line-height: 250%;&quot; align=&quot;center&quot;&gt;HULA&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#2FAC66;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="210" y="160" width="60" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-27" value="&lt;div style=&quot;line-height: 220%;&quot;&gt;HULK&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#2FAC66;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="160" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-30" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="170" y="179.75" as="sourcePoint" />
+            <mxPoint x="210" y="179.75" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="190" y="179.75" />
+              <mxPoint x="190" y="179.75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="170" y="239.75" as="sourcePoint" />
+            <mxPoint x="210" y="239.75" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="190" y="239.75" />
+              <mxPoint x="190" y="239.75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="Hvr2GWcJEUgWMbibi7ig-27" target="Hvr2GWcJEUgWMbibi7ig-27">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-37" value="&lt;div style=&quot;line-height: 220%;&quot;&gt;Aliveness&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#2FAC66;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="220" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-38" value="&lt;div style=&quot;line-height: 180%;&quot;&gt;...&lt;br&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=top;arcSize=5;fontFamily=Fira Code;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DFira%2BCode;fillColor=#2FAC66;glass=0;shadow=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="280" width="80" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Hvr2GWcJEUgWMbibi7ig-39" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="170" y="299.75" as="sourcePoint" />
+            <mxPoint x="210" y="299.75" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="190" y="299.75" />
+              <mxPoint x="190" y="299.75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
