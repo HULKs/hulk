@@ -59,6 +59,10 @@ async fn download(version: &str, sdk_home: impl AsRef<Path>) -> Result<PathBuf> 
     let installer_path = downloads_directory.join(&installer_name);
     let download_path = installer_path.with_extension("tmp");
 
+    if installer_path.exists() {
+        return Ok(installer_path);
+    }
+
     create_dir_all(&downloads_directory)
         .await
         .wrap_err("failed to create download directory")?;
