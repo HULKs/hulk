@@ -34,13 +34,13 @@ pub async fn cargo<Arguments: Args + CargoCommand>(
     arguments: CargoArguments<Arguments>,
     repository_root: impl AsRef<Path>,
 ) -> Result<()> {
-    let sdk_version = read_sdk_version(&repository_root)
+    let environment = arguments
+        .environment
+        .env
+        .resolve(&repository_root)
         .await
-        .wrap_err("failed to read SDK version")?;
-    let environment = match arguments.environment.env {
-        Some(environment) => environment,
-        None => Environment::Native,
-    };
+        .wrap_err("failed to resolve enviroment")?;
+
     let cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {

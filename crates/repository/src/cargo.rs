@@ -1,7 +1,7 @@
-use std::{path::Path, process::Command, result, str::FromStr};
+use std::{path::Path, process::Command};
 
 use color_eyre::{
-    eyre::{Context, ContextCompat, Report},
+    eyre::{Context, ContextCompat},
     Result,
 };
 
@@ -12,14 +12,6 @@ pub enum Environment {
     Native,
     Sdk { version: String },
     Docker { image: String },
-}
-
-impl FromStr for Environment {
-    type Err = Report;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        todo!()
-    }
 }
 
 pub enum Host {
