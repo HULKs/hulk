@@ -367,7 +367,6 @@ impl App for TwixApp {
                                 self.nao.set_address(format!("ws://{address}:1337"));
                             }
                             Some((ip, port)) => {
-
                                 self.nao.set_address(format!("ws://{ip}:{port}"));
                             }
                         }
