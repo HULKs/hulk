@@ -201,4 +201,8 @@ impl CargoCommand for Arguments {
             cmd.arg("--future-incompat-report");
         }
     }
+
+    fn profile(&self) -> &str {
+        self.common.profile.as_deref().unwrap_or("dev")
+    }
 }

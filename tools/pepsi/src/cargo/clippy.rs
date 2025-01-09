@@ -74,4 +74,8 @@ impl CargoCommand for Arguments {
             cmd.args(&self.args);
         }
     }
+
+    fn profile(&self) -> &str {
+        self.common.profile.as_deref().unwrap_or("dev")
+    }
 }

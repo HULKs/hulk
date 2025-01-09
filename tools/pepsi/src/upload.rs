@@ -12,20 +12,21 @@ use repository::{configuration::read_os_version, upload::populate_upload_directo
 use tempfile::tempdir;
 
 use crate::{
-    cargo::build::Arguments as BuildArguments,
+    cargo::{build::Arguments as BuildArguments, cargo, CargoCommand},
     progress_indicator::{ProgressIndicator, Task},
+    CargoArguments,
 };
 
 #[derive(Args)]
 pub struct Arguments {
-    /// SDK execution environment to use
-    #[arg(long, default_value = "installed")]
-    // pub sdk: SdkExecutor,
-    /// Use a remote machine for execution, see ./scripts/remote for details
-    #[arg(long)]
-    pub remote: bool,
     #[command(flatten)]
-    pub cargo: BuildArguments,
+    pub upload: UploadArguments,
+    #[command(flatten)]
+    pub cargo: CargoArguments<BuildArguments>,
+}
+
+#[derive(Args)]
+pub struct UploadArguments {
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
@@ -46,7 +47,7 @@ pub struct Arguments {
 async fn upload_with_progress(
     nao_address: &NaoAddress,
     upload_directory: impl AsRef<Path>,
-    arguments: &Arguments,
+    arguments: &UploadArguments,
     progress: &Task,
     repository_root: impl AsRef<Path>,
 ) -> Result<()> {
@@ -93,20 +94,26 @@ async fn upload_with_progress(
 }
 
 pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
-    let repository_root = repository_root.as_ref();
-
-    if !arguments.no_build {}
-
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    // populate_upload_directory(&upload_directory, &arguments.cargo.profile, repository_root)
-    //     .await
-    //     .wrap_err("failed to populate upload directory")?;
+    let profile = arguments.cargo.cargo.profile().to_owned();
 
-    let arguments = &arguments;
+    if !arguments.upload.no_build {
+        cargo(arguments.cargo, &repository_root)
+            .await
+            .wrap_err("failed to build")?;
+    }
+
+    populate_upload_directory(&upload_directory, &profile, &repository_root)
+        .await
+        .wrap_err("failed to populate upload directory")?;
+
+    let upload_arguments = &arguments.upload;
+    let repository_root = &repository_root;
     let upload_directory = &upload_directory;
 
     let multi_progress = ProgressIndicator::new();
     arguments
+        .upload
         .naos
         .iter()
         .map(|nao_address| {
@@ -117,7 +124,7 @@ pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> 
                     upload_with_progress(
                         nao_address,
                         upload_directory,
-                        arguments,
+                        upload_arguments,
                         &progress,
                         repository_root,
                     )

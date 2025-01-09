@@ -200,4 +200,8 @@ impl CargoCommand for Arguments {
             cmd.arg("--unit-graph");
         }
     }
+
+    fn profile(&self) -> &str {
+        self.common.profile.as_deref().unwrap_or("dev")
+    }
 }

@@ -28,6 +28,7 @@ mod heading {
 
 pub trait CargoCommand {
     fn apply(&self, cmd: &mut Command);
+    fn profile(&self) -> &str;
 }
 
 pub async fn cargo<Arguments: Args + CargoCommand>(
