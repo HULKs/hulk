@@ -1,7 +1,8 @@
 use std::{
     env::current_dir,
     fmt::{self, Display, Formatter},
-    net::IpAddr,
+    iter::once,
+    net::{IpAddr, Ipv4Addr},
     path::PathBuf,
     str::FromStr,
     sync::Arc,

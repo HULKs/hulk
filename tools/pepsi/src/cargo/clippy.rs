@@ -1,8 +1,14 @@
-use std::{path::PathBuf, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use clap::Parser;
+use color_eyre::eyre::{bail, Context, Result};
 
-use super::{check::CheckOptions, common::CommonOptions, heading, CargoCommand};
+use crate::CargoArguments;
+
+use super::{cargo, check::CheckOptions, common::CommonOptions, heading};
 
 /// Checks a package to catch common mistakes and improve your Rust code
 #[derive(Clone, Debug, Default, Parser)]
@@ -44,7 +50,7 @@ pub struct Arguments {
     pub args: Vec<String>,
 }
 
-impl CargoCommand for Arguments {
+impl Arguments {
     fn apply<'a>(&self, cmd: &'a mut Command) -> &'a mut Command {
         cmd.arg("clippy");
 
@@ -76,4 +82,27 @@ impl CargoCommand for Arguments {
 
         cmd
     }
+}
+
+pub async fn clippy(
+    arguments: CargoArguments<Arguments>,
+    repository_root: impl AsRef<Path>,
+) -> Result<()> {
+    let mut cargo_command = cargo(arguments.environment, repository_root)
+        .await
+        .wrap_err("failed to build cargo command")?;
+
+    // TODO: Build extension trait for readability
+    arguments.cargo.apply(&mut cargo_command);
+
+    let status = tokio::process::Command::from(cargo_command)
+        .status()
+        .await
+        .wrap_err("failed to run cargo build")?;
+
+    if !status.success() {
+        bail!("pepsi build failed with {status}");
+    }
+
+    Ok(())
 }

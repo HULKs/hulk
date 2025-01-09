@@ -8,9 +8,7 @@ use color_eyre::{
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
-use repository::{
-    cargo::SdkExecutor, configuration::read_os_version, upload::populate_upload_directory,
-};
+use repository::{configuration::read_os_version, upload::populate_upload_directory};
 use tempfile::tempdir;
 
 use crate::{
@@ -22,7 +20,7 @@ use crate::{
 pub struct Arguments {
     /// SDK execution environment to use
     #[arg(long, default_value = "installed")]
-    pub sdk: SdkExecutor,
+    // pub sdk: SdkExecutor,
     /// Use a remote machine for execution, see ./scripts/remote for details
     #[arg(long)]
     pub remote: bool,
@@ -100,9 +98,9 @@ pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> 
     if !arguments.no_build {}
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    populate_upload_directory(&upload_directory, &arguments.cargo.profile, repository_root)
-        .await
-        .wrap_err("failed to populate upload directory")?;
+    // populate_upload_directory(&upload_directory, &arguments.cargo.profile, repository_root)
+    //     .await
+    //     .wrap_err("failed to populate upload directory")?;
 
     let arguments = &arguments;
     let upload_directory = &upload_directory;

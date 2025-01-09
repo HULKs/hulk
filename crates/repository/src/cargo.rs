@@ -1,21 +1,25 @@
-use std::{path::Path, process::Command, str::FromStr};
+use std::{path::Path, process::Command, result, str::FromStr};
 
 use color_eyre::{
-    eyre::{bail, Context, ContextCompat},
+    eyre::{Context, ContextCompat, Report},
     Result,
 };
 
 use crate::data_home::get_data_home;
 
 #[derive(Debug, Clone)]
-pub enum Sdk {
-    Installed { version: String },
+pub enum Environment {
+    Native,
+    Sdk { version: String },
     Docker { image: String },
 }
 
-pub enum Environment {
-    Native,
-    Sdk(Sdk),
+impl FromStr for Environment {
+    type Err = Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!()
+    }
 }
 
 pub enum Host {
@@ -49,7 +53,7 @@ impl Cargo {
         // TODO: implement remote
         let command = match self.environment {
             Environment::Native => Command::new("cargo"),
-            Environment::Sdk(Sdk::Installed { version }) => {
+            Environment::Sdk { version } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
                 let environment_file = &data_home.join(format!(
                     "sdk/{version}/environment-setup-corei7-64-aldebaran-linux"
@@ -64,13 +68,15 @@ impl Cargo {
                     .arg("cargo");
                 command
             }
-            Environment::Sdk(Sdk::Docker { image }) => {
+            Environment::Docker { image } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
                 let cargo_home = data_home.join("container-cargo-home/");
                 // TODO: This has to cd into the current pwd first
+                // FIXME: Pepsi only work in repository root
                 let mut command = Command::new("bash");
                 command.arg("-c");
                 command.arg(
+                // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
                 format!("\
                     mkdir -p {cargo_home} && \
                     docker run \

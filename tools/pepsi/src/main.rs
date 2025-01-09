@@ -1,6 +1,6 @@
 use std::{env::current_dir, path::PathBuf};
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{command, Args, CommandFactory, Parser, Subcommand};
 use color_eyre::{
     config::HookBuilder,
     eyre::{ContextCompat, WrapErr},
@@ -12,9 +12,11 @@ use repository::{find_root::find_repository_root, inspect_version::check_for_upd
 use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
 use analyze::{analyze, Arguments as AnalyzeArguments};
 use cargo::{
-    build::Arguments as BuildArguments, cargo, check::Arguments as CheckArguments,
-    clippy::Arguments as ClippyArguments, run::Arguments as RunArguments,
-    Arguments as CargoArguments,
+    build::{build, Arguments as BuildArguments},
+    check::{check, Arguments as CheckArguments},
+    clippy::{clippy, Arguments as ClippyArguments},
+    environment::EnvironmentArguments,
+    run::{run, Arguments as RunArguments},
 };
 use communication::{communication, Arguments as CommunicationArguments};
 use completions::{completions, Arguments as CompletionArguments};
@@ -66,6 +68,14 @@ struct Arguments {
     command: Command,
 }
 
+#[derive(Args)]
+struct CargoArguments<Arguments: Args> {
+    #[command(flatten)]
+    environment: EnvironmentArguments,
+    #[command(flatten)]
+    cargo: Arguments,
+}
+
 #[derive(Subcommand)]
 enum Command {
     /// Analyze source code
@@ -75,9 +85,9 @@ enum Command {
     Aliveness(AlivenessArguments),
     /// Builds the code for a target
     Build(CargoArguments<BuildArguments>),
-    ///// Checks the code with cargo check
+    /// Checks the code with cargo check
     Check(CargoArguments<CheckArguments>),
-    ///// Checks the code with cargo clippy
+    /// Checks the code with cargo clippy
     Clippy(CargoArguments<ClippyArguments>),
     /// Enable/disable communication
     #[command(subcommand)]
@@ -150,13 +160,13 @@ async fn main() -> Result<()> {
         Command::Aliveness(arguments) => aliveness(arguments, repository_root)
             .await
             .wrap_err("failed to execute aliveness command")?,
-        Command::Build(arguments) => cargo(arguments, repository_root?)
+        Command::Build(arguments) => build(arguments, repository_root?)
             .await
             .wrap_err("failed to execute build command")?,
-        Command::Check(arguments) => cargo(arguments, repository_root?)
+        Command::Check(arguments) => check(arguments, repository_root?)
             .await
             .wrap_err("failed to execute check command")?,
-        Command::Clippy(arguments) => cargo(arguments, repository_root?)
+        Command::Clippy(arguments) => clippy(arguments, repository_root?)
             .await
             .wrap_err("failed to execute clippy command")?,
         Command::Communication(arguments) => communication(arguments, repository_root?)
@@ -196,7 +206,7 @@ async fn main() -> Result<()> {
         Command::Recording(arguments) => recording(arguments, repository_root?)
             .await
             .wrap_err("failed to execute recording command")?,
-        Command::Run(arguments) => cargo(arguments, repository_root?)
+        Command::Run(arguments) => run(arguments, repository_root?)
             .await
             .wrap_err("failed to execute run command")?,
         Command::Sdk(arguments) => sdk(arguments, repository_root?)

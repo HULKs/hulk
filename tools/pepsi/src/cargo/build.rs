@@ -1,9 +1,13 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use clap::{ArgAction, Parser};
+use color_eyre::eyre::{bail, Context};
+use color_eyre::Result;
 
-use super::CargoCommand;
+use crate::CargoArguments;
+
+use super::cargo;
 use super::{common::CommonOptions, heading};
 
 #[derive(Clone, Debug, Default, Parser)]
@@ -131,8 +135,8 @@ pub struct Arguments {
     future_incompat_report: bool,
 }
 
-impl CargoCommand for Arguments {
-    fn apply<'a>(&self, cmd: &'a mut Command) -> &'a mut Command {
+impl Arguments {
+    pub fn apply<'a>(&self, cmd: &'a mut Command) -> &'a mut Command {
         cmd.arg("build");
 
         self.common.apply(cmd);
@@ -203,4 +207,27 @@ impl CargoCommand for Arguments {
 
         cmd
     }
+}
+
+pub async fn build(
+    arguments: CargoArguments<Arguments>,
+    repository_root: impl AsRef<Path>,
+) -> Result<()> {
+    let mut cargo_command = cargo(arguments.environment, repository_root)
+        .await
+        .wrap_err("failed to build cargo command")?;
+
+    // TODO: Build extension trait for readability
+    arguments.cargo.apply(&mut cargo_command);
+
+    let status = tokio::process::Command::from(cargo_command)
+        .status()
+        .await
+        .wrap_err("failed to run cargo build")?;
+
+    if !status.success() {
+        bail!("pepsi build failed with {status}");
+    }
+
+    Ok(())
 }
