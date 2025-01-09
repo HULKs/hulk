@@ -11,7 +11,7 @@ use repository::{find_root::find_repository_root, inspect_version::check_for_upd
 
 use aliveness::aliveness;
 use analyze::analyze;
-use cargo::{build, cargo, check, clippy, run};
+use cargo::{build, cargo, check, clippy, run, test};
 use communication::communication;
 use completions::completions;
 use gammaray::gammaray;
@@ -111,6 +111,8 @@ enum Command {
     Sdk(sdk::Arguments),
     /// Open a command line shell to a NAO
     Shell(shell::Arguments),
+    /// Execute all unit and integration tests
+    Test(cargo::Arguments<test::Arguments>),
     /// Upload the code to NAOs
     Upload(upload::Arguments),
     /// Control WiFi on NAOs
@@ -201,6 +203,9 @@ async fn main() -> Result<()> {
         Command::Shell(arguments) => shell(arguments)
             .await
             .wrap_err("failed to execute shell command")?,
+        Command::Test(arguments) => cargo(arguments, repository_root?)
+            .await
+            .wrap_err("failed to execute test command")?,
         Command::Upload(arguments) => upload(arguments, repository_root?)
             .await
             .wrap_err("failed to execute upload command")?,

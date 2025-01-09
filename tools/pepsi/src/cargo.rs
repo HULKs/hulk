@@ -19,6 +19,7 @@ pub mod clippy;
 pub mod common;
 pub mod environment;
 pub mod run;
+pub mod test;
 mod heading {
     pub const PACKAGE_SELECTION: &str = "Package Selection";
     pub const TARGET_SELECTION: &str = "Target Selection";
