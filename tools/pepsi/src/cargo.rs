@@ -9,8 +9,9 @@ use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
-use environment::EnvironmentArguments;
+use environment::{Environment, EnvironmentArguments};
 use repository::cargo::Cargo;
+use toml::Table;
 
 pub mod build;
 pub mod check;
@@ -45,12 +46,25 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     arguments: Arguments<CargoArguments>,
     repository_root: impl AsRef<Path>,
 ) -> Result<()> {
-    let environment = arguments
-        .environment
-        .env
-        .resolve(&repository_root)
-        .await
-        .wrap_err("failed to resolve enviroment")?;
+    // Map with async closures would be nice here (not yet stabilized)
+    let manifest_path = match arguments.manifest {
+        Some(manifest) => Some(
+            resolve_manifest_path(&manifest, &repository_root)
+                .await
+                .wrap_err("failed to resolve manifest path")?,
+        ),
+        None => None,
+    };
+
+    let environment = match arguments.environment.env {
+        Some(environment) => environment,
+        None => read_requested_environment(&manifest_path)
+            .await
+            .wrap_err("failed to read requested environment")?,
+    }
+    .resolve(&repository_root)
+    .await
+    .wrap_err("failed to resolve enviroment")?;
 
     let cargo = if arguments.environment.remote {
         Cargo::remote(environment)
@@ -65,11 +79,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     // TODO: Build extension trait for readability
     arguments.cargo.apply(&mut cargo_command);
 
-    if let Some(manifest) = arguments.manifest {
-        let manifest_path = resolve_manifest_path(&manifest, &repository_root)
-            .await
-            .wrap_err("failed to resolve manifest path")?;
-
+    if let Some(manifest_path) = manifest_path {
         cargo_command.arg("--manifest-path");
         cargo_command.arg(manifest_path);
     }
@@ -89,6 +99,36 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     }
 
     Ok(())
+}
+
+async fn read_requested_environment(manifest_path: &Option<PathBuf>) -> Result<Environment> {
+    let Some(manifest_path) = manifest_path else {
+        return Ok(Environment::Native);
+    };
+
+    let manifest = tokio::fs::read_to_string(manifest_path)
+        .await
+        .wrap_err("failed to read manifest at {manifest_path}")?;
+    let manifest: Table = toml::from_str(&manifest).wrap_err("failed to parse manifest")?;
+    let Some(package_metadata) = package_metadata(&manifest) else {
+        return Ok(Environment::Native);
+    };
+
+    let is_cross_compile_requested = package_metadata
+        .get("cross-compile")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+
+    if !is_cross_compile_requested {
+        return Ok(Environment::Native);
+    }
+
+    #[cfg(target_os = "linux")]
+    if cfg!(target_os = "linux") {
+        Ok(Environment::Sdk { version: None })
+    } else {
+        Ok(Environment::Docker { image: None })
+    }
 }
 
 async fn resolve_manifest_path(
@@ -117,4 +157,12 @@ async fn resolve_manifest_path(
             }
         }
     })
+}
+
+fn package_metadata(table: &Table) -> Option<&Table> {
+    table
+        .get("package")?
+        .get("metadata")?
+        .get("pepsi")?
+        .as_table()
 }

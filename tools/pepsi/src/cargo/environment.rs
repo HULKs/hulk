@@ -7,8 +7,8 @@ use repository::{cargo::Environment as RepositoryEnvironment, configuration::rea
 #[derive(Args, Debug)]
 pub struct EnvironmentArguments {
     /// The execution environment (default: native)
-    #[arg(long, default_value = "native")]
-    pub env: Environment,
+    #[arg(long)]
+    pub env: Option<Environment>,
     /// Use a remote machine for execution, see ./scripts/remote for details
     #[arg(long)]
     pub remote: bool,

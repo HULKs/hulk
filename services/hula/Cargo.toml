@@ -5,6 +5,9 @@ edition = "2021"
 license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
+[package.metadata.pepsi]
+cross-compile = true
+
 [dependencies]
 chrono = "0.4.23"
 clap = { version = "4.0.29", features = ["derive"] }

@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
+[package.metadata.pepsi]
+cross-compile = true
+
 [dependencies]
 alsa = { workspace = true }
 ball_filter = { workspace = true }

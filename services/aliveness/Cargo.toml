@@ -5,6 +5,9 @@ edition = "2021"
 license = "GPL-3.0-only"
 homepage = "https://github.com/hulks/hulk"
 
+[package.metadata.pepsi]
+cross-compile = true
+
 [dependencies]
 aliveness = { path = "../../crates/aliveness" }
 color-eyre = "0.6.2"
