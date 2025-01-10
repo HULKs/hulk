@@ -99,8 +99,10 @@ impl StepPlanner {
                 };
                 Pose2::from_parts(line_segment.1, rotation)
             }
-            PathSegment::Arc(arc, orientation) => {
-                let direction = orientation.rotate_vector_90_degrees(arc.start - arc.circle.center);
+            PathSegment::Arc(arc) => {
+                let direction = arc
+                    .direction
+                    .rotate_vector_90_degrees(arc.start - arc.circle.center);
                 Pose2::from_parts(
                     arc.start + direction * 1.0,
                     Orientation2::from_vector(direction),

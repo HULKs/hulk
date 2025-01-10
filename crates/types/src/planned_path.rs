@@ -1,17 +1,17 @@
 use approx::{AbsDiffEq, RelativeEq};
-use geometry::{arc::Arc, direction::Direction, line_segment::LineSegment};
-use linear_algebra::Point2;
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
+use geometry::{arc::Arc, line_segment::LineSegment};
+use linear_algebra::Point2;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(
     Clone, Debug, Serialize, Deserialize, PartialEq, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub enum PathSegment {
     LineSegment(LineSegment<Ground>),
-    Arc(Arc<Ground>, Direction),
+    Arc(Arc<Ground>),
 }
 
 pub fn direct_path(start: Point2<Ground>, destination: Point2<Ground>) -> Vec<PathSegment> {
@@ -31,10 +31,9 @@ impl AbsDiffEq for PathSegment {
                 PathSegment::LineSegment(line_segment_self),
                 PathSegment::LineSegment(line_segment_other),
             ) => line_segment_self.abs_diff_eq(line_segment_other, epsilon),
-            (
-                PathSegment::Arc(arc_self, direction_self),
-                PathSegment::Arc(arc_other, direction_other),
-            ) => direction_self == direction_other && arc_self.abs_diff_eq(arc_other, epsilon),
+            (PathSegment::Arc(arc_self), PathSegment::Arc(arc_other)) => {
+                arc_self.abs_diff_eq(arc_other, epsilon)
+            }
             _ => false,
         }
     }
@@ -56,12 +55,8 @@ impl RelativeEq for PathSegment {
                 PathSegment::LineSegment(line_segment_self),
                 PathSegment::LineSegment(line_segment_other),
             ) => line_segment_self.relative_eq(line_segment_other, epsilon, max_relative),
-            (
-                PathSegment::Arc(arc_self, direction_self),
-                PathSegment::Arc(arc_other, direction_other),
-            ) => {
-                direction_self == direction_other
-                    && arc_self.relative_eq(arc_other, epsilon, max_relative)
+            (PathSegment::Arc(arc_self), PathSegment::Arc(arc_other)) => {
+                arc_self.relative_eq(arc_other, epsilon, max_relative)
             }
             _ => false,
         }
@@ -72,7 +67,7 @@ impl PathSegment {
     pub fn length(&self) -> f32 {
         match self {
             PathSegment::LineSegment(line_segment) => line_segment.length(),
-            PathSegment::Arc(arc, direction) => arc.length(*direction),
+            PathSegment::Arc(arc) => arc.length(),
         }
     }
 }

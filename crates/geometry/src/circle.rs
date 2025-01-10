@@ -91,7 +91,7 @@ where
         line_segment.distance_to(self.center) <= self.radius
     }
 
-    pub fn overlaps_arc(&self, arc: Arc<Frame>, orientation: Direction) -> bool {
+    pub fn overlaps_arc(&self, arc: Arc<Frame>) -> bool {
         let distance = (arc.circle.center - self.center).norm_squared();
         if distance > (self.radius + arc.circle.radius).powi(2) {
             return false;
@@ -115,7 +115,7 @@ where
             angle_start_to_end += TAU;
         }
 
-        (angle_start_to_obstacle < angle_start_to_end) ^ (orientation == Direction::Clockwise)
+        (angle_start_to_obstacle < angle_start_to_end) ^ (arc.direction == Direction::Clockwise)
     }
 
     pub fn tangents_with_point(&self, other: Point2<Frame>) -> Option<TwoLineSegments<Frame>> {

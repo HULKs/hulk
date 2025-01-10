@@ -55,7 +55,8 @@ impl PathPlanner {
             MotionCommand::Walk { path, .. } => path.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
-                    PathSegment::Arc(arc, direction) => direction
+                    PathSegment::Arc(arc) => arc
+                        .direction
                         .rotate_vector_90_degrees(arc.start - arc.circle.center)
                         .normalize(),
                 };
@@ -332,15 +333,13 @@ impl PathPlanner {
                             .shape
                             .as_circle()
                             .ok_or_else(|| eyre!("obstacle from path node was not a circle"))?;
-                        Ok(PathSegment::Arc(
-                            Arc {
-                                circle,
-                                start: current_node.position,
-                                end: next_node.position,
-                            },
-                            LineSegment(previous_node.position, current_node.position)
+                        Ok(PathSegment::Arc(Arc {
+                            circle,
+                            start: current_node.position,
+                            end: next_node.position,
+                            direction: LineSegment(previous_node.position, current_node.position)
                                 .get_direction(circle.center),
-                        ))
+                        }))
                     }
                     _ => Ok(PathSegment::LineSegment(LineSegment(
                         current_node.position,
@@ -515,15 +514,16 @@ impl DynamicMap for PathPlanner {
                             circle,
                             self.nodes[index].position,
                             self.nodes[*other_node].position,
+                            direction,
                         );
                         if self
                             .obstacles
                             .iter()
                             .enumerate()
                             .filter(|(index, _)| *index != obstacle_index)
-                            .all(|(_, obstacle)| !obstacle.shape.overlaps_arc(arc, direction))
+                            .all(|(_, obstacle)| !obstacle.shape.overlaps_arc(arc))
                         {
-                            vector.push((*other_node, arc.length(direction)));
+                            vector.push((*other_node, arc.length()));
                         }
                     }
                 }
@@ -609,17 +609,15 @@ mod tests {
             &mut planner,
             &[
                 PathSegment::LineSegment(LineSegment(point![-2.0, 0.0], point![-0.5, 0.866])),
-                PathSegment::Arc(
-                    Arc {
-                        circle: Circle {
-                            center: point![0.0, 0.0],
-                            radius: 1.0,
-                        },
-                        start: point![-0.5, 0.866],
-                        end: point![0.5, 0.866],
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![0.0, 0.0],
+                        radius: 1.0,
                     },
-                    Direction::Clockwise,
-                ),
+                    start: point![-0.5, 0.866],
+                    end: point![0.5, 0.866],
+                    direction: Direction::Clockwise,
+                }),
                 PathSegment::LineSegment(LineSegment(point![0.5, 0.866], point![2.0, 0.0])),
             ],
             4.511,
@@ -646,47 +644,41 @@ mod tests {
                     point![-1.4, 1.0],
                     point![-0.9474172, 0.9756069],
                 )),
-                PathSegment::Arc(
-                    Arc {
-                        circle: Circle {
-                            center: point![-1.0, 0.0],
-                            radius: 0.9770229,
-                        },
-                        start: point![-0.9474172, 0.9756069],
-                        end: point![-0.91782254, 0.9735608],
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![-1.0, 0.0],
+                        radius: 0.9770229,
                     },
-                    Direction::Clockwise,
-                ),
+                    start: point![-0.9474172, 0.9756069],
+                    end: point![-0.91782254, 0.9735608],
+                    direction: Direction::Clockwise,
+                }),
                 PathSegment::LineSegment(LineSegment(
                     point![-0.91782254, 0.9735608],
                     point![-0.092521094, 0.90389776],
                 )),
-                PathSegment::Arc(
-                    Arc {
-                        circle: Circle {
-                            center: point![0.0, 2.0],
-                            radius: 1.1,
-                        },
-                        start: point![-0.092521094, 0.90389776],
-                        end: point![0.09252105, 0.90389776],
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![0.0, 2.0],
+                        radius: 1.1,
                     },
-                    Direction::Counterclockwise,
-                ),
+                    start: point![-0.092521094, 0.90389776],
+                    end: point![0.09252105, 0.90389776],
+                    direction: Direction::Counterclockwise,
+                }),
                 PathSegment::LineSegment(LineSegment(
                     point![0.09252105, 0.90389776],
                     point![0.91782254, 0.9735608],
                 )),
-                PathSegment::Arc(
-                    Arc {
-                        circle: Circle {
-                            center: point![1.0, 0.0],
-                            radius: 0.9770229,
-                        },
-                        start: point![0.91782254, 0.9735608],
-                        end: point![0.9474171, 0.97560686],
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![1.0, 0.0],
+                        radius: 0.9770229,
                     },
-                    Direction::Clockwise,
-                ),
+                    start: point![0.91782254, 0.9735608],
+                    end: point![0.9474171, 0.97560686],
+                    direction: Direction::Clockwise,
+                }),
                 PathSegment::LineSegment(LineSegment(
                     point![0.9474171, 0.97560686],
                     point![1.4, 1.0],
@@ -709,17 +701,15 @@ mod tests {
                     point![0.0, 0.0],
                     point![-0.8465765, 0.35145843],
                 )),
-                PathSegment::Arc(
-                    Arc {
-                        circle: Circle {
-                            center: point![-0.76, 0.56],
-                            radius: 0.22579876,
-                        },
-                        start: point![-0.8465765, 0.35145843],
-                        end: point![-0.9856166, 0.55093247],
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![-0.76, 0.56],
+                        radius: 0.22579876,
                     },
-                    Direction::Clockwise,
-                ),
+                    start: point![-0.8465765, 0.35145843],
+                    end: point![-0.9856166, 0.55093247],
+                    direction: Direction::Clockwise,
+                }),
                 PathSegment::LineSegment(LineSegment(
                     point![-0.9856166, 0.55093247],
                     point![-0.99, 0.66],
@@ -749,17 +739,15 @@ mod tests {
                     point![0.0, 0.0],
                     point![2.2338033, 0.3676223],
                 )),
-                PathSegment::Arc(
-                    Arc {
-                        circle: Circle {
-                            center: point![2.2906392, 0.022267818],
-                            radius: 0.35000002,
-                        },
-                        start: point![2.2338033, 0.3676223],
-                        end: point![2.640637, 0.02350672],
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![2.2906392, 0.022267818],
+                        radius: 0.35000002,
                     },
-                    Direction::Clockwise,
-                ),
+                    start: point![2.2338033, 0.3676223],
+                    end: point![2.640637, 0.02350672],
+                    direction: Direction::Clockwise,
+                }),
                 PathSegment::LineSegment(LineSegment(
                     point![2.640637, 0.02350672],
                     point![2.6415963, -0.24750854],
@@ -791,17 +779,15 @@ mod tests {
                     point![0.0, 0.0],
                     point![3.8195379, 1.2188969],
                 )),
-                PathSegment::Arc(
-                    Arc {
-                        circle: Circle {
-                            center: point![3.9259436, 0.8854635],
-                            radius: 0.35,
-                        },
-                        start: point![3.8195379, 1.2188969],
-                        end: point![3.8212261, 1.2194309],
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![3.9259436, 0.8854635],
+                        radius: 0.35,
                     },
-                    Direction::Clockwise,
-                ),
+                    start: point![3.8195379, 1.2188969],
+                    end: point![3.8212261, 1.2194309],
+                    direction: Direction::Clockwise,
+                }),
                 PathSegment::LineSegment(LineSegment(
                     point![3.8212261, 1.2194309],
                     point![3.9742692, 1.2674185],
