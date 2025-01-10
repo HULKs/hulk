@@ -27,6 +27,7 @@ nalgebra = { workspace = true }
 parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
+ransac = { workspace = true }
 rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -128,7 +128,10 @@ impl<Frame> LineSegment<Frame> {
 
     pub fn get_direction(&self, point: Point2<Frame>) -> Direction {
         let direction_vector = self.1 - self.0;
-        let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()];
+        let clockwise_normal_vector = Direction::Clockwise
+            .rotate_vector_90_degrees(direction_vector)
+            .normalize();
+
         let directed_cathetus = clockwise_normal_vector.dot(point - self.0);
 
         match directed_cathetus {

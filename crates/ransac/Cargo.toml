@@ -13,3 +13,4 @@ nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
+serde = { workspace = true }

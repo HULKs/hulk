@@ -34,8 +34,10 @@ linear_algebra = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
 nalgebra = { workspace = true }
+ordered-float = { workspace = true }
 parameters = { workspace = true }
 projection = { workspace = true }
+ransac = { workspace = true }
 repository = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

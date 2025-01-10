@@ -9,6 +9,7 @@ pub mod line_segment;
 pub mod look_at;
 pub mod rectangle;
 pub mod two_line_segments;
+pub mod two_lines;
 
 pub trait Distance<T> {
     fn squared_distance_to(&self, other: T) -> f32;
