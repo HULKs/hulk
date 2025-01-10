@@ -1,0 +1,16 @@
+[package]
+name = "power-panic"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+homepage = "https://github.com/hulks/hulk"
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
+color-eyre = "0.6.2"
+hula_types = { path = "../../crates/hula_types/" }
+rodio = "0.20.1"
+tokio = { version = "1.43.0", features = ["full"] }
+zbus = { version = "5.5.0", features = ["tokio"] }
