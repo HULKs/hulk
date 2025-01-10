@@ -26,7 +26,7 @@ def default_parameters() -> Parameters:
         foot_lift_apex=0.015,
         foot_offset_left=0.052,
         foot_offset_right=-0.052,
-        base_height=0.23,
+        walk_height=0.23,
     )
 
 

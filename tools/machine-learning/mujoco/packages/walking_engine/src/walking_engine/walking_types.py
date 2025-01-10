@@ -7,7 +7,7 @@ from transforms import Pose2
 @dataclass
 class Parameters:
     sole_pressure_threshold: float
-    base_height: float
+    walk_height: float
     min_step_duration: float
     step_duration: float
     foot_lift_apex: float
