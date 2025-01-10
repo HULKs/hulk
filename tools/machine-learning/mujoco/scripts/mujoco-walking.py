@@ -147,21 +147,13 @@ def main():
                 "front_left",
                 "front_right",
             ]
-            right_pressure = (
-                sum(
-                    nao.data.sensor(
-                        f"force_sensitive_resistors.right.{pos}"
-                    ).data
-                    for pos in fsr_positions
-                )
+            right_pressure = sum(
+                nao.data.sensor(f"force_sensitive_resistors.right.{pos}").data
+                for pos in fsr_positions
             )
-            left_pressure = (
-                sum(
-                    nao.data.sensor(
-                        f"force_sensitive_resistors.left.{pos}"
-                    ).data
-                    for pos in fsr_positions
-                )
+            left_pressure = sum(
+                nao.data.sensor(f"force_sensitive_resistors.left.{pos}").data
+                for pos in fsr_positions
             )
             measurements = Measurements(left_pressure, right_pressure)
 
@@ -169,7 +161,10 @@ def main():
                 target = data.joint("root").qpos[:3]
                 throwable.random_throw(target, 0.2, 0.5)
 
-            if measurements.pressure_left > 0.0 or measurements.pressure_right > 0.0:
+            if (
+                measurements.pressure_left > 0.0
+                or measurements.pressure_right > 0.0
+            ):
                 apply_walking(nao, parameter, state, measurements, control, dt)
 
             mujoco.mj_step(model, data)

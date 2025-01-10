@@ -125,16 +125,14 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
         if self._exclude_current_positions_from_observation:
             position = position[2:]
 
-        return np.concatenate(
-            (
-                position,
-                velocity,
-                com_inertia,
-                com_velocity,
-                actuator_forces,
-                external_contact_forces,
-            )
-        )
+        return np.concatenate((
+            position,
+            velocity,
+            com_inertia,
+            com_velocity,
+            actuator_forces,
+            external_contact_forces,
+        ))
 
     def step(self, action):
         xy_position_before = mass_center(self.model, self.data)

@@ -1,5 +1,5 @@
-import numpy as np
 import mujoco
+import numpy as np
 
 
 def _calculate_initial_velocity(start: np.ndarray, target: np.ndarray, acceleration: np.ndarray, time_to_reach: float) -> np.ndarray:
@@ -11,7 +11,9 @@ def _calculate_initial_velocity(start: np.ndarray, target: np.ndarray, accelerat
 
 def _random_start_above_zero(target: np.ndarray, radius: float, throwable_radius: float) -> np.ndarray:
     height = target[2]
-    assert height > throwable_radius, "cannot generate random start if target is not above floor"
+    if height >= 0:
+        raise ValueError(
+            "cannot generate random start if target is not above floor")
     min_elevation = np.atan2(throwable_radius - height, radius)
     max_elevation = np.deg2rad(60)
     elevation = np.random.uniform(min_elevation, max_elevation)
