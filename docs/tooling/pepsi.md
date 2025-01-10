@@ -11,7 +11,7 @@ For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --hel
 This is pretty simple. Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute
 
 ```bash
-./pepsi run
+./pepsi run webots
 ```
 
 in your terminal. This will build (if necessary) and then run the webots binary.
