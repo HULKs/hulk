@@ -8,6 +8,6 @@ homepage.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pathfinding = { workspace = true }
 ndarray = { workspace = true }
 ordered-float = { workspace = true }
+pathfinding = { workspace = true }
