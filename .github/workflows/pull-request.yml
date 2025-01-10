@@ -12,7 +12,7 @@ env:
 
 jobs:
   check:
-    name: Check
+    name: Check with clippy
     runs-on:
       - self-hosted
       - v3
@@ -46,7 +46,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: cd ${{ matrix.path }} && cargo update --locked
+        run: cargo update --locked --manifest-path ${{ matrix.path }}/Cargo.toml
 
   check-parameters:
     name: Check parameters
