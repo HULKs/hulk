@@ -1,8 +1,8 @@
 use std::fmt::Formatter;
 
 use eframe::{
-    egui::{pos2, Align2, CentralPanel, Color32, FontId, TopBottomPanel},
-    epaint::PathStroke,
+    egui::{pos2, vec2, Align2, CentralPanel, Color32, FontId, Shape, TopBottomPanel},
+    epaint::{PathStroke, QuadraticBezierShape},
     App, CreationContext,
 };
 
@@ -60,9 +60,9 @@ impl App for DependencyInspector {
                 self.selected_node_index = None;
             }
         });
+
         CentralPanel::default().show(context, |ui| {
             let cycler = self.cyclers.cyclers.get(self.selected_cycler).unwrap();
-            ui.label(format!("{} {}", cycler.name, cycler.cycle_nodes.len()));
 
             let nodes: Vec<_> = cycler
                 .setup_nodes
@@ -77,9 +77,16 @@ impl App for DependencyInspector {
                 if label.clicked {
                     self.selected_node_index = Some(index);
                 }
-                node_points.push(label.rect.right_center());
+                node_points.push(label.rect.right_center() + vec2(3.0, 0.0));
                 ui.add_space(5.0);
             }
+
+            let minimum_x = node_points
+                .iter()
+                .map(|point| point.x)
+                .max_by(f32::total_cmp)
+                .unwrap_or(0.0)
+                + 5.0;
 
             let Some(selected_node_index) = self.selected_node_index else {
                 return;
@@ -88,6 +95,7 @@ impl App for DependencyInspector {
 
             let mut cross_inputs = Vec::new();
             let painter = ui.painter();
+            let mut count = 0;
             for field in &selected_node.contexts.cycle_context {
                 let path = match field {
                     Field::Input {
@@ -119,7 +127,7 @@ impl App for DependencyInspector {
                         continue;
                     }
                 };
-                for (node_index, node) in nodes.iter().enumerate() {
+                for (node_index, node) in nodes.iter().enumerate().rev() {
                     if let Some(output) =
                         node.contexts
                             .main_outputs
@@ -133,16 +141,26 @@ impl App for DependencyInspector {
                                 _ => None,
                             })
                     {
-                        let a = node_points[selected_node_index];
+                        let a = pos2(
+                            minimum_x + count as f32 * 10.0,
+                            node_points[selected_node_index].y,
+                        );
                         let b = node_points[node_index];
-                        painter.line_segment([a, b], PathStroke::new(1.0, Color32::RED));
+                        let curve = QuadraticBezierShape::from_points_stroke(
+                            [a, pos2(a.x, b.y), b],
+                            false,
+                            Color32::TRANSPARENT,
+                            PathStroke::new(1.0, Color32::RED),
+                        );
                         painter.text(
-                            (a + b.to_vec2()) / 2.0,
+                            curve.sample(0.9) + vec2(5.0, 0.0),
                             Align2::LEFT_CENTER,
                             output,
                             FontId::default(),
                             Color32::LIGHT_GRAY,
                         );
+                        painter.add(Shape::QuadraticBezier(curve));
+                        count += 1;
                     }
                 }
             }
@@ -178,19 +196,40 @@ impl App for DependencyInspector {
                         };
                         (*name == path.segments.first().unwrap().name).then_some(name)
                     }) {
-                        let a = node_points[selected_node_index];
+                        let a = pos2(
+                            minimum_x + count as f32 * 10.0,
+                            node_points[selected_node_index].y,
+                        );
                         let b = node_points[node_index];
-                        painter.line_segment([a, b], PathStroke::new(1.0, Color32::YELLOW));
+                        let curve = QuadraticBezierShape::from_points_stroke(
+                            [a, pos2(a.x, b.y), b],
+                            false,
+                            Color32::TRANSPARENT,
+                            PathStroke::new(1.0, Color32::YELLOW),
+                        );
                         painter.text(
-                            (a + b.to_vec2()) / 2.0,
+                            curve.sample(0.9) + vec2(5.0, 0.0),
                             Align2::LEFT_CENTER,
                             output,
                             FontId::default(),
                             Color32::LIGHT_GRAY,
                         );
+                        painter.add(Shape::QuadraticBezier(curve));
+                        count += 1;
                     }
                 }
             }
+
+            painter.line_segment(
+                [
+                    node_points[selected_node_index],
+                    pos2(
+                        minimum_x + count as f32 * 10.0 - 10.0,
+                        node_points[selected_node_index].y,
+                    ),
+                ],
+                PathStroke::new(1.0, Color32::GREEN),
+            );
 
             for (input_index, (cycler_instance, input)) in cross_inputs.iter().enumerate() {
                 let a = node_points[selected_node_index];
@@ -198,7 +237,7 @@ impl App for DependencyInspector {
                     .text(
                         pos2(
                             ui.clip_rect().right(),
-                            a.y + -(cross_inputs.len() as isize / 2 - input_index as isize) as f32
+                            a.y + -(cross_inputs.len() as f32 / 2.0 - input_index as f32 - 0.5)
                                 * FontId::default().size
                                 * 1.5,
                         ),
