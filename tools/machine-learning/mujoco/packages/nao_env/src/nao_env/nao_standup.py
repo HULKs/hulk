@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 from gymnasium import utils
@@ -14,7 +15,7 @@ DEFAULT_CAMERA_CONFIG = {
 
 
 class NaoStandup(MujocoEnv, utils.EzPickle):
-    metadata = {
+    metadata: ClassVar = {
         "render_modes": [
             "human",
             "rgb_array",

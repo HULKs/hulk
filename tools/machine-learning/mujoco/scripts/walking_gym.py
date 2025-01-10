@@ -1,8 +1,12 @@
-import numpy as np
+from __future__ import annotations
+
+from pathlib import Path
+from typing import ClassVar
 
 import gymnasium as gym
+import numpy as np
 from gymnasium import utils
-from gymnasium.envs.mujoco import MujocoEnv
+from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
 
 DEFAULT_CAMERA_CONFIG = {
@@ -20,7 +24,7 @@ def mass_center(model, data):
 
 
 class HumanoidEnv(MujocoEnv, utils.EzPickle):
-    metadata = {
+    metadata: ClassVar = {
         "render_modes": [
             "human",
             "rgb_array",
@@ -75,7 +79,7 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
 
         MujocoEnv.__init__(
             self,
-            "/home/mystery/hulks/hulk/tools/machine-learning/mujoco/nao.xml",
+            str(Path(__file__).parent.joinpath("nao.xml")),
             1,
             observation_space=observation_space,
             **kwargs,
@@ -182,7 +186,8 @@ class HumanoidEnv(MujocoEnv, utils.EzPickle):
         return observation
 
     def viewer_setup(self):
-        assert self.viewer is not None
+        if self.viewer is None:
+            return ValueError("Viewer is not initialized")
         for key, value in DEFAULT_CAMERA_CONFIG.items():
             if isinstance(value, np.ndarray):
                 getattr(self.viewer.cam, key)[:] = value
@@ -203,7 +208,7 @@ def main():
         raise ValueError("Model does not have a VecEnv")
 
     obs = vec_env.reset()
-    for i in range(1000):
+    for _ in range(1000):
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, info = vec_env.step(action)
         vec_env.render()

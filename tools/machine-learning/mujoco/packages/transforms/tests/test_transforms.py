@@ -1,16 +1,15 @@
 import numpy as np
-
 from transforms import (
-    isometry_from_euler,
+    isometry_from_rotation,
     isometry_from_translation,
-    translation_from_isometry,
     rotation_from_isometry,
+    translation_from_isometry,
 )
 
 
 def test_rotation_from_euler() -> None:
     vector = np.array([1.0, 0.0, 0.0, 0.0])
-    rotation = isometry_from_euler(0.0, 0.0, np.pi / 2)
+    rotation = isometry_from_rotation(0.0, 0.0, np.pi / 2)
 
     np.testing.assert_allclose(
         rotation @ vector, np.array([0.0, 1.0, 0.0, 0.0]), atol=1e-11
@@ -33,7 +32,7 @@ def test_translation_from_vector() -> None:
 
 def test_isometry_from_parts() -> None:
     position = isometry_from_translation(np.array([1.0, -1.0, 1.0]))
-    rotation = isometry_from_euler(0.0, 0.0, np.pi / 2)
+    rotation = isometry_from_rotation(0.0, 0.0, np.pi / 2)
 
     print(position)
     pose = position @ rotation
@@ -45,7 +44,7 @@ def test_isometry_from_parts() -> None:
     )
 
     translation = isometry_from_translation(np.array([1.0, 2.0, 3.0]))
-    rotation = isometry_from_euler(0.0, 0.0, np.pi / 2)
+    rotation = isometry_from_rotation(0.0, 0.0, np.pi / 2)
     transform = translation @ rotation
 
     result = transform @ pose
@@ -60,6 +59,6 @@ def test_isometry_from_parts() -> None:
     )
     np.testing.assert_allclose(
         result_rotation,
-        rotation_from_isometry(isometry_from_euler(0.0, 0.0, np.pi)),
+        rotation_from_isometry(isometry_from_rotation(0.0, 0.0, np.pi)),
         atol=1e-11,
     )

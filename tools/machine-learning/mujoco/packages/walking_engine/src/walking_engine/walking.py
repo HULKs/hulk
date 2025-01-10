@@ -1,79 +1,11 @@
-#!/usr/bin/env python3
-
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum
-
 import numpy as np
+from kinematics.forward_kinematics import RobotLegKinematics
+from numpy.typing import NDArray
+from transforms import Pose2, project_isometry_in_z_to_pose2
 
-
-@dataclass
-class Parameters:
-    sole_pressure_threshold: float
-    min_step_duration: float
-    step_duration: float
-    foot_lift_apex: float
-
-
-class Side(Enum):
-    LEFT = 0
-    RIGHT = 1
-
-
-@dataclass
-class Feet:
-    support_sole: Pose2
-    swing_sole: Pose2
-
-
-@dataclass
-class Pose2:
-    x: float = 0.0
-    y: float = 0.0
-    theta: float = 0.0
-
-    def __add__(self, other: Pose2) -> Pose2:
-        return Pose2(
-            x=self.x + other.x,
-            y=self.y + other.y,
-            theta=self.theta + other.theta,
-        )
-
-    def __mul__(self, other: float) -> Pose2:
-        return Pose2(
-            x=self.x * other,
-            y=self.y * other,
-            theta=self.theta * other,
-        )
-
-    def __sub__(self, other: Pose2) -> Pose2:
-        return Pose2(
-            x=self.x - other.x,
-            y=self.y - other.y,
-            theta=self.theta - other.theta,
-        )
-
-
-@dataclass
-class State:
-    t: float
-    support_side: Side
-    start_feet: Feet
-    end_feet: Feet
-
-
-@dataclass
-class Measurements:
-    pressure_left: float
-    pressure_right: float
-
-
-@dataclass
-class Control:
-    forward: float
-    left: float
-    turn: float
+from .walking_types import Control, Feet, Measurements, Parameters, Side, State
 
 
 def is_support_switched(
@@ -90,17 +22,40 @@ def is_support_switched(
         return i.pressure_left > parameters.sole_pressure_threshold
 
 
+def start_from_positions(
+    robot_to_ground: NDArray,
+    left_leg: RobotLegKinematics,
+    right_leg: RobotLegKinematics,
+    support_side: Side,
+) -> Feet:
+    left_sole = robot_to_ground @ left_leg.sole_to_robot
+    right_sole = robot_to_ground @ right_leg.sole_to_robot
+
+    left_sole = project_isometry_in_z_to_pose2(left_sole)
+    right_sole = project_isometry_in_z_to_pose2(right_sole)
+
+    return Feet.from_support_side(left_sole, right_sole, support_side)
+
+
 def end_feet_from_request(
     u: Control,
+    s: State,
+    p: Parameters,
 ) -> Feet:
+    foot_offsets = {
+        Side.LEFT: (p.foot_offset_left, p.foot_offset_right),
+        Side.RIGHT: (p.foot_offset_right, p.foot_offset_left),
+    }
+    support_base_offset, swing_base_offset = foot_offsets[s.support_side]
+
     support_sole = Pose2(
         x=-u.forward / 2.0,
-        y=-u.left / 2.0,
+        y=-u.left / 2.0 + support_base_offset,
         theta=-u.turn / 2.0,
     )
     swing_sole = Pose2(
         x=u.forward / 2.0,
-        y=u.left / 2.0,
+        y=u.left / 2.0 + swing_base_offset,
         theta=u.turn / 2.0,
     )
     return Feet(
@@ -160,7 +115,9 @@ def step(
             x.support_side = Side.RIGHT
         else:
             x.support_side = Side.LEFT
-        x.end_feet = end_feet_from_request(u)
+
+        x.start_feet = x.end_feet.switch()
+        x.end_feet = end_feet_from_request(u, x, parameters)
     x.t += dt
 
     (feet, lift) = compute_feet(x, parameters)
