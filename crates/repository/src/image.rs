@@ -26,10 +26,9 @@ pub async fn download_image(version: &str, data_home: impl AsRef<Path>) -> Resul
         .await
         .wrap_err("failed to create download directory")?;
 
-    let urls = [
-        format!("http://bighulk.hulks.dev/image/{image_name}"),
-        format!("https://github.com/HULKs/meta-nao/releases/download/{version}/{image_name}"),
-    ];
+    let urls = [format!(
+        "https://github.com/HULKs/meta-nao/releases/download/{version}/{image_name}"
+    )];
     download_with_fallback(urls, &download_path, CONNECT_TIMEOUT)
         .await
         .wrap_err("failed to download image")?;
