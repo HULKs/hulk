@@ -81,6 +81,7 @@ members = [
   "crates/hulk_replayer",
   "crates/hulk_webots",
   "crates/hungarian_algorithm",
+    "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/motionfile",
@@ -173,7 +174,7 @@ geometry = { path = "crates/geometry" }
 gilrs = "0.10.1"
 glob = "0.3.0"
 hardware = { path = "crates/hardware" }
-home = "0.5.4"
+home = "=0.5.9"
 hula-types = { path = "tools/hula/types" }
 hulk = { path = "crates/hulk" }
 hulk_manifest = { path = "crates/hulk_manifest" }
