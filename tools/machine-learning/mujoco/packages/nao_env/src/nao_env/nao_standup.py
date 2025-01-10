@@ -48,11 +48,13 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         force_sensing_resistors_right = np.sum(data.sensordata[-8:-4])
         force_sensing_resistors_left = np.sum(data.sensordata[-4:])
 
-        return np.concatenate([
-            data.sensordata.flat[:-8],
-            force_sensing_resistors_right.flat,
-            force_sensing_resistors_left.flat,
-        ])
+        return np.concatenate(
+            [
+                data.sensordata.flat[:-8],
+                force_sensing_resistors_right.flat,
+                force_sensing_resistors_left.flat,
+            ]
+        )
 
     def step(self, action):
         self.do_simulation(action, self.frame_skip)

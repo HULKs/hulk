@@ -29,14 +29,16 @@ class LegJoints:
     ankle_roll: float
 
     def to_numpy(self) -> NDArray[np.float64]:
-        return np.array([
-            self.hip_yaw_pitch,
-            self.hip_roll,
-            self.hip_pitch,
-            self.knee_pitch,
-            self.ankle_pitch,
-            self.ankle_roll,
-        ])
+        return np.array(
+            [
+                self.hip_yaw_pitch,
+                self.hip_roll,
+                self.hip_pitch,
+                self.knee_pitch,
+                self.ankle_pitch,
+                self.ankle_roll,
+            ]
+        )
 
 
 @dataclass
