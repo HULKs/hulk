@@ -7,6 +7,7 @@ from transforms import (
     rotation_from_euler,
     translation_from_isometry,
 )
+
 from .walking_types import Side
 
 
@@ -42,8 +43,7 @@ def get_ground_to_robot(
         / 2.0
     )
     ground_to_right_sole = isometry_from_translation(
-        -np.array([left_sole_to_right_sole[0],
-                  left_sole_to_right_sole[1], 0.0])
+        -np.array([left_sole_to_right_sole[0], left_sole_to_right_sole[1], 0.0])
         / 2.0
     )
 

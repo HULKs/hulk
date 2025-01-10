@@ -1,22 +1,21 @@
+import time
+
 import mujoco
+import walking_engine
+from kinematics import LegJoints
 from mujoco import viewer
-from numpy._typing import NDArray
-import numpy as np
 from nao_interface import Nao
 from transforms import (
     Pose2,
 )
-import walking_engine
 from walking_engine import (
-    Parameters,
-    Measurements,
     Control,
     Feet,
-    State,
+    Measurements,
+    Parameters,
     Side,
+    State,
 )
-from kinematics import LegJoints
-import time
 
 
 def default_parameters() -> Parameters:
@@ -107,8 +106,10 @@ def apply_walking(
     else:
         measurements.pressure_right = 0.0
 
-    left_leg_joints, right_leg_joints = walking_engine.joint_command(
-        left_sole, right_sole, left_lift, right_lift
+    left_leg_joints, right_leg_joints = (
+        walking_engine.compute_lower_body_joints(
+            left_sole, right_sole, left_lift, right_lift
+        )
     )
 
     nao.actuators.left_leg.ankle_pitch = left_leg_joints.ankle_pitch

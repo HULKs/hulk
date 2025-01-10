@@ -1,10 +1,9 @@
 import numpy as np
-
 from transforms import (
     isometry_from_rotation,
     isometry_from_translation,
-    translation_from_isometry,
     rotation_from_isometry,
+    translation_from_isometry,
 )
 
 

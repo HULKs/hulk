@@ -1,17 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
-from .inverse_kinematics import LegJoints
 import numpy as np
 from numpy.typing import NDArray
-from transforms import (
-    rotation_from_euler,
-    isometry_from_translation,
-    isometry_from_rotation,
-    rotation_from_axisangle,
-)
 from robot_dimensions import (
     ANKLE_TO_SOLE,
     HIP_TO_KNEE,
@@ -19,7 +11,14 @@ from robot_dimensions import (
     ROBOT_TO_LEFT_PELVIS,
     ROBOT_TO_RIGHT_PELVIS,
 )
+from transforms import (
+    isometry_from_rotation,
+    isometry_from_translation,
+    rotation_from_axisangle,
+)
 from walking_engine.walking_types import Side
+
+from .inverse_kinematics import LegJoints
 
 
 def left_pelvis_to_robot(angles: LegJoints) -> NDArray:

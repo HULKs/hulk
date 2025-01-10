@@ -2,21 +2,20 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+from robot_dimensions import (
+    HIP_TO_KNEE,
+    KNEE_TO_ANKLE,
+    ROBOT_TO_LEFT_PELVIS,
+    ROBOT_TO_RIGHT_PELVIS,
+)
 from transforms import (
+    Pose2,
     inverse,
+    isometry_from_euler,
     isometry_from_translation,
     rotation_from_euler,
     rotation_from_isometry,
     translation_from_isometry,
-    isometry_from_euler,
-    Pose2,
-)
-
-from robot_dimensions import (
-    ROBOT_TO_LEFT_PELVIS,
-    ROBOT_TO_RIGHT_PELVIS,
-    HIP_TO_KNEE,
-    KNEE_TO_ANKLE,
 )
 
 
@@ -42,6 +41,12 @@ class LegJoints:
         )
 
 
+@dataclass
+class LowerBodyJoints:
+    left: LegJoints
+    right: LegJoints
+
+
 def foot_to_isometry(
     foot: Pose2,
     lift: float,
@@ -54,7 +59,7 @@ def foot_to_isometry(
 def leg_angles(
     left_foot: NDArray[np.float64],
     right_foot: NDArray[np.float64],
-) -> tuple[LegJoints, LegJoints]:
+) -> LowerBodyJoints:
     ratio = 0.5
     robot_to_left_pelvis = isometry_from_euler(
         -np.pi / 4, 0.0, 0.0
@@ -209,4 +214,4 @@ def leg_angles(
         ankle_roll=np.arcsin(-np.clip(right_foot_rotation_c2[1], -1.0, 1.0)),
     )
 
-    return left_leg, right_leg
+    return LowerBodyJoints(left_leg, right_leg)
