@@ -157,7 +157,7 @@ def main():
 
             if throwable.throw_has_ended():
                 target = data.joint("root").qpos[:3]
-                throwable.random_throw(target, 0.2, 0.5)
+                throwable.random_throw(target, time_to_reach=0.2, distance=0.5)
 
             if (
                 measurements.pressure_left > 0.0

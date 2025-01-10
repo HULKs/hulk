@@ -11,7 +11,7 @@ def _calculate_initial_velocity(start: np.ndarray, target: np.ndarray, accelerat
 
 def _random_start_above_zero(target: np.ndarray, radius: float, throwable_radius: float) -> np.ndarray:
     height = target[2]
-    if height >= 0:
+    if height <= 0:
         raise ValueError(
             "cannot generate random start if target is not above floor")
     min_elevation = np.atan2(throwable_radius - height, radius)
@@ -49,7 +49,7 @@ class ThrowableObject:
                 return True
         return False
 
-    def random_throw(self, target: np.ndarray, time_to_reach: float, distance: float):
+    def random_throw(self, target: np.ndarray, *, time_to_reach: float, distance: float):
         throwable_radius = self.model.geom_rbound[self.model.body_geomadr[self.throwable_index]]
         qpos_index = self.model.jnt_qposadr[self.model.body_jntadr[self.throwable_index]]
         throwable_qpos = self.data.qpos[qpos_index:qpos_index + 7]
