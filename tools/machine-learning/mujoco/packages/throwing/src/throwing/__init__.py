@@ -57,12 +57,7 @@ class ThrowableObject:
             model, mujoco.mjtObj.mjOBJ_BODY, throwable_body
         )
 
-    def throw_has_ended(self) -> bool:
-        """
-        Check if the throw has ended by detecting contact between the throwable object and the ground.
-        Returns:
-            bool: True if the throw has ended (i.e., the throwable object has made contact with the ground), False otherwise.
-        """
+    def has_ground_contact(self) -> bool:
         geoms = (
             self.model.body_geomadr[self.throwable_index],
             self.model.body_geomadr[self.ground_index],
