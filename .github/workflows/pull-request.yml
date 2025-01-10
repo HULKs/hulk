@@ -24,8 +24,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: |
-          ./pepsi clippy --workspace
+        run: ./pepsi clippy
 
   check-cargo-lock:
     name: Check Cargo.lock
@@ -47,9 +46,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: |
-          cd ${{ matrix.path }}
-          cargo update --locked --workspace
+        run: cd ${{ matrix.path }} && cargo update --locked
 
   check-parameters:
     name: Check parameters
@@ -64,8 +61,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: |
-          cargo run --manifest-path=crates/parameter_tester/Cargo.toml
+        run: ./pepsi run parameter_tester
 
   format:
     name: Format
@@ -80,8 +76,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: |
-          cargo fmt --check
+        run: cargo fmt --check
 
   format-toml:
     name: Format TOML files
@@ -112,16 +107,21 @@ jobs:
         with:
           lfs: true
       - name: Test
-        run: |
-          cargo test --profile incremental --all-features --workspace
+        run: ./pepsi test --all-features
 
   build:
     name: Build
     strategy:
       fail-fast: true
       matrix:
-        target: [imagine, nao, replayer, webots]
-        profile: [release, dev]
+        target:
+          - imagine
+          - nao
+          - replayer
+          - webots
+        profile:
+          - dev
+          - release
     runs-on:
       - self-hosted
       - v3
@@ -133,19 +133,16 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: |
-          ./pepsi build --profile ${{ matrix.profile }} ${{ matrix.target }}
+        run: ./pepsi build --profile ${{ matrix.profile }} ${{ matrix.target }}
 
   build_services:
     name: Build
     strategy:
       matrix:
-        path:
-          [
-            services/aliveness,
-            services/breeze,
-            services/hula,
-          ]
+        service:
+          - aliveness
+          - breeze
+          - hula
     runs-on:
       - self-hosted
       - v3
@@ -157,25 +154,20 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: |
-          ./pepsi sdk install
-          . $(./pepsi sdk path)/environment-setup-corei7-64-aldebaran-linux
-          cd ${{ matrix.path }}
-          cargo build --release
+        run: ./pepsi build --release ${{ matrix.service }}
 
   build_tools:
     name: Build
     strategy:
       matrix:
-        path:
-          [
-            tools/annotato,
-            tools/camera_matrix_extractor,
-            tools/depp,
-            tools/fanta,
-            tools/pepsi,
-            tools/twix,
-          ]
+        tool:
+          - annotato
+          - camera_matrix_extractor
+          - depp
+          - fanta
+          - pepsi
+          - twix
+          - widget_gallery
     runs-on:
       - self-hosted
       - v3
@@ -187,9 +179,7 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: |
-          cd ${{ matrix.path }}
-          cargo build --release
+        run: ./pepsi build --release ${{ matrix.tool }}
 
   build_mkdocs:
     name: Build mkdocs
