@@ -139,8 +139,8 @@ class NaoJoints:
         self.getter = getter
         self.setter = setter
         self.head = HeadJoints(
-            lambda joint_name: getter(f"head_{joint_name}"),
-            lambda joint_name, value: setter(f"head_{joint_name}", value),
+            lambda joint_name: getter(f"head.{joint_name}"),
+            lambda joint_name, value: setter(f"head.{joint_name}", value),
         )
         self.left_leg = LegJoints(
             lambda joint_name: getter(f"left_leg.{joint_name}"),
@@ -190,3 +190,11 @@ class Nao:
                 "qpos", value
             ),
         )
+
+    def reset(self, positions: dict[str, dict[str, float]]):
+        for part, joint_values in positions.items():
+            joint_data = getattr(self.positions, part)
+            actuator_data = getattr(self.actuators, part)
+            for joint, value in joint_values.items():
+                setattr(joint_data, joint, value)
+                setattr(actuator_data, joint, value)

@@ -5,6 +5,8 @@ import walking_engine
 from kinematics import LegJoints
 from mujoco import viewer
 from nao_interface import Nao
+from nao_interface.poses import PENALIZED_POSE
+from throwing import ThrowableObject
 from transforms import (
     Pose2,
 )
@@ -127,10 +129,12 @@ def main():
     control = initial_control()
 
     nao = Nao(model, data)
+    nao.reset(PENALIZED_POSE)
 
     handle = viewer.launch_passive(model, data)
 
     dt = model.opt.timestep
+    throwable = ThrowableObject(model, data, "floor", "tomato")
 
     while handle.is_running():
         with handle.lock():
@@ -141,23 +145,19 @@ def main():
                 "front_left",
                 "front_right",
             ]
-            right_pressure = (
-                sum(
-                    nao.data.sensor(
-                        f"force_sensitive_resistors.right.{pos}"
-                    ).data
-                    for pos in fsr_positions
-                )
+            right_pressure = sum(
+                nao.data.sensor(f"force_sensitive_resistors.right.{pos}").data
+                for pos in fsr_positions
             )
-            left_pressure = (
-                sum(
-                    nao.data.sensor(
-                        f"force_sensitive_resistors.left.{pos}"
-                    ).data
-                    for pos in fsr_positions
-                )
+            left_pressure = sum(
+                nao.data.sensor(f"force_sensitive_resistors.left.{pos}").data
+                for pos in fsr_positions
             )
             measurements = Measurements(left_pressure, right_pressure)
+
+            if throwable.has_ground_contact():
+                target = data.joint("root").qpos[:3]
+                throwable.random_throw(target, time_to_reach=0.2, distance=0.5)
 
             if (
                 measurements.pressure_left > 0.0
