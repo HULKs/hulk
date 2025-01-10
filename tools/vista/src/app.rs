@@ -1,7 +1,7 @@
 use std::fmt::Formatter;
 
 use eframe::{
-    egui::{Align2, CentralPanel, Color32, FontId, TopBottomPanel},
+    egui::{pos2, Align2, CentralPanel, Color32, FontId, TopBottomPanel},
     epaint::PathStroke,
     App, CreationContext,
 };
@@ -100,11 +100,19 @@ impl App for DependencyInspector {
                         path,
                         ..
                     } => {
-                        if cycler_instance.is_some() {
-                            cross_inputs.push(path);
+                        if let Some(cycler_instance) = cycler_instance {
+                            cross_inputs.push((cycler_instance.clone(), path));
                             continue;
                         }
                         path
+                    }
+                    Field::PerceptionInput {
+                        cycler_instance,
+                        path,
+                        ..
+                    } => {
+                        cross_inputs.push((cycler_instance.clone(), path));
+                        continue;
                     }
                     Field::HistoricInput { path, .. } => path,
                     _ => {
@@ -183,6 +191,26 @@ impl App for DependencyInspector {
                     }
                 }
             }
+
+            for (input_index, (cycler_instance, input)) in cross_inputs.iter().enumerate() {
+                let a = node_points[selected_node_index];
+                let b = painter
+                    .text(
+                        pos2(
+                            ui.clip_rect().right(),
+                            a.y + -(cross_inputs.len() as isize / 2 - input_index as isize) as f32
+                                * FontId::default().size
+                                * 1.5,
+                        ),
+                        Align2::RIGHT_CENTER,
+                        format!("{} ({})", input.to_segments().join("."), cycler_instance),
+                        FontId::default(),
+                        Color32::LIGHT_GRAY,
+                    )
+                    .left_center();
+                painter.line_segment([a, b], PathStroke::new(1.0, Color32::YELLOW));
+            }
+            ui.label(format!("{}", cross_inputs.len()));
         });
     }
 }
