@@ -33,9 +33,9 @@ def _random_start_above_zero(
 
     return target + radius * np.array(
         [
-            np.sin(elevation) * np.cos(azimuth),
-            np.sin(elevation) * np.sin(azimuth),
-            np.cos(elevation),
+            np.cos(elevation) * np.cos(azimuth),
+            np.cos(elevation) * np.sin(azimuth),
+            np.sin(elevation),
         ]
     )
 

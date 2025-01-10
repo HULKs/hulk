@@ -17,17 +17,17 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import (
     SubprocVecEnv,
-    VecMonitor,
     VecVideoRecorder,
 )
 from wandb.integration.sb3 import WandbCallback
 
 # Configure MuJoCo to use the EGL rendering backend (requires GPU)
 os.environ["MUJOCO_GL"] = "egl"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 gym.register(
-    id="NaoStanding-v1",
-    entry_point="nao_env:NaoStanding",
+    id="NaoWalking-v1",
+    entry_point="nao_env:NaoWalking",
     max_episode_steps=2500,
 )
 
@@ -46,6 +46,15 @@ class Config:
     max_grad_norm: float
     num_envs: int
     algorithm: str
+
+
+class WandbLogVideoRecorder(RecordVideo):
+    def stop_recording(self):
+        path = os.path.join(self.video_folder, f"{self._video_name}.mp4")
+        super().stop_recording()
+
+        print("Logging to wandb...")
+        wandb.log({"video": wandb.Video(path, format="mp4")}, step=self.step_id)
 
 
 if get_device() != torch.device("cpu"):
@@ -82,6 +91,7 @@ def make_env(config: Config):
         throw_tomatos=config.throw_tomatos,
         render_mode=config.render_mode,
     )
+    env = Monitor(env)
     return env
 
 
@@ -89,7 +99,7 @@ def setup_train_env(run, config: Config):
     env = SubprocVecEnv(
         [lambda: make_env(config) for _ in range(config.num_envs)]
     )
-    env = VecMonitor(env)
+    # env = VecMonitor(env)
     return env
 
 
@@ -100,7 +110,7 @@ def setup_eval_env(run, config: Config):
         render_mode=config.render_mode,
     )
     env = Monitor(env)
-    env = RecordVideo(
+    env = WandbLogVideoRecorder(
         env,
         f"videos/{run.name}",
         episode_trigger=lambda _: True,
@@ -119,6 +129,7 @@ def setup_algorithm(run, config: Config, env: gym.Env):
                 env=env,
                 learning_rate=config.learning_rate,
                 max_grad_norm=config.max_grad_norm,
+                verbose=1,
                 tensorboard_log=f"runs/{run.name}",
             )
         case "sac":
@@ -148,21 +159,22 @@ def main(no_debug: bool, num_envs: int, algorithm: str):
         policy_type="MlpPolicy",
         batch_size=128,
         epochs=1000,
-        steps_per_epoch=100_000,
-        env_name="NaoStanding-v1",
+        steps_per_epoch=10000,
+        env_name="NaoWalking-v1",
         render_mode="rgb_array",
-        throw_tomatos=True,
+        throw_tomatos=False,
         learning_rate=1e-4,  # 3e-4
         n_steps=2048,
-        max_grad_norm=0.2,  # 0.5
+        max_grad_norm=0.1,  # 0.5
         num_envs=num_envs,
         algorithm=algorithm,
     )
 
     run = wandb.init(
-        project="nao_standing",
+        project="nao_walking",
         config=config,
         monitor_gym=True,
+        sync_tensorboard=True,
         save_code=False,
         mode="online" if no_debug else "disabled",
     )
@@ -177,6 +189,7 @@ def main(no_debug: bool, num_envs: int, algorithm: str):
             [
                 WandbCallback(
                     model_save_path=f"models/{run.name}",
+                    verbose=2,
                 ),
                 EvalCallback(
                     eval_env,

@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import ClassVar
 
-from nao_interface.nao_interface import Nao
-from nao_interface.poses import PENALIZED_POSE
 import numpy as np
 from gymnasium import utils
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
+from nao_interface.nao_interface import Nao
+from nao_interface.poses import PENALIZED_POSE
 from throwing import ThrowableObject
 
 DEFAULT_CAMERA_CONFIG = {
@@ -47,7 +48,7 @@ HEAD_SET_HEIGHT = 5.11757778e-01
 
 
 class NaoStanding(MujocoEnv, utils.EzPickle):
-    metadata = {
+    metadata: ClassVar = {
         "render_modes": [
             "human",
             "rgb_array",
@@ -74,8 +75,9 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
         )
         self.throw_tomatos = throw_tomatos
         self.projectile = ThrowableObject(
-            self.model, self.data, "floor", "projectile"
+            self.model, self.data, "floor", "tomato"
         )
+        self.current_step = 0
         utils.EzPickle.__init__(self, **kwargs)
 
     def _get_obs(self) -> np.ndarray:
@@ -83,41 +85,41 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
         return nao.data.sensordata
 
     def step(self, action):
-        head_center_id = self.model.site("head_center").id
-        if self.projectile.throw_has_ended() and self.throw_tomatos:
-            target = self.data.site_xpos[head_center_id]
-            self.projectile.random_throw(target, 0.2, 1.0)
+        if self.projectile.has_ground_contact() and self.throw_tomatos:
+            robot_site_id = self.model.site("Robot").id
+            target = self.data.site_xpos[robot_site_id]
+            alpha = self.current_step / 2500
+            time_to_reach = 0.2 * (1 - alpha) + 0.1 * alpha
+            self.projectile.random_throw(target, time_to_reach, 1.0)
 
-        previous_ctrl = self.data.ctrl.copy()
+        last_action = self.data.ctrl.copy()
         self.do_simulation(action + OFFSET_QPOS, self.frame_skip)
         head_center_z = self.data.site("head_center").xpos[2]
         head_center_xy = self.data.site("head_center").xpos[:2]
-        joint_speed = (self.data.ctrl - previous_ctrl)
-        diff_ctrl = 0.001 * np.mean(np.square(joint_speed))
-        head_ctrl = 2.0 * np.square(
-            head_center_z - HEAD_SET_HEIGHT) + np.mean(np.square(head_center_xy))
+
+        action_penalty = 0.1 * np.mean(np.square(self.data.ctrl - last_action))
+
+        head_ctrl = 2.0 * np.square(head_center_z - HEAD_SET_HEIGHT) + np.mean(
+            np.square(head_center_xy)
+        )
 
         if self.render_mode == "human":
             self.render()
 
         terminated = head_center_z < 0.3
-        reward = - diff_ctrl - head_ctrl
-        if terminated:
-            reward -= 10.0
-        # reward = self.model.opt.timestep
+        reward = -head_ctrl - action_penalty
 
+        self.current_step += 1
         return (
             self._get_obs(),
             reward,
             terminated,
             False,
-            {
-                "diff_ctrl": diff_ctrl,
-                "head_ctrl": head_ctrl,
-            },
+            {},
         )
 
     def reset_model(self):
+        self.current_step = 0
         self.set_state(
             self.init_qpos,
             self.init_qvel,
