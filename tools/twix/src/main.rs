@@ -99,7 +99,7 @@ fn main() -> Result<(), eframe::Error> {
         Ok(repository_root) => {
             if let Err(error) = check_for_update(
                 env!("CARGO_PKG_VERSION"),
-                repository_root.join("tools/pepsi/Cargo.toml"),
+                repository_root.join("tools/twix/Cargo.toml"),
             ) {
                 error!("{error:#?}");
             }
