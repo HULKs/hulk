@@ -53,11 +53,12 @@ impl App for DependencyInspector {
                     name: &cycler.name,
                 })
                 .collect();
-            self.selected_cycler =
-                hulk_widgets::SegmentedControl::new("cycler selector", &cycler_names)
-                    .ui(ui)
-                    .inner
-                    .index
+            let response =
+                hulk_widgets::SegmentedControl::new("cycler selector", &cycler_names).ui(ui);
+            if response.response.changed() {
+                self.selected_cycler = response.inner.index;
+                self.selected_node_index = None;
+            }
         });
         CentralPanel::default().show(context, |ui| {
             let cycler = self.cyclers.cyclers.get(self.selected_cycler).unwrap();
