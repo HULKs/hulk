@@ -20,7 +20,7 @@ from walking_engine import (
 
 def default_parameters() -> Parameters:
     return Parameters(
-        sole_pressure_threshold=0.5,
+        sole_pressure_threshold=5.0,
         min_step_duration=0.25,
         step_duration=0.25,
         foot_lift_apex=0.015,
@@ -148,7 +148,6 @@ def main():
                     ).data
                     for pos in fsr_positions
                 )
-                / 10.0
             )
             left_pressure = (
                 sum(
@@ -157,7 +156,6 @@ def main():
                     ).data
                     for pos in fsr_positions
                 )
-                / 10.0
             )
             measurements = Measurements(left_pressure, right_pressure)
 
