@@ -161,12 +161,26 @@ async fn resolve_manifest_path(
     let repository_root = repository_root.as_ref();
 
     Ok(match manifest.to_str() {
-        Some("nao") => repository_root.join("crates/hulk_nao/Cargo.toml"),
         Some("imagine") => repository_root.join("crates/hulk_imagine/Cargo.toml"),
+        Some("nao") => repository_root.join("crates/hulk_nao/Cargo.toml"),
         Some("replayer") => repository_root.join("crates/hulk_replayer/Cargo.toml"),
         Some("webots") => repository_root.join("crates/hulk_webots/Cargo.toml"),
+
+        Some("aliveness") => repository_root.join("services/aliveness/Cargo.toml"),
+        Some("breeze") => repository_root.join("services/breeze/Cargo.toml"),
+        Some("hula") => repository_root.join("services/hula/Cargo.toml"),
+
+        Some("annotato") => repository_root.join("tools/annotato/Cargo.toml"),
+        Some("camera_matrix_extractor") => {
+            repository_root.join("tools/camera_matrix_extractor/Cargo.toml")
+        }
+        Some("depp") => repository_root.join("tools/depp/Cargo.toml"),
+        Some("fanta") => repository_root.join("tools/fanta/Cargo.toml"),
+        Some("parameter_tester") => repository_root.join("tools/parameter_tester/Cargo.toml"),
         Some("pepsi") => repository_root.join("tools/pepsi/Cargo.toml"),
         Some("twix") => repository_root.join("tools/twix/Cargo.toml"),
+        Some("widget_gallery") => repository_root.join("tools/widget_gallery/Cargo.toml"),
+
         _ => {
             let manifest_path =
                 absolute(manifest).wrap_err("failed to get absolute path of manifest")?;
