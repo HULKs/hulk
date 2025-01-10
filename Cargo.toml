@@ -18,6 +18,7 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
+  "crates/hula_types",
   "crates/hulk",
   "crates/hulk_imagine",
   "crates/hulk_manifest",
@@ -50,7 +51,6 @@ members = [
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
-  "tools/hula/types",
   "tools/pepsi",
   "tools/twix",
   "tools/widget_gallery",
@@ -122,7 +122,7 @@ gilrs = "0.10.1"
 glob = "0.3.0"
 hardware = { path = "crates/hardware" }
 home = "=0.5.9"
-hula-types = { path = "tools/hula/types" }
+hula_types = { path = "crates/hula_types" }
 hulk = { path = "crates/hulk" }
 hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_widgets = { path = "crates/hulk_widgets" }
