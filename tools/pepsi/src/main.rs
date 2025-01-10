@@ -150,13 +150,13 @@ async fn main() -> Result<()> {
         Command::Aliveness(arguments) => aliveness(arguments, repository_root)
             .await
             .wrap_err("failed to execute aliveness command")?,
-        Command::Build(arguments) => cargo(arguments, repository_root?)
+        Command::Build(arguments) => cargo(arguments, repository_root?, &[] as &[&str])
             .await
             .wrap_err("failed to execute build command")?,
-        Command::Check(arguments) => cargo(arguments, repository_root?)
+        Command::Check(arguments) => cargo(arguments, repository_root?, &[] as &[&str])
             .await
             .wrap_err("failed to execute check command")?,
-        Command::Clippy(arguments) => cargo(arguments, repository_root?)
+        Command::Clippy(arguments) => cargo(arguments, repository_root?, &[] as &[&str])
             .await
             .wrap_err("failed to execute clippy command")?,
         Command::Communication(arguments) => communication(arguments, repository_root?)
@@ -171,7 +171,7 @@ async fn main() -> Result<()> {
         Command::Hulk(arguments) => hulk(arguments)
             .await
             .wrap_err("failed to execute hulk command")?,
-        Command::Install(arguments) => cargo(arguments, repository_root?)
+        Command::Install(arguments) => cargo(arguments, repository_root?, &[] as &[&str])
             .await
             .wrap_err("failed to execute install command")?,
         Command::Location(arguments) => location(arguments, repository_root?)
@@ -199,7 +199,7 @@ async fn main() -> Result<()> {
         Command::Recording(arguments) => recording(arguments, repository_root?)
             .await
             .wrap_err("failed to execute recording command")?,
-        Command::Run(arguments) => cargo(arguments, repository_root?)
+        Command::Run(arguments) => cargo(arguments, repository_root?, &[] as &[&str])
             .await
             .wrap_err("failed to execute run command")?,
         Command::Sdk(arguments) => sdk(arguments, repository_root?)
@@ -208,7 +208,7 @@ async fn main() -> Result<()> {
         Command::Shell(arguments) => shell(arguments)
             .await
             .wrap_err("failed to execute shell command")?,
-        Command::Test(arguments) => cargo(arguments, repository_root?)
+        Command::Test(arguments) => cargo(arguments, repository_root?, &[] as &[&str])
             .await
             .wrap_err("failed to execute test command")?,
         Command::Upload(arguments) => upload(arguments, repository_root?)

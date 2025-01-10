@@ -6,7 +6,7 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{Context, ContextCompat},
+    eyre::{bail, Context, ContextCompat},
     Result,
 };
 
@@ -54,24 +54,68 @@ impl Cargo {
         }
     }
 
-    pub async fn setup(&self) -> Result<()> {
+    pub async fn setup(&self, repository_root: impl AsRef<Path>) -> Result<()> {
         if let Environment::Sdk { version } = &self.environment {
-            let data_home = get_data_home().wrap_err("failed to get data home")?;
+            match self.host {
+                Host::Local => {
+                    let data_home = get_data_home().wrap_err("failed to get data home")?;
 
-            download_and_install(version, data_home)
-                .await
-                .wrap_err("failed to download and install SDK")?;
-        };
+                    download_and_install(version, data_home)
+                        .await
+                        .wrap_err("failed to download and install SDK")?;
+                }
+                Host::Remote => {
+                    let mut command =
+                        Command::new(repository_root.as_ref().join("scripts/remoteWorkspace"));
+                    command
+                        .arg("pepsi")
+                        .arg("sdk")
+                        .arg("install")
+                        .arg("--version")
+                        .arg(version);
+
+                    let status = tokio::process::Command::from(command)
+                        .status()
+                        .await
+                        .wrap_err("failed to run pepsi")?;
+
+                    if !status.success() {
+                        bail!("pepsi failed with {status}");
+                    }
+                }
+            }
+        }
 
         Ok(())
     }
 
-    pub fn command(&self, repository_root: impl AsRef<Path>) -> Result<Command> {
+    pub fn command(
+        &self,
+        repository_root: impl AsRef<Path>,
+        compiler_artifacts: &[impl AsRef<Path>],
+    ) -> Result<Command> {
         let repository_root = repository_root.as_ref();
 
-        // TODO: implement remote
-        let command = match &self.environment {
-            Environment::Native => Command::new("cargo"),
+        let mut command = match self.host {
+            Host::Local => {
+                let mut command = Command::new("bash");
+                command.arg("-c").arg("$0 $@");
+                command
+            }
+            Host::Remote => {
+                let mut command = Command::new(repository_root.join("scripts/remoteWorkspace"));
+
+                for path in compiler_artifacts {
+                    command.arg("--return-file").arg(path.as_ref());
+                }
+                command
+            }
+        };
+
+        match &self.environment {
+            Environment::Native => {
+                command.arg("cargo");
+            }
             Environment::Sdk { version } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
                 let environment_file = &data_home.join(format!(
@@ -80,12 +124,7 @@ impl Cargo {
                 let sdk_environment_setup = environment_file
                     .to_str()
                     .wrap_err("failed to convert sdk environment setup path to string")?;
-                let mut command = Command::new("bash");
-                command
-                    .arg("-c")
-                    .arg(format!(". {sdk_environment_setup} && cargo $@"))
-                    .arg("cargo");
-                command
+                command.arg(format!(". {sdk_environment_setup} && cargo $@"));
             }
             Environment::Docker { image } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
@@ -113,7 +152,6 @@ impl Cargo {
                     repository_root=repository_root.to_str().wrap_err("failed to convert repository root to string")?,
                     cargo_home=cargo_home.to_str().wrap_err("failed to convert cargo home to string")?,
                 )).arg("cargo");
-                command
             }
         };
 

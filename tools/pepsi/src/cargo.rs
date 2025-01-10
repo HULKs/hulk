@@ -50,6 +50,7 @@ pub trait CargoCommand {
 pub async fn cargo<CargoArguments: Args + CargoCommand>(
     arguments: Arguments<CargoArguments>,
     repository_root: impl AsRef<Path>,
+    compiler_artifacts: &[impl AsRef<Path>],
 ) -> Result<()> {
     // Map with async closures would be nice here (not yet stabilized)
     let manifest_path = match arguments.manifest {
@@ -84,7 +85,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     };
 
     let mut cargo_command = cargo
-        .command(&repository_root)
+        .command(&repository_root, compiler_artifacts)
         .wrap_err("failed to create cargo command")?;
 
     cargo_command.arg(CargoArguments::SUB_COMMAND);
@@ -107,7 +108,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     arguments.cargo.apply(&mut cargo_command);
 
     cargo
-        .setup()
+        .setup(&repository_root)
         .await
         .wrap_err("failed to set up cargo environment")?;
 

@@ -16,8 +16,11 @@ use indicatif::ProgressBar;
 use log::warn;
 use nao::{Nao, Network, SystemctlAction};
 use repository::{
-    communication::configure_communication, configuration::read_os_version, location::set_location,
-    recording::configure_recording_intervals, upload::populate_upload_directory,
+    communication::configure_communication,
+    configuration::read_os_version,
+    location::set_location,
+    recording::configure_recording_intervals,
+    upload::{get_hulk_binary, populate_upload_directory},
 };
 use tempfile::tempdir;
 
@@ -128,7 +131,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         .wrap_err("failed to set player numbers")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let profile = arguments.build.profile().to_owned();
+    let hulk_binary = get_hulk_binary(arguments.build.profile());
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(
@@ -141,7 +144,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
     };
 
     if !arguments.pre_game.no_build {
-        cargo(cargo_arguments, &repository_root)
+        cargo(cargo_arguments, &repository_root, &[&hulk_binary])
             .await
             .wrap_err("failed to build")?;
     }
@@ -150,7 +153,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         return Ok(());
     }
 
-    populate_upload_directory(&upload_directory, &profile, &repository_root)
+    populate_upload_directory(&upload_directory, &repository_root, hulk_binary)
         .await
         .wrap_err("failed to populate upload directory")?;
 

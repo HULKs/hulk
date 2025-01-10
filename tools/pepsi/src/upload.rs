@@ -8,7 +8,10 @@ use color_eyre::{
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
-use repository::{configuration::read_os_version, upload::populate_upload_directory};
+use repository::{
+    configuration::read_os_version,
+    upload::{get_hulk_binary, populate_upload_directory},
+};
 use tempfile::tempdir;
 
 use crate::{
@@ -97,7 +100,7 @@ async fn upload_with_progress(
 
 pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let profile = arguments.build.profile().to_owned();
+    let hulk_binary = get_hulk_binary(arguments.build.profile());
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(
@@ -111,12 +114,12 @@ pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> 
     };
 
     if !arguments.upload.no_build {
-        cargo(cargo_arguments, &repository_root)
+        cargo(cargo_arguments, &repository_root, &[&hulk_binary])
             .await
             .wrap_err("failed to build")?;
     }
 
-    populate_upload_directory(&upload_directory, &profile, &repository_root)
+    populate_upload_directory(&upload_directory, &repository_root, hulk_binary)
         .await
         .wrap_err("failed to populate upload directory")?;
 
