@@ -18,6 +18,7 @@ pub mod check;
 pub mod clippy;
 pub mod common;
 pub mod environment;
+pub mod install;
 pub mod run;
 pub mod test;
 mod heading {
@@ -84,8 +85,17 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     cargo_command.arg(CargoArguments::SUB_COMMAND);
 
     if let Some(manifest_path) = manifest_path {
-        cargo_command.arg("--manifest-path");
-        cargo_command.arg(manifest_path);
+        if CargoArguments::SUB_COMMAND == "install" {
+            cargo_command.arg("--path");
+            cargo_command.arg(
+                manifest_path
+                    .parent()
+                    .wrap_err("failed to retrieve package path from manifest path")?,
+            );
+        } else {
+            cargo_command.arg("--manifest-path");
+            cargo_command.arg(manifest_path);
+        }
     }
 
     // TODO: Build extension trait for readability
@@ -150,6 +160,8 @@ async fn resolve_manifest_path(
         Some("imagine") => repository_root.join("crates/hulk_imagine/Cargo.toml"),
         Some("replayer") => repository_root.join("crates/hulk_replayer/Cargo.toml"),
         Some("webots") => repository_root.join("crates/hulk_webots/Cargo.toml"),
+        Some("pepsi") => repository_root.join("tools/pepsi/Cargo.toml"),
+        Some("twix") => repository_root.join("tools/twix/Cargo.toml"),
         _ => {
             let manifest_path = PathBuf::from(manifest);
 

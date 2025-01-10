@@ -11,7 +11,7 @@ use repository::{find_root::find_repository_root, inspect_version::check_for_upd
 
 use aliveness::aliveness;
 use analyze::analyze;
-use cargo::{build, cargo, check, clippy, run, test};
+use cargo::{build, cargo, check, clippy, install, run, test};
 use communication::communication;
 use completions::completions;
 use gammaray::gammaray;
@@ -84,6 +84,8 @@ enum Command {
     Gammaray(gammaray::Arguments),
     /// Control the HULK service
     Hulk(hulk::Arguments),
+    /// Install a Rust binary
+    Install(cargo::Arguments<install::Arguments>),
     /// Set the parameter location
     #[command(subcommand)]
     Location(location::Arguments),
@@ -169,6 +171,9 @@ async fn main() -> Result<()> {
         Command::Hulk(arguments) => hulk(arguments)
             .await
             .wrap_err("failed to execute hulk command")?,
+        Command::Install(arguments) => cargo(arguments, repository_root?)
+            .await
+            .wrap_err("failed to execute install command")?,
         Command::Location(arguments) => location(arguments, repository_root?)
             .await
             .wrap_err("failed to execute location command")?,
