@@ -134,8 +134,6 @@ def main():
     handle = viewer.launch_passive(model, data)
 
     dt = model.opt.timestep
-    simulation_time = 0.0
-    simulation_step = 0
     throwable = ThrowableObject(model, data, "floor", "tomato")
 
     while handle.is_running():
@@ -168,8 +166,6 @@ def main():
                 apply_walking(nao, parameter, state, measurements, control, dt)
 
             mujoco.mj_step(model, data)
-            simulation_time += dt
-            simulation_step += 1
             end_time = time.time()
             wait_time = max(0, dt - (end_time - start_time))
         handle.sync()
