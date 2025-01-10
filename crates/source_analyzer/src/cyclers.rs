@@ -171,11 +171,11 @@ impl Cycler {
     }
 }
 
-fn sort_nodes(
+pub fn generate_dependency_graph(
     nodes: &[Node],
     output_to_node: &BTreeMap<String, usize>,
     existing_output_names: &BTreeSet<OutputName>,
-) -> Result<Vec<Node>, Error> {
+) -> Result<IndexGraph, Error> {
     let mut dependencies = IndexGraph::with_vertices(nodes.len());
     for (node_index, node) in nodes.iter().enumerate() {
         for dependency in node
@@ -214,7 +214,15 @@ fn sort_nodes(
         }
     }
 
-    dependencies
+    Ok(dependencies)
+}
+
+fn sort_nodes(
+    nodes: &[Node],
+    output_to_node: &BTreeMap<String, usize>,
+    existing_output_names: &BTreeSet<OutputName>,
+) -> Result<Vec<Node>, Error> {
+    generate_dependency_graph(nodes, output_to_node, existing_output_names)?
         .toposort()
         .map(|node_indices| {
             node_indices
