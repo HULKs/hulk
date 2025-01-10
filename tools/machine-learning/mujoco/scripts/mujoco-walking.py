@@ -106,24 +106,24 @@ def apply_walking(
     else:
         measurements.pressure_right = 0.0
 
-    left_leg_joints, right_leg_joints = (
+    lower_body_joints = (
         walking_engine.compute_lower_body_joints(
             left_sole, right_sole, left_lift, right_lift
         )
     )
 
-    nao.actuators.left_leg.ankle_pitch = left_leg_joints.ankle_pitch
-    nao.actuators.left_leg.ankle_roll = left_leg_joints.ankle_roll
-    nao.actuators.left_leg.knee_pitch = left_leg_joints.knee_pitch
-    nao.actuators.left_leg.hip_pitch = left_leg_joints.hip_pitch
-    nao.actuators.left_leg.hip_roll = left_leg_joints.hip_roll
-    nao.actuators.left_leg.hip_yaw_pitch = left_leg_joints.hip_yaw_pitch
+    nao.actuators.left_leg.ankle_pitch = lower_body_joints.left.ankle_pitch
+    nao.actuators.left_leg.ankle_roll = lower_body_joints.left.ankle_roll
+    nao.actuators.left_leg.knee_pitch = lower_body_joints.left.knee_pitch
+    nao.actuators.left_leg.hip_pitch = lower_body_joints.left.hip_pitch
+    nao.actuators.left_leg.hip_roll = lower_body_joints.left.hip_roll
+    nao.actuators.left_leg.hip_yaw_pitch = lower_body_joints.left.hip_yaw_pitch
 
-    nao.actuators.right_leg.ankle_pitch = right_leg_joints.ankle_pitch
-    nao.actuators.right_leg.ankle_roll = right_leg_joints.ankle_roll
-    nao.actuators.right_leg.knee_pitch = right_leg_joints.knee_pitch
-    nao.actuators.right_leg.hip_pitch = right_leg_joints.hip_pitch
-    nao.actuators.right_leg.hip_roll = right_leg_joints.hip_roll
+    nao.actuators.right_leg.ankle_pitch = lower_body_joints.right.ankle_pitch
+    nao.actuators.right_leg.ankle_roll = lower_body_joints.right.ankle_roll
+    nao.actuators.right_leg.knee_pitch = lower_body_joints.right.knee_pitch
+    nao.actuators.right_leg.hip_pitch = lower_body_joints.right.hip_pitch
+    nao.actuators.right_leg.hip_roll = lower_body_joints.right.hip_roll
 
 
 def main():
