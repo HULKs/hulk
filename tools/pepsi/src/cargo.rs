@@ -1,15 +1,16 @@
 use std::{
     ffi::{OsStr, OsString},
-    path::{Path, PathBuf},
+    path::{absolute, Path, PathBuf},
     process::Command,
 };
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, Context},
+    eyre::{bail, Context, ContextCompat},
     Result,
 };
 use environment::{Environment, EnvironmentArguments};
+use pathdiff::diff_paths;
 use repository::cargo::Cargo;
 use toml::Table;
 
@@ -52,11 +53,15 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
 ) -> Result<()> {
     // Map with async closures would be nice here (not yet stabilized)
     let manifest_path = match arguments.manifest {
-        Some(manifest) => Some(
-            resolve_manifest_path(&manifest, &repository_root)
+        Some(manifest) => {
+            let absolute_manifest = resolve_manifest_path(&manifest, &repository_root)
                 .await
-                .wrap_err("failed to resolve manifest path")?,
-        ),
+                .wrap_err("failed to resolve manifest path")?;
+            let relative_manifest = diff_paths(absolute_manifest, &repository_root)
+                .wrap_err("failed to express manifest relative to repository root")?;
+
+            Some(relative_manifest)
+        }
         None => None,
     };
 
@@ -163,7 +168,8 @@ async fn resolve_manifest_path(
         Some("pepsi") => repository_root.join("tools/pepsi/Cargo.toml"),
         Some("twix") => repository_root.join("tools/twix/Cargo.toml"),
         _ => {
-            let manifest_path = PathBuf::from(manifest);
+            let manifest_path =
+                absolute(manifest).wrap_err("failed to get absolute path of manifest")?;
 
             if tokio::fs::metadata(&manifest_path)
                 .await

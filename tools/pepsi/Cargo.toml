@@ -19,6 +19,7 @@ lazy_static = { workspace = true }
 log = { workspace = true }
 nao = { workspace = true }
 opn = { workspace = true }
+pathdiff = { workspace = true }
 regex = { workspace = true }
 repository = { workspace = true }
 serde = { workspace = true }
