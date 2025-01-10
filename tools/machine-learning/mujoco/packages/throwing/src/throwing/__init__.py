@@ -1,13 +1,14 @@
 import mujoco
 import numpy as np
+from numpy.typing import NDArray
 
 
 def _calculate_initial_velocity(
-    start: np.ndarray,
-    target: np.ndarray,
-    acceleration: np.ndarray,
+    start: NDArray[np.floating],
+    target: NDArray[np.floating],
+    acceleration: NDArray[np.floating],
     time_to_reach: float,
-) -> np.ndarray:
+) -> NDArray[np.floating]:
     displacement = target - start
     initial_velocity = (
         displacement - 0.5 * acceleration * time_to_reach**2
@@ -16,10 +17,10 @@ def _calculate_initial_velocity(
 
 
 def _random_start_above_zero(
-    target: np.ndarray,
+    target: NDArray[np.floating],
     radius: float,
     throwable_radius: float,
-) -> np.ndarray:
+) -> NDArray[np.floating]:
     height = target[2]
     if height <= 0:
         raise ValueError(
@@ -76,7 +77,11 @@ class ThrowableObject:
         return False
 
     def random_throw(
-        self, target: np.ndarray, *, time_to_reach: float, distance: float
+        self,
+        target: NDArray[np.floating],
+        *,
+        time_to_reach: float,
+        distance: float,
     ):
         throwable_radius = self.model.geom_rbound[
             self.model.body_geomadr[self.throwable_index]
