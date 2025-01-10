@@ -1,7 +1,10 @@
 use std::{
+    env::temp_dir,
     fmt::{self, Display, Formatter},
+    fs::{set_permissions, Permissions},
     net::Ipv4Addr,
-    path::Path,
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
     process::Stdio,
     time::Duration,
 };
@@ -81,7 +84,7 @@ impl Nao {
 
     pub async fn get_os_version(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("cat /etc/os-release")
             .output()
             .await
@@ -91,33 +94,44 @@ impl Nao {
         extract_version_number(&stdout).ok_or_else(|| eyre!("could not extract version number"))
     }
 
-    // TODO: fix the softbank nao image login
-    // fn create_login_script() -> Result<PathBuf> {
-    //     let path = temp_dir().join("nao_login_script");
-    //
-    //     std::fs::write(&path, b"#!/usr/bin/env sh\necho nao")
-    //         .wrap_err("failed to write to nao login script")?;
-    //
-    //     #[cfg(unix)]
-    //     {
-    //         set_permissions(&path, Permissions::from_mode(0o755))
-    //             .wrap_err("failed to set permissions")?;
-    //     }
-    //
-    //     Ok(path)
-    // }
+    fn create_login_script() -> Result<PathBuf> {
+        let path = temp_dir().join("nao_login_script");
 
-    fn ssh_to_nao(&self) -> Command {
+        std::fs::write(&path, b"#!/usr/bin/env sh\necho nao")
+            .wrap_err("failed to write to nao login script")?;
+
+        #[cfg(unix)]
+        {
+            set_permissions(&path, Permissions::from_mode(0o755))
+                .wrap_err("failed to set permissions")?;
+        }
+
+        Ok(path)
+    }
+
+    fn ssh_to_nao(&self) -> Result<Command> {
+        let temp_file = Self::create_login_script().wrap_err("failed_to_create login script")?;
+
         let mut command = Command::new("ssh");
+
+        command.env("SSH_ASKPASS", temp_file.as_os_str());
+        command.env("SSH_ASKPASS_REQUIRE", "force");
+
         for flag in NAO_SSH_FLAGS {
             command.arg(flag);
         }
         command.arg(self.address.to_string());
-        command
+        Ok(command)
     }
 
-    pub fn rsync_with_nao(&self, mkpath: bool) -> Command {
+    pub fn rsync_with_nao(&self, mkpath: bool) -> Result<Command> {
         let mut command = Command::new("rsync");
+
+        let temp_file = Self::create_login_script().wrap_err("failed_to_create login script")?;
+
+        command.env("SSH_ASKPASS", temp_file.as_os_str());
+        command.env("SSH_ASKPASS_REQUIRE", "force");
+
         let ssh_flags = NAO_SSH_FLAGS.join(" ");
         command
             .stdout(Stdio::piped())
@@ -129,12 +143,12 @@ impl Nao {
         if mkpath {
             command.arg("--mkpath");
         }
-        command
+        Ok(command)
     }
 
     pub async fn execute_shell(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .status()
             .await
             .wrap_err("failed to execute shell ssh command")?;
@@ -148,7 +162,7 @@ impl Nao {
 
     pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("systemctl")
             .arg(match action {
                 SystemctlAction::Disable => "disable",
@@ -181,7 +195,7 @@ impl Nao {
 
     pub async fn delete_logs(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("rm")
             .arg("-r")
             .arg("-f")
@@ -203,7 +217,7 @@ impl Nao {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("sudo dmesg > /home/nao/hulk/logs/kernel.log")
             .status()
             .await
@@ -214,7 +228,7 @@ impl Nao {
         }
 
         let rsync = self
-            .rsync_with_nao(true)
+            .rsync_with_nao(true)?
             .arg("--info=progress2")
             .arg(format!("{}:hulk/logs/", self.address))
             .arg(local_directory.as_ref().to_str().unwrap())
@@ -226,7 +240,7 @@ impl Nao {
 
     pub async fn list_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("ls")
             .arg("hulk/logs/*")
             .output()
@@ -242,7 +256,7 @@ impl Nao {
 
     pub async fn retrieve_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("tail")
             .arg("-n+1")
             .arg("hulk/logs/hulk.{out,err}")
@@ -259,7 +273,7 @@ impl Nao {
 
     pub async fn power_off(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("systemctl")
             .arg("poweroff")
             .status()
@@ -275,7 +289,7 @@ impl Nao {
 
     pub async fn reboot(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("systemctl")
             .arg("reboot")
             .status()
@@ -296,7 +310,7 @@ impl Nao {
         delete_remaining: bool,
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
-        let mut command = self.rsync_with_nao(true);
+        let mut command = self.rsync_with_nao(true)?;
         command
             .arg("--keep-dirlinks")
             .arg("--copy-links")
@@ -321,7 +335,7 @@ impl Nao {
 
     pub async fn get_network_status(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -339,7 +353,7 @@ impl Nao {
 
     pub async fn get_available_networks(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -357,7 +371,7 @@ impl Nao {
 
     pub async fn scan_networks(&self) -> Result<()> {
         let output = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -404,7 +418,7 @@ impl Nao {
             }
         );
         let status = self
-            .ssh_to_nao()
+            .ssh_to_nao()?
             .arg(command_string)
             .status()
             .await
@@ -423,7 +437,7 @@ impl Nao {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let rsync = self
-            .rsync_with_nao(false)
+            .rsync_with_nao(false)?
             .arg("--copy-links")
             .arg("--info=progress2")
             .arg(image_path.as_ref().to_str().unwrap())

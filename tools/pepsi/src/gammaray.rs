@@ -55,7 +55,7 @@ pub async fn gammaray(arguments: Arguments, repository_root: impl AsRef<Path>) -
             .await
             .wrap_err_with(|| format!("failed to flash image to {nao_address}"))?;
             progress_bar.set_message("Uploading team configuration...");
-            nao.rsync_with_nao(false)
+            nao.rsync_with_nao(false)?
                 .arg(team_toml)
                 .arg(format!("{}:/media/internal/", nao.address))
                 .spawn()

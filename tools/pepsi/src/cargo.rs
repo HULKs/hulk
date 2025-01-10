@@ -104,7 +104,6 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
         }
     }
 
-    // TODO: Build extension trait for readability
     arguments.cargo.apply(&mut cargo_command);
 
     cargo
