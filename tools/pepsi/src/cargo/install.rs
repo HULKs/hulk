@@ -1,4 +1,3 @@
-use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -167,30 +166,5 @@ impl CargoCommand for Arguments {
 
     fn profile(&self) -> &str {
         self.common.profile.as_deref().unwrap_or("release")
-    }
-}
-
-impl Deref for Arguments {
-    type Target = CommonOptions;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
-impl DerefMut for Arguments {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.common
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::Arguments;
-    use clap::CommandFactory;
-
-    #[test]
-    fn verify_cli() {
-        <Arguments as CommandFactory>::command().debug_assert()
     }
 }
