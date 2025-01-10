@@ -30,14 +30,14 @@ def _random_start_above_zero(
     max_elevation = np.deg2rad(60)
     elevation = np.random.uniform(min_elevation, max_elevation)
     azimuth = np.random.uniform(0, 2 * np.pi)
-    start = target + radius * np.array(
+
+    return target + radius * np.array(
         [
             np.sin(elevation) * np.cos(azimuth),
             np.sin(elevation) * np.sin(azimuth),
             np.cos(elevation),
         ]
     )
-    return start
 
 
 class ThrowableObject:
