@@ -226,17 +226,17 @@ fn sort_nodes(
     {
         Ok(node_indices) => Ok({
             node_indices
-                .iter()
-                .map(|node_index| nodes[*node_index].clone())
+                .into_iter()
+                .map(|node_index| nodes[node_index].clone())
                 .collect()
         }),
         Err(cycles) => Err(Error::CircularDependency(
             cycles
-                .iter()
+                .into_iter()
                 .map(|cycle| {
                     cycle
-                        .iter()
-                        .map(|node_index| nodes[*node_index].name.clone())
+                        .into_iter()
+                        .map(|node_index| nodes[node_index].name.clone())
                         .collect()
                 })
                 .collect(),
