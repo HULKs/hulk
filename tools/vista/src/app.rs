@@ -259,8 +259,12 @@ impl App for DependencyInspector {
                         }
                     }
 
+                    let input_end = pos2(
+                        minimum_x + count as f32 * 10.0 - 10.0,
+                        node_points[selected_node_index].y,
+                    );
                     for (input_index, (cycler_instance, input)) in cross_inputs.iter().enumerate() {
-                        let a = node_points[selected_node_index];
+                        let a = input_end;
                         let b = painter
                             .text(
                                 pos2(
@@ -280,13 +284,7 @@ impl App for DependencyInspector {
                         painter.line_segment([a, b], PathStroke::new(1.0, Color32::RED));
                     }
                     painter.line_segment(
-                        [
-                            node_points[selected_node_index],
-                            pos2(
-                                minimum_x + count as f32 * 10.0 - 10.0,
-                                node_points[selected_node_index].y,
-                            ),
-                        ],
+                        [node_points[selected_node_index], input_end],
                         PathStroke::new(1.0, Color32::GREEN),
                     );
                 });
