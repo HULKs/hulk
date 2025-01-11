@@ -28,7 +28,7 @@ def left_pelvis_to_robot(angles: LegJoints) -> NDArray:
         @ rotation_from_axisangle(-np.pi / 4, 0, 0)
     )
     return isometry_from_translation(
-        ROBOT_TO_LEFT_PELVIS
+        ROBOT_TO_LEFT_PELVIS,
     ) @ isometry_from_rotation(rotation)
 
 
@@ -39,37 +39,37 @@ def right_pelvis_to_robot(angles: LegJoints) -> NDArray:
         @ rotation_from_axisangle(np.pi / 4, 0, 0)
     )
     return isometry_from_translation(
-        ROBOT_TO_RIGHT_PELVIS
+        ROBOT_TO_RIGHT_PELVIS,
     ) @ isometry_from_rotation(rotation)
 
 
 def hip_to_pelvis(angles: LegJoints) -> NDArray:
     return isometry_from_rotation(
-        rotation_from_axisangle(angles.hip_roll, 0, 0)
+        rotation_from_axisangle(angles.hip_roll, 0, 0),
     )
 
 
 def thigh_to_hip(angles: LegJoints) -> NDArray:
     return isometry_from_rotation(
-        rotation_from_axisangle(0, angles.hip_pitch, 0)
+        rotation_from_axisangle(0, angles.hip_pitch, 0),
     )
 
 
 def tibia_to_thigh(angles: LegJoints) -> NDArray:
     return isometry_from_translation(HIP_TO_KNEE) @ isometry_from_rotation(
-        rotation_from_axisangle(0, angles.knee_pitch, 0)
+        rotation_from_axisangle(0, angles.knee_pitch, 0),
     )
 
 
 def ankle_to_tibia(angles: LegJoints) -> NDArray:
     return isometry_from_translation(KNEE_TO_ANKLE) @ isometry_from_rotation(
-        rotation_from_axisangle(0, angles.ankle_pitch, 0)
+        rotation_from_axisangle(0, angles.ankle_pitch, 0),
     )
 
 
 def foot_to_ankle(angles: LegJoints) -> NDArray:
     return isometry_from_rotation(
-        rotation_from_axisangle(angles.ankle_roll, 0, 0)
+        rotation_from_axisangle(angles.ankle_roll, 0, 0),
     )
 
 

@@ -37,7 +37,7 @@ class LegJoints:
                 self.knee_pitch,
                 self.ankle_pitch,
                 self.ankle_roll,
-            ]
+            ],
         )
 
 
@@ -52,7 +52,9 @@ def foot_to_isometry(
     lift: float,
 ) -> np.ndarray:
     return isometry_from_euler(
-        0.0, 0.0, foot.theta
+        0.0,
+        0.0,
+        foot.theta,
     ) @ isometry_from_translation(np.array([foot.x, foot.y, lift]))
 
 
@@ -62,23 +64,28 @@ def leg_angles(
 ) -> LowerBodyJoints:
     ratio = 0.5
     robot_to_left_pelvis = isometry_from_euler(
-        -np.pi / 4, 0.0, 0.0
+        -np.pi / 4,
+        0.0,
+        0.0,
     ) @ isometry_from_translation(-ROBOT_TO_LEFT_PELVIS)
     robot_to_right_pelvis = isometry_from_euler(
-        np.pi / 4, 0.0, 0.0
+        np.pi / 4,
+        0.0,
+        0.0,
     ) @ isometry_from_translation(-ROBOT_TO_RIGHT_PELVIS)
 
     left_foot_to_left_pelvis = robot_to_left_pelvis @ left_foot
     right_foot_to_right_pelvis = robot_to_right_pelvis @ right_foot
     vector_left_foot_to_left_pelvis = translation_from_isometry(
-        inverse(left_foot_to_left_pelvis)
+        inverse(left_foot_to_left_pelvis),
     )
     vector_right_foot_to_right_pelvis = translation_from_isometry(
-        inverse(right_foot_to_right_pelvis)
+        inverse(right_foot_to_right_pelvis),
     )
 
     left_foot_roll_in_pelvis = np.arctan2(
-        vector_left_foot_to_left_pelvis[1], vector_left_foot_to_left_pelvis[2]
+        vector_left_foot_to_left_pelvis[1],
+        vector_left_foot_to_left_pelvis[2],
     )
     right_foot_roll_in_pelvis = np.arctan2(
         vector_right_foot_to_right_pelvis[1],
@@ -108,38 +115,46 @@ def leg_angles(
     )
 
     left_hip_yaw_pitch = -np.arctan2(
-        -left_hip_rotation_c1[0], left_hip_rotation_c1[1]
+        -left_hip_rotation_c1[0],
+        left_hip_rotation_c1[1],
     )
     right_hip_yaw_pitch = np.arctan2(
-        -right_hip_rotation_c1[0], right_hip_rotation_c1[1]
+        -right_hip_rotation_c1[0],
+        right_hip_rotation_c1[1],
     )
     left_hip_yaw_pitch_combined = (
         left_hip_yaw_pitch * ratio + right_hip_yaw_pitch * (1 - ratio)
     )
 
     left_pelvis_to_left_hip = isometry_from_euler(
-        0.0, 0.0, left_hip_yaw_pitch_combined
+        0.0,
+        0.0,
+        left_hip_yaw_pitch_combined,
     )
     left_foot_to_left_hip = left_pelvis_to_left_hip @ left_foot_to_left_pelvis
     right_pelvis_to_right_hip = isometry_from_euler(
-        0.0, 0.0, -left_hip_yaw_pitch_combined
+        0.0,
+        0.0,
+        -left_hip_yaw_pitch_combined,
     )
     right_foot_to_right_hip = (
         right_pelvis_to_right_hip @ right_foot_to_right_pelvis
     )
 
     vector_left_hip_to_left_foot = translation_from_isometry(
-        left_foot_to_left_hip
+        left_foot_to_left_hip,
     )
     vector_right_hip_to_right_foot = translation_from_isometry(
-        right_foot_to_right_hip
+        right_foot_to_right_hip,
     )
 
     left_hip_roll_in_hip = -np.arctan2(
-        -vector_left_hip_to_left_foot[1], -vector_left_hip_to_left_foot[2]
+        -vector_left_hip_to_left_foot[1],
+        -vector_left_hip_to_left_foot[2],
     )
     right_hip_roll_in_hip = -np.arctan2(
-        -vector_right_hip_to_right_foot[1], -vector_right_hip_to_right_foot[2]
+        -vector_right_hip_to_right_foot[1],
+        -vector_right_hip_to_right_foot[2],
     )
 
     left_hip_pitch_minus_alpha = np.arctan2(
@@ -168,10 +183,10 @@ def leg_angles(
     upper_leg = np.abs(HIP_TO_KNEE[2])
     lower_leg = np.abs(KNEE_TO_ANKLE[2])
     left_height = np.linalg.norm(
-        translation_from_isometry(left_foot_to_left_hip)
+        translation_from_isometry(left_foot_to_left_hip),
     )
     right_height = np.linalg.norm(
-        translation_from_isometry(right_foot_to_right_hip)
+        translation_from_isometry(right_foot_to_right_hip),
     )
 
     left_cos_minus_apha = (upper_leg**2 + left_height**2 - lower_leg**2) / (
@@ -197,7 +212,8 @@ def leg_angles(
         hip_pitch=left_hip_pitch_minus_alpha + left_alpha,
         knee_pitch=-left_alpha - left_beta,
         ankle_pitch=np.arctan2(
-            left_foot_rotation_c2[0], left_foot_rotation_c2[2]
+            left_foot_rotation_c2[0],
+            left_foot_rotation_c2[2],
         )
         + left_beta,
         ankle_roll=np.arcsin(-np.clip(left_foot_rotation_c2[1], -1.0, 1.0)),
@@ -208,7 +224,8 @@ def leg_angles(
         hip_pitch=right_hip_pitch_minus_alpha + right_alpha,
         knee_pitch=-right_alpha - right_beta,
         ankle_pitch=np.arctan2(
-            right_foot_rotation_c2[0], right_foot_rotation_c2[2]
+            right_foot_rotation_c2[0],
+            right_foot_rotation_c2[2],
         )
         + right_beta,
         ankle_roll=np.arcsin(-np.clip(right_foot_rotation_c2[1], -1.0, 1.0)),

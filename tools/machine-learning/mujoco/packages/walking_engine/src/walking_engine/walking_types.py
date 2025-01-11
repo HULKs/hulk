@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Self
 
 from transforms import Pose2
 
@@ -27,14 +28,15 @@ class Feet:
 
     @staticmethod
     def from_support_side(
-        left_sole: Pose2, right_sole: Pose2, support_side: Side
-    ):
+        left_sole: Pose2,
+        right_sole: Pose2,
+        support_side: Side,
+    ) -> Self:
         if support_side == Side.LEFT:
             return Feet(support_sole=left_sole, swing_sole=right_sole)
-        else:
-            return Feet(support_sole=right_sole, swing_sole=left_sole)
+        return Feet(support_sole=right_sole, swing_sole=left_sole)
 
-    def switch(self):
+    def switch(self) -> Self:
         return Feet(support_sole=self.swing_sole, swing_sole=self.support_sole)
 
 

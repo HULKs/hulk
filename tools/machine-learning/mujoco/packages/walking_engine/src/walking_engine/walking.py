@@ -18,8 +18,7 @@ def is_support_switched(
 
     if x.support_side == Side.LEFT:
         return i.pressure_right > parameters.sole_pressure_threshold
-    else:
-        return i.pressure_left > parameters.sole_pressure_threshold
+    return i.pressure_left > parameters.sole_pressure_threshold
 
 
 def start_from_positions(
@@ -74,7 +73,7 @@ def swing_sole_lift_at(x: State, parameters: Parameters) -> float:
     return parameters.foot_lift_apex * t
 
 
-def lerp(t: float, start: Pose2, end: Pose2):
+def lerp(t: float, start: Pose2, end: Pose2) -> Pose2:
     return start + (end - start) * t
 
 
@@ -130,35 +129,32 @@ def step(
             feet.swing_sole,
             lift,
         )
-    else:
-        return (
-            x,
-            feet.swing_sole,
-            lift,
-            feet.support_sole,
-            0.0,
-        )
+    return (
+        x,
+        feet.swing_sole,
+        lift,
+        feet.support_sole,
+        0.0,
+    )
 
 
 def parabolic_return(x: float, midpoint: float = 0.5) -> float:
     if x < midpoint:
         return -2.0 / (midpoint**3) * (x**3) + 3.0 / (midpoint**2) * (x**2)
-    else:
-        return (
-            -1.0
-            / ((midpoint - 1.0) ** 3)
-            * (
-                2.0 * (x**3)
-                - 3.0 * (midpoint + 1.0) * (x**2)
-                + 6.0 * midpoint * x
-                - 3.0 * midpoint
-                + 1.0
-            )
+    return (
+        -1.0
+        / ((midpoint - 1.0) ** 3)
+        * (
+            2.0 * (x**3)
+            - 3.0 * (midpoint + 1.0) * (x**2)
+            + 6.0 * midpoint * x
+            - 3.0 * midpoint
+            + 1.0
         )
+    )
 
 
 def parabolic_step(x: float) -> float:
     if x < 0.5:
         return 2.0 * x * x
-    else:
-        return 4.0 * x - 2.0 * x * x - 1.0
+    return 4.0 * x - 2.0 * x * x - 1.0

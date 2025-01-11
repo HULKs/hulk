@@ -9,18 +9,3 @@ from nao_env.nao_standing import NaoStanding
 from nao_env.nao_standup import NaoStandup
 
 __all__ = ["NaoStanding", "NaoStandup"]
-
-
-def register():
-    import gymnasium as gym
-
-    gym.register(
-        "NaoStanding",
-        lambda **kwargs: NaoStanding(**kwargs),
-        max_episode_steps=2500,
-    )
-    gym.register(
-        "NaoStandup",
-        lambda **kwargs: NaoStandup(**kwargs),
-        max_episode_steps=2500,
-    )

@@ -15,10 +15,10 @@ def compute_lower_body_joints(
     walk_to_robot = isometry_from_translation(np.array([-0.02, 0.0, -0.23]))
 
     left_foot_in_walk = isometry_from_translation(
-        -ANKLE_TO_SOLE
+        -ANKLE_TO_SOLE,
     ) @ foot_to_isometry(left_sole, left_lift)
     right_foot_in_walk = isometry_from_translation(
-        -ANKLE_TO_SOLE
+        -ANKLE_TO_SOLE,
     ) @ foot_to_isometry(right_sole, right_lift)
 
     return leg_angles(

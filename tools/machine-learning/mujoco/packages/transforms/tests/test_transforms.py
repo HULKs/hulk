@@ -12,7 +12,9 @@ def test_rotation_from_euler() -> None:
     rotation = isometry_from_rotation(0.0, 0.0, np.pi / 2)
 
     np.testing.assert_allclose(
-        rotation @ vector, np.array([0.0, 1.0, 0.0, 0.0]), atol=1e-11
+        rotation @ vector,
+        np.array([0.0, 1.0, 0.0, 0.0]),
+        atol=1e-11,
     )
 
 
@@ -21,12 +23,16 @@ def test_translation_from_vector() -> None:
 
     vector = np.array([1.0, 2.0, 3.0, 0.0])
     np.testing.assert_allclose(
-        translation @ vector, np.array([1.0, 2.0, 3.0, 0.0]), atol=1e-11
+        translation @ vector,
+        np.array([1.0, 2.0, 3.0, 0.0]),
+        atol=1e-11,
     )
 
     vector = np.array([1.0, 2.0, 3.0, 1.0])
     np.testing.assert_allclose(
-        translation @ vector, np.array([2.0, 1.0, 4.0, 1.0]), atol=1e-11
+        translation @ vector,
+        np.array([2.0, 1.0, 4.0, 1.0]),
+        atol=1e-11,
     )
 
 

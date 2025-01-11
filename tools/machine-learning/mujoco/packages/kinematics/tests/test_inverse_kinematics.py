@@ -7,10 +7,10 @@ from kinematics import LegJoints, leg_angles
 
 def test_fuzz() -> None:
     fuzzing_data1 = json.loads(
-        Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text()
+        Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text(),
     )
     fuzzing_data2 = json.loads(
-        Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text()
+        Path(__file__).parent.joinpath("standup_back_fuzz.json").read_text(),
     )
 
     for frame in fuzzing_data1 + fuzzing_data2:
@@ -20,12 +20,17 @@ def test_fuzz() -> None:
         right_leg = LegJoints(**frame["joints"]["right_leg"])
 
         computed_left_leg, computed_right_leg = leg_angles(
-            left_foot, right_foot
+            left_foot,
+            right_foot,
         )
 
         np.testing.assert_allclose(
-            computed_left_leg.to_numpy(), left_leg.to_numpy(), atol=1e-4
+            computed_left_leg.to_numpy(),
+            left_leg.to_numpy(),
+            atol=1e-4,
         )
         np.testing.assert_allclose(
-            computed_right_leg.to_numpy(), right_leg.to_numpy(), atol=1e-4
+            computed_right_leg.to_numpy(),
+            right_leg.to_numpy(),
+            atol=1e-4,
         )

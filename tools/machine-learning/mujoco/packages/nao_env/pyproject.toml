@@ -4,7 +4,13 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.10"
 
-dependencies = ["gymnasium", "nao_interface", "numpy", "rewards", "throwing"]
+dependencies = [
+  "gymnasium[mujoco]>=1.0.0",
+  "nao_interface",
+  "numpy>=1.2.0",
+  "rewards",
+  "throwing",
+]
 
 [build-system]
 requires = ["hatchling"]

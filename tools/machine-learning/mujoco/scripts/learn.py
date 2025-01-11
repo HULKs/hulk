@@ -2,6 +2,7 @@ import os
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 import click
 import gymnasium as gym
@@ -20,6 +21,11 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecEnv
 from stable_baselines3.ppo import PPO
 
 
+class UnexpectedAlgorithmError(ValueError):
+    def __init__(self, algorithm: str) -> None:
+        super().__init__(f"unexpected algorithm: {algorithm}")
+
+
 @dataclass
 class Hyperparameters:
     environment: str
@@ -28,7 +34,7 @@ class Hyperparameters:
     epochs: int
     nsteps: int
     steps_per_epoch: int
-    throw_tomatos: bool
+    throw_tomatoes: bool
     learning_rate: float
     max_grad_norm: float
     time_limit: int
@@ -41,42 +47,46 @@ def make_env(config: Hyperparameters) -> Callable[..., gym.Env]:
         "NaoStandup": nao_env.NaoStandup,
     }
 
-    def _init(**kwargs) -> gym.Env:
+    def _init(**kwargs: Any) -> gym.Env:
         env_cls = environments[config.environment]
         kwargs.update(
-            {"throw_tomatos": config.throw_tomatos, "render_mode": "rgb_array"}
+            {
+                "throw_tomatoes": config.throw_tomatoes,
+                "render_mode": "rgb_array",
+            },
         )
 
         env = env_cls(**kwargs)
-        env = TimeLimit(env, max_episode_steps=config.time_limit)
-        return env
+        return TimeLimit(env, max_episode_steps=config.time_limit)
 
     return _init
 
 
-def build_train_env(run, config: Hyperparameters) -> VecEnv:
-    env = make_vec_env(
+def build_train_env(config: Hyperparameters) -> VecEnv:
+    return make_vec_env(
         env_id=make_env(config),
         n_envs=config.num_envs,
         vec_env_cls=SubprocVecEnv,
         seed=42,
     )
-    return env
 
 
-def build_eval_env(run, config: Hyperparameters) -> gym.Env:
+def build_eval_env(run: Any, config: Hyperparameters) -> gym.Env:
     env = make_env(config)()
     env = Monitor(env)
-    env = RecordVideo(
+    return RecordVideo(
         env,
         f"videos/{run.name}",
         episode_trigger=lambda _: True,
         disable_logger=True,
     )
-    return env
 
 
-def setup_algorithm(run, config: Hyperparameters, env: VecEnv) -> BaseAlgorithm:
+def setup_algorithm(
+    run: Any,
+    config: Hyperparameters,
+    env: VecEnv,
+) -> BaseAlgorithm:
     match config.algorithm:
         case "ppo":
             return PPO(
@@ -90,7 +100,7 @@ def setup_algorithm(run, config: Hyperparameters, env: VecEnv) -> BaseAlgorithm:
                 verbose=1,
             )
         case _:
-            raise ValueError(f"unexpected algorithm: {config.algorithm}")
+            raise UnexpectedAlgorithmError(config.algorithm)
 
 
 @click.command()
@@ -104,26 +114,27 @@ def setup_algorithm(run, config: Hyperparameters, env: VecEnv) -> BaseAlgorithm:
 @click.option("--epochs", type=click.INT, default=1000)
 @click.option("--steps-per-epoch", type=click.INT, default=100_000)
 @click.option("--nsteps", type=click.INT, default=2048)
-@click.option("--throw-tomatos", is_flag=True)
+@click.option("--throw-tomatoes", is_flag=True)
 @click.option("--learning-rate", type=click.FLOAT, default=3e-4)
 @click.option("--max-grad-norm", type=click.FLOAT, default=0.5)
 @click.option("--num-envs", type=click.INT, default=1)
 @click.option("--time-limit", type=click.INT, default=2500)
 @click.option("--wandb-project", type=click.STRING)
 def main(
+    *,
     environment: str,
     algorithm: str,
     batch_size: int,
     epochs: int,
     nsteps: int,
+    throw_tomatoes: bool,
     steps_per_epoch: int,
-    throw_tomatos: bool,
     learning_rate: float,
     max_grad_norm: float,
     num_envs: int,
     time_limit: int,
     wandb_project: str | None = None,
-):
+) -> None:
     config = Hyperparameters(
         environment=environment,
         algorithm=algorithm,
@@ -131,7 +142,7 @@ def main(
         epochs=epochs,
         nsteps=nsteps,
         steps_per_epoch=steps_per_epoch,
-        throw_tomatos=throw_tomatos,
+        throw_tomatoes=throw_tomatoes,
         learning_rate=learning_rate,
         max_grad_norm=max_grad_norm,
         time_limit=time_limit,
@@ -145,7 +156,7 @@ def main(
         mode="disabled" if wandb_project is None else "online",
     )
 
-    train_env = build_train_env(run, config)
+    train_env = build_train_env(config)
     eval_env = build_eval_env(run, config)
     rl_algorithm = setup_algorithm(run, config, train_env)
 
@@ -168,10 +179,10 @@ if __name__ == "__main__":
         print(f"Device {device}: {torch.cuda.get_device_name(device)}")
 
     NVIDIA_ICD_CONFIG_PATH = Path(
-        "/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+        "/usr/share/glvnd/egl_vendor.d/10_nvidia.json",
     )
     if not NVIDIA_ICD_CONFIG_PATH.exists() and get_device() != torch.device(
-        "cpu"
+        "cpu",
     ):
         NVIDIA_ICD_CONFIG_PATH.write_text("""{
                                 "file_format_version" : "1.0.0",

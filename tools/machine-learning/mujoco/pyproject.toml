@@ -10,7 +10,7 @@ dependencies = [
   "mediapy>=1.2.2",
   "moviepy>=1.0.3",
   "mujoco>=3.2.6",
-  "numpy",
+  "numpy>=1.26",
   "scipy>=1.14.1",
   "stable-baselines3[extra]==2.4.1",
   "tensorboard>=2.18.0",
@@ -57,8 +57,20 @@ select = [
   "B",
   # flake8-builtins
   "A",
+  # flake8-annotations
+  "ANN",
+  # flake8-unused-arguments
+  "ARG",
+  # numpy-specific-rules
+  "NPY",
   # flake8-comprehensions
   "C4",
+  # flake8-return
+  "RET",
+  # flake8-commas
+  "COM",
+  # flake8-boolean-trap
+  "FBT",
   # flake8-debugger
   "T10",
   # flake8-simplify
@@ -82,10 +94,10 @@ select = [
   "TRY",
 ]
 ignore = [
-  # LineTooLong
-  "E501",
   # DoNotAssignLambda
   "E731",
+  # any-type
+  "ANN401",
 ]
 
 [tool.ruff.lint.per-file-ignores]
