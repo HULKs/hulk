@@ -1,7 +1,7 @@
 import os
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable
 
 import click
 import gymnasium as gym
