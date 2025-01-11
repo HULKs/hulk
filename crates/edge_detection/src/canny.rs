@@ -3,7 +3,7 @@ use nalgebra::{DMatrix, DMatrixView};
 
 use crate::{
     gaussian::gaussian_blur_integer_approximation,
-    sobel::{sobel_operator, DerivativeDirection},
+    sobel::{sharr_operator, sobel_operator, DerivativeDirection},
     zip_three_slices_enumerated,
 };
 
@@ -134,7 +134,7 @@ fn approximate_direction_integer_only(y: i16, x: i16) -> OctantWithDegName {
     let y_shifted = (abs_y) << 15;
 
     // check if the inequalities hold
-    if y == 0 || y_shifted < tan_22_5_mul_x {
+    if y_shifted < tan_22_5_mul_x {
         OctantWithDegName::FirstOctant0
     } else if y_shifted >= tan_67_5_mul_x {
         OctantWithDegName::ThirdOctant90
@@ -177,7 +177,7 @@ pub fn non_maximum_suppression(
     let out_slice = out.as_mut_slice();
 
     let start = nrows;
-    let end = gradients_x_slice.len() - nrows;
+    let end = (gradients_x_slice.len() - nrows).max(start);
 
     let gxs = &gradients_x_slice[start..end];
     let gys = &gradients_y_slice[start..end];
@@ -369,7 +369,9 @@ mod tests {
         }
 
         // Radius mode
-        let angles: Vec<_> = (0..360).map(|deg| (deg as f32).to_radians()).collect();
+        let angles: Vec<_> = (0..720)
+            .map(|deg| (deg as f32).to_radians() / 2.0)
+            .collect();
 
         for radius in [0, 20, 1000, 5000, i16::MAX] {
             for angle in angles.iter() {

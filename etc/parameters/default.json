@@ -1483,9 +1483,10 @@
     "ransac_iterations": 2500,
     "ransac_sample_size_percentage": 0.8999999761581421,
     "refine": {
-      "center_line_point_exclusion_distance_factor": 0.10000000149011612,
+      "center_line_point_exclusion_distance_factor": 0.14,
       "hough_rho_bin_size": 10,
-      "hough_threshold": 200
+      "hough_threshold": 10,
+      "hough_nms_radius": 2
     },
     "run_next_cycle_after_ms": 5,
     "skip_rgb_based_difference_image": false,

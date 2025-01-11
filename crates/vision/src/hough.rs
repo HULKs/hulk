@@ -11,7 +11,7 @@ pub(crate) struct HoughParams {
     // point_inclusion_distance: f32,
     pub peak_threshold: u32,
     pub rho_bin_size: usize,
-    // pub suppression_radius: usize, // radius *2 + 1 square region around each parameter
+    pub suppression_radius: usize, // radius *2 + 1 square region around each parameter
 }
 
 pub(crate) fn get_hough_line_with_edges_imgproc<T>(

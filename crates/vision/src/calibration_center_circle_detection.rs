@@ -79,9 +79,11 @@ pub struct CycleContext {
     >,
     refine_hough_rho_bin_size:
         Parameter<usize, "calibration_center_circle_detection.refine.hough_rho_bin_size">,
-
     refine_hough_threshold:
         Parameter<usize, "calibration_center_circle_detection.refine.hough_threshold">,
+    refine_hough_nms_radius:
+        Parameter<usize, "calibration_center_circle_detection.refine.hough_nms_radius">,
+
     center_line_point_exclusion_distance_factor: Parameter<
         f32,
         "calibration_center_circle_detection.refine.center_line_point_exclusion_distance_factor",
@@ -245,7 +247,7 @@ fn get_center_circle_lines(
         return None;
     }
     let circle_points_pixel = &center_circle.used_points_original;
-    let roi_padding = 30.0;
+    let roi_padding = 10.0;
     let roi = get_center_circle_roi(circle_points_pixel, (roi_padding, roi_padding));
     let roi_x_range = roi.min.x()..=roi.max.x();
     let roi_y_range = roi.min.y()..=roi.max.y();
@@ -264,7 +266,7 @@ fn get_center_circle_lines(
     // let mut rng = ChaChaRng::from_entropy();
 
     let min_dim = roi_height.min(roi_width);
-    let min_distance_from_center = (min_dim - roi_padding) * 0.20;
+    let min_distance_from_center_squared = ((min_dim - roi_padding) * 0.20).powi(2);
     // let lines = (0..20)
     //     .flat_map(|_| {
     //         let result = line_ransac.next_line(
@@ -291,6 +293,7 @@ fn get_center_circle_lines(
         &HoughParams {
             peak_threshold: *context.refine_hough_threshold as u32,
             rho_bin_size: *context.refine_hough_rho_bin_size,
+            suppression_radius: *context.refine_hough_nms_radius,
         },
     );
     {
@@ -302,7 +305,7 @@ fn get_center_circle_lines(
         }
     }
     // Construct the center line by clustering all lines
-    let clustering_max_line_to_line_distance = 25.0;
+    let clustering_max_line_to_line_distance = 5.0;
     // [0.0, 1.0] range, using absolute cosine similarity
     let clustering_direction_cosine_similarity = (5.0f32).to_radians().cos();
     let middle_and_source_lines = match lines.len() {
@@ -310,7 +313,17 @@ fn get_center_circle_lines(
         1 => lines.first().map(|(line, _)| (*line, vec![*line])),
         _ => {
             let mut clusters: Vec<Vec<(_, _)>> = vec![];
-            let mut remaining_lines = lines.clone();
+            let mut remaining_lines: Vec<_> = lines
+                .iter()
+                .copied()
+                .filter(|(line, score)| {
+                    line.squared_distance_to(circle_center) < min_distance_from_center_squared
+                })
+                .collect();
+
+            if remaining_lines.is_empty() {
+                return None;
+            }
             while let Some((chosen_line, score)) = remaining_lines.pop() {
                 let mut current_cluster = vec![(chosen_line, score)];
                 if remaining_lines.len() < 2 {
@@ -349,7 +362,7 @@ fn get_center_circle_lines(
                     (
                         Line2::<Pixel> {
                             point: merged_point / cluster.len() as f32,
-                            direction: merged_direction * 150.0 / cluster.len() as f32,
+                            direction: merged_direction / cluster.len() as f32,
                         },
                         merged_point_count,
                     )
@@ -371,7 +384,6 @@ fn get_center_circle_lines(
         }
     };
 
-    // let point_distance = 6.0;
     let min_distance_from_line = 6.0f32
         .max(min_dim * *context.center_line_point_exclusion_distance_factor)
         .max(maximum_inclusion_distance);
@@ -383,11 +395,11 @@ fn get_center_circle_lines(
         let filtered_roi_points = roi_points
             .iter()
             .filter(|&&point| {
-                // source_lines
-                // .iter()
-                // .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
-                line.distance_to(point) > min_distance_from_line
-                    && (point - cleaned_center).norm() > min_distance_from_center
+                source_lines
+                .iter()
+                .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
+                // line.distance_to(point) > min_distance_from_line
+                    && (point - cleaned_center).norm_squared() > min_distance_from_center_squared
             })
             .copied()
             .collect();
@@ -403,7 +415,11 @@ fn get_center_circle_lines(
             ),
             source_lines
                 .iter()
-                .map(|line| LineSegment(line.point, line.point + line.direction))
+                .map(|line| {
+                    let d = line.direction * 150.0;
+                    let p = line.closest_point(circle_center);
+                    LineSegment(p - d, p + d)
+                })
                 .collect_vec(),
         )
     })
