@@ -83,17 +83,21 @@ impl App for DependencyInspector {
                 .iter()
                 .chain(&cycler.cycle_nodes)
                 .collect();
+            let mut node_selection_changed = false;
             ui.input_mut(|input| {
                 if input.consume_key(Modifiers::NONE, Key::ArrowUp) {
                     self.selected_node_index =
                         Some(self.selected_node_index.unwrap_or(0).saturating_sub(1));
+                    node_selection_changed = true;
                 }
                 if input.consume_key(Modifiers::NONE, Key::ArrowDown) {
                     self.selected_node_index =
                         Some((self.selected_node_index.unwrap_or(0) + 1).min(nodes.len() - 1));
+                    node_selection_changed = true;
                 }
                 if input.consume_key(Modifiers::NONE, Key::Escape) {
                     self.selected_node_index = None;
+                    node_selection_changed = true;
                 }
             });
 
@@ -104,6 +108,9 @@ impl App for DependencyInspector {
                     let mut node_points = Vec::new();
                     for (index, node) in nodes.iter().enumerate() {
                         let label = ui.label(&node.name);
+                        if node_selection_changed && self.selected_node_index == Some(index) {
+                            label.scroll_to_me(None);
+                        }
                         if label.clicked {
                             self.selected_node_index = Some(index);
                         }
