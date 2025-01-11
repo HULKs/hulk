@@ -155,7 +155,6 @@ async fn read_requested_environment(manifest_path: &Option<PathBuf>) -> Result<E
         return Ok(Environment::Native);
     }
 
-    #[cfg(target_os = "linux")]
     if cfg!(target_os = "linux") {
         Ok(Environment::Sdk { version: None })
     } else {
