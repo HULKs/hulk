@@ -25,8 +25,8 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
-    majority_vote_is_referee_ready_pose_detected:
-        Input<bool, "majority_vote_is_referee_ready_pose_detected">,
+    is_majority_vote_referee_ready_pose_detected:
+        Input<bool, "is_majority_vote_referee_ready_pose_detected">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
     wait_for_opponent_penalties_period:
@@ -82,8 +82,8 @@ impl SacrificialLamb {
             .max();
 
         let current_majority_vote_verdict = !self.last_majority_vote_verdict
-            && *context.majority_vote_is_referee_ready_pose_detected;
-        self.last_majority_vote_verdict = *context.majority_vote_is_referee_ready_pose_detected;
+            && *context.is_majority_vote_referee_ready_pose_detected;
+        self.last_majority_vote_verdict = *context.is_majority_vote_referee_ready_pose_detected;
 
         let motion_in_standby =
             new_motion_in_standby_count.map_or(false, |new_motion_in_standby_count| {
