@@ -1,3 +1,7 @@
+import numpy as np
+from numpy.typing import NDArray
+
+
 class HeadJoints:
     def __init__(self, getter, setter):
         self.getter = getter
@@ -198,3 +202,45 @@ class Nao:
             for joint, value in joint_values.items():
                 setattr(joint_data, joint, value)
                 setattr(actuator_data, joint, value)
+
+    def left_fsr_values(self) -> NDArray[np.floating]:
+        return np.array(
+            [
+                self.data.sensor(
+                    "force_sensitive_resistors.left.front_left"
+                ).data,
+                self.data.sensor(
+                    "force_sensitive_resistors.left.front_right"
+                ).data,
+                self.data.sensor(
+                    "force_sensitive_resistors.left.rear_left"
+                ).data,
+                self.data.sensor(
+                    "force_sensitive_resistors.left.rear_right"
+                ).data,
+            ]
+        )
+
+    def right_fsr_values(self) -> NDArray[np.floating]:
+        return np.array(
+            [
+                self.data.sensor(
+                    "force_sensitive_resistors.right.front_left"
+                ).data,
+                self.data.sensor(
+                    "force_sensitive_resistors.right.front_right"
+                ).data,
+                self.data.sensor(
+                    "force_sensitive_resistors.right.rear_left"
+                ).data,
+                self.data.sensor(
+                    "force_sensitive_resistors.right.rear_right"
+                ).data,
+            ]
+        )
+
+    def gyroscope(self) -> NDArray[np.floating]:
+        return self.data.sensor("gyroscope").data
+
+    def accelerometer(self) -> NDArray[np.floating]:
+        return self.data.sensor("accelerometer").data

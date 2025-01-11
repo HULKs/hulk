@@ -5,12 +5,12 @@ from .walking import (
 from .walking_types import Control, Feet, Measurements, Parameters, Side, State
 
 __all__ = [
+    "Control",
     "Feet",
     "Measurements",
     "Parameters",
-    "Control",
     "Side",
     "State",
-    "step",
     "compute_lower_body_joints",
+    "step",
 ]
