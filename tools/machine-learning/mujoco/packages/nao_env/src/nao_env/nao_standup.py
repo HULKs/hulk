@@ -63,8 +63,8 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         nao = Nao(self.model, self.data)
 
         uph_reward = rewards.maximum_head_height(nao) / self.model.opt.timestep
-        quad_ctrl_reward = 0.1 * rewards.low_ctrl_amplitude(nao)
-        quad_impact_reward = min(0.5e-6 * rewards.impact_forces(nao), 10)
+        quad_ctrl_reward = -0.1 * rewards.low_ctrl_amplitude(nao)
+        quad_impact_reward = -min(0.5e-6 * rewards.impact_forces(nao), 10)
 
         reward = (
             self.model.opt.timestep + quad_ctrl_reward + quad_impact_reward + 1
