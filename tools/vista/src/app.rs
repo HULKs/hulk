@@ -285,7 +285,7 @@ impl App for DependencyInspector {
                     }
                     painter.line_segment(
                         [node_points[selected_node_index], input_end],
-                        PathStroke::new(1.0, Color32::GREEN),
+                        PathStroke::new(1.0, Color32::LIGHT_BLUE),
                     );
                 });
         });
