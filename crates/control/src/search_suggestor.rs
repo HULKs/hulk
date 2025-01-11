@@ -171,7 +171,7 @@ fn get_rule_hypotheses(
 
     match (primary_state, filtered_game_controller_state.sub_state) {
         (PrimaryState::Ready, Some(SubState::PenaltyKick)) => {
-            let kick_half = kicking_team_half.unwrap_or_else(|| Half::Own).mirror();
+            let kick_half = kicking_team_half.unwrap_or(Half::Own).mirror();
             vec![field_dimensions.penalty_spot(kick_half)]
         }
         // Kick-off

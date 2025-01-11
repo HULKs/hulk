@@ -164,7 +164,7 @@ impl ReadySignalDetectionFilter {
         Ok(ReadySignalDetectionFeedback {
             is_referee_ready_pose_detected: detected_referee_pose_count
                 >= *context.minimum_number_poses_before_message,
-            did_detect_any_ready_signal_this_cycle: did_detect_any_ready_signal_this_cycle,
+            did_detect_any_ready_signal_this_cycle,
         })
     }
 }

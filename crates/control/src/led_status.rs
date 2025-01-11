@@ -278,6 +278,7 @@ impl LedStatus {
         ear
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn get_eyes(
         cycle_start_time: SystemTime,
         primary_state: &PrimaryState,
