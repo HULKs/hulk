@@ -62,12 +62,15 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         self.do_simulation(action, self.frame_skip)
         nao = Nao(self.model, self.data)
 
-        uph_reward = rewards.maximum_head_height(nao) / self.model.opt.timestep
-        quad_ctrl_reward = -0.1 * rewards.low_ctrl_amplitude(nao)
-        quad_impact_reward = -min(0.5e-6 * rewards.impact_forces(nao), 10)
+        head_elevation_reward = rewards.head_height(nao)
+        control_amplitude_penalty = 0.1 * rewards.ctrl_amplitude(nao)
+        impact_penalty = min(0.5e-6 * rewards.impact_forces(nao), 10)
 
         reward = (
-            self.model.opt.timestep + quad_ctrl_reward + quad_impact_reward + 1
+            head_elevation_reward
+            - control_amplitude_penalty
+            - impact_penalty
+            + 1
         )
 
         if self.render_mode == "human":
@@ -79,9 +82,9 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
             False,
             False,
             {
-                "reward_linup": uph_reward,
-                "reward_quadctrl": quad_ctrl_reward,
-                "reward_impact": quad_impact_reward,
+                "head_elevation_reward": head_elevation_reward,
+                "control_amplitude_penalty": control_amplitude_penalty,
+                "impact_penalty": impact_penalty,
             },
         )
 
