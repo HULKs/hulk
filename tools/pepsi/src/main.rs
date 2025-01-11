@@ -6,7 +6,6 @@ use color_eyre::{
     eyre::{ContextCompat, WrapErr},
     Result,
 };
-use log::warn;
 use repository::{find_root::find_repository_root, inspect_version::check_for_update};
 
 use aliveness::aliveness;
@@ -27,6 +26,7 @@ use reboot::reboot;
 use recording::recording;
 use sdk::sdk;
 use shell::shell;
+use tracing::warn;
 use upload::upload;
 use wifi::wifi;
 
@@ -60,6 +60,8 @@ struct Arguments {
     repository_root: Option<PathBuf>,
     #[command(subcommand)]
     command: Command,
+    #[arg(long)]
+    verbose: bool,
 }
 
 #[derive(Subcommand)]
@@ -124,12 +126,18 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let arguments = Arguments::parse();
+    let level = if arguments.verbose {
+        tracing::Level::TRACE
+    } else {
+        tracing::Level::WARN
+    };
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
+        .without_time()
+        .with_max_level(level)
         .init();
     HookBuilder::new().display_env_section(false).install()?;
 
-    let arguments = Arguments::parse();
     let repository_root = arguments.repository_root.map(Ok).unwrap_or_else(|| {
         let current_directory = current_dir().wrap_err("failed to get current directory")?;
         find_repository_root(current_directory).wrap_err("failed to find repository root")

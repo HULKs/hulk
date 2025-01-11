@@ -6,7 +6,6 @@ use color_eyre::{
     owo_colors::{OwoColorize, Style},
     Result,
 };
-use log::error;
 
 use aliveness::{
     query_aliveness,
@@ -15,6 +14,7 @@ use aliveness::{
 };
 use argument_parsers::NaoAddress;
 use repository::configuration::read_os_version;
+use tracing::error;
 
 #[derive(Args)]
 pub struct Arguments {

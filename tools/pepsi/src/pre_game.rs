@@ -13,7 +13,6 @@ use argument_parsers::{
     parse_network, NaoAddress, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES,
 };
 use indicatif::ProgressBar;
-use log::warn;
 use nao::{Nao, Network, SystemctlAction};
 use repository::{
     communication::configure_communication,
@@ -149,7 +148,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
             .wrap_err("failed to build")?;
     }
     if arguments.pre_game.prepare {
-        warn!("Preparation complete, skipping the rest");
+        eprintln!("Preparation complete, skipping the rest");
         return Ok(());
     }
 

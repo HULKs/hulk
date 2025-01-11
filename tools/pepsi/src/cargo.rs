@@ -12,6 +12,7 @@ use color_eyre::{
 use environment::{Environment, EnvironmentArguments};
 use pathdiff::diff_paths;
 use repository::cargo::Cargo;
+use tokio::fs::read_to_string;
 use toml::Table;
 
 pub mod build;
@@ -74,7 +75,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     }
     .resolve(&repository_root)
     .await
-    .wrap_err("failed to resolve enviroment")?;
+    .wrap_err("failed to resolve environment")?;
 
     eprintln!("Using cargo from {environment}");
 
@@ -128,9 +129,12 @@ async fn read_requested_environment(manifest_path: &Option<PathBuf>) -> Result<E
         return Ok(Environment::Native);
     };
 
-    let manifest = tokio::fs::read_to_string(manifest_path)
-        .await
-        .wrap_err("failed to read manifest at {manifest_path}")?;
+    let manifest = read_to_string(manifest_path).await.wrap_err_with(|| {
+        format!(
+            "failed to read manifest at {path}",
+            path = manifest_path.display()
+        )
+    })?;
     let manifest: Table = toml::from_str(&manifest).wrap_err("failed to parse manifest")?;
     let Some(package_metadata) = package_metadata(&manifest) else {
         return Ok(Environment::Native);

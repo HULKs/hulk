@@ -5602,7 +5602,6 @@ dependencies = [
  "glob",
  "indicatif",
  "lazy_static",
- "log",
  "nao",
  "opn",
  "pathdiff",
