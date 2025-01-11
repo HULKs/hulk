@@ -139,20 +139,8 @@ def main():
     while handle.is_running():
         with handle.lock():
             start_time = time.time()
-            fsr_positions = [
-                "rear_left",
-                "rear_right",
-                "front_left",
-                "front_right",
-            ]
-            right_pressure = sum(
-                nao.data.sensor(f"force_sensitive_resistors.right.{pos}").data
-                for pos in fsr_positions
-            )
-            left_pressure = sum(
-                nao.data.sensor(f"force_sensitive_resistors.left.{pos}").data
-                for pos in fsr_positions
-            )
+            left_pressure = nao.left_fsr_values().sum()
+            right_pressure = nao.right_fsr_values().sum()
             measurements = Measurements(left_pressure, right_pressure)
 
             if throwable.has_ground_contact():
