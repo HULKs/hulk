@@ -6,8 +6,10 @@ import rewards
 from gymnasium import utils
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
-from nao_interface import Nao
+from nao_interface.nao_interface import Nao
+from nao_interface.poses import PENALIZED_POSE
 from numpy.typing import NDArray
+from throwing import ThrowableObject
 
 DEFAULT_CAMERA_CONFIG = {
     "trackbodyid": 1,
@@ -15,6 +17,36 @@ DEFAULT_CAMERA_CONFIG = {
     "lookat": np.array((0.0, 0.0, 0.8925)),
     "elevation": -20.0,
 }
+
+OFFSET_QPOS = np.array(
+    [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.09,
+        -0.06,
+        0.01,
+        -0.002,
+        0.0,
+        0.09,
+        -0.06,
+        0.01,
+        0.002,
+        1.57,
+        0.1,
+        -1.57,
+        0.0,
+        0.0,
+        1.57,
+        -0.1,
+        1.57,
+        0.0,
+        0.0,
+    ],
+)
+
+HEAD_SET_HEIGHT = 0.51
 
 SENSOR_NAMES = [
     "accelerometer",
@@ -46,32 +78,45 @@ SENSOR_NAMES = [
 ]
 
 
-class NaoStandup(MujocoEnv, utils.EzPickle):
+class NaoStanding(MujocoEnv, utils.EzPickle):
     metadata: ClassVar = {
         "render_modes": [
             "human",
             "rgb_array",
             "depth_array",
         ],
-        "render_fps": 67,
+        "render_fps": 83,
     }
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *,
+        throw_tomatoes: bool,
+        **kwargs: Any,
+    ) -> None:
         observation_space = Box(
             low=-np.inf,
             high=np.inf,
-            shape=(31,),
+            shape=(37,),
             dtype=np.float64,
         )
 
         MujocoEnv.__init__(
             self,
             str(Path.cwd() / "model/scene.xml"),
-            5,
+            frame_skip=4,
             observation_space=observation_space,
             default_camera_config=DEFAULT_CAMERA_CONFIG,
             **kwargs,
         )
+        self.throw_tomatoes = throw_tomatoes
+        self.projectile = ThrowableObject(
+            model=self.model,
+            data=self.data,
+            plane_body="floor",
+            throwable_body="tomato",
+        )
+        self.current_step = 0
         utils.EzPickle.__init__(self, **kwargs)
 
     @override
@@ -93,83 +138,51 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:
-        self.do_simulation(action, self.frame_skip)
+        self.current_step += 1
         nao = Nao(self.model, self.data)
 
-        head_elevation_reward = rewards.head_height(nao)
-        control_amplitude_penalty = 0.1 * rewards.ctrl_amplitude(nao)
-        impact_penalty = min(0.5e-6 * rewards.impact_forces(nao), 10)
+        if self.throw_tomatoes and self.projectile.has_ground_contact():
+            robot_site_id = self.model.site("Robot").id
+            target = self.data.site_xpos[robot_site_id]
+            alpha = self.current_step / 2500
+            time_to_reach = 0.2 * (1 - alpha) + 0.1 * alpha
+            self.projectile.random_throw(
+                target,
+                time_to_reach=time_to_reach,
+                distance=1.0,
+            )
 
-        reward = (
-            head_elevation_reward
-            - control_amplitude_penalty
-            - impact_penalty
-            + 1
-        )
+        last_action = self.data.ctrl.copy()
+        self.do_simulation(action + OFFSET_QPOS, self.frame_skip)
+        head_center_z = self.data.site("head_center").xpos[2]
+
+        action_penalty = 0.1 * rewards.action_rate(nao, last_action)
+        vertical_head_penalty = 2.0 * rewards.head_z_error(nao, HEAD_SET_HEIGHT)
+        lateral_head_penalty = 1.0 * rewards.head_xy_error(nao, np.zeros(2))
 
         if self.render_mode == "human":
             self.render()
 
+        terminated = head_center_z < 0.3
+        reward = (
+            0.05 - action_penalty - vertical_head_penalty - lateral_head_penalty
+        )
+
         return (
             self._get_obs(),
             reward,
+            terminated,
             False,
-            False,
-            {
-                "head_elevation_reward": head_elevation_reward,
-                "control_amplitude_penalty": control_amplitude_penalty,
-                "impact_penalty": impact_penalty,
-            },
+            {},
         )
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
-        half_random_offset = 0.03
-        face_down_keyframe_qpos = [
-            0.452845,
-            0.219837,
-            0.0556939,
-            0.710551,
-            -0.0810676,
-            0.693965,
-            0.0834173,
-            -0.000571484,
-            0.0239414,
-            0.000401842,
-            -3.89047e-05,
-            -0.00175077,
-            0.357233,
-            0.0114063,
-            0.000212495,
-            0.000422366,
-            3.92127e-05,
-            -0.00133669,
-            0.356939,
-            0.0112884,
-            -0.000206283,
-            1.46985,
-            0.110264,
-            0.000766453,
-            -0.034298,
-            3.65047e-05,
-            1.47067,
-            -0.110094,
-            -0.00201064,
-            0.0342998,
-            -0.00126886,
-        ]
+        self.current_step = 0
         self.set_state(
-            face_down_keyframe_qpos
-            + self.np_random.uniform(
-                low=-half_random_offset,
-                high=half_random_offset,
-                size=self.model.nq,
-            ),
-            self.init_qvel
-            + self.np_random.uniform(
-                low=-half_random_offset,
-                high=half_random_offset,
-                size=self.model.nv,
-            ),
+            self.init_qpos,
+            self.init_qvel,
         )
+        nao = Nao(self.model, self.data)
+        nao.reset(PENALIZED_POSE)
         return self._get_obs()

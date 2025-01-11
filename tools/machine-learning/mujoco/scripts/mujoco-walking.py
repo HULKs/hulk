@@ -82,7 +82,7 @@ def apply_walking(
     measurements: Measurements,
     control: Control,
     dt: float,
-):
+) -> None:
     state, left_sole, left_lift, right_sole, right_lift = walking_engine.step(
         state,
         measurements,
@@ -102,7 +102,10 @@ def apply_walking(
         measurements.pressure_right = 0.0
 
     lower_body_joints = walking_engine.compute_lower_body_joints(
-        left_sole, right_sole, left_lift, right_lift
+        left_sole,
+        right_sole,
+        left_lift,
+        right_lift,
     )
 
     nao.actuators.left_leg.ankle_pitch = lower_body_joints.left.ankle_pitch
@@ -119,7 +122,7 @@ def apply_walking(
     nao.actuators.right_leg.hip_roll = lower_body_joints.right.hip_roll
 
 
-def main():
+def main() -> None:
     model = mujoco.MjModel.from_xml_path("model/scene.xml")
     data = mujoco.MjData(model)
     mujoco.mj_resetDataKeyframe(model, data, 1)

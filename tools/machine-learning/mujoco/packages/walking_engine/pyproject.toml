@@ -3,7 +3,7 @@ name = "walking-engine"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.10"
-dependencies = ["numpy", "robot-dimensions"]
+dependencies = ["numpy>=1.2.0", "robot-dimensions"]
 
 [build-system]
 requires = ["hatchling"]

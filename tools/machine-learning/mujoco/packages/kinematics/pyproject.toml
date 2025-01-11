@@ -3,7 +3,8 @@ name = "kinematics"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.10"
-dependencies = ["numpy", "robot-dimensions", "transforms"]
+
+dependencies = ["numpy>=1.2", "robot-dimensions", "transforms"]
 
 [build-system]
 requires = ["hatchling"]
