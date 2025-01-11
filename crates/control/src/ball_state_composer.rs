@@ -25,6 +25,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    last_ball_state: CyclerState<BallState, "last_ball_state">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
@@ -124,6 +126,8 @@ impl BallStateComposer {
             )),
             _ => None,
         };
+
+        *context.last_ball_state = ball.unwrap_or(BallState::default());
 
         Ok(MainOutputs {
             ball_state: ball.into(),
