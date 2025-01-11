@@ -45,9 +45,9 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
 
     initial_message_grace_period:
-        Parameter<Duration, "free_kick_signal_filter.initial_message_grace_period">,
+        Parameter<Duration, "free_kick_signal_detection_filter.initial_message_grace_period">,
     minimum_free_kick_signal_detections:
-        Parameter<usize, "free_kick_signal_filter.minimum_free_kick_signal_detections">,
+        Parameter<usize, "free_kick_signal_detection_filter.minimum_free_kick_signal_detections">,
     player_number: Parameter<PlayerNumber, "player_number">,
     referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
     minimum_number_poses_before_message:
