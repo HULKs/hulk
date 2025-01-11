@@ -2,6 +2,8 @@ use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
+use crate::field_dimensions::GlobalFieldSide;
+
 #[derive(
     Debug,
     Default,
@@ -16,6 +18,9 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum PoseKind {
     AboveHeadArms,
+    FreeKickPose {
+        global_field_side: GlobalFieldSide,
+    },
     #[default]
     UndefinedPose,
 }
