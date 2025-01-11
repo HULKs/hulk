@@ -195,7 +195,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 remaining_amount_of_messages: message.teams[opponent_team_index].messageBudget,
                 players: opponent_players,
             },
-            kicking_team: Some(Team::try_from(message.kickingTeam)?),
+            kicking_team: Team::try_from(message.kickingTeam).ok(),
             hulks_team_is_home_after_coin_toss: hulks_team_index == 0,
         })
     }
