@@ -15,6 +15,7 @@ members = [
     "mujoco-env",
     "nao-env",
     "nao-interface",
+    "rewards",
     "robot-dimensions",
     "throwing",
     "transforms",
@@ -1137,6 +1138,7 @@ dependencies = [
     { name = "nao-env" },
     { name = "nao-interface" },
     { name = "numpy" },
+    { name = "rewards" },
     { name = "robot-dimensions" },
     { name = "scipy" },
     { name = "stable-baselines3" },
@@ -1165,6 +1167,7 @@ requires-dist = [
     { name = "nao-env", editable = "packages/nao_env" },
     { name = "nao-interface", editable = "packages/nao_interface" },
     { name = "numpy", specifier = ">=2.1.2" },
+    { name = "rewards", editable = "packages/rewards" },
     { name = "robot-dimensions", editable = "packages/robot_dimensions" },
     { name = "scipy", specifier = ">=1.14.1" },
     { name = "stable-baselines3", specifier = ">=2.3.2" },
@@ -1188,13 +1191,17 @@ version = "0.1.0"
 source = { editable = "packages/nao_env" }
 dependencies = [
     { name = "gymnasium" },
+    { name = "nao-interface" },
     { name = "numpy" },
+    { name = "rewards" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "gymnasium" },
+    { name = "nao-interface", editable = "packages/nao_interface" },
     { name = "numpy" },
+    { name = "rewards", editable = "packages/rewards" },
 ]
 
 [[package]]
@@ -2008,6 +2015,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928 },
+]
+
+[[package]]
+name = "rewards"
+version = "0.1.0"
+source = { editable = "packages/rewards" }
+dependencies = [
+    { name = "nao-interface" },
+    { name = "numpy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "nao-interface", editable = "packages/nao_interface" },
+    { name = "numpy" },
 ]
 
 [[package]]

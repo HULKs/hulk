@@ -3,7 +3,7 @@ name = "throwing"
 version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.10"
-dependencies = ["numpy", "mujoco"]
+dependencies = ["mujoco", "numpy"]
 
 [build-system]
 requires = ["hatchling"]

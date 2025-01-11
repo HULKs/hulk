@@ -20,6 +20,21 @@ keys = ["tool.uv"]
 
 [rule.formatting]
 array_auto_collapse = false
+reorder_arrays = true
+
+[[rule]]
+include = ["**/pyproject.toml"]
+keys = ["tool.uv.sources"]
+
+[rule.formatting]
+reorder_keys = true
+
+[[rule]]
+include = ["**/pyproject.toml"]
+keys = ["project"]
+
+[rule.formatting]
+reorder_arrays = true
 
 [[rule]]
 include = ["**/Cargo.toml"]
