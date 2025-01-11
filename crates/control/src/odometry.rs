@@ -65,7 +65,7 @@ impl Odometry {
         );
         self.last_left_sole_to_right_sole = left_sole_to_right_sole;
         let corrected_offset_to_last_position =
-            offset_to_last_position.component_mul(*context.odometry_scale_factor);
+            offset_to_last_position.component_mul(context.odometry_scale_factor);
 
         let (_, _, yaw) = context.robot_orientation.inner.euler_angles();
         let orientation = Orientation2::new(yaw);

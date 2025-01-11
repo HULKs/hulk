@@ -53,7 +53,7 @@ impl<Frame> LineSegment<Frame> {
         let normal_vector = Direction::Counterclockwise
             .rotate_vector_90_degrees(line_vector)
             .normalize();
-        normal_vector.dot(point.coords()) - normal_vector.dot(self.0.coords())
+        normal_vector.dot(&point.coords()) - normal_vector.dot(&self.0.coords())
     }
 
     pub fn signed_acute_angle(&self, other: Self) -> f32 {
@@ -63,7 +63,7 @@ impl<Frame> LineSegment<Frame> {
     }
 
     pub fn angle(&self, other: Self) -> f32 {
-        (self.1 - self.0).angle(other.1 - other.0)
+        (self.1 - self.0).angle(&(other.1 - other.0))
     }
 
     pub fn signed_acute_angle_to_orthogonal(&self, other: Self) -> f32 {
@@ -79,7 +79,7 @@ impl<Frame> LineSegment<Frame> {
     }
 
     pub fn projection_factor(&self, point: Point2<Frame>) -> f32 {
-        let projection = (point - self.0).dot(self.1 - self.0);
+        let projection = (point - self.0).dot(&(self.1 - self.0));
 
         projection / self.length_squared()
     }
@@ -129,7 +129,7 @@ impl<Frame> LineSegment<Frame> {
     pub fn get_direction(&self, point: Point2<Frame>) -> Direction {
         let direction_vector = self.1 - self.0;
         let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()];
-        let directed_cathetus = clockwise_normal_vector.dot(point - self.0);
+        let directed_cathetus = clockwise_normal_vector.dot(&(point - self.0));
 
         match directed_cathetus {
             f if f == 0.0 => Direction::Colinear,
@@ -144,7 +144,7 @@ impl<Frame> LineSegment<Frame> {
             return false;
         }
 
-        let projection = (arc.circle.center - self.0).dot(self.1 - self.0);
+        let projection = (arc.circle.center - self.0).dot(&(self.1 - self.0));
         let projected_point_relative_contribution = projection / self.length_squared();
         let base_point = self.0 + (self.1 - self.0) * projected_point_relative_contribution;
 

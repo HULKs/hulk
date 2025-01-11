@@ -312,7 +312,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let glance_factor = 0.0; //self.time_elapsed.as_secs_f32().sin();
-                target.coords().angle(Vector2::x_axis())
+                target.coords().angle(&Vector2::x_axis())
                     + glance_factor * robot.parameters.look_at.glance_angle
             }
             HeadMotion::Unstiff => 0.0,
@@ -362,7 +362,7 @@ pub fn cycle_robots(
                 Rotation2::new(robot.database.main_outputs.sensor_data.positions.head.yaw);
             let ball_in_head: Point2<Head> = head_to_ground.inverse() * ball_in_ground;
             let field_of_view = robot.field_of_view();
-            let angle_to_ball = ball_in_head.coords().angle(Vector2::x_axis());
+            let angle_to_ball = ball_in_head.coords().angle(&Vector2::x_axis());
 
             angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.coords().norm() < 3.0
         });

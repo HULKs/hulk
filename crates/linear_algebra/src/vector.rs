@@ -74,21 +74,21 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
         self.inner.norm_squared()
     }
 
-    pub fn dot(&self, rhs: Self) -> T
+    pub fn dot(&self, rhs: &Self) -> T
     where
         T: Scalar + Zero + ClosedAdd + ClosedMul,
     {
         self.inner.dot(&rhs.inner)
     }
 
-    pub fn angle(&self, rhs: Self) -> T::SimdRealField
+    pub fn angle(&self, rhs: &Self) -> T::SimdRealField
     where
         T: SimdComplexField,
     {
         self.inner.angle(&rhs.inner)
     }
 
-    pub fn component_mul(&self, rhs: Self) -> Self
+    pub fn component_mul(&self, rhs: &Self) -> Self
     where
         T: Scalar + ClosedMul,
     {

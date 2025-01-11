@@ -124,7 +124,7 @@ impl ActiveVision {
 }
 
 fn is_position_visible(position: Point2<Ground>, parameters: LookActionParameters) -> bool {
-    Vector2::x_axis().angle(position.coords()).abs() < parameters.angle_threshold
+    Vector2::x_axis().angle(&position.coords()).abs() < parameters.angle_threshold
         && position.coords().norm() < parameters.distance_threshold
 }
 

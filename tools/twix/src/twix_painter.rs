@@ -158,10 +158,10 @@ impl<World> TwixPainter<World> {
         } = arc;
         let start_relative = start - center;
         let end_relative = end - center;
-        let angle_difference = start_relative.angle(end_relative);
+        let angle_difference = start_relative.angle(&end_relative);
         let end_right_of_start = Direction::Counterclockwise
             .rotate_vector_90_degrees(start_relative)
-            .dot(end_relative)
+            .dot(&end_relative)
             < 0.0;
         let counterclockwise_angle_difference = if end_right_of_start {
             TAU - angle_difference

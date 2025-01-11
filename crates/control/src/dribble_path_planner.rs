@@ -25,7 +25,8 @@ pub fn plan(
     let robot_to_ball = ball_position_in_ground.coords();
     let dribble_pose_to_ball = ball_position_in_ground - best_pose.position();
 
-    let angle = robot_to_ball.angle(dribble_pose_to_ball);
+    let angle = robot_to_ball.angle(&dribble_pose_to_ball);
+
     let should_avoid_ball = angle > dribbling_parameters.angle_to_approach_ball_from_threshold;
     let ball_obstacle = should_avoid_ball.then_some(ball_position_in_ground);
 
