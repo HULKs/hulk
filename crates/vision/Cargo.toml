@@ -12,13 +12,15 @@ color-eyre = { workspace = true }
 compiled-nn = { workspace = true }
 context_attribute = { workspace = true }
 coordinate_systems = { workspace = true }
+edge_detection = { workspace = true }
 filtering = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
-linear_algebra = { workspace = true }
-edge_detection = { workspace = true }
+image = { workspace = true }
+imageproc = { workspace = true }
 itertools = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }

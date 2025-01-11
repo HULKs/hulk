@@ -247,6 +247,10 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
     OutputType: PrimInt + AsPrimitive<KType>,
 {
     let kernel_half = KSIZE / 2;
+    // To be improved
+    if transposed_image.nrows() < KSIZE || transposed_image.ncols() < KSIZE {
+        return;
+    }
     let max_allowed_sum: KType = OutputType::max_value().as_();
     let min_allowed_sum: KType = OutputType::min_value().as_();
 

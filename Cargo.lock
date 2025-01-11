@@ -7799,6 +7799,8 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
+ "image 0.24.9",
+ "imageproc",
  "itertools 0.10.5",
  "linear_algebra",
  "nalgebra",

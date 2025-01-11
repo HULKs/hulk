@@ -640,7 +640,7 @@ mod edge_points {
                 None,
             ))
         });
-        get_flamegraph("edges_our_canny", guard);
+        get_flamegraph(format!("edges_our_canny_{sigma}").as_str(), guard);
     }
 
     #[bench]

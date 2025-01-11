@@ -35,7 +35,10 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-use crate::hough::get_center_circle_roi;
+use crate::hough::{
+    get_center_circle_roi, get_hough_line_with_edges, get_hough_line_with_edges_imgproc,
+    HoughParams,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct CalibrationMeasurementDetection {
@@ -74,6 +77,16 @@ pub struct CycleContext {
         Option<f32>,
         "calibration_center_circle_detection.ransac_sample_size_percentage?",
     >,
+    refine_hough_rho_bin_size:
+        Parameter<usize, "calibration_center_circle_detection.refine.hough_rho_bin_size">,
+
+    refine_hough_threshold:
+        Parameter<usize, "calibration_center_circle_detection.refine.hough_threshold">,
+    center_line_point_exclusion_distance_factor: Parameter<
+        f32,
+        "calibration_center_circle_detection.refine.center_line_point_exclusion_distance_factor",
+    >,
+
     run_next_cycle_after_ms:
         Parameter<u64, "calibration_center_circle_detection.run_next_cycle_after_ms">,
     calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
@@ -164,15 +177,15 @@ impl CalibrationMeasurementDetection {
             //             .map(|line| LineSegment(line.point, line.point + line.direction))
             //     })
             //     .collect()
-            filtered_calibration_circles_ground
-                .iter()
-                .map(|(_, line, _)| *line)
-                .collect()
-
             // filtered_calibration_circles_ground
             //     .iter()
-            //     .flat_map(|(_, line, _)| line.clone())
+            //     .map(|(_, line, _)| *line)
             //     .collect()
+
+            filtered_calibration_circles_ground
+                .iter()
+                .flat_map(|(_, lines, _)| lines.clone())
+                .collect()
         });
         context
             .detected_edge_points
@@ -245,58 +258,61 @@ fn get_center_circle_lines(
         .cloned()
         .collect();
 
-    let maximum_score_distance = 10.0;
+    // let maximum_score_distance = 10.0;
     let maximum_inclusion_distance = 10.0;
-    let mut line_ransac = ransac::Ransac::new(roi_points.clone());
-    let mut rng = ChaChaRng::from_entropy();
+    // let mut line_ransac = ransac::Ransac::new(roi_points.clone());
+    // let mut rng = ChaChaRng::from_entropy();
 
     let min_dim = roi_height.min(roi_width);
     let min_distance_from_center = (min_dim - roi_padding) * 0.20;
-    let lines = (0..20)
-        .flat_map(|_| {
-            let result = line_ransac.next_line(
-                &mut rng,
-                ransac_iters,
-                maximum_score_distance,
-                maximum_inclusion_distance,
-            );
-            result.line.and_then(|ransac_line| {
-                let distance = ransac_line.squared_distance_to(circle_center);
-                if distance < min_distance_from_center {
-                    Some((result.used_points, ransac_line, distance))
-                } else {
-                    None
-                }
-            })
-        })
-        .sorted_by(|a, b| a.0.len().cmp(&b.0.len()))
-        .collect_vec();
+    // let lines = (0..20)
+    //     .flat_map(|_| {
+    //         let result = line_ransac.next_line(
+    //             &mut rng,
+    //             ransac_iters,
+    //             maximum_score_distance,
+    //             maximum_inclusion_distance,
+    //         );
+    //         result.line.and_then(|ransac_line| {
+    //             let distance = ransac_line.squared_distance_to(circle_center);
+    //             if distance < min_distance_from_center {
+    //                 Some((result.used_points, ransac_line, distance))
+    //             } else {
+    //                 None
+    //             }
+    //         })
+    //     })
+    //     .sorted_by(|a, b| a.0.len().cmp(&b.0.len()))
+    //     .collect_vec();
 
+    let lines = get_hough_line_with_edges_imgproc(
+        &roi_points,
+        Some(roi),
+        &HoughParams {
+            peak_threshold: *context.refine_hough_threshold as u32,
+            rho_bin_size: *context.refine_hough_rho_bin_size,
+        },
+    );
     {
         // Ascending order
         if lines.len() >= 2 {
             let first = lines.first().unwrap();
             let last = lines.last().unwrap();
-            assert!(first.0.len() <= last.0.len());
+            assert!(first.1 <= last.1);
         }
     }
-
     // Construct the center line by clustering all lines
     let clustering_max_line_to_line_distance = 25.0;
     // [0.0, 1.0] range, using absolute cosine similarity
-    let clustering_direction_cosine_similarity = (10.0f32).to_radians().cos();
+    let clustering_direction_cosine_similarity = (5.0f32).to_radians().cos();
     let middle_and_source_lines = match lines.len() {
         0 => None,
-        1 => lines
-            .first()
-            .map(|(_used_points, line, _distance)| (*line, vec![*line])),
+        1 => lines.first().map(|(line, _)| (*line, vec![*line])),
         _ => {
             let mut clusters: Vec<Vec<(_, _)>> = vec![];
             let mut remaining_lines = lines.clone();
-            while let Some((chosen_points, chosen_line, chosen_distance_to_center)) =
-                remaining_lines.pop()
-            {
-                let mut current_cluster = vec![(chosen_line, chosen_points.len())];
+            while let Some((chosen_line, score)) = remaining_lines.pop() {
+                let mut current_cluster = vec![(chosen_line, score)];
                 if remaining_lines.len() < 2 {
                     clusters.push(current_cluster);
                     continue;
@@ -304,13 +320,13 @@ fn get_center_circle_lines(
 
                 remaining_lines[..remaining_lines.len() - 1]
                     .iter()
-                    .for_each(|(line2_points, line2, _)| {
+                    .for_each(|(line2, score)| {
                         if chosen_line.direction.dot(line2.direction).abs()
                             >= clustering_direction_cosine_similarity
                             && chosen_line.distance_to(line2.point)
                                 <= clustering_max_line_to_line_distance
                         {
-                            current_cluster.push((*line2, line2_points.len()));
+                            current_cluster.push((*line2, *score));
                         }
                     });
                 clusters.push(current_cluster);
@@ -333,7 +349,7 @@ fn get_center_circle_lines(
                     (
                         Line2::<Pixel> {
                             point: merged_point / cluster.len() as f32,
-                            direction: merged_direction / cluster.len() as f32,
+                            direction: merged_direction * 150.0 / cluster.len() as f32,
                         },
                         merged_point_count,
                     )
@@ -356,11 +372,14 @@ fn get_center_circle_lines(
     };
 
     // let point_distance = 6.0;
-    let min_distance_from_line = 6.0f32.max(min_dim * 0.08).max(maximum_inclusion_distance);
+    let min_distance_from_line = 6.0f32
+        .max(min_dim * *context.center_line_point_exclusion_distance_factor)
+        .max(maximum_inclusion_distance);
     // let min_distance_from_center = (min_dim - 2.0 * 5.0) * 0.20;
     // TODO Might be better to filter and combine the already split points by ransac
     middle_and_source_lines.map(|(line, source_lines)| {
         let cleaned_center = line.closest_point(circle_center);
+        // let cleaned_center = circle_center;
         let filtered_roi_points = roi_points
             .iter()
             .filter(|&&point| {
@@ -429,7 +448,7 @@ fn detect_and_filter_circles(
     // ransac_circle_minimum_circumference_percentage: f32,
     // ransac_circle_early_exit_fitting_score: Option<f32>,
     // ransac_sample_size_percentage: Option<f32>,
-) -> Vec<(CenterCirclePoints<Pixel>, LineSegment<Pixel>, f32)> {
+) -> Vec<(CenterCirclePoints<Pixel>, Vec<LineSegment<Pixel>>, f32)> {
     let camera_matrix = context.camera_matrix;
     let transformer =
         |pixel_coordinates: &Point2<Pixel>| camera_matrix.pixel_to_ground(*pixel_coordinates).ok();
@@ -472,7 +491,7 @@ fn detect_and_filter_circles(
                                     500,
                                     context,
                                 )
-                                .map(|v| (v.0, v.1, result.score))
+                                .map(|v| (v.0, v.2, result.score))
                             } else {
                                 None
                             }
