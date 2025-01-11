@@ -375,7 +375,7 @@ pub fn piecewise_vertical_convolution_mut<const KSIZE: usize, InputType, KType, 
 }
 
 #[inline(always)]
-const fn calculate_divisor(scale_value: NonZeroU32) -> usize {
+fn calculate_divisor(scale_value: NonZeroU32) -> usize {
     // scale_value.checked_next_power_of_two()
     let divisor: u32 = scale_value.get();
     let should_divide_or_shift = divisor > 1;

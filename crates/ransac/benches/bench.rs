@@ -30,7 +30,7 @@ fn get_flamegraph(file_name: &str, guard: Option<ProfilerGuard<'static>>) {
     if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
         let file = File::create(format!(
             "{}/benches/output/{}.svg",
-            env!("CARGO_MANIFEST_DIR"),
+            get_test_data_location(),
             file_name
         ))
         .unwrap();

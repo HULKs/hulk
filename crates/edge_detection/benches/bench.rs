@@ -39,7 +39,7 @@ fn get_flamegraph(file_name: &str, guard: Option<ProfilerGuard<'static>>) {
     if let Some(report) = guard.map(|guard| guard.report().build().ok()).flatten() {
         let file = File::create(format!(
             "{}/test_data/output/{}.svg",
-            env!("CARGO_MANIFEST_DIR"),
+            get_test_data_location(),
             file_name
         ))
         .unwrap();
@@ -47,10 +47,18 @@ fn get_flamegraph(file_name: &str, guard: Option<ProfilerGuard<'static>>) {
     };
 }
 
+fn get_test_data_location() -> String {
+    option_env!("TEST_DATA_ROOT")
+        .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+        .to_string()
+}
+// TODO find a way to inject this to the bencher without pub
 fn load_test_image() -> YCbCr422Image {
-    let crate_dir = env!("CARGO_MANIFEST_DIR");
-    YCbCr422Image::load_from_rgb_file(format!("{crate_dir}/test_data/center_circle_webots.png"))
-        .unwrap()
+    let test_data_root = get_test_data_location();
+    YCbCr422Image::load_from_rgb_file(format!(
+        "{test_data_root}/test_data/center_circle_webots.png"
+    ))
+    .unwrap()
 }
 
 fn get_blurred_source_image(image: &YCbCr422Image) -> GrayImage {

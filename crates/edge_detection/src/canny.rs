@@ -1,12 +1,10 @@
 use image::GrayImage;
-use imageproc::filter::gaussian_blur_f32;
 use nalgebra::{DMatrix, DMatrixView};
 
 use crate::{
     gaussian::gaussian_blur_integer_approximation,
-    grayimage_to_2d_transposed_matrix_view,
-    sobel::{sharr_operator, sobel_operator, DerivativeDirection},
-    transposed_matrix_view_to_gray_image, zip_three_slices_enumerated,
+    sobel::{sobel_operator, DerivativeDirection},
+    zip_three_slices_enumerated,
 };
 
 pub fn canny(
@@ -17,12 +15,7 @@ pub fn canny(
 ) -> (DMatrix<EdgeClassification>, usize) {
     let sigma = gaussian_sigma.unwrap_or(1.4);
 
-    // let converted = gaussian_blur_integer_approximation::<u8, u8>(image_transposed, sigma);
-
-    let converted = grayimage_to_2d_transposed_matrix_view::<u8>(&gaussian_blur_f32(
-        &transposed_matrix_view_to_gray_image(image_transposed),
-        sigma,
-    ));
+    let converted = gaussian_blur_integer_approximation::<u8, u8>(image_transposed, sigma);
     let converted_view = converted.as_view();
 
     let gx = sobel_operator(converted_view, DerivativeDirection::Horizontal);
@@ -315,17 +308,11 @@ mod tests {
     use std::i16;
 
     use image::GrayImage;
-    use types::ycbcr422_image::YCbCr422Image;
-
-    use crate::{get_edge_source_transposed_image, EdgeSourceType};
 
     use super::{approximate_direction_integer_only, canny, OctantWithDegName};
-
-    fn load_test_image() -> YCbCr422Image {
-        let crate_dir = env!("CARGO_MANIFEST_DIR");
-        YCbCr422Image::load_from_rgb_file(format!("{crate_dir}/test_data/center_circle_webots.png"))
-            .unwrap()
-    }
+    use crate::{
+        get_edge_source_transposed_image, get_test_data_location, load_test_image, EdgeSourceType,
+    };
 
     #[test]
     fn test_overall() {
@@ -360,7 +347,7 @@ mod tests {
         new_image
             .save(format!(
                 "{}/test_data/output/canny_ours.png",
-                env!("CARGO_MANIFEST_DIR")
+                get_test_data_location()
             ))
             .unwrap();
     }

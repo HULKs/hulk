@@ -60,6 +60,7 @@ fn gaussian_int_divisor_as_power_of_two(width: usize) -> u32 {
         3 => 10,
         5 => 12,
         7 => 14,
+        9 => 16,
         11 => 16,
         _ => panic!("Unsupported kernel size"),
     }
@@ -190,7 +191,7 @@ pub fn gaussian_blur_box_filter(image: &GrayImage, sigma: f32) -> ImageBuffer<Lu
 
 #[cfg(test)]
 mod tests {
-    use crate::grayimage_to_2d_transposed_matrix_view;
+    use crate::{get_test_data_location, grayimage_to_2d_transposed_matrix_view};
 
     use super::*;
     use image::open;
@@ -198,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_gaussian_box_filter() {
-        let crate_dir = env!("CARGO_MANIFEST_DIR");
+        let crate_dir = get_test_data_location();
         let image = open(format!("{crate_dir}/test_data/center_circle_webots.png"))
             .expect("The image should be in this path");
 
@@ -323,7 +324,7 @@ mod tests {
     #[test]
     fn test_gaussian_seperable_kernel() {
         let sigma = 3.5;
-        let crate_dir = env!("CARGO_MANIFEST_DIR");
+        let crate_dir = get_test_data_location();
         let image = open(format!("{crate_dir}/test_data/center_circle_webots.png"))
             .expect("The image should be in this path");
 

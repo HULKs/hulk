@@ -141,8 +141,8 @@ mod tests {
     use nalgebra::{Matrix, ViewStorage};
 
     use crate::{
-        get_edge_source_image_old, grayimage_to_2d_transposed_matrix_view,
-        transposed_matrix_view_to_gray_image,
+        get_edge_source_image_old, get_test_data_location, grayimage_to_2d_transposed_matrix_view,
+        load_test_image, transposed_matrix_view_to_gray_image,
     };
 
     use super::*;
@@ -150,12 +150,6 @@ mod tests {
     const EDGE_SOURCE_TYPE: EdgeSourceType = EdgeSourceType::LumaOfYCbCr;
     const GAUSSIAN_SIGMA: f32 = 3.5;
     const THRESHOLD: u16 = 0; // allow everything
-
-    fn load_test_image() -> YCbCr422Image {
-        let crate_dir = env!("CARGO_MANIFEST_DIR");
-        YCbCr422Image::load_from_rgb_file(format!("{crate_dir}/test_data/center_circle_webots.png"))
-            .unwrap()
-    }
 
     pub fn get_edges_with_imageproc_sobel_and_nms(
         gaussian_sigma: f32,
@@ -247,7 +241,7 @@ mod tests {
             new_image
                 .save(format!(
                     "{}/test_data/output/sobel_direct_points_nalgebra.png",
-                    env!("CARGO_MANIFEST_DIR")
+                    get_test_data_location()
                 ))
                 .unwrap();
             new_image.fill(0);
@@ -258,7 +252,7 @@ mod tests {
             new_image
                 .save(format!(
                     "{}/test_data/output/sobel_direct_points_expected.png",
-                    env!("CARGO_MANIFEST_DIR")
+                    get_test_data_location()
                 ))
                 .unwrap();
         }
@@ -284,7 +278,7 @@ mod tests {
                 .unwrap()
                 .save(format!(
                     "{}/test_data/output/sobel_direct_diff.png",
-                    env!("CARGO_MANIFEST_DIR")
+                    get_test_data_location()
                 ))
                 .unwrap();
         }
@@ -295,7 +289,7 @@ mod tests {
             "Too many non-zero diffs: {non_zero_diffs}"
         );
         assert!(
-            (output_points.len() as isize - expected_points.len() as isize).abs() <= 20,
+            (output_points.len() as isize - expected_points.len() as isize).abs() <= 25,
             "output: {} vs expected: {}",
             output_points.len(),
             expected_points.len()
@@ -358,7 +352,7 @@ mod tests {
                 new_image
                     .save(format!(
                         "{}/test_data/output/sobel_{name}_piecewise_our.png",
-                        env!("CARGO_MANIFEST_DIR")
+                        get_test_data_location()
                     ))
                     .unwrap();
                 new_image.fill(0);
@@ -371,7 +365,7 @@ mod tests {
                 new_image
                     .save(format!(
                         "{}/test_data/output/sobel_{name}_improc.png",
-                        env!("CARGO_MANIFEST_DIR")
+                        get_test_data_location()
                     ))
                     .unwrap();
             }

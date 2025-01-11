@@ -228,6 +228,20 @@ fn zip_three_slices_enumerated<'a, T, U, V>(
     // }
 }
 
+pub(crate) fn get_test_data_location() -> String {
+    option_env!("TEST_DATA_ROOT")
+        .unwrap_or(env!("CARGO_MANIFEST_DIR"))
+        .to_string()
+}
+// TODO find a way to inject this to the bencher without pub
+pub(crate) fn load_test_image() -> YCbCr422Image {
+    let test_data_root = get_test_data_location();
+    YCbCr422Image::load_from_rgb_file(format!(
+        "{test_data_root}/test_data/center_circle_webots.png"
+    ))
+    .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use image::ImageBuffer;
