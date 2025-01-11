@@ -88,7 +88,7 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
         self.inner.angle(&rhs.inner)
     }
 
-    pub fn component_mul(&self, rhs: Self) -> Self
+    pub fn component_mul(&self, rhs: &Self) -> Self
     where
         T: Scalar + ClosedMul,
     {
