@@ -159,7 +159,14 @@ impl TwixApp {
             .or_else(|| creation_context.storage?.get_string("address"))
             .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
 
-        let nao = Arc::new(Nao::new(format!("ws://{address}:1337")));
+        let nao = Arc::new(Nao::new(match address.split_once(":") {
+            None | Some((_, "")) => {
+                format!("ws://{address}:1337")
+            }
+            Some((ip, port)) => {
+                format!("ws://{ip}:{port}")
+            }
+        }));
 
         let connection_intent = creation_context
             .storage
@@ -361,8 +368,15 @@ impl App for TwixApp {
                         address_input.request_focus();
                     }
                     if address_input.changed() || address_input.lost_focus() {
-                        let address = &self.address;
-                        self.nao.set_address(format!("ws://{address}:1337"));
+                        match &self.address.split_once(":") {
+                            None | Some((_, "")) => {
+                                let address = &self.address;
+                                self.nao.set_address(format!("ws://{address}:1337"));
+                            }
+                            Some((ip, port)) => {
+                                self.nao.set_address(format!("ws://{ip}:{port}"));
+                            }
+                        }
                         self.connection_intent = true;
                         self.nao.connect();
                     }
