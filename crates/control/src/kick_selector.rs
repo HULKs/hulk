@@ -184,12 +184,12 @@ fn determine_playing_situation(
         }) => PlayingSituation::KickOff,
         Some(FilteredGameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
-            kicking_team: Team::Hulks,
+            kicking_team: Some(Team::Hulks),
             ..
         })
         | Some(FilteredGameControllerState {
             sub_state: Some(SubState::PenaltyKick),
-            kicking_team: Team::Hulks,
+            kicking_team: Some(Team::Hulks),
             ..
         }) => PlayingSituation::PenaltyShot,
         _ if is_ball_in_opponent_corner => PlayingSituation::CornerKick,

@@ -55,6 +55,7 @@ pub struct Robot {
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
+    _object_detection_top_sender: Producer<crate::structs::object_detection::MainOutputs>,
 }
 
 impl Robot {
@@ -83,6 +84,7 @@ impl Robot {
         let (mut parameters_sender, parameters_receiver) =
             buffered_watch::channel((UNIX_EPOCH, Default::default()));
         let (spl_network_sender, spl_network_consumer) = future_queue();
+        let (_object_detection_top_sender, object_detection_top_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
         *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
 
@@ -93,6 +95,7 @@ impl Robot {
             subscriptions_receiver,
             parameters_receiver,
             spl_network_consumer,
+            object_detection_top_consumer,
             recording_sender,
             RecordingTrigger::new(0),
         )?;
@@ -125,6 +128,7 @@ impl Robot {
             cycler,
             control_receiver,
             spl_network_sender,
+            _object_detection_top_sender,
         })
     }
 
