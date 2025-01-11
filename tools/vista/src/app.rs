@@ -1,4 +1,4 @@
-use std::fmt::Formatter;
+use std::fmt::{Display, Error, Formatter};
 
 use eframe::{
     egui::{
@@ -25,8 +25,8 @@ struct NamedIndex<'a> {
     name: &'a str,
 }
 
-impl std::fmt::Display for NamedIndex<'_> {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl Display for NamedIndex<'_> {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
         formatter.write_str(self.name)
     }
 }
@@ -68,10 +68,12 @@ impl App for DependencyInspector {
             ui.input_mut(|input| {
                 if input.consume_key(Modifiers::NONE, Key::ArrowLeft) {
                     self.selected_cycler = self.selected_cycler.saturating_sub(1);
+                    self.selected_node_index = None;
                 }
                 if input.consume_key(Modifiers::NONE, Key::ArrowRight) {
                     self.selected_cycler =
                         (self.selected_cycler + 1).min(self.cyclers.cyclers.len() - 1);
+                    self.selected_node_index = None;
                 }
             });
             let cycler = self.cyclers.cyclers.get(self.selected_cycler).unwrap();
@@ -84,13 +86,17 @@ impl App for DependencyInspector {
             ui.input_mut(|input| {
                 if input.consume_key(Modifiers::NONE, Key::ArrowUp) {
                     self.selected_node_index =
-                        Some((self.selected_node_index.unwrap_or(0) + 1).min(nodes.len()));
+                        Some(self.selected_node_index.unwrap_or(0).saturating_sub(1));
                 }
                 if input.consume_key(Modifiers::NONE, Key::ArrowDown) {
                     self.selected_node_index =
-                        Some((self.selected_node_index.unwrap_or(0) + 1).min(nodes.len()));
+                        Some((self.selected_node_index.unwrap_or(0) + 1).min(nodes.len() - 1));
+                }
+                if input.consume_key(Modifiers::NONE, Key::Escape) {
+                    self.selected_node_index = None;
                 }
             });
+
             ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
