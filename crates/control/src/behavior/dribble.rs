@@ -64,7 +64,12 @@ pub fn execute(
 
     let best_kick_decision = match kick_decisions.first() {
         Some(decision) => decision,
-        None => return Some(MotionCommand::Stand { head }),
+        None => {
+            return Some(MotionCommand::Stand {
+                head,
+                should_look_for_referee: false,
+            })
+        }
     };
 
     let best_pose = best_kick_decision.kick_pose;
@@ -98,7 +103,10 @@ pub fn execute(
             path,
             walk_speed,
         )),
-        None => Some(MotionCommand::Stand { head }),
+        None => Some(MotionCommand::Stand {
+            head,
+            should_look_for_referee: false,
+        }),
     }
 }
 
