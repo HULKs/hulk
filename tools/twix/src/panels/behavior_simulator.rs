@@ -75,7 +75,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
         }
         let frame_count = match self.frame_count.get_last_value() {
             Ok(Some(frame_count)) => frame_count,
-            Ok(None) => return ui.label("no frame data yet"),
+            Ok(None) => return ui.label("no frame data"),
             Err(error) => return ui.colored_label(Color32::RED, format!("Error: {error}")),
         };
         let mut new_frame = None;

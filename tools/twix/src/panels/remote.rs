@@ -139,7 +139,7 @@ impl Widget for &mut RemotePanel {
             })
             .inner
         } else {
-            ui.label("No controller found")
+            ui.label("no controller found")
         }
     }
 }

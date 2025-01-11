@@ -3,7 +3,9 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
-use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, Widget};
+use eframe::egui::{
+    Color32, ColorImage, FontId, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget,
+};
 use geometry::rectangle::Rectangle;
 use image::RgbImage;
 use linear_algebra::{point, vector};
@@ -122,7 +124,9 @@ impl Widget for &mut ImagePanel {
         self.zoom_and_pan.apply(ui, &mut painter, &response);
 
         if let Err(error) = self.show_image(&painter) {
-            log::error!("Image panel: {error}",);
+            ui.scope_builder(UiBuilder::new().max_rect(response.rect), |ui| {
+                ui.label(format!("{error}"))
+            });
         };
 
         self.overlays.paint(&painter);

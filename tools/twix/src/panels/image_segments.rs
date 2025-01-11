@@ -166,7 +166,7 @@ impl Widget for &mut ImageSegmentsPanel {
         });
         let image_segments: ImageSegments = match self.buffer.get_last_value() {
             Ok(Some(value)) => value,
-            Ok(None) => return ui.label("No data"),
+            Ok(None) => return ui.label("no data available"),
             Err(error) => return ui.label(format!("{error:#}")),
         };
 

@@ -380,7 +380,7 @@ impl ImageColorSelectPanel {
         let image_ycbcr = self
             .image
             .get_last_value()?
-            .wrap_err("No image available")?;
+            .wrap_err("no image available")?;
 
         let buffer = image_ycbcr
             .iter_pixels()
