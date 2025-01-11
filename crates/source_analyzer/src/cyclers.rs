@@ -171,11 +171,11 @@ impl Cycler {
     }
 }
 
-fn sort_nodes(
+pub fn generate_dependency_graph(
     nodes: &[Node],
     output_to_node: &BTreeMap<String, usize>,
     existing_output_names: &BTreeSet<OutputName>,
-) -> Result<Vec<Node>, Error> {
+) -> Result<IndexGraph, Error> {
     let mut dependencies = IndexGraph::with_vertices(nodes.len());
     for (node_index, node) in nodes.iter().enumerate() {
         for dependency in node
@@ -214,13 +214,32 @@ fn sort_nodes(
         }
     }
 
-    dependencies
-        .toposort()
-        .map(|node_indices| {
+    Ok(dependencies)
+}
+
+fn sort_nodes(
+    nodes: &[Node],
+    output_to_node: &BTreeMap<String, usize>,
+    existing_output_names: &BTreeSet<OutputName>,
+) -> Result<Vec<Node>, Error> {
+    match generate_dependency_graph(nodes, output_to_node, existing_output_names)?.toposort_or_scc()
+    {
+        Ok(node_indices) => Ok({
             node_indices
-                .into_iter()
-                .map(|node_index| nodes[node_index].clone())
+                .iter()
+                .map(|node_index| nodes[*node_index].clone())
                 .collect()
-        })
-        .ok_or(Error::CircularDependency)
+        }),
+        Err(cycles) => Err(Error::CircularDependency(
+            cycles
+                .iter()
+                .map(|cycle| {
+                    cycle
+                        .iter()
+                        .map(|node_index| nodes[*node_index].name.clone())
+                        .collect()
+                })
+                .collect(),
+        )),
+    }
 }

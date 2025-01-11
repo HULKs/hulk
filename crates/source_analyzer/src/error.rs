@@ -22,7 +22,7 @@ pub enum Error {
     #[error("`{node}` requires output `{output}`, but it is never produced")]
     MissingOutput { node: String, output: String },
     #[error("failed to sort nodes, circular dependency detected")]
-    CircularDependency,
+    CircularDependency(Vec<Vec<String>>),
 }
 
 #[derive(Debug, Error)]
