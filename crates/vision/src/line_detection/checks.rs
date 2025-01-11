@@ -40,7 +40,7 @@ pub fn has_opposite_gradients(
     // gradients (approximately) point in opposite directions if their dot product is (close to) -1
     let gradient_at_start = get_gradient(image, segment.start, gradient_sobel_stride);
     let gradient_at_end = get_gradient(image, segment.end, gradient_sobel_stride);
-    gradient_at_start.dot(gradient_at_end) < gradient_alignment
+    gradient_at_start.dot(&gradient_at_end) < gradient_alignment
 }
 
 fn get_gradient(

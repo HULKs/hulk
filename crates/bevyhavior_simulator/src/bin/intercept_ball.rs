@@ -76,7 +76,7 @@ fn update(
             && ball_in_ground
                 .coords()
                 .normalize()
-                .dot(velocity_in_ground.normalize())
+                .dot(&velocity_in_ground.normalize())
                 < -0.3
         {
             ball.velocity = Vector::zeros();

@@ -36,7 +36,7 @@ impl<Frame> Line2<Frame> {
         let normal_vector = Direction::Counterclockwise
             .rotate_vector_90_degrees(self.direction)
             .normalize();
-        normal_vector.dot(point - self.point)
+        normal_vector.dot(&(point - self.point))
     }
 
     pub fn intersection(&self, other: &Line2<Frame>) -> Point2<Frame> {
@@ -65,7 +65,7 @@ impl<Frame, const DIMENSION: usize> Line<Frame, DIMENSION> {
 
     pub fn closest_point(&self, point: Point<Frame, DIMENSION>) -> Point<Frame, DIMENSION> {
         self.point
-            + (self.direction * self.direction.dot(point - self.point)
+            + (self.direction * self.direction.dot(&(point - self.point))
                 / self.direction.norm_squared())
     }
 }

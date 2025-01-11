@@ -74,7 +74,7 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
         self.inner.norm_squared()
     }
 
-    pub fn dot(&self, rhs: Self) -> T
+    pub fn dot(&self, rhs: &Self) -> T
     where
         T: Scalar + Zero + ClosedAdd + ClosedMul,
     {

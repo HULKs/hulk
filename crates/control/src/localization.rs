@@ -884,7 +884,7 @@ fn get_field_mark_correspondence(
                         );
                         let angle_weight = correspondences
                             .measured_direction
-                            .dot(correspondences.reference_direction)
+                            .dot(&correspondences.reference_direction)
                             .abs()
                             + measured_line_length / field_mark_length;
                         assert!(field_mark_length != 0.0);
