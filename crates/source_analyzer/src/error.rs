@@ -21,7 +21,7 @@ pub enum Error {
     InvalidModulePath,
     #[error("`{node}` requires output `{output}`, but it is never produced")]
     MissingOutput { node: String, output: String },
-    #[error("failed to sort nodes, circular dependency detected")]
+    #[error("failed to sort nodes, circular dependencies detected: {}", .0.first().map(|cycle| cycle.join(", ")).unwrap_or("failed to determine loop".to_string()))]
     CircularDependency(Vec<Vec<String>>),
 }
 
