@@ -17,6 +17,7 @@ pub mod game_controller_state_filter;
 pub mod ground_contact_detector;
 pub mod ground_provider;
 pub mod kick_selector;
+pub mod kicking_team_filter;
 pub mod kinematics_provider;
 pub mod led_status;
 pub mod localization;
