@@ -242,7 +242,7 @@ async fn handle_beacon(
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let interface_name = args().nth(1).unwrap_or_else(|| "enp4s0".to_owned());
+    let interface_name = args().nth(1).unwrap_or_else(|| "eth0".to_owned());
 
     listen_for_network_change(interface_name).await
 }
