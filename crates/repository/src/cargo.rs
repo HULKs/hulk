@@ -180,7 +180,7 @@ impl Cargo {
                 for path in compiler_artifacts {
                     command.arg("--return-file").arg(path.as_ref());
                 }
-                command.arg("--cd").arg(&relative_pwd);
+                command.arg("--cd").arg(Path::new("./").join(relative_pwd));
                 command
             }
         };
