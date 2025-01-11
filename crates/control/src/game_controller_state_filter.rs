@@ -186,7 +186,7 @@ impl GameControllerStateFilter {
 
         let filtered_game_state = self.state.construct_filtered_game_state_for_team(
             game_controller_state,
-            Team::Hulks,
+            Some(Team::Hulks),
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             config,
@@ -196,7 +196,7 @@ impl GameControllerStateFilter {
         let filtered_opponent_game_state =
             self.opponent_state.construct_filtered_game_state_for_team(
                 game_controller_state,
-                Team::Opponent,
+                Some(Team::Opponent),
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
                 config,
@@ -406,7 +406,7 @@ impl State {
     fn construct_filtered_game_state_for_team(
         &self,
         game_controller_state: &GameControllerState,
-        team: Team,
+        team: Option<Team>,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,

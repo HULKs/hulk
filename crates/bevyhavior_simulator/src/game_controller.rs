@@ -44,17 +44,17 @@ fn game_controller_controller(
                 state.last_state_change = time.as_generic();
             }
             GameControllerCommand::SetKickingTeam(team) => {
-                game_controller.state.kicking_team = team;
+                game_controller.state.kicking_team = Some(team);
                 state.last_state_change = time.as_generic();
             }
             GameControllerCommand::Goal(team) => {
                 match team {
                     Team::Hulks => {
-                        game_controller.state.kicking_team = Team::Opponent;
+                        game_controller.state.kicking_team = Some(Team::Opponent);
                         &mut game_controller.state.hulks_team
                     }
                     Team::Opponent => {
-                        game_controller.state.kicking_team = Team::Hulks;
+                        game_controller.state.kicking_team = Some(Team::Hulks);
                         &mut game_controller.state.opponent_team
                     }
                 }
@@ -70,7 +70,7 @@ fn game_controller_controller(
             }
             GameControllerCommand::SetSubState(sub_state, team) => {
                 game_controller.state.sub_state = sub_state;
-                game_controller.state.kicking_team = team;
+                game_controller.state.kicking_team = Some(team);
                 if sub_state == Some(SubState::PenaltyKick) {
                     game_controller.state.game_state = GameState::Ready;
                 }
@@ -129,7 +129,7 @@ impl Default for GameController {
             state: GameControllerState {
                 game_state: GameState::Initial,
                 game_phase: GamePhase::Normal,
-                kicking_team: Team::Hulks,
+                kicking_team: Some(Team::Hulks),
                 last_game_state_change: SystemTime::UNIX_EPOCH,
                 penalties: Players::new(None),
                 opponent_penalties: Players::new(None),

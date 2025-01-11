@@ -41,7 +41,7 @@ pub struct GameControllerStateMessage {
     pub secondary_time: Duration,
     pub hulks_team: TeamState,
     pub opponent_team: TeamState,
-    pub kicking_team: Team,
+    pub kicking_team: Option<Team>,
     pub hulks_team_is_home_after_coin_toss: bool,
 }
 
@@ -195,7 +195,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 remaining_amount_of_messages: message.teams[opponent_team_index].messageBudget,
                 players: opponent_players,
             },
-            kicking_team: Team::try_from(message.kickingTeam)?,
+            kicking_team: Some(Team::try_from(message.kickingTeam)?),
             hulks_team_is_home_after_coin_toss: hulks_team_index == 0,
         })
     }
@@ -315,6 +315,7 @@ impl GameState {
     Clone,
     Copy,
     Debug,
+    Default,
     Deserialize,
     Eq,
     PartialEq,
@@ -325,6 +326,7 @@ impl GameState {
 )]
 pub enum Team {
     Hulks,
+    #[default]
     Opponent,
 }
 

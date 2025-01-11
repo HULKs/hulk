@@ -55,7 +55,7 @@ impl RuleObstacleComposer {
                             | SubState::GoalKick
                             | SubState::PushingFreeKick,
                         ),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     game_state: FilteredGameState::Playing { .. },
                     ..
                 },
@@ -116,7 +116,7 @@ impl RuleObstacleComposer {
                             kicking_team_known: true,
                         },
                     sub_state: None,
-                    kicking_team: Team::Hulks,
+                    kicking_team: Some(Team::Hulks),
                     ..
                 },
                 _,
@@ -143,7 +143,7 @@ impl RuleObstacleComposer {
                             kicking_team_known: true,
                         },
                     sub_state: None,
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 },
                 _,
@@ -167,12 +167,16 @@ impl RuleObstacleComposer {
 
 pub fn create_penalty_box(
     field_dimensions: &FieldDimensions,
-    kicking_team: Team,
+    kicking_team: Option<Team>,
     penaltykick_box_extension: f32,
 ) -> RuleObstacle {
     let side_factor: f32 = match kicking_team {
-        Team::Hulks => 1.0,
-        Team::Opponent => -1.0,
+        Some(Team::Hulks) => 1.0,
+        Some(Team::Opponent) => -1.0,
+        _ => {
+            eprintln!("uncertain team during penalty kick should not occur");
+            1.0
+        }
     };
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;

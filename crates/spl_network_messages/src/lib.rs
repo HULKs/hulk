@@ -41,6 +41,7 @@ pub struct StrikerMessage {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct VisualRefereeMessage {
     pub player_number: PlayerNumber,
+    pub kicking_team: Option<Team>,
 }
 
 #[derive(

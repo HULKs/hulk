@@ -19,8 +19,9 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let ground_to_field = world_state.robot.ground_to_field?;
-            let (fallback_target, is_opponent_penalty_kick) =
-                match world_state.filtered_game_controller_state {
+            let (fallback_target, is_opponent_penalty_kick) = match world_state
+                .filtered_game_controller_state
+            {
                     Some(FilteredGameControllerState {
                         sub_state: Some(SubState::PenaltyKick),
                         kicking_team,
@@ -30,21 +31,31 @@ pub fn execute(
                         game_phase: GamePhase::PenaltyShootout { .. },
                         kicking_team,
                         ..
-                    }) => {
-                        let (half, is_opponent_penalty_kick) = match kicking_team {
-                            Team::Hulks => (Half::Opponent, false),
-                            Team::Opponent => (Half::Own, true),
-                        };
-                        (
+                }) => match kicking_team {
+                    Some(Team::Hulks) => (
+                        world_state
+                            .rule_ball
+                            .map(|rule_ball| rule_ball.ball_in_ground)
+                            .unwrap_or({
+                                ground_to_field.inverse()
+                                    * field_dimensions.penalty_spot(Half::Opponent)
+                            }),
+                        false,
+                    ),
+                    Some(Team::Opponent) => (
                             world_state
                                 .rule_ball
                                 .map(|rule_ball| rule_ball.ball_in_ground)
                                 .unwrap_or({
-                                    ground_to_field.inverse() * field_dimensions.penalty_spot(half)
+                                ground_to_field.inverse() * field_dimensions.penalty_spot(Half::Own)
                                 }),
-                            is_opponent_penalty_kick,
-                        )
+                        true,
+                    ),
+                    _ => {
+                        eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
+                        (point!(0.5, 0.0), true)
                     }
+                },
                     _ => (ground_to_field.inverse().as_pose().position(), false),
                 };
             let target = world_state
@@ -92,17 +103,27 @@ pub fn execute(
                     None,
                 ) => {
                     let ground_to_field = world_state.robot.ground_to_field?;
-                    let half = match kicking_team {
-                        Team::Hulks => Half::Opponent,
-                        Team::Opponent => Half::Own,
-                    };
-                    let target = world_state
+                    let target = match kicking_team {
+                        Some(Team::Hulks) => world_state
+                            .ball
+                            .or(world_state.rule_ball)
+                            .map(|ball| ball.ball_in_ground)
+                            .unwrap_or({
+                                ground_to_field.inverse()
+                                    * field_dimensions.penalty_spot(Half::Opponent)
+                            }),
+                        Some(Team::Opponent) => world_state
                         .ball
                         .or(world_state.rule_ball)
                         .map(|ball| ball.ball_in_ground)
                         .unwrap_or({
-                            ground_to_field.inverse() * field_dimensions.penalty_spot(half)
-                        });
+                                ground_to_field.inverse() * field_dimensions.penalty_spot(Half::Own)
+                            }),
+                        _ => {
+                            eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
+                            point!(0.5, 0.0)
+                        }
+                    };
 
                     Some(MotionCommand::Stand {
                         head: HeadMotion::LookAt {

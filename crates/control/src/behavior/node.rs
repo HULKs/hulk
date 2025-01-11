@@ -169,7 +169,7 @@ impl Behavior {
             Role::DefenderLeft => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Left }),
                 _ => actions.push(Action::DefendLeft),
@@ -177,7 +177,7 @@ impl Behavior {
             Role::DefenderRight => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Right }),
                 _ => actions.push(Action::DefendRight),
@@ -189,7 +189,7 @@ impl Behavior {
                 })
                 | Some(FilteredGameControllerState {
                     game_state: FilteredGameState::Playing { .. },
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     sub_state: Some(SubState::PenaltyKick),
                     ..
                 }) => {
@@ -219,7 +219,7 @@ impl Behavior {
                         FilteredGameState::Ready {
                             kicking_team_known: true,
                         },
-                    kicking_team: Team::Hulks,
+                    kicking_team: Some(Team::Hulks),
                     sub_state,
                     ..
                 }) => match sub_state {
@@ -229,7 +229,7 @@ impl Behavior {
                 Some(FilteredGameControllerState {
                     game_state: FilteredGameState::Ready { .. } | FilteredGameState::Playing { .. },
                     sub_state: Some(SubState::PenaltyKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendPenaltyKick),
                 _ => actions.push(Action::DefendKickOff),
