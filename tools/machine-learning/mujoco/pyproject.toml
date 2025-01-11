@@ -5,15 +5,16 @@ description = "Add your description here"
 requires-python = ">=3.13"
 
 dependencies = [
-  "gymnasium[classic-control]",
-  "ipykernel>=6.29.5",
+  "click>=8.1.7",
+  "gymnasium[mujoco]>=1.0.0",
   "mediapy>=1.2.2",
   "moviepy>=1.0.3",
   "mujoco>=3.2.6",
+  "numpy",
   "scipy>=1.14.1",
-  "stable-baselines3>=2.3.2",
+  "stable-baselines3[extra]==2.4.1",
   "tensorboard>=2.18.0",
-  "wandb>=0.18.5",
+  "wandb>=0.19.1",
   # Project dependencies
   "kinematics",
   "nao-env",
@@ -23,24 +24,6 @@ dependencies = [
   "throwing",
   "transforms",
   "walking-engine",
-  "click>=8.1.7",
-  "gymnasium[mujoco]>=1.0.0",
-  "ipykernel>=6.29.5",
-  "kinematics",
-  "mediapy>=1.2.2",
-  "moviepy>=1.0.3",
-  "mujoco>=3.2.6",
-  "nao-env",
-  "nao-interface",
-  "numpy",
-  "robot-dimensions",
-  "scipy>=1.14.1",
-  "stable-baselines3[extra]==2.4.1",
-  "tensorboard>=2.18.0",
-  "throwing",
-  "transforms",
-  "walking-engine",
-  "wandb>=0.19.1",
 ]
 
 [tool.uv.sources]
