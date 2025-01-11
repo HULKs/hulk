@@ -70,7 +70,7 @@ impl Widget for &mut ParameterPanel {
                                 self.nao.write(self.path.clone(), TextOrBinary::Text(value));
                             }
                             Err(error) => error!(
-                                "Parameter panel: failed to serialize parameter value: {error:#?}"
+                                "parameter panel: failed to serialize parameter value: {error:#?}"
                             ),
                         }
                     }
@@ -84,7 +84,7 @@ impl Widget for &mut ParameterPanel {
                                     .log_err();
                             }
                             Err(error) => error!(
-                                "Parameter panel: failed to serialize parameter value: {error:#?}"
+                                "parameter panel: failed to serialize parameter value: {error:#?}"
                             ),
                         }
                     }
@@ -98,7 +98,7 @@ impl Widget for &mut ParameterPanel {
                                     .log_err();
                             }
                             Err(error) => error!(
-                                "Parameter panel: failed to serialize parameter value: {error:#?}"
+                                "parameter panel: failed to serialize parameter value: {error:#?}"
                             ),
                         }
                     }
