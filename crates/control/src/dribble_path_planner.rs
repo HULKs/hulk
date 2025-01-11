@@ -52,7 +52,7 @@ pub fn plan(
     let rule_obstacles = if matches!(
         world_state.filtered_game_controller_state,
         Some(FilteredGameControllerState {
-            kicking_team: Team::Hulks,
+            kicking_team: Some(Team::Hulks),
             ..
         })
     ) {
