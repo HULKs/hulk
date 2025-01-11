@@ -1,0 +1,28 @@
+#!/bin/sh
+
+print_help() {
+    cat <<-__helpText__
+Usage: $0 <remote> <branch>
+
+Deploys a branch from a given remote by merge-squashing it to the current one.
+__helpText__
+}
+
+if [ $# -lt 2 ]; then
+  print_help
+  exit
+fi
+
+remote="$1"
+branch="$2"
+
+# ignore errors from the deploy remote not being present
+git remote remove deploy 2> /dev/null
+
+# exit on error for the following commands
+set -e
+
+git remote add deploy "https://github.com/$remote/hulk.git"
+git fetch deploy $branch
+git merge --squash "$remote/$branch"
+git commit -m "$remote/$branch"
