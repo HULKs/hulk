@@ -1473,9 +1473,9 @@
     "use_stand_head_unstiff_calibration": false
   },
   "calibration_center_circle_detection": {
-    "canny_high_threshold": 220.0,
-    "canny_low_threshold": 180.0,
-    "gaussian_sigma": 1.9,
+    "canny_high_threshold": 200.0,
+    "canny_low_threshold": 150.0,
+    "gaussian_sigma": 1.7000000476837158,
     "get_edges_from_segments": false,
     "maximum_number_of_circles": 2,
     "ransac_circle_inlier_threshold": 0.065,

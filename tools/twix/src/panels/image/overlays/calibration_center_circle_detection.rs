@@ -54,7 +54,7 @@ impl Overlay for CalibrationMeasurementDetection {
                     line.0,
                     line.1,
                     Stroke {
-                        width: 2.0,
+                        width: 1.0,
                         color: Color32::YELLOW,
                     },
                 );
