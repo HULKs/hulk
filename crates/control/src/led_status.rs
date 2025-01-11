@@ -4,6 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
+use spl_network_messages::Team;
 use types::{
     ball_detection::BallPercept,
     color::Rgb,
@@ -34,8 +35,11 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     role: Input<Role, "role">,
-    is_own_referee_ready_pose_detected: Input<bool, "is_referee_ready_pose_detected">,
-    did_detect_any_referee_this_cycle: Input<bool, "did_detect_any_referee_this_cycle">,
+    is_own_referee_ready_pose_detected: Input<bool, "is_own_referee_ready_pose_detected">,
+    did_detect_any_ready_signal_this_cycle: Input<bool, "did_detect_any_ready_signal_this_cycle">,
+    detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
+    did_detect_any_free_kick_signal_this_cycle:
+        Input<bool, "did_detect_any_free_kick_signal_this_cycle">,
 
     balls_bottom: PerceptionInput<Option<Vec<BallPercept>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<BallPercept>>, "VisionTop", "balls?">,
@@ -185,7 +189,9 @@ impl LedStatus {
             context.role,
             ball_percepts,
             *context.is_own_referee_ready_pose_detected,
-            *context.did_detect_any_referee_this_cycle,
+            *context.did_detect_any_ready_signal_this_cycle,
+            context.detected_free_kick_kicking_team.copied(),
+            *context.did_detect_any_free_kick_signal_this_cycle,
         );
 
         if let Some(latest_game_controller_message_time) = context
@@ -279,6 +285,8 @@ impl LedStatus {
         ball_percepts: BallPercepts,
         is_own_referee_ready_pose_detected: bool,
         did_detect_any_referee_this_cycle: bool,
+        detected_free_kick_kicking_team: Option<Team>,
+        did_detect_any_free_kick_signal_this_cycle: bool,
     ) -> (Eye, Eye) {
         match primary_state {
             PrimaryState::Unstiff | PrimaryState::Animation { .. } => {
@@ -314,12 +322,16 @@ impl LedStatus {
                     Role::Striker => Rgb::RED,
                     Role::StrikerSupporter => Rgb::TURQUOISE,
                 };
-                let filtered_referee_ready_color = if is_own_referee_ready_pose_detected {
+                let filtered_referee_ready_color = if is_own_referee_ready_pose_detected
+                    | detected_free_kick_kicking_team.is_some()
+                {
                     Some(Rgb::YELLOW)
                 } else {
                     None
                 };
-                let referee_ready_percept_color = if did_detect_any_referee_this_cycle {
+                let referee_ready_percept_color = if did_detect_any_referee_this_cycle
+                    | did_detect_any_free_kick_signal_this_cycle
+                {
                     Some(Rgb::PURPLE)
                 } else {
                     None
