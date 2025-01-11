@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
+import rewards
 from gymnasium import utils
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
@@ -85,6 +86,9 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
         return nao.data.sensordata
 
     def step(self, action):
+        self.current_step += 1
+        nao = Nao(self.model, self.data)
+
         if self.projectile.has_ground_contact() and self.throw_tomatos:
             robot_site_id = self.model.site("Robot").id
             target = self.data.site_xpos[robot_site_id]
@@ -97,21 +101,19 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
         last_action = self.data.ctrl.copy()
         self.do_simulation(action + OFFSET_QPOS, self.frame_skip)
         head_center_z = self.data.site("head_center").xpos[2]
-        head_center_xy = self.data.site("head_center").xpos[:2]
 
-        action_penalty = 0.1 * np.mean(np.square(self.data.ctrl - last_action))
-
-        head_ctrl = 2.0 * np.square(head_center_z - HEAD_SET_HEIGHT) + np.mean(
-            np.square(head_center_xy)
-        )
+        action_penalty = 0.1 * rewards.action_rate(nao, last_action)
+        vertical_head_penalty = 2.0 * rewards.head_z_error(nao, HEAD_SET_HEIGHT)
+        lateral_head_penalty = 1.0 * rewards.head_xy_error(nao, np.zeros(2))
 
         if self.render_mode == "human":
             self.render()
 
         terminated = head_center_z < 0.3
-        reward = 0.05 - head_ctrl - action_penalty
+        reward = (
+            0.05 - action_penalty - vertical_head_penalty - lateral_head_penalty
+        )
 
-        self.current_step += 1
         return (
             self._get_obs(),
             reward,
