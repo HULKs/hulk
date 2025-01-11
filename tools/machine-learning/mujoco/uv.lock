@@ -1191,13 +1191,17 @@ version = "0.1.0"
 source = { editable = "packages/nao_env" }
 dependencies = [
     { name = "gymnasium" },
+    { name = "nao-interface" },
     { name = "numpy" },
+    { name = "rewards" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "gymnasium" },
+    { name = "nao-interface", editable = "packages/nao_interface" },
     { name = "numpy" },
+    { name = "rewards", editable = "packages/rewards" },
 ]
 
 [[package]]
@@ -2017,6 +2021,16 @@ wheels = [
 name = "rewards"
 version = "0.1.0"
 source = { editable = "packages/rewards" }
+dependencies = [
+    { name = "nao-interface" },
+    { name = "numpy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "nao-interface", editable = "packages/nao_interface" },
+    { name = "numpy" },
+]
 
 [[package]]
 name = "robot-dimensions"

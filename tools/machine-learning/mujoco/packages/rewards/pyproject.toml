@@ -3,7 +3,7 @@ version = "0.1.0"
 name = "rewards"
 description = "Add your description here"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["nao-interface", "numpy"]
 
 [build-system]
 requires = ["hatchling"]
