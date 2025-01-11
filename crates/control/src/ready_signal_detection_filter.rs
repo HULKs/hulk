@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use spl_network_messages::{GameState, HulkMessage, PlayerNumber, VisualRefereeMessage};
+use spl_network_messages::{GameState, HulkMessage, PlayerNumber, Team, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
     game_controller_state::GameControllerState,
@@ -250,6 +250,9 @@ fn send_own_detection_message<T: NetworkInterface>(
     player_number: PlayerNumber,
 ) -> Result<()> {
     hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
-        VisualRefereeMessage { player_number },
+        VisualRefereeMessage {
+            player_number,
+            kicking_team: Some(Team::Hulks),
+        },
     )))
 }
