@@ -1,9 +1,9 @@
 [project]
-name = "throwing"
 version = "0.1.0"
+name = "rewards"
 description = "Add your description here"
 requires-python = ">=3.10"
-dependencies = ["mujoco", "numpy"]
+dependencies = []
 
 [build-system]
 requires = ["hatchling"]

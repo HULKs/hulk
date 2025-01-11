@@ -1,4 +1,9 @@
 [project]
+name = "mujoco-env"
+description = "Add your description here"
+version = "0.1.0"
+requires-python = ">=3.10"
+
 dependencies = [
   "gymnasium[classic-control]",
   "ipykernel>=6.29.5",
@@ -9,28 +14,27 @@ dependencies = [
   "scipy>=1.14.1",
   "stable-baselines3>=2.3.2",
   "tensorboard>=2.18.0",
+  "wandb>=0.18.5",
+  # Project dependencies
   "kinematics",
-  "nao-interface",
   "nao-env",
-  "transforms",
-  "walking-engine",
+  "nao-interface",
+  "rewards",
   "robot-dimensions",
   "throwing",
-  "wandb>=0.18.5",
+  "transforms",
+  "walking-engine",
 ]
-name = "mujoco-env"
-version = "0.1.0"
-description = "Add your description here"
-requires-python = ">=3.10"
 
 [tool.uv.sources]
 kinematics = { workspace = true }
-nao_interface = { workspace = true }
 nao_env = { workspace = true }
-transforms = { workspace = true }
-walking_engine = { workspace = true }
+nao_interface = { workspace = true }
+rewards = { workspace = true }
 robot_dimensions = { workspace = true }
 throwing = { workspace = true }
+transforms = { workspace = true }
+walking_engine = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
