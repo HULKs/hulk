@@ -90,7 +90,9 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
             target = self.data.site_xpos[robot_site_id]
             alpha = self.current_step / 2500
             time_to_reach = 0.2 * (1 - alpha) + 0.1 * alpha
-            self.projectile.random_throw(target, time_to_reach, 1.0)
+            self.projectile.random_throw(
+                target, time_to_reach=time_to_reach, distance=1.0
+            )
 
         last_action = self.data.ctrl.copy()
         self.do_simulation(action + OFFSET_QPOS, self.frame_skip)
@@ -107,7 +109,7 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
             self.render()
 
         terminated = head_center_z < 0.3
-        reward = -head_ctrl - action_penalty
+        reward = 0.05 - head_ctrl - action_penalty
 
         self.current_step += 1
         return (

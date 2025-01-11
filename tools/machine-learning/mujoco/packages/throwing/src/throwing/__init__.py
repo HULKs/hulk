@@ -26,7 +26,7 @@ def _random_start_above_zero(
         raise ValueError(
             "cannot generate random start if target is not above floor"
         )
-    min_elevation = np.atan2(throwable_radius - height, radius)
+    min_elevation = np.arctan2(throwable_radius - height, radius)
     max_elevation = np.deg2rad(60)
     elevation = np.random.uniform(min_elevation, max_elevation)
     azimuth = np.random.uniform(0, 2 * np.pi)

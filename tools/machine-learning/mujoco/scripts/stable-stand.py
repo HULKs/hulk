@@ -60,22 +60,6 @@ if get_device() != torch.device("cpu"):
                             }""")
 
 
-class WorkingVecVideoRecorder(VecVideoRecorder):
-    def _start_recording(self) -> None:
-        self.video_name = f"{self.name_prefix}-step-{self.step_id}-to-step-{self.step_id + self.video_length}.mp4"
-        self.video_path = os.path.join(self.video_folder, self.video_name)
-        super()._start_recording()
-
-    def _stop_recording(self) -> None:
-        super()._stop_recording()
-        if wandb.run is not None:
-            print("Logging to wandb...")
-            wandb.log(
-                {"video": wandb.Video(self.video_path, format="mp4")},
-                step=self.step_id,
-            )
-
-
 def make_env(config: Config):
     env = gym.make(
         config.env_name,

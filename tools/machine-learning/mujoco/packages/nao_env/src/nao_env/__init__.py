@@ -14,5 +14,13 @@ __all__ = ["NaoStanding", "NaoStandup"]
 def register():
     import gymnasium as gym
 
-    gym.register("NaoStanding", "NaoStanding", max_episode_steps=2500)
-    gym.register("NaoStandup", "NaoStandup", max_episode_steps=2500)
+    gym.register(
+        "NaoStanding",
+        lambda **kwargs: NaoStanding(**kwargs),
+        max_episode_steps=2500,
+    )
+    gym.register(
+        "NaoStandup",
+        lambda **kwargs: NaoStandup(**kwargs),
+        max_episode_steps=2500,
+    )
