@@ -63,7 +63,7 @@ impl<Frame> LineSegment<Frame> {
     }
 
     pub fn angle(&self, other: Self) -> f32 {
-        (self.1 - self.0).angle(other.1 - other.0)
+        (self.1 - self.0).angle(&(other.1 - other.0))
     }
 
     pub fn signed_acute_angle_to_orthogonal(&self, other: Self) -> f32 {

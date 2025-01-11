@@ -73,7 +73,7 @@ impl TimeToReachKickPosition {
                 let turning_angle_towards_path = match context.dribble_path {
                     Some(path) => match path.first() {
                         Some(PathSegment::LineSegment(line_segment)) => {
-                            Some(line_segment.1.coords().angle(Vector2::x_axis()).abs())
+                            Some(line_segment.1.coords().angle(&Vector2::x_axis()).abs())
                         }
                         _ => None,
                     },

@@ -81,7 +81,7 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
         self.inner.dot(&rhs.inner)
     }
 
-    pub fn angle(&self, rhs: Self) -> T::SimdRealField
+    pub fn angle(&self, rhs: &Self) -> T::SimdRealField
     where
         T: SimdComplexField,
     {
