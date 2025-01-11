@@ -1,7 +1,10 @@
 use std::fmt::Formatter;
 
 use eframe::{
-    egui::{pos2, vec2, Align2, CentralPanel, Color32, FontId, ScrollArea, Shape, TopBottomPanel},
+    egui::{
+        pos2, vec2, Align2, CentralPanel, Color32, FontId, Key, Modifiers, ScrollArea, Shape,
+        TopBottomPanel,
+    },
     epaint::{PathStroke, QuadraticBezierShape},
     App, CreationContext,
 };
@@ -62,17 +65,35 @@ impl App for DependencyInspector {
         });
 
         CentralPanel::default().show(context, |ui| {
+            ui.input_mut(|input| {
+                if input.consume_key(Modifiers::NONE, Key::ArrowLeft) {
+                    self.selected_cycler = self.selected_cycler.saturating_sub(1);
+                }
+                if input.consume_key(Modifiers::NONE, Key::ArrowRight) {
+                    self.selected_cycler =
+                        (self.selected_cycler + 1).min(self.cyclers.cyclers.len() - 1);
+                }
+            });
+            let cycler = self.cyclers.cyclers.get(self.selected_cycler).unwrap();
+
+            let nodes: Vec<_> = cycler
+                .setup_nodes
+                .iter()
+                .chain(&cycler.cycle_nodes)
+                .collect();
+            ui.input_mut(|input| {
+                if input.consume_key(Modifiers::NONE, Key::ArrowUp) {
+                    self.selected_node_index =
+                        Some((self.selected_node_index.unwrap_or(0) + 1).min(nodes.len()));
+                }
+                if input.consume_key(Modifiers::NONE, Key::ArrowDown) {
+                    self.selected_node_index =
+                        Some((self.selected_node_index.unwrap_or(0) + 1).min(nodes.len()));
+                }
+            });
             ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    let cycler = self.cyclers.cyclers.get(self.selected_cycler).unwrap();
-
-                    let nodes: Vec<_> = cycler
-                        .setup_nodes
-                        .iter()
-                        .chain(&cycler.cycle_nodes)
-                        .collect();
-
                     ui.add_space(5.0);
                     let mut node_points = Vec::new();
                     for (index, node) in nodes.iter().enumerate() {
