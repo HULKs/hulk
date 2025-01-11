@@ -51,29 +51,28 @@ HEAD_SET_HEIGHT = 0.51
 SENSOR_NAMES = [
     "accelerometer",
     "gyroscope",
-    "head.yaw"
-    "head.pitch"
-    "left_leg.hip_yaw_pitch"
-    "left_leg.hip_roll"
-    "left_leg.hip_pitch"
-    "left_leg.knee_pitch"
-    "left_leg.ankle_pitch"
-    "left_leg.ankle_roll"
-    "right_leg.hip_yaw_pitch"
-    "right_leg.hip_roll"
-    "right_leg.hip_pitch"
-    "right_leg.knee_pitch"
-    "right_leg.ankle_pitch"
-    "right_leg.ankle_roll"
-    "left_arm.shoulder_pitch"
-    "left_arm.shoulder_roll"
-    "left_arm.elbow_yaw"
-    "left_arm.elbow_roll"
-    "left_arm.wrist_yaw"
-    "right_arm.shoulder_pitch"
-    "right_arm.shoulder_roll"
-    "right_arm.elbow_yaw"
-    "right_arm.elbow_roll"
+    "head.yaw",
+    "head.pitch",
+    "left_leg.hip_yaw_pitch",
+    "left_leg.hip_roll",
+    "left_leg.hip_pitch",
+    "left_leg.knee_pitch",
+    "left_leg.ankle_pitch",
+    "left_leg.ankle_roll",
+    "right_leg.hip_roll",
+    "right_leg.hip_pitch",
+    "right_leg.knee_pitch",
+    "right_leg.ankle_pitch",
+    "right_leg.ankle_roll",
+    "left_arm.shoulder_pitch",
+    "left_arm.shoulder_roll",
+    "left_arm.elbow_yaw",
+    "left_arm.elbow_roll",
+    "left_arm.wrist_yaw",
+    "right_arm.shoulder_pitch",
+    "right_arm.shoulder_roll",
+    "right_arm.elbow_yaw",
+    "right_arm.elbow_roll",
     "right_arm.wrist_yaw",
 ]
 
@@ -97,7 +96,7 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
         observation_space = Box(
             low=-np.inf,
             high=np.inf,
-            shape=(37,),
+            shape=(31,),
             dtype=np.float64,
         )
 
@@ -117,24 +116,27 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
             throwable_body="tomato",
         )
         self.current_step = 0
+        self.termination_penalty = 10.0
         utils.EzPickle.__init__(self, **kwargs)
 
     @override
     def _get_obs(self) -> NDArray[np.floating]:
         nao = Nao(self.model, self.data)
 
-        force_sensing_resistors_right = (
-            nao.force_sensing_resistors_right().sum()
-        )
-        force_sensing_resistors_left = nao.force_sensing_resistors_left().sum()
+        force_sensing_resistors_right = nao.right_fsr_values().sum()
+        force_sensing_resistors_left = nao.left_fsr_values().sum()
 
-        return np.concatenate(
-            [self.data.sensor(sensor_name).data for sensor_name in SENSOR_NAMES]
-            + [
-                force_sensing_resistors_right,
-                force_sensing_resistors_left,
+        sensors = np.concatenate(
+            [
+                self.data.sensor(sensor_name).data
+                for sensor_name in SENSOR_NAMES
             ],
         )
+        frs = np.array(
+            [force_sensing_resistors_right, force_sensing_resistors_left],
+        )
+
+        return np.concatenate([sensors, frs])
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:
@@ -157,16 +159,16 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
         head_center_z = self.data.site("head_center").xpos[2]
 
         action_penalty = 0.1 * rewards.action_rate(nao, last_action)
-        vertical_head_penalty = 2.0 * rewards.head_z_error(nao, HEAD_SET_HEIGHT)
-        lateral_head_penalty = 1.0 * rewards.head_xy_error(nao, np.zeros(2))
+        head_over_torso_penalty = 1.0 * rewards.head_over_torso_error(nao)
 
         if self.render_mode == "human":
             self.render()
 
         terminated = head_center_z < 0.3
-        reward = (
-            0.05 - action_penalty - vertical_head_penalty - lateral_head_penalty
-        )
+        reward = 0.05 - action_penalty - head_over_torso_penalty
+
+        if terminated:
+            reward -= self.termination_penalty
 
         return (
             self._get_obs(),

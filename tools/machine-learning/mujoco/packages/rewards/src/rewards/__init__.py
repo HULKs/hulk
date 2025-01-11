@@ -26,3 +26,9 @@ def action_rate(nao: Nao, last_ctrl: NDArray[np.floating]) -> float:
 def head_xy_error(nao: Nao, target: NDArray[np.floating]) -> float:
     head_center_xy = nao.data.site("head_center").xpos[:2]
     return np.mean(np.square(head_center_xy - target))
+
+
+def head_over_torso_error(nao: Nao) -> np.floating:
+    robot_xy = nao.data.site("Robot").xpos[:2]
+    head_xy = nao.data.site("head_center").xpos[:2]
+    return np.mean(np.square(head_xy - robot_xy))
