@@ -69,7 +69,9 @@ impl Widget for &mut ParameterPanel {
                             Ok(value) => {
                                 self.nao.write(self.path.clone(), TextOrBinary::Text(value));
                             }
-                            Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
+                            Err(error) => error!(
+                                "Parameter panel: failed to serialize parameter value: {error:#?}"
+                            ),
                         }
                     }
                     if ui.button("Save to Head").clicked() {
@@ -81,7 +83,9 @@ impl Widget for &mut ParameterPanel {
                                     .store_parameters(&self.path, value, Scope::current_head())
                                     .log_err();
                             }
-                            Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
+                            Err(error) => error!(
+                                "Parameter panel: failed to serialize parameter value: {error:#?}"
+                            ),
                         }
                     }
                     if ui.button("Save to Body").clicked() {
@@ -93,7 +97,9 @@ impl Widget for &mut ParameterPanel {
                                     .store_parameters(&self.path, value, Scope::current_body())
                                     .log_err();
                             }
-                            Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
+                            Err(error) => error!(
+                                "Parameter panel: failed to serialize parameter value: {error:#?}"
+                            ),
                         }
                     }
                 });

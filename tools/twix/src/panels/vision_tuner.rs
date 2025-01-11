@@ -228,7 +228,7 @@ impl Widget for &mut VisionTunerPanel {
             Ok::<(), color_eyre::Report>(())
         });
         if let Err(error) = layout.inner {
-            error!("failed to render vision tuner panel: {error}");
+            error!("Vision tuner panel: {error}");
         }
         layout.response
     }

@@ -28,7 +28,6 @@ pub mod cycler_selector;
 pub mod overlay;
 mod overlays;
 
-#[derive(Debug)]
 enum RawOrJpeg {
     Raw(BufferHandle<YCbCr422Image>),
     Jpeg(BufferHandle<JpegImage>),
@@ -123,7 +122,7 @@ impl Widget for &mut ImagePanel {
         self.zoom_and_pan.apply(ui, &mut painter, &response);
 
         if let Err(error) = self.show_image(&painter) {
-            log::error!("Image Panel: {error}",);
+            log::error!("Image panel: {error}",);
         };
 
         self.overlays.paint(&painter);
@@ -150,7 +149,6 @@ impl ImagePanel {
 
     fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let context = painter.context();
-        // println!("Showing image!");
 
         let image_identifier = format!("bytes://image-{:?}", self.cycler);
         let image = match &self.image_buffer {

@@ -78,7 +78,7 @@ fn draw_calibration_ui(
                     nao.store_parameters(path, value, Scope::default_head())
                         .log_err();
                 }
-                Err(error) => error!("failed to serialize parameter value: {error:#?}"),
+                Err(error) => error!("Manual camera calibration panel: failed to serialize parameter value: {error:#?}"),
             }
         }
     });
