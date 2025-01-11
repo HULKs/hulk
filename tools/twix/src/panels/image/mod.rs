@@ -3,9 +3,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
-use eframe::egui::{
-    Color32, ColorImage, FontId, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget,
-};
+use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget};
 use geometry::rectangle::Rectangle;
 use image::RgbImage;
 use linear_algebra::{point, vector};
