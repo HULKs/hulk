@@ -1,6 +1,5 @@
-use std::process::Command;
-
 use clap::Parser;
+use repository::cargo::Cargo;
 
 use super::{check::CheckOptions, common::CommonOptions, heading, CargoCommand};
 
@@ -43,28 +42,28 @@ pub struct Arguments {
 impl CargoCommand for Arguments {
     const SUB_COMMAND: &'static str = "clippy";
 
-    fn apply(&self, cmd: &mut Command) {
-        self.common.apply(cmd);
-        self.check.apply(cmd);
+    fn apply(&self, cargo: &mut Cargo) {
+        self.common.apply(cargo);
+        self.check.apply(cargo);
 
         if self.release {
-            cmd.arg("--release");
+            cargo.arg("--release");
         }
         if self.ignore_rust_version {
-            cmd.arg("--ignore-rust-version");
+            cargo.arg("--ignore-rust-version");
         }
         if self.unit_graph {
-            cmd.arg("--unit-graph");
+            cargo.arg("--unit-graph");
         }
         if self.no_deps {
-            cmd.arg("--no-deps");
+            cargo.arg("--no-deps");
         }
         if self.fix {
-            cmd.arg("--fix");
+            cargo.arg("--fix");
         }
         if !self.args.is_empty() {
-            cmd.arg("--");
-            cmd.args(&self.args);
+            cargo.arg("--");
+            cargo.args(&self.args);
         }
     }
 

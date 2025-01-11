@@ -1,6 +1,5 @@
-use std::process::Command;
-
 use clap::{ArgAction, Parser};
+use repository::cargo::Cargo;
 
 use super::common::CommonOptions;
 use super::{heading, CargoCommand};
@@ -62,30 +61,30 @@ pub struct Arguments {
 impl CargoCommand for Arguments {
     const SUB_COMMAND: &'static str = "run";
 
-    fn apply(&self, cmd: &mut Command) {
-        self.common.apply(cmd);
+    fn apply(&self, cargo: &mut Cargo) {
+        self.common.apply(cargo);
 
         if self.release {
-            cmd.arg("--release");
+            cargo.arg("--release");
         }
         if self.ignore_rust_version {
-            cmd.arg("--ignore-rust-version");
+            cargo.arg("--ignore-rust-version");
         }
         if self.unit_graph {
-            cmd.arg("--unit-graph");
+            cargo.arg("--unit-graph");
         }
         for pkg in &self.packages {
-            cmd.arg("--package").arg(pkg);
+            cargo.arg("--package").arg(pkg);
         }
         for bin in &self.bin {
-            cmd.arg("--bin").arg(bin);
+            cargo.arg("--bin").arg(bin);
         }
         for example in &self.example {
-            cmd.arg("--example").arg(example);
+            cargo.arg("--example").arg(example);
         }
         if !self.args.is_empty() {
-            cmd.arg("--");
-            cmd.args(&self.args);
+            cargo.arg("--");
+            cargo.args(&self.args);
         }
     }
 

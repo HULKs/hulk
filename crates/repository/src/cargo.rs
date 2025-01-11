@@ -1,5 +1,7 @@
 use core::fmt;
 use std::{
+    env::current_dir,
+    ffi::{OsStr, OsString},
     fmt::{Display, Formatter},
     path::Path,
     process::Command,
@@ -9,6 +11,7 @@ use color_eyre::{
     eyre::{bail, Context, ContextCompat},
     Result,
 };
+use pathdiff::diff_paths;
 
 use crate::{data_home::get_data_home, sdk::download_and_install};
 
@@ -37,6 +40,7 @@ pub enum Host {
 pub struct Cargo {
     host: Host,
     environment: Environment,
+    arguments: Vec<OsString>,
 }
 
 impl Cargo {
@@ -44,6 +48,7 @@ impl Cargo {
         Self {
             host: Host::Local,
             environment,
+            arguments: Vec::new(),
         }
     }
 
@@ -51,6 +56,7 @@ impl Cargo {
         Self {
             host: Host::Remote,
             environment,
+            arguments: Vec::new(),
         }
     }
 
@@ -89,32 +95,36 @@ impl Cargo {
         Ok(())
     }
 
+    pub fn arg(&mut self, argument: impl Into<OsString>) -> &mut Self {
+        self.arguments.push(argument.into());
+        self
+    }
+
+    pub fn args(&mut self, arguments: impl IntoIterator<Item = impl Into<OsString>>) -> &mut Self {
+        self.arguments.extend(arguments.into_iter().map(Into::into));
+        self
+    }
+
     pub fn command(
-        &self,
+        self,
         repository_root: impl AsRef<Path>,
         compiler_artifacts: &[impl AsRef<Path>],
     ) -> Result<Command> {
         let repository_root = repository_root.as_ref();
 
-        let mut command = match self.host {
-            Host::Local => {
-                let mut command = Command::new("bash");
-                command.arg("-c").arg("$0 $@");
-                command
-            }
-            Host::Remote => {
-                let mut command = Command::new(repository_root.join("scripts/remoteWorkspace"));
+        let arguments = self.arguments.join(OsStr::new(" "));
 
-                for path in compiler_artifacts {
-                    command.arg("--return-file").arg(path.as_ref());
-                }
-                command
-            }
-        };
+        let relative_pwd = diff_paths(
+            current_dir().wrap_err("failed to get current directory")?,
+            repository_root,
+        )
+        .wrap_err("failed to express current directory relative to repository root")?;
 
-        match &self.environment {
+        let command_string = match self.environment {
             Environment::Native => {
-                command.arg("cargo");
+                let mut command = OsString::from("cargo ");
+                command.push(arguments);
+                command
             }
             Environment::Sdk { version } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
@@ -124,18 +134,17 @@ impl Cargo {
                 let sdk_environment_setup = environment_file
                     .to_str()
                     .wrap_err("failed to convert sdk environment setup path to string")?;
-                command.arg(format!(". {sdk_environment_setup} && cargo $@"));
+                let mut command = OsString::from(format!(". {sdk_environment_setup} && cargo "));
+                command.push(arguments);
+                command
             }
             Environment::Docker { image } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
                 let cargo_home = data_home.join("container-cargo-home/");
-                // TODO: This has to cd into the current pwd first
                 // FIXME: Pepsi only work in repository root
-                let mut command = Command::new("bash");
-                command.arg("-c");
-                command.arg(
                 // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
-                format!("\
+                let pwd = Path::new("/hulk").join(&relative_pwd);
+                let mut command = OsString::from(format!("\
                     mkdir -p {cargo_home} && \
                     docker run \
                         --volume={repository_root}:/hulk:z \
@@ -143,17 +152,39 @@ impl Cargo {
                         --rm \
                         --interactive \
                         --tty {image} \
-                        /bin/bash -c \"\
-                            cd /hulk && \
+                        /bin/sh -c '\
+                            cd {pwd} && \
                             . /naosdk/environment-setup-corei7-64-aldebaran-linux && \
-                            cargo $@\
-                        \"
+                            echo $PATH && \
+                            cargo \
                     ",
-                    repository_root=repository_root.to_str().wrap_err("failed to convert repository root to string")?,
-                    cargo_home=cargo_home.to_str().wrap_err("failed to convert cargo home to string")?,
-                )).arg("cargo");
+                    repository_root=repository_root.display(),
+                    cargo_home=cargo_home.display(),
+                    pwd=pwd.display(),
+                ));
+                command.push(arguments);
+                command.push(OsStr::new("'"));
+                command
             }
         };
+
+        let mut command = match self.host {
+            Host::Local => {
+                let mut command = Command::new("sh");
+                command.arg("-c");
+                command
+            }
+            Host::Remote => {
+                let mut command = Command::new(repository_root.join("scripts/remoteWorkspace"));
+
+                for path in compiler_artifacts {
+                    command.arg("--return-file").arg(path.as_ref());
+                }
+                command.arg("--cd").arg(&relative_pwd);
+                command
+            }
+        };
+        command.arg(command_string);
 
         Ok(command)
     }

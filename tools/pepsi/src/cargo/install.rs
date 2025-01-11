@@ -1,7 +1,7 @@
 use std::path::PathBuf;
-use std::process::Command;
 
 use clap::{ArgAction, Parser};
+use repository::cargo::Cargo;
 
 use super::CargoCommand;
 use super::{common::CommonOptions, heading};
@@ -110,58 +110,58 @@ pub struct Arguments {
 impl CargoCommand for Arguments {
     const SUB_COMMAND: &'static str = "install";
 
-    fn apply(&self, cmd: &mut Command) {
-        self.common.apply(cmd);
+    fn apply(&self, cargo: &mut Cargo) {
+        self.common.apply(cargo);
 
         if let Some(version) = self.version.as_ref() {
-            cmd.arg("--version").arg(version);
+            cargo.arg("--version").arg(version);
         }
         if let Some(git) = self.git.as_ref() {
-            cmd.arg("--git").arg(git);
+            cargo.arg("--git").arg(git);
         }
         if let Some(branch) = self.branch.as_ref() {
-            cmd.arg("--branch").arg(branch);
+            cargo.arg("--branch").arg(branch);
         }
         if let Some(tag) = self.tag.as_ref() {
-            cmd.arg("--tag").arg(tag);
+            cargo.arg("--tag").arg(tag);
         }
         if let Some(rev) = self.rev.as_ref() {
-            cmd.arg("--rev").arg(rev);
+            cargo.arg("--rev").arg(rev);
         }
         if self.list {
-            cmd.arg("--list");
+            cargo.arg("--list");
         }
         if self.force {
-            cmd.arg("--force");
+            cargo.arg("--force");
         }
         if self.no_track {
-            cmd.arg("--no-track");
+            cargo.arg("--no-track");
         }
         if self.debug {
-            cmd.arg("--debug");
+            cargo.arg("--debug");
         }
         if let Some(root) = self.root.as_ref() {
-            cmd.arg("--root").arg(root);
+            cargo.arg("--root").arg(root);
         }
         if let Some(index) = self.index.as_ref() {
-            cmd.arg("--index").arg(index);
+            cargo.arg("--index").arg(index);
         }
         if let Some(registry) = self.registry.as_ref() {
-            cmd.arg("--registry").arg(registry);
+            cargo.arg("--registry").arg(registry);
         }
         for bin in &self.bin {
-            cmd.arg("--bin").arg(bin);
+            cargo.arg("--bin").arg(bin);
         }
         if self.bins {
-            cmd.arg("--bins");
+            cargo.arg("--bins");
         }
         for example in &self.example {
-            cmd.arg("--example").arg(example);
+            cargo.arg("--example").arg(example);
         }
         if self.examples {
-            cmd.arg("--examples");
+            cargo.arg("--examples");
         }
-        cmd.args(&self.crates);
+        cargo.args(&self.crates);
     }
 
     fn profile(&self) -> &str {

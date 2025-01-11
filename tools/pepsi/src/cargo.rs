@@ -1,7 +1,7 @@
 use std::{
+    env::current_dir,
     ffi::{OsStr, OsString},
     path::{absolute, Path, PathBuf},
-    process::Command,
 };
 
 use clap::Args;
@@ -14,6 +14,7 @@ use pathdiff::diff_paths;
 use repository::cargo::Cargo;
 use tokio::fs::read_to_string;
 use toml::Table;
+use tracing::debug;
 
 pub mod build;
 pub mod check;
@@ -44,7 +45,7 @@ pub struct Arguments<CargoArguments: Args> {
 pub trait CargoCommand {
     const SUB_COMMAND: &'static str;
 
-    fn apply(&self, cmd: &mut Command);
+    fn apply(&self, cmd: &mut Cargo);
     fn profile(&self) -> &str;
 }
 
@@ -59,8 +60,11 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
             let absolute_manifest = resolve_manifest_path(&manifest, &repository_root)
                 .await
                 .wrap_err("failed to resolve manifest path")?;
-            let relative_manifest = diff_paths(absolute_manifest, &repository_root)
-                .wrap_err("failed to express manifest relative to repository root")?;
+            let relative_manifest = diff_paths(
+                absolute_manifest,
+                &current_dir().wrap_err("failed to get current directory")?,
+            )
+            .wrap_err("failed to express manifest relative to repository root")?;
 
             Some(relative_manifest)
         }
@@ -79,38 +83,40 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
 
     eprintln!("Using cargo from {environment}");
 
-    let cargo = if arguments.environment.remote {
+    let mut cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {
         Cargo::local(environment)
     };
 
-    let mut cargo_command = cargo
-        .command(&repository_root, compiler_artifacts)
-        .wrap_err("failed to create cargo command")?;
+    cargo
+        .setup(&repository_root)
+        .await
+        .wrap_err("failed to set up cargo environment")?;
 
-    cargo_command.arg(CargoArguments::SUB_COMMAND);
+    cargo.arg(CargoArguments::SUB_COMMAND);
 
     if let Some(manifest_path) = manifest_path {
         if CargoArguments::SUB_COMMAND == "install" {
-            cargo_command.arg("--path");
-            cargo_command.arg(
+            cargo.arg("--path");
+            cargo.arg(
                 manifest_path
                     .parent()
                     .wrap_err("failed to retrieve package path from manifest path")?,
             );
         } else {
-            cargo_command.arg("--manifest-path");
-            cargo_command.arg(manifest_path);
+            cargo.arg("--manifest-path");
+            cargo.arg(manifest_path);
         }
     }
 
-    arguments.cargo.apply(&mut cargo_command);
+    arguments.cargo.apply(&mut cargo);
 
-    cargo
-        .setup(&repository_root)
-        .await
-        .wrap_err("failed to set up cargo environment")?;
+    let cargo_command = cargo
+        .command(&repository_root, compiler_artifacts)
+        .wrap_err("failed to create cargo command")?;
+
+    debug!("Running `{cargo_command:?}`");
 
     let status = tokio::process::Command::from(cargo_command)
         .status()

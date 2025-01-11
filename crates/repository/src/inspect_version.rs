@@ -1,9 +1,9 @@
 use std::{fs::read_to_string, path::Path};
 
 use color_eyre::{eyre::Context, Result};
-use log::warn;
 use semver::Version;
 use serde::Deserialize;
+use tracing::warn;
 
 #[derive(Deserialize, Debug)]
 struct Cargo {

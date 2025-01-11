@@ -4,7 +4,6 @@ use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
-use log::info;
 use tokio::process::Command;
 
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -21,7 +20,7 @@ pub async fn download_with_fallback(
 ) -> Result<()> {
     for url in urls.into_iter() {
         let url = url.as_ref();
-        info!("Downloading from {url:?}");
+        eprintln!("Downloading from {url:?}");
 
         let status = Command::new("curl")
             .arg("--connect-timeout")

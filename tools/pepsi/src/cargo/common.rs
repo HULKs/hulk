@@ -1,7 +1,7 @@
 use std::path::PathBuf;
-use std::process::Command;
 
 use clap::{ArgAction, Parser};
+use repository::cargo::Cargo;
 
 use super::heading;
 
@@ -112,27 +112,27 @@ pub struct CommonOptions {
 }
 
 impl CommonOptions {
-    pub fn apply(&self, cmd: &mut Command) {
+    pub fn apply(&self, cargo: &mut Cargo) {
         if self.quiet {
-            cmd.arg("--quiet");
+            cargo.arg("--quiet");
         }
         if let Some(jobs) = self.jobs {
-            cmd.arg("--jobs").arg(jobs.to_string());
+            cargo.arg("--jobs").arg(jobs.to_string());
         }
         if self.keep_going {
-            cmd.arg("--keep-going");
+            cargo.arg("--keep-going");
         }
         if let Some(profile) = self.profile.as_ref() {
-            cmd.arg("--profile").arg(profile);
+            cargo.arg("--profile").arg(profile);
         }
         for feature in &self.features {
-            cmd.arg("--features").arg(feature);
+            cargo.arg("--features").arg(feature);
         }
         if self.all_features {
-            cmd.arg("--all-features");
+            cargo.arg("--all-features");
         }
         if self.no_default_features {
-            cmd.arg("--no-default-features");
+            cargo.arg("--no-default-features");
         }
 
         // Support <target_triple>.<glibc_version> syntax
@@ -143,42 +143,42 @@ impl CommonOptions {
             .map(|target| target.split_once('.').map(|(t, _)| t).unwrap_or(target))
             .collect::<Vec<&str>>();
         rust_targets.iter().for_each(|target| {
-            cmd.arg("--target").arg(target);
+            cargo.arg("--target").arg(target);
         });
 
         if let Some(dir) = self.target_dir.as_ref() {
-            cmd.arg("--target-dir").arg(dir);
+            cargo.arg("--target-dir").arg(dir);
         }
         for fmt in &self.message_format {
-            cmd.arg("--message-format").arg(fmt);
+            cargo.arg("--message-format").arg(fmt);
         }
         if self.verbose > 0 {
-            cmd.arg(format!("-{}", "v".repeat(self.verbose.into())));
+            cargo.arg(format!("-{}", "v".repeat(self.verbose.into())));
         }
         if let Some(color) = self.color.as_ref() {
-            cmd.arg("--color").arg(color);
+            cargo.arg("--color").arg(color);
         }
         if self.frozen {
-            cmd.arg("--frozen");
+            cargo.arg("--frozen");
         }
         if self.locked {
-            cmd.arg("--locked");
+            cargo.arg("--locked");
         }
         if self.offline {
-            cmd.arg("--offline");
+            cargo.arg("--offline");
         }
         for config in &self.config {
-            cmd.arg("--config").arg(config);
+            cargo.arg("--config").arg(config);
         }
         for flag in &self.unstable_flags {
-            cmd.arg("-Z").arg(flag);
+            cargo.arg("-Z").arg(flag);
         }
         if let Some(timings) = &self.timings {
             if timings.is_empty() {
-                cmd.arg("--timings");
+                cargo.arg("--timings");
             } else {
                 let timings: Vec<_> = timings.iter().map(|x| x.as_str()).collect();
-                cmd.arg(format!("--timings={}", timings.join(",")));
+                cargo.arg(format!("--timings={}", timings.join(",")));
             }
         }
     }

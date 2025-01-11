@@ -6160,9 +6160,9 @@ dependencies = [
  "futures-util",
  "home",
  "itertools 0.10.5",
- "log",
  "nao",
  "parameters",
+ "pathdiff",
  "semver",
  "serde",
  "serde_json",
@@ -6170,6 +6170,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml",
+ "tracing",
  "types",
  "xdg",
 ]

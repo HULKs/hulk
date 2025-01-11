@@ -9,7 +9,6 @@ use color_eyre::{
     eyre::{bail, Context},
     Result,
 };
-use log::info;
 use tokio::{
     fs::{create_dir_all, remove_dir_all, remove_file, rename, set_permissions, File},
     process::Command,
@@ -29,7 +28,7 @@ pub async fn download_and_install(version: &str, data_home: impl AsRef<Path>) ->
 
     let incomplete_marker = sdk_home.join(format!("{version}.incomplete"));
     if installation_directory.exists() && incomplete_marker.exists() {
-        info!("Removing incomplete SDK ({version}) of previous installation attempt...");
+        eprintln!("Removing incomplete SDK ({version}) of previous installation attempt...");
         remove_dir_all(&installation_directory)
             .await
             .wrap_err("failed to remove incomplete SDK directory")?;

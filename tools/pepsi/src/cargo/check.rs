@@ -1,6 +1,5 @@
-use std::process::Command;
-
 use clap::{ArgAction, Parser};
+use repository::cargo::Cargo;
 
 use super::{common::CommonOptions, heading, CargoCommand};
 
@@ -103,51 +102,51 @@ pub struct CheckOptions {
 }
 
 impl CheckOptions {
-    pub fn apply(&self, cmd: &mut Command) {
+    pub fn apply(&self, cargo: &mut Cargo) {
         for pkg in &self.packages {
-            cmd.arg("--package").arg(pkg);
+            cargo.arg("--package").arg(pkg);
         }
         if self.workspace {
-            cmd.arg("--workspace");
+            cargo.arg("--workspace");
         }
         for item in &self.exclude {
-            cmd.arg("--exclude").arg(item);
+            cargo.arg("--exclude").arg(item);
         }
         if self.all {
-            cmd.arg("--all");
+            cargo.arg("--all");
         }
         if self.lib {
-            cmd.arg("--lib");
+            cargo.arg("--lib");
         }
         for bin in &self.bin {
-            cmd.arg("--bin").arg(bin);
+            cargo.arg("--bin").arg(bin);
         }
         if self.bins {
-            cmd.arg("--bins");
+            cargo.arg("--bins");
         }
         for example in &self.example {
-            cmd.arg("--example").arg(example);
+            cargo.arg("--example").arg(example);
         }
         if self.examples {
-            cmd.arg("--examples");
+            cargo.arg("--examples");
         }
         for test in &self.test {
-            cmd.arg("--test").arg(test);
+            cargo.arg("--test").arg(test);
         }
         if self.tests {
-            cmd.arg("--tests");
+            cargo.arg("--tests");
         }
         for bench in &self.bench {
-            cmd.arg("--bench").arg(bench);
+            cargo.arg("--bench").arg(bench);
         }
         if self.benches {
-            cmd.arg("--benches");
+            cargo.arg("--benches");
         }
         if self.all_targets {
-            cmd.arg("--all-targets");
+            cargo.arg("--all-targets");
         }
         if self.future_incompat_report {
-            cmd.arg("--future-incompat-report");
+            cargo.arg("--future-incompat-report");
         }
     }
 }
@@ -179,7 +178,7 @@ pub struct Arguments {
 impl CargoCommand for Arguments {
     const SUB_COMMAND: &'static str = "check";
 
-    fn apply(&self, cmd: &mut Command) {
+    fn apply(&self, cmd: &mut Cargo) {
         self.common.apply(cmd);
         self.check.apply(cmd);
 
