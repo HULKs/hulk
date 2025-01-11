@@ -13,7 +13,7 @@ use spl_network_messages::{PlayerNumber, Team};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::GlobalFieldSide,
-    filtered_game_controller_state::FilteredGameControllerState,
+    game_controller_state::GameControllerState,
     messages::IncomingMessage,
     players::Players,
     pose_detection::{FreeKickSignalDetectionResult, TimeTaggedKickingTeamDetections},
@@ -39,8 +39,7 @@ pub struct CycleContext {
     referee_pose_kind:
         PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "referee_pose_kind?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
-    filtered_game_controller_state:
-        RequiredInput<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
 
@@ -115,8 +114,8 @@ impl FreeKickSignalFilter {
             let detected_kicking_team = kicking_team_from_free_kick_signal_detection(
                 detection,
                 context
-                    .filtered_game_controller_state
-                    .own_team_is_home_after_coin_toss,
+                    .game_controller_state
+                    .hulks_team_is_home_after_coin_toss,
             );
             if let Some(detected_kicking_team) = detected_kicking_team {
                 self.detected_free_kick_detections_queue
