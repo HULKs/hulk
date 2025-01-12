@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import mujoco as mj
 import numpy as np
 import numpy.typing as npt
@@ -33,12 +35,14 @@ def objective(
     recorded_actuators: npt.NDArray[np.float64],
     recorded_sensors: npt.NDArray[np.float64],
     *,
+    sensors: Sequence[str],
     video_path: str | None = None,
 ) -> float:
     populate_actuators(spec, trial)
     simulated_sensor_data = simulate_recording(
         spec,
         recorded_actuators,
+        sensors=sensors,
         video_path=video_path,
     )
     if len(simulated_sensor_data) != len(recorded_sensors):
