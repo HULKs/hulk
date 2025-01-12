@@ -14,12 +14,6 @@ pub fn execute(
     let ground_to_field = world_state.robot.ground_to_field?;
     let expected_referee_position = expected_referee_position?;
 
-    let position = ground_to_field.as_pose().position();
-
-    if position.y().signum() == expected_referee_position.y().signum() {
-        return None;
-    };
-
     Some(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: ground_to_field.inverse() * expected_referee_position,
