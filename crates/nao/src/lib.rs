@@ -311,9 +311,14 @@ impl Nao {
         let mut command = self.rsync_with_nao()?;
         command
             .arg("--mkpath")
-            .arg("--keep-dirlinks")
+            .arg("--copy-dirlinks")
             .arg("--copy-links")
             .arg("--info=progress2")
+            .arg("--exclude=.git")
+            .arg("--exclude=webots")
+            .arg("--exclude=tools/machine-learning")
+            .arg("--exclude=tools/charging-box")
+            .arg("--filter=dir-merge,- .gitignore")
             .arg(format!("{}/", local_directory.as_ref().display()))
             .arg(format!(
                 "{}:{}/",
