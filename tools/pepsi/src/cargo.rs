@@ -112,13 +112,13 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
 
     arguments.cargo.apply(&mut cargo);
 
-    let cargo_command = cargo
+    let mut cargo_command = cargo
         .command(&repository_root, compiler_artifacts)
         .wrap_err("failed to create cargo command")?;
 
     debug!("Running `{cargo_command:?}`");
 
-    let status = tokio::process::Command::from(cargo_command)
+    let status = cargo_command
         .status()
         .await
         .wrap_err("failed to run cargo")?;

@@ -4,7 +4,6 @@ use std::{
     ffi::{OsStr, OsString},
     fmt::{Display, Formatter},
     path::Path,
-    process::Command,
 };
 
 use color_eyre::{
@@ -12,6 +11,7 @@ use color_eyre::{
     Result,
 };
 use pathdiff::diff_paths;
+use tokio::process::Command;
 
 use crate::{data_home::get_data_home, sdk::download_and_install};
 
@@ -73,14 +73,13 @@ impl Cargo {
                 Host::Remote => {
                     let mut command =
                         Command::new(repository_root.as_ref().join("scripts/remoteWorkspace"));
-                    command
+
+                    let status = command
                         .arg("pepsi")
                         .arg("sdk")
                         .arg("install")
                         .arg("--version")
-                        .arg(version);
-
-                    let status = tokio::process::Command::from(command)
+                        .arg(version)
                         .status()
                         .await
                         .wrap_err("failed to run pepsi")?;
