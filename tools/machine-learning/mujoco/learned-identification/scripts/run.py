@@ -1,7 +1,7 @@
 import multiprocessing
 
 import click
-from run_optimizer import run_optimizer
+from learned_identification.run_optimizer import run_optimization
 
 
 @click.command()
@@ -32,7 +32,7 @@ def run_many(
     processes = []
     for _ in range(jobs):
         p = multiprocessing.Process(
-            target=run_optimizer,
+            target=run_optimization,
             args=(spec_path, recording_path, study, storage),
         )
         p.start()

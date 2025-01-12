@@ -1,11 +1,11 @@
-import click
 import mujoco as mj
 import optuna
-from optimization import objective
-from recording import load_recorded_actuators, load_recorded_sensors
+
+from .optimization import objective
+from .recording import load_recorded_actuators, load_recorded_sensors
 
 
-def run_optimizer(
+def run_optimization(
     spec_path: str,
     recording_path: str,
     study_name: str,
@@ -88,40 +88,4 @@ def run_optimizer(
             recorded_sensors,
         ),
         n_jobs=1,
-        # n_trials=100,
     )
-
-
-@click.command()
-@click.option(
-    "--spec",
-    "spec_path",
-    help="Path to the model specification file",
-)
-@click.option(
-    "--recording",
-    "recording_path",
-    help="Path to the mcap recording file",
-)
-@click.option("--study", "study_name", help="Name of the study")
-@click.option(
-    "--storage",
-    help="Path to the optuna database",
-    default="sqlite:///optuna.db",
-)
-def main(
-    spec_path: str,
-    recording_path: str,
-    study_name: str,
-    storage: str,
-) -> None:
-    run_optimizer(
-        spec_path,
-        recording_path,
-        study_name,
-        storage,
-    )
-
-
-if __name__ == "__main__":
-    main()

@@ -2,8 +2,9 @@ import mujoco as mj
 import numpy as np
 import numpy.typing as npt
 import optuna
-from actuator import ActuatorParameters
-from simulation import simulate_recording
+
+from .actuator import ActuatorParameters
+from .simulation import simulate_recording
 
 
 class SimulationLengthError(Exception):
