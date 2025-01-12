@@ -169,7 +169,7 @@ impl Camera {
             parameters.height,
             match parameters.format {
                 Format::YUVU => {
-                    'Y' as u32 | ('U' as u32) << 8 | ('Y' as u32) << 16 | ('V' as u32) << 24
+                    'Y' as u32 | (('U' as u32) << 8) | (('Y' as u32) << 16) | (('V' as u32) << 24)
                 }
             },
         )

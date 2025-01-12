@@ -122,7 +122,7 @@ impl<'state> Ticks<'state> {
                     absolute_time_to_time_string(current.map_to_absolute_time(self.frame_range));
                 let galley = painter.layout_no_wrap(text.clone(), font.clone(), color_strong);
                 let text_position = pos2(x.inner() - galley.rect.width() / 2.0, clip_rect.top());
-                if position_text_rect.map_or(true, |position_text_rect| {
+                if position_text_rect.is_none_or(|position_text_rect| {
                     !galley
                         .rect
                         .translate(text_position.to_vec2())

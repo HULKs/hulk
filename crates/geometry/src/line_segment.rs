@@ -132,7 +132,7 @@ impl<Frame> LineSegment<Frame> {
         let directed_cathetus = clockwise_normal_vector.dot(&(point - self.0));
 
         match directed_cathetus {
-            f if f == 0.0 => Direction::Colinear,
+            0.0 => Direction::Colinear,
             f if f > 0.0 => Direction::Clockwise,
             f if f < 0.0 => Direction::Counterclockwise,
             f => panic!("directed cathetus was not a real number: {f}"),

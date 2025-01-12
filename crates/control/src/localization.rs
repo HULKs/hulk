@@ -246,7 +246,7 @@ impl Localization {
                         self.hypotheses
                             .clone_from(&self.hypotheses_when_entered_playing);
                     }
-                } else if self.time_when_penalized_clicked.map_or(true, |time| {
+                } else if self.time_when_penalized_clicked.is_none_or(|time| {
                     context
                         .cycle_time
                         .start_time
