@@ -8,14 +8,16 @@ from learned_identification.run_optimizer import run_optimization
 @click.option(
     "--spec",
     "spec_path",
+    required=True,
     help="Path to the model specification file",
 )
 @click.option(
     "--recording",
     "recording_path",
+    required=True,
     help="Path to the mcap recording file",
 )
-@click.option("--study", help="Name of the study")
+@click.option("--study", help="Name of the study", required=True)
 @click.option(
     "--storage",
     help="Path to the optuna database",
@@ -29,6 +31,10 @@ def run_many(
     storage: str,
     jobs: int,
 ) -> None:
+    if jobs == 1:
+        run_optimization(spec_path, recording_path, study, storage)
+        return
+
     processes = []
     for _ in range(jobs):
         p = multiprocessing.Process(

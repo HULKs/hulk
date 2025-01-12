@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import mediapy as media
 import mujoco as mj
 import numpy as np
@@ -9,6 +11,7 @@ def simulate_recording(
     spec: mj.MjSpec,
     recorded_actuators: npt.NDArray[np.float64],
     *,
+    sensors: Sequence[str],
     initial_keyframe: int = 0,
     camera_distance: float = 1.0,
     framerate: float = 30.0,
@@ -31,7 +34,10 @@ def simulate_recording(
         for actuators in tqdm.tqdm(recorded_actuators, desc="simulating"):
             data.ctrl = actuators
             mj.mj_step(model, data)
-            simulated_sensor_data.append(data.sensordata.copy())
+            sensor_data = np.concatenate(
+                [data.sensor(sensor).data for sensor in sensors],
+            )
+            simulated_sensor_data.append(sensor_data)
             if video_path is not None and len(frames) < data.time * framerate:
                 camera.lookat = data.body("Nao").subtree_com
                 renderer.update_scene(data, camera)

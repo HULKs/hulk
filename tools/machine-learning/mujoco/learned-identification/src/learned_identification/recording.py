@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from itertools import islice
 from pathlib import Path
 
@@ -63,20 +63,15 @@ def collect_values_from_mcap(
 
 
 def load_recorded_sensors(
-    spec: mj.MjSpec,
     recording: str,
+    sensors: Sequence[str],
     *,
     max_num_messages: int | None = None,
 ) -> npt.NDArray[np.float64]:
-    sensor_names = [
-        sensor.name
-        for sensor in spec.sensors
-        if sensor.type == mj.mjtSensor.mjSENS_JOINTPOS
-    ]
     return collect_values_from_mcap(
         recording,
         "Control.main_outputs.sensor_data",
-        sensor_names,
+        sensors,
         max_num_messages,
     )
 
