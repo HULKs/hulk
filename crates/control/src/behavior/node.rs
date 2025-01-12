@@ -173,6 +173,7 @@ impl Behavior {
                     ..
                 }) => {
                     actions.push(Action::LookAtReferee);
+                    actions.push(Action::DefendLeft);
                 }
                 _ => actions.push(Action::DefendLeft),
             },
@@ -193,6 +194,7 @@ impl Behavior {
                     ..
                 }) => {
                     actions.push(Action::LookAtReferee);
+                    actions.push(Action::DefendRight);
                 }
                 _ => actions.push(Action::DefendRight),
             },
@@ -225,6 +227,7 @@ impl Behavior {
                     ..
                 }) => {
                     actions.push(Action::LookAtReferee);
+                    actions.push(Action::SupportLeft);
                 }
                 _ => actions.push(Action::SupportLeft),
             },
@@ -236,10 +239,11 @@ impl Behavior {
                             ball_is_free: false,
                             ..
                         },
-                    own_team_is_home_after_coin_toss: false,
+                    own_team_is_home_after_coin_toss: true,
                     ..
                 }) => {
                     actions.push(Action::LookAtReferee);
+                    actions.push(Action::SupportRight);
                 }
                 _ => actions.push(Action::SupportRight),
             },
