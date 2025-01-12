@@ -56,12 +56,58 @@ where
     }
 }
 
+impl<'lhs, Frame, SelfInner, RightInner> Add<Framed<Frame, RightInner>>
+    for &'lhs Framed<Frame, SelfInner>
+where
+    &'lhs SelfInner: Add<RightInner>,
+{
+    type Output = Framed<Frame, <&'lhs SelfInner as Add<RightInner>>::Output>;
+
+    fn add(self, right: Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::wrap(&self.inner + right.inner)
+    }
+}
+
+impl<'rhs, Frame, SelfInner, RightInner> Add<&'rhs Framed<Frame, RightInner>>
+    for Framed<Frame, SelfInner>
+where
+    SelfInner: Add<&'rhs RightInner>,
+{
+    type Output = Framed<Frame, <SelfInner as Add<&'rhs RightInner>>::Output>;
+
+    fn add(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::wrap(self.inner + &right.inner)
+    }
+}
+
+impl<'lhs, 'rhs, Frame, SelfInner, RightInner> Add<&'rhs Framed<Frame, RightInner>>
+    for &'lhs Framed<Frame, SelfInner>
+where
+    &'lhs SelfInner: Add<&'rhs RightInner>,
+{
+    type Output = Framed<Frame, <&'lhs SelfInner as Add<&'rhs RightInner>>::Output>;
+
+    fn add(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::wrap(&self.inner + &right.inner)
+    }
+}
+
 impl<Frame, SelfInner, RightInner> AddAssign<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
 where
     SelfInner: AddAssign<RightInner>,
 {
     fn add_assign(&mut self, rhs: Framed<Frame, RightInner>) {
         self.inner += rhs.inner;
+    }
+}
+
+impl<'rhs, Frame, SelfInner, RightInner> AddAssign<&'rhs Framed<Frame, RightInner>>
+    for Framed<Frame, SelfInner>
+where
+    SelfInner: AddAssign<&'rhs RightInner>,
+{
+    fn add_assign(&mut self, right: &'rhs Framed<Frame, RightInner>) {
+        self.inner += &right.inner
     }
 }
 
@@ -76,12 +122,58 @@ where
     }
 }
 
+impl<'lhs, Frame, SelfInner, RightInner> Sub<Framed<Frame, RightInner>>
+    for &'lhs Framed<Frame, SelfInner>
+where
+    &'lhs SelfInner: Sub<RightInner>,
+{
+    type Output = Framed<Frame, <&'lhs SelfInner as Sub<RightInner>>::Output>;
+
+    fn sub(self, right: Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::wrap(&self.inner - right.inner)
+    }
+}
+
+impl<'rhs, Frame, SelfInner, RightInner> Sub<&'rhs Framed<Frame, RightInner>>
+    for Framed<Frame, SelfInner>
+where
+    SelfInner: Sub<&'rhs RightInner>,
+{
+    type Output = Framed<Frame, <SelfInner as Sub<&'rhs RightInner>>::Output>;
+
+    fn sub(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::wrap(self.inner - &right.inner)
+    }
+}
+
+impl<'lhs, 'rhs, Frame, SelfInner, RightInner> Sub<&'rhs Framed<Frame, RightInner>>
+    for &'lhs Framed<Frame, SelfInner>
+where
+    &'lhs SelfInner: Sub<&'rhs RightInner>,
+{
+    type Output = Framed<Frame, <&'lhs SelfInner as Sub<&'rhs RightInner>>::Output>;
+
+    fn sub(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
+        Self::Output::wrap(&self.inner - &right.inner)
+    }
+}
+
 impl<Frame, SelfInner, RightInner> SubAssign<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
 where
     SelfInner: SubAssign<RightInner>,
 {
     fn sub_assign(&mut self, rhs: Framed<Frame, RightInner>) {
         self.inner -= rhs.inner;
+    }
+}
+
+impl<'rhs, Frame, SelfInner, RightInner> SubAssign<&'rhs Framed<Frame, RightInner>>
+    for Framed<Frame, SelfInner>
+where
+    SelfInner: SubAssign<&'rhs RightInner>,
+{
+    fn sub_assign(&mut self, right: &'rhs Framed<Frame, RightInner>) {
+        self.inner -= &right.inner
     }
 }
 
