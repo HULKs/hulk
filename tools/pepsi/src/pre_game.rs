@@ -14,13 +14,7 @@ use argument_parsers::{
 };
 use indicatif::ProgressBar;
 use nao::{Nao, Network, SystemctlAction};
-use repository::{
-    communication::configure_communication,
-    configuration::read_os_version,
-    location::set_location,
-    recording::configure_recording_intervals,
-    upload::{get_hulk_binary, populate_upload_directory},
-};
+use repository::{upload::get_hulk_binary, Repository};
 use tempfile::tempdir;
 
 use crate::{
@@ -83,9 +77,7 @@ pub struct PreGameArguments {
     pub assignments: Vec<NaoAddressPlayerAssignment>,
 }
 
-pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
-    let repository_root = repository_root.as_ref();
-
+pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
     let naos: Vec<_> = arguments
         .pre_game
         .assignments
@@ -93,14 +85,15 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         .map(|assignment| assignment.nao_address)
         .collect();
 
-    configure_recording_intervals(
-        HashMap::from_iter(arguments.pre_game.recording_intervals.clone()),
-        repository_root,
-    )
-    .await
-    .wrap_err("failed to set recording settings")?;
+    repository
+        .configure_recording_intervals(HashMap::from_iter(
+            arguments.pre_game.recording_intervals.clone(),
+        ))
+        .await
+        .wrap_err("failed to set recording settings")?;
 
-    set_location("nao", &arguments.pre_game.location, repository_root)
+    repository
+        .set_location("nao", &arguments.pre_game.location)
         .await
         .wrap_err_with(|| {
             format!(
@@ -109,7 +102,8 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
             )
         })?;
 
-    configure_communication(arguments.pre_game.with_communication, repository_root)
+    repository
+        .configure_communication(arguments.pre_game.with_communication)
         .await
         .wrap_err("failed to set communication")?;
 
@@ -124,7 +118,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
                     .collect::<Result<Vec<_>, _>>()
                     .wrap_err("failed to convert NAO address assignments into NAO number assignments for player number setting")?
             },
-            repository_root
+            repository
         )
         .await
         .wrap_err("failed to set player numbers")?;
@@ -134,7 +128,8 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(
-            repository_root
+            repository
+                .root
                 .join("crates/hulk_nao/Cargo.toml")
                 .into_os_string(),
         ),
@@ -143,7 +138,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
     };
 
     if !arguments.pre_game.no_build {
-        cargo(cargo_arguments, &repository_root, &[&hulk_binary])
+        cargo(cargo_arguments, repository, &[&hulk_binary])
             .await
             .wrap_err("failed to build")?;
     }
@@ -152,7 +147,8 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
         return Ok(());
     }
 
-    populate_upload_directory(&upload_directory, &repository_root, hulk_binary)
+    repository
+        .populate_upload_directory(&upload_directory, hulk_binary)
         .await
         .wrap_err("failed to populate upload directory")?;
 
@@ -168,7 +164,7 @@ pub async fn pre_game(arguments: Arguments, repository_root: impl AsRef<Path>) -
                 upload_directory,
                 arguments,
                 progress_bar,
-                repository_root,
+                repository,
             )
             .await
         },
@@ -183,7 +179,7 @@ async fn setup_nao(
     upload_directory: impl AsRef<Path>,
     arguments: &PreGameArguments,
     progress: ProgressBar,
-    repository_root: &Path,
+    repository: &Repository,
 ) -> Result<()> {
     progress.set_message("Pinging NAO...");
     let nao = Nao::try_new_with_ping(nao_address.ip).await?;
@@ -194,7 +190,8 @@ async fn setup_nao(
             .get_os_version()
             .await
             .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
-        let expected_os_version = read_os_version(repository_root)
+        let expected_os_version = repository
+            .read_os_version()
             .await
             .wrap_err("failed to get configured OS version")?;
         if nao_os_version != expected_os_version {

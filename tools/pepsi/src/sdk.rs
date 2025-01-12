@@ -1,11 +1,7 @@
-use std::path::Path;
-
 use clap::Subcommand;
 use color_eyre::{eyre::Context, Result};
 
-use repository::{
-    configuration::read_sdk_version, data_home::get_data_home, sdk::download_and_install,
-};
+use repository::{data_home::get_data_home, sdk::download_and_install, Repository};
 
 #[derive(Subcommand)]
 pub enum Arguments {
@@ -17,20 +13,22 @@ pub enum Arguments {
     Path,
 }
 
-pub async fn sdk(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
     match arguments {
         Arguments::Install { version } => {
             let data_home = get_data_home().wrap_err("failed to get data home")?;
             let version = match version {
                 Some(version) => version,
-                None => read_sdk_version(repository_root)
+                None => repository
+                    .read_sdk_version()
                     .await
                     .wrap_err("failed to get OS version")?,
             };
             download_and_install(&version, data_home).await?;
         }
         Arguments::Path => {
-            let sdk_version = read_sdk_version(&repository_root)
+            let sdk_version = repository
+                .read_sdk_version()
                 .await
                 .wrap_err("failed to get HULK OS version")?;
             let data_home = get_data_home().wrap_err("failed to get data home")?;

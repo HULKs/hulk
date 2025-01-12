@@ -13,7 +13,7 @@ use color_eyre::{
 use pathdiff::diff_paths;
 use tokio::process::Command;
 
-use crate::{data_home::get_data_home, sdk::download_and_install};
+use crate::{data_home::get_data_home, sdk::download_and_install, Repository};
 
 #[derive(Debug, Clone)]
 pub enum Environment {
@@ -60,7 +60,7 @@ impl Cargo {
         }
     }
 
-    pub async fn setup(&self, repository_root: impl AsRef<Path>) -> Result<()> {
+    pub async fn setup(&self, repository: &Repository) -> Result<()> {
         if let Environment::Sdk { version } = &self.environment {
             match self.host {
                 Host::Local => {
@@ -71,8 +71,7 @@ impl Cargo {
                         .wrap_err("failed to download and install SDK")?;
                 }
                 Host::Remote => {
-                    let mut command =
-                        Command::new(repository_root.as_ref().join("scripts/remoteWorkspace"));
+                    let mut command = Command::new(repository.root.join("scripts/remoteWorkspace"));
 
                     let status = command
                         .arg("pepsi")
@@ -106,16 +105,14 @@ impl Cargo {
 
     pub fn command(
         self,
-        repository_root: impl AsRef<Path>,
+        repository: &Repository,
         compiler_artifacts: &[impl AsRef<Path>],
     ) -> Result<Command> {
-        let repository_root = repository_root.as_ref();
-
         let arguments = self.arguments.join(OsStr::new(" "));
 
         let relative_pwd = diff_paths(
             current_dir().wrap_err("failed to get current directory")?,
-            repository_root,
+            &repository.root,
         )
         .wrap_err("failed to express current directory relative to repository root")?;
 
@@ -157,7 +154,7 @@ impl Cargo {
                             echo $PATH && \
                             cargo \
                     ",
-                    repository_root=repository_root.display(),
+                    repository_root=repository.root.display(),
                     cargo_home=cargo_home.display(),
                     pwd=pwd.display(),
                 ));
@@ -174,7 +171,7 @@ impl Cargo {
                 command
             }
             Host::Remote => {
-                let mut command = Command::new(repository_root.join("scripts/remoteWorkspace"));
+                let mut command = Command::new(repository.root.join("scripts/remoteWorkspace"));
 
                 for path in compiler_artifacts {
                     command.arg("--return-file").arg(path.as_ref());

@@ -7,6 +7,7 @@ use color_eyre::{
     Result,
 };
 
+use repository::Repository;
 use source_analyzer::{contexts::Contexts, node::parse_rust_file, pretty::to_string_pretty};
 
 fn find_latest_file(path_pattern: impl AsRef<Path>) -> Result<PathBuf> {
@@ -49,10 +50,7 @@ pub enum Arguments {
     },
 }
 
-pub async fn analyze(
-    arguments: Arguments,
-    repository_root: Result<impl AsRef<Path>>,
-) -> Result<()> {
+pub async fn analyze(arguments: Arguments, repository: Result<Repository>) -> Result<()> {
     match arguments {
         Arguments::DumpContexts { file_path } => {
             let file = parse_rust_file(file_path).wrap_err("failed to parse rust file")?;
@@ -62,10 +60,10 @@ pub async fn analyze(
             print!("{string}");
         }
         Arguments::DumpLatest { file_name } => {
-            let repository_root = repository_root?;
+            let repository = repository?;
             let glob = format!("target/**/{file_name}");
             println!("{glob}");
-            let file_path = find_latest_file(repository_root.as_ref().join(glob))
+            let file_path = find_latest_file(repository.root.join(glob))
                 .wrap_err("failed find latest generated file")?;
             println!("{}", file_path.display());
             PrettyPrinter::new()

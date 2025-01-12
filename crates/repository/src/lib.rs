@@ -3,6 +3,8 @@
 //! This crate simplifies tasks like building for specific targets, handling SDKs, and setting up
 //! configurations, making it easier to develop, configure, and deploy for NAO robots.
 
+use std::path::PathBuf;
+
 pub mod cargo;
 pub mod communication;
 pub mod configuration;
@@ -19,3 +21,14 @@ pub mod sdk;
 pub mod symlink;
 pub mod team;
 pub mod upload;
+
+/// The HULK repository.
+pub struct Repository {
+    pub root: PathBuf,
+}
+
+impl Repository {
+    pub fn new(root: PathBuf) -> Self {
+        Self { root }
+    }
+}

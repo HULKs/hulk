@@ -11,7 +11,7 @@ use color_eyre::{
 };
 use environment::{Environment, EnvironmentArguments};
 use pathdiff::diff_paths;
-use repository::cargo::Cargo;
+use repository::{cargo::Cargo, Repository};
 use tokio::fs::read_to_string;
 use toml::Table;
 use tracing::debug;
@@ -51,13 +51,13 @@ pub trait CargoCommand {
 
 pub async fn cargo<CargoArguments: Args + CargoCommand>(
     arguments: Arguments<CargoArguments>,
-    repository_root: impl AsRef<Path>,
+    repository: &Repository,
     compiler_artifacts: &[impl AsRef<Path>],
 ) -> Result<()> {
     // Map with async closures would be nice here (not yet stabilized)
     let manifest_path = match arguments.manifest {
         Some(manifest) => {
-            let absolute_manifest = resolve_manifest_path(&manifest, &repository_root)
+            let absolute_manifest = resolve_manifest_path(&manifest, repository)
                 .await
                 .wrap_err("failed to resolve manifest path")?;
             let relative_manifest = diff_paths(
@@ -77,7 +77,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
             .await
             .wrap_err("failed to read requested environment")?,
     }
-    .resolve(&repository_root)
+    .resolve(repository)
     .await
     .wrap_err("failed to resolve environment")?;
 
@@ -90,7 +90,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     };
 
     cargo
-        .setup(&repository_root)
+        .setup(repository)
         .await
         .wrap_err("failed to set up cargo environment")?;
 
@@ -113,7 +113,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     arguments.cargo.apply(&mut cargo);
 
     let mut cargo_command = cargo
-        .command(&repository_root, compiler_artifacts)
+        .command(repository, compiler_artifacts)
         .wrap_err("failed to create cargo command")?;
 
     debug!("Running `{cargo_command:?}`");
@@ -164,31 +164,30 @@ async fn read_requested_environment(manifest_path: &Option<PathBuf>) -> Result<E
 
 async fn resolve_manifest_path(
     manifest: impl AsRef<OsStr>,
-    repository_root: impl AsRef<Path>,
+    repository: &Repository,
 ) -> Result<PathBuf> {
     let manifest = manifest.as_ref();
-    let repository_root = repository_root.as_ref();
 
     Ok(match manifest.to_str() {
-        Some("imagine") => repository_root.join("crates/hulk_imagine/Cargo.toml"),
-        Some("nao") => repository_root.join("crates/hulk_nao/Cargo.toml"),
-        Some("replayer") => repository_root.join("crates/hulk_replayer/Cargo.toml"),
-        Some("webots") => repository_root.join("crates/hulk_webots/Cargo.toml"),
+        Some("imagine") => repository.root.join("crates/hulk_imagine/Cargo.toml"),
+        Some("nao") => repository.root.join("crates/hulk_nao/Cargo.toml"),
+        Some("replayer") => repository.root.join("crates/hulk_replayer/Cargo.toml"),
+        Some("webots") => repository.root.join("crates/hulk_webots/Cargo.toml"),
 
-        Some("aliveness") => repository_root.join("services/aliveness/Cargo.toml"),
-        Some("breeze") => repository_root.join("services/breeze/Cargo.toml"),
-        Some("hula") => repository_root.join("services/hula/Cargo.toml"),
+        Some("aliveness") => repository.root.join("services/aliveness/Cargo.toml"),
+        Some("breeze") => repository.root.join("services/breeze/Cargo.toml"),
+        Some("hula") => repository.root.join("services/hula/Cargo.toml"),
 
-        Some("annotato") => repository_root.join("tools/annotato/Cargo.toml"),
-        Some("camera_matrix_extractor") => {
-            repository_root.join("tools/camera_matrix_extractor/Cargo.toml")
-        }
-        Some("depp") => repository_root.join("tools/depp/Cargo.toml"),
-        Some("fanta") => repository_root.join("tools/fanta/Cargo.toml"),
-        Some("parameter_tester") => repository_root.join("tools/parameter_tester/Cargo.toml"),
-        Some("pepsi") => repository_root.join("tools/pepsi/Cargo.toml"),
-        Some("twix") => repository_root.join("tools/twix/Cargo.toml"),
-        Some("widget_gallery") => repository_root.join("tools/widget_gallery/Cargo.toml"),
+        Some("annotato") => repository.root.join("tools/annotato/Cargo.toml"),
+        Some("camera_matrix_extractor") => repository
+            .root
+            .join("tools/camera_matrix_extractor/Cargo.toml"),
+        Some("depp") => repository.root.join("tools/depp/Cargo.toml"),
+        Some("fanta") => repository.root.join("tools/fanta/Cargo.toml"),
+        Some("parameter_tester") => repository.root.join("tools/parameter_tester/Cargo.toml"),
+        Some("pepsi") => repository.root.join("tools/pepsi/Cargo.toml"),
+        Some("twix") => repository.root.join("tools/twix/Cargo.toml"),
+        Some("widget_gallery") => repository.root.join("tools/widget_gallery/Cargo.toml"),
 
         _ => {
             let manifest_path =

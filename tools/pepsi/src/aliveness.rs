@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, path::Path, time::Duration};
+use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration};
 
 use clap::{arg, Args};
 use color_eyre::{
@@ -13,7 +13,7 @@ use aliveness::{
     AlivenessError, AlivenessState, Battery, JointsArray,
 };
 use argument_parsers::NaoAddress;
-use repository::configuration::read_os_version;
+use repository::Repository;
 use tracing::error;
 
 #[derive(Args)]
@@ -38,10 +38,7 @@ fn parse_duration(arg: &str) -> Result<Duration, ParseIntError> {
 
 type AlivenessList = BTreeMap<IpAddr, AlivenessState>;
 
-pub async fn aliveness(
-    arguments: Arguments,
-    repository_root: Result<impl AsRef<Path>>,
-) -> Result<()> {
+pub async fn aliveness(arguments: Arguments, repository: Result<Repository>) -> Result<()> {
     let states = query_aliveness_list(&arguments)
         .await
         .wrap_err("failed to query aliveness")?;
@@ -51,8 +48,8 @@ pub async fn aliveness(
     } else if arguments.verbose {
         print_verbose(&states);
     } else {
-        let expected_os_version = match repository_root {
-            Ok(repository_root) => match read_os_version(repository_root).await {
+        let expected_os_version = match repository {
+            Ok(repository) => match repository.read_os_version().await {
                 Ok(version) => Some(version),
                 Err(error) => {
                     error!("{error:#?}");

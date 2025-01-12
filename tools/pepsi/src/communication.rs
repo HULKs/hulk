@@ -1,8 +1,6 @@
-use std::path::Path;
-
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
-use repository::communication::configure_communication;
+use repository::Repository;
 
 #[derive(Subcommand)]
 pub enum Arguments {
@@ -10,8 +8,9 @@ pub enum Arguments {
     Disable,
 }
 
-pub async fn communication(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
-    configure_communication(matches!(arguments, Arguments::Enable), repository_root)
+pub async fn communication(arguments: Arguments, repository: &Repository) -> Result<()> {
+    repository
+        .configure_communication(matches!(arguments, Arguments::Enable))
         .await
         .wrap_err("failed to set communication enablement")
 }

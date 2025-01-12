@@ -8,10 +8,7 @@ use color_eyre::{
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use nao::{Nao, SystemctlAction};
-use repository::{
-    configuration::read_os_version,
-    upload::{get_hulk_binary, populate_upload_directory},
-};
+use repository::{upload::get_hulk_binary, Repository};
 use tempfile::tempdir;
 
 use crate::{
@@ -54,7 +51,7 @@ async fn upload_with_progress(
     upload_directory: impl AsRef<Path>,
     arguments: &UploadArguments,
     progress: &Task,
-    repository_root: impl AsRef<Path>,
+    repository: &Repository,
 ) -> Result<()> {
     progress.set_message("Pinging NAO...");
     let nao = Nao::try_new_with_ping(nao_address.ip).await?;
@@ -65,7 +62,8 @@ async fn upload_with_progress(
             .get_os_version()
             .await
             .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
-        let expected_os_version = read_os_version(repository_root)
+        let expected_os_version = repository
+            .read_os_version()
             .await
             .wrap_err("failed to get configured OS version")?;
         if nao_os_version != expected_os_version {
@@ -98,14 +96,14 @@ async fn upload_with_progress(
     Ok(())
 }
 
-pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let hulk_binary = get_hulk_binary(arguments.build.profile());
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(
-            repository_root
-                .as_ref()
+            repository
+                .root
                 .join("crates/hulk_nao/Cargo.toml")
                 .into_os_string(),
         ),
@@ -114,17 +112,17 @@ pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> 
     };
 
     if !arguments.upload.no_build {
-        cargo(cargo_arguments, &repository_root, &[&hulk_binary])
+        cargo(cargo_arguments, repository, &[&hulk_binary])
             .await
             .wrap_err("failed to build")?;
     }
 
-    populate_upload_directory(&upload_directory, &repository_root, hulk_binary)
+    repository
+        .populate_upload_directory(&upload_directory, hulk_binary)
         .await
         .wrap_err("failed to populate upload directory")?;
 
     let upload_arguments = &arguments.upload;
-    let repository_root = &repository_root;
     let upload_directory = &upload_directory;
 
     let multi_progress = ProgressIndicator::new();
@@ -142,7 +140,7 @@ pub async fn upload(arguments: Arguments, repository_root: impl AsRef<Path>) -> 
                         upload_directory,
                         upload_arguments,
                         &progress,
-                        repository_root,
+                        repository,
                     )
                     .await,
                 )

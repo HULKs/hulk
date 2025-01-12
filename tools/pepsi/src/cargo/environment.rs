@@ -1,8 +1,8 @@
-use std::{path::Path, str::FromStr};
+use std::str::FromStr;
 
 use clap::Args;
 use color_eyre::eyre::{bail, Context, Error, Result};
-use repository::{cargo::Environment as RepositoryEnvironment, configuration::read_sdk_version};
+use repository::{cargo::Environment as RepositoryEnvironment, Repository};
 
 #[derive(Args, Debug)]
 pub struct EnvironmentArguments {
@@ -43,8 +43,9 @@ impl FromStr for Environment {
 }
 
 impl Environment {
-    pub async fn resolve(self, repository_root: impl AsRef<Path>) -> Result<RepositoryEnvironment> {
-        let sdk_version = read_sdk_version(&repository_root)
+    pub async fn resolve(self, repository: &Repository) -> Result<RepositoryEnvironment> {
+        let sdk_version = repository
+            .read_sdk_version()
             .await
             .wrap_err("failed to get HULK OS version")?;
 

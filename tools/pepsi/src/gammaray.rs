@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
@@ -6,7 +6,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use argument_parsers::NaoAddress;
 use nao::Nao;
 use opn::verify_image;
-use repository::{configuration::read_os_version, data_home::get_data_home, image::download_image};
+use repository::{data_home::get_data_home, image::download_image, Repository};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -23,10 +23,11 @@ pub struct Arguments {
     naos: Vec<NaoAddress>,
 }
 
-pub async fn gammaray(arguments: Arguments, repository_root: impl AsRef<Path>) -> Result<()> {
+pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let version = match arguments.version {
         Some(version) => version,
-        None => read_os_version(&repository_root)
+        None => repository
+            .read_os_version()
             .await
             .wrap_err("failed to get OS version")?,
     };
@@ -39,7 +40,7 @@ pub async fn gammaray(arguments: Arguments, repository_root: impl AsRef<Path>) -
 
     verify_image(image_path).wrap_err("image verification failed")?;
 
-    let team_toml = &repository_root.as_ref().join("etc/parameters/team.toml");
+    let team_toml = &repository.root.join("etc/parameters/team.toml");
 
     // prevent moving String into async closure
     let version = &version;

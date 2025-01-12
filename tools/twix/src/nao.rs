@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 
 use bincode::deserialize;
 use color_eyre::{
@@ -14,6 +11,7 @@ use communication::{
 };
 use log::error;
 use parameters::{directory::Scope, json::nest_value_at_path};
+use repository::Repository;
 use serde_json::Value;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -29,11 +27,11 @@ use crate::{
 pub struct Nao {
     runtime: Runtime,
     client: ClientHandle,
-    repository_root: Option<PathBuf>,
+    repository: Option<Repository>,
 }
 
 impl Nao {
-    pub fn new(address: String, repository_root: Option<PathBuf>) -> Self {
+    pub fn new(address: String, repository: Option<Repository>) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
         let (client, handle) = Client::new(address);
@@ -42,7 +40,7 @@ impl Nao {
         Self {
             runtime,
             client: handle,
-            repository_root,
+            repository,
         }
     }
 
@@ -182,9 +180,10 @@ impl Nao {
     pub fn store_parameters(&self, path: &str, value: Value, scope: Scope) -> Result<()> {
         let client = self.client.clone();
         let parameters_root = self
-            .repository_root
+            .repository
             .as_ref()
             .ok_or_eyre("repository not available, cannot store parameters")?
+            .root
             .join("etc/parameters/");
         self.runtime.block_on(async {
             if let Err(error) = store_parameters(&client, path, value, scope, parameters_root).await

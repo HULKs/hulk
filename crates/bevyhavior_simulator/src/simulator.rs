@@ -13,7 +13,7 @@ use color_eyre::{
     eyre::{eyre, Context, ContextCompat},
     Result,
 };
-use repository::find_root::find_repository_root;
+use repository::Repository;
 use types::hardware::Ids;
 
 use crate::{
@@ -105,9 +105,9 @@ fn load_parameters() -> Result<Parameters> {
         head_id: "behavior_simulator".to_string(),
     };
     let current_directory = current_dir().wrap_err("failed to get current directory")?;
-    let repository_root =
-        find_repository_root(current_directory).wrap_err("failed to get repository root")?;
-    let parameters_path = repository_root.join("crates/bevyhavior_simulator");
+    let repository =
+        Repository::find_root(current_directory).wrap_err("failed to get repository root")?;
+    let parameters_path = repository.root.join("crates/bevyhavior_simulator");
 
     parameters::directory::deserialize(parameters_path, &ids, true)
         .wrap_err("failed to parse initial parameters")

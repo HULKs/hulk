@@ -37,7 +37,7 @@ use panels::{
 };
 
 use reachable_naos::ReachableNaos;
-use repository::{find_root::find_repository_root, inspect_version::check_for_update};
+use repository::{inspect_version::check_for_update, Repository};
 use serde_json::{from_str, to_string, Value};
 use visuals::Visuals;
 
@@ -87,19 +87,20 @@ fn main() -> Result<(), eframe::Error> {
     setup_logger().unwrap();
 
     let arguments = Arguments::parse();
-    let repository_root = arguments
+    let repository = arguments
         .repository_root
         .clone()
+        .map(Repository::new)
         .map(Ok)
         .unwrap_or_else(|| {
             let current_directory = current_dir().wrap_err("failed to get current directory")?;
-            find_repository_root(current_directory).wrap_err("failed to find repository root")
+            Repository::find_root(current_directory).wrap_err("failed to find repository root")
         });
-    match &repository_root {
-        Ok(repository_root) => {
+    match &repository {
+        Ok(repository) => {
             if let Err(error) = check_for_update(
                 env!("CARGO_PKG_VERSION"),
-                repository_root.join("tools/twix/Cargo.toml"),
+                repository.root.join("tools/twix/Cargo.toml"),
             ) {
                 error!("{error:#?}");
             }
@@ -121,7 +122,7 @@ fn main() -> Result<(), eframe::Error> {
                 creation_context,
                 arguments,
                 configuration,
-                repository_root.ok(),
+                repository.ok(),
             )))
         }),
     )
@@ -161,7 +162,7 @@ impl TwixApp {
         creation_context: &CreationContext,
         arguments: Arguments,
         configuration: Configuration,
-        repository_root: Option<PathBuf>,
+        repository: Option<Repository>,
     ) -> Self {
         let nao_range = configuration.naos.lowest..=configuration.naos.highest;
         let possible_addresses: Vec<_> = chain!(
@@ -189,7 +190,7 @@ impl TwixApp {
                     format!("ws://{ip}:{port}")
                 }
             },
-            repository_root,
+            repository,
         ));
 
         let connection_intent = creation_context
