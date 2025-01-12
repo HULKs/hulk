@@ -6,6 +6,14 @@ from actuator import ActuatorParameters
 from simulation import simulate_recording
 
 
+class SimulationLengthError(Exception):
+    def __init__(self) -> None:
+        super().__init__(
+            "The number of simulated sensor data points does not match the "
+            "number of recorded sensor data points",
+        )
+
+
 def populate_actuators(
     spec: mj.MjSpec,
     trial: optuna.Trial | optuna.trial.FrozenTrial,
@@ -33,8 +41,6 @@ def objective(
         video_path=video_path,
     )
     if len(simulated_sensor_data) != len(recorded_sensors):
-        raise ValueError(
-            "The number of simulated sensor data points does not match the number of recorded sensor data points",
-        )
+        raise SimulationLengthError
     squared_error = (simulated_sensor_data - recorded_sensors) ** 2
     return squared_error.sum() / len(recorded_actuators)
