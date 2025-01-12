@@ -1165,6 +1165,7 @@ dependencies = [
 name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "ball_filter",
  "bevy",
  "bincode",
