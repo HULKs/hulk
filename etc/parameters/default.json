@@ -7,6 +7,7 @@
     "minimum_overall_keypoint_confidence": 0.5,
     "minimum_visual_referee_keypoint_confidence": 0.8,
     "minimum_shoulder_angle": 0.2,
+    "free_kick_signal_angle_range": [1.3,1.8],
     "foot_z_offset": 0.025,
     "referee_pose_queue_length": 8,
     "minimum_number_poses_before_message": 3,
@@ -1249,12 +1250,19 @@
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
     "whistle_acceptance_goal_distance": [0.5, 0.5]
   },
-  "referee_pose_detection_filter": {
+  "ready_signal_detection_filter": {
     "initial_message_grace_period": {
       "nanos": 0,
       "secs": 3
     },
     "minimum_above_head_arms_detections": 1
+  },
+  "free_kick_signal_detection_filter": {
+    "initial_message_grace_period": {
+      "nanos": 0,
+      "secs": 3
+    },
+    "minimum_free_kick_signal_detections": 1
   },
   "sacrificial_lamb": {
     "wait_for_opponent_penalties_period": {

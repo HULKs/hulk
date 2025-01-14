@@ -9,5 +9,6 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     }
     Some(MotionCommand::Stand {
         head: HeadMotion::Center,
+        should_look_for_referee: false,
     })
 }
