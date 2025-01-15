@@ -85,6 +85,8 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::motion::step_planner",
                     "control::motion::walk_manager",
                     "control::motion::wide_stance",
+                    "control::motion::keeper_jump_right",
+                    "control::motion::keeper_jump_left",
                     "control::motion::walking_engine",
                     "control::obstacle_filter",
                     "control::odometry",

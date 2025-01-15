@@ -9,6 +9,8 @@ pub mod fall_protector;
 pub mod head_motion;
 pub mod jump_left;
 pub mod jump_right;
+pub mod keeper_jump_left;
+pub mod keeper_jump_right;
 pub mod look_around;
 pub mod look_at;
 pub mod motion_selector;

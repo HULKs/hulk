@@ -383,10 +383,13 @@ pub struct SearchSuggestorParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct WideStanceParameters {
+
+pub struct KeeperMotionParameters {
+    pub action_radius: f32,
+    pub minimum_velocity: f32,
+    pub action_radius_left: f32,
     pub maximum_ball_distance: f32,
     pub minimum_ball_velocity: f32,
-    pub action_radius: f32,
 }
 
 #[derive(
