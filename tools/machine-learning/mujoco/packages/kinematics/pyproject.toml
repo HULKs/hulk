@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.10"
 
-dependencies = ["numpy>=1.2", "robot-dimensions", "transforms", "common-types"]
+dependencies = ["common-types", "numpy>=1.2", "robot-dimensions", "transforms"]
 
 [build-system]
 requires = ["hatchling"]
