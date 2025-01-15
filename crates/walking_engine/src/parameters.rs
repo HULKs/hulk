@@ -18,6 +18,8 @@ pub struct Parameters {
     pub gyro_balancing: GyroBalancingParameters,
     pub max_forward_acceleration: f32,
     pub max_inside_turn: f32,
+    pub max_level_delta: f32,
+    pub max_rotation_speed: f32,
     pub max_step_duration: Duration,
     pub max_support_foot_lift_speed: f32,
     pub min_step_duration: Duration,
@@ -26,8 +28,6 @@ pub struct Parameters {
     pub step_midpoint: Step,
     pub stiffnesses: Stiffnesses,
     pub swinging_arms: SwingingArmsParameters,
-    pub max_level_delta: f32,
-    pub max_rotation_speed: f32,
 }
 
 #[derive(
