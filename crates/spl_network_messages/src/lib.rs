@@ -41,6 +41,7 @@ pub struct StrikerMessage {
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct VisualRefereeMessage {
     pub player_number: PlayerNumber,
+    pub kicking_team: Option<Team>,
 }
 
 #[derive(
@@ -110,7 +111,9 @@ mod tests {
 
     use linear_algebra::{Point, Pose2};
 
-    use crate::{BallPosition, HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
+    use crate::{
+        BallPosition, HulkMessage, PlayerNumber, StrikerMessage, Team, VisualRefereeMessage,
+    };
 
     #[test]
     fn hulk_striker_message_size() {
@@ -130,6 +133,7 @@ mod tests {
     fn hulk_visual_referee_message_size() {
         let test_message = HulkMessage::VisualReferee(VisualRefereeMessage {
             player_number: PlayerNumber::Four,
+            kicking_team: Some(Team::Hulks),
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }

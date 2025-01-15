@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ops::Range, time::Duration};
 
 use color_eyre::Result;
 use ordered_float::NotNan;
@@ -13,6 +13,7 @@ use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, P
 use spl_network_messages::PlayerNumber;
 use types::{
     fall_state::FallState,
+    field_dimensions::GlobalFieldSide,
     pose_detection::{HumanPose, Keypoints, RefereePoseCandidate},
     pose_kinds::{PoseKind, PoseKindPosition},
 };
@@ -43,6 +44,8 @@ pub struct CycleContext {
         Parameter<f32, "pose_detection.maximum_distance_to_referee_position">,
     foot_z_offset: Parameter<f32, "pose_detection.foot_z_offset">,
     minimum_shoulder_angle: Parameter<f32, "pose_detection.minimum_shoulder_angle">,
+    free_kick_signal_angle_range:
+        Parameter<Range<f32>, "pose_detection.free_kick_signal_angle_range">,
 
     rejected_pose_kind_positions:
         AdditionalOutput<Vec<PoseKindPosition<Field>>, "rejected_pose_kind_positions">,
@@ -92,8 +95,13 @@ impl PoseInterpretation {
             *context.foot_z_offset,
         );
 
-        let referee_pose_kind =
-            referee_pose.map(|pose| interpret_pose(pose, *context.minimum_shoulder_angle));
+        let referee_pose_kind = referee_pose.map(|pose| {
+            interpret_pose(
+                pose,
+                *context.minimum_shoulder_angle,
+                context.free_kick_signal_angle_range,
+            )
+        });
 
         context.rejected_pose_kind_positions.fill_if_subscribed(|| {
             get_all_pose_kind_positions(
@@ -102,6 +110,7 @@ impl PoseInterpretation {
                 context.ground_to_field,
                 *context.foot_z_offset,
                 *context.minimum_shoulder_angle,
+                context.free_kick_signal_angle_range,
             )
         });
 
@@ -112,6 +121,7 @@ impl PoseInterpretation {
                 context.ground_to_field,
                 *context.foot_z_offset,
                 *context.minimum_shoulder_angle,
+                context.free_kick_signal_angle_range,
             )
         });
 
@@ -122,6 +132,7 @@ impl PoseInterpretation {
                 context.ground_to_field,
                 *context.foot_z_offset,
                 *context.minimum_shoulder_angle,
+                context.free_kick_signal_angle_range,
             )
         });
 
@@ -181,11 +192,41 @@ fn get_closest_referee_pose(
         })
 }
 
-fn interpret_pose(human_pose: HumanPose, minimum_shoulder_angle: f32) -> PoseKind {
+fn interpret_pose(
+    human_pose: HumanPose,
+    minimum_shoulder_angle: f32,
+    free_kick_signal_angle_range: &Range<f32>,
+) -> PoseKind {
     if is_above_head_arms_pose(human_pose.keypoints, minimum_shoulder_angle) {
         PoseKind::AboveHeadArms
+    } else if let Some(side) = is_free_kick_pose(human_pose.keypoints, free_kick_signal_angle_range)
+    {
+        PoseKind::FreeKickPose {
+            global_field_side: side,
+        }
     } else {
         PoseKind::UndefinedPose
+    }
+}
+
+fn is_free_kick_pose(
+    keypoints: Keypoints,
+    free_kick_signal_angle_range: &Range<f32>,
+) -> Option<GlobalFieldSide> {
+    let left_shoulder_to_hand =
+        keypoints.left_shoulder.point.coords() - keypoints.left_hand.point.coords();
+    let right_shoulder_to_hand =
+        keypoints.right_shoulder.point.coords() - keypoints.right_hand.point.coords();
+    let arm_rotation_difference =
+        Rotation2::rotation_between(left_shoulder_to_hand, right_shoulder_to_hand).angle();
+    if free_kick_signal_angle_range.contains(&arm_rotation_difference.abs()) {
+        if arm_rotation_difference.is_sign_positive() {
+            Some(GlobalFieldSide::Away)
+        } else {
+            Some(GlobalFieldSide::Home)
+        }
+    } else {
+        None
     }
 }
 
@@ -242,6 +283,7 @@ fn get_all_pose_kind_positions(
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
     minimum_shoulder_angle: f32,
+    free_kick_signal_angle_range: &Range<f32>,
 ) -> Vec<PoseKindPosition<Field>> {
     poses
         .iter()
@@ -252,6 +294,7 @@ fn get_all_pose_kind_positions(
                 ground_to_field,
                 foot_z_offset,
                 minimum_shoulder_angle,
+                free_kick_signal_angle_range,
             )
         })
         .collect()
@@ -263,6 +306,7 @@ fn get_pose_kind_position(
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
     minimum_shoulder_angle: f32,
+    free_kick_signal_angle_range: &Range<f32>,
 ) -> Option<PoseKindPosition<Field>> {
     let left_foot_ground_position = camera_matrix_top
         .pixel_to_ground_with_z(pose?.keypoints.left_foot.point, foot_z_offset)
@@ -270,7 +314,8 @@ fn get_pose_kind_position(
     let right_foot_ground_position = camera_matrix_top
         .pixel_to_ground_with_z(pose?.keypoints.right_foot.point, foot_z_offset)
         .ok()?;
-    let interpreted_pose_kind = interpret_pose(pose?, minimum_shoulder_angle);
+    let interpreted_pose_kind =
+        interpret_pose(pose?, minimum_shoulder_angle, free_kick_signal_angle_range);
     Some(PoseKindPosition {
         pose_kind: interpreted_pose_kind,
         position: center(

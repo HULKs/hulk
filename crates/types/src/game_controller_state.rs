@@ -10,7 +10,7 @@ use crate::players::Players;
 pub struct GameControllerState {
     pub game_state: GameState,
     pub game_phase: GamePhase,
-    pub kicking_team: Team,
+    pub kicking_team: Option<Team>,
     pub last_game_state_change: SystemTime,
     pub penalties: Players<Option<Penalty>>,
     pub opponent_penalties: Players<Option<Penalty>>,
