@@ -76,7 +76,7 @@ impl Widget for &mut TextPanel {
                         })
                     }
                     Err(error) => ui.label(error.to_string()),
-                    Ok(None) => ui.label("no data yet"),
+                    Ok(None) => ui.label("no data available"),
                 })
             });
         if let Some(response) = scroll_area.inner {

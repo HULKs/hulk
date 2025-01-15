@@ -203,7 +203,7 @@ impl Widget for &mut MapPanel {
 
         let field_dimensions: FieldDimensions = match self.field_dimensions.get_last_value() {
             Ok(Some(value)) => value,
-            Ok(None) => return ui.label("no response for field dimensions yet"),
+            Ok(None) => return ui.label("no response for field dimensions"),
             Err(error) => return ui.label(format!("{error:#}")),
         };
 

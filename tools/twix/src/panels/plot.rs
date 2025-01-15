@@ -141,9 +141,9 @@ impl LineData {
                         let latest_value = self
                             .buffer
                             .as_ref()
-                            .ok_or_eyre("no subscription yet")
+                            .ok_or_eyre("no subscription")
                             .and_then(|buffer| buffer.get_last_value())
-                            .and_then(|maybe_value| maybe_value.ok_or_eyre("no value yet"));
+                            .and_then(|maybe_value| maybe_value.ok_or_eyre("no value"));
 
                         let pretty_json = match &latest_value {
                             Ok(value) => to_string_pretty(value)

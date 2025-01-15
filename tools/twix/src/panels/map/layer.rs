@@ -61,7 +61,11 @@ where
     ) {
         if let Some(layer) = &self.layer {
             if let Err(error) = layer.paint(painter, field_dimensions) {
-                error!("failed to paint map overlay {}: {:#}", T::NAME, error);
+                error!(
+                    "map panel: failed to paint map overlay {}: {:#}",
+                    T::NAME,
+                    error
+                );
                 self.layer = None;
             }
         }

@@ -33,7 +33,7 @@ impl Panel for ParameterPanel {
             nao,
             path: path.unwrap_or("").to_string(),
             buffer: value_buffer,
-            parameter_value: Err(eyre!("no subscription yet")),
+            parameter_value: Err(eyre!("no subscription")),
         }
     }
     fn save(&self) -> Value {
@@ -69,7 +69,9 @@ impl Widget for &mut ParameterPanel {
                             Ok(value) => {
                                 self.nao.write(self.path.clone(), TextOrBinary::Text(value));
                             }
-                            Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
+                            Err(error) => error!(
+                                "parameter panel: failed to serialize parameter value: {error:#?}"
+                            ),
                         }
                     }
                     if ui.button("Save to Head").clicked() {
@@ -81,7 +83,9 @@ impl Widget for &mut ParameterPanel {
                                     .store_parameters(&self.path, value, Scope::current_head())
                                     .log_err();
                             }
-                            Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
+                            Err(error) => error!(
+                                "parameter panel: failed to serialize parameter value: {error:#?}"
+                            ),
                         }
                     }
                     if ui.button("Save to Body").clicked() {
@@ -93,7 +97,9 @@ impl Widget for &mut ParameterPanel {
                                     .store_parameters(&self.path, value, Scope::current_body())
                                     .log_err();
                             }
-                            Err(error) => error!("Failed to serialize parameter value: {error:#?}"),
+                            Err(error) => error!(
+                                "parameter panel: failed to serialize parameter value: {error:#?}"
+                            ),
                         }
                     }
                 });
@@ -108,7 +114,7 @@ impl Widget for &mut ParameterPanel {
                                 serde_json::to_string_pretty(&value).map_err(Error::from);
                         }
                         Ok(None) => {
-                            self.parameter_value = Err(eyre!("no data yet"));
+                            self.parameter_value = Err(eyre!("no data available"));
                         }
                         Err(error) => {
                             self.parameter_value = Err(error);

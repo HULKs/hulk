@@ -74,7 +74,7 @@ where
     pub fn paint(&mut self, painter: &TwixPainter<Pixel>) {
         if let Some(layer) = &self.overlay {
             if let Err(error) = layer.paint(painter) {
-                error!("failed to paint image overlay {}: {:#}", T::NAME, error);
+                error!("image panel: paint image overlay {}: {:#}", T::NAME, error);
                 self.overlay = None;
             }
         }

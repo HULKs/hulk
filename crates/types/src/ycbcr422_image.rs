@@ -7,7 +7,7 @@ use std::{
 
 use color_eyre::eyre::{self, WrapErr};
 use geometry::circle::Circle;
-use image::{io::Reader, RgbImage};
+use image::{ImageReader, RgbImage};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
@@ -155,7 +155,7 @@ impl YCbCr422Image {
     }
 
     pub fn load_from_444_png(path: impl AsRef<Path>) -> eyre::Result<Self> {
-        let png = Reader::open(path)?.decode()?.into_rgb8();
+        let png = ImageReader::open(path)?.decode()?.into_rgb8();
 
         let width = png.width();
         let height = png.height();
@@ -187,7 +187,7 @@ impl YCbCr422Image {
     }
 
     pub fn load_from_rgb_file(path: impl AsRef<Path>) -> eyre::Result<Self> {
-        let rgb_image = Reader::open(path)?.decode()?.into_rgb8();
+        let rgb_image = ImageReader::open(path)?.decode()?.into_rgb8();
         Ok(Self::from(rgb_image))
     }
 
