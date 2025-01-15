@@ -4,8 +4,9 @@ use zbus::{proxy, zvariant::Optional};
 use hula_types::Battery;
 
 use rodio::{source::Source, Decoder, OutputStream};
-use std::fs::File;
-use std::io::BufReader;
+use std::io::Cursor;
+
+const AUDIO_FILE: &[u8] = include_bytes!("../sound/water-drop.mp3");
 
 #[proxy(
     default_service = "org.hulks.hula",
@@ -46,11 +47,11 @@ async fn get_battery_info() -> Result<Battery> {
 
 fn sound_playback() {
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let file = BufReader::new(File::open("sound/water-drop.mp3").unwrap()); //TODO: use text to speech to identify the nao
+    let file = Cursor::new(AUDIO_FILE);
     let source = Decoder::new(file).unwrap();
 
     let _ = stream_handle.play_raw(source.convert_samples());
-    std::thread::sleep(std::time::Duration::from_secs(3)); //keep thread alive while replaying sound
+    std::thread::sleep(std::time::Duration::from_secs(2)); //keep thread alive while replaying sound
 }
 
 #[tokio::main]
@@ -60,10 +61,10 @@ async fn main() -> Result<()> {
         println!("Battery: {:?}", battery);
 
         let mut time_to_sleep = 60;
-        if battery.charge < 0.2 {
+        if battery.charge < 0.20 {
             println!("Battery low, playing sound");
             sound_playback();
-            time_to_sleep = (battery.charge * 100.0) as u64;
+            time_to_sleep = (battery.charge * 50.0) as u64;
         }
         std::thread::sleep(std::time::Duration::from_secs(time_to_sleep));
     }
