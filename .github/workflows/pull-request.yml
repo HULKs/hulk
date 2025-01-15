@@ -177,7 +177,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/astral-sh/uv
+      image: ghcr.io/astral-sh/uv:alpine
       options: --user=1000:1000
     defaults:
       run:
@@ -197,7 +197,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/astral-sh/uv
+      image: ghcr.io/astral-sh/uv:alpine
       options: --user=1000:1000
     defaults:
       run:
@@ -217,7 +217,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/astral-sh/uv
+      image: ghcr.io/astral-sh/uv:alpine
       options: --user=1000:1000
     defaults:
       run:
