@@ -171,9 +171,11 @@ jobs:
       - name: Build docs
         run: mkdocs build --strict
 
-  check_mujoco:
+  check-mujoco:
     name: Check Mujoco
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - v3
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
@@ -188,9 +190,30 @@ jobs:
         run: |
           uv run ruff check
 
-  format_mujoco:
+  test-mujoco:
+    name: Test Mujoco
+    runs-on:
+      - self-hosted
+      - v3
+    defaults:
+      run:
+        working-directory: tools/machine-learning/mujoco
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Check Mujoco
+        run: |
+          uv run pytest
+
+  format-mujoco:
     name: Format Mujoco
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - v3
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
@@ -205,9 +228,11 @@ jobs:
         run: |
           uv run ruff format --check
 
-  test_mujoco:
-    name: Test Mujoco
-    runs-on: ubuntu-latest
+  check-mujoco-lock:
+    name: Check Mujoco uv.lock
+    runs-on:
+      - self-hosted
+      - v3
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
@@ -220,4 +245,4 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: Check Mujoco
         run: |
-          uv run pytest
+          uv sync --locked
