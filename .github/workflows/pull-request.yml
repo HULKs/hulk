@@ -173,10 +173,16 @@ jobs:
 
   check_mujoco:
     name: Check Mujoco
-    runs-on: ghcr.io/astral-sh/uv
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/astral-sh/uv
+      options: --user=1000:1000
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -184,3 +190,43 @@ jobs:
       - name: Check Mujoco
         run: |
           uv run ruff check
+
+  format_mujoco:
+    name: Format Mujoco
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/astral-sh/uv
+      options: --user=1000:1000
+    defaults:
+      run:
+        working-directory: tools/machine-learning/mujoco
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Check Mujoco
+        run: |
+          uv run ruff format --check
+
+  test_mujoco:
+    name: Test Mujoco
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/astral-sh/uv
+      options: --user=1000:1000
+    defaults:
+      run:
+        working-directory: tools/machine-learning/mujoco
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Check Mujoco
+        run: |
+          uv run pytest
