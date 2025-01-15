@@ -16,7 +16,7 @@ from transforms import (
     isometry_from_translation,
     rotation_from_axisangle,
 )
-from walking_engine.walking_types import Side
+from common_types import Side
 
 from .inverse_kinematics import LegJoints
 

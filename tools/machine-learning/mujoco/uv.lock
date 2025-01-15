@@ -11,6 +11,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "common-types",
     "kinematics",
     "mujoco-env",
     "nao-env",
@@ -124,6 +125,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
 ]
+
+[[package]]
+name = "common-types"
+version = "0.1.0"
+source = { editable = "packages/common_types" }
 
 [[package]]
 name = "contourpy"
@@ -463,6 +469,7 @@ name = "kinematics"
 version = "0.1.0"
 source = { editable = "packages/kinematics" }
 dependencies = [
+    { name = "common-types", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "numpy", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "robot-dimensions", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "transforms", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
@@ -470,6 +477,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "common-types", editable = "packages/common_types" },
     { name = "numpy", specifier = ">=1.2" },
     { name = "robot-dimensions", editable = "packages/robot_dimensions" },
     { name = "transforms", editable = "packages/transforms" },
@@ -699,6 +707,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "click", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
+    { name = "common-types", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "gymnasium", extra = ["mujoco"], marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "kinematics", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "mediapy", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
@@ -728,6 +737,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.7" },
+    { name = "common-types", editable = "packages/common_types" },
     { name = "gymnasium", extras = ["mujoco"], specifier = ">=1.0.0" },
     { name = "kinematics", editable = "packages/kinematics" },
     { name = "mediapy", specifier = ">=1.2.2" },
@@ -1634,12 +1644,16 @@ name = "walking-engine"
 version = "0.1.0"
 source = { editable = "packages/walking_engine" }
 dependencies = [
+    { name = "common-types", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
+    { name = "kinematics", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "numpy", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
     { name = "robot-dimensions", marker = "(platform_machine != 'aarch64' and python_full_version >= '3.13') or (platform_system != 'Linux' and python_full_version >= '3.13') or platform_system == 'Darwin' or (platform_machine == 'aarch64' and platform_system == 'Linux')" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "common-types", editable = "packages/common_types" },
+    { name = "kinematics", editable = "packages/kinematics" },
     { name = "numpy", specifier = ">=1.2.0" },
     { name = "robot-dimensions", editable = "packages/robot_dimensions" },
 ]

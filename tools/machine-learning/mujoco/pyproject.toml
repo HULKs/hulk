@@ -16,6 +16,7 @@ dependencies = [
   "tensorboard>=2.18.0",
   "wandb>=0.19.1",
   # Project dependencies
+  "common_types",
   "kinematics",
   "nao-env",
   "nao-interface",
@@ -27,6 +28,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
+common_types = { workspace = true }
 kinematics = { workspace = true }
 nao_env = { workspace = true }
 nao_interface = { workspace = true }

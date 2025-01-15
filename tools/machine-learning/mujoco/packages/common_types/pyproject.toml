@@ -1,10 +1,9 @@
 [project]
-name = "kinematics"
+name = "common_types"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.10"
-
-dependencies = ["numpy>=1.2", "robot-dimensions", "transforms", "common-types"]
+requires-python = ">=3.13"
+dependencies = []
 
 [build-system]
 requires = ["hatchling"]
