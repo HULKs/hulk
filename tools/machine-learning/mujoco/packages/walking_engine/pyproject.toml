@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.2.0",
-    "robot-dimensions",
-    "common-types",
-    "kinematics",
+  "common-types",
+  "kinematics",
+  "numpy>=1.2.0",
+  "robot-dimensions",
 ]
 
 [build-system]
