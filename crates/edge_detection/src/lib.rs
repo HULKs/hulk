@@ -31,13 +31,14 @@ pub fn get_edges_canny_imageproc(
     // exclude points above horizon_y (smaller than)
     horizon_y: Option<u32>,
 ) -> Vec<Point2<Pixel>> {
+    let min_y = horizon_y.unwrap_or(0) as u32;
     let edges_source = get_edge_source_image_old(image, source_channel, horizon_y);
 
     imageproc_canny(&edges_source, canny_low_threshold, canny_high_threshold)
         .enumerate_pixels()
         .filter_map(|(x, y, color)| {
             if color[0] > 127 {
-                Some(point![x as f32, y as f32])
+                Some(point![x as f32, (y + min_y) as f32])
             } else {
                 None
             }

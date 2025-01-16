@@ -6163,11 +6163,13 @@ name = "ransac"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "divan",
  "geometry",
  "itertools 0.10.5",
  "linear_algebra",
  "nalgebra",
  "ordered-float",
+ "pprof",
  "rand",
  "rand_chacha",
 ]
@@ -7799,7 +7801,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
- "image 0.24.9",
+ "image",
  "imageproc",
  "itertools 0.10.5",
  "linear_algebra",

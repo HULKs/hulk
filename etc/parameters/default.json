@@ -1485,7 +1485,7 @@
     "refine": {
       "center_line_point_exclusion_distance_factor": 0.14,
       "hough_rho_bin_size": 10,
-      "hough_threshold": 10,
+      "hough_threshold": 100,
       "hough_nms_radius": 2
     },
     "run_next_cycle_after_ms": 5,
