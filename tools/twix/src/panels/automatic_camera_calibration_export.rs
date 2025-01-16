@@ -23,6 +23,7 @@ pub struct AutomaticCameraCalibrationExportPanel {
     bottom_camera: BufferHandle<Vector3<f32>>,
     robot_body_rotations: BufferHandle<Vector3<f32>>,
     calibration_corrections: BufferHandle<Value>,
+    calibration_measurements: BufferHandle<Value>,
     primary_state: BufferHandle<PrimaryState>,
 }
 
@@ -34,8 +35,10 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
         let bottom_camera =
             nao.subscribe_value(format!("parameters.{BOTTOM_CAMERA_EXTRINSICS_PATH}"));
         let body_rotations = nao.subscribe_value(format!("parameters.{ROBOT_BODY_ROTATION_PATH}"));
-        let calibration_corrections =
-            nao.subscribe_json("Control.additional_outputs.last_calibration_corrections");
+        let calibration_corrections = nao
+            .subscribe_json("Control.additional_outputs.calibration_controller.last_corrections");
+        let calibration_measurements = nao
+            .subscribe_json("Control.additional_outputs.calibration_controller.last_measurements");
         let primary_state = nao.subscribe_value("Control.main_outputs.primary_state");
 
         Self {
@@ -44,6 +47,7 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
             bottom_camera,
             robot_body_rotations: body_rotations,
             calibration_corrections,
+            calibration_measurements,
             primary_state,
         }
     }
@@ -80,6 +84,23 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
 
                 draw_group(ui, "Body", body_angles, &self.nao, ROBOT_BODY_ROTATION_PATH);
                 draw_angles_from_buffer(ui, &self.robot_body_rotations);
+
+                if let Some(measurements_value) = self
+                    .calibration_measurements
+                    .get_last_value()
+                    .ok()
+                    .flatten()
+                {
+                    ui.separator();
+                    ui.label("Measurements");
+                    if ui.button("Download").clicked() {
+                        // save measurement to disk as json
+                        let json = serde_json::to_string_pretty(&measurements_value).unwrap();
+                        let path = "measurements.json";
+
+                        std::fs::write(path, json).unwrap();
+                    }
+                }
             } else {
                 self.primary_state
                     .get_last_value()

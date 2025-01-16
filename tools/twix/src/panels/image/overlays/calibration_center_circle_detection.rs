@@ -21,6 +21,7 @@ pub struct CalibrationMeasurementDetection {
     center_circle_points: BufferHandle<CalibrationFeatureDetectorOutput<CenterCirclePoints<Pixel>>>,
     edge_points: BufferHandle<Option<Vec<Point2<Pixel>>>>,
     circle_lines: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
+    circle_line_points: BufferHandle<Option<Vec<Point2<Pixel>>>>,
 }
 
 impl Overlay for CalibrationMeasurementDetection {
@@ -37,6 +38,9 @@ impl Overlay for CalibrationMeasurementDetection {
             )),
             circle_lines: nao.subscribe_value(format!(
                 "{cycler_path}.additional_outputs.calibration_center_circle_detection.circle_lines"
+            )),
+            circle_line_points: nao.subscribe_value(format!(
+                "{cycler_path}.additional_outputs.calibration_center_circle_detection.circle_line_points"
             )),
         }
     }
@@ -83,6 +87,18 @@ impl Overlay for CalibrationMeasurementDetection {
             );
             for circle_point in &center_circle.points {
                 painter.circle_stroke(*circle_point, 1.0, Stroke::new(1.0, Color32::RED));
+            }
+        }
+
+        if let Some(circle_line_points) = self
+            .circle_line_points
+            .get_last_value()
+            .ok()
+            .flatten()
+            .flatten()
+        {
+            for circle_line_point in circle_line_points {
+                painter.circle_stroke(circle_line_point, 1.0, Stroke::new(1.0, Color32::ORANGE));
             }
         }
         Ok(())

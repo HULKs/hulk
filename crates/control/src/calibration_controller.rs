@@ -50,8 +50,10 @@ pub struct CycleContext {
     stabilization_delay: Parameter<Duration, "calibration_controller.stabilization_delay">,
     max_retries_per_capture: Parameter<u32, "calibration_controller.max_retries_per_capture">,
 
-    calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_inner.measurements">,
-    last_calibration_corrections: AdditionalOutput<Corrections, "last_calibration_corrections">,
+    calibration_measurements:
+        AdditionalOutput<Vec<Measurement>, "calibration_controller.last_measurements">,
+    last_calibration_corrections:
+        AdditionalOutput<Corrections, "calibration_controller.last_corrections">,
 }
 
 #[context]
@@ -146,7 +148,6 @@ impl CalibrationController {
                     .start_time
                     .duration_since(activated_time.start_time)
                     .unwrap_or_default();
-
                 if waiting_duration >= *context.stabilization_delay {
                     self.inner_states.calibration_state = self
                         .get_next_look_at(*context.cycle_time)
