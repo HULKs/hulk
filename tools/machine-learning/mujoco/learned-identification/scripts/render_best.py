@@ -3,8 +3,37 @@ import json
 import click
 import mujoco as mj
 import optuna
-from optimization import objective
-from recording import load_recorded_actuators, load_recorded_sensors
+from learned_identification.optimization import objective
+from learned_identification.recording import (
+    load_recorded_actuators,
+    load_recorded_sensors,
+)
+
+SENSORS = [
+    "head.yaw",
+    "head.pitch",
+    "left_leg.hip_yaw_pitch",
+    "left_leg.hip_roll",
+    "left_leg.hip_pitch",
+    "left_leg.knee_pitch",
+    "left_leg.ankle_pitch",
+    "left_leg.ankle_roll",
+    "right_leg.hip_roll",
+    "right_leg.hip_pitch",
+    "right_leg.knee_pitch",
+    "right_leg.ankle_pitch",
+    "right_leg.ankle_roll",
+    "left_arm.shoulder_pitch",
+    "left_arm.shoulder_roll",
+    "left_arm.elbow_yaw",
+    "left_arm.elbow_roll",
+    "left_arm.wrist_yaw",
+    "right_arm.shoulder_pitch",
+    "right_arm.shoulder_roll",
+    "right_arm.elbow_yaw",
+    "right_arm.elbow_roll",
+    "right_arm.wrist_yaw",
+]
 
 
 def render_trial(
@@ -47,6 +76,7 @@ def render_trial(
         spec,
         recorded_actuators,
         recorded_sensors,
+        sensors=SENSORS,
         video_path=video_path,
     )
     print(f"Computed Value: {value}")
