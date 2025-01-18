@@ -7,7 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 futures-util = { workspace = true }
-hula-types = { path = "../../tools/hula/types/" }
+hula_types = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

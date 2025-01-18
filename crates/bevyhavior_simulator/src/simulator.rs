@@ -1,3 +1,5 @@
+use std::env::current_dir;
+
 use bevy::{
     app::{App, AppExit, First, Plugin, Update},
     core::{FrameCountPlugin, TaskPoolPlugin, TypeRegistrationPlugin},
@@ -8,11 +10,10 @@ use bevy::{
     time::Time,
 };
 use color_eyre::{
-    eyre::{eyre, Context},
+    eyre::{eyre, Context, ContextCompat},
     Result,
 };
-use repository::get_repository_root;
-use tokio::runtime::Runtime;
+use repository::Repository;
 use types::hardware::Ids;
 
 use crate::{
@@ -103,11 +104,10 @@ fn load_parameters() -> Result<Parameters> {
         body_id: "behavior_simulator".to_string(),
         head_id: "behavior_simulator".to_string(),
     };
-    let runtime = Runtime::new().wrap_err("failed to build async runtime")?;
-    let repository_root = runtime
-        .block_on(get_repository_root())
-        .wrap_err("failed to get repository root")?;
-    let parameters_path = repository_root.join("crates/bevyhavior_simulator");
+    let current_directory = current_dir().wrap_err("failed to get current directory")?;
+    let repository =
+        Repository::find_root(current_directory).wrap_err("failed to get repository root")?;
+    let parameters_path = repository.root.join("crates/bevyhavior_simulator");
 
     parameters::directory::deserialize(parameters_path, &ids, true)
         .wrap_err("failed to parse initial parameters")

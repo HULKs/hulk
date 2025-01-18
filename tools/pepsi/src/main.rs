@@ -1,29 +1,34 @@
-use std::path::PathBuf;
+use std::{env::current_dir, path::PathBuf};
 
 use clap::{CommandFactory, Parser, Subcommand};
-use color_eyre::{config::HookBuilder, eyre::WrapErr, Result};
+use color_eyre::{
+    config::HookBuilder,
+    eyre::{ContextCompat, WrapErr},
+    Result,
+};
+use repository::{inspect_version::check_for_update, Repository};
 
-use crate::aliveness::{aliveness, Arguments as AlivenessArguments};
-use analyze::{analyze, Arguments as AnalyzeArguments};
-use cargo::{cargo, Arguments as CargoArguments, Command as CargoCommand};
-use communication::{communication, Arguments as CommunicationArguments};
-use completions::{completions, Arguments as CompletionArguments};
-use gammaray::{gammaray, Arguments as GammarayArguments};
-use hulk::{hulk, Arguments as HulkArguments};
-use location::{location, Arguments as LocationArguments};
-use logs::{logs, Arguments as LogsArguments};
-use ping::{ping, Arguments as PingArguments};
-use player_number::{player_number, Arguments as PlayerNumberArguments};
-use post_game::{post_game, Arguments as PostGameArguments};
-use power_off::{power_off, Arguments as PoweroffArguments};
-use pre_game::{pre_game, Arguments as PreGameArguments};
-use reboot::{reboot, Arguments as RebootArguments};
-use recording::{recording, Arguments as RecordingArguments};
-use repository::{get_repository_root, Repository};
-use sdk::{sdk, Arguments as SdkArguments};
-use shell::{shell, Arguments as ShellArguments};
-use upload::{upload, Arguments as UploadArguments};
-use wireless::{wireless, Arguments as WirelessArguments};
+use aliveness::aliveness;
+use analyze::analyze;
+use cargo::{build, cargo, check, clippy, install, run, test};
+use communication::communication;
+use completions::completions;
+use gammaray::gammaray;
+use hulk::hulk;
+use location::location;
+use logs::logs;
+use ping::ping;
+use player_number::player_number;
+use post_game::post_game;
+use power_off::power_off;
+use pre_game::pre_game;
+use reboot::reboot;
+use recording::recording;
+use sdk::sdk;
+use shell::shell;
+use tracing::warn;
+use upload::upload;
+use wifi::wifi;
 
 mod aliveness;
 mod analyze;
@@ -45,38 +50,125 @@ mod recording;
 mod sdk;
 mod shell;
 mod upload;
-mod wireless;
+mod wifi;
+
+#[derive(Parser)]
+#[clap(version, name = "pepsi")]
+struct Arguments {
+    /// Alternative repository root
+    #[arg(long)]
+    repository_root: Option<PathBuf>,
+    #[command(subcommand)]
+    command: Command,
+    #[arg(long)]
+    verbose: bool,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Analyze source code
+    #[clap(subcommand)]
+    Analyze(analyze::Arguments),
+    /// Get aliveness information from NAOs
+    Aliveness(aliveness::Arguments),
+    /// Compile a local package and all of its dependencies
+    Build(cargo::Arguments<build::Arguments>),
+    /// Check a local package and all of its dependencies for errors
+    Check(cargo::Arguments<check::Arguments>),
+    /// Check a package to catch common mistakes
+    Clippy(cargo::Arguments<clippy::Arguments>),
+    /// Enable/disable communication
+    #[command(subcommand)]
+    Communication(communication::Arguments),
+    /// Generate shell completion files
+    Completions(completions::Arguments),
+    /// Flash a HULKs-OS image to NAOs
+    Gammaray(gammaray::Arguments),
+    /// Control the HULK service
+    Hulk(hulk::Arguments),
+    /// Install a Rust binary
+    Install(cargo::Arguments<install::Arguments>),
+    /// Set the parameter location
+    #[command(subcommand)]
+    Location(location::Arguments),
+    /// Interact with logs on NAOs
+    #[command(subcommand)]
+    Logs(logs::Arguments),
+    /// Change player numbers of NAOs in local parameters
+    Playernumber(player_number::Arguments),
+    /// Ping NAOs
+    Ping(ping::Arguments),
+    /// Disable NAOs after a game (download logs, unset WiFi network, ...)
+    Postgame(post_game::Arguments),
+    /// Power NAOs off
+    Poweroff(power_off::Arguments),
+    /// Get NAOs ready for a game (set player numbers, upload, set WiFi network, ...)
+    Pregame(pre_game::Arguments),
+    /// Reboot NAOs
+    Reboot(reboot::Arguments),
+    /// Set cycler instances to be recorded
+    Recording(recording::Arguments),
+    /// Run a binary or example of the local package
+    Run(cargo::Arguments<run::Arguments>),
+    /// Manage the NAO SDK
+    #[command(subcommand)]
+    Sdk(sdk::Arguments),
+    /// Open a command line shell to a NAO
+    Shell(shell::Arguments),
+    /// Execute all unit and integration tests
+    Test(cargo::Arguments<test::Arguments>),
+    /// Upload the code to NAOs
+    Upload(upload::Arguments),
+    /// Control WiFi on NAOs
+    #[command(subcommand, name = "wifi")]
+    WiFi(wifi::Arguments),
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let arguments = Arguments::parse();
+    let level = if arguments.verbose {
+        tracing::Level::TRACE
+    } else {
+        tracing::Level::WARN
+    };
+    tracing_subscriber::fmt()
+        .without_time()
+        .with_max_level(level)
+        .init();
     HookBuilder::new().display_env_section(false).install()?;
 
-    let arguments = Arguments::parse();
-    let repository_root = match arguments.repository_root {
-        Some(repository_root) => Ok(repository_root),
-        None => get_repository_root()
-            .await
-            .wrap_err("failed to get repository root"),
-    };
-    let repository = repository_root.map(Repository::new);
+    let repository = arguments
+        .repository_root
+        .map(Repository::new)
+        .map(Ok)
+        .unwrap_or_else(|| {
+            let current_directory = current_dir().wrap_err("failed to get current directory")?;
+            Repository::find_root(current_directory).wrap_err("failed to find repository root")
+        });
     if let Ok(repository) = &repository {
-        repository.check_new_version_available(env!("CARGO_PKG_VERSION"), "tools/pepsi")?;
+        if let Err(error) = check_for_update(
+            env!("CARGO_PKG_VERSION"),
+            repository.root.join("tools/pepsi/Cargo.toml"),
+        ) {
+            warn!("{error:#?}");
+        }
     }
 
     match arguments.command {
-        Command::Analyze(arguments) => analyze(arguments, &repository?)
+        Command::Analyze(arguments) => analyze(arguments, repository)
             .await
             .wrap_err("failed to execute analyze command")?,
-        Command::Aliveness(arguments) => aliveness(arguments)
+        Command::Aliveness(arguments) => aliveness(arguments, repository)
             .await
             .wrap_err("failed to execute aliveness command")?,
-        Command::Build(arguments) => cargo(arguments, &repository?, CargoCommand::Build)
+        Command::Build(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute build command")?,
-        Command::Check(arguments) => cargo(arguments, &repository?, CargoCommand::Check)
+        Command::Check(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute check command")?,
-        Command::Clippy(arguments) => cargo(arguments, &repository?, CargoCommand::Clippy)
+        Command::Clippy(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute clippy command")?,
         Command::Communication(arguments) => communication(arguments, &repository?)
@@ -91,6 +183,9 @@ async fn main() -> Result<()> {
         Command::Hulk(arguments) => hulk(arguments)
             .await
             .wrap_err("failed to execute hulk command")?,
+        Command::Install(arguments) => cargo(arguments, &repository?, &[] as &[&str])
+            .await
+            .wrap_err("failed to execute install command")?,
         Command::Location(arguments) => location(arguments, &repository?)
             .await
             .wrap_err("failed to execute location command")?,
@@ -104,7 +199,7 @@ async fn main() -> Result<()> {
         Command::Postgame(arguments) => post_game(arguments)
             .await
             .wrap_err("failed to execute post_game command")?,
-        Command::Poweroff(arguments) => power_off(arguments)
+        Command::Poweroff(arguments) => power_off(arguments, &repository?)
             .await
             .wrap_err("failed to execute power_off command")?,
         Command::Pregame(arguments) => pre_game(arguments, &repository?)
@@ -116,7 +211,7 @@ async fn main() -> Result<()> {
         Command::Recording(arguments) => recording(arguments, &repository?)
             .await
             .wrap_err("failed to execute recording command")?,
-        Command::Run(arguments) => cargo(arguments, &repository?, CargoCommand::Run)
+        Command::Run(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute run command")?,
         Command::Sdk(arguments) => sdk(arguments, &repository?)
@@ -125,79 +220,16 @@ async fn main() -> Result<()> {
         Command::Shell(arguments) => shell(arguments)
             .await
             .wrap_err("failed to execute shell command")?,
+        Command::Test(arguments) => cargo(arguments, &repository?, &[] as &[&str])
+            .await
+            .wrap_err("failed to execute test command")?,
         Command::Upload(arguments) => upload(arguments, &repository?)
             .await
             .wrap_err("failed to execute upload command")?,
-        Command::Wireless(arguments) => wireless(arguments)
+        Command::WiFi(arguments) => wifi(arguments)
             .await
-            .wrap_err("failed to execute wireless command")?,
+            .wrap_err("failed to execute wifi command")?,
     }
 
     Ok(())
-}
-
-#[derive(Parser)]
-#[clap(version, name = "pepsi")]
-struct Arguments {
-    /// Alternative repository root (if not given the parent of .git is used)
-    #[arg(long)]
-    repository_root: Option<PathBuf>,
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    /// Analyze source code
-    #[clap(subcommand)]
-    Analyze(AnalyzeArguments),
-    /// Get aliveness information from NAOs
-    Aliveness(AlivenessArguments),
-    /// Builds the code for a target
-    Build(CargoArguments),
-    /// Checks the code with cargo check
-    Check(CargoArguments),
-    /// Checks the code with cargo clippy
-    Clippy(CargoArguments),
-    /// Enable/disable communication
-    #[command(subcommand)]
-    Communication(CommunicationArguments),
-    /// Generates shell completion files
-    Completions(CompletionArguments),
-    /// Flash a HULKs-OS image to NAOs
-    Gammaray(GammarayArguments),
-    /// Control the HULK service
-    Hulk(HulkArguments),
-    /// Control the configured location
-    #[command(subcommand)]
-    Location(LocationArguments),
-    /// Logging on the NAO
-    #[command(subcommand)]
-    Logs(LogsArguments),
-    /// Change player numbers of the NAOs in local parameters
-    Playernumber(PlayerNumberArguments),
-    /// Ping NAOs
-    Ping(PingArguments),
-    /// Disable NAOs after a game (downloads logs, unsets wireless network, etc.)
-    Postgame(PostGameArguments),
-    /// Power NAOs off
-    Poweroff(PoweroffArguments),
-    /// Get NAOs ready for a game (sets player numbers, uploads, sets wireless network, etc.)
-    Pregame(PreGameArguments),
-    /// Reboot NAOs
-    Reboot(RebootArguments),
-    /// Set cycler instances to be recorded
-    Recording(RecordingArguments),
-    /// Runs the code for a target
-    Run(CargoArguments),
-    /// Manage the NAO SDK
-    #[command(subcommand)]
-    Sdk(SdkArguments),
-    /// Opens a command line shell to a NAO
-    Shell(ShellArguments),
-    /// Upload the code to NAOs
-    Upload(UploadArguments),
-    /// Control wireless network on the NAO
-    #[command(subcommand)]
-    Wireless(WirelessArguments),
 }

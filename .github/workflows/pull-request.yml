@@ -7,12 +7,12 @@ env:
   CARGO_HOME: /__w/hulk/cargo
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
-  NAOSDK_HOME: /__w/hulk/naosdk
+  HULK_DATA_HOME: /__w/hulk/data
   NAOSDK_AUTOMATIC_YES: 1
 
 jobs:
   check:
-    name: Check
+    name: Check with clippy
     runs-on:
       - self-hosted
       - v3
@@ -24,28 +24,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: |
-          ./pepsi clippy --workspace
-
-  check-cargo-lock:
-    name: Check Cargo.lock
-    strategy:
-      matrix:
-        path: [., tools/aliveness, tools/hula]
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: ghcr.io/hulks/hulk-ci:1.81.0
-      options: --user=1000:1000
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Check
-        run: |
-          cd ${{ matrix.path }}
-          cargo update --locked --workspace
+        run: ./pepsi clippy --locked
 
   check-parameters:
     name: Check parameters
@@ -60,8 +39,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: |
-          cargo run --manifest-path=crates/parameter_tester/Cargo.toml
+        run: ./pepsi run --locked parameter_tester
 
   format:
     name: Format
@@ -76,8 +54,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: |
-          cargo fmt --check
+        run: cargo fmt --check
 
   format-toml:
     name: Format TOML files
@@ -108,16 +85,21 @@ jobs:
         with:
           lfs: true
       - name: Test
-        run: |
-          cargo test --profile incremental --all-features --workspace
+        run: ./pepsi test --locked --all-features
 
   build:
     name: Build
     strategy:
       fail-fast: true
       matrix:
-        target: [imagine, nao, replayer, webots]
-        profile: [release, dev]
+        target:
+          - imagine
+          - nao
+          - replayer
+          - webots
+        profile:
+          - dev
+          - release
     runs-on:
       - self-hosted
       - v3
@@ -129,24 +111,41 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: |
-          ./pepsi build --target ${{ matrix.target }} --profile ${{ matrix.profile }}
+        run: ./pepsi build --locked --profile ${{ matrix.profile }} ${{ matrix.target }}
+
+  build_services:
+    name: Build
+    strategy:
+      matrix:
+        service:
+          - aliveness
+          - breeze
+          - hula
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Build
+        run: ./pepsi build --locked --release ${{ matrix.service }}
 
   build_tools:
     name: Build
     strategy:
       matrix:
-        path:
-          [
-            aliveness,
-            annotato,
-            camera_matrix_extractor,
-            depp,
-            fanta,
-            hula,
-            pepsi,
-            twix,
-          ]
+        tool:
+          - annotato
+          - camera_matrix_extractor
+          - depp
+          - fanta
+          - pepsi
+          - twix
+          - widget_gallery
     runs-on:
       - self-hosted
       - v3
@@ -158,9 +157,7 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: |
-          cd tools/${{ matrix.path }}
-          cargo build --release
+        run: ./pepsi build --locked --release ${{ matrix.tool }}
 
   build_mkdocs:
     name: Build mkdocs

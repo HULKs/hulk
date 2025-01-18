@@ -1,7 +1,11 @@
 use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration};
 
 use clap::{arg, Args};
-use color_eyre::owo_colors::{OwoColorize, Style};
+use color_eyre::{
+    eyre::Context,
+    owo_colors::{OwoColorize, Style},
+    Result,
+};
 
 use aliveness::{
     query_aliveness,
@@ -9,15 +13,16 @@ use aliveness::{
     AlivenessError, AlivenessState, Battery, JointsArray,
 };
 use argument_parsers::NaoAddress;
-use constants::OS_VERSION;
+use repository::Repository;
+use tracing::error;
 
 #[derive(Args)]
 pub struct Arguments {
     /// Output verbose version of the aliveness information
-    #[arg(long, short = 'v')]
+    #[arg(long, short = 'v', conflicts_with = "json")]
     verbose: bool,
     /// Output aliveness information as json
-    #[arg(long, short = 'j')]
+    #[arg(long, short = 'j', conflicts_with = "verbose")]
     json: bool,
     /// Timeout in ms for waiting for responses
     #[arg(long, short = 't', value_parser = parse_duration, default_value = "200")]
@@ -33,27 +38,31 @@ fn parse_duration(arg: &str) -> Result<Duration, ParseIntError> {
 
 type AlivenessList = BTreeMap<IpAddr, AlivenessState>;
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("failed to query aliveness")]
-    QueryFailed(AlivenessError),
-    #[error("failed to serialize data")]
-    SerializeFailed(serde_json::Error),
-}
-
-pub async fn aliveness(arguments: Arguments) -> Result<(), Error> {
+pub async fn aliveness(arguments: Arguments, repository: Result<Repository>) -> Result<()> {
     let states = query_aliveness_list(&arguments)
         .await
-        .map_err(Error::QueryFailed)?;
+        .wrap_err("failed to query aliveness")?;
     if arguments.json {
-        println!(
-            "{}",
-            serde_json::to_string(&states).map_err(Error::SerializeFailed)?
-        );
+        let json = serde_json::to_string(&states).wrap_err("failed to serialize aliveness")?;
+        println!("{json}");
     } else if arguments.verbose {
         print_verbose(&states);
     } else {
-        print_summary(&states);
+        let expected_os_version = match repository {
+            Ok(repository) => match repository.read_os_version().await {
+                Ok(version) => Some(version),
+                Err(error) => {
+                    error!("{error:#?}");
+                    None
+                }
+            },
+            Err(error) => {
+                error!("{error:#?}");
+                None
+            }
+        };
+
+        print_summary(&states, expected_os_version);
     }
     Ok(())
 }
@@ -136,8 +145,8 @@ impl SummaryElements {
         }
     }
 
-    fn append_os_version(&mut self, version: &str) {
-        if version != OS_VERSION {
+    fn append_os_version(&mut self, version: &str, expected_os_version: &str) {
+        if version != expected_os_version {
             self.append(OS_ICON, version, Style::new());
         }
     }
@@ -153,7 +162,7 @@ impl SummaryElements {
     }
 }
 
-fn print_summary(states: &AlivenessList) {
+fn print_summary(states: &AlivenessList, expected_os_version: Option<String>) {
     for (ip, state) in states.iter() {
         let id = match ip {
             IpAddr::V4(ip) => ip.octets()[3],
@@ -164,7 +173,9 @@ fn print_summary(states: &AlivenessList) {
 
         output.append_battery(&state.battery);
         output.append_temperature(&state.temperature);
-        output.append_os_version(&state.hulks_os_version);
+        if let Some(expected_os_version) = &expected_os_version {
+            output.append_os_version(&state.hulks_os_version, expected_os_version);
+        }
         let SystemServices {
             hal,
             hula,

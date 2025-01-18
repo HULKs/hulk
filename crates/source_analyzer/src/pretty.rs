@@ -90,7 +90,7 @@ impl ToWriterPretty for Contexts {
 impl ToWriterPretty for Field {
     fn to_writer_pretty(&self, writer: &mut impl Write) -> fmt::Result {
         match self {
-            Field::AdditionalOutput { name, .. } => write!(writer, "{name}: AdditfmtnalOutput"),
+            Field::AdditionalOutput { name, .. } => write!(writer, "{name}: AdditionalOutput"),
             Field::CyclerState { name, .. } => write!(writer, "{name}: CyclerState"),
             Field::HardwareInterface { name, .. } => write!(writer, "{name}: HardwareInterface"),
             Field::HistoricInput { name, .. } => write!(writer, "{name}: HistoricInput"),

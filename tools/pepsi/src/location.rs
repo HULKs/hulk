@@ -1,6 +1,5 @@
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
-
 use repository::Repository;
 
 #[derive(Subcommand)]
@@ -41,7 +40,7 @@ pub async fn location(arguments: Arguments, repository: &Repository) -> Result<(
         Arguments::Status {} => {
             println!("Configured Locations:");
             for (target, location) in repository
-                .get_configured_locations()
+                .list_configured_locations()
                 .await
                 .wrap_err("failed to get configured locations")?
             {
