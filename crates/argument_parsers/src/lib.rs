@@ -158,12 +158,12 @@ impl FromStr for NaoAddressPlayerAssignment {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
-        let (prefix, player_number) =
-            parse_assignment(input).wrap_err_with(|| format!("failed to parse {input}"))?;
+        let (prefix, player_number) = parse_assignment(input)
+            .wrap_err_with(|| format!("failed to parse assignment {input}"))?;
         Ok(Self {
             nao_address: prefix
                 .parse()
-                .wrap_err_with(|| format!("failed to parse {prefix}"))?,
+                .wrap_err_with(|| format!("failed to parse nao address {prefix}"))?,
             player_number,
         })
     }
