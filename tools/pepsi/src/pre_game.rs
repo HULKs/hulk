@@ -90,7 +90,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
             arguments.pre_game.recording_intervals.clone(),
         ))
         .await
-        .wrap_err("failed to set recording settings")?;
+        .wrap_err("failed to apply recording settings")?;
 
     repository
         .set_location("nao", &arguments.pre_game.location)
