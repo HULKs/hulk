@@ -124,7 +124,7 @@ impl Nao {
         Ok(command)
     }
 
-    pub fn rsync_with_nao(&self, mkpath: bool) -> Result<Command> {
+    pub fn rsync_with_nao(&self) -> Result<Command> {
         let mut command = Command::new("rsync");
 
         let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
@@ -140,9 +140,6 @@ impl Nao {
             .arg("--no-inc-recursive")
             .arg("--human-readable")
             .arg(format!("--rsh=ssh {ssh_flags}"));
-        if mkpath {
-            command.arg("--mkpath");
-        }
         Ok(command)
     }
 
@@ -228,7 +225,8 @@ impl Nao {
         }
 
         let rsync = self
-            .rsync_with_nao(true)?
+            .rsync_with_nao()?
+            .arg("--mkpath")
             .arg("--info=progress2")
             .arg(format!("{}:hulk/logs/", self.address))
             .arg(local_directory.as_ref().to_str().unwrap())
@@ -310,8 +308,9 @@ impl Nao {
         delete_remaining: bool,
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
-        let mut command = self.rsync_with_nao(true)?;
+        let mut command = self.rsync_with_nao()?;
         command
+            .arg("--mkpath")
             .arg("--keep-dirlinks")
             .arg("--copy-links")
             .arg("--info=progress2")
@@ -437,7 +436,7 @@ impl Nao {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let rsync = self
-            .rsync_with_nao(false)?
+            .rsync_with_nao()?
             .arg("--copy-links")
             .arg("--info=progress2")
             .arg(image_path.as_ref().to_str().unwrap())
