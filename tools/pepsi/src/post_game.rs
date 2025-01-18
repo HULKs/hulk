@@ -44,6 +44,7 @@ pub async fn post_game(arguments: Arguments) -> Result<()> {
             })
             .await
             .wrap_err_with(|| format!("failed to download logs from {nao_address}"))?;
+
             Ok(())
         },
     )
