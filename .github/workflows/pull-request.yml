@@ -179,6 +179,9 @@ jobs:
     runs-on:
       - self-hosted
       - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
@@ -189,15 +192,22 @@ jobs:
           lfs: true
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Check Mujoco
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Check
         run: |
-          uv run ruff check
+          uv run ruff check --no-fix
 
   test-mujoco:
     name: Test Mujoco
     runs-on:
       - self-hosted
       - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
@@ -208,7 +218,11 @@ jobs:
           lfs: true
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Check Mujoco
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Test
         run: |
           uv run pytest
 
@@ -217,6 +231,9 @@ jobs:
     runs-on:
       - self-hosted
       - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
@@ -227,7 +244,11 @@ jobs:
           lfs: true
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Check Mujoco
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Format
         run: |
           uv run ruff format --check
 
@@ -236,6 +257,9 @@ jobs:
     runs-on:
       - self-hosted
       - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
     defaults:
       run:
         working-directory: tools/machine-learning/mujoco
@@ -246,6 +270,10 @@ jobs:
           lfs: true
       - name: Install uv
         uses: astral-sh/setup-uv@v5
-      - name: Check Mujoco
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Check Lockfile
         run: |
           uv sync --locked
