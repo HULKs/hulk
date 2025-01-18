@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Self
 
-from transforms import Pose2
 from common_types import Side
+from transforms import Pose2
 
 
 @dataclass
