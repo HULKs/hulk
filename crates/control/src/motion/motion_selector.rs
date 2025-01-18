@@ -87,7 +87,12 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
             Kind::FacingUp => MotionType::StandUpBack,
             Kind::Sitting => MotionType::StandUpSitting,
         },
-        MotionCommand::WideStance => MotionType::WideStance,
+        MotionCommand::KeeperMotion { direction } => match direction {
+            JumpDirection::Left => MotionType::KeeperJumpLeft,
+            JumpDirection::Right => MotionType::KeeperJumpRight,
+            JumpDirection::Center => MotionType::WideStance,
+        },
+
         MotionCommand::Unstiff => MotionType::Unstiff,
         MotionCommand::Animation { stiff: false } => MotionType::Animation,
         MotionCommand::Animation { stiff: true } => MotionType::AnimationStiff,
@@ -122,7 +127,12 @@ fn transition_motion(
             MotionType::Dispatching
         }
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,
-        (_, _, MotionType::WideStance, _) => MotionType::WideStance,
+        (MotionType::Walk, _, MotionType::WideStance, _) => MotionType::WideStance,
+        (MotionType::Walk, _, MotionType::KeeperJumpRight, _) => MotionType::KeeperJumpRight,
+        (MotionType::Walk, _, MotionType::KeeperJumpLeft, _) => MotionType::KeeperJumpLeft,
+        (_, true, MotionType::WideStance, _) => MotionType::WideStance,
+        (_, true, MotionType::KeeperJumpRight, _) => MotionType::KeeperJumpRight,
+        (_, true, MotionType::KeeperJumpLeft, _) => MotionType::KeeperJumpLeft,
         (_, _, MotionType::CenterJump, _) => MotionType::CenterJump,
         (MotionType::ArmsUpStand, _, _, false) => MotionType::ArmsUpStand,
         (MotionType::Dispatching, true, _, _) => to,

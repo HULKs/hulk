@@ -16,8 +16,8 @@ use types::{
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, WalkSpeed},
     parameters::{
-        BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
-        WideStanceParameters,
+        BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
+        LostBallParameters,
     },
     path_obstacles::PathObstacle,
     planned_path::PathSegment,
@@ -70,7 +70,7 @@ pub struct CycleContext {
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     enable_pose_detection: Parameter<bool, "pose_detection.enable">,
-    wide_stance: Parameter<WideStanceParameters, "wide_stance">,
+    keeper_motion: Parameter<KeeperMotionParameters, "keeper_motion">,
     use_stand_head_unstiff_calibration:
         Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
 
@@ -158,10 +158,8 @@ impl Behavior {
             }
         }
 
-        if matches!(world_state.robot.player_number, PlayerNumber::One)
-            && matches!(world_state.robot.role, Role::Keeper)
-        {
-            actions.push(Action::WideStance);
+        if matches!(world_state.robot.player_number, PlayerNumber::One) {
+            actions.push(Action::KeeperMotion);
         }
         actions.push(Action::InterceptBall);
 
@@ -294,7 +292,7 @@ impl Behavior {
                     Action::StandUp => stand_up::execute(world_state),
                     Action::NoGroundContact => no_ground_contact::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-                    Action::WideStance => defend.wide_stance(context.wide_stance.clone()),
+                    Action::KeeperMotion => defend.keeper_motion(context.keeper_motion.clone()),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
