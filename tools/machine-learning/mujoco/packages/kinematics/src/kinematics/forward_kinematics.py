@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from common_types import Side
 from numpy.typing import NDArray
 from robot_dimensions import (
     ANKLE_TO_SOLE,
@@ -16,7 +17,6 @@ from transforms import (
     isometry_from_translation,
     rotation_from_axisangle,
 )
-from common_types import Side
 
 from .inverse_kinematics import LegJoints
 

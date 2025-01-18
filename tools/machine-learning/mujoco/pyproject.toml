@@ -100,6 +100,8 @@ ignore = [
   "E731",
   # any-type
   "ANN401",
+  # flake8-trailing-comma (handled by formatter)
+  "COM812",
 ]
 
 [tool.ruff.lint.per-file-ignores]
