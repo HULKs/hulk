@@ -110,7 +110,7 @@ impl Nao {
     }
 
     fn ssh_to_nao(&self) -> Result<Command> {
-        let temp_file = Self::create_login_script().wrap_err("failed_to_create login script")?;
+        let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
 
         let mut command = Command::new("ssh");
 
@@ -127,7 +127,7 @@ impl Nao {
     pub fn rsync_with_nao(&self, mkpath: bool) -> Result<Command> {
         let mut command = Command::new("rsync");
 
-        let temp_file = Self::create_login_script().wrap_err("failed_to_create login script")?;
+        let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
 
         command.env("SSH_ASKPASS", temp_file.as_os_str());
         command.env("SSH_ASKPASS_REQUIRE", "force");
