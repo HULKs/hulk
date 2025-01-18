@@ -189,21 +189,29 @@ async fn resolve_manifest_path(
         Some("twix") => repository.root.join("tools/twix/Cargo.toml"),
         Some("widget_gallery") => repository.root.join("tools/widget_gallery/Cargo.toml"),
 
-        _ => {
-            let manifest_path =
-                absolute(manifest).wrap_err("failed to get absolute path of manifest")?;
-
-            if tokio::fs::metadata(&manifest_path)
-                .await
-                .wrap_err("failed to retrieve metadata")?
-                .is_dir()
-            {
-                manifest_path.join("Cargo.toml")
-            } else {
-                manifest_path
-            }
-        }
+        _ => compose_manifest_path(manifest).await.wrap_err_with(|| {
+            format!(
+                "failed to resolve manifest path for {manifest}",
+                manifest = manifest.to_string_lossy()
+            )
+        })?,
     })
+}
+
+async fn compose_manifest_path(manifest: impl AsRef<OsStr>) -> Result<PathBuf> {
+    let manifest_path =
+        absolute(manifest.as_ref()).wrap_err("failed to get absolute path of manifest")?;
+    Ok(
+        if tokio::fs::metadata(&manifest_path)
+            .await
+            .wrap_err("failed to retrieve metadata")?
+            .is_dir()
+        {
+            manifest_path.join("Cargo.toml")
+        } else {
+            manifest_path
+        },
+    )
 }
 
 fn package_metadata(table: &Table) -> Option<&Table> {
