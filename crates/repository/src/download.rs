@@ -6,14 +6,18 @@ use color_eyre::{
 };
 use tokio::process::Command;
 
-pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+pub async fn download(url: impl AsRef<OsStr>, output_path: impl AsRef<OsStr>) -> Result<()> {
+    let default_connect_timeout = Duration::from_secs(5);
+    download_with_fallback_and_timeout(std::iter::once(url), output_path, default_connect_timeout)
+        .await
+}
 
 /// Download a file from a list of URLs using `curl`.
 ///
 /// This function takes a list of URLs to download from, a path to the output file,
 /// and a connection timeout duration. It tries to download the file from each URL
 /// in the list until it succeeds or runs out of URLs.
-pub async fn download_with_fallback(
+pub async fn download_with_fallback_and_timeout(
     urls: impl IntoIterator<Item = impl AsRef<OsStr>>,
     output_path: impl AsRef<OsStr>,
     connect_timeout: Duration,

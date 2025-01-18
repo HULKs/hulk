@@ -14,7 +14,7 @@ use tokio::{
     process::Command,
 };
 
-use crate::download::{download_with_fallback, CONNECT_TIMEOUT};
+use crate::download::download;
 
 /// Downloads and installs a specified SDK version.
 ///
@@ -66,10 +66,9 @@ async fn download_and_prepare(version: &str, sdk_home: impl AsRef<Path>) -> Resu
         .await
         .wrap_err("failed to create download directory")?;
 
-    let urls = [format!(
-        "https://github.com/HULKs/meta-nao/releases/download/{version}/{installer_name}"
-    )];
-    download_with_fallback(urls, &download_path, CONNECT_TIMEOUT)
+    let url =
+        format!("https://github.com/HULKs/meta-nao/releases/download/{version}/{installer_name}");
+    download(url, &download_path)
         .await
         .wrap_err("failed to download SDK")?;
 

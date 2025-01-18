@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use color_eyre::{eyre::Context, Result};
 use tokio::fs::{create_dir_all, rename};
 
-use crate::download::{download_with_fallback, CONNECT_TIMEOUT};
+use crate::download::download;
 
 /// Downloads the NAO image for a specified version.
 ///
@@ -26,10 +26,8 @@ pub async fn download_image(version: &str, data_home: impl AsRef<Path>) -> Resul
         .await
         .wrap_err("failed to create download directory")?;
 
-    let urls = [format!(
-        "https://github.com/HULKs/meta-nao/releases/download/{version}/{image_name}"
-    )];
-    download_with_fallback(urls, &download_path, CONNECT_TIMEOUT)
+    let url = format!("https://github.com/HULKs/meta-nao/releases/download/{version}/{image_name}");
+    download(url, &download_path)
         .await
         .wrap_err("failed to download image")?;
 
