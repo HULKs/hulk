@@ -108,20 +108,19 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to set communication")?;
 
     player_number(
-            PlayerNumberArguments {
-                assignments: arguments.
-                    pre_game
-                    .assignments
-                    .iter()
-                    .copied()
-                    .map(TryFrom::try_from)
-                    .collect::<Result<Vec<_>, _>>()
-                    .wrap_err("failed to convert NAO address assignments into NAO number assignments for player number setting")?
-            },
-            repository
-        )
-        .await
-        .wrap_err("failed to set player numbers")?;
+        PlayerNumberArguments {
+            assignments: arguments
+                .pre_game
+                .assignments
+                .iter()
+                .copied()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
+        },
+        repository,
+    )
+    .await
+    .wrap_err("failed to set player numbers")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let hulk_binary = get_hulk_binary(arguments.build.profile());
