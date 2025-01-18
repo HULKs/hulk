@@ -6,6 +6,8 @@ use repository::cargo::Cargo;
 use super::CargoCommand;
 use super::{common::CommonOptions, heading};
 
+// roughly based on https://github.com/messense/cargo-options
+
 #[derive(Clone, Debug, Default, Parser)]
 #[command(display_order = 1)]
 pub struct Arguments {

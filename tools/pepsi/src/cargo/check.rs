@@ -3,6 +3,8 @@ use repository::cargo::Cargo;
 
 use super::{common::CommonOptions, heading, CargoCommand};
 
+// roughly based on https://github.com/messense/cargo-options
+
 /// `cargo check` options which are also a subset of `cargo clippy`
 #[derive(Clone, Debug, Default, Parser)]
 pub struct CheckOptions {

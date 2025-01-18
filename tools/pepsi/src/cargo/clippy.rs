@@ -3,6 +3,8 @@ use repository::cargo::Cargo;
 
 use super::{check::CheckOptions, common::CommonOptions, heading, CargoCommand};
 
+// roughly based on https://github.com/messense/cargo-options
+
 /// Checks a package to catch common mistakes and improve your Rust code
 #[derive(Clone, Debug, Default, Parser)]
 #[command(display_order = 1)]

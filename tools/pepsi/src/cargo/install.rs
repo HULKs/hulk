@@ -6,6 +6,8 @@ use repository::cargo::Cargo;
 use super::CargoCommand;
 use super::{common::CommonOptions, heading};
 
+// roughly based on https://github.com/messense/cargo-options
+
 /// Install a Rust binary. Default location is $HOME/.cargo/bin
 #[derive(Clone, Debug, Default, Parser)]
 #[command(

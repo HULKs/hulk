@@ -5,6 +5,8 @@ use repository::cargo::Cargo;
 
 use super::heading;
 
+// roughly based on https://github.com/messense/cargo-options
+
 #[derive(Clone, Debug, Default, Parser)]
 pub struct CommonOptions {
     /// Do not print cargo log messages

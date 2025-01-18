@@ -3,6 +3,8 @@ use repository::cargo::Cargo;
 
 use super::{common::CommonOptions, heading, CargoCommand};
 
+// roughly based on https://github.com/messense/cargo-options
+
 /// Execute all unit and integration tests and build examples of a local package
 #[derive(Clone, Debug, Default, Parser)]
 #[command(display_order = 1)]
