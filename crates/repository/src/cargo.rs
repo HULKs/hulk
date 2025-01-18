@@ -137,7 +137,6 @@ impl Cargo {
             Environment::Docker { image } => {
                 let data_home = get_data_home().wrap_err("failed to get data home")?;
                 let cargo_home = data_home.join("container-cargo-home/");
-                // FIXME: Pepsi only work in repository root
                 // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
                 let pwd = Path::new("/hulk").join(&relative_pwd);
                 let mut command = OsString::from(format!("\
