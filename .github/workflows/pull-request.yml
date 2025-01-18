@@ -24,29 +24,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: ./pepsi clippy
-
-  check-cargo-lock:
-    name: Check Cargo.lock
-    strategy:
-      matrix:
-        path:
-          - .
-          - services/aliveness
-          - services/breeze
-          - services/hula
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: ghcr.io/hulks/hulk-ci:1.81.0
-      options: --user=1000:1000
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Check
-        run: cargo update --locked --manifest-path ${{ matrix.path }}/Cargo.toml
+        run: ./pepsi clippy --locked
 
   check-parameters:
     name: Check parameters
@@ -61,7 +39,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: ./pepsi run parameter_tester
+        run: ./pepsi run --locked parameter_tester
 
   format:
     name: Format
@@ -107,7 +85,7 @@ jobs:
         with:
           lfs: true
       - name: Test
-        run: ./pepsi test --all-features
+        run: ./pepsi test --locked --all-features
 
   build:
     name: Build
@@ -133,7 +111,7 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: ./pepsi build --profile ${{ matrix.profile }} ${{ matrix.target }}
+        run: ./pepsi build --locked --profile ${{ matrix.profile }} ${{ matrix.target }}
 
   build_services:
     name: Build
@@ -154,7 +132,7 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: ./pepsi build --release ${{ matrix.service }}
+        run: ./pepsi build --locked --release ${{ matrix.service }}
 
   build_tools:
     name: Build
@@ -179,7 +157,7 @@ jobs:
         with:
           lfs: true
       - name: Build
-        run: ./pepsi build --release ${{ matrix.tool }}
+        run: ./pepsi build --locked --release ${{ matrix.tool }}
 
   build_mkdocs:
     name: Build mkdocs
