@@ -99,7 +99,7 @@
 
         <inertial pos="-0.00001 0 -0.02742" mass="0.07842"
           fullinertia="74992.98e-9 75999.99e-9 5533.73e-9 1.57e-9 -18.34e-9 -52.95e-9" />
-        <joint name="head.yaw" axis="0 0 1" range="-119.5 119.5" limited="true" armature="0.01"/>
+        <joint name="head.yaw" axis="0 0 1" range="-119.5 119.5" limited="true"  />
         <joint name="head.yaw.backlash" axis="0 0 1" range="-1 1" limited="true" />
 
         <body name="head" pos="0 0 0">
@@ -113,7 +113,7 @@
 
           <inertial pos="0.00109 0.00146 0.05719" mass="0.65973"
             fullinertia="2929818.72e-9 2838592.56e-9 716895.93e-9 3717.1e-9 -31446.71e-9 -73773.31e-9" />
-          <joint name="head.pitch" axis="0 1 0" range="-38.5 29.5" limited="true" armature="0.01" />
+          <joint name="head.pitch" axis="0 1 0" range="-38.5 29.5" limited="true"   />
           <joint name="head.pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
         </body>
       </body>
@@ -124,7 +124,7 @@
 
         <inertial pos="-0.00781 -0.01114 0.02661" mass="0.06981"
           fullinertia="81502.27e-9 101325.27e-9 62623.96e-9 -4994.62e-9 12748.2e-9 23455.01e-9" />
-        <joint name="left_leg.hip_yaw_pitch" axis="0 1 -1" range="-65.62 42.44" limited="true" armature="0.01" />
+        <joint name="left_leg.hip_yaw_pitch" axis="0 1 -1" range="-65.62 42.44" limited="true"   />
         <joint name="left_leg.hip_yaw_pitch.backlash" axis="0 1 -1" range="-1 1" limited="true" />
 
         <body name="left_hip_2" pos="0 0 0">
@@ -132,7 +132,7 @@
 
           <inertial pos="-0.01549 0.00029 -0.00515" mass="0.14053"
             fullinertia="27583.44e-9 98270.59e-9 88099.78e-9 -22.3e-9 -4081.53e-9 -4.18e-9" />
-          <joint name="left_leg.hip_roll" axis="1 0 0" range="-21.74 45.29" limited="true" armature="0.01" />
+          <joint name="left_leg.hip_roll" axis="1 0 0" range="-21.74 45.29" limited="true"   />
           <joint name="left_leg.hip_roll.backlash" axis="1 0 0" range="-1 1" limited="true" />
 
           <body name="left_thigh" pos="0 0 0">
@@ -141,7 +141,7 @@
 
             <inertial pos="0.00138 0.00221 -0.05373" mass="0.38968"
               fullinertia="1636719.24e-9 1591072.67e-9 303743.22e-9 924.45e-9 85310.79e-9 38357.47e-9" />
-            <joint name="left_leg.hip_pitch" axis="0 1 0" range="-88 27.73" limited="true" armature="0.01" />
+            <joint name="left_leg.hip_pitch" axis="0 1 0" range="-88 27.73" limited="true"   />
             <joint name="left_leg.hip_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
             <body name="left_tibia" pos="0 0 -0.1">
@@ -151,7 +151,7 @@
 
               <inertial pos="0.00453 0.00225 -0.04936" mass="0.30142"
                 fullinertia="1182079.03e-9 1128652.24e-9 193227.6e-9 633.74e-9 36499.64e-9 39492.53e-9" />
-              <joint name="left_leg.knee_pitch" axis="0 1 0" range="-5.29 121.04" limited="true" armature="0.01" />
+              <joint name="left_leg.knee_pitch" axis="0 1 0" range="-5.29 121.04" limited="true"   />
               <joint name="left_leg.knee_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
               <body name="left_ankle" pos="0 0 -0.1029">
@@ -159,7 +159,7 @@
 
                 <inertial pos="0.00045 0.00029 0.00685" mass="0.13416"
                   fullinertia="38509.81e-9 74265.29e-9 54865.35e-9 -26.34e-9 3861.96e-9 18.32e-9" />
-                <joint name="left_leg.ankle_pitch" axis="0 1 0" range="-68.15 52.86" limited="true" armature="0.01" />
+                <joint name="left_leg.ankle_pitch" axis="0 1 0" range="-68.15 52.86" limited="true"   />
                 <joint name="left_leg.ankle_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
                 <body name="left_foot">
@@ -171,7 +171,7 @@
 
                   <inertial pos="0.02542 0.0033 -0.03239" mass="0.17184"
                     fullinertia="269442.9e-9 644342.28e-9 525755.35e-9 -5696.02e-9 139379.2e-9 18741.43e-9" />
-                  <joint name="left_leg.ankle_roll" axis="1 0 0" range="-22.79 44.06" limited="true" armature="0.01"/>
+                  <joint name="left_leg.ankle_roll" axis="1 0 0" range="-22.79 44.06" limited="true"  />
                   <joint name="left_leg.ankle_roll.backlash" axis="1 0 0" range="-1 1" limited="true" />
 
                   <site name="force_sensitive_resistors.left.rear_right" pos="-0.02 0.025 -0.04519"
@@ -195,7 +195,7 @@
 
         <inertial pos="-0.00781 0.01114 0.02661" mass="0.06981"
           fullinertia="89971.87e-9 105526.06e-9 66887.37e-9 5002.25e-9 12735.31e-9 -27700.88e-9" />
-        <joint name="right_leg.hip_yaw_pitch" axis="0 1 1" range="-65.62 42.44" limited="true" armature="0.01" />
+        <joint name="right_leg.hip_yaw_pitch" axis="0 1 1" range="-65.62 42.44" limited="true"   />
         <joint name="right_leg.hip_yaw_pitch.backlash" axis="0 1 1" range="-1 1" limited="true" />
 
         <body name="right_hip_2" pos="0 0 0">
@@ -203,7 +203,7 @@
 
           <inertial pos="-0.01549 -0.00029 -0.00515" mass="0.14053"
             fullinertia="27586.44e-9 98269.99e-9 88103.38e-9 -19.16e-9 -4108.11e-9 2.52e-9" />
-          <joint name="right_leg.hip_roll" axis="1 0 0" range="-45.29 21.74" limited="true" armature="0.01"/>
+          <joint name="right_leg.hip_roll" axis="1 0 0" range="-45.29 21.74" limited="true"  />
           <joint name="right_leg.hip_roll.backlash" axis="1 0 0" range="-1 1" limited="true" />
 
           <body name="right_thigh" pos="0 0 0">
@@ -212,7 +212,7 @@
 
             <inertial pos="0.00138 -0.00221 -0.05373" mass="0.38968"
               fullinertia="1637482.24e-9 1592213.99e-9 303978.89e-9 -839.27e-9 85887.18e-9 -39180.38e-9" />
-            <joint name="right_leg.hip_pitch" axis="0 1 0" range="-88 27.73" limited="true" armature="0.01" />
+            <joint name="right_leg.hip_pitch" axis="0 1 0" range="-88 27.73" limited="true"   />
             <joint name="right_leg.hip_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
             <body name="right_tibia" pos="0 0 -0.1">
@@ -222,7 +222,7 @@
 
               <inertial pos="0.00453 -0.00225 -0.04936" mass="0.30142"
                 fullinertia="1182829.03e-9 1128278.75e-9 191453.09e-9 -896.13e-9 27999.52e-9 -38478.73e-9" />
-              <joint name="right_leg.knee_pitch" axis="0 1 0" range="-5.9 121.47" limited="true" armature="0.01" />
+              <joint name="right_leg.knee_pitch" axis="0 1 0" range="-5.9 121.47" limited="true"   />
               <joint name="right_leg.knee_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
               <body name="right_ankle" pos="0 0 -0.1029">
@@ -230,7 +230,7 @@
 
                 <inertial pos="0.00045 -0.00029 0.00685" mass="0.13416"
                   fullinertia="38508.11e-9 74310.79e-9 54913.15e-9 64.34e-9 3874.68e-9 -4.6e-9" />
-                <joint name="right_leg.ankle_pitch" axis="0 1 0" range="-67.97 53.4" limited="true" armature="0.01"/>
+                <joint name="right_leg.ankle_pitch" axis="0 1 0" range="-67.97 53.4" limited="true"  />
                 <joint name="right_leg.ankle_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
                 <body name="right_foot">
@@ -242,7 +242,7 @@
 
                   <inertial pos="0.02542 -0.0033 -0.03239" mass="0.17184"
                     fullinertia="269303.1e-9 643474.47e-9 525034.16e-9 5874.62e-9 139133.06e-9 -18848.77e-9" />
-                  <joint name="right_leg.ankle_roll" axis="1 0 0" range="-44.06 22.8" limited="true" armature="0.01" />
+                  <joint name="right_leg.ankle_roll" axis="1 0 0" range="-44.06 22.8" limited="true"   />
                   <joint name="right_leg.ankle_roll.backlash" axis="1 0 0" range="-1 1" limited="true" />
 
                   <site name="force_sensitive_resistors.right.rear_right"
@@ -265,7 +265,7 @@
 
         <inertial pos="-0.00165 -0.02663 0.00014" mass="0.09304"
           fullinertia="84284.28e-9 14155.63e-9 86419.46e-9 -2028.02e-9 23.39e-9 -19.48e-9" />
-        <joint name="left_arm.shoulder_pitch" axis="0 1 0" range="-119.5 119.5" limited="true" armature="0.01" />
+        <joint name="left_arm.shoulder_pitch" axis="0 1 0" range="-119.5 119.5" limited="true"   />
         <joint name="left_arm.shoulder_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
         <body name="left_upper_arm" pos="0 0 0">
@@ -275,13 +275,13 @@
 
           <inertial pos="0.02455 0.00563 0.0033" mass="0.15777"
             fullinertia="93900.1e-9 371518.33e-9 341901.19e-9 -47144.85e-9 -26994.73e-9 -2459.82e-9" />
-          <joint name="left_arm.shoulder_roll" axis="0 0 1" range="-18 76" limited="true" armature="0.01" />
+          <joint name="left_arm.shoulder_roll" axis="0 0 1" range="-18 76" limited="true"   />
           <joint name="left_arm.shoulder_roll.backlash" axis="0 0 1" range="-1 1" limited="true" />
 
           <body name="left_elbow" pos="0.105 0.015 0">
             <inertial pos="-0.02744 0 -0.00014" mass="0.06483"
               fullinertia="5597.15e-9 75433.15e-9 76443.38e-9 4.39e-9 43.19e-9 -1.84e-9" />
-            <joint name="left_arm.elbow_yaw" axis="1 0 0" range="-119.5 119.5" limited="true" armature="0.01" />
+            <joint name="left_arm.elbow_yaw" axis="1 0 0" range="-119.5 119.5" limited="true"   />
             <joint name="left_arm.elbow_yaw.backlash" axis="1 0 0" range="-1 1" limited="true" />
 
             <body name="left_lower_arm" pos="0 0 0">
@@ -289,7 +289,7 @@
 
               <inertial pos="0.02556 0.00281 0.00076" mass="0.07761"
                 fullinertia="25332.28e-9 89132.16e-9 87287.28e-9 -2342.89e-9 74.59e-9 -26.56e-9" />
-              <joint name="left_arm.elbow_roll" axis="0 0 1" range="-88.5 -2" limited="true" armature="0.01"/>
+              <joint name="left_arm.elbow_roll" axis="0 0 1" range="-88.5 -2" limited="true"  />
               <joint name="left_arm.elbow_roll.backlash" axis="0 0 1" range="-1 1" limited="true" />
 
               <body name="left_wrist" pos=".05595 0 0">
@@ -299,7 +299,7 @@
 
                 <inertial pos="0.03434 -0.00088 0.00308" mass="0.18533"
                   fullinertia="70549.38e-9 356061.81e-9 351919.25e-9 5716.67e-9 -22474.41e-9 3177.77e-9" />
-                <joint name="left_arm.wrist_yaw" axis="1 0 0" range="-104.5 104.5" limited="true" armature="0.01"/>
+                <joint name="left_arm.wrist_yaw" axis="1 0 0" range="-104.5 104.5" limited="true"  />
                 <joint name="left_arm.wrist_yaw.backlash" axis="1 0 0" range="-1 1" limited="true" />
               </body>
             </body>
@@ -312,7 +312,7 @@
 
         <inertial pos="-0.00165 0.02663 0.00014" mass="0.09304"
           fullinertia="84284.28e-9 14155.62e-9 86419.46e-9 2028.02e-9 23.37e-9 19.96e-9" />
-        <joint name="right_arm.shoulder_pitch" axis="0 1 0" range="-119.5 119.5" limited="true" armature="0.01"/>
+        <joint name="right_arm.shoulder_pitch" axis="0 1 0" range="-119.5 119.5" limited="true"  />
         <joint name="right_arm.shoulder_pitch.backlash" axis="0 1 0" range="-1 1" limited="true" />
 
         <body name="right_upper_arm" pos="0 0 0">
@@ -322,13 +322,13 @@
 
           <inertial pos="0.02455 -0.00563 0.0033" mass="0.15777"
             fullinertia="110119.78e-9 367576.65e-9 354618.19e-9 76690.99e-9 -26046.05e-9 12098.23e-9" />
-          <joint name="right_arm.shoulder_roll" axis="0 0 1" range="-76 18" limited="true"  armature="0.01" />
+          <joint name="right_arm.shoulder_roll" axis="0 0 1" range="-76 18" limited="true"    />
           <joint name="right_arm.shoulder_roll.backlash" axis="0 0 1" range="-1 1" limited="true" />
 
           <body name="right_elbow" pos="0.105 -0.015 0">
             <inertial pos="-0.02744 0 -0.00014" mass="0.06483"
               fullinertia="5597.15e-9 75433.15e-9 76443.38e-9 4.39e-9 43.19e-9 -1.84e-9" />
-            <joint name="right_arm.elbow_yaw" axis="1 0 0" range="-119.5 119.5" limited="true" armature="0.01" />
+            <joint name="right_arm.elbow_yaw" axis="1 0 0" range="-119.5 119.5" limited="true"   />
             <joint name="right_arm.elbow_yaw.backlash" axis="1 0 0" range="-1 1" limited="true" />
 
             <body name="right_lower_arm" pos="0 0 0">
@@ -336,7 +336,7 @@
 
               <inertial pos="0.02556 -0.00281 0.00076" mass="0.07761"
                 fullinertia="25390.7e-9 89220.44e-9 87248.38e-9 2332.25e-9 -601.17e-9 26.93e-9" />
-              <joint name="right_arm.elbow_roll" axis="0 0 1" range="2 88.5" limited="true" armature="0.01"/>
+              <joint name="right_arm.elbow_roll" axis="0 0 1" range="2 88.5" limited="true"  />
               <joint name="right_arm.elbow_roll.backlash" axis="0 0 1" range="-1 1" limited="true" />
 
               <body name="right_wrist" pos=".05595 0 0">
@@ -346,7 +346,7 @@
 
                 <inertial pos="0.03434 0.00088 0.00308" mass="0.18533"
                   fullinertia="70549.29e-9 356061.88e-9 351919.26e-9 5716.66e-9 -22474.34e-9 3177.77e-9" />
-                <joint name="right_arm.wrist_yaw" axis="1 0 0" range="-104.5 104.5" limited="true" armature="0.01"/>
+                <joint name="right_arm.wrist_yaw" axis="1 0 0" range="-104.5 104.5" limited="true"  />
                 <joint name="right_arm.wrist_yaw.backlash" axis="1 0 0" range="-1 1" limited="true" />
               </body>
             </body>
