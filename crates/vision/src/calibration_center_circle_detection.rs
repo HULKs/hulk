@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use color_eyre::Result;
+use color_eyre::{eyre::Ok, Result};
 use edge_detection::{get_edges_canny, get_edges_canny_imageproc, EdgeSourceType};
 use geometry::{
     line::{self, Line2},
@@ -17,7 +17,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
 
-use calibration::center_circle::circle_points::CenterCirclePoints;
+use calibration::center_circle::{circle_points::CenterCirclePoints, fine_tuner::ellifit};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 
@@ -115,6 +115,10 @@ pub struct CycleContext {
         Vec<LineSegment<Pixel>>,
         "calibration_center_circle_detection.circle_lines",
     >,
+    // circle_line_points: AdditionalOutput<
+    //     Vec<Point2<Pixel>>,
+    //     "calibration_center_circle_detection.circle_line_points",
+    // >,
 }
 
 #[context]
@@ -244,7 +248,7 @@ fn refine_center_circle(
     LineSegment<Pixel>,
     Vec<LineSegment<Pixel>>,
 )> {
-    if center_circle.used_points_original.len() < 3 {
+    if center_circle.used_points_original.len() < 5 {
         return None;
     }
     let circle_points_pixel = &center_circle.used_points_original;
@@ -287,10 +291,10 @@ fn refine_center_circle(
             .iter()
             .filter(|&&point| {
                 source_lines
-                .iter()
-                .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
+                    .iter()
+                    .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
                 // line.distance_to(point) > min_distance_from_line
-                    && (point - cleaned_center).norm_squared() > min_distance_from_center_squared
+                // && (point - cleaned_center).norm_squared() > min_distance_from_center_squared
             })
             .copied()
             .collect();
@@ -298,16 +302,44 @@ fn refine_center_circle(
         // let arc_clusters = get_arc_clusters(
         //     circle_center,
         //     &filtered_roi_points,
+        //     roi,
         //     2.0,
         //     10.0,
         //     20.0f32.to_radians(),
         // );
 
+        let camera_matrix = context.camera_matrix;
+        let transformed_roi_points: Vec<_> = filtered_roi_points
+            .iter()
+            .map(|&p| camera_matrix.pixel_to_ground(p))
+            .flatten()
+            .collect();
+
+        // let new_center_pixel = ellifit::<Ground>(&transformed_roi_points)
+        //     .ok()
+        //     .and_then(|fitted_ellipse_ground| {
+        //         println!("fitted_ellipse_ground: {:?}", fitted_ellipse_ground);
+        //         camera_matrix
+        //             .ground_to_pixel(fitted_ellipse_ground.center)
+        //             .ok()
+        //             .filter(|p| line.squared_distance_to(*p) < min_distance_from_center_squared)
+        //     })
+        //     .unwrap_or(cleaned_center);
+        // let new_center_pixel = ellifit::<Pixel>(&roi_points)
+        //     .ok()
+        //     .and_then(|fitted_ellipse_ground| {
+        //         println!("fitted_ellipse_ground: {:?}", fitted_ellipse_ground);
+        //         Some(fitted_ellipse_ground.center)
+        //     })
+        //     .unwrap_or(cleaned_center);
+
         (
             CenterCirclePoints {
                 center: cleaned_center,
+                // center: new_center_pixel,
                 // points: arc_clusters.iter().flatten().copied().collect(),
                 points: filtered_roi_points,
+                // points: center_circle.used_points_original.clone(),
             },
             LineSegment(
                 line.point,
@@ -457,7 +489,7 @@ fn circle_circumference_percentage_filter(
     circle_points: &[Point2<Ground>],
     minimum_circumference_occupancy_ratio: f32,
 ) -> bool {
-    const DEFAULT_BIN_COUNT: usize = 36;
+    const DEFAULT_BIN_COUNT: usize = 66;
     let bin_bount = if circle_points.len() / 2 < DEFAULT_BIN_COUNT {
         circle_points.len() / 2
     } else {
@@ -482,15 +514,26 @@ fn circle_circumference_percentage_filter(
 fn get_arc_clusters(
     center: Point2<Pixel>,
     points: &[Point2<Pixel>],
+    roi: Rectangle<Pixel>,
     direct_inclusion_distance: f32,
     max_distance: f32,
     max_angle_deviation: f32,
 ) -> Vec<Vec<Point2<Pixel>>> {
+    let shape = roi.max - roi.min;
+
+    if shape.y() == 0.0 {
+        return vec![];
+    }
+    // make the ROI a square -> the points will be circularly distributed, making angle based calculaions easier
+    let aspect_ratio = shape.x() / shape.y();
+    let (scaled_center_x, scaled_center_y) = (center.x(), center.y() * aspect_ratio);
+
     let mut sorted_points: Vec<(_, _)> = points
         .into_iter()
         .map(|v| {
-            let diff = v.coords() - center.coords();
-            (v, diff.y().atan2(diff.x()))
+            let diff_x = v.x() - scaled_center_x;
+            let diff_y = v.y() * aspect_ratio - scaled_center_y;
+            (v, diff_x.atan2(diff_y))
         })
         .sorted_unstable_by_key(|(_, angle)| (angle.to_degrees() * 4.0) as i16)
         .collect();
@@ -571,9 +614,11 @@ fn detect_and_filter_circles(
                         .ground_to_pixel(circle.center)
                         .ok()
                         .and_then(|circle_center_px| {
+                            let center_tr = ellifit(used_points_transformed)
+                                .map_or(circle.center, |e| e.center);
                             if y_range.contains(&(circle_center_px.y() as u32))
                                 && circle_circumference_percentage_filter(
-                                    circle.center,
+                                    center_tr,
                                     used_points_transformed,
                                     ransac_circle_minimum_circumference_percentage,
                                 )
@@ -607,16 +652,7 @@ fn get_edges_from_canny_edge_detection(
         EdgeSourceType::DifferenceOfGrayAndRgbRange
     };
 
-    // get_edges_canny(
-    //     *context.preprocessing_gaussian_sigma,
-    //     *context.canny_low_threshold,
-    //     *context.canny_high_threshold,
-    //     context.image,
-    //     canny_source_type,
-    //     Some(get_y_exclusion_threshold(context)),
-    // )
-
-    get_edges_canny_imageproc(
+    get_edges_canny(
         *context.preprocessing_gaussian_sigma,
         *context.canny_low_threshold,
         *context.canny_high_threshold,
@@ -624,6 +660,15 @@ fn get_edges_from_canny_edge_detection(
         canny_source_type,
         Some(y_exclusion_threshold),
     )
+
+    // get_edges_canny_imageproc(
+    //     *context.preprocessing_gaussian_sigma,
+    //     *context.canny_low_threshold,
+    //     *context.canny_high_threshold,
+    //     context.image,
+    //     canny_source_type,
+    //     Some(y_exclusion_threshold),
+    // )
 }
 
 fn get_edges_from_segments(
