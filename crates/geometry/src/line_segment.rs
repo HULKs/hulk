@@ -144,21 +144,19 @@ impl<Frame> LineSegment<Frame> {
             return false;
         }
 
-        let projection = (arc.circle.center - self.0).dot(&(self.1 - self.0));
+        let direction = self.1 - self.0;
+        let normed_direction = direction.normalize();
+
+        let projection = (arc.circle.center - self.0).dot(&direction);
         let projected_point_relative_contribution = projection / self.length_squared();
-        let base_point = self.0 + (self.1 - self.0) * projected_point_relative_contribution;
+        let base_point = self.0 + direction * projected_point_relative_contribution;
 
         let center_to_base_length = (base_point - arc.circle.center).norm();
         let base_to_intersection_length =
             f32::sqrt(arc.circle.radius.powi(2) - center_to_base_length.powi(2));
 
-        let direction_vector = vector![self.1.x() - self.0.x(), self.1.y() - self.0.y()];
-        let normed_direction_vector = direction_vector.normalize();
-
-        let intersection_point1 =
-            base_point + normed_direction_vector * base_to_intersection_length;
-        let intersection_point2 =
-            base_point - normed_direction_vector * base_to_intersection_length;
+        let intersection_point1 = base_point + normed_direction * base_to_intersection_length;
+        let intersection_point2 = base_point - normed_direction * base_to_intersection_length;
 
         let mut intersection_points: Vec<_> = Vec::new();
         if (0.0..1.0).contains(&self.projection_factor(intersection_point1)) {
