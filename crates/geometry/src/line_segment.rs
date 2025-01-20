@@ -147,9 +147,8 @@ impl<Frame> LineSegment<Frame> {
         let direction = self.1 - self.0;
         let normed_direction = direction.normalize();
 
-        let projection = (arc.circle.center - self.0).dot(&direction);
-        let projected_point_relative_contribution = projection / self.length_squared();
-        let base_point = self.0 + direction * projected_point_relative_contribution;
+        let projection = (arc.circle.center - self.0).dot(&normed_direction);
+        let base_point = self.0 + normed_direction * projection;
 
         let center_to_base_length = (base_point - arc.circle.center).norm();
         let base_to_intersection_length =
