@@ -109,10 +109,13 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         ui.add_space(50.0);
 
                         let robots = (1..=7).collect::<Vec<_>>();
-                        let robot_selection =
-                            SegmentedControl::new("robot-selector", &robots).ui(ui);
-                        self.selected_robot = *robot_selection.inner;
-                        if robot_selection.response.changed() {
+                        let response = SegmentedControl::new(
+                            "robot-selector",
+                            &mut self.selected_robot,
+                            &robots,
+                        )
+                        .ui(ui);
+                        if response.changed() {
                             self.nao.write(
                                 "parameters.selected_robot",
                                 TextOrBinary::Text(self.selected_robot.into()),
