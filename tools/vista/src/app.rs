@@ -1,41 +1,27 @@
-use std::fmt::{Display, Error, Formatter};
-
 use eframe::{
     egui::{
         pos2, vec2, Align2, CentralPanel, Color32, FontId, Key, Modifiers, ScrollArea, Shape,
-        TopBottomPanel,
+        TopBottomPanel, Widget,
     },
     epaint::{PathStroke, QuadraticBezierShape},
     App, CreationContext,
 };
 
 use hulk_manifest::collect_hulk_cyclers;
+use hulk_widgets::SegmentedControl;
 use repository::Repository;
 use source_analyzer::{contexts::Field, cyclers::Cyclers};
 
 pub struct DependencyInspector {
-    _repository: Repository,
     cyclers: Cyclers,
     selected_cycler: usize,
     selected_node_index: Option<usize>,
-}
-
-struct NamedIndex<'a> {
-    index: usize,
-    name: &'a str,
-}
-
-impl Display for NamedIndex<'_> {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
-        formatter.write_str(self.name)
-    }
 }
 
 impl DependencyInspector {
     pub fn new(_creation_context: &CreationContext, repository: Repository) -> Self {
         let cyclers = collect_hulk_cyclers(repository.crates_directory()).unwrap();
         Self {
-            _repository: repository,
             cyclers,
             selected_cycler: 0,
             selected_node_index: None,
@@ -50,16 +36,12 @@ impl App for DependencyInspector {
                 .cyclers
                 .cyclers
                 .iter()
-                .enumerate()
-                .map(|(index, cycler)| NamedIndex {
-                    index,
-                    name: &cycler.name,
-                })
+                .map(|cycler| &cycler.name)
                 .collect();
             let response =
-                hulk_widgets::SegmentedControl::new("cycler selector", &cycler_names).ui(ui);
-            if response.response.changed() {
-                self.selected_cycler = response.inner.index;
+                SegmentedControl::new("cycler selector", &mut self.selected_cycler, &cycler_names)
+                    .ui(ui);
+            if response.changed() {
                 self.selected_node_index = None;
             }
         });
@@ -86,13 +68,17 @@ impl App for DependencyInspector {
             let mut node_selection_changed = false;
             ui.input_mut(|input| {
                 if input.consume_key(Modifiers::NONE, Key::ArrowUp) {
-                    self.selected_node_index =
-                        Some(self.selected_node_index.unwrap_or(0).saturating_sub(1));
+                    self.selected_node_index = Some(match self.selected_node_index {
+                        Some(old) => old.saturating_sub(1),
+                        None => nodes.len() - 1,
+                    });
                     node_selection_changed = true;
                 }
                 if input.consume_key(Modifiers::NONE, Key::ArrowDown) {
-                    self.selected_node_index =
-                        Some((self.selected_node_index.unwrap_or(0) + 1).min(nodes.len() - 1));
+                    self.selected_node_index = Some(match self.selected_node_index {
+                        Some(old) => (old + 1).min(nodes.len() - 1),
+                        None => 0,
+                    });
                     node_selection_changed = true;
                 }
                 if input.consume_key(Modifiers::NONE, Key::Escape) {
