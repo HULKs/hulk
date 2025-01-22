@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use spl_network_messages::{HulkMessage, PlayerNumber, Team, VisualRefereeMessage};
+use spl_network_messages::{HulkMessage, PlayerNumber, SubState, Team, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::GlobalFieldSide,
@@ -25,6 +25,7 @@ use types::{
 pub struct FreeKickSignalFilter {
     free_kick_signal_detection_times: Players<Option<TimeTaggedKickingTeamDetections>>,
     detected_free_kick_detections_queue: VecDeque<Team>,
+    has_sent_free_kick_signal_message: bool,
 }
 
 #[context]
@@ -73,6 +74,7 @@ impl FreeKickSignalFilter {
                 *context.referee_pose_queue_length,
             ),
             free_kick_signal_detection_times: Default::default(),
+            has_sent_free_kick_signal_message: false,
         })
     }
 
@@ -104,6 +106,20 @@ impl FreeKickSignalFilter {
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
     ) -> Result<FreeKickSignalDetectionResult> {
+        if !matches!(
+            context.game_controller_state.sub_state,
+            Some(SubState::KickIn) | Some(SubState::PushingFreeKick)
+        ) {
+            self.detected_free_kick_detections_queue = Default::default();
+            self.free_kick_signal_detection_times = Default::default();
+            self.has_sent_free_kick_signal_message = false;
+
+            return Ok(FreeKickSignalDetectionResult {
+                did_detect_any_free_kick_signal_this_cycle: false,
+                detected_free_kick_kicking_team: None,
+            });
+        }
+
         let time_tagged_persistent_messages =
             unpack_message_tree(&context.network_message.persistent);
 
@@ -149,12 +165,14 @@ impl FreeKickSignalFilter {
                     time: context.cycle_time.start_time,
                     detected_kicking_team: own_detected_kicking_team,
                 });
-
-            send_own_detection_message(
-                context.hardware_interface.clone(),
-                *context.player_number,
-                Some(own_detected_kicking_team),
-            )?;
+            if self.has_sent_free_kick_signal_message {
+                send_own_detection_message(
+                    context.hardware_interface.clone(),
+                    *context.player_number,
+                    Some(own_detected_kicking_team),
+                )?;
+                self.has_sent_free_kick_signal_message = true;
+            }
         }
 
         let majority_voted_kicking_team_detection = majority_vote_free_kick_signal(
