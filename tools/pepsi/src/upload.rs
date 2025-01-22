@@ -23,7 +23,7 @@ pub struct Arguments {
     pub upload: UploadArguments,
     #[command(flatten)]
     pub environment: EnvironmentArguments,
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "Cargo Options")]
     pub build: build::Arguments,
 }
 

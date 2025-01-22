@@ -31,7 +31,7 @@ pub struct Arguments {
     pub pre_game: PreGameArguments,
     #[command(flatten)]
     pub environment: EnvironmentArguments,
-    #[command(flatten)]
+    #[command(flatten, next_help_heading = "Cargo Options")]
     pub build: build::Arguments,
 }
 
