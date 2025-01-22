@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use spl_network_messages::{HulkMessage, PlayerNumber, VisualRefereeMessage};
+use spl_network_messages::{GameState, HulkMessage, PlayerNumber, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
+    game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
     players::Players,
     pose_detection::{ReadySignalDetectionFeedback, ReadySignalState},
@@ -41,6 +42,7 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
 
     initial_message_grace_period:
         Parameter<Duration, "ready_signal_detection_filter.initial_message_grace_period">,
@@ -80,6 +82,22 @@ impl ReadySignalDetectionFilter {
         &mut self,
         mut context: CycleContext<impl NetworkInterface>,
     ) -> Result<MainOutputs> {
+        if !matches!(
+            context.game_controller_state.game_state,
+            GameState::Standby { .. }
+        ) {
+            self.detected_ready_signal_queue = Default::default();
+            self.motion_in_standby_count = Default::default();
+            self.ready_signal_detection_times = Default::default();
+            self.ready_signal_state = Default::default();
+
+            return Ok(MainOutputs {
+                is_majority_vote_referee_ready_pose_detected: false.into(),
+                is_own_referee_ready_pose_detected: false.into(),
+                did_detect_any_ready_signal_this_cycle: false.into(),
+            });
+        }
+
         let cycle_start_time = context.cycle_time.start_time;
 
         let ready_signal_detection_feedback = self.update_own_detections(&context)?;
