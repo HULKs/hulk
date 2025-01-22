@@ -284,7 +284,7 @@
             <inertial pos="-0.02744 0 -0.00014" mass="0.06483"
               fullinertia="5597.15e-9 75433.15e-9 76443.38e-9 4.39e-9 43.19e-9 -1.84e-9" />
             <joint name="left_arm.elbow_yaw" axis="1 0 0" range="-119.5 119.5" class="nao_joint" />
-            <joint name="left_arm.elbow_yaw.backlash" axis="1 0 0" range="0 0.001" limited="true" stiffness="10" />
+            <joint name="left_arm.elbow_yaw.backlash" axis="1 0 0" range="0 0.001" limited="true" />
 
             <body name="left_lower_arm" pos="0 0 0">
               <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLElbowRoll_0" />
@@ -302,7 +302,7 @@
                 <inertial pos="0.03434 -0.00088 0.00308" mass="0.18533"
                   fullinertia="70549.38e-9 356061.81e-9 351919.25e-9 5716.67e-9 -22474.41e-9 3177.77e-9" />
                 <joint name="left_arm.wrist_yaw" axis="1 0 0" range="-104.5 104.5" class="nao_joint" />
-                <joint name="left_arm.wrist_yaw.backlash" axis="1 0 0" range="0 0.001" limited="true" stiffness="10" />
+                <joint name="left_arm.wrist_yaw.backlash" axis="1 0 0" range="0 0.001" limited="true" />
               </body>
             </body>
           </body>
@@ -331,7 +331,7 @@
             <inertial pos="-0.02744 0 -0.00014" mass="0.06483"
               fullinertia="5597.15e-9 75433.15e-9 76443.38e-9 4.39e-9 43.19e-9 -1.84e-9" />
             <joint name="right_arm.elbow_yaw" axis="1 0 0" range="-119.5 119.5" class="nao_joint" />
-            <joint name="right_arm.elbow_yaw.backlash" axis="1 0 0" range="0 0.001" limited="true" stiffness="10"/>
+            <joint name="right_arm.elbow_yaw.backlash" axis="1 0 0" range="0 0.001" limited="true" />
 
             <body name="right_lower_arm" pos="0 0 0">
               <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRElbowRoll_0" />
