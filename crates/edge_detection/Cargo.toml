@@ -1,24 +1,26 @@
 [package]
-name = "ransac"
+name = "edge_detection"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-approx = { workspace = true }
-geometry = { workspace = true }
-itertools = { workspace = true }
-linear_algebra = { workspace = true }
+log = { workspace = true }
 nalgebra = { workspace = true }
-ordered-float = { workspace = true }
-rand = { workspace = true }
-rand_chacha = { workspace = true }
+coordinate_systems = { workspace = true }
+image = { workspace = true }
+imageproc = { workspace = true }
+geometry = { workspace = true }
+linear_algebra = { workspace = true }
+types = { workspace = true }
+num-traits = { workspace = true }
+simba = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 divan = { workspace = true }
 pprof = { workspace = true }
-
 
 [[bench]]
 name = "bench"

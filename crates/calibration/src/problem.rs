@@ -53,17 +53,14 @@ where
     type ParameterStorage = Owned<f32, Const<AMOUNT_OF_PARAMETERS>>;
 
     fn set_params(&mut self, parameters: &SVector<f32, AMOUNT_OF_PARAMETERS>) {
-        println!("set_params({parameters:?})");
         self.parameters = parameters.into();
     }
 
     fn params(&self) -> SVector<f32, AMOUNT_OF_PARAMETERS> {
-        println!("params()");
         (&self.parameters).into()
     }
 
     fn residuals(&self) -> Option<ResidualVector> {
-        println!("residuals()");
         calculate_residuals_from_parameters::<MeasurementResidualsType>(
             &self.parameters,
             &self.measurements,
@@ -72,7 +69,6 @@ where
     }
 
     fn jacobian(&self) -> Option<Jacobian> {
-        println!("jacobian()");
         calculate_jacobian_from_parameters::<MeasurementResidualsType>(
             &self.parameters,
             &self.measurements,

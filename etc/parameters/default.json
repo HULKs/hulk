@@ -78,6 +78,7 @@
     }
   },
   "camera_matrix_parameters": {
+    "robot_rotation": [0.0, 0.0, 0.0],
     "vision_top": {
       "camera_pitch": -1.2,
       "extrinsic_rotations": [0, 0, 0],
@@ -1466,9 +1467,38 @@
       "secs": 5
     },
     "look_at_dispatch_delay": {
-      "nanos": 0,
-      "secs": 1
+      "nanos": 500000000,
+      "secs": 0
     },
-    "use_stand_head_unstiff_calibration": true
+    "use_stand_head_unstiff_calibration": false
+  },
+  "calibration_center_circle_detection": {
+    "canny_high_threshold": 200.0,
+    "canny_low_threshold": 150.0,
+    "gaussian_sigma": 1.399999976158142,
+    "get_edges_from_segments": false,
+    "maximum_number_of_circles": 1,
+    "ransac_circle_inlier_threshold": 0.250650018453598,
+    "ransac_circle_minimum_circumference_percentage": 0.6000000238418579,
+    "ransac_iterations": 2500,
+    "ransac_sample_size_percentage": 0.8999999761581421,
+    "refine": {
+      "center_line_point_exclusion_distance": 4.0,
+      "enable": true,
+      "hough_nms_radius": 2,
+      "hough_rho_bin_size": 10,
+      "hough_threshold": 100,
+      "ransac_iterations": 100,
+      "ransac_maximum_score_distance": 10,
+      "ransac_maximum_inclusion_distance": 10
+    },
+    "run_next_cycle_after_ms": 5,
+    "skip_rgb_based_difference_image": false,
+    "vision_bottom": {
+      "tuning_mode": false
+    },
+    "vision_top": {
+      "tuning_mode": false
+    }
   }
 }

@@ -7,7 +7,7 @@ use std::{
 
 use color_eyre::eyre::{self, WrapErr};
 use geometry::circle::Circle;
-use image::{ImageReader, RgbImage};
+use image::{io::Reader as ImageReader, RgbImage};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;

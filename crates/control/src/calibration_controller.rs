@@ -1,13 +1,15 @@
 use std::{time::Duration, vec};
 
 use color_eyre::Result;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use calibration::{
+    center_circle::{measurement::Measurement, residuals::CenterCircleResiduals},
     corrections::Corrections,
-    goal_box::{measurement::Measurement, residuals::GoalBoxResiduals},
     solve,
 };
+
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
@@ -49,9 +51,10 @@ pub struct CycleContext {
     stabilization_delay: Parameter<Duration, "calibration_controller.stabilization_delay">,
     max_retries_per_capture: Parameter<u32, "calibration_controller.max_retries_per_capture">,
 
-    calibration_measurements: AdditionalOutput<Vec<Measurement>, "calibration_inner.measurements">,
+    calibration_measurements:
+        AdditionalOutput<Vec<Measurement>, "calibration_controller.last_measurements">,
     last_calibration_corrections:
-        AdditionalOutput<Option<Corrections>, "last_calibration_corrections">,
+        AdditionalOutput<Corrections, "calibration_controller.last_corrections">,
 }
 
 #[context]
@@ -146,7 +149,6 @@ impl CalibrationController {
                     .start_time
                     .duration_since(activated_time.start_time)
                     .unwrap_or_default();
-
                 if waiting_duration >= *context.stabilization_delay {
                     self.inner_states.calibration_state = self
                         .get_next_look_at(*context.cycle_time)
@@ -186,9 +188,16 @@ impl CalibrationController {
         context
             .calibration_measurements
             .fill_if_subscribed(|| self.inner_states.measurements.clone());
+
         context
             .last_calibration_corrections
-            .fill_if_subscribed(|| self.corrections);
+            .mutate_if_subscribed(|data| {
+                if let Some(corrections) = self.corrections {
+                    data.replace(corrections);
+                } else {
+                    data.take();
+                }
+            });
 
         Ok(MainOutputs {
             calibration_command: self
@@ -231,7 +240,7 @@ impl CalibrationController {
 
     fn calibrate(&mut self, context: &CycleContext) -> CalibrationState {
         // TODO Handle not enough inner.measurements
-        let solved_result = solve::<GoalBoxResiduals>(
+        let solved_result = solve::<CenterCircleResiduals>(
             Corrections::default(),
             self.inner_states.measurements.clone(),
             *context.field_dimensions,
@@ -275,17 +284,43 @@ fn collect_filtered_values(
 
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
 fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
-    let look_at_points: Vec<Point2<Ground>> = vec![
+    let look_at_points: Vec<_> = vec![
+        point![1.0, -0.2],
+        point![1.0, -0.1],
+        point![2.0, -0.1],
+        point![2.0, -0.2],
+        point![2.5, -0.2],
+        point![2.5, -0.1],
+        point![2.5, 0.0],
+        point![2.5, 0.1],
+        point![2.5, 0.2],
+        point![2.0, 0.2],
+        point![2.0, 0.1],
+        point![2.0, 0.0],
         point![1.0, 0.0],
-        point![1.0, -0.5],
-        point![3.0, -0.5],
-        point![3.0, 0.0],
-        point![3.0, 0.5],
-        point![1.0, -0.5],
+        point![1.0, 0.1],
+        point![1.0, 0.2],
     ];
 
-    look_at_points
+    let mut interpolated = Vec::with_capacity(look_at_points.len() * 2);
+    for (p, p1) in look_at_points.iter().tuple_windows() {
+        let mid_point = (p.coords() + p1.coords()) / 2.0;
+        interpolated.push(p.clone());
+        interpolated.push(mid_point.as_point());
+    }
+    if let Some(last_point) = look_at_points.last() {
+        interpolated.push(last_point.clone());
+    }
+
+    assert!(
+        interpolated.len() == look_at_points.len() * 2 - 1,
+        "{},{}",
+        interpolated.len(),
+        look_at_points.len()
+    );
+
+    [CameraPosition::Top, CameraPosition::Bottom]
         .iter()
-        .map(|&point| (point, CameraPosition::Top))
+        .flat_map(|&position| interpolated.iter().map(move |&point| (point, position)))
         .collect()
 }

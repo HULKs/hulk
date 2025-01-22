@@ -5,7 +5,7 @@ use eframe::{
     egui::Ui,
     epaint::{ColorImage, TextureHandle},
 };
-use image::{ImageError, ImageReader};
+use image::{io::Reader as ImageReader, ImageError};
 
 pub fn load_image_from_path(path: impl AsRef<Path>) -> Result<ColorImage, ImageError> {
     let image = ImageReader::open(path)?.decode()?;

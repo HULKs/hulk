@@ -23,7 +23,7 @@ pub fn execute(
             HeadMotion::LookAt {
                 target,
                 camera: Some(camera),
-                image_region_target: ImageRegion::Bottom,
+                image_region_target: ImageRegion::Center,
             }
         } else {
             HeadMotion::Unstiff

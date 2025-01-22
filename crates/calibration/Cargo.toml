@@ -16,3 +16,6 @@ projection = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
