@@ -1478,15 +1478,19 @@
     "gaussian_sigma": 1.399999976158142,
     "get_edges_from_segments": false,
     "maximum_number_of_circles": 1,
-    "ransac_circle_inlier_threshold": 0.10649999976158142,
+    "ransac_circle_inlier_threshold": 0.250650018453598,
     "ransac_circle_minimum_circumference_percentage": 0.6000000238418579,
     "ransac_iterations": 2500,
     "ransac_sample_size_percentage": 0.8999999761581421,
     "refine": {
-      "center_line_point_exclusion_distance_factor": 0.14,
+      "center_line_point_exclusion_distance": 4.0,
+      "enable": true,
+      "hough_nms_radius": 2,
       "hough_rho_bin_size": 10,
       "hough_threshold": 100,
-      "hough_nms_radius": 2
+      "ransac_iterations": 100,
+      "ransac_maximum_score_distance": 10,
+      "ransac_maximum_inclusion_distance": 10
     },
     "run_next_cycle_after_ms": 5,
     "skip_rgb_based_difference_image": false,

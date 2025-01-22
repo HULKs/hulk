@@ -1,6 +1,7 @@
 use std::{time::Duration, vec};
 
 use color_eyre::Result;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use calibration::{
@@ -283,7 +284,7 @@ fn collect_filtered_values(
 
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
 fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
-    let look_at_points: Vec<Point2<Ground>> = vec![
+    let look_at_points: Vec<_> = vec![
         point![1.0, -0.2],
         point![1.0, -0.1],
         point![2.0, -0.1],
@@ -301,8 +302,25 @@ fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
         point![1.0, 0.2],
     ];
 
+    let mut interpolated = Vec::with_capacity(look_at_points.len() * 2);
+    for (p, p1) in look_at_points.iter().tuple_windows() {
+        let mid_point = (p.coords() + p1.coords()) / 2.0;
+        interpolated.push(p.clone());
+        interpolated.push(mid_point.as_point());
+    }
+    if let Some(last_point) = look_at_points.last() {
+        interpolated.push(last_point.clone());
+    }
+
+    assert!(
+        interpolated.len() == look_at_points.len() * 2 - 1,
+        "{},{}",
+        interpolated.len(),
+        look_at_points.len()
+    );
+
     [CameraPosition::Top, CameraPosition::Bottom]
         .iter()
-        .flat_map(|&position| look_at_points.iter().map(move |&point| (point, position)))
+        .flat_map(|&position| interpolated.iter().map(move |&point| (point, position)))
         .collect()
 }

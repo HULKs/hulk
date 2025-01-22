@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use color_eyre::{eyre::Ok, Result};
+use color_eyre::{eyre::Ok, owo_colors::OwoColorize, Result};
 use edge_detection::{get_edges_canny, get_edges_canny_imageproc, EdgeSourceType};
 use geometry::{
     line::{self, Line2},
@@ -13,11 +13,16 @@ use geometry::{
 };
 use imageproc::point;
 use itertools::{max, Itertools};
+use lstsq::lstsq;
+use nalgebra::{DMatrix, DVector};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
 
-use calibration::center_circle::{circle_points::CenterCirclePoints, fine_tuner::ellifit};
+use calibration::{
+    center_circle::{circle_points::CenterCirclePoints, fine_tuner::ellifit},
+    goal_box::lines,
+};
 use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 
@@ -26,13 +31,14 @@ use linear_algebra::{distance, point, vector, IntoFramed, Point2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use ransac::{
     circles::circle::{RansacCircleWithTransformation, RansacResultCircleWithTransformation},
-    Ransac,
+    Ransac, RansacResult,
 };
 use types::{
     calibration::{CalibrationCommand, CalibrationFeatureDetectorOutput},
     camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
     filtered_segments::FilteredSegments,
+    line_data::LineData,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -84,10 +90,20 @@ pub struct CycleContext {
         Parameter<usize, "calibration_center_circle_detection.refine.hough_threshold">,
     refine_hough_nms_radius:
         Parameter<usize, "calibration_center_circle_detection.refine.hough_nms_radius">,
-    // profiling_active: Parameter<bool, "calibration_center_circle_detection.profiling_active">,
-    center_line_point_exclusion_distance_factor: Parameter<
+    refine_ransac_iterations:
+        Parameter<usize, "calibration_center_circle_detection.refine.ransac_iterations">,
+    refine_enable: Parameter<bool, "calibration_center_circle_detection.refine.enable">,
+    refine_ransac_maximum_score_distance:
+        Parameter<f32, "calibration_center_circle_detection.refine.ransac_maximum_score_distance">,
+    refine_ransac_maximum_inclusion_distance: Parameter<
         f32,
-        "calibration_center_circle_detection.refine.center_line_point_exclusion_distance_factor",
+        "calibration_center_circle_detection.refine.ransac_maximum_inclusion_distance",
+    >,
+
+    // profiling_active: Parameter<bool, "calibration_center_circle_detection.profiling_active">,
+    center_line_point_exclusion_distance: Parameter<
+        f32,
+        "calibration_center_circle_detection.refine.center_line_point_exclusion_distance",
     >,
 
     run_next_cycle_after_ms:
@@ -98,6 +114,7 @@ pub struct CycleContext {
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
+    line_data: Input<Option<LineData>, "line_data?">,
 
     detected_edge_points: AdditionalOutput<
         Vec<Point2<Pixel>>,
@@ -241,7 +258,6 @@ fn refine_center_circle(
     center_circle: &RansacResultCircleWithTransformation<Pixel, Ground>,
     circle_center: Point2<Pixel>,
     ransac_source_points: &[Point2<Pixel>],
-    ransac_iters: usize,
     context: &CycleContext,
 ) -> Option<(
     CenterCirclePoints<Pixel>,
@@ -258,6 +274,7 @@ fn refine_center_circle(
     let roi_y_range = roi.min.y()..=roi.max.y();
     let roi_height = roi.max.y() - roi.min.y();
     let roi_width = roi.max.x() - roi.min.x();
+    let min_dim = roi_height.min(roi_width);
 
     let roi_points: Vec<_> = ransac_source_points
         .iter()
@@ -265,80 +282,62 @@ fn refine_center_circle(
         .cloned()
         .collect();
 
-    // TODO parametrize?
-    let maximum_inclusion_distance = 10.0;
-
-    let min_dim = roi_height.min(roi_width);
-    let min_distance_from_center_squared = ((min_dim - roi_padding) * 0.20).powi(2);
-
+    let min_distance_from_center = ((min_dim - roi_padding) * 0.20);
     let middle_and_source_lines = get_center_circle_line(
         circle_center,
         context,
         roi,
         &roi_points,
-        min_distance_from_center_squared,
+        min_distance_from_center,
     );
 
-    let min_distance_from_line = 6.0f32
-        .max(min_dim * *context.center_line_point_exclusion_distance_factor)
-        .max(maximum_inclusion_distance);
+    let min_distance_from_line = context.center_line_point_exclusion_distance.abs();
+    // let min_distance_from_line = 6.0f32
+    //     .max(min_dim * *context.center_line_point_exclusion_distance)
+    //     .max(maximum_inclusion_distance);
     // let min_distance_from_center = (min_dim - 2.0 * 5.0) * 0.20;
     // TODO Might be better to filter and combine the already split points by ransac
     middle_and_source_lines.map(|(line, source_lines)| {
         let cleaned_center = line.closest_point(circle_center);
         // let cleaned_center = circle_center;
-        let filtered_roi_points: Vec<_> = roi_points
-            .iter()
-            .filter(|&&point| {
-                source_lines
-                    .iter()
-                    .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
-                // line.distance_to(point) > min_distance_from_line
+        let (filtered_circle_points, rejected_roi_points): (Vec<_>, Vec<_>) =
+            circle_points_pixel.iter().partition(|&&point| {
+                // source_lines
+                //     .iter()
+                //     .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
+                line.distance_to(point) > min_distance_from_line
                 // && (point - cleaned_center).norm_squared() > min_distance_from_center_squared
-            })
-            .copied()
-            .collect();
+            });
+        // .copied()
+        // .collect();
+        // {
+        //     let distances: Vec<_> = rejected_roi_points
+        //         .iter()
+        //         .map(|&p| {
+        //             source_lines
+        //                 .iter()
+        //                 .map(|source_line| (source_line.distance_to(p) * 10.0) as usize)
+        //                 .min()
+        //                 .unwrap() as f32
+        //                 / 10.0
+        //         })
+        //         .collect();
+        //     simple_hist(&distances, 10);
+        // }
 
-        // let arc_clusters = get_arc_clusters(
-        //     circle_center,
-        //     &filtered_roi_points,
-        //     roi,
-        //     2.0,
-        //     10.0,
-        //     20.0f32.to_radians(),
-        // );
-
-        let camera_matrix = context.camera_matrix;
-        let transformed_roi_points: Vec<_> = filtered_roi_points
-            .iter()
-            .map(|&p| camera_matrix.pixel_to_ground(p))
-            .flatten()
-            .collect();
-
-        // let new_center_pixel = ellifit::<Ground>(&transformed_roi_points)
-        //     .ok()
-        //     .and_then(|fitted_ellipse_ground| {
-        //         println!("fitted_ellipse_ground: {:?}", fitted_ellipse_ground);
-        //         camera_matrix
-        //             .ground_to_pixel(fitted_ellipse_ground.center)
-        //             .ok()
-        //             .filter(|p| line.squared_distance_to(*p) < min_distance_from_center_squared)
-        //     })
-        //     .unwrap_or(cleaned_center);
-        // let new_center_pixel = ellifit::<Pixel>(&roi_points)
-        //     .ok()
-        //     .and_then(|fitted_ellipse_ground| {
-        //         println!("fitted_ellipse_ground: {:?}", fitted_ellipse_ground);
-        //         Some(fitted_ellipse_ground.center)
-        //     })
-        //     .unwrap_or(cleaned_center);
+        // let camera_matrix = context.camera_matrix;
+        // let transformed_roi_points: Vec<_> = filtered_circle_points
+        //     .iter()
+        //     .map(|&p| camera_matrix.pixel_to_ground(p))
+        //     .flatten()
+        //     .collect();
 
         (
             CenterCirclePoints {
                 center: cleaned_center,
                 // center: new_center_pixel,
                 // points: arc_clusters.iter().flatten().copied().collect(),
-                points: filtered_roi_points,
+                points: filtered_circle_points,
                 // points: center_circle.used_points_original.clone(),
             },
             LineSegment(
@@ -362,25 +361,45 @@ fn get_center_circle_line(
     context: &CycleContext,
     roi: Rectangle<Pixel>,
     roi_points: &[Point2<Pixel>],
-    min_distance_from_center_squared: f32,
+    min_distance_from_center: f32,
 ) -> Option<(Line2<Pixel>, Vec<Line2<Pixel>>)> {
-    let lines = get_hough_line_with_edges_imgproc(
-        roi_points,
-        Some(roi),
-        &HoughParams {
-            peak_threshold: *context.refine_hough_threshold as u32,
-            rho_bin_size: *context.refine_hough_rho_bin_size,
-            suppression_radius: *context.refine_hough_nms_radius,
-        },
-    );
+    let min_distance_from_center_squared = min_distance_from_center.powi(2);
+    let lines: Vec<(_, _)> = {
+        let mut random_number_generator = ChaChaRng::from_entropy();
+        let mut ransac = Ransac::new(roi_points.to_vec());
+        (0..5)
+            .flat_map(|_| {
+                let r = ransac.next_line(
+                    &mut random_number_generator,
+                    *context.refine_ransac_iterations,
+                    *context.refine_ransac_maximum_score_distance,
+                    *context.refine_ransac_maximum_inclusion_distance,
+                );
+                r.line.map(|l| (l, r.used_points))
+            })
+            .sorted_by_key(|a| a.1.len())
+            .collect()
+    };
+    // let lines = get_hough_line_with_edges_imgproc(
+    //     roi_points,
+    //     Some(roi),
+    //     &HoughParams {
+    //         peak_threshold: *context.refine_hough_threshold as u32,
+    //         rho_bin_size: *context.refine_hough_rho_bin_size,
+    //         suppression_radius: *context.refine_hough_nms_radius,
+    //     },
+    // );
+
     {
         // Ascending order
         if lines.len() >= 2 {
             let first = lines.first().unwrap();
             let last = lines.last().unwrap();
-            assert!(first.1 <= last.1);
+            assert!(first.1.len() <= last.1.len());
         }
+        // println!("lines: {:?}", lines.len());
     }
+
     let clustering_max_line_to_line_distance = 5.0;
     let clustering_direction_cosine_similarity = (5.0f32).to_radians().cos();
     let middle_and_source_lines = match lines.len() {
@@ -390,8 +409,8 @@ fn get_center_circle_line(
             let mut clusters: Vec<Vec<(_, _)>> = vec![];
             let mut remaining_lines: Vec<_> = lines
                 .iter()
-                .copied()
-                .filter(|(line, score)| {
+                // .copied()
+                .filter(|(line, _)| {
                     line.squared_distance_to(circle_center) < min_distance_from_center_squared
                 })
                 .collect();
@@ -399,8 +418,8 @@ fn get_center_circle_line(
             if remaining_lines.is_empty() {
                 return None;
             }
-            while let Some((chosen_line, score)) = remaining_lines.pop() {
-                let mut current_cluster = vec![(chosen_line, score)];
+            while let Some((chosen_line, used_points)) = remaining_lines.pop() {
+                let mut current_cluster = vec![(chosen_line, used_points)];
                 if remaining_lines.len() < 2 {
                     clusters.push(current_cluster);
                     continue;
@@ -408,41 +427,101 @@ fn get_center_circle_line(
 
                 remaining_lines[..remaining_lines.len() - 1]
                     .iter()
-                    .for_each(|(line2, score)| {
-                        if chosen_line.direction.dot(line2.direction).abs()
+                    .for_each(|(line2, used_points)| {
+                        if chosen_line.direction.dot(&line2.direction).abs()
                             >= clustering_direction_cosine_similarity
                             && chosen_line.distance_to(line2.point)
                                 <= clustering_max_line_to_line_distance
                         {
-                            current_cluster.push((*line2, *score));
+                            current_cluster.push((line2, used_points));
                         }
                     });
                 clusters.push(current_cluster);
             }
 
+            //             let best_cluster = clusters
+            //                 .into_iter().map(|lines_and_counts)|
+            //                 let (lines, counts) =lines_and_counts.iter().unzip();
+            //                 (lines_and_countsl.iter().fold(0, |a, (_, c)| a + c),l))
+            //                 .max_by_key(|lines_and_counts| lines_and_counts.iter().fold(0, |a, (_, c)| a + c))
+            //                 // .map(|(line, _)| *line)
+            //                 ;
+
+            //             best_cluster.map(|cluster|{
+            //                 let mut x=Vec::with_capacity(capacity)
+            // // let (x,y)=cluster.iter().map(|)
+
+            //             });
+
             let clustered_lines: Vec<_> = clusters
                 .iter()
-                .map(|cluster| {
-                    let (merged_point, merged_direction, merged_point_count) = cluster.iter().fold(
-                        (point![0.0, 0.0], vector![0.0, 0.0], 0),
-                        |accum, (line, point_count)| {
-                            (
-                                accum.0 + line.closest_point(circle_center).coords(),
-                                accum.1 + line.direction,
-                                accum.2 + point_count,
-                            )
-                        },
-                    );
+                .flat_map(|cluster| {
+                    let total_points = cluster.iter().map(|(_, points)| points.len()).sum();
 
-                    (
-                        Line2::<Pixel> {
-                            point: merged_point / cluster.len() as f32,
-                            direction: merged_direction / cluster.len() as f32,
+                    let mut x = Vec::with_capacity(total_points);
+                    let mut y = Vec::with_capacity(total_points);
+
+                    for (_line, points) in cluster {
+                        for point in points.iter() {
+                            x.push(point.x());
+                            y.push(point.y());
+                        }
+                    }
+                    x.resize(x.len() * 2, 1.0);
+                    x[0..total_points].iter().minmax().into_option().and_then(
+                        |(&start_x, &end_x)| {
+                            // y = mx + c
+                            // lstsq finds C by solving A * C = B
+                            // A -> Nx2, with x values and 1 as columns.
+                            // B -> y values. Thus C -> [m, c]
+
+                            lstsq(
+                                &DMatrix::from_column_slice(y.len(), 2, &x),
+                                &DVector::from_column_slice(&y),
+                                1e-7,
+                            )
+                            .ok()
+                            .map(|result| {
+                                println!("result: {}", result.solution);
+                                // result.solution
+                                let start = point![
+                                    start_x,
+                                    (start_x * result.solution[0] + result.solution[1])
+                                ];
+                                let end = point![
+                                    end_x,
+                                    (end_x * result.solution[0] + result.solution[1])
+                                ];
+                                (Line2::from_points(start, end), total_points)
+                            })
                         },
-                        merged_point_count,
                     )
                 })
                 .collect();
+
+            // let clustered_lines: Vec<_> = clusters
+            //     .iter()
+            //     .map(|cluster| {
+            //         let (merged_point, merged_direction, merged_point_count) = cluster.iter().fold(
+            //             (point![0.0, 0.0], vector![0.0, 0.0], 0),
+            //             |accum, (line, point_count)| {
+            //                 (
+            //                     accum.0 + line.closest_point(circle_center).coords(),
+            //                     accum.1 + line.direction,
+            //                     accum.2 + point_count,
+            //                 )
+            //             },
+            //         );
+
+            //         (
+            //             Line2::<Pixel> {
+            //                 point: merged_point / cluster.len() as f32,
+            //                 direction: merged_direction / cluster.len() as f32,
+            //             },
+            //             merged_point_count,
+            //         )
+            //     })
+            //     .collect();
             let best_line = clustered_lines
                 .iter()
                 .max_by_key(|(_, count)| *count)
@@ -607,33 +686,39 @@ fn detect_and_filter_circles(
                 .next_candidate(&mut rng, ransac_iterations)
                 .and_then(|result| {
                     let circle = result.circle;
-                    let used_points_transformed = &result.used_points_transformed;
 
                     let y_range = y_exclusion_threshold..camera_matrix.image_size.y() as u32;
                     camera_matrix
                         .ground_to_pixel(circle.center)
                         .ok()
                         .and_then(|circle_center_px| {
-                            let center_tr = ellifit(used_points_transformed)
+                            let center_tr = ellifit(&result.used_points_transformed)
                                 .map_or(circle.center, |e| e.center);
-                            if y_range.contains(&(circle_center_px.y() as u32))
+                            let continue_processing = y_range
+                                .contains(&(circle_center_px.y() as u32))
                                 && circle_circumference_percentage_filter(
                                     center_tr,
-                                    used_points_transformed,
+                                    &result.used_points_transformed,
                                     ransac_circle_minimum_circumference_percentage,
-                                )
-                            {
-                                refine_center_circle(
+                                );
+                            match (continue_processing, *context.refine_enable) {
+                                (true, true) => refine_center_circle(
                                     &result,
                                     circle_center_px,
                                     &ransac.unused_points_original,
                                     // edge_points,
-                                    500,
                                     context,
                                 )
-                                .map(|v| (v.0, v.2, result.score))
-                            } else {
-                                None
+                                .map(|v| (v.0, v.2, result.score)),
+                                (true, false) => Some((
+                                    CenterCirclePoints {
+                                        center: circle_center_px,
+                                        points: result.used_points_original,
+                                    },
+                                    vec![],
+                                    result.score,
+                                )),
+                                (false, _) => None,
                             }
                         })
                 })
@@ -707,4 +792,22 @@ fn get_y_exclusion_threshold(context: &CycleContext) -> u32 {
         .camera_matrix
         .horizon
         .map_or(0, |h| h.horizon_y_minimum() as u32)
+}
+
+fn simple_hist(input: &[f32], bins: usize) -> Vec<u32> {
+    let min_max = input.iter().copied().minmax().into_option().unwrap();
+
+    let bin_size = min_max.1 - min_max.0;
+
+    let mut histogram = vec![0; bins];
+    for distance in input {
+        let bin = (distance - min_max.0) / bin_size;
+        histogram[bin as usize] += 1;
+    }
+
+    println!(
+        "range: [{}, {}], histogram: {:?}",
+        min_max.0, min_max.1, histogram
+    );
+    histogram
 }
