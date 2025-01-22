@@ -3,7 +3,7 @@ use zbus::{proxy, zvariant::Optional};
 
 use hula_types::Battery;
 
-use rodio::{source::Source, Decoder, OutputStream};
+use rodio::{Decoder, OutputStream, Sink};
 use std::io::Cursor;
 
 const AUDIO_FILE: &[u8] = include_bytes!("../sound/water-drop.mp3");
@@ -50,8 +50,9 @@ fn sound_playback() {
     let file = Cursor::new(AUDIO_FILE);
     let source = Decoder::new(file).unwrap();
 
-    let _ = stream_handle.play_raw(source.convert_samples());
-    std::thread::sleep(std::time::Duration::from_secs(2)); //keep thread alive while replaying sound
+    let sink = Sink::try_new(&stream_handle).unwrap();
+    sink.append(source);
+    sink.sleep_until_end();
 }
 
 #[tokio::main]
