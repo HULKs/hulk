@@ -15,6 +15,7 @@ pub fn execute(
     if use_stand_head_unstiff_calibration {
         return Some(MotionCommand::Stand {
             head: HeadMotion::Unstiff,
+            should_look_for_referee: false,
         });
     }
 
@@ -28,5 +29,8 @@ pub fn execute(
         } else {
             HeadMotion::Unstiff
         };
-    Some(MotionCommand::Stand { head })
+    Some(MotionCommand::Stand {
+        head,
+        should_look_for_referee: false,
+    })
 }

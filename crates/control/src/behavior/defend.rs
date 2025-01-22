@@ -301,7 +301,7 @@ fn defend_goal_pose(
             }
             | FilteredGameControllerState {
                 sub_state: Some(SubState::PenaltyKick),
-                kicking_team: Team::Opponent,
+                kicking_team: Some(Team::Opponent),
                 ..
             },
         ) => 0.0,
@@ -411,7 +411,7 @@ fn penalty_kick_defender_radius(
     field_dimensions: &FieldDimensions,
 ) -> f32 {
     if let Some(FilteredGameControllerState {
-        kicking_team: Team::Opponent,
+        kicking_team: Some(Team::Opponent),
         sub_state: Some(SubState::PenaltyKick),
         ..
     }) = filtered_game_controller_state

@@ -35,6 +35,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
+    filtered_kicking_team: Input<Option<Team>, "filtered_kicking_team?">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -97,7 +98,7 @@ impl GameControllerStateFilter {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
             game_phase: context.game_controller_state.game_phase,
-            kicking_team: context.game_controller_state.kicking_team,
+            kicking_team: context.filtered_kicking_team.copied(),
             penalties: context.game_controller_state.penalties,
             remaining_number_of_messages: context
                 .game_controller_state
@@ -186,7 +187,7 @@ impl GameControllerStateFilter {
 
         let filtered_game_state = self.state.construct_filtered_game_state_for_team(
             game_controller_state,
-            Team::Hulks,
+            Some(Team::Hulks),
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             config,
@@ -196,7 +197,7 @@ impl GameControllerStateFilter {
         let filtered_opponent_game_state =
             self.opponent_state.construct_filtered_game_state_for_team(
                 game_controller_state,
-                Team::Opponent,
+                Some(Team::Opponent),
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
                 config,
@@ -406,7 +407,7 @@ impl State {
     fn construct_filtered_game_state_for_team(
         &self,
         game_controller_state: &GameControllerState,
-        team: Team,
+        team: Option<Team>,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
