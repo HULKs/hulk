@@ -267,6 +267,8 @@ mod tests {
     use approx::assert_relative_eq;
     use linear_algebra::point;
 
+    use crate::circle::Circle;
+
     use super::*;
 
     #[derive(Debug, Clone, Copy)]
@@ -483,5 +485,41 @@ mod tests {
                 epsilon = 0.000001,
             );
         }
+    }
+
+    #[test]
+    fn arc_intersections() {
+        let arc: Arc<SomeFrame> = Arc {
+            circle: Circle {
+                center: point![1.0, 1.0],
+                radius: 1.0,
+            },
+            start: point![2.0, 1.0],
+            end: point![1.0, 2.0],
+            direction: Direction::Counterclockwise,
+        };
+
+        assert!(!LineSegment(point![0.0, 2.0], point![2.0, 0.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![2.0, 2.0], point![3.0, 3.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![0.0, 1.0], point![3.0, 0.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 1.0], point![3.0, 2.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 0.0], point![2.0, 2.0]).overlaps_arc(arc));
+
+        let arc: Arc<SomeFrame> = Arc {
+            circle: Circle {
+                center: point![1.0, 1.0],
+                radius: 1.0,
+            },
+            start: point![2.0, 1.0],
+            end: point![1.0, 2.0],
+            direction: Direction::Clockwise,
+        };
+
+        assert!(!LineSegment(point![1.0, 1.0], point![3.0, 3.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![0.5, 1.0], point![1.5, 1.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![0.0, 3.0], point![2.0, 3.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 2.0], point![2.0, 0.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 0.0], point![2.0, 2.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![-1.0, 1.0], point![2.0, 0.0]).overlaps_arc(arc));
     }
 }
