@@ -24,6 +24,7 @@ Options:
   --return-file <file>  Path of file to be returned.
                         The file path must be relative to the repository.
                         Can be repeated to return multiple files.
+  --cd <path>      Change directory on remote before executing command
 
 If no --remote is given, the path loaded from `.REMOTE_WORKSPACE`
 The remote workspace path should follow this format:
@@ -38,6 +39,7 @@ __helpText__
 
 remoteWorkspace="${REMOTE_WORKSPACE:-$(cat .REMOTE_WORKSPACE)}"
 files=()
+path="."
 while true; do
     case "$1" in
         -[h?] | --help)
@@ -52,7 +54,10 @@ while true; do
             shift
             files+=($1)
             ;;
-
+        --cd)
+            shift
+            path=$1
+            ;;
         *)
             break
             ;;
@@ -79,13 +84,15 @@ fi
 ssh \
     $SSH_FLAGS \
     $address \
-    "sh -c \" \
+    "sh -c ' \
     cd \"$remotePath\" \
+    && cd \"$path\" \
     && $@
-\""
+'"
 
-# fetch results
-echo Returning files
-printf '  %s\n' "${files[@]}"
-printf '%s\n' "${files[@]}" | rsync -ah --info=progress --files-from=- "$remoteWorkspace" .
-
+if [ ${#files[@]} -gt 0 ]; then
+    # fetch results
+    echo Returning files
+    printf '  %s\n' "${files[@]}"
+    printf '%s\n' "${files[@]}" | rsync -ah --info=progress --files-from=- "$remoteWorkspace" .
+fi

@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 
 use bincode::deserialize;
 use color_eyre::{
@@ -12,9 +9,9 @@ use communication::{
     client::{Client, ClientHandle, PathsEvent, Status},
     messages::{Path, TextOrBinary},
 };
-use log::{error, warn};
+use log::error;
 use parameters::{directory::Scope, json::nest_value_at_path};
-use repository::{get_repository_root, Repository};
+use repository::Repository;
 use serde_json::Value;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -34,19 +31,11 @@ pub struct Nao {
 }
 
 impl Nao {
-    pub fn new(address: String) -> Self {
+    pub fn new(address: String, repository: Option<Repository>) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
         let (client, handle) = Client::new(address);
         runtime.spawn(client.run());
-
-        let repository = match runtime.block_on(get_repository_root()) {
-            Ok(root) => Some(Repository::new(root)),
-            Err(error) => {
-                warn!("{error:#}");
-                None
-            }
-        };
 
         Self {
             runtime,
@@ -190,13 +179,15 @@ impl Nao {
 
     pub fn store_parameters(&self, path: &str, value: Value, scope: Scope) -> Result<()> {
         let client = self.client.clone();
-        let root = self
+        let parameters_root = self
             .repository
             .as_ref()
             .ok_or_eyre("repository not available, cannot store parameters")?
-            .parameters_root();
+            .root
+            .join("etc/parameters/");
         self.runtime.block_on(async {
-            if let Err(error) = store_parameters(&client, path, value, scope, root).await {
+            if let Err(error) = store_parameters(&client, path, value, scope, parameters_root).await
+            {
                 error!("{error:#}")
             }
         });
@@ -209,12 +200,12 @@ async fn store_parameters(
     path: &str,
     value: Value,
     scope: Scope,
-    root: PathBuf,
+    parameters_root: impl AsRef<std::path::Path>,
 ) -> Result<()> {
     let (_, bytes) = client.read_binary("hardware_ids").await?;
     let ids: Ids = bincode::deserialize(&bytes).wrap_err("bincode deserialization failed")?;
     let parameters = nest_value_at_path(path, value);
-    parameters::directory::serialize(&parameters, scope, path, root, &ids)
+    parameters::directory::serialize(&parameters, scope, path, parameters_root, &ids)
         .wrap_err("serialization failed")?;
     Ok(())
 }

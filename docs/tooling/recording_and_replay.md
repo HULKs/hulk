@@ -26,7 +26,7 @@ Assuming you already recorded some data on a robot, you can now use the "replaye
 - Download the logs into a `logs` directory within the repository via, e.g., `./pepsi postgame ... my_awesome_replay ...`
 - The `my_awesome_replay` directory now contains directories for each robot. Each robot directory contains one directory with the replay data from one execution of the `hulk` binary.
   All cycler instance files need to be present, regardless whether they were enabled during recording (they will be empty then).
-- Start the replayer tool by pointing it to the log directory you want to replay, e.g., `./pepsi run --target replayer -- my_awesome_replay/10.1.24.42/12345678`.
+- Start the replayer tool by pointing it to the log directory you want to replay, e.g., `./pepsi run replayer -- my_awesome_replay/10.1.24.42/12345678`.
 - Connect your Twix to `localhost` and open some panels
 - Use mouse and keyboard in replayer, as described below
 - ...
@@ -51,5 +51,5 @@ To extract images from recording data, you can use the "imagine" tool.
 
 Example:
 ```
-./pepsi run --target imagine -- my_awesome_replay/10.1.24.42/12345678 path/to/output
+./pepsi run imagine -- my_awesome_replay/10.1.24.42/12345678 path/to/output
 ```

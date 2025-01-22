@@ -10,7 +10,6 @@ members = [
   "crates/calibration",
   "crates/code_generation",
   "crates/communication",
-  "crates/constants",
   "crates/context_attribute",
   "crates/control",
   "crates/coordinate_systems",
@@ -19,6 +18,7 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
+  "crates/hula_types",
   "crates/hulk",
   "crates/hulk_imagine",
   "crates/hulk_manifest",
@@ -34,7 +34,6 @@ members = [
   "crates/nao_camera",
   "crates/object_detection",
   "crates/opn",
-  "crates/parameter_tester",
   "crates/parameters",
   "crates/path_serde",
   "crates/path_serde_derive",
@@ -51,14 +50,18 @@ members = [
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
-  "tools/hula/types",
+  "tools/parameter_tester",
   "tools/pepsi",
   "tools/twix",
   "tools/widget_gallery",
 ]
 resolver = "2"
-# HuLA and Aliveness are built independently by yocto
-exclude = ["tools/aliveness", "tools/breeze", "tools/hula"]
+# services are built independently by yocto
+exclude = [
+  "services/aliveness",
+  "services/breeze",
+  "services/hula",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -88,13 +91,12 @@ build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.4.3"
 calibration = { path = "crates/calibration" }
 chrono = "0.4.23"
-clap = { version = "4.2.4", features = ["derive"] }
+clap = { version = "4.2.4", features = ["derive", "env"] }
 clap_complete = "4.2.1"
 code_generation = { path = "crates/code_generation" }
 color-eyre = "0.6.2"
 communication = { path = "crates/communication" }
 compiled-nn = "0.12.0"
-constants = { path = "crates/constants" }
 context_attribute = { path = "crates/context_attribute" }
 control = { path = "crates/control" }
 convert_case = "0.6.0"
@@ -120,7 +122,7 @@ gilrs = "0.10.1"
 glob = "0.3.0"
 hardware = { path = "crates/hardware" }
 home = "=0.5.9"
-hula-types = { path = "tools/hula/types" }
+hula_types = { path = "crates/hula_types" }
 hulk = { path = "crates/hulk" }
 hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_widgets = { path = "crates/hulk_widgets" }
@@ -162,6 +164,7 @@ parameters = { path = "crates/parameters" }
 parking_lot = "0.12.1"
 path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
+pathdiff = "0.2.3"
 pathfinding = "<=4.10.0"
 petgraph = "0.6.2"
 png = "0.17.6"
@@ -206,6 +209,8 @@ tokio-tungstenite = "0.19.0"
 tokio-util = "0.7.4"
 toml = "0.8.8"
 toposort-scc = "0.5.4"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
 types = { path = "crates/types" }
 uuid = { version = "1.1.2", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
@@ -214,6 +219,7 @@ walkdir = "2.3.2"
 walking_engine = { path = "crates/walking_engine" }
 watch = "0.2.3"
 webots = { version = "0.8.0" }
+xdg = "2.5.2"
 zbus = { version = "3.7.0" }
 
 [patch.crates-io]
@@ -222,10 +228,11 @@ serde = { git = "https://github.com/HULKs/serde.git", rev = "73d5e8e404a874ad900
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "73d5e8e404a874ad90023810d634b985bef19478" }
 
-[profile.incremental]
-inherits = "release"
-incremental = true
+[profile.dev]
+opt-level = 3
+debug = false
+codegen-units = 16 # TODO: Evaluate performance for different values
 
-[profile.release-with-debug]
-inherits = "release"
+[profile.with-debug]
+inherits = "dev"
 debug = true
