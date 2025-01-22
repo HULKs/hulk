@@ -84,11 +84,11 @@ fi
 ssh \
     $SSH_FLAGS \
     $address \
-    "sh -c \" \
+    "sh -c ' \
     cd \"$remotePath\" \
     && cd \"$path\" \
     && $@
-\""
+'"
 
 if [ ${#files[@]} -gt 0 ]; then
     # fetch results

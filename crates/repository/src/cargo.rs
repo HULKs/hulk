@@ -1,19 +1,17 @@
 use core::fmt;
 use std::{
-    env::current_dir,
     ffi::{OsStr, OsString},
     fmt::{Display, Formatter},
     path::Path,
 };
 
 use color_eyre::{
-    eyre::{bail, Context, ContextCompat},
+    eyre::{bail, Context},
     Result,
 };
-use pathdiff::diff_paths;
 use tokio::process::Command;
 
-use crate::{data_home::get_data_home, sdk::download_and_install, Repository};
+use crate::{sdk::download_and_install, Repository};
 
 #[derive(Debug, Clone)]
 pub enum Environment {
@@ -64,14 +62,18 @@ impl Cargo {
         if let Environment::Sdk { version } = &self.environment {
             match self.host {
                 Host::Local => {
-                    let data_home = get_data_home().wrap_err("failed to get data home")?;
+                    let data_home = repository
+                        .resolve_data_home()
+                        .await
+                        .wrap_err("failed to resolve data home")?;
 
                     download_and_install(version, data_home)
                         .await
                         .wrap_err("failed to download and install SDK")?;
                 }
                 Host::Remote => {
-                    let mut command = Command::new(repository.root.join("scripts/remoteWorkspace"));
+                    let mut command =
+                        Command::new(repository.root.join("scripts/remote_workspace"));
 
                     let status = command
                         .arg("pepsi")
@@ -110,11 +112,7 @@ impl Cargo {
     ) -> Result<Command> {
         let arguments = self.arguments.join(OsStr::new(" "));
 
-        let relative_pwd = diff_paths(
-            current_dir().wrap_err("failed to get current directory")?,
-            &repository.root,
-        )
-        .wrap_err("failed to express current directory relative to repository root")?;
+        let data_home_script = repository.data_home_script()?;
 
         let command_string = match self.environment {
             Environment::Native => {
@@ -123,26 +121,22 @@ impl Cargo {
                 command
             }
             Environment::Sdk { version } => {
-                let data_home = get_data_home().wrap_err("failed to get data home")?;
-                let environment_file = &data_home.join(format!(
-                    "sdk/{version}/environment-setup-corei7-64-aldebaran-linux"
-                ));
-                let sdk_environment_setup = environment_file
-                    .to_str()
-                    .wrap_err("failed to convert sdk environment setup path to string")?;
-                let mut command = OsString::from(format!(". {sdk_environment_setup} && cargo "));
+                let environment_file = format!(
+                    "$({data_home_script})/sdk/{version}/environment-setup-corei7-64-aldebaran-linux",
+                );
+                let mut command = OsString::from(format!(". {environment_file} && cargo "));
                 command.push(arguments);
                 command
             }
             Environment::Docker { image } => {
-                let data_home = get_data_home().wrap_err("failed to get data home")?;
-                let cargo_home = data_home.join("container-cargo-home/");
+                let cargo_home = format!("$({data_home_script})/container-cargo-home/");
                 // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
-                let pwd = Path::new("/hulk").join(&relative_pwd);
+                let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
+                let root = repository.current_dir_to_root()?;
                 let mut command = OsString::from(format!("\
                     mkdir -p {cargo_home} && \
                     docker run \
-                        --volume={repository_root}:/hulk:z \
+                        --volume={root}:/hulk:z \
                         --volume={cargo_home}:/naosdk/sysroots/corei7-64-aldebaran-linux/home/cargo:z \
                         --rm \
                         --interactive \
@@ -153,8 +147,7 @@ impl Cargo {
                             echo $PATH && \
                             cargo \
                     ",
-                    repository_root=repository.root.display(),
-                    cargo_home=cargo_home.display(),
+                    root=root.display(),
                     pwd=pwd.display(),
                 ));
                 command.push(arguments);
@@ -170,12 +163,13 @@ impl Cargo {
                 command
             }
             Host::Remote => {
-                let mut command = Command::new(repository.root.join("scripts/remoteWorkspace"));
+                let mut command = Command::new(repository.root.join("scripts/remote_workspace"));
 
                 for path in compiler_artifacts {
                     command.arg("--return-file").arg(path.as_ref());
                 }
-                command.arg("--cd").arg(Path::new("./").join(relative_pwd));
+                let current_dir = repository.root_to_current_dir()?;
+                command.arg("--cd").arg(Path::new("./").join(current_dir));
                 command
             }
         };

@@ -15,6 +15,7 @@ pub mod image;
 pub mod inspect_version;
 pub mod location;
 pub mod modify_json;
+pub mod paths;
 pub mod player_number;
 pub mod recording;
 pub mod sdk;

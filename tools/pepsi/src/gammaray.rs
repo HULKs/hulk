@@ -6,7 +6,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use argument_parsers::NaoAddress;
 use nao::Nao;
 use opn::verify_image;
-use repository::{data_home::get_data_home, image::download_image, Repository};
+use repository::{image::download_image, Repository};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -31,7 +31,10 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
             .await
             .wrap_err("failed to get OS version")?,
     };
-    let data_home = get_data_home()?;
+    let data_home = repository
+        .resolve_data_home()
+        .await
+        .wrap_err("failed to resolve data home")?;
     let image_path = match arguments.image_path {
         Some(image_path) => image_path,
         None => download_image(&version, data_home).await?,

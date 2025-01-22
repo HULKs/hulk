@@ -1,0 +1,8 @@
+#!/bin/env bash
+
+HOME="${HOME:-$(echo ~)}"
+
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+HULK_DATA_HOME="${HULK_DATA_HOME:-$DATA_HOME/hulk}"
+
+echo -n $(realpath "$HULK_DATA_HOME")
