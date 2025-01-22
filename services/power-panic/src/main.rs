@@ -3,7 +3,7 @@ use zbus::{proxy, zvariant::Optional};
 
 use hula_types::Battery;
 
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::{source::Buffered, Decoder, OutputStream, Sink, Source};
 use std::io::Cursor;
 
 const AUDIO_FILE: &[u8] = include_bytes!("../sound/water-drop.mp3");
@@ -45,18 +45,33 @@ async fn get_battery_info() -> Result<Battery> {
     Ok(battery)
 }
 
-fn sound_playback() {
-    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let file = Cursor::new(AUDIO_FILE);
-    let source = Decoder::new(file).unwrap();
+struct AudioPlayer {
+    sink: Sink,
+    decoder: Buffered<Decoder<Cursor<&'static [u8]>>>,
+    _stream: OutputStream,
+}
 
-    let sink = Sink::try_new(&stream_handle).unwrap();
-    sink.append(source);
-    sink.sleep_until_end();
+impl AudioPlayer {
+    pub fn new(audio_data: &'static [u8]) -> Self {
+        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+        let sink = Sink::try_new(&stream_handle).unwrap();
+        let decoder = Decoder::new(Cursor::new(audio_data)).unwrap().buffered();
+        Self {
+            sink,
+            decoder,
+            _stream,
+        }
+    }
+
+    pub fn play(&self) {
+        self.sink.append(self.decoder.clone());
+        self.sink.sleep_until_end();
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let audio_player = AudioPlayer::new(AUDIO_FILE);
     loop {
         let battery = get_battery_info().await?;
         println!("Battery: {:?}", battery);
@@ -64,7 +79,7 @@ async fn main() -> Result<()> {
         let mut time_to_sleep = 60;
         if battery.charge < 0.20 {
             println!("Battery low, playing sound");
-            sound_playback();
+            audio_player.play();
             time_to_sleep = (battery.charge * 50.0) as u64;
         }
         std::thread::sleep(std::time::Duration::from_secs(time_to_sleep));
