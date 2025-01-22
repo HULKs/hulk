@@ -181,6 +181,7 @@ pub struct TimeTaggedKickingTeamDetections {
 
 #[derive(
     Debug,
+    Default,
     Clone,
     Copy,
     Serialize,
@@ -191,8 +192,13 @@ pub struct TimeTaggedKickingTeamDetections {
     PathIntrospect,
 )]
 pub enum ReadySignalState {
+    #[default]
     WaitingForDetections,
-    WaitingForOpponentPenalties { active_since: SystemTime },
-    WaitingForOwnPenalties { active_since: SystemTime },
+    WaitingForOpponentPenalties {
+        active_since: SystemTime,
+    },
+    WaitingForOwnPenalties {
+        active_since: SystemTime,
+    },
     GoToReady,
 }
