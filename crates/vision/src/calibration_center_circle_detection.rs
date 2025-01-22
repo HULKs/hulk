@@ -208,7 +208,7 @@ impl CalibrationMeasurementDetection {
 
             filtered_calibration_circles_ground
                 .iter()
-                .flat_map(|(_, lines, _)| lines.clone())
+                .flat_map(|(_, line, _)| line.clone())
                 .collect()
         });
         context
@@ -282,14 +282,96 @@ fn refine_center_circle(
         .cloned()
         .collect();
 
-    let min_distance_from_center = ((min_dim - roi_padding) * 0.20);
-    let middle_and_source_lines = get_center_circle_line(
-        circle_center,
-        context,
-        roi,
-        &roi_points,
-        min_distance_from_center,
-    );
+    let min_distance_from_center = (min_dim - roi_padding) * 0.20;
+    let middle_and_source_lines = context
+        .line_data
+        .and_then(|line_data| {
+            let line_thickness = context.field_dimensions.line_width / 2.0;
+            let circle_center_ground = center_circle.circle.center;
+
+            line_data
+                .lines
+                .iter()
+                .flat_map(|l| {
+                    let line: Line2<Ground> = (*l).into();
+                    let center_distance = line.distance_to(circle_center_ground);
+                    if center_distance > line_thickness * 4.0 {
+                        // println!(
+                        //     "\tSkipping: too far away {} {}",
+                        //     center_distance,
+                        //     line_thickness * 4.0
+                        // );
+                        return None;
+                    }
+
+                    let projected_base_line =
+                        context.camera_matrix.ground_to_pixel(l.0).and_then(|p| {
+                            context
+                                .camera_matrix
+                                .ground_to_pixel(l.1)
+                                .map(|p2| Line2::<Pixel> {
+                                    point: p.into(),
+                                    direction: (p2 - p).normalize(),
+                                })
+                        });
+
+                    if projected_base_line.is_err() {
+                        print!("Skipping: no projected line");
+                        return None;
+                    }
+
+                    let projected_center_on_line = l.closest_point(circle_center_ground);
+                    let direction = line.direction.normalize();
+                    let orthogonal_direction = point![
+                        direction.y() * line_thickness,
+                        -direction.x() * line_thickness
+                    ];
+
+                    let line_length = l.length() / 2.2;
+                    let lengthened_direction = direction * line_length;
+
+                    let point_above_line = (orthogonal_direction.coords()
+                        + projected_center_on_line.coords())
+                    .as_point();
+                    let point_below_line = (-orthogonal_direction.coords()
+                        + projected_center_on_line.coords())
+                    .as_point();
+
+                    let edge_lines = [point_above_line, point_below_line]
+                        .iter()
+                        .flat_map(|shifted_point| {
+                            context
+                                .camera_matrix
+                                .ground_to_pixel(*shifted_point)
+                                .and_then(|projected_first_point| {
+                                    context
+                                        .camera_matrix
+                                        .ground_to_pixel(*shifted_point + lengthened_direction)
+                                        .map(|projected_second_point| {
+                                            Line2::<Pixel>::from_points(
+                                                projected_first_point,
+                                                projected_second_point,
+                                            )
+                                        })
+                                })
+                        })
+                        .collect_vec();
+                    // println!("Found edge lines: {:?}", projected_base_line);
+                    Some((projected_base_line.unwrap(), edge_lines, center_distance))
+                })
+                .max_by(|(_, _, a), (_, _, b)| a.total_cmp(b))
+                .map(|v| (v.0, v.1))
+        })
+        .or_else(|| {
+            println!("Using fallback line detection!");
+            get_center_circle_line(
+                circle_center,
+                context,
+                roi,
+                &roi_points,
+                min_distance_from_center,
+            )
+        });
 
     let min_distance_from_line = context.center_line_point_exclusion_distance.abs();
     // let min_distance_from_line = 6.0f32
@@ -302,10 +384,10 @@ fn refine_center_circle(
         // let cleaned_center = circle_center;
         let (filtered_circle_points, rejected_roi_points): (Vec<_>, Vec<_>) =
             circle_points_pixel.iter().partition(|&&point| {
-                // source_lines
-                //     .iter()
-                //     .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
-                line.distance_to(point) > min_distance_from_line
+                source_lines
+                    .iter()
+                    .all(|source_line| source_line.distance_to(point) > min_distance_from_line)
+                // line.distance_to(point) > min_distance_from_line
                 // && (point - cleaned_center).norm_squared() > min_distance_from_center_squared
             });
         // .copied()
@@ -397,11 +479,11 @@ fn get_center_circle_line(
             let last = lines.last().unwrap();
             assert!(first.1.len() <= last.1.len());
         }
-        // println!("lines: {:?}", lines.len());
     }
 
-    let clustering_max_line_to_line_distance = 5.0;
-    let clustering_direction_cosine_similarity = (5.0f32).to_radians().cos();
+    let clustering_max_line_to_line_distance =
+        5.0f32.max(*context.refine_ransac_maximum_inclusion_distance * 4.0);
+    let clustering_direction_cosine_similarity = (10.0f32).to_radians().cos();
     let middle_and_source_lines = match lines.len() {
         0 => None,
         1 => lines.first().map(|(line, _)| (*line, vec![*line])),
@@ -414,6 +496,7 @@ fn get_center_circle_line(
                     line.squared_distance_to(circle_center) < min_distance_from_center_squared
                 })
                 .collect();
+            println!("remaining_lines: {:?}", remaining_lines.len());
 
             if remaining_lines.is_empty() {
                 return None;
@@ -424,13 +507,14 @@ fn get_center_circle_line(
                     clusters.push(current_cluster);
                     continue;
                 }
-
+                let chosen_direction = chosen_line.direction.normalize();
                 remaining_lines[..remaining_lines.len() - 1]
                     .iter()
                     .for_each(|(line2, used_points)| {
-                        if chosen_line.direction.dot(&line2.direction).abs()
+                        let line2_center_pt = line2.closest_point(circle_center);
+                        if chosen_direction.dot(&line2.direction.normalize()).abs()
                             >= clustering_direction_cosine_similarity
-                            && chosen_line.distance_to(line2.point)
+                            && chosen_line.distance_to(line2_center_pt)
                                 <= clustering_max_line_to_line_distance
                         {
                             current_cluster.push((line2, used_points));
@@ -446,95 +530,89 @@ fn get_center_circle_line(
             //                 .max_by_key(|lines_and_counts| lines_and_counts.iter().fold(0, |a, (_, c)| a + c))
             //                 // .map(|(line, _)| *line)
             //                 ;
-
             //             best_cluster.map(|cluster|{
             //                 let mut x=Vec::with_capacity(capacity)
             // // let (x,y)=cluster.iter().map(|)
-
             //             });
 
             let clustered_lines: Vec<_> = clusters
                 .iter()
-                .flat_map(|cluster| {
-                    let total_points = cluster.iter().map(|(_, points)| points.len()).sum();
-
-                    let mut x = Vec::with_capacity(total_points);
-                    let mut y = Vec::with_capacity(total_points);
-
-                    for (_line, points) in cluster {
-                        for point in points.iter() {
-                            x.push(point.x());
-                            y.push(point.y());
-                        }
-                    }
-                    x.resize(x.len() * 2, 1.0);
-                    x[0..total_points].iter().minmax().into_option().and_then(
-                        |(&start_x, &end_x)| {
-                            // y = mx + c
-                            // lstsq finds C by solving A * C = B
-                            // A -> Nx2, with x values and 1 as columns.
-                            // B -> y values. Thus C -> [m, c]
-
-                            lstsq(
-                                &DMatrix::from_column_slice(y.len(), 2, &x),
-                                &DVector::from_column_slice(&y),
-                                1e-7,
+                .map(|cluster| {
+                    let (merged_point, merged_direction, merged_point_count) = cluster.iter().fold(
+                        (point![0.0, 0.0], vector![0.0, 0.0], 0),
+                        |accum, (line, used_points)| {
+                            (
+                                accum.0 + line.closest_point(circle_center).coords(),
+                                accum.1 + line.direction,
+                                accum.2 + used_points.len(),
                             )
-                            .ok()
-                            .map(|result| {
-                                println!("result: {}", result.solution);
-                                // result.solution
-                                let start = point![
-                                    start_x,
-                                    (start_x * result.solution[0] + result.solution[1])
-                                ];
-                                let end = point![
-                                    end_x,
-                                    (end_x * result.solution[0] + result.solution[1])
-                                ];
-                                (Line2::from_points(start, end), total_points)
-                            })
                         },
+                    );
+                    let lines: Vec<_> = cluster.iter().map(|(lines, _)| *lines).collect();
+                    (
+                        Line2::<Pixel> {
+                            point: merged_point / cluster.len() as f32,
+                            direction: merged_direction / cluster.len() as f32,
+                        },
+                        lines,
+                        merged_point_count,
                     )
+
+                    // let total_points = cluster.iter().map(|(_, points)| points.len()).sum();
+                    // let mut x = Vec::with_capacity(total_points);
+                    // let mut y = Vec::with_capacity(total_points);
+                    // let mut lines = Vec::with_capacity(cluster.len());
+
+                    // for (_line, points) in cluster {
+                    //     for point in points.iter() {
+                    //         x.push(point.x());
+                    //         y.push(point.y());
+                    //     }
+                    //     lines.push(*_line);
+                    // }
+                    // x.resize(x.len() * 2, 1.0);
+                    // x[0..total_points].iter().minmax().into_option().and_then(
+                    //     |(&start_x, &end_x)| {
+                    //         // y = mx + c
+                    //         // lstsq finds C by solving A * C = B
+                    //         // A -> Nx2, with x values and 1 as columns.
+                    //         // B -> y values. Thus C -> [m, c]
+
+                    //         lstsq(
+                    //             &DMatrix::from_column_slice(y.len(), 2, &x),
+                    //             &DVector::from_column_slice(&y),
+                    //             1e-7,
+                    //         )
+                    //         .ok()
+                    //         .map(|result| {
+                    //             // println!("result: {}", result.solution);
+                    //             // result.solution
+                    //             let start = point![
+                    //                 start_x,
+                    //                 (start_x * result.solution[0] + result.solution[1])
+                    //             ];
+                    //             let end = point![
+                    //                 end_x,
+                    //                 (end_x * result.solution[0] + result.solution[1])
+                    //             ];
+                    //             (Line2::from_points(start, end), lines, total_points)
+                    //         })
+                    //     },
+                    // )
                 })
                 .collect();
 
-            // let clustered_lines: Vec<_> = clusters
-            //     .iter()
-            //     .map(|cluster| {
-            //         let (merged_point, merged_direction, merged_point_count) = cluster.iter().fold(
-            //             (point![0.0, 0.0], vector![0.0, 0.0], 0),
-            //             |accum, (line, point_count)| {
-            //                 (
-            //                     accum.0 + line.closest_point(circle_center).coords(),
-            //                     accum.1 + line.direction,
-            //                     accum.2 + point_count,
-            //                 )
-            //             },
-            //         );
-
-            //         (
-            //             Line2::<Pixel> {
-            //                 point: merged_point / cluster.len() as f32,
-            //                 direction: merged_direction / cluster.len() as f32,
-            //             },
-            //             merged_point_count,
-            //         )
-            //     })
-            //     .collect();
-            let best_line = clustered_lines
+            clustered_lines
                 .iter()
-                .max_by_key(|(_, count)| *count)
-                .map(|(line, _)| *line)
-                .unwrap();
-
-            Some((
-                best_line,
-                clustered_lines
-                    .into_iter()
-                    .map(|(line, _)| line)
-                    .collect_vec(),
-            ))
+                .max_by_key(|(_, _, count)| *count)
+                .map(|(line, source_lines, _)| {
+                    println!(
+                        "cluster lines: {:?}, total: {}",
+                        source_lines.len(),
+                        lines.len()
+                    );
+                    (*line, source_lines.into_iter().map(|l| **l).collect())
+                })
         }
     };
     middle_and_source_lines
@@ -663,7 +741,7 @@ fn detect_and_filter_circles(
     edge_points: &[Point2<Pixel>],
     context: &CycleContext,
     y_exclusion_threshold: u32,
-) -> Vec<(CenterCirclePoints<Pixel>, Vec<LineSegment<Pixel>>, f32)> {
+) -> Vec<(CenterCirclePoints<Pixel>, Option<LineSegment<Pixel>>, f32)> {
     let camera_matrix = context.camera_matrix;
     let transformer =
         |pixel_coordinates: &Point2<Pixel>| camera_matrix.pixel_to_ground(*pixel_coordinates).ok();
@@ -709,13 +787,13 @@ fn detect_and_filter_circles(
                                     // edge_points,
                                     context,
                                 )
-                                .map(|v| (v.0, v.2, result.score)),
+                                .map(|v| (v.0, Some(v.1), result.score)),
                                 (true, false) => Some((
                                     CenterCirclePoints {
                                         center: circle_center_px,
                                         points: result.used_points_original,
                                     },
-                                    vec![],
+                                    None,
                                     result.score,
                                 )),
                                 (false, _) => None,
