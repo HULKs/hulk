@@ -1,16 +1,19 @@
-use app::DependencyInspector;
+use std::env::current_dir;
+
 use eframe::{run_native, NativeOptions};
-use repository::{get_repository_root, Repository};
-use tokio::runtime::Runtime;
+use repository::Repository;
+
+use app::DependencyInspector;
 
 mod app;
 
 fn main() -> Result<(), eframe::Error> {
-    let runtime = Runtime::new().unwrap();
-    let repository = Repository::new(runtime.block_on(get_repository_root()).unwrap());
+    let current_directory = current_dir().expect("failed to get current directory");
+    let repository =
+        Repository::find_root(current_directory).expect("failed to find repository root");
 
     run_native(
-        "DependencyInspector",
+        "Vista",
         NativeOptions::default(),
         Box::new(|creation_context| {
             Ok(Box::new(DependencyInspector::new(
