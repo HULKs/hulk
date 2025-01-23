@@ -187,6 +187,7 @@ async fn resolve_manifest_path(
         Some("parameter_tester") => repository.root.join("tools/parameter_tester/Cargo.toml"),
         Some("pepsi") => repository.root.join("tools/pepsi/Cargo.toml"),
         Some("twix") => repository.root.join("tools/twix/Cargo.toml"),
+        Some("vista") => repository.root.join("tools/vista/Cargo.toml"),
         Some("widget_gallery") => repository.root.join("tools/widget_gallery/Cargo.toml"),
 
         _ => compose_manifest_path(manifest).await.wrap_err_with(|| {

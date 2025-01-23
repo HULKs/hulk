@@ -20,7 +20,7 @@ pub struct DependencyInspector {
 
 impl DependencyInspector {
     pub fn new(_creation_context: &CreationContext, repository: Repository) -> Self {
-        let cyclers = collect_hulk_cyclers(repository.crates_directory()).unwrap();
+        let cyclers = collect_hulk_cyclers(repository.root.join("crates")).unwrap();
         Self {
             cyclers,
             selected_cycler: 0,
