@@ -9,7 +9,7 @@ use syn::{
     token::Mut,
     AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, GenericParam, ItemStruct,
     Lifetime, LifetimeParam, Lit, Path, PathArguments, PathSegment, Type, TypeParam, TypePath,
-    TypeReference,
+    TypeReference, Visibility,
 };
 
 #[proc_macro_attribute]
@@ -121,7 +121,10 @@ pub fn context(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                             _ => abort!(first_segment, "expected exactly two generic parameters"),
                         }
                     }
-                    "MainOutput" => {}
+                    "MainOutput" => match &field.vis {
+                        Visibility::Public(_) => {}
+                        _ => abort!(field, "fields of type MainOutput must be `pub`lic"),
+                    },
                     "HardwareInterface" => {
                         requires_lifetime_parameter = true;
                         requires_hardware_interface_parameter = true;
