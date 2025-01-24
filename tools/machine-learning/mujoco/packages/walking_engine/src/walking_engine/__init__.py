@@ -1,4 +1,4 @@
-from .joint_command import compute_lower_body_joints
+from .joint_command import compute_arm_joints, compute_lower_body_joints
 from .walking import (
     step,
 )
@@ -11,6 +11,7 @@ __all__ = [
     "Parameters",
     "Side",
     "State",
+    "compute_arm_joints",
     "compute_lower_body_joints",
     "step",
 ]

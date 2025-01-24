@@ -324,6 +324,10 @@ def apply_walking(
         left_lift,
         right_lift,
     )
+    left_arm, right_arm = walking_engine.compute_arm_joints(
+        left_sole,
+        right_sole,
+    )
 
     nao.actuators.left_leg.ankle_pitch += lower_body_joints.left.ankle_pitch
     nao.actuators.left_leg.ankle_roll += lower_body_joints.left.ankle_roll
@@ -341,3 +345,15 @@ def apply_walking(
         lower_body_joints.right.hip_pitch - parameters.torso_tilt
     )
     nao.actuators.right_leg.hip_roll += lower_body_joints.right.hip_roll
+
+    nao.actuators.left_arm.shoulder_pitch += left_arm.shoulder_pitch
+    nao.actuators.left_arm.shoulder_roll += left_arm.shoulder_roll
+    nao.actuators.left_arm.elbow_yaw += left_arm.elbow_yaw
+    nao.actuators.left_arm.elbow_roll += left_arm.elbow_roll
+    nao.actuators.left_arm.wrist_yaw += left_arm.wrist_yaw
+
+    nao.actuators.right_arm.shoulder_pitch += right_arm.shoulder_pitch
+    nao.actuators.right_arm.shoulder_roll += right_arm.shoulder_roll
+    nao.actuators.right_arm.elbow_yaw += right_arm.elbow_yaw
+    nao.actuators.right_arm.elbow_roll += right_arm.elbow_roll
+    nao.actuators.right_arm.wrist_yaw += right_arm.wrist_yaw
