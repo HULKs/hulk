@@ -31,6 +31,7 @@ dependencies = [
 [tool.uv.sources]
 common_types = { workspace = true }
 kinematics = { workspace = true }
+mujoco-stubs = { path = "./stubs/mujoco" }
 nao_env = { workspace = true }
 nao_interface = { workspace = true }
 rewards = { workspace = true }
@@ -45,7 +46,13 @@ mujoco_python_viewer = { git = "https://github.com/gaolongsen/mujoco-python-view
 members = ["packages/*"]
 
 [tool.uv]
-dev-dependencies = ["neovim>=0.3.1", "pytest>=8.3.3", "ruff>=0.7.3"]
+dev-dependencies = [
+  "mujoco-stubs",
+  "neovim>=0.3.1",
+  "pyright>=1.1.392.post0",
+  "pytest>=8.3.3",
+  "ruff>=0.7.3",
+]
 
 [tool.ruff]
 target-version = "py310"
