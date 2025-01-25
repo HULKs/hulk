@@ -5,7 +5,7 @@ import mujoco as mj
 import optuna
 from learned_identification.optimization import objective
 from learned_identification.recording import (
-    load_recorded_actuators,
+    load_recorded_actuator_positions,
     load_recorded_sensors,
 )
 
@@ -46,7 +46,7 @@ def render_trial(
 ) -> None:
     spec = mj.MjSpec.from_file(spec_path)
 
-    recorded_actuators = load_recorded_actuators(
+    recorded_actuator_positions = load_recorded_actuator_positions(
         spec,
         recording_path,
     )
@@ -74,7 +74,7 @@ def render_trial(
     value = objective(
         trial,
         spec,
-        recorded_actuators,
+        recorded_actuator_positions,
         recorded_sensors,
         sensors=SENSORS,
         video_path=video_path,

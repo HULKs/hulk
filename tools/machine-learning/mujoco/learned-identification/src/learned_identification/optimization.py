@@ -32,7 +32,7 @@ def populate_actuators(
 def objective(
     trial: optuna.Trial | optuna.trial.FrozenTrial,
     spec: mj.MjSpec,
-    recorded_actuators: npt.NDArray[np.float64],
+    recorded_actuator_positions: npt.NDArray[np.float64],
     recorded_sensors: npt.NDArray[np.float64],
     *,
     sensors: Sequence[str],
@@ -41,11 +41,11 @@ def objective(
     populate_actuators(spec, trial)
     simulated_sensor_data = simulate_recording(
         spec,
-        recorded_actuators,
+        recorded_actuator_positions,
         sensors=sensors,
         video_path=video_path,
     )
     if len(simulated_sensor_data) != len(recorded_sensors):
         raise SimulationLengthError
     squared_error = (simulated_sensor_data - recorded_sensors) ** 2
-    return squared_error.sum() / len(recorded_actuators)
+    return squared_error.sum() / len(recorded_actuator_positions)

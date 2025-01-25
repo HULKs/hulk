@@ -76,7 +76,7 @@ def load_recorded_sensors(
     )
 
 
-def load_recorded_actuators(
+def load_recorded_actuator_positions(
     spec: mj.MjSpec,
     recording: str,
     *,

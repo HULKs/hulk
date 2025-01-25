@@ -2,7 +2,7 @@ import mujoco as mj
 import optuna
 
 from .optimization import objective
-from .recording import load_recorded_actuators, load_recorded_sensors
+from .recording import load_recorded_actuator_positions, load_recorded_sensors
 
 SENSORS = [
     "head.yaw",
@@ -39,7 +39,7 @@ def run_optimization(
 ) -> None:
     spec = mj.MjSpec.from_file(spec_path)
 
-    recorded_actuators = load_recorded_actuators(
+    recorded_actuator_positions = load_recorded_actuator_positions(
         spec,
         recording_path,
     )
@@ -110,7 +110,7 @@ def run_optimization(
         lambda trial: objective(
             trial,
             spec,
-            recorded_actuators,
+            recorded_actuator_positions,
             recorded_sensors,
             sensors=SENSORS,
         ),

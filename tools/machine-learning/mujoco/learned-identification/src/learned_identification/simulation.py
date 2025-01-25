@@ -9,7 +9,7 @@ import tqdm
 
 def simulate_recording(
     spec: mj.MjSpec,
-    recorded_actuators: npt.NDArray[np.float64],
+    recorded_actuator_positions: npt.NDArray[np.float64],
     *,
     sensors: Sequence[str],
     initial_keyframe: int = 0,
@@ -31,7 +31,7 @@ def simulate_recording(
     simulated_sensor_data = []
 
     with mj.Renderer(model) as renderer:
-        for actuators in tqdm.tqdm(recorded_actuators, desc="simulating"):
+        for actuators in tqdm.tqdm(recorded_actuator_positions, desc="simulating"):
             data.ctrl = actuators
             mj.mj_step(model, data)
             sensor_data = np.concatenate(
