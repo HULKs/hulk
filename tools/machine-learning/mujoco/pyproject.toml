@@ -10,7 +10,7 @@ dependencies = [
   "mediapy>=1.2.2",
   "moviepy>=1.0.3",
   "mujoco>=3.2.6",
-  "mujoco_python_viewer",
+  "mujoco-python-viewer>=0.1.4",
   "numpy>=1.26",
   "scipy>=1.14.1",
   "stable-baselines3[extra]==2.4.1",
