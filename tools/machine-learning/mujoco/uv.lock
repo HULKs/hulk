@@ -726,7 +726,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "mujoco-stubs" },
     { name = "neovim" },
     { name = "pyright" },
     { name = "pytest" },
@@ -759,7 +758,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mujoco-stubs", directory = "stubs/mujoco" },
     { name = "neovim", specifier = ">=0.3.1" },
     { name = "pyright", specifier = ">=1.1.392.post0" },
     { name = "pytest", specifier = ">=8.3.3" },
@@ -775,17 +773,6 @@ dependencies = [
     { name = "imageio" },
     { name = "mujoco" },
 ]
-
-[[package]]
-name = "mujoco-stubs"
-version = "0.3.0"
-source = { directory = "stubs/mujoco" }
-dependencies = [
-    { name = "mujoco" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "mujoco", specifier = ">=3.2.6" }]
 
 [[package]]
 name = "nao-env"
