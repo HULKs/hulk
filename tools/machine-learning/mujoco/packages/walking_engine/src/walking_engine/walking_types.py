@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from enum import Enum
 from typing import Self
 
+from common_types import Side
 from transforms import Pose2
 
 
@@ -14,11 +14,6 @@ class Parameters:
     foot_lift_apex: float
     foot_offset_left: float
     foot_offset_right: float
-
-
-class Side(Enum):
-    LEFT = 0
-    RIGHT = 1
 
 
 @dataclass

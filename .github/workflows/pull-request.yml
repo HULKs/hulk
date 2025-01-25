@@ -170,3 +170,107 @@ jobs:
         run: pip install mkdocs-material
       - name: Build docs
         run: mkdocs build --strict
+
+  check-mujoco:
+    name: Check Mujoco
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
+    defaults:
+      run:
+        working-directory: tools/machine-learning/mujoco
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Check
+        run: |
+          uv run ruff check --no-fix
+
+  test-mujoco:
+    name: Test Mujoco
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
+    defaults:
+      run:
+        working-directory: tools/machine-learning/mujoco
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Test
+        run: |
+          uv run pytest
+
+  format-mujoco:
+    name: Format Mujoco
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
+    defaults:
+      run:
+        working-directory: tools/machine-learning/mujoco
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Format
+        run: |
+          uv run ruff format --check
+
+  check-mujoco-lock:
+    name: Check Mujoco uv.lock
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.81.0
+      options: --user=1000:1000
+    defaults:
+      run:
+        working-directory: tools/machine-learning/mujoco
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.21"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
+      - name: Check Lockfile
+        run: |
+          uv sync --locked
