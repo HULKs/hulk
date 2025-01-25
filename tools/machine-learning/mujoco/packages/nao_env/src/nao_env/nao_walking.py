@@ -114,7 +114,7 @@ def initial_state(parameters: Parameters) -> State:
 
 
 class NaoWalking(MujocoEnv, utils.EzPickle):
-    metadata: ClassVar = {
+    metadata: ClassVar[dict[str, Any]] = {
         "render_modes": [
             "human",
             "rgb_array",

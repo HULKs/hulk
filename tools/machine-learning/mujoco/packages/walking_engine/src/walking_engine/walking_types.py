@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Self
 
 from common_types import Side
 from transforms import Pose2
@@ -28,12 +29,12 @@ class Feet:
         left_sole: Pose2,
         right_sole: Pose2,
         support_side: Side,
-    ) -> Self:
+    ) -> Feet:
         if support_side == Side.LEFT:
             return Feet(support_sole=left_sole, swing_sole=right_sole)
         return Feet(support_sole=right_sole, swing_sole=left_sole)
 
-    def switch(self) -> Self:
+    def switch(self) -> Feet:
         return Feet(support_sole=self.swing_sole, swing_sole=self.support_sole)
 
 
