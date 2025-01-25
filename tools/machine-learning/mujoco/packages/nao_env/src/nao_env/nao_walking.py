@@ -156,6 +156,7 @@ class NaoWalking(MujocoEnv, utils.EzPickle):
             foot_offset_right=-0.052,
             walk_height=0.23,
             torso_tilt=0.055,
+            arm_pitch_factor=1.0,
         )
         self.state = initial_state(self.parameters)
 
@@ -327,6 +328,7 @@ def apply_walking(
     left_arm, right_arm = walking_engine.compute_arm_joints(
         left_sole,
         right_sole,
+        pitch_factor=parameters.arm_pitch_factor,
     )
 
     nao.actuators.left_leg.ankle_pitch += lower_body_joints.left.ankle_pitch
