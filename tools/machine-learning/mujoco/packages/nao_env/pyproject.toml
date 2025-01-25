@@ -5,13 +5,13 @@ description = "Add your description here"
 requires-python = ">=3.10"
 
 dependencies = [
-    "gymnasium[mujoco]>=1.0.0",
-    "nao_interface",
-    "numpy>=1.2.0",
-    "rewards",
-    "stable-baselines3",
-    "throwing",
-    "wandb",
+  "gymnasium[mujoco]>=1.0.0",
+  "nao_interface",
+  "numpy>=1.2.0",
+  "rewards",
+  "stable-baselines3",
+  "throwing",
+  "wandb",
 ]
 
 [build-system]

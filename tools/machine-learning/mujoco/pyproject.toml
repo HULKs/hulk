@@ -10,12 +10,12 @@ dependencies = [
   "mediapy>=1.2.2",
   "moviepy>=1.0.3",
   "mujoco>=3.2.6",
+  "mujoco_python_viewer",
   "numpy>=1.26",
   "scipy>=1.14.1",
   "stable-baselines3[extra]==2.4.1",
   "tensorboard>=2.18.0",
   "wandb>=0.19.1",
-  "mujoco_python_viewer",
   # Project dependencies
   "common_types",
   "kinematics",
