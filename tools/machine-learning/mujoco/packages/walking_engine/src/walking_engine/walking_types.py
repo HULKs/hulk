@@ -9,6 +9,7 @@ from transforms import Pose2
 class Parameters:
     sole_pressure_threshold: float
     walk_height: float
+    torso_tilt: float
     min_step_duration: float
     step_duration: float
     foot_lift_apex: float

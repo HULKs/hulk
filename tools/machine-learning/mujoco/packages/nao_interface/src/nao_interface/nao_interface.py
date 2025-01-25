@@ -225,6 +225,8 @@ class Nao:
                 setattr(joint_data, joint, value)
                 setattr(actuator_data, joint, value)
 
+        mujoco.mj_forward(self.model, self.data)
+
     def left_fsr_values(self) -> NDArray[np.floating]:
         return np.array(
             [
