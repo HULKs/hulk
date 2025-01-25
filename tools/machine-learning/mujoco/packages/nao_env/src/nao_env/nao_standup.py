@@ -81,10 +81,10 @@ class NaoStandup(MujocoEnv, utils.EzPickle):
         force_sensing_resistors_left = nao.left_fsr_values().sum()
 
         sensors = np.concatenate(
-            (
+            [
                 self.data.sensor(sensor_name).data
                 for sensor_name in SENSOR_NAMES
-            ),
+            ],
         )
         frs = np.array(
             [force_sensing_resistors_right, force_sensing_resistors_left],

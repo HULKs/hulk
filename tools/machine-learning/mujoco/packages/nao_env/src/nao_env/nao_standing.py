@@ -132,11 +132,11 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
                 for sensor_name in SENSOR_NAMES
             ],
         )
-        frs = np.array(
+        fsrs = np.array(
             [force_sensing_resistors_right, force_sensing_resistors_left],
         )
 
-        return np.concatenate([sensors, frs])
+        return np.concatenate([sensors, fsrs])
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:
@@ -154,22 +154,26 @@ class NaoStanding(MujocoEnv, utils.EzPickle):
                 distance=1.0,
             )
 
-        last_action = self.data.ctrl.copy()
+        last_actuator_force = self.data.actuator_force.copy()
         self.do_simulation(action + OFFSET_QPOS, self.frame_skip)
         head_center_z = self.data.site("head_center").xpos[2]
 
-        action_penalty = 0.1 * rewards.action_rate(nao, last_action)
+        torque_penalty = 0.01 * rewards.torque_change_rate(
+            nao,
+            last_actuator_force,
+        )
         head_over_torso_penalty = 1.0 * rewards.head_over_torso_error(nao)
 
         if self.render_mode == "human":
             self.render()
 
         terminated = head_center_z < 0.3
-        reward = 0.05 - action_penalty - head_over_torso_penalty
+        reward = 0.05 - torque_penalty - head_over_torso_penalty
 
         if terminated:
             reward -= self.termination_penalty
 
+        self.current_step += 1
         return (
             self._get_obs(),
             reward,
