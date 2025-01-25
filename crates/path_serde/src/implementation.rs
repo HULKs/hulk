@@ -752,3 +752,82 @@ impl PathIntrospect for Duration {
         fields.insert(format!("{prefix}millis"));
     }
 }
+
+impl<A, B> PathSerialize for (A, B)
+where
+    A: PathSerialize + Serialize,
+    B: PathSerialize + Serialize,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("0", suffix))) => self.0.serialize_path(suffix, serializer),
+            (_, Some(("1", suffix))) => self.1.serialize_path(suffix, serializer),
+            ("0", None) => self
+                .0
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("1", None) => self
+                .1
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<A, B> PathDeserialize for (A, B)
+where
+    A: PathDeserialize,
+    B: PathDeserialize,
+    for<'de> A: Deserialize<'de>,
+    for<'de> B: Deserialize<'de>,
+{
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        let split = path.split_once('.');
+        match (path, split) {
+            (_, Some(("0", suffix))) => self.0.deserialize_path(suffix, deserializer),
+            (_, Some(("1", suffix))) => self.1.deserialize_path(suffix, deserializer),
+            ("0", None) => {
+                self.0 = A::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("1", None) => {
+                self.1 = B::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl<A, B> PathIntrospect for (A, B)
+where
+    A: PathIntrospect,
+    B: PathIntrospect,
+{
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}0"));
+        fields.insert(format!("{prefix}1"));
+    }
+}
