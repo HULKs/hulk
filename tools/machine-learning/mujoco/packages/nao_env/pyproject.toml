@@ -9,9 +9,9 @@ dependencies = [
   "nao_interface",
   "numpy>=1.2.0",
   "rewards",
-  "stable-baselines3",
+  "stable-baselines3>=2.4.1",
   "throwing",
-  "wandb",
+  "wandb>=0.19.1",
 ]
 
 [build-system]
