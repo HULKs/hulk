@@ -18,9 +18,7 @@ class RewardComposer(BaseReward):
     def reward(self, context: RewardContext) -> np.floating:
         return np.float32(sum(self._inner_rewards(context).values()))
 
-    def rewards(
-        self, context: RewardContext
-    ) -> dict[str, np.floating]:
+    def rewards(self, context: RewardContext) -> dict[str, np.floating]:
         return {
             reward.name(): factor * reward.reward(context)
             for factor, reward in self._inner_rewards
