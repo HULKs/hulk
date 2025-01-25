@@ -4,10 +4,10 @@ name = "rewards"
 description = "Add your description here"
 requires-python = ">=3.10"
 dependencies = [
+  "mujoco>=3.2.6",
   "nao-interface",
   "numpy>=1.2.0",
   "walking-engine",
-  "mujoco>=3.2.6",
   "wandb>=0.19.1",
 ]
 
