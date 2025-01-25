@@ -15,6 +15,7 @@ class Parameters:
     foot_lift_apex: float
     foot_offset_left: float
     foot_offset_right: float
+    arm_pitch_factor: float
 
 
 @dataclass

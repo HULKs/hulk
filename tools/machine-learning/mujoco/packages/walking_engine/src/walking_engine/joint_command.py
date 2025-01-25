@@ -1,6 +1,6 @@
 import numpy as np
 from kinematics import LowerBodyJoints, foot_to_isometry
-from kinematics.inverse_kinematics import leg_angles
+from kinematics.inverse_kinematics import ArmJoints, leg_angles
 from robot_dimensions import ANKLE_TO_SOLE
 from transforms import Pose2
 from transforms.transforms import isometry_from_translation
@@ -25,3 +25,18 @@ def compute_lower_body_joints(
         walk_to_robot @ left_foot_in_walk,
         walk_to_robot @ right_foot_in_walk,
     )
+
+
+def compute_arm_joints(
+    left_sole: Pose2,
+    right_sole: Pose2,
+    *,
+    pitch_factor: float = 8.0,
+) -> tuple[ArmJoints, ArmJoints]:
+    left_arm = ArmJoints()
+    left_arm.shoulder_pitch = -pitch_factor * right_sole.x
+
+    right_arm = ArmJoints()
+    right_arm.shoulder_pitch = -pitch_factor * left_sole.x
+
+    return left_arm, right_arm
