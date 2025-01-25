@@ -217,7 +217,7 @@ class NaoWalking(MujocoEnv, utils.EzPickle):
         if self.render_mode == "human":
             self.render()
 
-        distinct_rewards = self.reward.distinct_rewards(
+        distinct_rewards = self.reward.rewards(
             RewardContext(nao, self.state, action)
         )
         reward = sum(distinct_rewards.values())
