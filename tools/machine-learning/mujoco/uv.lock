@@ -794,9 +794,9 @@ requires-dist = [
     { name = "nao-interface", editable = "packages/nao_interface" },
     { name = "numpy", specifier = ">=1.2.0" },
     { name = "rewards", editable = "packages/rewards" },
-    { name = "stable-baselines3" },
+    { name = "stable-baselines3", specifier = ">=2.4.1" },
     { name = "throwing", editable = "packages/throwing" },
-    { name = "wandb" },
+    { name = "wandb", specifier = ">=0.19.1" },
 ]
 
 [[package]]
@@ -1351,7 +1351,7 @@ requires-dist = [
     { name = "nao-interface", editable = "packages/nao_interface" },
     { name = "numpy", specifier = ">=1.2.0" },
     { name = "walking-engine", editable = "packages/walking_engine" },
-    { name = "wandb" },
+    { name = "wandb", specifier = ">=0.19.1" },
 ]
 
 [[package]]

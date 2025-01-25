@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Self
 
@@ -23,17 +25,18 @@ class Feet:
     support_sole: Pose2
     swing_sole: Pose2
 
-    @staticmethod
+    @classmethod
     def from_support_side(
+        cls,
         left_sole: Pose2,
         right_sole: Pose2,
         support_side: Side,
     ) -> Self:
         if support_side == Side.LEFT:
-            return Feet(support_sole=left_sole, swing_sole=right_sole)
-        return Feet(support_sole=right_sole, swing_sole=left_sole)
+            return cls(support_sole=left_sole, swing_sole=right_sole)
+        return cls(support_sole=right_sole, swing_sole=left_sole)
 
-    def switch(self) -> Self:
+    def switch(self) -> Feet:
         return Feet(support_sole=self.swing_sole, swing_sole=self.support_sole)
 
 

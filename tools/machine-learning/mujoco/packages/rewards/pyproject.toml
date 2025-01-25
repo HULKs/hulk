@@ -8,7 +8,7 @@ dependencies = [
   "nao-interface",
   "numpy>=1.2.0",
   "walking-engine",
-  "wandb",
+  "wandb>=0.19.1",
 ]
 
 [build-system]
