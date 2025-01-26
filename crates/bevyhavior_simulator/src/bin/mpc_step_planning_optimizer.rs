@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 
@@ -10,7 +11,7 @@ use bevyhavior_simulator::{
 };
 
 #[scenario]
-fn golden_goal(app: &mut App) {
+fn mpc_step_planner_optimizer(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
@@ -28,11 +29,18 @@ fn update(
     game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
+    mut robots: Query<&mut Robot>,
 ) {
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
         exit.send(AppExit::Success);
     }
+    robots.single_mut().database.main_outputs.ground_to_field = Some(Isometry2::from_parts(
+        vector![-0.612_85, -1.191_053_4],
+        1.359_945_5,
+    ));
+    robots.single_mut().parameters.step_planner.optimizer_steps = time.ticks() as usize / 20;
+    println!("{}", time.ticks());
     if time.ticks() >= 3000 {
         exit.send(AppExit::Success);
     }
