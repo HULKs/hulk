@@ -1,12 +1,10 @@
-use std::f32::consts::TAU;
-
 use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Point2;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{circle::Circle, direction::Direction};
+use crate::{angle::Angle, circle::Circle, direction::Direction};
 
 #[derive(
     Clone,
@@ -21,8 +19,8 @@ use crate::{circle::Circle, direction::Direction};
 )]
 pub struct Arc<Frame> {
     pub circle: Circle<Frame>,
-    pub start: Point2<Frame>,
-    pub end: Point2<Frame>,
+    pub start: Angle<f32>,
+    pub end: Angle<f32>,
     pub direction: Direction,
 }
 
@@ -67,11 +65,11 @@ where
     }
 }
 
-impl<Frame> Arc<Frame> {
+impl<Frame: Copy> Arc<Frame> {
     pub fn new(
         circle: Circle<Frame>,
-        start: Point2<Frame>,
-        end: Point2<Frame>,
+        start: Angle<f32>,
+        end: Angle<f32>,
         direction: Direction,
     ) -> Self {
         Self {
@@ -83,32 +81,27 @@ impl<Frame> Arc<Frame> {
     }
 
     pub fn length(&self) -> f32 {
-        let vector_start = self.start - self.circle.center;
-        let vector_end = self.end - self.circle.center;
+        let angle = self.start.angle_to(self.end, self.direction);
 
-        let angle_x_axis_to_start = vector_start.y().atan2(vector_start.x());
-        let mut angle = vector_end.y().atan2(vector_end.x()) - angle_x_axis_to_start;
+        angle.0 * self.circle.radius
+    }
 
-        if (self.direction == Direction::Clockwise) && (angle > 0.0) {
-            angle -= TAU;
-            angle *= -1.0;
-        }
-        if (self.direction == Direction::Counterclockwise) && (angle < 0.0) {
-            angle += TAU;
-        }
-        (angle * self.circle.radius).abs()
+    pub fn start_point(&self) -> Point2<Frame> {
+        self.circle.point_at_angle(self.start)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::PI;
+    use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
     use approx::assert_relative_eq;
-    use linear_algebra::{point, vector, Rotation2};
+
+    use linear_algebra::point;
 
     use super::*;
 
+    #[derive(Clone, Copy)]
     struct SomeFrame;
 
     #[test]
@@ -118,8 +111,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: point![1.0, 2.0],
-            end: point![2.0, 1.0],
+            start: Angle::new(FRAC_PI_2),
+            end: Angle::new(0.0),
             direction: Direction::Clockwise,
         };
         assert_relative_eq!(arc.length(), PI);
@@ -129,8 +122,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: point![1.0, 2.0],
-            end: point![2.0, 1.0],
+            start: Angle::new(FRAC_PI_2),
+            end: Angle::new(0.0),
             direction: Direction::Counterclockwise,
         };
         assert_relative_eq!(arc.length(), 3.0 * PI);
@@ -140,8 +133,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: point![2.0, 1.0],
-            end: point![1.0, 2.0],
+            start: Angle::new(0.0),
+            end: Angle::new(FRAC_PI_2),
             direction: Direction::Clockwise,
         };
         assert_relative_eq!(arc.length(), 3.0 * PI);
@@ -151,8 +144,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: point![2.0, 1.0],
-            end: point![1.0, 2.0],
+            start: Angle::new(0.0),
+            end: Angle::new(FRAC_PI_2),
             direction: Direction::Counterclockwise,
         };
         assert_relative_eq!(arc.length(), PI);
@@ -164,9 +157,6 @@ mod tests {
             let angle = angle_index as f32 / 100.0 * TAU;
             for angle_distance_index in 1..100 {
                 let angle_distance = angle_distance_index as f32 / 100.0 * TAU;
-                let start = Rotation2::<SomeFrame, SomeFrame>::new(angle) * vector![1.0, 0.0];
-                let end = Rotation2::<SomeFrame, SomeFrame>::new(angle + angle_distance)
-                    * vector![1.0, 0.0];
                 let center = point![PI, 4.20];
                 let radius = 5.0;
 
@@ -174,16 +164,16 @@ mod tests {
 
                 let arc = Arc::<SomeFrame> {
                     circle: Circle { center, radius },
-                    start: center + start,
-                    end: center + end,
+                    start: Angle(angle),
+                    end: Angle(angle + angle_distance),
                     direction: Direction::Counterclockwise,
                 };
                 assert_relative_eq!(arc.length(), radius * angle_distance, epsilon = 0.001);
 
                 let arc = Arc::<SomeFrame> {
                     circle: Circle { center, radius },
-                    start: center + start,
-                    end: center + end,
+                    start: Angle(angle),
+                    end: Angle(angle + angle_distance),
                     direction: Direction::Clockwise,
                 };
                 assert_relative_eq!(

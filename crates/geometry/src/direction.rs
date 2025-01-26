@@ -1,7 +1,10 @@
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use std::ops::Neg;
+
+use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{vector, Vector2};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(
     Clone,
@@ -19,6 +22,16 @@ pub enum Direction {
     Clockwise,
     Counterclockwise,
     Colinear,
+}
+
+impl Direction {
+    pub fn angle_sign<T: One + Zero + Neg<Output = T>>(self) -> T {
+        match self {
+            Direction::Clockwise => -T::one(),
+            Direction::Counterclockwise => T::one(),
+            Direction::Colinear => T::zero(),
+        }
+    }
 }
 
 pub trait Rotate90Degrees {
