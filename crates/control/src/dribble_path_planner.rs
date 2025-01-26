@@ -1,8 +1,7 @@
 use std::f32::consts::PI;
 
 use coordinate_systems::{Field, Ground};
-use geometry::look_at::LookAt;
-use linear_algebra::{Isometry2, Point, Pose2};
+use linear_algebra::{Isometry2, Pose2};
 use serde::{Deserialize, Serialize};
 
 use color_eyre::{eyre::Ok, Result};
@@ -115,14 +114,17 @@ impl DribblePathPlanner {
             types::motion_command::OrientationMode::AlignWithPath
                 if ball_position.coords().norm() > 0.0 =>
             {
-                OrientationMode::Override(Point::origin().look_at(ball_position))
+                OrientationMode::LookAt(context.ball.ball_in_ground)
             }
             orientation_mode => orientation_mode,
         };
 
+        let target_orientation = best_kick_pose.orientation();
+
         Ok(MainOutputs {
             dribble_path_plan: Some(DribblePathPlan {
                 orientation_mode,
+                target_orientation,
                 path: dribble_path,
             })
             .into(),

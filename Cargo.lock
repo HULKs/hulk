@@ -2677,6 +2677,8 @@ dependencies = [
  "smallvec",
  "spl_network_messages",
  "splines",
+ "step_planning",
+ "step_planning_solver",
  "types",
  "walking_engine",
 ]
@@ -5996,6 +5998,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-dual"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8af2c4f45e74b48064e1023c1dabe753b8ca1d398b1bd80956bc36fb79442d0"
+dependencies = [
+ "approx",
+ "nalgebra",
+ "num-traits",
+ "simba",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8252,6 +8266,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8207e78455ffdf55661170876f88daf85356e4edd54e0a3dbc79586ca1e50cbe"
 
 [[package]]
+name = "step_planning"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "nalgebra",
+ "num-dual",
+ "num-traits",
+ "types",
+]
+
+[[package]]
+name = "step_planning_solver"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "levenberg-marquardt",
+ "linear_algebra",
+ "nalgebra",
+ "num-dual",
+ "step_planning",
+ "types",
+]
+
+[[package]]
 name = "strength_reduce"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9062,6 +9107,7 @@ dependencies = [
  "repository",
  "serde",
  "serde_json",
+ "step_planning",
  "thiserror 2.0.12",
  "tokio",
  "toml",
