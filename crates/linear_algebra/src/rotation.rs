@@ -7,7 +7,7 @@ pub type Rotation3<Frame, To, T = f32> = Transform<Frame, To, nalgebra::UnitQuat
 
 impl<From, To, T> Rotation2<From, To, T>
 where
-    T: SimdRealField + Copy,
+    T: SimdRealField,
     T::Element: SimdRealField,
 {
     pub fn new(angle: T) -> Self {
@@ -33,7 +33,7 @@ where
     }
 
     pub fn as_orientation(&self) -> Orientation2<To, T> {
-        Orientation2::wrap(self.inner)
+        Orientation2::wrap(self.inner.clone())
     }
 }
 

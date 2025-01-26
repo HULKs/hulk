@@ -1,5 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
 use geometry::{
+    angle::Angle,
     arc::Arc,
     circle::Circle,
     direction::{Direction, Rotate90Degrees},
@@ -60,7 +61,7 @@ impl PathPlanner {
             MotionCommand::Walk { path, .. } => path.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
-                    PathSegment::Arc(arc) => (arc.start - arc.circle.center)
+                    PathSegment::Arc(arc) => (arc.start.as_direction())
                         .rotate_90_degrees(arc.direction)
                         .normalize(),
                 };
@@ -337,10 +338,14 @@ impl PathPlanner {
                             .shape
                             .as_circle()
                             .ok_or_else(|| eyre!("obstacle from path node was not a circle"))?;
+
+                        let start_direction = current_node.position - circle.center;
+                        let end_direction = next_node.position - circle.center;
+
                         Ok(PathSegment::Arc(Arc {
                             circle,
-                            start: current_node.position,
-                            end: next_node.position,
+                            start: Angle::from_direction(start_direction),
+                            end: Angle::from_direction(end_direction),
                             direction: LineSegment(previous_node.position, current_node.position)
                                 .get_direction(circle.center),
                         }))
@@ -514,10 +519,12 @@ impl DynamicMap for PathPlanner {
                             .shape
                             .as_circle()
                             .expect("ObstacleShape must be a circle");
+                        let start_direction = self.nodes[index].position - circle.center;
+                        let end_direction = self.nodes[*other_node].position - circle.center;
                         let arc = Arc::new(
                             circle,
-                            self.nodes[index].position,
-                            self.nodes[*other_node].position,
+                            Angle::from_direction(start_direction),
+                            Angle::from_direction(end_direction),
                             direction,
                         );
                         if self
@@ -540,7 +547,7 @@ impl DynamicMap for PathPlanner {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::PI;
+    use std::f32::consts::{FRAC_PI_3, PI};
 
     use approx::assert_relative_eq;
     use linear_algebra::point;
@@ -618,8 +625,8 @@ mod tests {
                         center: point![0.0, 0.0],
                         radius: 1.0,
                     },
-                    start: point![-0.5, 0.866],
-                    end: point![0.5, 0.866],
+                    start: Angle(2.0 * FRAC_PI_3),
+                    end: Angle(FRAC_PI_3),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(point![0.5, 0.866], point![2.0, 0.0])),
@@ -653,8 +660,8 @@ mod tests {
                         center: point![-1.0, 0.0],
                         radius: 0.9770229,
                     },
-                    start: point![-0.9474172, 0.9756069],
-                    end: point![-0.91782254, 0.9735608],
+                    start: Angle(1.5169508),
+                    end: Angle(1.4865868),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -666,8 +673,8 @@ mod tests {
                         center: point![0.0, 2.0],
                         radius: 1.1,
                     },
-                    start: point![-0.092521094, 0.90389776],
-                    end: point![0.09252105, 0.90389776],
+                    start: Angle(-1.6550058),
+                    end: Angle(-1.4865868),
                     direction: Direction::Counterclockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -679,8 +686,8 @@ mod tests {
                         center: point![1.0, 0.0],
                         radius: 0.9770229,
                     },
-                    start: point![0.91782254, 0.9735608],
-                    end: point![0.9474171, 0.97560686],
+                    start: Angle(1.6550058),
+                    end: Angle(1.6246419),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -710,8 +717,8 @@ mod tests {
                         center: point![-0.76, 0.56],
                         radius: 0.22579876,
                     },
-                    start: point![-0.8465765, 0.35145843],
-                    end: point![-0.9856166, 0.55093247],
+                    start: Angle(-1.9642965),
+                    end: Angle(-3.1014242),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -748,8 +755,8 @@ mod tests {
                         center: point![2.2906392, 0.022267818],
                         radius: 0.35000002,
                     },
-                    start: point![2.2338033, 0.3676223],
-                    end: point![2.640637, 0.02350672],
+                    start: Angle(1.7339069),
+                    end: Angle(0.0035397257),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -788,8 +795,8 @@ mod tests {
                         center: point![3.9259436, 0.8854635],
                         radius: 0.35,
                     },
-                    start: point![3.8195379, 1.2188969],
-                    end: point![3.8212261, 1.2194309],
+                    start: Angle(1.8797021),
+                    end: Angle(1.874643),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
