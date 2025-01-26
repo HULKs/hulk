@@ -158,7 +158,8 @@ pub fn execute(
             } else {
                 Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                     head,
-                    OrientationMode::Override(Orientation2::new(parameters.rotation_per_step)),
+                    OrientationMode::LookTowards(Orientation2::new(parameters.rotation_per_step)),
+                    Orientation2::identity(),
                     path,
                     walk_speed,
                 ))
@@ -167,6 +168,7 @@ pub fn execute(
             Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
                 OrientationMode::AlignWithPath,
+                Orientation2::new(parameters.rotation_per_step),
                 path,
                 walk_speed,
             ))

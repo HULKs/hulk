@@ -102,6 +102,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         &self,
         head: HeadMotion,
         orientation_mode: OrientationMode,
+        target_orientation: Orientation2<Ground>,
         path: Path,
         speed: WalkSpeed,
     ) -> MotionCommand {
@@ -112,6 +113,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             right_arm: self.arm_motion_with_obstacles(Side::Right),
             orientation_mode,
             speed,
+            target_orientation,
         }
     }
 
@@ -200,6 +202,7 @@ impl<'cycle> WalkAndStand<'cycle> {
             Some(self.walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
                 orientation_mode,
+                target_pose.orientation(),
                 path,
                 walk_speed,
             ))
@@ -230,7 +233,7 @@ pub fn hybrid_alignment(
         angle_limit,
     );
 
-    OrientationMode::Override(orientation)
+    OrientationMode::LookTowards(orientation)
 }
 
 pub fn clamp_around(

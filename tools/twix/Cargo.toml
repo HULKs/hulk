@@ -43,6 +43,7 @@ projection = { workspace = true }
 repository = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+step_planning = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }

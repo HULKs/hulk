@@ -1,0 +1,17 @@
+[package]
+name = "step_planning_solver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+color-eyre.workspace = true
+coordinate_systems.workspace = true
+geometry.workspace = true
+levenberg-marquardt.workspace = true
+linear_algebra.workspace = true
+nalgebra.workspace = true
+num-dual.workspace = true
+step_planning.workspace = true
+types.workspace = true
