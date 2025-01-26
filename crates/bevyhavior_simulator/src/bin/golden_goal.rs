@@ -19,17 +19,8 @@ fn startup(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
-    for number in [
-        PlayerNumber::One,
-        PlayerNumber::Two,
-        PlayerNumber::Three,
-        PlayerNumber::Four,
-        PlayerNumber::Five,
-        PlayerNumber::Six,
-        PlayerNumber::Seven,
-    ] {
-        commands.spawn(Robot::new(number));
-    }
+    commands.spawn(Robot::new(PlayerNumber::Seven));
+
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
@@ -40,6 +31,9 @@ fn update(
 ) {
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
+        exit.send(AppExit::Success);
+    }
+    if time.ticks() >= 3000 {
         exit.send(AppExit::Success);
     }
     if time.ticks() >= 10_000 {
