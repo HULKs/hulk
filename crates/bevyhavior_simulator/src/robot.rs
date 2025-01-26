@@ -19,7 +19,7 @@ use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head};
 use framework::{future_queue, Producer, RecordingTrigger};
-use geometry::{direction::Rotate90Degrees, line_segment::LineSegment};
+use geometry::{direction::Rotate90Degrees, line_segment::LineSegment, look_at::LookAt};
 use hula_types::hardware::Ids;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
@@ -275,7 +275,8 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                             Orientation2::from_vector(target)
                         }
                     }
-                    OrientationMode::Override(orientation) => orientation,
+                    OrientationMode::LookTowards(orientation) => orientation,
+                    OrientationMode::LookAt(point) => Point2::origin().look_at(&point),
                 };
                 let step = target.cap_magnitude(max_step.forward * steps_this_cycle);
 
