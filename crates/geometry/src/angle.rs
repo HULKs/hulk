@@ -42,15 +42,15 @@ impl<T: Euclid + RealField> RelativeEq for Angle<T> {
         epsilon: Self::Epsilon,
         max_relative: Self::Epsilon,
     ) -> bool {
-        self.normalized()
+        self.angle_between(other.clone())
             .0
-            .relative_eq(&other.normalized().0, epsilon, max_relative)
+            .relative_eq(&T::zero(), epsilon, max_relative)
     }
 }
 
 impl<T: Euclid + RealField> PartialEq for Angle<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.normalized().0 == other.normalized().0
+        self.angle_between(other.clone()).0 == T::zero()
     }
 }
 
@@ -62,10 +62,9 @@ impl<T: Euclid + RealField + Clone> AbsDiffEq for Angle<T> {
     }
 
     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        let difference = (self.clone() - other.clone()).normalized().into_inner();
-
-        difference.abs_diff_eq(&T::zero(), epsilon.clone())
-            || difference.abs_diff_eq(&T::two_pi(), epsilon)
+        self.angle_between(other.clone())
+            .0
+            .abs_diff_eq(&T::zero(), epsilon)
     }
 }
 
