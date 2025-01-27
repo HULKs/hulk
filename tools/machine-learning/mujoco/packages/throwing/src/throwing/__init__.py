@@ -88,7 +88,7 @@ class ThrowableObject:
     ) -> None:
         throwable_radius = self.model.geom_rbound[
             self.model.body_geomadr[self.throwable_index]
-        ]
+        ].item()
         qpos_index = self.model.jnt_qposadr[
             self.model.body_jntadr[self.throwable_index]
         ]
