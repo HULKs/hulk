@@ -78,18 +78,33 @@ impl<T: RealField + Euclid> Angle<T> {
         self.0.clone().sin()
     }
 
-    #[must_use]
     pub fn angle_to(&self, to: Self, direction: Direction) -> Self {
         ((to - self.clone()) * direction.angle_sign::<T>()).normalized()
+    }
+
+    pub fn angle_between(&self, to: Self) -> Self {
+        let counterclockwise_difference = (to - self.clone()).normalized();
+        if counterclockwise_difference.0 > T::pi() {
+            Self::two_pi() - counterclockwise_difference
+        } else {
+            counterclockwise_difference
+        }
     }
 
     pub fn as_direction<Frame>(&self) -> Vector2<Frame, T> {
         vector![self.cos(), self.sin()]
     }
 
-    #[must_use]
     pub fn normalized(&self) -> Self {
         Angle(self.0.rem_euclid(&T::two_pi()))
+    }
+
+    pub fn pi() -> Self {
+        Self(T::pi())
+    }
+
+    pub fn two_pi() -> Self {
+        Self(T::two_pi())
     }
 }
 
@@ -143,7 +158,7 @@ impl<T: Div<Output = T>> Div<T> for Angle<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::f64::consts::{FRAC_PI_2, FRAC_PI_3};
+    use std::f64::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI};
 
     use approx::assert_abs_diff_eq;
 
@@ -171,6 +186,32 @@ mod tests {
         assert_abs_diff_eq!(
             Angle(5.0 * FRAC_PI_3).angle_to(Angle(FRAC_PI_3), Direction::Counterclockwise),
             Angle(2.0 * FRAC_PI_3),
+            epsilon = eps
+        );
+    }
+
+    #[test]
+    fn angle_between() {
+        let eps = 1e-15;
+
+        assert_abs_diff_eq!(
+            Angle(0.0).angle_between(Angle(FRAC_PI_2)),
+            Angle(FRAC_PI_2),
+            epsilon = eps
+        );
+        assert_abs_diff_eq!(
+            Angle(0.0).angle_between(Angle(3.0 * FRAC_PI_2)),
+            Angle(FRAC_PI_2),
+            epsilon = eps
+        );
+        assert_abs_diff_eq!(
+            Angle(FRAC_PI_4).angle_between(Angle(-FRAC_PI_4)),
+            Angle(FRAC_PI_2),
+            epsilon = eps
+        );
+        assert_abs_diff_eq!(
+            Angle(PI * 2.0).angle_between(Angle(0.0)),
+            Angle(0.0),
             epsilon = eps
         );
     }
