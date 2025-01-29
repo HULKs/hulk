@@ -9,8 +9,7 @@ dependencies = [
   "gymnasium[mujoco]>=1.0.0",
   "mediapy>=1.2.2",
   "moviepy>=1.0.3",
-  "mujoco-python-viewer>=0.1.4",
-  "mujoco>=3.2.6",
+  "mujoco>=3.2.7",
   "numpy>=1.26",
   "scipy>=1.14.1",
   "stable-baselines3[extra]==2.4.1",
@@ -19,6 +18,8 @@ dependencies = [
   # Project dependencies
   "common_types",
   "kinematics",
+  "mujoco-interactive-viewer",
+  "mujoco-python-viewer",
   "nao-env",
   "nao-interface",
   "rewards",
@@ -31,6 +32,7 @@ dependencies = [
 [tool.uv.sources]
 common_types = { workspace = true }
 kinematics = { workspace = true }
+mujoco-interactive-viewer = { workspace = true }
 nao_env = { workspace = true }
 nao_interface = { workspace = true }
 rewards = { workspace = true }
@@ -38,8 +40,7 @@ robot_dimensions = { workspace = true }
 throwing = { workspace = true }
 transforms = { workspace = true }
 walking_engine = { workspace = true }
-
-mujoco_python_viewer = { git = "https://github.com/gaolongsen/mujoco-python-viewer" }
+mujoco-python-viewer = { path = "/home/maximilian/worktree/mujoco-python-viewer/", editable = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
