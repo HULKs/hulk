@@ -36,8 +36,8 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
     dt = env.dt
 
-    # viewer = InteractiveViewer(env.model, env.data)
-    viewer = MujocoViewer(env.model, env.data)
+    viewer = InteractiveViewer(env.model, env.data)
+    # viewer = MujocoViewer(env.model, env.data)
     # viewer.add_line_to_figure("Total Reward")
     # viewer.set_graph_name("Reward", 0)
     # viewer.set_x_label("Step", 0)
