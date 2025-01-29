@@ -34,6 +34,38 @@ pub struct FieldDimensions {
     pub goal_depth: f32,
 }
 
+#[derive(
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
+    Eq,
+)]
+pub enum GlobalFieldSide {
+    Home,
+    Away,
+}
+
+impl GlobalFieldSide {
+    pub fn sign(self) -> f32 {
+        match self {
+            GlobalFieldSide::Home => -1.0,
+            GlobalFieldSide::Away => 1.0,
+        }
+    }
+
+    pub fn mirror(self) -> Self {
+        match self {
+            GlobalFieldSide::Home => GlobalFieldSide::Away,
+            GlobalFieldSide::Away => GlobalFieldSide::Home,
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Half {
     Own,

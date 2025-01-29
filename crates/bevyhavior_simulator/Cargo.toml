@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+approx = { workspace = true }
 ball_filter = { workspace = true }
 bevy = { workspace = true }
 bincode = { workspace = true }
@@ -26,6 +27,7 @@ ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
+object_detection = { workspace = true }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
 path_serde = { workspace = true }
@@ -39,6 +41,7 @@ spl_network_messages = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
+vision = { workspace = true }
 walking_engine = { workspace = true }
 
 [build-dependencies]
