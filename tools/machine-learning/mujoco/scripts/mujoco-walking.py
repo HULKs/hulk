@@ -4,7 +4,7 @@ import time
 import click
 import mujoco
 import numpy as np
-from mujoco_interactive_viewer import InteractiveViewer
+from mujoco_interactive_viewer import Viewer
 from nao_env import NaoWalking
 from stable_baselines3 import PPO
 
@@ -34,64 +34,42 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
     dt = env.dt
 
-    viewer = InteractiveViewer(env.model, env.data)
-    # viewer = MujocoViewer(env.model, env.data)
-    viewer.figure("rewards").add_line("Total Reward")
-    # viewer.set_graph_name("Reward", 0)
-    # viewer.set_x_label("Step", 0)
-    # for key in infos:
-    #     viewer.add_graph_line(key, line_data=0.0, fig_idx=0)
-    # viewer.show_graph_legend(show_legend=True, fig_idx=0)
-    # viewer.set_grid_divisions(x_div=10, y_div=5, x_axis_time=10.0, fig_idx=0)
-    #
-    # viewer.set_graph_name("Summed Reward", 1)
-    # viewer.set_x_label("Step", 1)
-    # viewer.add_graph_line("Total Reward", line_data=0.0, fig_idx=1)
-    # viewer.show_graph_legend(show_legend=True, fig_idx=1)
-    # viewer.set_grid_divisions(x_div=10, y_div=5, x_axis_time=10.0, fig_idx=1)
+    viewer = Viewer(env.model, env.data)
+    rewards_figure = viewer.figure("rewards")
+    rewards_figure.set_title("Rewards")
+    rewards_figure.set_x_label("Step")
+    for key in infos:
+        rewards_figure.add_line(key)
+
+    total_reward_figure = viewer.figure("total_reward")
+    total_reward_figure.add_line("Total Reward")
+    total_reward_figure.line_color("Total Reward", red=0.0, green=0.0, blue=1.0)
+    total_reward_figure.set_x_label("Step")
 
     total_reward = 0.0
     action = np.zeros(env.model.nu)
-    # viewer.add_marker(pos=np.array([1, 1, 1]), label="text")
 
     while viewer.is_alive:
         start_time = time.time()
-        # viewer.camera.lookat[:] = env.data.site("Robot").xpos
+        viewer.camera.lookat[:] = env.data.site("Robot").xpos
         observation, reward, _terminated, _truncated, infos = env.step(action)
         if model:
             action, _ = model.predict(observation, deterministic=True)
 
         total_reward += reward
-        # for key, value in infos.items():
-        #     viewer.update_graph_line(
-        #         key,
-        #         line_data=value,
-        #         fig_idx=0,
-        #     )
-        viewer.figure("rewards").push_data_to_line(
-            "Total Reward",
-            line_data=total_reward,
-        )
-        # breakpoint()
-        # mujoco.mjr_figure(
-        #     mujoco.MjrRect(100, 100, 100, 200),
-        #     fig,
-        #     mujoco.MjrContext(),
-        # )
 
-        # viewer.user_scn.ngeom = 0
-        # i = 0
-        # for x, y, z in itertools.product(*((range(-1, 2),) * 3)):
-        #     mujoco.mjv_initGeom(
-        #         viewer.user_scn.geoms[i],
-        #         type=int(mujoco.mjtGeom.mjGeo),
-        #         size=np.array([0.02, 1, 1]),
-        #         pos=0.1 * np.array([x, y, z]),
-        #         mat=np.eye(3).flatten(),
-        #         rgba=0.5 * np.array([x + 1, y + 1, z + 1, 2]),
-        #     )
-        #     i += 1
-        # viewer.user_scn.ngeom = i
+        for key, value in infos.items():
+            rewards_figure.push_data_to_line(key, value)
+
+        total_reward_figure.push_data_to_line("Total Reward", total_reward)
+
+        for x, y, z in itertools.product(*((range(-1, 2),) * 3)):
+            viewer.add_marker(
+                kind=mujoco.mjtGeom.mjGEOM_SPHERE,
+                size=[0.02, 0, 0],
+                position=0.1 * np.array([x, y, z]),
+                rgba=0.5 * np.array([x + 1, y + 1, z + 1, 2]),
+            )
 
         viewer.render()
         end_time = time.time()
