@@ -21,6 +21,7 @@ pub use game_controller_state_message::{
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum HulkMessage {
     Striker(StrikerMessage),
+    Loser(LoserMessage),
     VisualReferee(VisualRefereeMessage),
 }
 
@@ -32,6 +33,14 @@ impl Default for HulkMessage {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct StrikerMessage {
+    pub player_number: PlayerNumber,
+    pub pose: Pose2<Field>,
+    pub ball_position: Option<BallPosition<Field>>,
+    pub time_to_reach_kick_position: Option<Duration>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub struct LoserMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
     pub ball_position: Option<BallPosition<Field>>,
