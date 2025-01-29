@@ -31,6 +31,7 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     dt = env.dt
 
     viewer = Viewer(env.model, env.data)
+    # viewer._render_state.toggle_pause()
     rewards_figure = viewer.figure("rewards")
     rewards_figure.set_title("Rewards")
     rewards_figure.set_x_label("Step")
@@ -45,12 +46,21 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     total_reward = 0.0
     action = np.zeros(env.action_space_size)
 
+    fsr_figure = viewer.figure("fsr")
+    fsr_figure.set_title("FSR")
+    fsr_figure.set_x_label("Step")
+    fsr_figure.add_line("Left FSR")
+    fsr_figure.add_line("Right FSR")
+
     while viewer.is_alive:
         start_time = time.time()
         viewer.camera.lookat[:] = env.data.site("Robot").xpos
         observation, reward, _terminated, _truncated, infos = env.step(action)
         if model:
             action, _ = model.predict(observation, deterministic=True)
+
+        fsr_figure.push_data_to_line("Left FSR", env.nao.left_fsr().sum())
+        fsr_figure.push_data_to_line("Right FSR", env.nao.right_fsr().sum())
 
         total_reward += reward
 

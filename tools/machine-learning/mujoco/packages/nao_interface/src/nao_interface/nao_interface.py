@@ -1,8 +1,36 @@
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import mujoco
+from nao_env.ring_buffer import RingBuffer
 import numpy as np
 from numpy.typing import NDArray
+
+POSITION_SENSOR_NAMES = [
+    "head.yaw",
+    "head.pitch",
+    "left_leg.hip_yaw_pitch",
+    "left_leg.hip_roll",
+    "left_leg.hip_pitch",
+    "left_leg.knee_pitch",
+    "left_leg.ankle_pitch",
+    "left_leg.ankle_roll",
+    "right_leg.hip_roll",
+    "right_leg.hip_pitch",
+    "right_leg.knee_pitch",
+    "right_leg.ankle_pitch",
+    "right_leg.ankle_roll",
+    "left_arm.shoulder_pitch",
+    "left_arm.shoulder_roll",
+    "left_arm.elbow_yaw",
+    "left_arm.elbow_roll",
+    "left_arm.wrist_yaw",
+    "right_arm.shoulder_pitch",
+    "right_arm.shoulder_roll",
+    "right_arm.elbow_yaw",
+    "right_arm.elbow_roll",
+    "right_arm.wrist_yaw",
+]
 
 
 class HeadJoints:
@@ -197,12 +225,26 @@ class NaoJoints:
                     self.right_leg.from_dict(v)
 
 
+@dataclass
+class Sensors:
+    positions: RingBuffer
+    left_fsr: RingBuffer
+    right_fsr: RingBuffer
+    gyroscope: RingBuffer
+    accelerometer: RingBuffer
+
+
 class Nao:
     def __init__(
         self,
         model: mujoco.MjModel,
         data: mujoco.MjData,
         fsr_scale: float = 1.0,
+        position_sensors: list[str] = POSITION_SENSOR_NAMES,
+        position_sensor_delay: int = 0,
+        fsr_sensor_delay: int = 0,
+        gyroscope_sensor_delay: int = 0,
+        accelerometer_sensor_delay: int = 0,
     ) -> None:
         self.model = model
         self.data = data
@@ -220,6 +262,24 @@ class Nao:
             ),
         )
         self.fsr_scale = fsr_scale
+        self.position_sensors = position_sensors
+        self.sensors = Sensors(
+            positions=RingBuffer(
+                position_sensor_delay + 1, self._read_positions()
+            ),
+            left_fsr=RingBuffer(
+                fsr_sensor_delay + 1, self._read_left_fsr_values()
+            ),
+            right_fsr=RingBuffer(
+                fsr_sensor_delay + 1, self._read_right_fsr_values()
+            ),
+            gyroscope=RingBuffer(
+                gyroscope_sensor_delay + 1, self._read_gyroscope()
+            ),
+            accelerometer=RingBuffer(
+                accelerometer_sensor_delay + 1, self._read_accelerometer()
+            ),
+        )
 
     def set_transform(
         self, position: NDArray[np.floating], quaternion: NDArray[np.floating]
@@ -240,44 +300,74 @@ class Nao:
 
         mujoco.mj_forward(self.model, self.data)
 
-    def left_fsr_values(self) -> NDArray[np.floating]:
+    def update_sensors(self) -> None:
+        self.sensors.positions.push(self._read_positions())
+        self.sensors.left_fsr.push(self._read_left_fsr_values())
+        self.sensors.right_fsr.push(self._read_right_fsr_values())
+        self.sensors.gyroscope.push(self._read_gyroscope())
+        self.sensors.accelerometer.push(self._read_accelerometer())
+
+    def _read_positions(self) -> NDArray[np.floating]:
+        return np.concatenate(
+            [
+                self.data.sensor(sensor_name).data
+                for sensor_name in self.position_sensors
+            ],
+        )
+
+    def _read_left_fsr_values(self) -> NDArray[np.floating]:
         return self.fsr_scale * np.array(
             [
                 self.data.sensor(
                     "force_sensitive_resistors.left.front_left",
-                ).data,
+                ).data[0],
                 self.data.sensor(
                     "force_sensitive_resistors.left.front_right",
-                ).data,
+                ).data[0],
                 self.data.sensor(
                     "force_sensitive_resistors.left.rear_left",
-                ).data,
+                ).data[0],
                 self.data.sensor(
                     "force_sensitive_resistors.left.rear_right",
-                ).data,
+                ).data[0],
             ],
         )
 
-    def right_fsr_values(self) -> NDArray[np.floating]:
+    def _read_right_fsr_values(self) -> NDArray[np.floating]:
         return self.fsr_scale * np.array(
             [
                 self.data.sensor(
                     "force_sensitive_resistors.right.front_left",
-                ).data,
+                ).data[0],
                 self.data.sensor(
                     "force_sensitive_resistors.right.front_right",
-                ).data,
+                ).data[0],
                 self.data.sensor(
                     "force_sensitive_resistors.right.rear_left",
-                ).data,
+                ).data[0],
                 self.data.sensor(
                     "force_sensitive_resistors.right.rear_right",
-                ).data,
+                ).data[0],
             ],
         )
 
-    def gyroscope(self) -> NDArray[np.floating]:
+    def _read_gyroscope(self) -> NDArray[np.floating]:
         return self.data.sensor("gyroscope").data
 
-    def accelerometer(self) -> NDArray[np.floating]:
+    def _read_accelerometer(self) -> NDArray[np.floating]:
         return self.data.sensor("accelerometer").data
+
+    def position_encoders(self) -> NDArray[np.floating]:
+        return self.sensors.positions.left()
+
+    def left_fsr(self) -> NDArray[np.floating]:
+        return self.sensors.left_fsr.left()
+
+    def right_fsr(self) -> NDArray[np.floating]:
+        return self.sensors.right_fsr.left()
+
+    def gyroscope(self) -> NDArray[np.floating]:
+        return self.sensors.gyroscope.left()
+
+    def accelerometer(self) -> NDArray[np.floating]:
+        return self.sensors.accelerometer.left()

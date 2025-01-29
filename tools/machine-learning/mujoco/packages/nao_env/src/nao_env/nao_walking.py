@@ -79,6 +79,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
     def __init__(self, *, throw_tomatoes: bool, **kwargs: Any) -> None:
         super().__init__(
             throw_tomatoes=throw_tomatoes,
+            sensor_delay=40,
             **kwargs,
         )
 
@@ -155,8 +156,8 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         ctrl: NDArray[np.floating],
         n_frames: int,
     ) -> None:
-        right_pressure = self.nao.right_fsr_values().sum()
-        left_pressure = self.nao.left_fsr_values().sum()
+        right_pressure = self.nao.right_fsr().sum()
+        left_pressure = self.nao.left_fsr().sum()
 
         measurements = Measurements(left_pressure, right_pressure)
         self.nao.data.ctrl[:] = OFFSET_QPOS
@@ -180,7 +181,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
                 dt=dt,
             )
         self.nao.data.ctrl[self._actuation_mask] += ctrl
-        self._step_mujoco_simulation(self.nao.data.ctrl, n_frames)
+        super().do_simulation(self.nao.data.ctrl, n_frames)
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
@@ -194,8 +195,8 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         self.nao.reset(READY_POSE)
 
         measurements = Measurements(
-            self.nao.left_fsr_values().sum(),
-            self.nao.right_fsr_values().sum(),
+            self.nao.left_fsr().sum(),
+            self.nao.right_fsr().sum(),
         )
 
         apply_walking(
