@@ -9,10 +9,6 @@ from nao_env import NaoWalking
 from stable_baselines3 import PPO
 
 
-def key_callback(key: int) -> None:
-    print(f"Key pressed: {key}")
-
-
 @click.command()
 @click.option(
     "--throw-tomatoes", is_flag=True, help="Throw tomatoes at the Nao."
