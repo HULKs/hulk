@@ -79,7 +79,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
     def __init__(self, *, throw_tomatoes: bool, **kwargs: Any) -> None:
         super().__init__(
             throw_tomatoes=throw_tomatoes,
-            sensor_delay=40,
+            sensor_delay=3,
             **kwargs,
         )
 

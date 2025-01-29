@@ -52,6 +52,7 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
     ) -> None:
         super().__init__(
             throw_tomatoes=throw_tomatoes,
+            sensor_delay=3,
             **kwargs,
         )
 
