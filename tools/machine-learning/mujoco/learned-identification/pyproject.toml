@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
+  "click>=8.1.8",
+  "cmaes>=0.11.1",
   "mcap>=1.2.1",
   "mediapy>=1.2.2",
   "msgpack>=1.1.0",
@@ -14,8 +16,6 @@ dependencies = [
   "pymysql>=1.1.1",
   "pyqt6>=6.7.1",
   "tqdm>=4.67.0",
-  "cmaes>=0.11.1",
-  "click>=8.1.8",
 ]
 
 [build-system]
