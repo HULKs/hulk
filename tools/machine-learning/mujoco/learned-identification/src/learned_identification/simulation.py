@@ -31,7 +31,9 @@ def simulate_recording(
     simulated_sensor_data = []
 
     with mj.Renderer(model) as renderer:
-        for actuators in tqdm.tqdm(recorded_actuator_positions, desc="simulating"):
+        for actuators in tqdm.tqdm(
+            recorded_actuator_positions, desc="simulating"
+        ):
             data.ctrl = actuators
             mj.mj_step(model, data)
             sensor_data = np.concatenate(
