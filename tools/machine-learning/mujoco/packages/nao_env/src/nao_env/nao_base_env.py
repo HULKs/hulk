@@ -147,5 +147,5 @@ class NaoBaseEnv(MujocoEnv):
         ctrl: NDArray[np.floating],
         n_frames: int,
     ) -> None:
-        self.data.ctrl[self._actuation_mask] += ctrl
+        self.data.ctrl[self._actuation_mask] = ctrl
         self._step_mujoco_simulation(self.data.ctrl, n_frames)
