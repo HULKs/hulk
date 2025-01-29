@@ -9,8 +9,8 @@ from walking_engine import State
 @dataclass
 class RewardContext:
     nao: Nao
-    walk_state: State
     action: NDArray[np.floating]
+    walk_state: State | None = None
 
 
 class BaseReward:

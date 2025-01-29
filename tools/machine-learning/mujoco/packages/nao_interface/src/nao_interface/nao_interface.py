@@ -215,6 +215,13 @@ class Nao:
             ),
         )
 
+    def set_transform(
+        self, position: NDArray[np.floating], quaternion: NDArray[np.floating]
+    ) -> None:
+        nao = self.data.body("Nao")
+        nao.xpos = position
+        nao.xquat = quaternion
+
     def reset(self, positions: dict[str, dict[str, float]]) -> None:
         mujoco.mj_resetData(self.model, self.data)
 

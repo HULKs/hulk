@@ -19,7 +19,7 @@ from stable_baselines3 import PPO
 )
 def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     env = NaoWalking(throw_tomatoes=throw_tomatoes)
-    _, _, _, _, infos = env.step(np.zeros(env.model.nu))
+    _, _, _, _, infos = env.step(np.zeros(env.action_space_size))
     env.reset()
 
     model = None
@@ -47,7 +47,7 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     viewer.set_grid_divisions(x_div=10, y_div=5, x_axis_time=10.0, fig_idx=1)
 
     total_reward = 0.0
-    action = np.zeros(env.model.nu)
+    action = np.zeros(env.action_space_size)
 
     while viewer.is_alive:
         start_time = time.time()
