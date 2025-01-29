@@ -117,7 +117,6 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:
-        nao = Nao(self.model, self.data)
         robot_position = self.data.site("Robot").xpos
 
         if self.projectile.has_ground_contact() and self.throw_tomatoes:
@@ -137,7 +136,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
             self.render()
 
         distinct_rewards = self.reward.rewards(
-            RewardContext(nao, action, self.state)
+            RewardContext(self.nao, action, self.state)
         )
         reward = sum(distinct_rewards.values())
 
@@ -156,13 +155,11 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         ctrl: NDArray[np.floating],
         n_frames: int,
     ) -> None:
-        nao = Nao(self.model, self.data)
-
-        right_pressure = nao.right_fsr_values().sum()
-        left_pressure = nao.left_fsr_values().sum()
+        right_pressure = self.nao.right_fsr_values().sum()
+        left_pressure = self.nao.left_fsr_values().sum()
 
         measurements = Measurements(left_pressure, right_pressure)
-        nao.data.ctrl[:] = OFFSET_QPOS
+        self.nao.data.ctrl[:] = OFFSET_QPOS
 
         if self.enable_walking and (
             measurements.pressure_left > 0.0
@@ -175,15 +172,15 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
                 left=0.0,
             )
             apply_walking(
-                nao,
+                self.nao,
                 parameters=self.parameters,
                 state=self.state,
                 measurements=measurements,
                 control=control,
                 dt=dt,
             )
-        nao.data.ctrl[self._actuation_mask] += ctrl
-        self._step_mujoco_simulation(nao.data.ctrl, n_frames)
+        self.nao.data.ctrl[self._actuation_mask] += ctrl
+        self._step_mujoco_simulation(self.nao.data.ctrl, n_frames)
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
@@ -194,16 +191,15 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
             self.init_qpos,
             self.init_qvel,
         )
-        nao = Nao(self.model, self.data)
-        nao.reset(READY_POSE)
+        self.nao.reset(READY_POSE)
 
         measurements = Measurements(
-            nao.left_fsr_values().sum(),
-            nao.right_fsr_values().sum(),
+            self.nao.left_fsr_values().sum(),
+            self.nao.right_fsr_values().sum(),
         )
 
         apply_walking(
-            nao,
+            self.nao,
             self.parameters,
             self.state,
             measurements,

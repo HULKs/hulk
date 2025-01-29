@@ -198,7 +198,12 @@ class NaoJoints:
 
 
 class Nao:
-    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData) -> None:
+    def __init__(
+        self,
+        model: mujoco.MjModel,
+        data: mujoco.MjData,
+        fsr_scale: float = 1.0,
+    ) -> None:
         self.model = model
         self.data = data
         self.actuators = NaoJoints(
@@ -214,6 +219,7 @@ class Nao:
                 value,
             ),
         )
+        self.fsr_scale = fsr_scale
 
     def set_transform(
         self, position: NDArray[np.floating], quaternion: NDArray[np.floating]
@@ -235,7 +241,7 @@ class Nao:
         mujoco.mj_forward(self.model, self.data)
 
     def left_fsr_values(self) -> NDArray[np.floating]:
-        return np.array(
+        return self.fsr_scale * np.array(
             [
                 self.data.sensor(
                     "force_sensitive_resistors.left.front_left",
@@ -253,7 +259,7 @@ class Nao:
         )
 
     def right_fsr_values(self) -> NDArray[np.floating]:
-        return np.array(
+        return self.fsr_scale * np.array(
             [
                 self.data.sensor(
                     "force_sensitive_resistors.right.front_left",

@@ -2,7 +2,6 @@ from typing import Any, override
 
 import numpy as np
 from gymnasium import utils
-from nao_interface.nao_interface import Nao
 from nao_interface.poses import PENALIZED_POSE
 from numpy.typing import NDArray
 from rewards import (
@@ -70,7 +69,6 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:
         self.current_step += 1
-        nao = Nao(self.model, self.data)
 
         if self.throw_tomatoes and self.projectile.has_ground_contact():
             target = self.data.site("Robot").xpos
@@ -90,7 +88,7 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
 
         terminated = head_center_z < 0.3
 
-        distinct_rewards = self.reward.rewards(RewardContext(nao, action))
+        distinct_rewards = self.reward.rewards(RewardContext(self.nao, action))
         reward = sum(distinct_rewards.values())
 
         if terminated:
@@ -112,6 +110,5 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
             self.init_qpos,
             self.init_qvel,
         )
-        nao = Nao(self.model, self.data)
-        nao.reset(PENALIZED_POSE)
+        self.nao.reset(PENALIZED_POSE)
         return self._get_obs()

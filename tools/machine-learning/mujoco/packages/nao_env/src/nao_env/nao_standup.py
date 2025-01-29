@@ -2,7 +2,6 @@ from typing import Any, override
 
 import numpy as np
 from gymnasium import utils
-from nao_interface import Nao
 from nao_interface.poses import PENALIZED_POSE
 from numpy.typing import NDArray
 from rewards import (
@@ -32,9 +31,8 @@ class NaoStandup(NaoBaseEnv, utils.EzPickle):
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:
         self.do_simulation(action, self.frame_skip)
-        nao = Nao(self.model, self.data)
 
-        distinct_rewards = self.reward.rewards(RewardContext(nao, action))
+        distinct_rewards = self.reward.rewards(RewardContext(self.nao, action))
         reward = sum(distinct_rewards.values())
 
         if self.render_mode == "human":
@@ -48,9 +46,8 @@ class NaoStandup(NaoBaseEnv, utils.EzPickle):
             self.init_qpos,
             self.init_qvel,
         )
-        nao = Nao(self.model, self.data)
-        nao.reset(PENALIZED_POSE)
-        nao.set_transform(
+        self.nao.reset(PENALIZED_POSE)
+        self.nao.set_transform(
             np.array([-0.13252355, -0.0909888, 0.05897925]),
             np.array([0.69360432, 0.13973604, -0.692682, 0.13992331]),
         )

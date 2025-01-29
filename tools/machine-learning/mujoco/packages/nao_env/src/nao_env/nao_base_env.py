@@ -78,7 +78,13 @@ class NaoBaseEnv(MujocoEnv):
         "render_fps": 83,
     }
 
-    def __init__(self, *, throw_tomatoes: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *,
+        throw_tomatoes: bool = False,
+        fsr_scale: float = 0.019,
+        **kwargs: Any,
+    ) -> None:
         observation_space = Box(
             low=-np.inf,
             high=np.inf,
@@ -103,6 +109,7 @@ class NaoBaseEnv(MujocoEnv):
         )
         self._actuation_mask = self._get_actuation_mask()
         self.action_space_size = len(ACTUATOR_NAMES)
+        self.nao = Nao(self.model, self.data, fsr_scale=fsr_scale)
 
     def _get_actuation_mask(self) -> NDArray[np.bool_]:
         actuation_mask = np.zeros(self.model.nu, dtype=np.bool_)
@@ -124,10 +131,8 @@ class NaoBaseEnv(MujocoEnv):
         return self.action_space
 
     def _get_obs(self) -> NDArray[np.floating]:
-        nao = Nao(self.model, self.data)
-
-        force_sensing_resistors_right = nao.right_fsr_values().sum()
-        force_sensing_resistors_left = nao.left_fsr_values().sum()
+        force_sensing_resistors_right = self.nao.right_fsr_values().sum()
+        force_sensing_resistors_left = self.nao.left_fsr_values().sum()
 
         sensors = np.concatenate(
             [
