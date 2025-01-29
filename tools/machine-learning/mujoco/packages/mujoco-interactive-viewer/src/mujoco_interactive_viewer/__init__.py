@@ -1,6 +1,6 @@
-from enum import Enum
 import time
 from dataclasses import dataclass
+from enum import Enum
 from threading import Lock
 
 import glfw
@@ -66,6 +66,55 @@ class VisualizationState:
     show_inertias: bool = False
     show_com: bool = False
     show_overlay: bool = True
+    show_frame: int = 0
+
+    def toggle_contacts(self, option: mujoco.MjvOption) -> None:
+        self.show_contacts = not self.show_contacts
+        option.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = self.show_contacts
+        option.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = self.show_contacts
+
+    def toggle_joints(self, option: mujoco.MjvOption) -> None:
+        self.show_joints = not self.show_joints
+        option.flags[mujoco.mjtVisFlag.mjVIS_JOINT] = self.show_joints
+
+    def cycle_frame_display(self, option: mujoco.MjvOption) -> None:
+        self.show_frame += 1
+        if self.show_frame == mujoco.mjtFrame.mjNFRAME.value:
+            self.show_frame = 0
+        option.frame = self.show_frame
+
+    def toggle_overlays(self) -> None:
+        self.show_overlay = not self.show_overlay
+
+    def toggle_transparency(self, model: mujoco.MjModel) -> None:
+        self.transparent = not self.transparent
+        if self.transparent:
+            model.geom_rgba[:, 3] /= 5.0
+        else:
+            model.geom_rgba[:, 3] *= 5.0
+
+    def toggle_figures(self) -> None:
+        self.show_figures = not self.show_figures
+
+    def toggle_inertias(self, option: mujoco.MjvOption) -> None:
+        self.show_inertias = not self.show_inertias
+        option.flags[mujoco.mjtVisFlag.mjVIS_INERTIA] = self.show_inertias
+
+    def toggle_com(self, option: mujoco.MjvOption) -> None:
+        self.show_com = not self.show_com
+        option.flags[mujoco.mjtVisFlag.mjVIS_COM] = self.show_com
+
+    def toggle_shadows(self, scene: mujoco.MjvScene) -> None:
+        self.show_shadows = not self.show_shadows
+        scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = self.show_shadows
+
+    def toggle_convex_hull(self, option: mujoco.MjvOption) -> None:
+        self.show_convex_hull = not self.show_convex_hull
+        option.flags[mujoco.mjtVisFlag.mjVIS_CONVEXHULL] = self.show_convex_hull
+
+    def toggle_wire_frame(self, scene: mujoco.MjvScene) -> None:
+        self.show_wire_frame = not self.show_wire_frame
+        scene.flags[mujoco.mjtRndFlag.mjRND_WIREFRAME] = self.show_wire_frame
 
 
 @dataclass
@@ -76,6 +125,26 @@ class RenderState:
     run_speed: float = 1.0
     loop_count: float = 0.0
     steps_to_advance: int = 0
+
+    def toggle_render_every_frame(self) -> None:
+        self.render_every_frame = not self.render_every_frame
+
+    def toggle_pause(self) -> None:
+        self.is_paused = not self.is_paused
+
+    def advance_by_one_step(self) -> None:
+        self.steps_to_advance = 1
+        self.is_paused = True
+
+    def run_slower(self) -> None:
+        self.run_speed /= 2.0
+        if self.run_speed < 2**-4:
+            self.run_speed = 2**-4
+
+    def run_faster(self) -> None:
+        self.run_speed *= 2.0
+        if self.run_speed > 2**4:
+            self.run_speed = 2**4
 
 
 @dataclass
@@ -189,7 +258,7 @@ class InteractiveViewer:
         glfw.set_scroll_callback(self._window, self._scroll_callback)
         glfw.set_key_callback(self._window, self._key_callback)
 
-        self.visualization = mujoco.MjvOption()
+        self.visualization_option = mujoco.MjvOption()
         self.camera = mujoco.MjvCamera()
         self.scene = mujoco.MjvScene(self.model, maxgeom=10000)
         self.perturbation = mujoco.MjvPerturb()
@@ -253,7 +322,7 @@ class InteractiveViewer:
             add_overlay(
                 top_left,
                 f"Run speed = {self._render_state.run_speed:.3f}x real time",
-                "[S]lower, [F]aster",
+                "Slower [<], Faster [>]",
             )
         add_overlay(
             top_left,
@@ -277,7 +346,7 @@ class InteractiveViewer:
         )
         add_overlay(
             top_left,
-            "[G]raph Viewer",
+            "Show Figures [P]",
             "Off" if self._visualization_state.show_figures else "On",
         )
         add_overlay(
@@ -292,12 +361,12 @@ class InteractiveViewer:
         )
         add_overlay(
             top_left,
-            "Shad[O]ws",
+            "[S]hadows",
             "On" if self._visualization_state.show_shadows else "Off",
         )
         add_overlay(
             top_left,
-            "T[r]ansparent",
+            "[T]ransparent",
             "On" if self._visualization_state.transparent else "Off",
         )
         add_overlay(
@@ -315,36 +384,24 @@ class InteractiveViewer:
                 add_overlay(top_left, "Stop", "[Space]")
             else:
                 add_overlay(top_left, "Start", "[Space]")
-                add_overlay(
-                    top_left, "Advance simulation by one step", "[right arrow]"
-                )
+                add_overlay(top_left, "Advance simulation by one step", "[.]")
         add_overlay(
             top_left,
-            "Toggle geomgroup visibility (0-5)",
-            ",".join(
-                ["On" if g else "Off" for g in self.visualization.geomgroup]
-            ),
+            "Reference [F]rames",
+            mujoco.mjtFrame(self.visualization_option.frame).name,
         )
-        add_overlay(
-            top_left,
-            "Referenc[e] frames",
-            mujoco.mjtFrame(self.visualization.frame).name,
-        )
-        add_overlay(top_left, "[H]ide Menus", "")
-        add_overlay(top_left, "Cap[t]ure frame", "")
+        add_overlay(top_left, "[H]ide Overlay", "")
 
         add_overlay(
             bottom_left,
             "FPS",
             f"{1 / self._render_state.time_per_render}",
         )
-
         add_overlay(
             bottom_left,
             "Max solver iters",
             str(max(self.data.solver_niter) + 1),
         )
-
         add_overlay(
             bottom_left,
             "Step",
@@ -380,7 +437,7 @@ class InteractiveViewer:
             mujoco.mjv_updateScene(
                 self.model,
                 self.data,
-                self.visualization,
+                self.visualization_option,
                 self.perturbation,
                 self.camera,
                 mujoco.mjtCatBit.mjCAT_ALL.value,
@@ -471,7 +528,7 @@ class InteractiveViewer:
         glfw.terminate()
         self.context.free()
 
-    def _key_callback(
+    def _key_callback(  # noqa: C901
         self,
         window: glfw._GLFWwindow,
         key: int,
@@ -487,37 +544,41 @@ class InteractiveViewer:
         if key == glfw.KEY_TAB:
             self._cycle_cameras()
         elif key == glfw.KEY_SPACE:
-            self._toggle_pause()
+            self._render_state.toggle_pause()
         elif key == glfw.KEY_PERIOD:
-            self._advance_by_one_step()
+            self._render_state.advance_by_one_step()
         elif key == glfw.KEY_COMMA and mods == glfw.MOD_SHIFT:
-            self._run_slower()
+            self._render_state.run_slower()
         elif key == glfw.KEY_PERIOD and mods == glfw.MOD_SHIFT:
-            self._run_faster()
+            self._render_state.run_faster()
         elif key == glfw.KEY_D:
-            self._toggle_render_every_frame()
+            self._render_state.toggle_render_every_frame()
         elif key == glfw.KEY_C:
-            self._toggle_contacts()
+            self._visualization_state.toggle_contacts(self.visualization_option)
         elif key == glfw.KEY_J:
-            self._toggle_joints()
-        elif key == glfw.KEY_E:
-            self._cycle_frame_display()
+            self._visualization_state.toggle_joints(self.visualization_option)
+        elif key == glfw.KEY_F:
+            self._visualization_state.cycle_frame_display(
+                self.visualization_option
+            )
         elif key == glfw.KEY_H:
-            self._toggle_overlays()
-        elif key == glfw.KEY_R:
-            self._toggle_transparency()
-        elif key == glfw.KEY_G:
-            self._toggle_figures()
+            self._visualization_state.toggle_overlays()
+        elif key == glfw.KEY_T:
+            self._visualization_state.toggle_transparency(self.model)
+        elif key == glfw.KEY_P:
+            self._visualization_state.toggle_figures()
         elif key == glfw.KEY_I:
-            self._toggle_inertias()
+            self._visualization_state.toggle_inertias(self.visualization_option)
         elif key == glfw.KEY_M:
-            self._toggle_com()
-        elif key == glfw.KEY_O:
-            self._toggle_shadows()
+            self._visualization_state.toggle_com(self.visualization_option)
+        elif key == glfw.KEY_S:
+            self._visualization_state.toggle_shadows(self.scene)
         elif key == glfw.KEY_V:
-            self._toggle_convex_hull()
+            self._visualization_state.toggle_convex_hull(
+                self.visualization_option
+            )
         elif key == glfw.KEY_W:
-            self._toggle_wire_frame()
+            self._visualization_state.toggle_wire_frame(self.scene)
 
     def _cursor_position_callback(
         self,
@@ -624,111 +685,6 @@ class InteractiveViewer:
             self.camera.fixedcamid = -1
             self.camera.type = mujoco.mjtCamera.mjCAMERA_FREE.value
 
-    def _toggle_render_every_frame(self) -> None:
-        self._render_state.render_every_frame = (
-            not self._render_state.render_every_frame
-        )
-
-    def _toggle_pause(self) -> None:
-        self._render_state.is_paused = not self._render_state.is_paused
-
-    def _advance_by_one_step(self) -> None:
-        self._render_state.steps_to_advance = 1
-        self._render_state.is_paused = True
-
-    def _run_slower(self) -> None:
-        self._render_state.run_speed /= 2.0
-        if self._render_state.run_speed < 2**-4:
-            self._render_state.run_speed = 2**-4
-
-    def _run_faster(self) -> None:
-        self._render_state.run_speed *= 2.0
-        if self._render_state.run_speed > 2**4:
-            self._render_state.run_speed = 2**4
-
-    def _toggle_contacts(self) -> None:
-        self._visualization_state.show_contacts = (
-            not self._visualization_state.show_contacts
-        )
-        self.visualization.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = (
-            self._visualization_state.show_contacts
-        )
-        self.visualization.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = (
-            self._visualization_state.show_contacts
-        )
-
-    def _toggle_joints(self) -> None:
-        self._visualization_state.show_joints = (
-            not self._visualization_state.show_joints
-        )
-        self.visualization.flags[mujoco.mjtVisFlag.mjVIS_JOINT] = (
-            self._visualization_state.show_joints
-        )
-
-    def _cycle_frame_display(self) -> None:
-        self.visualization.frame += 1
-        if self.visualization.frame == mujoco.mjtFrame.mjNFRAME.value:
-            self.visualization.frame = 0
-
-    def _toggle_overlays(self) -> None:
-        self._visualization_state.show_overlay = (
-            not self._visualization_state.show_overlay
-        )
-
-    def _toggle_transparency(self) -> None:
-        self._visualization_state.transparent = (
-            not self._visualization_state.transparent
-        )
-        if self._visualization_state.transparent:
-            self.model.geom_rgba[:, 3] /= 5.0
-        else:
-            self.model.geom_rgba[:, 3] *= 5.0
-
-    def _toggle_figures(self) -> None:
-        self._visualization_state.show_figures = (
-            not self._visualization_state.show_figures
-        )
-
-    def _toggle_inertias(self) -> None:
-        self._visualization_state.show_inertias = (
-            not self._visualization_state.show_inertias
-        )
-        self.visualization.flags[mujoco.mjtVisFlag.mjVIS_INERTIA] = (
-            self._visualization_state.show_inertias
-        )
-
-    def _toggle_com(self) -> None:
-        self._visualization_state.show_com = (
-            not self._visualization_state.show_com
-        )
-        self.visualization.flags[mujoco.mjtVisFlag.mjVIS_COM] = (
-            self._visualization_state.show_com
-        )
-
-    def _toggle_shadows(self) -> None:
-        self._visualization_state.show_shadows = (
-            not self._visualization_state.show_shadows
-        )
-        self.scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = (
-            self._visualization_state.show_shadows
-        )
-
-    def _toggle_convex_hull(self) -> None:
-        self._visualization_state.show_convex_hull = (
-            not self._visualization_state.show_convex_hull
-        )
-        self.visualization.flags[mujoco.mjtVisFlag.mjVIS_CONVEXHULL] = (
-            self._visualization_state.show_convex_hull
-        )
-
-    def _toggle_wire_frame(self) -> None:
-        self._visualization_state.show_wire_frame = (
-            not self._visualization_state.show_wire_frame
-        )
-        self.scene.flags[mujoco.mjtRndFlag.mjRND_WIREFRAME] = (
-            self._visualization_state.show_wire_frame
-        )
-
     def _handle_perturbation(self, mods: int) -> None:
         perturbation_kind = 0
         is_body_selected = self.perturbation.select > 0
@@ -782,7 +738,7 @@ class InteractiveViewer:
             selbody = mujoco.mjv_select(
                 self.model,
                 self.data,
-                self.visualization,
+                self.visualization_option,
                 aspectratio,
                 rel_x,
                 rel_y,
