@@ -1,8 +1,12 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 HOME="${HOME:-$(echo ~)}"
 
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 HULK_DATA_HOME="${HULK_DATA_HOME:-$DATA_HOME/hulk}"
 
-echo -n $(realpath "$HULK_DATA_HOME")
+if [ "$(uname)" == "Darwin" ]; then
+    echo -n $(grealpath "$HULK_DATA_HOME")
+else
+    echo -n $(realpath "$HULK_DATA_HOME")
+fi
