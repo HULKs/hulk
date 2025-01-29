@@ -3,6 +3,10 @@
   "hardware_parameters": "etc/parameters/hardware.json",
   "parameters_directory": "etc/parameters",
   "recording_intervals": {
-    "Control": 1
+    "Audio": 30,
+    "Control": 1,
+    "ObjectDetectionTop": 2,
+    "SplNetwork": 1,
+    "VisionTop": 2
   }
 }
