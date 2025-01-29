@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     net::SocketAddr,
     time::{Duration, SystemTime},
 };
@@ -10,7 +11,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use linear_algebra::{Isometry2, Point2, Vector};
+use linear_algebra::{Isometry2, Vector};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, StrikerMessage,
     SubState, Team,
@@ -56,7 +57,8 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
-    time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
+    // time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
+    time_to_reach_kick_position: Input<Duration, "time_to_reach_kick_position">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
@@ -76,8 +78,8 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub team_ball: MainOutput<Option<BallPosition<Field>>>,
-    pub network_robot_obstacles: MainOutput<Vec<Point2<Ground>>>,
+    // pub team_ball: MainOutput<Option<BallPosition<Field>>>,
+    // pub network_robot_obstacles: MainOutput<Vec<Point2<Ground>>>,
     pub role: MainOutput<Role>,
 }
 
@@ -90,15 +92,7 @@ impl RoleAssignment {
             role: Role::Striker,
             role_initialized: false,
             team_ball: None,
-            last_time_player_was_penalized: Players {
-                one: None,
-                two: None,
-                three: None,
-                four: None,
-                five: None,
-                six: None,
-                seven: None,
-            },
+            last_time_player_was_penalized: Players::new(None),
         })
     }
 
@@ -108,7 +102,7 @@ impl RoleAssignment {
     ) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
         let primary_state = *context.primary_state;
-        let mut new_role = self.role;
+        let mut role = self.role;
 
         let ground_to_field =
             context
@@ -151,7 +145,7 @@ impl RoleAssignment {
                     player_roles[striker] = Role::Striker;
                 }
             }
-            new_role = player_roles[*context.player_number];
+            role = player_roles[*context.player_number];
 
             self.role_initialized = true;
             self.last_received_spl_striker_message = Some(cycle_start_time);
@@ -219,25 +213,22 @@ impl RoleAssignment {
             })
         );
         if spl_striker_message_timeout && !is_in_penalty_kick {
-            match new_role {
-                Role::Keeper => {
-                    team_ball = None;
-                }
-                Role::ReplacementKeeper => {
-                    team_ball = None;
-                }
+            team_ball = None;
+        }
+
+        if spl_striker_message_timeout && !is_in_penalty_kick {
+            match role {
+                Role::Keeper | Role::ReplacementKeeper => {}
                 Role::Striker => {
                     send_spl_striker_message = true;
-                    team_ball = None;
-                    new_role = Role::Loser;
+                    role = Role::Loser;
                 }
                 Role::Loser if *context.player_number == PlayerNumber::One => {
-                    new_role = Role::Keeper;
+                    role = Role::Keeper;
                 }
                 _ => {
                     send_spl_striker_message = false;
-                    team_ball = None;
-                    new_role = Role::Searcher
+                    role = Role::Searcher
                 }
             }
         }
@@ -249,13 +240,14 @@ impl RoleAssignment {
             .into_values()
             .flatten()
             .filter_map(|message| match message {
-                Some(IncomingMessage::Spl(HulkMessage::Striker(message))) => Some(message),
+                Some(IncomingMessage::Spl(HulkMessage::Striker(message))) => Some(*message),
                 _ => None,
             })
             .peekable();
+        let mut should_send_striker_message = false;
         if spl_messages.peek().is_none() {
-            (new_role, send_spl_striker_message, team_ball) = process_role_state_machine(
-                new_role,
+            let (new_role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                role,
                 ground_to_field,
                 context.ball_position,
                 primary_state,
@@ -269,6 +261,8 @@ impl RoleAssignment {
                 context.spl_network.striker_trusts_team_ball,
                 context.optional_roles,
             );
+            role = new_role;
+            should_send_striker_message = should_send_striker_message | send_spl_striker_message;
         } else {
             for spl_message in spl_messages {
                 self.last_received_spl_striker_message = Some(cycle_start_time);
@@ -276,8 +270,8 @@ impl RoleAssignment {
                 if spl_message.player_number != *context.player_number {
                     network_robot_obstacles.push(sender_position);
                 }
-                (new_role, send_spl_striker_message, team_ball) = process_role_state_machine(
-                    new_role,
+                (role, send_spl_striker_message, team_ball) = process_role_state_machine(
+                    role,
                     ground_to_field,
                     context.ball_position,
                     primary_state,
@@ -293,12 +287,13 @@ impl RoleAssignment {
                 );
             }
         }
+        send_spl_striker_message = should_send_striker_message;
         if self.role == Role::ReplacementKeeper {
             let mut other_players_with_lower_number = self
                 .last_time_player_was_penalized
                 .iter()
                 .filter(|(player_number, _)| player_number < context.player_number);
-            let is_lowest_number_without =
+            let is_lowest_number_without_penalty =
                 other_players_with_lower_number.all(|(_, penalized_time)| {
                     penalized_time
                         .map(|system_time| {
@@ -309,8 +304,8 @@ impl RoleAssignment {
                         })
                         .unwrap_or(false)
                 });
-            if !send_spl_striker_message && is_lowest_number_without {
-                new_role = Role::ReplacementKeeper;
+            if !send_spl_striker_message && is_lowest_number_without_penalty {
+                role = Role::ReplacementKeeper;
             }
         }
         context
@@ -329,19 +324,22 @@ impl RoleAssignment {
                         .spl_network
                         .remaining_amount_of_messages_to_stop_sending
                 {
-                    let ball_position = if context.ball_position.is_none() && team_ball.is_some() {
+                    let pose = ground_to_field.as_pose();
+                    let team_network_ball = team_ball.map(|team_ball| {
                         team_ball_to_network_ball_position(team_ball, cycle_start_time)
-                    } else {
-                        seen_ball_to_hulks_network_ball_position(
-                            context.ball_position,
+                    });
+                    let own_network_ball = context.ball_position.map(|seen_ball| {
+                        own_ball_to_hulks_network_ball_position(
+                            *seen_ball,
                             ground_to_field,
                             cycle_start_time,
                         )
-                    };
+                    });
+                    let ball_position = own_network_ball.or(team_network_ball);
                     context.hardware.write_to_network(OutgoingMessage::Spl(
                         HulkMessage::Striker(StrikerMessage {
                             player_number: *context.player_number,
-                            pose: ground_to_field.as_pose(),
+                            pose,
                             ball_position,
                             time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
                         }),
@@ -353,7 +351,7 @@ impl RoleAssignment {
         if let Some(forced_role) = context.forced_role {
             self.role = *forced_role;
         } else {
-            self.role = new_role;
+            self.role = role;
         }
         self.team_ball = team_ball;
 
@@ -372,26 +370,40 @@ impl RoleAssignment {
 
         Ok(MainOutputs {
             role: self.role.into(),
-            team_ball: self.team_ball.into(),
-            network_robot_obstacles: network_robot_obstacles.into(),
+            // team_ball: self.team_ball.into(),
+            // network_robot_obstacles: network_robot_obstacles.into(),
         })
     }
+}
+
+#[derive(Clone, Copy)]
+enum Event {
+    None,
+    Striker(StrikerEvent),
+    Loser,
+}
+
+#[derive(Clone, Copy)]
+struct StrikerEvent {
+    player_number: PlayerNumber,
+    ball_position: spl_network_messages::BallPosition<Field>,
+    time_to_reach_kick_position: Option<Duration>,
 }
 
 #[allow(clippy::too_many_arguments)]
 fn process_role_state_machine(
     current_role: Role,
-    current_pose: Isometry2<Ground, Field>,
+    ground_to_field: Isometry2<Ground, Field>,
     detected_own_ball: Option<&BallPosition<Ground>>,
     primary_state: PrimaryState,
-    incoming_message: Option<&StrikerMessage>,
+    incoming_message: Option<StrikerMessage>,
     time_to_reach_kick_position: Option<Duration>,
     send_spl_striker_message: bool,
     team_ball: Option<BallPosition<Field>>,
     cycle_start_time: SystemTime,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
-    striker_trusts_team_ball: Duration,
+    striker_trusts_team_ball_duration: Duration,
     optional_roles: &[Role],
 ) -> (Role, bool, Option<BallPosition<Field>>) {
     if let Some(game_controller_state) = filtered_game_controller_state {
@@ -409,29 +421,52 @@ fn process_role_state_machine(
         }
     }
 
+    let detected_own_team_ball = detected_own_ball.map(|detected_own_ball| {
+        Some(BallPosition {
+            position: ground_to_field * detected_own_ball.position,
+            velocity: Vector::zeros(),
+            last_seen: cycle_start_time,
+        })
+    });
+
     if primary_state != PrimaryState::Playing {
-        match detected_own_ball {
+        match detected_own_team_ball {
             None => return (current_role, false, team_ball),
-            Some(..) => {
-                return (
-                    current_role,
-                    false,
-                    team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-                )
-            }
+            Some(own_team_ball) => return (current_role, false, own_team_ball),
         }
     }
 
-    match (current_role, detected_own_ball, incoming_message) {
-        //Striker maybe lost Ball
-        (Role::Striker, None, None) => match team_ball {
+    let event = match incoming_message {
+        None => Event::None,
+        Some(StrikerMessage {
+            ball_position: Some(ball_position),
+            time_to_reach_kick_position,
+            player_number,
+            ..
+        }) => Event::Striker(StrikerEvent {
+            player_number,
+            ball_position,
+            time_to_reach_kick_position,
+        }),
+        Some(StrikerMessage {
+            ball_position: None,
+            ..
+        }) => Event::Loser {},
+    };
+
+    let striker_trusts_team_ball = |team_ball: BallPosition<Field>| {
+        cycle_start_time
+            .duration_since(team_ball.last_seen)
+            .unwrap()
+            > striker_trusts_team_ball_duration
+    };
+
+    match (current_role, detected_own_team_ball, event) {
+        // Striker lost Ball
+        (Role::Striker, None, Event::None | Event::Loser) => match team_ball {
             None => (Role::Loser, true, None),
             Some(team_ball) => {
-                if cycle_start_time
-                    .duration_since(team_ball.last_seen)
-                    .unwrap()
-                    > striker_trusts_team_ball
-                {
+                if striker_trusts_team_ball(team_ball) {
                     (Role::Loser, true, None)
                 } else {
                     (Role::Striker, send_spl_striker_message, Some(team_ball))
@@ -439,222 +474,105 @@ fn process_role_state_machine(
             }
         },
 
-        // Striker maybe lost Ball but got a message (edge-case)
-        (Role::Striker, None, Some(spl_message)) => match &spl_message.ball_position {
-            None => {
-                // another Striker became Loser
-                match team_ball {
-                    None => (Role::Loser, true, None),
-                    Some(team_ball) => {
-                        if cycle_start_time
-                            .duration_since(team_ball.last_seen)
-                            .unwrap()
-                            > striker_trusts_team_ball
-                        {
-                            (Role::Loser, true, None)
-                        } else {
-                            (Role::Striker, send_spl_striker_message, Some(team_ball))
-                        }
-                    }
-                }
-            }
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
+        (_other_role, _own_ball, Event::Striker(striker_event)) => {
+            let team_ball_from_spl_message = Some(BallPosition {
+                position: striker_event.ball_position.position,
+                velocity: Vector::zeros(),
+                last_seen: cycle_start_time - striker_event.ball_position.age,
+            });
+            let (role, send_spl_striker_message) = claim_striker_or_other_role(
+                striker_event,
                 time_to_reach_kick_position,
                 player_number,
-                cycle_start_time,
                 filtered_game_controller_state,
                 optional_roles,
-            ),
-        },
+            );
+            (role, send_spl_striker_message, team_ball_from_spl_message)
+        }
 
         //Striker remains Striker, sends message after timeout
-        (Role::Striker, Some(..), None) => (Role::Striker, send_spl_striker_message, team_ball),
+        (Role::Striker, Some(own_team_ball), Event::None) => {
+            (Role::Striker, send_spl_striker_message, own_team_ball)
+        }
 
         // Striker got a message (either another Player claims Stiker role or Edge-case of a second Striker)
-        (Role::Striker, Some(..), Some(spl_message)) => match &spl_message.ball_position {
-            None => {
-                // another Striker became Loser, so we claim striker since we see a ball
-                (
-                    Role::Striker,
-                    true,
-                    team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-                )
-            }
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
-                time_to_reach_kick_position,
-                player_number,
-                cycle_start_time,
-                filtered_game_controller_state,
-                optional_roles,
-            ),
-        },
+        // another Striker became Loser, so we claim striker since we see a ball
+        (Role::Striker, Some(own_team_ball), Event::Loser) => (Role::Striker, true, own_team_ball),
 
         //Loser remains Loser
-        (Role::Loser, None, None) => (Role::Loser, false, team_ball),
-
-        (Role::Loser, None, Some(spl_message)) => match &spl_message.ball_position {
-            None => (Role::Loser, false, None), //edge-case, a striker (which should not exist) lost the ball
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
-                time_to_reach_kick_position,
-                player_number,
-                cycle_start_time,
-                filtered_game_controller_state,
-                optional_roles,
-            ),
-        },
+        (Role::Loser, None, Event::None) => (Role::Loser, false, team_ball),
+        (Role::Loser, None, Event::Loser) => (Role::Loser, false, None),
 
         //Loser found ball and becomes Striker
-        (Role::Loser, Some(..), None) => (
-            Role::Striker,
-            true,
-            team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-        ),
+        (Role::Loser, Some(own_team_ball), Event::None) => (Role::Striker, true, own_team_ball),
 
-        // Edge-case, Loser found Ball at the same time as receiving a message
-        (Role::Loser, Some(..), Some(spl_message)) => match &spl_message.ball_position {
-            None => {
-                // another Striker became Loser, so we claim striker since we see a ball
-                (
-                    Role::Striker,
-                    true,
-                    team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-                )
-            }
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
-                time_to_reach_kick_position,
-                player_number,
-                cycle_start_time,
-                filtered_game_controller_state,
-                optional_roles,
-            ),
-        },
+        // Edge-case, Loser found Ball at the same time as receiving a loser message
+        (Role::Loser, Some(own_team_ball), Event::Loser) => (Role::Striker, true, own_team_ball),
 
-        //Searcher remains Searcher
-        (Role::Searcher, None, None) => (Role::Searcher, false, team_ball),
+        // Searcher remains Searcher
+        (Role::Searcher, None, Event::None) => (Role::Searcher, false, team_ball),
 
-        (Role::Searcher, None, Some(spl_message)) => match &spl_message.ball_position {
-            None => (Role::Searcher, false, team_ball), //edge-case, a striker (which should not exist) lost the ball
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
-                time_to_reach_kick_position,
-                player_number,
-                cycle_start_time,
-                filtered_game_controller_state,
-                optional_roles,
-            ),
-        },
+        // Edge-case, a striker (which should not exist) lost the ball
+        (Role::Searcher, None, Event::Loser) => (Role::Searcher, false, team_ball),
 
-        //Searcher found ball and becomes Striker
-        (Role::Searcher, Some(..), None) => (
-            Role::Striker,
-            true,
-            team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-        ),
+        // Searcher found ball and becomes Striker
+        (Role::Searcher, Some(own_team_ball), Event::None) => (Role::Striker, true, own_team_ball),
 
-        // TODO: Searcher found Ball at the same time as receiving a message
-        (Role::Searcher, Some(..), Some(spl_message)) => match &spl_message.ball_position {
-            None => (
-                Role::Striker,
-                true,
-                team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-            ),
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
-                time_to_reach_kick_position,
-                player_number,
-                cycle_start_time,
-                filtered_game_controller_state,
-                optional_roles,
-            ),
-        },
+        // Searcher found Ball at the same time as receiving a message
+        (Role::Searcher, Some(own_team_ball), Event::Loser) => (Role::Striker, true, own_team_ball),
 
-        // remain in other_role
-        (other_role, None, None) => (other_role, false, team_ball),
+        // Remain in other_role
+        (other_role, None, Event::None) => (other_role, false, team_ball),
 
         // Either someone found or lost a ball. if found: do I want to claim striker ?
-        (other_role, None, Some(spl_message)) => match &spl_message.ball_position {
-            None => {
-                if other_role != Role::Keeper && other_role != Role::ReplacementKeeper {
-                    (Role::Searcher, false, None)
-                } else {
-                    (other_role, false, None)
-                }
+        (other_role, None, Event::Loser) => {
+            if other_role != Role::Keeper && other_role != Role::ReplacementKeeper {
+                (Role::Searcher, false, None)
+            } else {
+                (other_role, false, None)
             }
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
-                time_to_reach_kick_position,
-                player_number,
-                cycle_start_time,
-                filtered_game_controller_state,
-                optional_roles,
-            ),
-        },
+        }
 
         // Claim Striker if team-ball position is None
-        (other_role, Some(..), None) => match team_ball {
-            None => (
-                Role::Striker,
-                true,
-                team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-            ),
-            Some(..) => (
-                other_role,
-                false,
-                team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-            ),
+        (other_role, Some(own_team_ball), Event::None) => match team_ball {
+            None => (Role::Striker, true, own_team_ball),
+            Some(..) => (other_role, false, own_team_ball),
         },
 
         // if message is Ball-Lost => Striker, claim Striker ? design-decision: which ball to trust ?
-        (_other_role, Some(..), Some(spl_message)) => match &spl_message.ball_position {
-            None => (
-                Role::Striker,
-                true,
-                team_ball_from_seen_ball(detected_own_ball, current_pose, cycle_start_time),
-            ),
-            _ => decide_if_claiming_striker_or_other_role(
-                spl_message,
-                time_to_reach_kick_position,
-                player_number,
-                cycle_start_time,
-                filtered_game_controller_state,
-                optional_roles,
-            ),
-        },
+        (_other_role, Some(own_team_ball), Event::Loser) => (Role::Striker, true, own_team_ball),
     }
 }
 
-fn decide_if_claiming_striker_or_other_role(
-    spl_message: &StrikerMessage,
+fn claim_striker_or_other_role(
+    striker_event: StrikerEvent,
     time_to_reach_kick_position: Option<Duration>,
     player_number: PlayerNumber,
-    cycle_start_time: SystemTime,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     optional_roles: &[Role],
-) -> (Role, bool, Option<BallPosition<Field>>) {
-    if time_to_reach_kick_position < spl_message.time_to_reach_kick_position
-        && time_to_reach_kick_position.is_some_and(|duration| duration < Duration::from_secs(1200))
-    {
-        (
-            Role::Striker,
-            true,
-            team_ball_from_spl_message(cycle_start_time, spl_message),
-        )
-    } else {
-        (
-            generate_role(
-                player_number,
-                filtered_game_controller_state,
-                spl_message.player_number,
-                optional_roles,
-            ),
-            false,
-            team_ball_from_spl_message(cycle_start_time, spl_message),
-        )
+) -> (Role, bool) {
+    let shorter_time_to_reach =
+        time_to_reach_kick_position < striker_event.time_to_reach_kick_position;
+    let time_to_reach_viable =
+        time_to_reach_kick_position.is_some_and(|duration| duration < Duration::from_secs(1200));
+
+    if shorter_time_to_reach && time_to_reach_viable {
+        return (Role::Striker, true);
     }
+
+    let Some(filtered_game_controller_state) = filtered_game_controller_state else {
+        // This case only happens if we don't have a game controller state
+        return (Role::Striker, false);
+    };
+
+    let role = pick_role_with_penalties(
+        player_number,
+        &filtered_game_controller_state.penalties,
+        striker_event.player_number,
+        optional_roles,
+    );
+
+    (role, false)
 }
 
 fn seen_ball_to_game_controller_ball_position(
@@ -667,70 +585,26 @@ fn seen_ball_to_game_controller_ball_position(
     })
 }
 
-fn seen_ball_to_hulks_network_ball_position(
-    ball: Option<&BallPosition<Ground>>,
+fn own_ball_to_hulks_network_ball_position(
+    ball: BallPosition<Ground>,
     ground_to_field: Isometry2<Ground, Field>,
     cycle_start_time: SystemTime,
-) -> Option<spl_network_messages::BallPosition<Field>> {
-    ball.map(|ball| spl_network_messages::BallPosition {
+) -> spl_network_messages::BallPosition<Field> {
+    spl_network_messages::BallPosition {
         age: cycle_start_time.duration_since(ball.last_seen).unwrap(),
         position: ground_to_field * ball.position,
-    })
+    }
 }
 
 fn team_ball_to_network_ball_position(
-    team_ball: Option<BallPosition<Field>>,
+    team_ball: BallPosition<Field>,
     cycle_start_time: SystemTime,
-) -> Option<spl_network_messages::BallPosition<Field>> {
-    team_ball.map(|team_ball| spl_network_messages::BallPosition {
+) -> spl_network_messages::BallPosition<Field> {
+    spl_network_messages::BallPosition {
         age: cycle_start_time
             .duration_since(team_ball.last_seen)
             .unwrap(),
         position: team_ball.position,
-    })
-}
-
-fn team_ball_from_spl_message(
-    cycle_start_time: SystemTime,
-    spl_message: &StrikerMessage,
-) -> Option<BallPosition<Field>> {
-    spl_message
-        .ball_position
-        .as_ref()
-        .map(|ball_position| BallPosition {
-            position: ball_position.position,
-            velocity: Vector::zeros(),
-            last_seen: cycle_start_time - ball_position.age,
-        })
-}
-
-fn team_ball_from_seen_ball(
-    ball: Option<&BallPosition<Ground>>,
-    ground_to_field: Isometry2<Ground, Field>,
-    cycle_start_time: SystemTime,
-) -> Option<BallPosition<Field>> {
-    ball.as_ref().map(|ball| BallPosition {
-        position: (ground_to_field * ball.position),
-        velocity: Vector::zeros(),
-        last_seen: cycle_start_time,
-    })
-}
-
-fn generate_role(
-    own_player_number: PlayerNumber,
-    game_controller_state: Option<&FilteredGameControllerState>,
-    striker_player_number: PlayerNumber,
-    optional_roles: &[Role],
-) -> Role {
-    if let Some(state) = game_controller_state {
-        pick_role_with_penalties(
-            own_player_number,
-            &state.penalties,
-            striker_player_number,
-            optional_roles,
-        )
-    } else {
-        Role::Striker // This case only happens if we don't have a game controller state
     }
 }
 
@@ -740,85 +614,26 @@ fn pick_role_with_penalties(
     striker_player_number: PlayerNumber,
     optional_roles: &[Role],
 ) -> Role {
-    let mut role_assignment: Players<Option<Role>> = Players {
-        one: None,
-        two: None,
-        three: None,
-        four: None,
-        five: None,
-        six: None,
-        seven: None,
-    };
+    let mut role_assignment: Players<Option<Role>> = Players::new(None);
 
     role_assignment[striker_player_number] = Some(Role::Striker);
-    let mut unassigned_robots = 6;
-
-    unassigned_robots -= penalties
+    let mut unassigned_players: VecDeque<_> = penalties
         .iter()
-        .filter(|(_player, &penalty)| penalty.is_some())
-        .count();
+        .filter_map(|(player_number, penalty)| {
+            (player_number != striker_player_number && penalty.is_none()).then_some(player_number)
+        })
+        .collect();
 
-    if unassigned_robots > 0 {
-        unassigned_robots =
-            assign_keeper_or_replacement_keeper(unassigned_robots, penalties, &mut role_assignment);
+    if let Some(keeper) = unassigned_players.pop_front() {
+        role_assignment[keeper] = Some(match keeper {
+            PlayerNumber::One => Role::Keeper,
+            _ => Role::ReplacementKeeper,
+        })
     }
 
-    for &optional_role in optional_roles.iter().take(unassigned_robots) {
-        if needs_assignment(PlayerNumber::Two, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Two] = Some(optional_role);
-        } else if needs_assignment(PlayerNumber::Three, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Three] = Some(optional_role);
-        } else if needs_assignment(PlayerNumber::Four, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Four] = Some(optional_role);
-        } else if needs_assignment(PlayerNumber::Five, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Five] = Some(optional_role);
-        } else if needs_assignment(PlayerNumber::Six, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Six] = Some(optional_role);
-        } else if needs_assignment(PlayerNumber::Seven, penalties, &role_assignment) {
-            role_assignment[PlayerNumber::Seven] = Some(optional_role);
-        }
+    for (player_number, &optional_role) in unassigned_players.into_iter().zip(optional_roles) {
+        role_assignment[player_number] = Some(optional_role)
     }
 
     role_assignment[own_player_number].unwrap_or_default()
-}
-
-fn needs_assignment(
-    player_number: PlayerNumber,
-    penalties: &Players<Option<Penalty>>,
-    role_assignment: &Players<Option<Role>>,
-) -> bool {
-    role_assignment[player_number].is_none() && penalties[player_number].is_none()
-}
-
-fn assign_keeper_or_replacement_keeper(
-    unassigned_robots: usize,
-    penalties: &Players<Option<Penalty>>,
-    role_assignment: &mut Players<Option<Role>>,
-) -> usize {
-    if needs_assignment(PlayerNumber::One, penalties, role_assignment) {
-        role_assignment[PlayerNumber::One] = Some(Role::Keeper);
-        return unassigned_robots - 1;
-    }
-
-    if needs_assignment(PlayerNumber::Two, penalties, role_assignment) {
-        role_assignment[PlayerNumber::Two] = Some(Role::ReplacementKeeper);
-        return unassigned_robots - 1;
-    } else if needs_assignment(PlayerNumber::Three, penalties, role_assignment) {
-        role_assignment[PlayerNumber::Three] = Some(Role::ReplacementKeeper);
-        return unassigned_robots - 1;
-    } else if needs_assignment(PlayerNumber::Four, penalties, role_assignment) {
-        role_assignment[PlayerNumber::Four] = Some(Role::ReplacementKeeper);
-        return unassigned_robots - 1;
-    } else if needs_assignment(PlayerNumber::Five, penalties, role_assignment) {
-        role_assignment[PlayerNumber::Five] = Some(Role::ReplacementKeeper);
-        return unassigned_robots - 1;
-    } else if needs_assignment(PlayerNumber::Six, penalties, role_assignment) {
-        role_assignment[PlayerNumber::Six] = Some(Role::ReplacementKeeper);
-        return unassigned_robots - 1;
-    } else if needs_assignment(PlayerNumber::Seven, penalties, role_assignment) {
-        role_assignment[PlayerNumber::Seven] = Some(Role::ReplacementKeeper);
-        return unassigned_robots - 1;
-    }
-
-    unassigned_robots
 }
