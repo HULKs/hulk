@@ -2,10 +2,8 @@ import itertools
 import time
 
 import click
-from mujoco_viewer import MujocoViewer
+import mujoco
 import numpy as np
-from mujoco._render import MjrRect, mjr_figure
-from mujoco._structs import MjvScene
 from mujoco_interactive_viewer import InteractiveViewer
 from nao_env import NaoWalking
 from stable_baselines3 import PPO
@@ -38,7 +36,7 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
     viewer = InteractiveViewer(env.model, env.data)
     # viewer = MujocoViewer(env.model, env.data)
-    # viewer.add_line_to_figure("Total Reward")
+    viewer.figure("rewards").add_line("Total Reward")
     # viewer.set_graph_name("Reward", 0)
     # viewer.set_x_label("Step", 0)
     # for key in infos:
@@ -70,10 +68,10 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
         #         line_data=value,
         #         fig_idx=0,
         #     )
-        # viewer.add_data_to_line(
-        #     "Total Reward",
-        #     line_data=total_reward,
-        # )
+        viewer.figure("rewards").push_data_to_line(
+            "Total Reward",
+            line_data=total_reward,
+        )
         # breakpoint()
         # mujoco.mjr_figure(
         #     mujoco.MjrRect(100, 100, 100, 200),

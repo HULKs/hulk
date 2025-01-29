@@ -711,7 +711,6 @@ dependencies = [
     { name = "moviepy" },
     { name = "mujoco" },
     { name = "mujoco-interactive-viewer" },
-    { name = "mujoco-python-viewer" },
     { name = "nao-env" },
     { name = "nao-interface" },
     { name = "numpy" },
@@ -744,7 +743,6 @@ requires-dist = [
     { name = "moviepy", specifier = ">=1.0.3" },
     { name = "mujoco", specifier = ">=3.2.7" },
     { name = "mujoco-interactive-viewer", editable = "packages/mujoco-interactive-viewer" },
-    { name = "mujoco-python-viewer", editable = "../../../../../mujoco-python-viewer" },
     { name = "nao-env", editable = "packages/nao_env" },
     { name = "nao-interface", editable = "packages/nao_interface" },
     { name = "numpy", specifier = ">=1.26" },
@@ -782,25 +780,6 @@ requires-dist = [
     { name = "glfw", specifier = ">=2.8.0" },
     { name = "mujoco", specifier = ">=3.2.6" },
     { name = "numpy", specifier = ">=1.26.4" },
-]
-
-[[package]]
-name = "mujoco-python-viewer"
-version = "0.1.4"
-source = { editable = "../../../../../mujoco-python-viewer" }
-dependencies = [
-    { name = "glfw" },
-    { name = "imageio" },
-    { name = "mujoco" },
-    { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "glfw", specifier = ">=2.5.0" },
-    { name = "imageio" },
-    { name = "mujoco", specifier = ">=2.1.5" },
-    { name = "pyyaml" },
 ]
 
 [[package]]

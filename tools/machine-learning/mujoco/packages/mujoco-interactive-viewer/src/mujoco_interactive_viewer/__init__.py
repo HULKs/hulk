@@ -65,6 +65,56 @@ class Overlay:
         self.text2 = ""
 
 
+@dataclass
+class Figure:
+    _figure: mujoco.MjvFigure
+
+    def __init__(self) -> None:
+        self._figure = mujoco.MjvFigure()
+        mujoco.mjv_defaultFigure(self._figure)
+        self._figure.flg_extend = 1
+
+    def add_line(self, line_name: str) -> None:
+        name_bytes = line_name.encode("utf8")
+        if name_bytes == b"":
+            raise EmptyLineNameError()
+        if name_bytes in self._figure.linename:
+            raise LineNameAlreadyExistsError()
+
+        try:
+            empty_line_id = self._figure.linename.tolist().index(b"")
+        except ValueError as e:
+            raise NoEmptyLineSlotsError() from e
+
+        self._figure.linename[empty_line_id] = line_name
+
+        for i in range(mujoco.mjMAXLINEPNT):
+            # line data is stored in the form [x0, y0, x1, y1, x2, y2, ...]
+            self._figure.linedata[empty_line_id][2 * i] = -float(i)
+
+    def push_data_to_line(
+        self,
+        line_name: str,
+        line_data: float,
+    ) -> None:
+        name_bytes = line_name.encode("utf8")
+        try:
+            line_id = self._figure.linename.tolist().index(name_bytes)
+        except ValueError as e:
+            raise LineNotFound() from e
+
+        num_points: int = self._figure.linepnt[line_id]  # type: ignore[reportAssignmentType]
+        num_points = min(mujoco.mjMAXLINEPNT, num_points + 1)
+
+        for i in range(num_points - 1, 0, -1):
+            self._figure.linedata[line_id][2 * i + 1] = self._figure.linedata[
+                line_id
+            ][2 * i - 1]
+
+        self._figure.linepnt[line_id] = num_points
+        self._figure.linedata[line_id][1] = line_data
+
+
 class InteractiveViewer:
     def __init__(
         self,
@@ -74,6 +124,7 @@ class InteractiveViewer:
         title: str = "mujoco-python-viewer",
         width: int | None = None,
         height: int | None = None,
+        font_scale: mujoco.mjtFontScale = mujoco.mjtFontScale.mjFONTSCALE_100,
     ) -> None:
         self._gui_lock = Lock()
         self._interaction_state = InteractionState()
@@ -118,18 +169,7 @@ class InteractiveViewer:
         self.scene = mujoco.MjvScene(self.model, maxgeom=10000)
         self.perturbation = mujoco.MjvPerturb()
 
-        self.context = mujoco.MjrContext(
-            self.model,
-            mujoco.mjtFontScale.mjFONTSCALE_150.value,
-        )
-
-        num_figures = 3
-        self._figures = []
-        for _ in range(num_figures):
-            figure = mujoco.MjvFigure()
-            mujoco.mjv_defaultFigure(figure)
-            figure.flg_extend = 1
-            self._figures.append(figure)
+        self.context = mujoco.MjrContext(self.model, font_scale.value)
 
         self._viewport = mujoco.MjrRect(
             0,
@@ -137,52 +177,9 @@ class InteractiveViewer:
             framebuffer_width,
             framebuffer_height,
         )
+        self._markers: list[Marker] = []
+        self._figures: dict[str, Figure] = {}
         self._overlay: dict[mujoco.mjtGridPos, Overlay] = {}
-        self._markers = []
-
-    def add_line_to_figure(self, line_name: str, figure_id: int = 0) -> None:
-        figure = self._figures[figure_id]
-        name_bytes = line_name.encode("utf8")
-        if name_bytes == b"":
-            raise EmptyLineNameError()
-        if name_bytes in figure.linename:
-            raise LineNameAlreadyExistsError()
-
-        try:
-            empty_line_id = figure.linename.tolist().index(b"")
-        except ValueError as e:
-            raise NoEmptyLineSlotsError() from e
-
-        figure.linename[empty_line_id] = line_name
-
-        for i in range(mujoco.mjMAXLINEPNT):
-            # line data is stored in the form [x0, y0, x1, y1, x2, y2, ...]
-            figure.linedata[empty_line_id][2 * i] = -float(i)
-
-    def add_data_to_line(
-        self,
-        line_name: str,
-        line_data: float,
-        figure_id: int = 0,
-    ) -> None:
-        figure = self._figures[figure_id]
-
-        name_bytes = line_name.encode("utf8")
-        try:
-            line_id = figure.linename.tolist().index(name_bytes)
-        except ValueError as e:
-            raise LineNotFound() from e
-
-        num_points = figure.linepnt[line_id]
-        num_points = min(mujoco.mjMAXLINEPNT, num_points + 1)
-
-        for i in range(num_points - 1, 0, -1):
-            figure.linedata[line_id][2 * i + 1] = figure.linedata[line_id][
-                2 * i - 1
-            ]
-
-        figure.linepnt[line_id] = num_points
-        figure.linedata[line_id][1] = line_data
 
     def add_marker(self, marker: Marker) -> None:
         self._markers.append(marker)
@@ -201,6 +198,11 @@ class InteractiveViewer:
             rgba=marker.rgba,
         )
         self.scene.ngeom += 1
+
+    def figure(self, name: str) -> Figure:
+        if name not in self._figures:
+            self._figures[name] = Figure()
+        return self._figures[name]
 
     def _create_overlay(self) -> None:
         top_left = mujoco.mjtGridPos.mjGRID_TOPLEFT
@@ -377,7 +379,7 @@ class InteractiveViewer:
                     )
 
             if self._visualization_state.show_figures:
-                for figure_i, figure in enumerate(self._figures):
+                for figure_i, figure in enumerate(self._figures.values()):
                     width_adjustment = self._viewport.width % 4
                     x = 3 * self._viewport.width // 4 + width_adjustment
                     y = figure_i * self._viewport.height // 4
@@ -388,9 +390,15 @@ class InteractiveViewer:
                         self._viewport.height // 4,
                     )
 
-                    has_lines = any(name != b"" for name in figure.linename)
+                    has_lines = any(
+                        name != b"" for name in figure._figure.linename
+                    )
                     if has_lines:
-                        mujoco.mjr_figure(viewport, figure, self.context)
+                        mujoco.mjr_figure(
+                            viewport,
+                            figure._figure,
+                            self.context,
+                        )
 
             glfw.swap_buffers(self._window)
 

@@ -19,7 +19,6 @@ dependencies = [
   "common_types",
   "kinematics",
   "mujoco-interactive-viewer",
-  "mujoco-python-viewer",
   "nao-env",
   "nao-interface",
   "rewards",
@@ -40,7 +39,6 @@ robot_dimensions = { workspace = true }
 throwing = { workspace = true }
 transforms = { workspace = true }
 walking_engine = { workspace = true }
-mujoco-python-viewer = { path = "/home/maximilian/worktree/mujoco-python-viewer/", editable = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
