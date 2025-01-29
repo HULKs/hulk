@@ -1,6 +1,7 @@
 from typing import Any, override
 
 import numpy as np
+from gymnasium import utils
 from nao_interface.nao_interface import Nao
 from nao_interface.poses import PENALIZED_POSE
 from numpy.typing import NDArray
@@ -43,7 +44,7 @@ OFFSET_QPOS = np.array(
 HEAD_SET_HEIGHT = 0.51
 
 
-class NaoStanding(NaoBaseEnv):
+class NaoStanding(NaoBaseEnv, utils.EzPickle):
     def __init__(
         self,
         *,
@@ -64,6 +65,7 @@ class NaoStanding(NaoBaseEnv):
             .add(-0.01, TorqueChangeRatePenalty(self.model.nu, self.dt))
             .add(1.0, HeadOverTorsoPenalty())
         )
+        utils.EzPickle.__init__(self, **kwargs)
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:

@@ -2,6 +2,7 @@ from typing import Any, override
 
 import numpy as np
 import walking_engine
+from gymnasium import utils
 from nao_interface.nao_interface import Nao
 from nao_interface.poses import READY_POSE
 from numpy.typing import NDArray
@@ -74,7 +75,7 @@ def initial_state(parameters: Parameters) -> State:
     )
 
 
-class NaoWalking(NaoBaseEnv):
+class NaoWalking(NaoBaseEnv, utils.EzPickle):
     def __init__(self, *, throw_tomatoes: bool, **kwargs: Any) -> None:
         super().__init__(
             throw_tomatoes=throw_tomatoes,
@@ -112,6 +113,7 @@ class NaoWalking(NaoBaseEnv):
             .add(-0.5, ConstantSupportFootOrientationPenalty())
             .add(-0.001, ControlAmplitudePenalty())
         )
+        utils.EzPickle.__init__(self, **kwargs)
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:

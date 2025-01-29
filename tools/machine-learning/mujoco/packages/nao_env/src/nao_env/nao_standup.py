@@ -1,6 +1,7 @@
 from typing import Any, override
 
 import numpy as np
+from gymnasium import utils
 from nao_interface import Nao
 from nao_interface.poses import PENALIZED_POSE
 from numpy.typing import NDArray
@@ -16,7 +17,7 @@ from rewards.base import RewardContext
 from .nao_base_env import NaoBaseEnv
 
 
-class NaoStandup(NaoBaseEnv):
+class NaoStandup(NaoBaseEnv, utils.EzPickle):
     def __init__(self, *, throw_tomatoes: bool = False, **kwargs: Any) -> None:
         super().__init__(throw_tomatoes=throw_tomatoes, **kwargs)
         self.reward = (
@@ -26,6 +27,7 @@ class NaoStandup(NaoBaseEnv):
             .add(-0.5e-6, ExternalImpactForcesPenalty())
             .add(-0.01, TorqueChangeRatePenalty(self.model.nu, self.dt))
         )
+        utils.EzPickle.__init__(self, **kwargs)
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:

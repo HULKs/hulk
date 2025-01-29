@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any, ClassVar, override
 
 import numpy as np
-from gymnasium import utils
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
 from nao_interface import Nao
@@ -69,7 +68,7 @@ DEFAULT_CAMERA_CONFIG = {
 }
 
 
-class NaoBaseEnv(MujocoEnv, utils.EzPickle):
+class NaoBaseEnv(MujocoEnv):
     metadata: ClassVar[dict[str, Any]] = {
         "render_modes": [
             "human",
@@ -104,7 +103,6 @@ class NaoBaseEnv(MujocoEnv, utils.EzPickle):
         )
         self._actuation_mask = self._get_actuation_mask()
         self.action_space_size = len(ACTUATOR_NAMES)
-        utils.EzPickle.__init__(self, **kwargs)
 
     def _get_actuation_mask(self) -> NDArray[np.bool_]:
         actuation_mask = np.zeros(self.model.nu, dtype=np.bool_)
