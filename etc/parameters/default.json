@@ -536,7 +536,7 @@
   "keeper_motion": {
     "maximum_ball_distance": 1.5,
     "minimum_ball_velocity": 0.6,
-    "action_radius": 0.25,
+    "action_radius_center": 0.25,
     "minimum_velocity": -0.5,
     "action_radius_left": 0.5
   },
