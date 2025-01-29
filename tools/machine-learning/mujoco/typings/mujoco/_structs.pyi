@@ -4407,7 +4407,7 @@ class MjvFigure:
     def linename(self) -> numpy.ndarray:
         ...
     @property
-    def linepnt(self) -> numpy.ndarray[numpy.int32]:
+    def linepnt(self) -> numpy.ndarray[tuple[int], numpy.dtype[numpy.int32]]:
         ...
     @linepnt.setter
     def linepnt(self, arg1: typing.Any) -> None:
