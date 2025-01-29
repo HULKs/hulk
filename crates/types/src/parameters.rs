@@ -385,7 +385,7 @@ pub struct SearchSuggestorParameters {
 )]
 
 pub struct KeeperMotionParameters {
-    pub action_radius: f32,
+    pub action_radius_center: f32,
     pub minimum_velocity: f32,
     pub action_radius_left: f32,
     pub maximum_ball_distance: f32,

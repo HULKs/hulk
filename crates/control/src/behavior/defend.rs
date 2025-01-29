@@ -78,19 +78,19 @@ impl<'cycle> Defend<'cycle> {
         let horizontal_distance_to_intersection =
             position.y() - position.x() / velocity.x() * velocity.y();
 
-        if (-parameters.action_radius..=parameters.action_radius)
+        if (-parameters.action_radius_center..=parameters.action_radius_center)
             .contains(&horizontal_distance_to_intersection)
         {
             Some(MotionCommand::KeeperMotion {
                 direction: JumpDirection::Center,
             })
-        } else if (parameters.action_radius..parameters.action_radius_left)
+        } else if (parameters.action_radius_center..parameters.action_radius_left)
             .contains(&horizontal_distance_to_intersection)
         {
             Some(MotionCommand::KeeperMotion {
                 direction: JumpDirection::Left,
             })
-        } else if (-parameters.action_radius_left..-parameters.action_radius)
+        } else if (-parameters.action_radius_left..-parameters.action_radius_center)
             .contains(&horizontal_distance_to_intersection)
         {
             Some(MotionCommand::KeeperMotion {
