@@ -22,6 +22,8 @@ fn main() -> Result<()> {
                     "control::behavior::node",
                     "control::game_controller_state_filter",
                     "control::kick_selector",
+                    "control::kicking_team_filter",
+                    "control::free_kick_signal_filter",
                     "control::filtered_game_controller_state_timer",
                     "control::primary_state_filter",
                     "control::motion::look_around",
@@ -41,6 +43,17 @@ fn main() -> Result<()> {
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
                 nodes: vec!["spl_network::message_filter"],
+            },
+            CyclerManifest {
+                name: "ObjectDetection",
+                kind: CyclerKind::Perception,
+                instances: vec!["Top"],
+                setup_nodes: vec!["vision::image_receiver"],
+                nodes: vec![
+                    "object_detection::pose_detection",
+                    "object_detection::pose_filter",
+                    "object_detection::pose_interpretation",
+                ],
             },
         ],
     };
