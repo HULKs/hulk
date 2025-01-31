@@ -36,5 +36,6 @@ serde = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }
 splines = { workspace = true }
+test-case = "3.3.1"
 types = { workspace = true }
 walking_engine = { workspace = true }
