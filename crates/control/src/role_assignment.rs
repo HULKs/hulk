@@ -222,7 +222,7 @@ impl RoleAssignment {
             }
         }
 
-        let mut events: Vec<_> = context
+        let events: Vec<_> = context
             .network_message
             .persistent
             .into_values()
@@ -239,13 +239,10 @@ impl RoleAssignment {
                 Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
                 _ => None,
             })
+            // Update the state machine at least once
+            .chain([Event::None])
             .collect();
         let mut should_send_striker_message = false;
-
-        // Update the state machine at least once
-        if events.is_empty() {
-            events.push(Event::None);
-        }
 
         for event in events {
             self.last_received_spl_striker_message = Some(cycle_start_time);
