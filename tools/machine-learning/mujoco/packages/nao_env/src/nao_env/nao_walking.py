@@ -117,7 +117,15 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         utils.EzPickle.__init__(self, **kwargs)
 
     @override
-    def step(self, action: NDArray[np.floating]) -> tuple:
+    def step(
+        self, action: NDArray[np.floating]
+    ) -> tuple[
+        NDArray[np.float64],
+        np.float64,
+        bool,
+        bool,
+        dict[str, np.float64],
+    ]:
         robot_position = self.data.site("Robot").xpos
 
         if self.projectile.has_ground_contact() and self.throw_tomatoes:
@@ -139,7 +147,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         distinct_rewards = self.reward.rewards(
             RewardContext(self.nao, action, self.state)
         )
-        reward = sum(distinct_rewards.values())
+        reward = sum(distinct_rewards.values(), np.floating(0.0))
 
         head_center_z = self.data.site("head_center").xpos[2]
         terminated = head_center_z < HEAD_THRESHOLD_HEIGHT
