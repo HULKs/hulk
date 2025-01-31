@@ -265,24 +265,31 @@ class Nao:
         self.position_sensors = position_sensors
         self.sensors = Sensors(
             positions=RingBuffer(
-                position_sensor_delay + 1, self._read_positions()
+                position_sensor_delay + 1,
+                self._read_positions(),
             ),
             left_fsr=RingBuffer(
-                fsr_sensor_delay + 1, self._read_left_fsr_values()
+                fsr_sensor_delay + 1,
+                self._read_left_fsr_values(),
             ),
             right_fsr=RingBuffer(
-                fsr_sensor_delay + 1, self._read_right_fsr_values()
+                fsr_sensor_delay + 1,
+                self._read_right_fsr_values(),
             ),
             gyroscope=RingBuffer(
-                gyroscope_sensor_delay + 1, self._read_gyroscope()
+                gyroscope_sensor_delay + 1,
+                self._read_gyroscope(),
             ),
             accelerometer=RingBuffer(
-                accelerometer_sensor_delay + 1, self._read_accelerometer()
+                accelerometer_sensor_delay + 1,
+                self._read_accelerometer(),
             ),
         )
 
     def set_transform(
-        self, position: NDArray[np.floating], quaternion: NDArray[np.floating]
+        self,
+        position: NDArray[np.floating],
+        quaternion: NDArray[np.floating],
     ) -> None:
         nao = self.data.body("Nao")
         nao.xpos = position
