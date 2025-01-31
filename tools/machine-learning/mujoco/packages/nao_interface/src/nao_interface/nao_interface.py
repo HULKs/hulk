@@ -2,8 +2,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import mujoco
-from nao_env.ring_buffer import RingBuffer
 import numpy as np
+from nao_env.ring_buffer import RingBuffer
 from numpy.typing import NDArray
 
 POSITION_SENSOR_NAMES = [
@@ -37,7 +37,7 @@ class HeadJoints:
     def __init__(
         self,
         getter: Callable[[str], np.floating],
-        setter: Callable[[str], np.floating],
+        setter: Callable[[str, np.floating], None],
     ) -> None:
         self.getter = getter
         self.setter = setter
@@ -67,7 +67,7 @@ class LegJoints:
     def __init__(
         self,
         getter: Callable[[str], np.floating],
-        setter: Callable[[str], np.floating],
+        setter: Callable[[str, np.floating], None],
     ) -> None:
         self.getter = getter
         self.setter = setter
@@ -129,7 +129,7 @@ class ArmJoints:
     def __init__(
         self,
         getter: Callable[[str], np.floating],
-        setter: Callable[[str], np.floating],
+        setter: Callable[[str, np.floating], None],
     ) -> None:
         self.getter = getter
         self.setter = setter
@@ -185,7 +185,7 @@ class NaoJoints:
     def __init__(
         self,
         getter: Callable[[str], np.floating],
-        setter: Callable[[str], np.floating],
+        setter: Callable[[str, np.floating], None],
     ) -> None:
         self.getter = getter
         self.setter = setter
