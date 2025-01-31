@@ -35,7 +35,8 @@ impl Default for HulkMessage {
 pub struct StrikerMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
-    pub ball_position: Option<BallPosition<Field>>,
+    pub ball_position: BallPosition<Field>,
+    // TODO: make non-optional
     pub time_to_reach_kick_position: Option<Duration>,
 }
 
@@ -43,8 +44,6 @@ pub struct StrikerMessage {
 pub struct LoserMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
-    pub ball_position: Option<BallPosition<Field>>,
-    pub time_to_reach_kick_position: Option<Duration>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
