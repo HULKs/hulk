@@ -4,8 +4,10 @@ from threading import Lock
 
 import glfw
 import mujoco
+from mujoco._enums import mjtGeom
+from mujoco._structs import MjvGeom
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike
 
 from mujoco_interactive_viewer.figure import Figure
 from mujoco_interactive_viewer.interaction import InteractionState
@@ -81,32 +83,74 @@ class Viewer:
     def add_marker(
         self,
         kind: mujoco.mjtGeom,
-        size: NDArray[np.float64] | list[float],
-        position: NDArray[np.float64] | list[float],
-        rgba: NDArray[np.float32] | list[float],
-        material: NDArray[np.float64] | list[float] | None = None,
+        size: ArrayLike,
+        position: ArrayLike,
+        rgba: ArrayLike,
+        material: ArrayLike | None = None,
     ) -> None:
-        size = np.array(size)
-        position = np.array(position)
+        size = np.asanyarray(size)
+        position = np.asanyarray(position)
+        rgba = np.asanyarray(rgba)
         if material is None:
             material = np.eye(3).flatten()
-        material = np.array(material)
-        rgba = np.array(rgba)
+        else:
+            material = np.asanyarray(material)
         self._markers.append(Marker(kind, size, position, material, rgba))
+
+    def mark_sphere(
+        self,
+        position: ArrayLike,
+        radius: np.floating | float,
+        rgba: ArrayLike,
+    ) -> None:
+        self.add_marker(
+            mujoco.mjtGeom.mjGEOM_SPHERE,
+            np.array([radius, 0, 0]),
+            position,
+            rgba,
+        )
+
+    def mark_box(
+        self,
+        position: ArrayLike,
+        size: ArrayLike,
+        rgba: ArrayLike,
+    ) -> None:
+        self.add_marker(
+            mujoco.mjtGeom.mjGEOM_BOX,
+            size,
+            position,
+            rgba,
+        )
+
+    def mark_arrow(
+        self,
+        position: ArrayLike,
+        width: np.floating | float,
+        direction: ArrayLike,
+        rgba: ArrayLike,
+    ) -> None:
+        self.add_marker(
+            mujoco.mjtGeom.mjGEOM_ARROW,
+            size=np.array([width, width, np.linalg.norm(direction)]),
+            position=position,
+            rgba=rgba,
+        )
 
     def _add_marker_to_scene(self, marker: Marker) -> None:
         if self.scene.ngeom >= self.scene.maxgeom:
             raise OutOfGeomsError()
 
-        geom = self.scene.geoms[self.scene.ngeom]
+        geom:MjvGeom = self.scene.geoms[self.scene.ngeom]
         mujoco.mjv_initGeom(
             geom,
             type=marker.kind.value,
             size=marker.size,
             pos=marker.position,
-            mat=marker.material,
+            mat=marker.rotation_matrix,
             rgba=marker.rgba,
         )
+        geom.
         self.scene.ngeom += 1
 
     def figure(self, name: str) -> Figure:

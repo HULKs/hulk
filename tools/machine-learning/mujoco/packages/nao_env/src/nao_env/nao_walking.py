@@ -1,8 +1,11 @@
 from typing import Any, override
 
 import numpy as np
+from rewards.walk_rewards import swing_sole_to_target
 import walking_engine
 from gymnasium import utils
+from kinematics.inverse_kinematics import foot_to_isometry
+from mujoco_interactive_viewer.context import current_viewer
 from nao_interface.nao_interface import Nao
 from nao_interface.poses import READY_POSE
 from numpy.typing import NDArray
@@ -19,12 +22,18 @@ from rewards import (
     TorqueChangeRatePenalty,
     XDistanceReward,
 )
-from transforms.transforms import Pose2
+from robot_dimensions import ANKLE_TO_SOLE
+from transforms.transforms import (
+    Pose2,
+    isometry_from_translation,
+    translation_from_isometry,
+)
 from walking_engine import (
     Control,
     Measurements,
     Parameters,
 )
+from walking_engine.joint_command import WALK_TO_ROBOT
 from walking_engine.walking_types import Feet, Side, State
 
 from .nao_base_env import NaoBaseEnv
@@ -94,7 +103,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
             foot_offset_right=-0.052,
             walk_height=0.23,
             torso_tilt=0.055,
-            arm_pitch_factor=1.0,
+            arm_pitch_factor=8.0,
         )
         self.state = initial_state(self.parameters)
 
@@ -118,7 +127,8 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
 
     @override
     def step(
-        self, action: NDArray[np.floating]
+        self,
+        action: NDArray[np.floating],
     ) -> tuple[
         NDArray[np.float64],
         np.float64,
@@ -147,7 +157,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         distinct_rewards = self.reward.rewards(
             RewardContext(self.nao, action, self.state)
         )
-        reward = sum(distinct_rewards.values(), np.floating(0.0))
+        reward = sum(distinct_rewards.values(), np.float64(0.0))
 
         head_center_z = self.data.site("head_center").xpos[2]
         terminated = head_center_z < HEAD_THRESHOLD_HEIGHT
@@ -189,7 +199,10 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
                 dt=dt,
             )
         self.nao.data.ctrl[self._actuation_mask] += ctrl
-        super().do_simulation(self.nao.data.ctrl, n_frames)
+        super().do_simulation(
+            self.nao.data.ctrl[self._actuation_mask],
+            n_frames,
+        )
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
@@ -240,6 +253,28 @@ def apply_walking(
         dt,
         parameters,
     )
+
+    if (viewer := current_viewer()) is not None:
+        current_swing_sole_to_target = swing_sole_to_target(
+            nao.data.site("left_sole").xpos.copy(),
+            nao.data.site("right_sole").xpos.copy(),
+            state,
+        )
+        swing_sole = (
+            nao.data.site("left_sole").xpos
+            if state.support_side == Side.RIGHT
+            else nao.data.site("right_sole").xpos
+        )
+        viewer.mark_sphere(
+            position=swing_sole - current_swing_sole_to_target,
+            radius=0.01,
+            rgba=[0.5, 0, 0, 0.3],
+        )
+        viewer.mark_arrow(
+            position=swing_sole,
+            direction=current_swing_sole_to_target,
+            rgba=[0.5, 0, 0, 0.3],
+        )
 
     lower_body_joints = walking_engine.compute_lower_body_joints(
         left_sole,

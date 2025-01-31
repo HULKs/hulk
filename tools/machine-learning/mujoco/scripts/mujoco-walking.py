@@ -1,10 +1,8 @@
-import itertools
 import time
 
 import click
-import mujoco
 import numpy as np
-from mujoco_interactive_viewer import Viewer
+from mujoco_interactive_viewer import Viewer, set_global_viewer
 from nao_env import NaoWalking
 from stable_baselines3 import PPO
 
@@ -31,6 +29,7 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     dt = env.dt
 
     viewer = Viewer(env.model, env.data)
+    set_global_viewer(viewer)
     # viewer._render_state.toggle_pause()
     rewards_figure = viewer.figure("rewards")
     rewards_figure.set_title("Rewards")
@@ -54,7 +53,7 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
     while viewer.is_alive:
         start_time = time.time()
-        viewer.camera.lookat[:] = env.data.site("Robot").xpos
+        # viewer.camera.lookat[:] = env.data.site("Robot").xpos
         observation, reward, _terminated, _truncated, infos = env.step(action)
         if model:
             action, _ = model.predict(observation, deterministic=True)
@@ -69,13 +68,13 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
         total_reward_figure.push_data_to_line("Total Reward", total_reward)
 
-        for x, y, z in itertools.product(*((range(-1, 2),) * 3)):
-            viewer.add_marker(
-                kind=mujoco.mjtGeom.mjGEOM_SPHERE,
-                size=[0.02, 0, 0],
-                position=0.1 * np.array([x, y, z]),
-                rgba=0.5 * np.array([x + 1, y + 1, z + 1, 2]),
-            )
+        # for x, y, z in itertools.product(*((range(-1, 2),) * 3)):
+        #     viewer.add_marker(
+        #         kind=mujoco.mjtGeom.mjGEOM_SPHERE,
+        #         size=[0.02, 0, 0],
+        #         position=0.1 * np.array([x, y, z]),
+        #         rgba=0.5 * np.array([x + 1, y + 1, z + 1, 2]),
+        #     )
 
         viewer.render()
         end_time = time.time()

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import mujoco
+import numpy as np
 
 
 @dataclass
@@ -140,7 +141,7 @@ class Figure:
     def push_data_to_line(
         self,
         line_name: str,
-        line_data: float,
+        line_data: np.floating,
     ) -> None:
         line_id = self._line_id(line_name)
 

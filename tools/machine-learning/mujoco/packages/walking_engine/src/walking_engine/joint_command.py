@@ -5,6 +5,8 @@ from robot_dimensions import ANKLE_TO_SOLE
 from transforms import Pose2
 from transforms.transforms import isometry_from_translation
 
+WALK_TO_ROBOT = isometry_from_translation(np.array([-0.02, 0.0, -0.23]))
+
 
 def compute_lower_body_joints(
     left_sole: Pose2,
@@ -12,8 +14,6 @@ def compute_lower_body_joints(
     left_lift: float,
     right_lift: float,
 ) -> LowerBodyJoints:
-    walk_to_robot = isometry_from_translation(np.array([-0.02, 0.0, -0.23]))
-
     left_foot_in_walk = isometry_from_translation(
         -ANKLE_TO_SOLE,
     ) @ foot_to_isometry(left_sole, left_lift)
@@ -22,8 +22,8 @@ def compute_lower_body_joints(
     ) @ foot_to_isometry(right_sole, right_lift)
 
     return leg_angles(
-        walk_to_robot @ left_foot_in_walk,
-        walk_to_robot @ right_foot_in_walk,
+        WALK_TO_ROBOT @ left_foot_in_walk,
+        WALK_TO_ROBOT @ right_foot_in_walk,
     )
 
 
