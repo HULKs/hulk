@@ -349,8 +349,6 @@ impl RoleAssignment {
 
         Ok(MainOutputs {
             role: self.role.into(),
-            // team_ball: self.team_ball.into(),
-            // network_robot_obstacles: network_robot_obstacles.into(),
         })
     }
 }

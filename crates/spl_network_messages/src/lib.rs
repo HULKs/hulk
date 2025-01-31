@@ -114,22 +114,29 @@ impl Display for PlayerNumber {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use super::*;
 
-    use linear_algebra::{Point, Pose2};
-
-    use crate::{BallPosition, HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
+    use linear_algebra::Point;
 
     #[test]
     fn hulk_striker_message_size() {
         let test_message = HulkMessage::Striker(StrikerMessage {
             player_number: PlayerNumber::Seven,
             pose: Pose2::default(),
-            ball_position: Some(BallPosition {
+            ball_position: BallPosition {
                 position: Point::origin(),
                 age: Duration::MAX,
-            }),
+            },
             time_to_reach_kick_position: Some(Duration::MAX),
+        });
+        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
+    }
+
+    #[test]
+    fn hulk_loser_message_size() {
+        let test_message = HulkMessage::Loser(LoserMessage {
+            player_number: PlayerNumber::Seven,
+            pose: Pose2::default(),
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }
