@@ -93,6 +93,28 @@ class NaoBaseEnv(MujocoEnv):
             accelerometer_sensor_delay=sensor_delay,
         )
 
+    def initialize_terrain(
+        self,
+        *,
+        max_height: float = 0.1,
+        step_height: float = 0.01,
+        hfield_id: int = 0,
+    ) -> None:
+        num_rows = self.model.hfield_nrow[hfield_id]
+        num_cols = self.model.hfield_ncol[hfield_id]
+
+        x = np.linspace(-5, 5, num_cols)
+        y = np.linspace(-5, 5, num_rows)
+
+        X, Y = np.meshgrid(x, y)
+        Z = 1 - (np.cos(X) * np.cos(Y) + 1) / 2
+        num_steps = int(max_height / step_height)
+        discrete_Z = np.round(Z * num_steps) / num_steps * max_height
+
+        flattened_terrain = discrete_Z.flatten()
+
+        self.model.hfield_data = flattened_terrain
+
     def _get_actuation_mask(self) -> NDArray[np.bool_]:
         actuation_mask = np.zeros(self.model.nu, dtype=np.bool_)
         for name in ACTUATOR_NAMES:
