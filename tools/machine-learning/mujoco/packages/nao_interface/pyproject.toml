@@ -2,7 +2,7 @@
 name = "nao-interface"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = ["mujoco>=3.2.6", "numpy>=1.2.0"]
 
 [build-system]
