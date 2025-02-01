@@ -589,6 +589,12 @@ class Viewer:
                 )
         self.perturbation.active = perturbation_kind
 
+    def track_with_camera(self, body: int | str) -> None:
+        bodyid = self.model.body(body).id
+        self.camera.type = mujoco.mjtCamera.mjCAMERA_TRACKING.value
+        self.camera.trackbodyid = bodyid
+        self.camera.fixedcamid = -1
+
     def _handle_selection(self, mods: int) -> None:
         class Mode(Enum):
             Select = 1
@@ -603,7 +609,10 @@ class Viewer:
             mode = None
             if self._interaction_state.left_double_click_pressed:
                 mode = Mode.Select
-            elif self._interaction_state.right_double_click_pressed:
+            elif (
+                self._interaction_state.right_double_click_pressed
+                and mods != glfw.MOD_CONTROL
+            ):
                 mode = Mode.LookAt
             elif (
                 self._interaction_state.right_double_click_pressed

@@ -53,7 +53,7 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
     while viewer.is_alive:
         start_time = time.time()
-        # viewer.camera.lookat[:] = env.data.site("Robot").xpos
+        viewer.track_with_camera("Nao")
         observation, reward, _terminated, _truncated, infos = env.step(action)
         if model:
             action, _ = model.predict(observation, deterministic=True)
