@@ -67,14 +67,6 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
         total_reward_figure.push_data_to_line("Total Reward", total_reward)
 
-        # for x, y, z in itertools.product(*((range(-1, 2),) * 3)):
-        #     viewer.add_marker(
-        #         kind=mujoco.mjtGeom.mjGEOM_SPHERE,
-        #         size=[0.02, 0, 0],
-        #         position=0.1 * np.array([x, y, z]),
-        #         rgba=0.5 * np.array([x + 1, y + 1, z + 1, 2]),
-        #     )
-
         viewer.render()
         end_time = time.time()
         wait_time = max(0, dt - (end_time - start_time))
