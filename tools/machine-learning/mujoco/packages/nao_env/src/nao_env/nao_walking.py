@@ -1,10 +1,8 @@
 from typing import Any, override
 
 import numpy as np
-from rewards.walk_rewards import swing_sole_to_target
 import walking_engine
 from gymnasium import utils
-from kinematics.inverse_kinematics import foot_to_isometry
 from mujoco_interactive_viewer.context import current_viewer
 from nao_interface.nao_interface import Nao
 from nao_interface.poses import READY_POSE
@@ -22,18 +20,15 @@ from rewards import (
     TorqueChangeRatePenalty,
     XDistanceReward,
 )
-from robot_dimensions import ANKLE_TO_SOLE
+from rewards.walk_rewards import swing_sole_to_target
 from transforms.transforms import (
     Pose2,
-    isometry_from_translation,
-    translation_from_isometry,
 )
 from walking_engine import (
     Control,
     Measurements,
     Parameters,
 )
-from walking_engine.joint_command import WALK_TO_ROBOT
 from walking_engine.walking_types import Feet, Side, State
 
 from .nao_base_env import NaoBaseEnv

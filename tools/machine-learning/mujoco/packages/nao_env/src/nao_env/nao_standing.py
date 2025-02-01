@@ -2,7 +2,7 @@ from typing import Any, override
 
 import numpy as np
 from gymnasium import utils
-from nao_interface.poses import PENALIZED_POSE, READY_POSE
+from nao_interface.poses import READY_POSE
 from numpy.typing import NDArray
 from rewards import (
     ConstantReward,

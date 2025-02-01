@@ -4,7 +4,6 @@ from threading import Lock
 
 import glfw
 import mujoco
-from mujoco._functions import mjv_initGeom
 import numpy as np
 from mujoco._structs import MjvGeom
 from numpy.typing import ArrayLike, NDArray
