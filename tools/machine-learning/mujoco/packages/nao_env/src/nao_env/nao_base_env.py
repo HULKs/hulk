@@ -107,7 +107,7 @@ class NaoBaseEnv(MujocoEnv):
         y = np.linspace(-5, 5, num_rows)
 
         X, Y = np.meshgrid(x, y)
-        Z = np.sin(X) * np.sin(Y)
+        Z = 1 - (np.cos(X) * np.cos(Y) + 1) / 2
         num_steps = int(max_height / step_height)
         discrete_Z = np.round(Z * num_steps) / num_steps * max_height
 
