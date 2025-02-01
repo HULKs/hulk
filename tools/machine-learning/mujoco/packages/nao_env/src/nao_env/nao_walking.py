@@ -272,7 +272,8 @@ def apply_walking(
         )
         viewer.mark_arrow(
             position=swing_sole,
-            direction=current_swing_sole_to_target,
+            direction=-current_swing_sole_to_target,
+            width=0.01,
             rgba=[0.5, 0, 0, 0.3],
         )
 

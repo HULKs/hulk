@@ -4,10 +4,10 @@ from threading import Lock
 
 import glfw
 import mujoco
-from mujoco._enums import mjtGeom
-from mujoco._structs import MjvGeom
+from mujoco._functions import mjv_initGeom
 import numpy as np
-from numpy.typing import ArrayLike
+from mujoco._structs import MjvGeom
+from numpy.typing import ArrayLike, NDArray
 
 from mujoco_interactive_viewer.figure import Figure
 from mujoco_interactive_viewer.interaction import InteractionState
@@ -15,6 +15,32 @@ from mujoco_interactive_viewer.marker import Marker
 from mujoco_interactive_viewer.overlay import Overlay
 from mujoco_interactive_viewer.render import RenderState
 from mujoco_interactive_viewer.visualization import VisualizationState
+
+
+def normalize(v: NDArray) -> NDArray:
+    return v / np.linalg.norm(v)
+
+
+def look_at(origin: ArrayLike, target: ArrayLike) -> NDArray:
+    origin = np.array(origin)
+    target = np.array(target)
+
+    reference_direction = np.array([0.0, 0.0, 1.0])
+    direction = normalize(target - origin)
+
+    axis_of_rotation = normalize(np.cross(reference_direction, direction))
+
+    cos_theta = np.dot(reference_direction, direction)
+    angle = np.arccos(cos_theta)
+    K = np.array(
+        [
+            [0, -axis_of_rotation[2], axis_of_rotation[1]],
+            [axis_of_rotation[2], 0, -axis_of_rotation[0]],
+            [-axis_of_rotation[1], axis_of_rotation[0], 0],
+        ]
+    )
+
+    return np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
 
 
 class Viewer:
@@ -86,16 +112,18 @@ class Viewer:
         size: ArrayLike,
         position: ArrayLike,
         rgba: ArrayLike,
-        material: ArrayLike | None = None,
+        rotation_matrix: ArrayLike | None = None,
     ) -> None:
         size = np.asanyarray(size)
         position = np.asanyarray(position)
         rgba = np.asanyarray(rgba)
-        if material is None:
-            material = np.eye(3).flatten()
+        if rotation_matrix is None:
+            rotation_matrix = np.eye(3).flatten()
         else:
-            material = np.asanyarray(material)
-        self._markers.append(Marker(kind, size, position, material, rgba))
+            rotation_matrix = np.asanyarray(rotation_matrix)
+        self._markers.append(
+            Marker(kind, size, position, rotation_matrix, rgba)
+        )
 
     def mark_sphere(
         self,
@@ -126,14 +154,17 @@ class Viewer:
     def mark_arrow(
         self,
         position: ArrayLike,
-        width: np.floating | float,
         direction: ArrayLike,
+        width: np.floating | float,
         rgba: ArrayLike,
     ) -> None:
+        size = np.array([width, width, np.linalg.norm(direction) * 2])
+        rotation_matrix = look_at(np.zeros(3), direction).flatten()
         self.add_marker(
             mujoco.mjtGeom.mjGEOM_ARROW,
-            size=np.array([width, width, np.linalg.norm(direction)]),
+            size=size,
             position=position,
+            rotation_matrix=rotation_matrix,
             rgba=rgba,
         )
 
@@ -141,7 +172,7 @@ class Viewer:
         if self.scene.ngeom >= self.scene.maxgeom:
             raise OutOfGeomsError()
 
-        geom:MjvGeom = self.scene.geoms[self.scene.ngeom]
+        geom: MjvGeom = self.scene.geoms[self.scene.ngeom]
         mujoco.mjv_initGeom(
             geom,
             type=marker.kind.value,
@@ -150,7 +181,6 @@ class Viewer:
             mat=marker.rotation_matrix,
             rgba=marker.rgba,
         )
-        geom.
         self.scene.ngeom += 1
 
     def figure(self, name: str) -> Figure:
