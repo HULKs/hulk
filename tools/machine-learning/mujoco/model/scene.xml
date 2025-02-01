@@ -38,12 +38,13 @@
       texrepeat="5 5"
       reflectance="0.2"
     />
+    <hfield name="terrain" nrow="1024" ncol="1024" size="10 10 1.0 0.1" />
   </asset>
 
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
     <body name="floor">
-      <geom size="0 0 0.05" type="plane" material="groundplane" />
+      <geom name="ground" type="hfield" hfield="terrain" />
     </body>
   </worldbody>
 </mujoco>
