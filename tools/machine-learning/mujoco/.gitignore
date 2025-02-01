@@ -3,3 +3,4 @@ videos/
 runs/
 models/
 MUJOCO_LOG.TXT
+result/
