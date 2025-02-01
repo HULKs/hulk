@@ -5,7 +5,8 @@ from threading import Lock
 import glfw
 import mujoco
 import numpy as np
-from numpy.typing import NDArray
+from mujoco._structs import MjvGeom
+from numpy.typing import ArrayLike, NDArray
 
 from mujoco_interactive_viewer.figure import Figure
 from mujoco_interactive_viewer.interaction import InteractionState
@@ -13,6 +14,32 @@ from mujoco_interactive_viewer.marker import Marker
 from mujoco_interactive_viewer.overlay import Overlay
 from mujoco_interactive_viewer.render import RenderState
 from mujoco_interactive_viewer.visualization import VisualizationState
+
+
+def normalize(v: NDArray) -> NDArray:
+    return v / np.linalg.norm(v)
+
+
+def look_at(origin: ArrayLike, target: ArrayLike) -> NDArray:
+    origin = np.array(origin)
+    target = np.array(target)
+
+    reference_direction = np.array([0.0, 0.0, 1.0])
+    direction = normalize(target - origin)
+
+    axis_of_rotation = normalize(np.cross(reference_direction, direction))
+
+    cos_theta = np.dot(reference_direction, direction)
+    angle = np.arccos(cos_theta)
+    K = np.array(
+        [
+            [0, -axis_of_rotation[2], axis_of_rotation[1]],
+            [axis_of_rotation[2], 0, -axis_of_rotation[0]],
+            [-axis_of_rotation[1], axis_of_rotation[0], 0],
+        ]
+    )
+
+    return np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
 
 
 class Viewer:
@@ -81,30 +108,76 @@ class Viewer:
     def add_marker(
         self,
         kind: mujoco.mjtGeom,
-        size: NDArray[np.float64] | list[float],
-        position: NDArray[np.float64] | list[float],
-        rgba: NDArray[np.float32] | list[float],
-        material: NDArray[np.float64] | list[float] | None = None,
+        size: ArrayLike,
+        position: ArrayLike,
+        rgba: ArrayLike,
+        rotation_matrix: ArrayLike | None = None,
     ) -> None:
-        size = np.array(size)
-        position = np.array(position)
-        if material is None:
-            material = np.eye(3).flatten()
-        material = np.array(material)
-        rgba = np.array(rgba)
-        self._markers.append(Marker(kind, size, position, material, rgba))
+        size = np.asanyarray(size)
+        position = np.asanyarray(position)
+        rgba = np.asanyarray(rgba)
+        if rotation_matrix is None:
+            rotation_matrix = np.eye(3).flatten()
+        else:
+            rotation_matrix = np.asanyarray(rotation_matrix)
+        self._markers.append(
+            Marker(kind, size, position, rotation_matrix, rgba)
+        )
+
+    def mark_sphere(
+        self,
+        position: ArrayLike,
+        radius: np.floating | float,
+        rgba: ArrayLike,
+    ) -> None:
+        self.add_marker(
+            mujoco.mjtGeom.mjGEOM_SPHERE,
+            np.array([radius, 0, 0]),
+            position,
+            rgba,
+        )
+
+    def mark_box(
+        self,
+        position: ArrayLike,
+        size: ArrayLike,
+        rgba: ArrayLike,
+    ) -> None:
+        self.add_marker(
+            mujoco.mjtGeom.mjGEOM_BOX,
+            size,
+            position,
+            rgba,
+        )
+
+    def mark_arrow(
+        self,
+        position: ArrayLike,
+        direction: ArrayLike,
+        width: np.floating | float,
+        rgba: ArrayLike,
+    ) -> None:
+        size = np.array([width, width, np.linalg.norm(direction) * 2])
+        rotation_matrix = look_at(np.zeros(3), direction).flatten()
+        self.add_marker(
+            mujoco.mjtGeom.mjGEOM_ARROW,
+            size=size,
+            position=position,
+            rotation_matrix=rotation_matrix,
+            rgba=rgba,
+        )
 
     def _add_marker_to_scene(self, marker: Marker) -> None:
         if self.scene.ngeom >= self.scene.maxgeom:
             raise OutOfGeomsError()
 
-        geom = self.scene.geoms[self.scene.ngeom]
+        geom: MjvGeom = self.scene.geoms[self.scene.ngeom]
         mujoco.mjv_initGeom(
             geom,
             type=marker.kind.value,
             size=marker.size,
             pos=marker.position,
-            mat=marker.material,
+            mat=marker.rotation_matrix,
             rgba=marker.rgba,
         )
         self.scene.ngeom += 1
@@ -515,6 +588,12 @@ class Viewer:
                 )
         self.perturbation.active = perturbation_kind
 
+    def track_with_camera(self, body: int | str) -> None:
+        bodyid = self.model.body(body).id
+        self.camera.type = mujoco.mjtCamera.mjCAMERA_TRACKING.value
+        self.camera.trackbodyid = bodyid
+        self.camera.fixedcamid = -1
+
     def _handle_selection(self, mods: int) -> None:
         class Mode(Enum):
             Select = 1
@@ -529,7 +608,10 @@ class Viewer:
             mode = None
             if self._interaction_state.left_double_click_pressed:
                 mode = Mode.Select
-            elif self._interaction_state.right_double_click_pressed:
+            elif (
+                self._interaction_state.right_double_click_pressed
+                and mods != glfw.MOD_CONTROL
+            ):
                 mode = Mode.LookAt
             elif (
                 self._interaction_state.right_double_click_pressed

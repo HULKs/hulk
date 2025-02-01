@@ -1,40 +1,13 @@
 from pathlib import Path
 from typing import Any, ClassVar, override
 
+import mujoco
 import numpy as np
 from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
 from gymnasium.spaces import Box
 from nao_interface import Nao
 from numpy.typing import NDArray
 from throwing import ThrowableObject
-
-SENSOR_NAMES = [
-    "accelerometer",
-    "gyroscope",
-    "head.yaw",
-    "head.pitch",
-    "left_leg.hip_yaw_pitch",
-    "left_leg.hip_roll",
-    "left_leg.hip_pitch",
-    "left_leg.knee_pitch",
-    "left_leg.ankle_pitch",
-    "left_leg.ankle_roll",
-    "right_leg.hip_roll",
-    "right_leg.hip_pitch",
-    "right_leg.knee_pitch",
-    "right_leg.ankle_pitch",
-    "right_leg.ankle_roll",
-    "left_arm.shoulder_pitch",
-    "left_arm.shoulder_roll",
-    "left_arm.elbow_yaw",
-    "left_arm.elbow_roll",
-    "left_arm.wrist_yaw",
-    "right_arm.shoulder_pitch",
-    "right_arm.shoulder_roll",
-    "right_arm.elbow_yaw",
-    "right_arm.elbow_roll",
-    "right_arm.wrist_yaw",
-]
 
 ACTUATOR_NAMES = [
     "left_leg.hip_yaw_pitch",
@@ -83,6 +56,7 @@ class NaoBaseEnv(MujocoEnv):
         *,
         throw_tomatoes: bool = False,
         fsr_scale: float = 0.019,
+        sensor_delay: int = 0,
         **kwargs: Any,
     ) -> None:
         observation_space = Box(
@@ -109,7 +83,15 @@ class NaoBaseEnv(MujocoEnv):
         )
         self._actuation_mask = self._get_actuation_mask()
         self.action_space_size = len(ACTUATOR_NAMES)
-        self.nao = Nao(self.model, self.data, fsr_scale=fsr_scale)
+        self.nao = Nao(
+            self.model,
+            self.data,
+            fsr_scale=fsr_scale,
+            position_sensor_delay=sensor_delay,
+            fsr_sensor_delay=sensor_delay,
+            gyroscope_sensor_delay=sensor_delay,
+            accelerometer_sensor_delay=sensor_delay,
+        )
 
     def _get_actuation_mask(self) -> NDArray[np.bool_]:
         actuation_mask = np.zeros(self.model.nu, dtype=np.bool_)
@@ -131,20 +113,33 @@ class NaoBaseEnv(MujocoEnv):
         return self.action_space
 
     def _get_obs(self) -> NDArray[np.floating]:
-        force_sensing_resistors_right = self.nao.right_fsr_values().sum()
-        force_sensing_resistors_left = self.nao.left_fsr_values().sum()
+        force_sensing_resistors_left = self.nao.left_fsr().sum(keepdims=True)
+        force_sensing_resistors_right = self.nao.right_fsr().sum(keepdims=True)
 
-        sensors = np.concatenate(
+        positions = self.nao.position_encoders()
+        gyroscopes = self.nao.gyroscope()
+        accelerometer = self.nao.accelerometer()
+
+        return np.concatenate(
             [
-                self.data.sensor(sensor_name).data
-                for sensor_name in SENSOR_NAMES
-            ],
-        )
-        fsrs = np.array(
-            [force_sensing_resistors_right, force_sensing_resistors_left],
+                positions,
+                gyroscopes,
+                accelerometer,
+                force_sensing_resistors_left,
+                force_sensing_resistors_right,
+            ]
         )
 
-        return np.concatenate([sensors, fsrs])
+    @override
+    def _step_mujoco_simulation(self, ctrl: NDArray, n_frames: int) -> None:
+        self.nao.data.ctrl[self._actuation_mask] = ctrl
+
+        mujoco.mj_step(self.model, self.data, nstep=n_frames)
+
+        # As of MuJoCo 2.0, force-related quantities like cacc are not computed
+        # unless there's a force sensor in the model.
+        # See https://github.com/openai/gym/issues/1541
+        mujoco.mj_rnePostConstraint(self.model, self.data)
 
     @override
     def do_simulation(
@@ -152,5 +147,5 @@ class NaoBaseEnv(MujocoEnv):
         ctrl: NDArray[np.floating],
         n_frames: int,
     ) -> None:
-        self.data.ctrl[self._actuation_mask] = ctrl
-        self._step_mujoco_simulation(self.data.ctrl, n_frames)
+        self._step_mujoco_simulation(ctrl, n_frames)
+        self.nao.update_sensors()

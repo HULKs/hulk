@@ -306,31 +306,35 @@
 
                   <site
                     name="force_sensitive_resistors.left.rear_right"
-                    pos="-0.02 0.025 -0.04519"
-                    size="0.04 0.025 0.005"
+                    pos="-0.02 0.03 -0.04519"
+                    size="0.04 0.03 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                   <site
                     name="force_sensitive_resistors.left.rear_left"
-                    pos="-0.02 -0.017 -0.04519"
-                    size="0.04 0.017 0.005"
+                    pos="-0.02 -0.023 -0.04519"
+                    size="0.04 0.023 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                   <site
                     name="force_sensitive_resistors.left.front_right"
-                    pos="0.06 0.025 -0.04519"
-                    size="0.04 0.025 0.005"
+                    pos="0.065 0.03 -0.04519"
+                    size="0.045 0.03 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                   <site
                     name="force_sensitive_resistors.left.front_left"
-                    pos="0.06 -0.017 -0.04519"
-                    size="0.04 0.017 0.005"
+                    pos="0.065 -0.023 -0.04519"
+                    size="0.045 0.023 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                 </body>
               </body>
@@ -484,31 +488,35 @@
 
                   <site
                     name="force_sensitive_resistors.right.rear_right"
-                    pos="-0.02 -0.025 -0.04519"
-                    size="0.04 0.025 0.005"
+                    pos="-0.02 -0.03 -0.04519"
+                    size="0.04 0.03 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                   <site
                     name="force_sensitive_resistors.right.rear_left"
-                    pos="-0.02 0.017 -0.04519"
-                    size="0.04 0.017 0.005"
+                    pos="-0.02 0.023 -0.04519"
+                    size="0.04 0.023 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                   <site
                     name="force_sensitive_resistors.right.front_right"
-                    pos="0.06 -0.025 -0.04519"
-                    size="0.04 0.025 0.005"
+                    pos="0.065 -0.03 -0.04519"
+                    size="0.045 0.03 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                   <site
                     name="force_sensitive_resistors.right.front_left"
-                    pos="0.06 0.017 -0.04519"
-                    size="0.04 0.017 0.005"
+                    pos="0.065 0.023 -0.04519"
+                    size="0.045 0.023 0.005"
                     type="box"
                     rgba="1 0 0 0.3"
+                    group="3"
                   />
                 </body>
               </body>

@@ -2,7 +2,7 @@ from typing import Any, override
 
 import numpy as np
 from gymnasium import utils
-from nao_interface.poses import PENALIZED_POSE
+from nao_interface.poses import READY_POSE
 from numpy.typing import NDArray
 from rewards import (
     ConstantReward,
@@ -17,16 +17,16 @@ from .nao_base_env import NaoBaseEnv
 OFFSET_QPOS = np.array(
     [
         0.0,
-        0.0,
-        0.09,
-        -0.06,
-        0.01,
-        -0.002,
-        0.0,
-        0.09,
-        -0.06,
-        0.01,
-        0.002,
+        0.010821502783627257,
+        -0.3107718500421241,
+        0.8246279211008891,
+        -0.513856071058765,
+        -0.010821502783627453,
+        -0.010821502783627257,
+        -0.3107718500421241,
+        0.8246279211008891,
+        -0.513856071058765,
+        0.010821502783627453,
         1.57,
         0.1,
         -1.57,
@@ -52,6 +52,7 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
     ) -> None:
         super().__init__(
             throw_tomatoes=throw_tomatoes,
+            sensor_delay=3,
             **kwargs,
         )
 
@@ -110,5 +111,5 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
             self.init_qpos,
             self.init_qvel,
         )
-        self.nao.reset(PENALIZED_POSE)
+        self.nao.reset(READY_POSE)
         return self._get_obs()
