@@ -3,8 +3,9 @@ from dataclasses import dataclass
 
 import mujoco
 import numpy as np
-from nao_env.ring_buffer import RingBuffer
 from numpy.typing import NDArray
+
+from nao_interface.ring_buffer import RingBuffer
 
 POSITION_SENSOR_NAMES = [
     "head.yaw",
