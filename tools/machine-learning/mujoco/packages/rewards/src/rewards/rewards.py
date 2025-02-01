@@ -64,6 +64,7 @@ class HeadOverTorsoPenalty(BaseReward):
 class TorqueChangeRatePenalty(BaseReward):
     def __init__(self, actuator_dimension: int, dt: float) -> None:
         self.previous_force = np.zeros(actuator_dimension)
+        self.is_initialized = False
         self.dt = dt
 
     def reward(self, context: RewardContext) -> np.floating:
@@ -78,7 +79,15 @@ class TorqueChangeRatePenalty(BaseReward):
             np.abs(previous_torque - current_torque) / self.dt
         )
         self.previous_force = np.copy(context.nao.data.actuator_force)
+
+        if not self.is_initialized:
+            self.is_initialized = True
+            return np.float32(0.0)
+
         return torque_change_rate
+
+    def reset(self) -> None:
+        self.is_initialized = False
 
 
 class XDistanceReward(BaseReward):

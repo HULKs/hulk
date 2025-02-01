@@ -66,6 +66,14 @@ class ThrowableObject:
         )
 
     def has_ground_contact(self) -> bool:
+        qpos_index = self.model.jnt_qposadr[
+            self.model.body_jntadr[self.throwable_index]
+        ]
+        z_height = self.data.qpos[qpos_index + 2]
+        if z_height <= -1.0:
+            # clipped through the floor
+            return True
+
         geoms = (
             self.model.body_geomadr[self.throwable_index],
             self.model.body_geomadr[self.ground_index],
