@@ -30,7 +30,6 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
     viewer = Viewer(env.model, env.data)
     set_global_viewer(viewer)
-    # viewer._render_state.toggle_pause()
     rewards_figure = viewer.figure("rewards")
     rewards_figure.set_title("Rewards")
     rewards_figure.set_x_label("Step")
