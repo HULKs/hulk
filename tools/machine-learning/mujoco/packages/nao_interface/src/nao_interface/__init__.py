@@ -5,10 +5,11 @@ from .nao_interface import (
     Nao,
     NaoJoints,
 )
-from .poses import PENALIZED_POSE, ZERO_POSE
+from .poses import PENALIZED_POSE, READY_POSE, ZERO_POSE
 
 __all__ = [
     "PENALIZED_POSE",
+    "READY_POSE",
     "ZERO_POSE",
     "ArmJoints",
     "HeadJoints",
