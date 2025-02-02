@@ -89,6 +89,10 @@ impl<Frame: Copy> Arc<Frame> {
     pub fn start_point(&self) -> Point2<Frame> {
         self.circle.point_at_angle(self.start)
     }
+
+    pub fn end_point(&self) -> Point2<Frame> {
+        self.circle.point_at_angle(self.end)
+    }
 }
 
 #[cfg(test)]
