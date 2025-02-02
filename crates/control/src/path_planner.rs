@@ -339,13 +339,10 @@ impl PathPlanner {
                             .as_circle()
                             .ok_or_else(|| eyre!("obstacle from path node was not a circle"))?;
 
-                        let start_direction = current_node.position - circle.center;
-                        let end_direction = next_node.position - circle.center;
-
                         Ok(PathSegment::Arc(Arc {
                             circle,
-                            start: Angle::from_direction(start_direction),
-                            end: Angle::from_direction(end_direction),
+                            start: Angle::from_direction(current_node.position - circle.center),
+                            end: Angle::from_direction(next_node.position - circle.center),
                             direction: LineSegment(previous_node.position, current_node.position)
                                 .get_direction(circle.center),
                         }))
