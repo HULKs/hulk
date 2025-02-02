@@ -236,7 +236,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                     PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
                     PathSegment::Arc(arc) => arc
                         .direction
-                        .rotate_vector_90_degrees(arc.start - arc.circle.center),
+                        .rotate_vector_90_degrees(arc.start.as_direction() * arc.circle.radius),
                 };
 
                 let orientation = match orientation_mode {
