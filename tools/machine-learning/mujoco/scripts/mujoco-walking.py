@@ -2,7 +2,7 @@ import time
 
 import click
 import numpy as np
-from mujoco_interactive_viewer import Viewer, set_global_viewer
+from mujoco_interactive_viewer import Viewer
 from nao_env import NaoWalking
 from stable_baselines3 import PPO
 
@@ -31,7 +31,6 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     env.initialize_terrain(max_height=0.1, step_height=0.01)
 
     viewer = Viewer(env.model, env.data)
-    set_global_viewer(viewer)
     rewards_figure = viewer.figure("rewards")
     rewards_figure.set_title("Rewards")
     rewards_figure.set_x_label("Step")
