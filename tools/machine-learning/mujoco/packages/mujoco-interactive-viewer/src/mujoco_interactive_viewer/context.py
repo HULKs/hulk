@@ -1,4 +1,9 @@
-from mujoco_interactive_viewer.viewer import Viewer
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mujoco_interactive_viewer.viewer import Viewer
 
 _viewer: Viewer | None = None
 
