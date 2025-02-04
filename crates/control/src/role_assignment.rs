@@ -36,7 +36,7 @@ use crate::localization::generate_initial_pose;
 pub struct RoleAssignment {
     last_received_spl_striker_message: Option<SystemTime>,
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
-    last_transmitted_spl_striker_message: Option<SystemTime>,
+    last_transmitted_striker_message: Option<SystemTime>,
     role: Role,
     role_initialized: bool,
     last_time_player_was_penalized: Players<Option<SystemTime>>,
@@ -85,7 +85,7 @@ impl RoleAssignment {
         Ok(Self {
             last_received_spl_striker_message: None,
             last_system_time_transmitted_game_controller_return_message: None,
-            last_transmitted_spl_striker_message: None,
+            last_transmitted_striker_message: None,
             role: Role::Striker,
             role_initialized: false,
             last_time_player_was_penalized: Players::new(None),
@@ -147,66 +147,25 @@ impl RoleAssignment {
             self.last_received_spl_striker_message = Some(cycle_start_time);
         }
 
-        let send_game_controller_return_message = self
-            .last_system_time_transmitted_game_controller_return_message
-            .is_none()
-            || cycle_start_time.duration_since(
-                self.last_system_time_transmitted_game_controller_return_message
-                    .unwrap(),
-            )? > context.spl_network.game_controller_return_message_interval;
-
-        let send_spl_striker_message = self.last_transmitted_spl_striker_message.is_none()
-            || cycle_start_time
-                .duration_since(self.last_transmitted_spl_striker_message.unwrap())?
-                > context.spl_network.spl_striker_message_send_interval;
-
-        let spl_striker_message_timeout = match self.last_received_spl_striker_message {
-            None => false,
-            Some(last_received_spl_striker_message) => {
-                cycle_start_time.duration_since(last_received_spl_striker_message)?
-                    > context.spl_network.spl_striker_message_receive_timeout
-            }
-        };
-
-        let silence_interval_has_passed = match self.last_transmitted_spl_striker_message {
-            Some(last_transmitted_spl_striker_message) => {
-                cycle_start_time.duration_since(last_transmitted_spl_striker_message)?
-                    > context.spl_network.silence_interval_between_messages
-            }
-            None => true,
-        };
-
-        if send_game_controller_return_message {
-            self.last_system_time_transmitted_game_controller_return_message =
-                Some(cycle_start_time);
-            if let Some(address) = context.game_controller_address {
-                context
-                    .hardware
-                    .write_to_network(OutgoingMessage::GameController(
-                        *address,
-                        GameControllerReturnMessage {
-                            player_number: *context.player_number,
-                            fallen: matches!(context.fall_state, FallState::Fallen { .. }),
-                            pose: ground_to_field.as_pose(),
-                            ball: seen_ball_to_game_controller_ball_position(
-                                context.ball_position,
-                                cycle_start_time,
-                            ),
-                        },
-                    ))
-                    .wrap_err("failed to write GameControllerReturnMessage to hardware")?;
-            }
-        }
-
-        let is_in_penalty_kick = matches!(
-            context.filtered_game_controller_state,
-            Some(FilteredGameControllerState {
-                sub_state: Some(SubState::PenaltyKick),
-                ..
-            })
-        );
+        self.try_sending_game_controller_return_message(&context, ground_to_field)?;
 
         // TODO: reimplement whatever this did
+        // let is_in_penalty_kick = matches!(
+        //     context.filtered_game_controller_state,
+        //     Some(FilteredGameControllerState {
+        //         sub_state: Some(SubState::PenaltyKick),
+        //         ..
+        //     })
+        // );
+        //
+        // let spl_striker_message_timeout = match self.last_received_spl_striker_message {
+        //     None => false,
+        //     Some(last_received_spl_striker_message) => {
+        //         cycle_start_time.duration_since(last_received_spl_striker_message)?
+        //             > context.spl_network.spl_striker_message_receive_timeout
+        //     }
+        // };
+        //
         // if spl_striker_message_timeout && !is_in_penalty_kick {
         //     match new_role {
         //         Role::Keeper | Role::ReplacementKeeper => {}
@@ -223,7 +182,7 @@ impl RoleAssignment {
         let events: Vec<_> = context
             .network_message
             .persistent
-            .into_values()
+            .values()
             .flatten()
             .filter_map(|message| match message {
                 Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
@@ -273,7 +232,6 @@ impl RoleAssignment {
                         })
                         .then_some(player_number)
                 });
-            // .filter(|(player_number, _)| player_number < context.player_number)
             if Some(*context.player_number) == lowest_player_number_without_penalty {
                 new_role = Role::ReplacementKeeper;
             }
@@ -282,48 +240,23 @@ impl RoleAssignment {
             .last_time_player_was_penalized
             .fill_if_subscribed(|| self.last_time_player_was_penalized);
 
-        match (self.role, new_role) {
-            (Role::ReplacementKeeper, _) => {}
-            _ => {}
-        }
-
-        if send_spl_striker_message
-            && primary_state == PrimaryState::Playing
-            && silence_interval_has_passed
-        {
-            self.last_transmitted_spl_striker_message = Some(cycle_start_time);
-            self.last_received_spl_striker_message = Some(cycle_start_time);
-            if let Some(game_controller_state) = context.filtered_game_controller_state {
-                if game_controller_state.remaining_number_of_messages
-                    > context
-                        .spl_network
-                        .remaining_amount_of_messages_to_stop_sending
-                {
-                    let pose = ground_to_field.as_pose();
-                    let team_network_ball = context.team_ball.map(|team_ball| {
-                        team_ball_to_network_ball_position(*team_ball, cycle_start_time)
-                    });
-                    let own_network_ball = context.ball_position.map(|seen_ball| {
-                        own_ball_to_hulks_network_ball_position(
-                            *seen_ball,
-                            ground_to_field,
-                            cycle_start_time,
-                        )
-                    });
-                    let ball_position = own_network_ball
-                        .or(team_network_ball)
-                        .expect("we are striker without a ball, this should never happen");
-                    context.hardware.write_to_network(OutgoingMessage::Spl(
-                        HulkMessage::Striker(StrikerMessage {
-                            player_number: *context.player_number,
-                            pose,
-                            ball_position,
-                            time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
-                        }),
-                    ))?;
+        if primary_state == PrimaryState::Playing {
+            match (self.role, new_role) {
+                (Role::Striker, Role::Striker) => {
+                    if self.is_striker_beacon_cooldown_elapsed(&context) {
+                        self.try_sending_striker_message(&context, ground_to_field)?;
+                    }
                 }
+                (_other_role, Role::Striker) => {
+                    self.try_sending_striker_message(&context, ground_to_field)?;
+                }
+
+                (Role::Striker, Role::Loser) => {}
+                _ => {}
             }
         }
+
+        self.try_sending_striker_message(&context, ground_to_field)?;
 
         if let Some(forced_role) = context.forced_role {
             self.role = *forced_role;
@@ -348,6 +281,127 @@ impl RoleAssignment {
             role: self.role.into(),
         })
     }
+
+    fn is_return_message_cooldown_elapsed(
+        &self,
+        context: &CycleContext<impl NetworkInterface>,
+    ) -> bool {
+        is_cooldown_elapsed(
+            context.cycle_time.start_time,
+            self.last_system_time_transmitted_game_controller_return_message,
+            context.spl_network.game_controller_return_message_interval,
+        )
+    }
+
+    fn is_striker_beacon_cooldown_elapsed(
+        &self,
+        context: &CycleContext<impl NetworkInterface>,
+    ) -> bool {
+        is_cooldown_elapsed(
+            context.cycle_time.start_time,
+            self.last_transmitted_striker_message,
+            context.spl_network.spl_striker_message_send_interval,
+        )
+    }
+
+    fn is_striker_silence_period_elapsed(
+        &self,
+        context: &CycleContext<impl NetworkInterface>,
+    ) -> bool {
+        is_cooldown_elapsed(
+            context.cycle_time.start_time,
+            self.last_transmitted_striker_message,
+            context.spl_network.silence_interval_between_messages,
+        )
+    }
+
+    fn try_sending_game_controller_return_message(
+        &mut self,
+        context: &CycleContext<impl NetworkInterface>,
+        ground_to_field: Isometry2<Ground, Field>,
+    ) -> Result<()> {
+        if !self.is_return_message_cooldown_elapsed(context) {
+            return Ok(());
+        }
+        self.last_system_time_transmitted_game_controller_return_message =
+            Some(context.cycle_time.start_time);
+        let Some(address) = context.game_controller_address else {
+            return Ok(());
+        };
+        context
+            .hardware
+            .write_to_network(OutgoingMessage::GameController(
+                *address,
+                GameControllerReturnMessage {
+                    player_number: *context.player_number,
+                    fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                    pose: ground_to_field.as_pose(),
+                    ball: seen_ball_to_game_controller_ball_position(
+                        context.ball_position,
+                        context.cycle_time.start_time,
+                    ),
+                },
+            ))
+            .wrap_err("failed to write GameControllerReturnMessage to hardware")
+    }
+    fn try_sending_striker_message(
+        &mut self,
+        context: &CycleContext<impl NetworkInterface>,
+        ground_to_field: Isometry2<Ground, Field>,
+    ) -> Result<()> {
+        if !self.is_striker_silence_period_elapsed(context) {
+            return Ok(());
+        }
+        if !is_enough_message_budget_left(context) {
+            return Ok(());
+        }
+
+        self.last_transmitted_striker_message = Some(context.cycle_time.start_time);
+        self.last_received_spl_striker_message = Some(context.cycle_time.start_time);
+        {
+            let pose = ground_to_field.as_pose();
+            let team_network_ball = context.team_ball.map(|team_ball| {
+                team_ball_to_network_ball_position(*team_ball, context.cycle_time.start_time)
+            });
+            let own_network_ball = context.ball_position.map(|seen_ball| {
+                own_ball_to_hulks_network_ball_position(
+                    *seen_ball,
+                    ground_to_field,
+                    context.cycle_time.start_time,
+                )
+            });
+            let ball_position = own_network_ball
+                .or(team_network_ball)
+                .expect("we are striker without a ball, this should never happen");
+            context
+                .hardware
+                .write_to_network(OutgoingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+                    player_number: *context.player_number,
+                    pose,
+                    ball_position,
+                    time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
+                })))?;
+        }
+
+        Ok(())
+    }
+}
+
+fn is_cooldown_elapsed(now: SystemTime, last: Option<SystemTime>, cooldown: Duration) -> bool {
+    last.is_none_or(|last_time| {
+        now.duration_since(last_time).expect("time ran backwards") > cooldown
+    })
+}
+
+fn is_enough_message_budget_left(context: &CycleContext<impl NetworkInterface>) -> bool {
+    context
+        .filtered_game_controller_state
+        .is_some_and(|game_controller_state| {
+            game_controller_state.remaining_number_of_messages
+                > context
+                    .spl_network
+                    .remaining_amount_of_messages_to_stop_sending
+        })
 }
 
 #[derive(Clone, Copy)]
@@ -419,7 +473,7 @@ fn process_role_state_machine(
             optional_roles,
         ),
 
-        //Striker remains Striker, sends message after timeout
+        // Striker remains Striker, sends message after timeout
         (Role::Striker, true, Event::None) => Role::Striker,
 
         // Edge-case, another Striker became Loser, so we claim striker since we see a ball
@@ -433,11 +487,11 @@ fn process_role_state_machine(
         //       striker convergence in this rare circumstance.
         (Role::Striker, true, Event::Loser) => Role::Striker,
 
-        //Loser remains Loser
+        // Loser remains Loser
         (Role::Loser, false, Event::None) => Role::Loser,
         (Role::Loser, false, Event::Loser) => Role::Loser,
 
-        //Loser found ball and becomes Striker
+        // Loser found ball and becomes Striker
         (Role::Loser, true, Event::None) => Role::Striker,
 
         // Edge-case, Loser found Ball at the same time as receiving a loser message
@@ -499,14 +553,12 @@ fn claim_striker_or_other_role(
         return Role::Striker;
     };
 
-    let role = pick_role_with_penalties(
+    pick_role_with_penalties(
         player_number,
         &filtered_game_controller_state.penalties,
         striker_event.player_number,
         optional_roles,
-    );
-
-    role
+    )
 }
 
 fn seen_ball_to_game_controller_ball_position(
@@ -577,6 +629,8 @@ mod test {
     use test_case::test_matrix;
 
     use super::*;
+
+    #[allow(clippy::too_many_arguments)]
     #[test_matrix(
         [
             Role::DefenderLeft,
