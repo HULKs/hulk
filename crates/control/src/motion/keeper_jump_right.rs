@@ -34,7 +34,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub keeper_jump_right_motor_command: MainOutput<MotorCommands<Joints<f32>>>,
+    pub keeper_jump_right_motor_commands: MainOutput<MotorCommands<Joints<f32>>>,
 }
 
 impl KeeperJumpRight {
@@ -49,6 +49,7 @@ impl KeeperJumpRight {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
+
         if context.motion_selection.current_motion == MotionType::KeeperJumpRight {
             self.interpolator
                 .advance_by(last_cycle_duration, condition_input);
@@ -58,7 +59,7 @@ impl KeeperJumpRight {
         context.motion_safe_exits[MotionType::KeeperJumpRight] = self.interpolator.is_finished();
 
         Ok(MainOutputs {
-            keeper_jump_right_motor_command: self.interpolator.value().into(),
+            keeper_jump_right_motor_commands: self.interpolator.value().into(),
         })
     }
 }
