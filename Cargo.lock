@@ -3105,6 +3105,7 @@ dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
+ "num-traits",
  "path_serde",
  "serde",
 ]
