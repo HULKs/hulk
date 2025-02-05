@@ -8,6 +8,7 @@ import numpy as np
 from mujoco._structs import MjvGeom
 from numpy.typing import ArrayLike, NDArray
 
+from mujoco_interactive_viewer.context import set_global_viewer
 from mujoco_interactive_viewer.figure import Figure
 from mujoco_interactive_viewer.interaction import InteractionState
 from mujoco_interactive_viewer.marker import Marker
@@ -52,11 +53,13 @@ class Viewer:
         width: int | None = None,
         height: int | None = None,
         font_scale: mujoco.mjtFontScale = mujoco.mjtFontScale.mjFONTSCALE_100,
+        is_paused: bool = False,
+        set_global: bool = True,
     ) -> None:
         self._gui_lock = Lock()
         self._interaction_state = InteractionState()
         self._visualization_state = VisualizationState()
-        self._render_state = RenderState()
+        self._render_state = RenderState(is_paused=is_paused)
         self.is_alive = True
 
         self.model = model
@@ -104,6 +107,9 @@ class Viewer:
         self._markers: list[Marker] = []
         self._figures: dict[str, Figure] = {}
         self._overlay: dict[mujoco.mjtGridPos, Overlay] = {}
+
+        if set_global:
+            set_global_viewer(self)
 
     def add_marker(
         self,
