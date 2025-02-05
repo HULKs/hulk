@@ -53,19 +53,17 @@ def test_arm_joints_items() -> None:
 
 def test_leg_joints_iteration() -> None:
     leg = LegJoints(
-        hip_yaw_pitch=1,
         hip_roll=2,
         hip_pitch=3,
         knee_pitch=4,
         ankle_pitch=5,
         ankle_roll=6,
     )
-    assert list(leg) == [1, 2, 3, 4, 5, 6]
+    assert list(leg) == [2, 3, 4, 5, 6]
 
 
 def test_leg_joints_items() -> None:
     leg = LegJoints(
-        hip_yaw_pitch=1,
         hip_roll=2,
         hip_pitch=3,
         knee_pitch=4,
@@ -73,7 +71,6 @@ def test_leg_joints_items() -> None:
         ankle_roll=6,
     )
     expected = [
-        ("hip_yaw_pitch", 1),
         ("hip_roll", 2),
         ("hip_pitch", 3),
         ("knee_pitch", 4),
@@ -86,16 +83,16 @@ def test_leg_joints_items() -> None:
 def test_joints_iteration_order() -> None:
     head = HeadJoints(yaw=1, pitch=2)
     left_arm = ArmJoints(3, 4, 5, 6, 7)
-    left_leg = LegJoints(8, 9, 10, 11, 12, 13)
     right_arm = ArmJoints(14, 15, 16, 17, 18)
-    right_leg = LegJoints(19, 20, 21, 22, 23, 24)
-    joints = Joints(head, left_arm, left_leg, right_arm, right_leg)
+    left_leg = LegJoints(9, 10, 11, 12, 13)
+    right_leg = LegJoints(20, 21, 22, 23, 24)
+    joints = Joints(head, left_arm, right_arm, 8, left_leg, right_leg)
     expected = [
         *[1, 2],
-        *[8, 9, 10, 11, 12, 13],
-        *[19, 20, 21, 22, 23, 24],
         *[3, 4, 5, 6, 7],
         *[14, 15, 16, 17, 18],
+        *[8, 9, 10, 11, 12, 13],
+        *[20, 21, 22, 23, 24],
     ]
     assert list(joints) == expected
 
@@ -103,26 +100,14 @@ def test_joints_iteration_order() -> None:
 def test_joints_flattened_items() -> None:
     head = HeadJoints(yaw=5, pitch=10)
     left_arm = ArmJoints(1, 2, 3, 4, 5)
-    left_leg = LegJoints(6, 7, 8, 9, 10, 11)
     right_arm = ArmJoints(12, 13, 14, 15, 16)
-    right_leg = LegJoints(17, 18, 19, 20, 21, 22)
-    joints = Joints(head, left_arm, left_leg, right_arm, right_leg)
+    left_leg = LegJoints(7, 8, 9, 10, 11)
+    right_leg = LegJoints(18, 19, 20, 21, 22)
+    joints = Joints(head, left_arm, right_arm, 17, left_leg, right_leg)
     flattened = list(joints.flattened_items())
     expected = [
         ("head.yaw", 5),
         ("head.pitch", 10),
-        ("left_leg.hip_yaw_pitch", 6),
-        ("left_leg.hip_roll", 7),
-        ("left_leg.hip_pitch", 8),
-        ("left_leg.knee_pitch", 9),
-        ("left_leg.ankle_pitch", 10),
-        ("left_leg.ankle_roll", 11),
-        ("right_leg.hip_yaw_pitch", 17),
-        ("right_leg.hip_roll", 18),
-        ("right_leg.hip_pitch", 19),
-        ("right_leg.knee_pitch", 20),
-        ("right_leg.ankle_pitch", 21),
-        ("right_leg.ankle_roll", 22),
         ("left_arm.shoulder_pitch", 1),
         ("left_arm.shoulder_roll", 2),
         ("left_arm.elbow_yaw", 3),
@@ -133,6 +118,17 @@ def test_joints_flattened_items() -> None:
         ("right_arm.elbow_yaw", 14),
         ("right_arm.elbow_roll", 15),
         ("right_arm.wrist_yaw", 16),
+        ("hip_yaw_pitch", 17),
+        ("left_leg.hip_roll", 7),
+        ("left_leg.hip_pitch", 8),
+        ("left_leg.knee_pitch", 9),
+        ("left_leg.ankle_pitch", 10),
+        ("left_leg.ankle_roll", 11),
+        ("right_leg.hip_roll", 18),
+        ("right_leg.hip_pitch", 19),
+        ("right_leg.knee_pitch", 20),
+        ("right_leg.ankle_pitch", 21),
+        ("right_leg.ankle_roll", 22),
     ]
     assert flattened == expected
 
@@ -182,14 +178,12 @@ def test_leg_joints_view_properties() -> None:
     view = LegJointsView(
         lambda n: storage.get(n), lambda n, v: storage.update({n: v})
     )
-    view.hip_yaw_pitch = 1
     view.hip_roll = 2
     view.hip_pitch = 3
     view.knee_pitch = 4
     view.ankle_pitch = 5
     view.ankle_roll = 6
     assert storage == {
-        "hip_yaw_pitch": 1,
         "hip_roll": 2,
         "hip_pitch": 3,
         "knee_pitch": 4,
@@ -198,7 +192,6 @@ def test_leg_joints_view_properties() -> None:
     }
     storage.update(
         {
-            "hip_yaw_pitch": 10,
             "hip_roll": 20,
             "hip_pitch": 30,
             "knee_pitch": 40,
@@ -206,7 +199,6 @@ def test_leg_joints_view_properties() -> None:
             "ankle_roll": 60,
         }
     )
-    assert view.hip_yaw_pitch == 10
     assert view.hip_roll == 20
     assert view.hip_pitch == 30
     assert view.knee_pitch == 40
@@ -221,16 +213,18 @@ def test_joints_view_set_from_joints() -> None:
     )
     head = HeadJoints(yaw=1, pitch=2)
     left_arm = ArmJoints(3, 4, 5, 6, 7)
-    left_leg = LegJoints(8, 9, 10, 11, 12, 13)
     right_arm = ArmJoints(14, 15, 16, 17, 18)
-    right_leg = LegJoints(19, 20, 21, 22, 23, 24)
-    joints = Joints(head, left_arm, left_leg, right_arm, right_leg)
+    left_leg = LegJoints(9, 10, 11, 12, 13)
+    right_leg = LegJoints(20, 21, 22, 23, 24)
+    joints = Joints(head, left_arm, right_arm, 8, left_leg, right_leg)
     joints_view.set_from_joints(joints)
     assert storage["head.yaw"] == 1
     assert storage["head.pitch"] == 2
     assert storage["left_arm.shoulder_pitch"] == 3
-    assert storage["right_leg.hip_yaw_pitch"] == 19
     assert storage["right_arm.wrist_yaw"] == 18
+    assert storage["hip_yaw_pitch"] == 8
+    assert storage["left_leg.hip_roll"] == 9
+    assert storage["right_leg.ankle_roll"] == 24
 
 
 def test_joints_view_set_from_dict() -> None:
@@ -255,17 +249,6 @@ def test_joints_view_to_numpy_default_names() -> None:
     default_names = [
         "head.yaw",
         "head.pitch",
-        "left_leg.hip_yaw_pitch",
-        "left_leg.hip_roll",
-        "left_leg.hip_pitch",
-        "left_leg.knee_pitch",
-        "left_leg.ankle_pitch",
-        "left_leg.ankle_roll",
-        "right_leg.hip_roll",
-        "right_leg.hip_pitch",
-        "right_leg.knee_pitch",
-        "right_leg.ankle_pitch",
-        "right_leg.ankle_roll",
         "left_arm.shoulder_pitch",
         "left_arm.shoulder_roll",
         "left_arm.elbow_yaw",
@@ -276,6 +259,17 @@ def test_joints_view_to_numpy_default_names() -> None:
         "right_arm.elbow_yaw",
         "right_arm.elbow_roll",
         "right_arm.wrist_yaw",
+        "hip_yaw_pitch",
+        "left_leg.hip_roll",
+        "left_leg.hip_pitch",
+        "left_leg.knee_pitch",
+        "left_leg.ankle_pitch",
+        "left_leg.ankle_roll",
+        "right_leg.hip_roll",
+        "right_leg.hip_pitch",
+        "right_leg.knee_pitch",
+        "right_leg.ankle_pitch",
+        "right_leg.ankle_roll",
     ]
     storage = {name: idx + 1 for idx, name in enumerate(default_names)}
     joints_view = JointsView(lambda n: storage.get(n), lambda _n, _v: None)
@@ -296,32 +290,3 @@ def test_joints_view_to_numpy_custom_names() -> None:
     names = ["head.yaw", "right_leg.ankle_roll", "left_arm.shoulder_pitch"]
     arr = joints_view.to_numpy(names)
     assert np.array_equal(arr, np.array([10, 30, 20]))
-
-
-def test_joints_view_default_names_omit_right_leg_hip_yaw_pitch() -> None:
-    default_names = [
-        "head.yaw",
-        "head.pitch",
-        "left_leg.hip_yaw_pitch",
-        "left_leg.hip_roll",
-        "left_leg.hip_pitch",
-        "left_leg.knee_pitch",
-        "left_leg.ankle_pitch",
-        "left_leg.ankle_roll",
-        "right_leg.hip_roll",
-        "right_leg.hip_pitch",
-        "right_leg.knee_pitch",
-        "right_leg.ankle_pitch",
-        "right_leg.ankle_roll",
-        "left_arm.shoulder_pitch",
-        "left_arm.shoulder_roll",
-        "left_arm.elbow_yaw",
-        "left_arm.elbow_roll",
-        "left_arm.wrist_yaw",
-        "right_arm.shoulder_pitch",
-        "right_arm.shoulder_roll",
-        "right_arm.elbow_yaw",
-        "right_arm.elbow_roll",
-        "right_arm.wrist_yaw",
-    ]
-    assert "right_leg.hip_yaw_pitch" not in default_names
