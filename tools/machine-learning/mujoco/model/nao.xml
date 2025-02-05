@@ -175,7 +175,7 @@
           fullinertia="81502.27e-9 101325.27e-9 62623.96e-9 -4994.62e-9 12748.2e-9 23455.01e-9"
         />
         <joint
-          name="left_leg.hip_yaw_pitch"
+          name="hip_yaw_pitch"
           axis="0 1 -1"
           range="-65.62 42.44"
           limited="true"
@@ -357,7 +357,7 @@
           fullinertia="89971.87e-9 105526.06e-9 66887.37e-9 5002.25e-9 12735.31e-9 -27700.88e-9"
         />
         <joint
-          name="right_leg.hip_yaw_pitch"
+          name="right_hip_yaw_pitch"
           axis="0 1 1"
           range="-65.62 42.44"
           limited="true"
@@ -809,8 +809,8 @@
 
   <equality>
     <joint
-      joint1="left_leg.hip_yaw_pitch"
-      joint2="right_leg.hip_yaw_pitch"
+      joint1="hip_yaw_pitch"
+      joint2="right_hip_yaw_pitch"
       polycoef="0 1 0 0 0"
     />
   </equality>
@@ -818,63 +818,6 @@
   <actuator>
     <position name="head.yaw" joint="head.yaw" ctrlrange="-2.0857 2.0857" />
     <position name="head.pitch" joint="head.pitch" ctrlrange="-0.672 0.5149" />
-    <position
-      name="left_leg.hip_yaw_pitch"
-      joint="left_leg.hip_yaw_pitch"
-      ctrlrange="-1.145303 0.74081"
-    />
-    <position
-      name="left_leg.hip_roll"
-      joint="left_leg.hip_roll"
-      ctrlrange="-0.379472 0.790477"
-    />
-    <position
-      name="left_leg.hip_pitch"
-      joint="left_leg.hip_pitch"
-      ctrlrange="-1.535889 0.484090"
-    />
-    <position
-      name="left_leg.knee_pitch"
-      joint="left_leg.knee_pitch"
-      ctrlrange="-0.092346 2.112528"
-    />
-    <position
-      name="left_leg.ankle_pitch"
-      joint="left_leg.ankle_pitch"
-      ctrlrange="-1.189516 0.922747"
-    />
-    <position
-      name="left_leg.ankle_roll"
-      joint="left_leg.ankle_roll"
-      ctrlrange="-0.397880  0.769001"
-    />
-    <!-- <position name="right_leg.hip_yaw_pitch" joint="right_leg.hip_yaw_pitch"
-    ctrlrange="-1.145303 0.740810"/> -->
-    <position
-      name="right_leg.hip_roll"
-      joint="right_leg.hip_roll"
-      ctrlrange="-0.790477 0.379472"
-    />
-    <position
-      name="right_leg.hip_pitch"
-      joint="right_leg.hip_pitch"
-      ctrlrange="-1.535889 0.48409"
-    />
-    <position
-      name="right_leg.knee_pitch"
-      joint="right_leg.knee_pitch"
-      ctrlrange="-0.103083 2.120198"
-    />
-    <position
-      name="right_leg.ankle_pitch"
-      joint="right_leg.ankle_pitch"
-      ctrlrange="-1.186448 0.932056"
-    />
-    <position
-      name="right_leg.ankle_roll"
-      joint="right_leg.ankle_roll"
-      ctrlrange="-0.768992 0.397935"
-    />
     <position
       name="left_arm.shoulder_pitch"
       joint="left_arm.shoulder_pitch"
@@ -925,6 +868,66 @@
       joint="right_arm.wrist_yaw"
       ctrlrange="-1.8238 1.8238"
     />
+    <position
+      name="hip_yaw_pitch"
+      joint="hip_yaw_pitch"
+      ctrlrange="-1.145303 0.74081"
+    />
+    <position
+      name="left_leg.hip_roll"
+      joint="left_leg.hip_roll"
+      ctrlrange="-0.379472 0.790477"
+    />
+    <position
+      name="left_leg.hip_pitch"
+      joint="left_leg.hip_pitch"
+      ctrlrange="-1.535889 0.484090"
+    />
+    <position
+      name="left_leg.knee_pitch"
+      joint="left_leg.knee_pitch"
+      ctrlrange="-0.092346 2.112528"
+    />
+    <position
+      name="left_leg.ankle_pitch"
+      joint="left_leg.ankle_pitch"
+      ctrlrange="-1.189516 0.922747"
+    />
+    <position
+      name="left_leg.ankle_roll"
+      joint="left_leg.ankle_roll"
+      ctrlrange="-0.397880  0.769001"
+    />
+    <!--<position-->
+    <!--  name="hip_yaw_pitch"-->
+    <!--  joint="right_leg.hip_yaw_pitch"-->
+    <!--  ctrlrange="-1.145303 0.740810"-->
+    <!--/>-->
+    <position
+      name="right_leg.hip_roll"
+      joint="right_leg.hip_roll"
+      ctrlrange="-0.790477 0.379472"
+    />
+    <position
+      name="right_leg.hip_pitch"
+      joint="right_leg.hip_pitch"
+      ctrlrange="-1.535889 0.48409"
+    />
+    <position
+      name="right_leg.knee_pitch"
+      joint="right_leg.knee_pitch"
+      ctrlrange="-0.103083 2.120198"
+    />
+    <position
+      name="right_leg.ankle_pitch"
+      joint="right_leg.ankle_pitch"
+      ctrlrange="-1.186448 0.932056"
+    />
+    <position
+      name="right_leg.ankle_roll"
+      joint="right_leg.ankle_roll"
+      ctrlrange="-0.768992 0.397935"
+    />
   </actuator>
 
   <sensor>
@@ -932,18 +935,6 @@
     <gyro name="gyroscope" site="inertial_measurement_unit" />
     <jointpos name="head.yaw" joint="head.yaw" />
     <jointpos name="head.pitch" joint="head.pitch" />
-    <jointpos name="left_leg.hip_yaw_pitch" joint="left_leg.hip_yaw_pitch" />
-    <jointpos name="left_leg.hip_roll" joint="left_leg.hip_roll" />
-    <jointpos name="left_leg.hip_pitch" joint="left_leg.hip_pitch" />
-    <jointpos name="left_leg.knee_pitch" joint="left_leg.knee_pitch" />
-    <jointpos name="left_leg.ankle_pitch" joint="left_leg.ankle_pitch" />
-    <jointpos name="left_leg.ankle_roll" joint="left_leg.ankle_roll" />
-    <!-- <jointpos name="right_leg.hip_yaw_pitch" joint="right_leg.hip_yaw_pitch"/> -->
-    <jointpos name="right_leg.hip_roll" joint="right_leg.hip_roll" />
-    <jointpos name="right_leg.hip_pitch" joint="right_leg.hip_pitch" />
-    <jointpos name="right_leg.knee_pitch" joint="right_leg.knee_pitch" />
-    <jointpos name="right_leg.ankle_pitch" joint="right_leg.ankle_pitch" />
-    <jointpos name="right_leg.ankle_roll" joint="right_leg.ankle_roll" />
     <jointpos name="left_arm.shoulder_pitch" joint="left_arm.shoulder_pitch" />
     <jointpos name="left_arm.shoulder_roll" joint="left_arm.shoulder_roll" />
     <jointpos name="left_arm.elbow_yaw" joint="left_arm.elbow_yaw" />
@@ -957,6 +948,18 @@
     <jointpos name="right_arm.elbow_yaw" joint="right_arm.elbow_yaw" />
     <jointpos name="right_arm.elbow_roll" joint="right_arm.elbow_roll" />
     <jointpos name="right_arm.wrist_yaw" joint="right_arm.wrist_yaw" />
+    <jointpos name="hip_yaw_pitch" joint="hip_yaw_pitch" />
+    <jointpos name="left_leg.hip_roll" joint="left_leg.hip_roll" />
+    <jointpos name="left_leg.hip_pitch" joint="left_leg.hip_pitch" />
+    <jointpos name="left_leg.knee_pitch" joint="left_leg.knee_pitch" />
+    <jointpos name="left_leg.ankle_pitch" joint="left_leg.ankle_pitch" />
+    <jointpos name="left_leg.ankle_roll" joint="left_leg.ankle_roll" />
+    <!-- <jointpos name="hip_yaw_pitch" joint="right_leg.hip_yaw_pitch"/> -->
+    <jointpos name="right_leg.hip_roll" joint="right_leg.hip_roll" />
+    <jointpos name="right_leg.hip_pitch" joint="right_leg.hip_pitch" />
+    <jointpos name="right_leg.knee_pitch" joint="right_leg.knee_pitch" />
+    <jointpos name="right_leg.ankle_pitch" joint="right_leg.ankle_pitch" />
+    <jointpos name="right_leg.ankle_roll" joint="right_leg.ankle_roll" />
 
     <touch
       name="force_sensitive_resistors.right.rear_left"

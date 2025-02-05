@@ -1,18 +1,27 @@
-from .nao_interface import (
+from .joints import (
     ArmJoints,
+    ArmJointsView,
     HeadJoints,
+    HeadJointsView,
+    Joints,
+    JointsView,
     LegJoints,
-    Nao,
-    NaoJoints,
+    LegJointsView,
 )
-from .poses import PENALIZED_POSE, ZERO_POSE
+from .nao import Nao
+from .poses import PENALIZED_POSE, READY_POSE, ZERO_POSE
 
 __all__ = [
     "PENALIZED_POSE",
+    "READY_POSE",
     "ZERO_POSE",
     "ArmJoints",
+    "ArmJointsView",
     "HeadJoints",
+    "HeadJointsView",
+    "Joints",
+    "JointsView",
     "LegJoints",
+    "LegJointsView",
     "Nao",
-    "NaoJoints",
 ]

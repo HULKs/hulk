@@ -4,8 +4,7 @@ import numpy as np
 import walking_engine
 from gymnasium import utils
 from mujoco_interactive_viewer.context import current_viewer
-from nao_interface.nao_interface import Nao
-from nao_interface.poses import READY_POSE
+from nao_interface import READY_POSE, Nao
 from numpy.typing import NDArray
 from rewards import (
     ConstantReward,
@@ -169,11 +168,11 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         ctrl: NDArray[np.floating],
         n_frames: int,
     ) -> None:
-        right_pressure = self.nao.right_fsr().sum()
-        left_pressure = self.nao.left_fsr().sum()
-
-        measurements = Measurements(left_pressure, right_pressure)
-        self.nao.data.ctrl[:] = OFFSET_QPOS
+        measurements = Measurements(
+            pressure_left=self.nao.left_fsr().sum(),
+            pressure_right=self.nao.right_fsr().sum(),
+        )
+        self.nao.actuator_control.set_from_joints(READY_POSE)
 
         if self.enable_walking and (
             measurements.pressure_left > 0.0
@@ -193,11 +192,10 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
                 control=control,
                 dt=dt,
             )
-        self.nao.data.ctrl[self._actuation_mask] += ctrl
-        super().do_simulation(
-            self.nao.data.ctrl[self._actuation_mask],
-            n_frames,
+        current_control = self.nao.actuator_control.to_numpy(
+            self.actuator_names
         )
+        super().do_simulation(current_control + ctrl, self.frame_skip)
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
@@ -225,8 +223,9 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         )
 
         self.enable_walking = False
+        action_space_size = self.action_space.shape[0]
         self.do_simulation(
-            np.zeros(self.action_space_size),
+            np.zeros(action_space_size),
             self.frame_skip * self.initialization_rounds,
         )
         self.enable_walking = True
@@ -272,7 +271,7 @@ def apply_walking(
             rgba=[0.5, 0, 0, 0.3],
         )
 
-    lower_body_joints = walking_engine.compute_lower_body_joints(
+    legs = walking_engine.compute_lower_body_joints(
         left_sole,
         right_sole,
         left_lift,
@@ -284,31 +283,29 @@ def apply_walking(
         pitch_factor=parameters.arm_pitch_factor,
     )
 
-    nao.actuators.left_leg.ankle_pitch += lower_body_joints.left.ankle_pitch
-    nao.actuators.left_leg.ankle_roll += lower_body_joints.left.ankle_roll
-    nao.actuators.left_leg.knee_pitch += lower_body_joints.left.knee_pitch
-    nao.actuators.left_leg.hip_pitch += (
-        lower_body_joints.left.hip_pitch - parameters.torso_tilt
-    )
-    nao.actuators.left_leg.hip_roll += lower_body_joints.left.hip_roll
-    nao.actuators.left_leg.hip_yaw_pitch += lower_body_joints.left.hip_yaw_pitch
+    actuator = nao.actuator_control
+    actuator.hip_yaw_pitch = legs.left.hip_yaw_pitch
 
-    nao.actuators.right_leg.ankle_pitch += lower_body_joints.right.ankle_pitch
-    nao.actuators.right_leg.ankle_roll += lower_body_joints.right.ankle_roll
-    nao.actuators.right_leg.knee_pitch += lower_body_joints.right.knee_pitch
-    nao.actuators.right_leg.hip_pitch += (
-        lower_body_joints.right.hip_pitch - parameters.torso_tilt
-    )
-    nao.actuators.right_leg.hip_roll += lower_body_joints.right.hip_roll
+    actuator.left_arm.shoulder_pitch = left_arm.shoulder_pitch
+    actuator.left_arm.shoulder_roll = left_arm.shoulder_roll
+    actuator.left_arm.elbow_yaw = left_arm.elbow_yaw
+    actuator.left_arm.elbow_roll = left_arm.elbow_roll
+    actuator.left_arm.wrist_yaw = left_arm.wrist_yaw
 
-    nao.actuators.left_arm.shoulder_pitch += left_arm.shoulder_pitch
-    nao.actuators.left_arm.shoulder_roll += left_arm.shoulder_roll
-    nao.actuators.left_arm.elbow_yaw += left_arm.elbow_yaw
-    nao.actuators.left_arm.elbow_roll += left_arm.elbow_roll
-    nao.actuators.left_arm.wrist_yaw += left_arm.wrist_yaw
+    actuator.right_arm.shoulder_pitch = right_arm.shoulder_pitch
+    actuator.right_arm.shoulder_roll = right_arm.shoulder_roll
+    actuator.right_arm.elbow_yaw = right_arm.elbow_yaw
+    actuator.right_arm.elbow_roll = right_arm.elbow_roll
+    actuator.right_arm.wrist_yaw = right_arm.wrist_yaw
 
-    nao.actuators.right_arm.shoulder_pitch += right_arm.shoulder_pitch
-    nao.actuators.right_arm.shoulder_roll += right_arm.shoulder_roll
-    nao.actuators.right_arm.elbow_yaw += right_arm.elbow_yaw
-    nao.actuators.right_arm.elbow_roll += right_arm.elbow_roll
-    nao.actuators.right_arm.wrist_yaw += right_arm.wrist_yaw
+    actuator.left_leg.ankle_pitch = legs.left.ankle_pitch
+    actuator.left_leg.ankle_roll = legs.left.ankle_roll
+    actuator.left_leg.knee_pitch = legs.left.knee_pitch
+    actuator.left_leg.hip_pitch = legs.left.hip_pitch - parameters.torso_tilt
+    actuator.left_leg.hip_roll = legs.left.hip_roll
+
+    actuator.right_leg.ankle_pitch = legs.right.ankle_pitch
+    actuator.right_leg.ankle_roll = legs.right.ankle_roll
+    actuator.right_leg.knee_pitch = legs.right.knee_pitch
+    actuator.right_leg.hip_pitch = legs.right.hip_pitch - parameters.torso_tilt
+    actuator.right_leg.hip_roll = legs.right.hip_roll

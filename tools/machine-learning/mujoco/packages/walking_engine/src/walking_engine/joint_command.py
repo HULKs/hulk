@@ -34,9 +34,9 @@ def compute_arm_joints(
     pitch_factor: float = 8.0,
 ) -> tuple[ArmJoints, ArmJoints]:
     left_arm = ArmJoints()
-    left_arm.shoulder_pitch = -pitch_factor * right_sole.x
+    left_arm.shoulder_pitch = -pitch_factor * right_sole.x + np.pi / 2
 
     right_arm = ArmJoints()
-    right_arm.shoulder_pitch = -pitch_factor * left_sole.x
+    right_arm.shoulder_pitch = -pitch_factor * left_sole.x + np.pi / 2
 
     return left_arm, right_arm
