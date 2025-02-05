@@ -11,8 +11,8 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{MotionCommand, WalkSpeed},
-    parameters::{RolePositionsParameters, WideStanceParameters},
+    motion_command::{JumpDirection, MotionCommand, WalkSpeed},
+    parameters::{KeeperMotionParameters, RolePositionsParameters},
     path_obstacles::PathObstacle,
     world_state::{BallState, WorldState},
 };
@@ -60,7 +60,7 @@ impl<'cycle> Defend<'cycle> {
         )
     }
 
-    pub fn wide_stance(&self, parameters: WideStanceParameters) -> Option<MotionCommand> {
+    pub fn keeper_motion(&self, parameters: KeeperMotionParameters) -> Option<MotionCommand> {
         let ball = self.world_state.ball?;
 
         let position = ball.ball_in_ground;
@@ -78,8 +78,24 @@ impl<'cycle> Defend<'cycle> {
         let horizontal_distance_to_intersection =
             position.y() - position.x() / velocity.x() * velocity.y();
 
-        if horizontal_distance_to_intersection.abs() < parameters.action_radius {
-            Some(MotionCommand::WideStance)
+        if (-parameters.action_radius_center..=parameters.action_radius_center)
+            .contains(&horizontal_distance_to_intersection)
+        {
+            Some(MotionCommand::KeeperMotion {
+                direction: JumpDirection::Center,
+            })
+        } else if (parameters.action_radius_center..parameters.action_radius_left)
+            .contains(&horizontal_distance_to_intersection)
+        {
+            Some(MotionCommand::KeeperMotion {
+                direction: JumpDirection::Left,
+            })
+        } else if (-parameters.action_radius_left..-parameters.action_radius_center)
+            .contains(&horizontal_distance_to_intersection)
+        {
+            Some(MotionCommand::KeeperMotion {
+                direction: JumpDirection::Right,
+            })
         } else {
             None
         }
