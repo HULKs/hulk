@@ -315,6 +315,7 @@ impl GameState {
     Clone,
     Copy,
     Debug,
+    Default,
     Deserialize,
     Eq,
     PartialEq,
@@ -325,6 +326,7 @@ impl GameState {
 )]
 pub enum Team {
     Hulks,
+    #[default]
     Opponent,
 }
 
