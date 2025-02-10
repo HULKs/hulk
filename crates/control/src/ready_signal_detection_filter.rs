@@ -232,9 +232,6 @@ fn send_own_detection_message<T: NetworkInterface>(
     player_number: PlayerNumber,
 ) -> Result<()> {
     hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
-        VisualRefereeMessage {
-            player_number,
-            kicking_team: None,
-        },
+        VisualRefereeMessage { player_number },
     )))
 }
