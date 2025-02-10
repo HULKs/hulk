@@ -24,6 +24,7 @@ use types::{
 pub struct FreeKickSignalFilter {
     free_kick_signal_detection_times: Players<Option<TimeTaggedKickingTeamDetections>>,
     detected_free_kick_detections_queue: VecDeque<Team>,
+    has_sent_free_kick_signal_message: bool,
 }
 
 #[context]
@@ -73,6 +74,7 @@ impl FreeKickSignalFilter {
                 *context.referee_pose_queue_length,
             ),
             free_kick_signal_detection_times: Default::default(),
+            has_sent_free_kick_signal_message: false,
         })
     }
 
