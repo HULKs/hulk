@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, VecDeque},
-    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -10,12 +9,12 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use spl_network_messages::{HulkMessage, PlayerNumber, Team, VisualRefereeMessage};
+use spl_network_messages::{PlayerNumber, Team};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::GlobalFieldSide,
     filtered_game_controller_state::FilteredGameControllerState,
-    messages::{IncomingMessage, OutgoingMessage},
+    messages::IncomingMessage,
     players::Players,
     pose_detection::{FreeKickSignalDetectionResult, TimeTaggedKickingTeamDetections},
     pose_kinds::PoseKind,
@@ -105,18 +104,6 @@ impl FreeKickSignalFilter {
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
     ) -> Result<FreeKickSignalDetectionResult> {
-        let time_tagged_persistent_messages =
-            unpack_message_tree(&context.network_message.persistent);
-
-        for (time, message) in time_tagged_persistent_messages {
-            self.free_kick_signal_detection_times[message.player_number] = message
-                .kicking_team
-                .map(|kicking_team| TimeTaggedKickingTeamDetections {
-                    time,
-                    detected_kicking_team: kicking_team,
-                });
-        }
-
         let own_detected_pose_times: BTreeMap<SystemTime, Option<PoseKind>> =
             unpack_own_detection_tree(&context.referee_pose_kind.persistent);
 
@@ -150,12 +137,6 @@ impl FreeKickSignalFilter {
                     time: context.cycle_time.start_time,
                     detected_kicking_team: own_detected_kicking_team,
                 });
-
-            send_own_detection_message(
-                context.hardware_interface.clone(),
-                *context.player_number,
-                Some(own_detected_kicking_team),
-            )?;
         }
 
         let majority_voted_kicking_team_detection = majority_vote_free_kick_signal(
@@ -263,21 +244,6 @@ fn is_in_grace_period(
         < grace_period
 }
 
-fn unpack_message_tree(
-    message_tree: &BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
-) -> BTreeMap<SystemTime, VisualRefereeMessage> {
-    message_tree
-        .iter()
-        .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
-        .filter_map(|(time, message)| match message {
-            Some(IncomingMessage::Spl(HulkMessage::VisualReferee(message))) => {
-                Some((time, *message))
-            }
-            _ => None,
-        })
-        .collect()
-}
-
 fn unpack_own_detection_tree(
     pose_kind_tree: &BTreeMap<SystemTime, Vec<Option<&PoseKind>>>,
 ) -> BTreeMap<SystemTime, Option<PoseKind>> {
@@ -289,17 +255,4 @@ fn unpack_own_detection_tree(
                 .map(|&pose_kind| (*time, pose_kind.cloned()))
         })
         .collect()
-}
-
-fn send_own_detection_message<T: NetworkInterface>(
-    hardware_interface: Arc<T>,
-    player_number: PlayerNumber,
-    kicking_team: Option<Team>,
-) -> Result<()> {
-    hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
-        VisualRefereeMessage {
-            player_number,
-            kicking_team,
-        },
-    )))
 }
