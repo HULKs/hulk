@@ -109,15 +109,12 @@ impl FreeKickSignalFilter {
             unpack_message_tree(&context.network_message.persistent);
 
         for (time, message) in time_tagged_persistent_messages {
-            self.free_kick_signal_detection_times[message.player_number] =
-                if let Some(kicking_team) = message.kicking_team {
-                    Some(TimeTaggedKickingTeamDetections {
-                        time,
-                        detected_kicking_team: kicking_team,
-                    })
-                } else {
-                    None
-                };
+            self.free_kick_signal_detection_times[message.player_number] = message
+                .kicking_team
+                .map(|kicking_team| TimeTaggedKickingTeamDetections {
+                    time,
+                    detected_kicking_team: kicking_team,
+                });
         }
 
         let own_detected_pose_times: BTreeMap<SystemTime, Option<PoseKind>> =
