@@ -59,6 +59,7 @@ pub enum MotionCommand {
     },
     Stand {
         head: HeadMotion,
+        should_look_for_referee: bool,
     },
     StandUp {
         kind: Kind,
