@@ -117,6 +117,9 @@ impl PoseDetection {
             MotionCommand::Initial {
                 should_look_for_referee: true,
                 ..
+            } | MotionCommand::Stand {
+                should_look_for_referee: true,
+                ..
             }
         );
         if !behavior_requests_pose_detection && !context.override_pose_detection {

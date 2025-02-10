@@ -21,6 +21,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         (_, PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {
             Some(MotionCommand::Stand {
                 head: HeadMotion::LookAround,
+                should_look_for_referee: false,
             })
         }
         _ => None,

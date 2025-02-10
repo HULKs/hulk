@@ -32,8 +32,8 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    initial, intercept_ball, jump, look_around, lost_ball, no_ground_contact, penalize,
-    prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
+    initial, intercept_ball, jump, look_around, look_at_referee, lost_ball, no_ground_contact,
+    penalize, prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
     walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
@@ -162,6 +162,18 @@ impl Behavior {
                     kicking_team: Team::Opponent,
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Left }),
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    own_team_is_home_after_coin_toss: false,
+                    ..
+                }) => {
+                    actions.push(Action::LookAtReferee);
+                }
                 _ => actions.push(Action::DefendLeft),
             },
             Role::DefenderRight => match world_state.filtered_game_controller_state {
@@ -170,6 +182,18 @@ impl Behavior {
                     kicking_team: Team::Opponent,
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Right }),
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    own_team_is_home_after_coin_toss: true,
+                    ..
+                }) => {
+                    actions.push(Action::LookAtReferee);
+                }
                 _ => actions.push(Action::DefendRight),
             },
             Role::Keeper => match world_state.filtered_game_controller_state {
@@ -189,8 +213,36 @@ impl Behavior {
                 _ => actions.push(Action::DefendGoal),
             },
             Role::Loser => actions.push(Action::SearchForLostBall),
-            Role::MidfielderLeft => actions.push(Action::SupportLeft),
-            Role::MidfielderRight => actions.push(Action::SupportRight),
+            Role::MidfielderLeft => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    own_team_is_home_after_coin_toss: false,
+                    ..
+                }) => {
+                    actions.push(Action::LookAtReferee);
+                }
+                _ => actions.push(Action::SupportLeft),
+            },
+            Role::MidfielderRight => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    own_team_is_home_after_coin_toss: false,
+                    ..
+                }) => {
+                    actions.push(Action::LookAtReferee);
+                }
+                _ => actions.push(Action::SupportRight),
+            },
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
             Role::Searcher => actions.push(Action::Search),
             Role::Striker => match world_state.filtered_game_controller_state {
@@ -257,6 +309,11 @@ impl Behavior {
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
                     Action::Initial => initial::execute(
+                        world_state,
+                        context.expected_referee_position.cloned(),
+                        *context.enable_pose_detection,
+                    ),
+                    Action::LookAtReferee => look_at_referee::execute(
                         world_state,
                         context.expected_referee_position.cloned(),
                         *context.enable_pose_detection,
