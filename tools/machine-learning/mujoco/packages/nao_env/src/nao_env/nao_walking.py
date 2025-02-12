@@ -34,34 +34,6 @@ from .nao_base_env import NaoBaseEnv
 
 HEAD_THRESHOLD_HEIGHT = 0.4
 
-OFFSET_QPOS = np.array(
-    [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.57,
-        0.1,
-        -1.57,
-        0.0,
-        0.0,
-        1.57,
-        -0.1,
-        1.57,
-        0.0,
-        0.0,
-    ],
-)
-
 
 def initial_state(parameters: Parameters) -> State:
     return State(
@@ -195,7 +167,7 @@ class NaoWalking(NaoBaseEnv, utils.EzPickle):
         current_control = self.nao.actuator_control.to_numpy(
             self.actuator_names
         )
-        super().do_simulation(current_control + ctrl, self.frame_skip)
+        super().do_simulation(current_control + ctrl, n_frames)
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
