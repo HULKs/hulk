@@ -92,6 +92,8 @@ class NaoBaseEnv(MujocoEnv):
             fsr_sensor_delay=sensor_delay,
             gyroscope_sensor_delay=sensor_delay,
             accelerometer_sensor_delay=sensor_delay,
+            gyroscope_noise=np.array([0.003889, 0.005522, 0.002381]),
+            accelerometer_noise=np.array([0.063137, 0.029709, 0.087581]),
         )
 
     def initialize_terrain(
