@@ -1,22 +1,16 @@
-import numpy as np
-from numpy.typing import NDArray
-
-
-class RingBuffer:
-    data: NDArray
+class RingBuffer[T]:
+    data: list[T]
     index: int = 0
 
-    def __init__(self, size: int, initial_value: NDArray) -> None:
-        self.data = np.broadcast_to(
-            initial_value, (size, initial_value.shape[0])
-        ).copy()
+    def __init__(self, size: int, initial_value: T) -> None:
+        self.data = [initial_value] * size
 
-    def push(self, value: NDArray) -> None:
-        self.index = (self.index + 1) % self.data.shape[0]
+    def push(self, value: T) -> None:
+        self.index = (self.index + 1) % len(self.data)
         self.data[self.index] = value
 
-    def right(self) -> NDArray:
+    def right(self) -> T:
         return self.data[self.index]
 
-    def left(self) -> NDArray:
-        return self.data[(self.index + 1) % self.data.shape[0]]
+    def left(self) -> T:
+        return self.data[(self.index + 1) % len(self.data)]

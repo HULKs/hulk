@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, ClassVar, override
 
@@ -9,18 +10,7 @@ from nao_interface import Nao
 from numpy.typing import NDArray
 from throwing import ThrowableObject
 
-ACTUATOR_NAMES = [
-    "left_leg.hip_yaw_pitch",
-    "left_leg.hip_roll",
-    "left_leg.hip_pitch",
-    "left_leg.knee_pitch",
-    "left_leg.ankle_pitch",
-    "left_leg.ankle_roll",
-    "right_leg.hip_roll",
-    "right_leg.hip_pitch",
-    "right_leg.knee_pitch",
-    "right_leg.ankle_pitch",
-    "right_leg.ankle_roll",
+DEFAULT_ACTUATOR_NAMES = [
     "left_arm.shoulder_pitch",
     "left_arm.shoulder_roll",
     "left_arm.elbow_yaw",
@@ -31,6 +21,17 @@ ACTUATOR_NAMES = [
     "right_arm.elbow_yaw",
     "right_arm.elbow_roll",
     "right_arm.wrist_yaw",
+    "hip_yaw_pitch",
+    "left_leg.hip_roll",
+    "left_leg.hip_pitch",
+    "left_leg.knee_pitch",
+    "left_leg.ankle_pitch",
+    "left_leg.ankle_roll",
+    "right_leg.hip_roll",
+    "right_leg.hip_pitch",
+    "right_leg.knee_pitch",
+    "right_leg.ankle_pitch",
+    "right_leg.ankle_roll",
 ]
 
 DEFAULT_CAMERA_CONFIG = {
@@ -57,6 +58,7 @@ class NaoBaseEnv(MujocoEnv):
         throw_tomatoes: bool = False,
         fsr_scale: float = 0.019,
         sensor_delay: int = 0,
+        actuator_names: Sequence[str] = DEFAULT_ACTUATOR_NAMES,
         **kwargs: Any,
     ) -> None:
         observation_space = Box(
@@ -65,6 +67,7 @@ class NaoBaseEnv(MujocoEnv):
             shape=(31,),
             dtype=np.float64,
         )
+        self.actuator_names = actuator_names
         MujocoEnv.__init__(
             self,
             str(Path.cwd().joinpath("model", "scene.xml")),
@@ -81,8 +84,6 @@ class NaoBaseEnv(MujocoEnv):
             plane_body="floor",
             throwable_body="tomato",
         )
-        self._actuation_mask = self._get_actuation_mask()
-        self.action_space_size = len(ACTUATOR_NAMES)
         self.nao = Nao(
             self.model,
             self.data,
@@ -115,17 +116,14 @@ class NaoBaseEnv(MujocoEnv):
 
         self.model.hfield_data = flattened_terrain
 
-    def _get_actuation_mask(self) -> NDArray[np.bool_]:
-        actuation_mask = np.zeros(self.model.nu, dtype=np.bool_)
-        for name in ACTUATOR_NAMES:
-            actuation_mask[self.model.actuator(name).id] = 1
-        return actuation_mask
-
     @override
     def _set_action_space(self) -> Box:
         bounds = (
             np.stack(
-                [self.model.actuator(name).ctrlrange for name in ACTUATOR_NAMES]
+                [
+                    self.model.actuator(name).ctrlrange
+                    for name in self.actuator_names
+                ]
             )
             .copy()
             .astype(np.float32)
@@ -154,7 +152,7 @@ class NaoBaseEnv(MujocoEnv):
 
     @override
     def _step_mujoco_simulation(self, ctrl: NDArray, n_frames: int) -> None:
-        self.nao.data.ctrl[self._actuation_mask] = ctrl
+        self.nao.data.ctrl = ctrl
 
         mujoco.mj_step(self.model, self.data, nstep=n_frames)
 
@@ -169,5 +167,20 @@ class NaoBaseEnv(MujocoEnv):
         ctrl: NDArray[np.floating],
         n_frames: int,
     ) -> None:
-        self._step_mujoco_simulation(ctrl, n_frames)
+        if ctrl.shape != (len(self.actuator_names),):
+            raise ActionShapeError(ctrl.shape, len(self.actuator_names))
+        self.nao.actuator_control.set_from_numpy(ctrl, self.actuator_names)
+        self._step_mujoco_simulation(self.data.ctrl, n_frames)
         self.nao.update_sensors()
+
+
+class ActionShapeError(Exception):
+    def __init__(
+        self,
+        shape: tuple,
+        action_space_size: int,
+    ) -> None:
+        super().__init__(
+            f"Action shape {shape} does not"
+            f"match action space size {action_space_size}"
+        )

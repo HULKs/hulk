@@ -19,7 +19,9 @@ from stable_baselines3 import PPO
 )
 def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     env = NaoWalking(throw_tomatoes=throw_tomatoes)
-    _, _, _, _, infos = env.step(np.zeros(env.action_space_size))
+    action_space_size = env.action_space.shape[0]
+    action = np.zeros(action_space_size)
+    _, _, _, _, infos = env.step(action)
     env.reset()
 
     model = None
@@ -43,7 +45,6 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     total_reward_figure.set_x_label("Step")
 
     total_reward = 0.0
-    action = np.zeros(env.action_space_size)
 
     fsr_figure = viewer.figure("fsr")
     fsr_figure.set_title("FSR")

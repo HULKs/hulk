@@ -15,32 +15,6 @@ from rewards import (
 
 from .nao_base_env import NaoBaseEnv
 
-OFFSET_QPOS = np.array(
-    [
-        0.0,
-        0.010821502783627257,
-        -0.3107718500421241,
-        0.8246279211008891,
-        -0.513856071058765,
-        -0.010821502783627453,
-        -0.010821502783627257,
-        -0.3107718500421241,
-        0.8246279211008891,
-        -0.513856071058765,
-        0.010821502783627453,
-        1.57,
-        0.1,
-        -1.57,
-        0.0,
-        0.0,
-        1.57,
-        -0.1,
-        1.57,
-        0.0,
-        0.0,
-    ],
-)
-
 HEAD_SET_HEIGHT = 0.493
 
 
@@ -96,7 +70,7 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
                 distance=1.0,
             )
 
-        self.do_simulation(action + OFFSET_QPOS, self.frame_skip)
+        self.do_simulation(action, self.frame_skip)
 
         if self.render_mode == "human":
             self.render()
@@ -113,6 +87,18 @@ class NaoStanding(NaoBaseEnv, utils.EzPickle):
             False,
             distinct_rewards,
         )
+
+    def do_simulation(
+        self,
+        ctrl: NDArray[np.floating],
+        n_frames: int,
+    ) -> None:
+        self.nao.actuator_control.set_from_joints(READY_POSE)
+
+        current_control = self.nao.actuator_control.to_numpy(
+            self.actuator_names
+        )
+        super().do_simulation(current_control + ctrl, n_frames)
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
