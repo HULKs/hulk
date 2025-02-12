@@ -1,21 +1,19 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, str::FromStr};
 
-use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
-    Args,
-};
+use clap::Args;
 use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
 
-use argument_parsers::{
-    parse_network, NaoAddress, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES,
-};
+use argument_parsers::{parse_network, NaoAddress, NaoAddressPlayerAssignment};
 use indicatif::ProgressBar;
 use nao::{Nao, Network, SystemctlAction};
 use repository::{upload::get_hulk_binary, Repository};
+use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
 use tempfile::tempdir;
+use tokio::fs::read_to_string;
+use toml::{from_str, value::Datetime};
 
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
@@ -64,22 +62,53 @@ pub struct PreGameArguments {
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
-    /// The location to use for parameters
-    pub location: String,
-    /// The network to connect the wifi device to (None disconnects from anything)
-    #[arg(
-        value_parser = PossibleValuesParser::new(NETWORK_POSSIBLE_VALUES)
-            .map(|s| parse_network(&s).unwrap()))
-    ]
-    pub wifi: Network,
-    /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
-    #[arg(required = true)]
-    pub assignments: Vec<NaoAddressPlayerAssignment>,
+}
+
+#[derive(Deserialize)]
+pub struct Config {
+    date: Datetime,
+    opponent: String,
+    location: String,
+    #[serde(deserialize_with = "deserialize_network")]
+    wifi: Network,
+    #[serde(deserialize_with = "deserialize_assignments")]
+    assignments: Vec<NaoAddressPlayerAssignment>,
+}
+
+fn deserialize_network<'de, D, E>(deserializer: D) -> Result<Network, E>
+where
+    D: Deserializer<'de>,
+    E: DeserializeError + From<D::Error>,
+{
+    let network = String::deserialize(deserializer)?;
+
+    parse_network(&network).map_err(|error| E::custom(format!("{error:?}")))
+}
+
+fn deserialize_assignments<'de, D, E>(deserializer: D) -> Result<Vec<NaoAddressPlayerAssignment>, E>
+where
+    D: Deserializer<'de>,
+    E: DeserializeError + From<D::Error>,
+{
+    let assignments: Vec<String> = Vec::deserialize(deserializer)?;
+
+    assignments
+        .into_iter()
+        .map(|assignment| {
+            NaoAddressPlayerAssignment::from_str(&assignment)
+                .map_err(|error| E::custom(format!("{error:?}")))
+        })
+        .collect()
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let naos: Vec<_> = arguments
-        .pre_game
+    let deploy_config = read_to_string(repository.root.join("deploy.toml"))
+        .await
+        .wrap_err("failed to read deploy.toml")?;
+    let config: Config =
+        from_str(&deploy_config).wrap_err("could not deserialize config from deploy.toml")?;
+
+    let naos: Vec<_> = config
         .assignments
         .iter()
         .map(|assignment| assignment.nao_address)
@@ -93,14 +122,9 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to apply recording settings")?;
 
     repository
-        .set_location("nao", &arguments.pre_game.location)
+        .set_location("nao", &config.location)
         .await
-        .wrap_err_with(|| {
-            format!(
-                "failed setting location for nao to {}",
-                arguments.pre_game.location
-            )
-        })?;
+        .wrap_err_with(|| format!("failed setting location for nao to {}", config.location))?;
 
     repository
         .configure_communication(arguments.pre_game.with_communication)
@@ -109,8 +133,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
 
     player_number(
         PlayerNumberArguments {
-            assignments: arguments
-                .pre_game
+            assignments: config
                 .assignments
                 .iter()
                 .copied()
@@ -152,6 +175,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to populate upload directory")?;
 
     let arguments = &arguments.pre_game;
+    let config = &config;
     let upload_directory = &upload_directory;
 
     ProgressIndicator::map_tasks(
@@ -162,6 +186,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
                 nao_address,
                 upload_directory,
                 arguments,
+                config,
                 progress_bar,
                 repository,
             )
@@ -177,6 +202,7 @@ async fn setup_nao(
     nao_address: &NaoAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &PreGameArguments,
+    config: &Config,
     progress: ProgressBar,
     repository: &Repository,
 ) -> Result<()> {
@@ -210,7 +236,7 @@ async fn setup_nao(
     .await
     .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
 
-    if arguments.wifi != Network::None {
+    if config.wifi != Network::None {
         progress.set_message("Scanning for WiFi...");
         nao.scan_networks()
             .await
@@ -218,7 +244,7 @@ async fn setup_nao(
     }
 
     progress.set_message("Setting WiFi...");
-    nao.set_wifi(arguments.wifi)
+    nao.set_wifi(config.wifi)
         .await
         .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
 
