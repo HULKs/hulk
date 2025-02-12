@@ -52,6 +52,13 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
     fsr_figure.add_line("Left FSR")
     fsr_figure.add_line("Right FSR")
 
+    gyro_figure = viewer.figure("gyro")
+    gyro_figure.set_title("Gyroscope")
+    gyro_figure.set_x_label("Step")
+    gyro_figure.add_line("X Gyro")
+    gyro_figure.add_line("Y Gyro")
+    gyro_figure.add_line("Z Gyro")
+
     while viewer.is_alive:
         start_time = time.time()
         # viewer.track_with_camera("Nao")
@@ -61,6 +68,10 @@ def main(*, throw_tomatoes: bool, load_policy: str | None) -> None:
 
         fsr_figure.push_data_to_line("Left FSR", env.nao.left_fsr().sum())
         fsr_figure.push_data_to_line("Right FSR", env.nao.right_fsr().sum())
+
+        gyro_figure.push_data_to_line("X Gyro", env.nao.gyroscope()[0])
+        gyro_figure.push_data_to_line("Y Gyro", env.nao.gyroscope()[1])
+        gyro_figure.push_data_to_line("Z Gyro", env.nao.gyroscope()[2])
 
         total_reward += reward
 
