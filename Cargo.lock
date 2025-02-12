@@ -408,6 +408,7 @@ dependencies = [
  "color-eyre",
  "nao",
  "regex",
+ "serde",
  "spl_network_messages",
 ]
 
