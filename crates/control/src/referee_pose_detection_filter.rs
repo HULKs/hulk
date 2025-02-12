@@ -120,8 +120,7 @@ impl RefereePoseDetectionFilter {
         let mut did_detect_any_referee_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
-            let detected_visual_referee =
-                detection.map_or(false, |pose_kind| pose_kind == PoseKind::AboveHeadArms);
+            let detected_visual_referee = detection == Some(PoseKind::AboveHeadArms);
             self.detected_above_arm_poses_queue
                 .push_front(detected_visual_referee);
             did_detect_any_referee_this_cycle |= detected_visual_referee

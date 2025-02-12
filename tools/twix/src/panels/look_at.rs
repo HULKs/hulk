@@ -91,7 +91,7 @@ impl Widget for &mut LookAtPanel {
                 }
             };
             let is_safe_to_override_current_motion_command =
-                current_motion_command.as_ref().map_or(false, |command| {
+                current_motion_command.as_ref().is_some_and(|command| {
                     matches!(
                         command,
                         MotionCommand::Penalized
