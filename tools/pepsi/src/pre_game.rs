@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path, str::FromStr};
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, WrapErr},
+    eyre::{bail, ContextCompat, WrapErr},
     Result,
 };
 
@@ -12,11 +12,17 @@ use nao::{Nao, Network, SystemctlAction};
 use repository::{upload::get_hulk_binary, Repository};
 use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
 use tempfile::tempdir;
-use tokio::fs::read_to_string;
+use tokio::{
+    fs::read_to_string,
+    io::{stdin, AsyncBufReadExt, BufReader},
+    process::Command,
+};
 use toml::{from_str, value::Datetime};
+use tracing::warn;
 
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
+    git::{create_and_switch_to_branch, create_commit, reset_to_head, switch_to_branch},
     player_number::{player_number, Arguments as PlayerNumberArguments},
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
@@ -71,8 +77,84 @@ pub struct Config {
     location: String,
     #[serde(deserialize_with = "deserialize_network")]
     wifi: Network,
+    base: String,
+    branches: Vec<Branch>,
     #[serde(deserialize_with = "deserialize_assignments")]
     assignments: Vec<NaoAddressPlayerAssignment>,
+}
+
+impl Config {
+    async fn deploy(&self, repository: &Repository) -> Result<()> {
+        let branch_name = self
+            .branch_name()
+            .await
+            .wrap_err("failed to get branch name")?;
+
+        if create_and_switch_to_branch(&branch_name, &self.base)
+            .await
+            .is_ok()
+        {
+            'branches: for Branch { remote, branch } in &self.branches {
+                let status = Command::new(repository.root.join("scripts/deploy"))
+                    .arg(remote)
+                    .arg(branch)
+                    .status()
+                    .await
+                    .wrap_err("failed to execute deploy script")?;
+
+                if !status.success() {
+                    eprintln!("Automatic merge failed.");
+                    let skip_prompt = format!("Do you want to skip deploying '{remote}/{branch}'?");
+
+                    loop {
+                        let skip = confirmation_prompt(&skip_prompt)
+                            .await
+                            .wrap_err("failed to create confirmation prompt")?;
+
+                        if skip {
+                            reset_to_head()
+                                .await
+                                .wrap_err("failed to reset repository to HEAD")?;
+
+                            continue 'branches;
+                        } else {
+                            eprintln!("Please resolve all conflicts now.");
+
+                            let conflicts_resolved =
+                                confirmation_prompt("Were you able to resolve the conflicts?")
+                                    .await
+                                    .wrap_err("failed to create confirmation prompt")?;
+
+                            if conflicts_resolved {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                create_commit(&format!("{remote}/{branch}"))
+                    .await
+                    .wrap_err("failed to create commit")?;
+            }
+        } else {
+            warn!("Branch already exists, switching to it instead");
+
+            switch_to_branch(&branch_name)
+                .await
+                .wrap_err("failed to switch to branch")?;
+        }
+
+        Ok(())
+    }
+
+    async fn branch_name(&self) -> Result<String> {
+        let date = self.date.date.wrap_err("missing date")?;
+
+        Ok(format!(
+            "{date}-HULKs-vs-{opponent}",
+            opponent = self.opponent
+        ))
+    }
 }
 
 fn deserialize_network<'de, D, E>(deserializer: D) -> Result<Network, E>
@@ -101,12 +183,40 @@ where
         .collect()
 }
 
+pub struct Branch {
+    remote: String,
+    branch: String,
+}
+
+impl<'de> Deserialize<'de> for Branch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let branch = String::deserialize(deserializer)?;
+
+        let (remote, branch) = branch.split_once("/").ok_or_else(|| {
+            D::Error::custom("deploy target has to follow the format 'remote/branch'")
+        })?;
+
+        Ok(Self {
+            remote: remote.to_owned(),
+            branch: branch.to_owned(),
+        })
+    }
+}
+
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
     let deploy_config = read_to_string(repository.root.join("deploy.toml"))
         .await
         .wrap_err("failed to read deploy.toml")?;
     let config: Config =
         from_str(&deploy_config).wrap_err("could not deserialize config from deploy.toml")?;
+
+    config
+        .deploy(repository)
+        .await
+        .wrap_err("failed to deploy config")?;
 
     let naos: Vec<_> = config
         .assignments
@@ -260,4 +370,26 @@ async fn setup_nao(
     }
 
     Ok(())
+}
+
+async fn confirmation_prompt(message: &str) -> Result<bool> {
+    let reader = BufReader::new(stdin());
+
+    let mut lines = reader.lines();
+
+    loop {
+        eprint!("{message} [y/n] ");
+
+        if let Some(line) = lines
+            .next_line()
+            .await
+            .wrap_err("failed to get next line")?
+        {
+            match line {
+                line if line == "y" => return Ok(true),
+                line if line == "n" => return Ok(false),
+                _ => {}
+            }
+        }
+    }
 }
