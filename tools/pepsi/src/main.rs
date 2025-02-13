@@ -36,6 +36,7 @@ mod cargo;
 mod communication;
 mod completions;
 mod gammaray;
+mod git;
 mod hulk;
 mod location;
 mod logs;
