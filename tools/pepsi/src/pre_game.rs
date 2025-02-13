@@ -22,7 +22,9 @@ use tracing::warn;
 
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
-    git::{create_and_switch_to_branch, create_commit, reset_to_head, switch_to_branch},
+    git::{
+        branch_exists, create_and_switch_to_branch, create_commit, reset_to_head, switch_to_branch,
+    },
     player_number::{player_number, Arguments as PlayerNumberArguments},
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
@@ -90,10 +92,20 @@ impl Config {
             .await
             .wrap_err("failed to get branch name")?;
 
-        if create_and_switch_to_branch(&branch_name, &self.base)
+        if branch_exists(&branch_name)
             .await
-            .is_ok()
+            .wrap_err("failed to check whether branch exists")?
         {
+            warn!("Branch already exists, switching to it instead");
+
+            switch_to_branch(&branch_name)
+                .await
+                .wrap_err("failed to switch to branch")?;
+        } else {
+            create_and_switch_to_branch(&branch_name, &self.base)
+                .await
+                .wrap_err("failed to create branch")?;
+
             'branches: for Branch { remote, branch } in &self.branches {
                 let status = Command::new(repository.root.join("scripts/deploy"))
                     .arg(remote)
@@ -136,12 +148,6 @@ impl Config {
                     .await
                     .wrap_err("failed to create commit")?;
             }
-        } else {
-            warn!("Branch already exists, switching to it instead");
-
-            switch_to_branch(&branch_name)
-                .await
-                .wrap_err("failed to switch to branch")?;
         }
 
         Ok(())

@@ -1,4 +1,4 @@
-use std::ffi::OsStr;
+use std::{ffi::OsStr, process::ExitStatus};
 
 use color_eyre::{
     eyre::{bail, Context},
@@ -23,8 +23,12 @@ impl GitCommand {
         self
     }
 
-    async fn run(mut self) -> Result<()> {
-        let status = self.inner.status().await.wrap_err("failed to run git")?;
+    async fn status(mut self) -> Result<ExitStatus> {
+        self.inner.status().await.wrap_err("failed to run git")
+    }
+
+    async fn run(self) -> Result<()> {
+        let status = self.status().await?;
 
         if !status.success() {
             bail!("git failed with {status}");
@@ -32,6 +36,14 @@ impl GitCommand {
 
         Ok(())
     }
+}
+
+pub async fn branch_exists(name: &str) -> Result<bool> {
+    Ok(GitCommand::new("show-branch")
+        .arg(name)
+        .status()
+        .await?
+        .success())
 }
 
 pub async fn create_and_switch_to_branch(name: &str, base: &str) -> Result<()> {
