@@ -24,4 +24,4 @@ set -e
 
 git remote add deploy "https://github.com/$remote/hulk.git"
 git fetch deploy $branch
-git merge --squash "$remote/$branch"
+git merge --squash "deploy/$branch"
