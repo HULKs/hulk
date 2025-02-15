@@ -19,7 +19,6 @@ use tokio::{
     process::Command,
 };
 use toml::from_str;
-use tracing::warn;
 
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
@@ -94,7 +93,7 @@ impl Config {
             .await
             .wrap_err("failed to check whether branch exists")?
         {
-            warn!("Branch already exists, switching to it instead");
+            eprintln!("Game branch already exists, switching to it instead");
 
             switch_to_branch(&branch_name)
                 .await
