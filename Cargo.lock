@@ -5596,6 +5596,7 @@ dependencies = [
  "aliveness",
  "argument_parsers",
  "bat",
+ "chrono",
  "clap 4.5.26",
  "clap_complete",
  "color-eyre",
