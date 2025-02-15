@@ -4,7 +4,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{
+    eyre::{OptionExt, WrapErr},
+    Result,
+};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -13,8 +16,8 @@ use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use linear_algebra::Isometry2;
 use spl_network_messages::{
-    GameControllerReturnMessage, GamePhase, HulkMessage, Penalty, PlayerNumber, StrikerMessage,
-    SubState, Team,
+    GameControllerReturnMessage, GamePhase, HulkMessage, LoserMessage, Penalty, PlayerNumber,
+    StrikerMessage, SubState, Team,
 };
 use types::{
     ball_position::BallPosition,
@@ -251,12 +254,12 @@ impl RoleAssignment {
                     self.try_sending_striker_message(&context, ground_to_field)?;
                 }
 
-                (Role::Striker, Role::Loser) => {}
+                (Role::Striker, Role::Loser) => {
+                    self.try_sending_loser_message(&context, ground_to_field)?;
+                }
                 _ => {}
             }
         }
-
-        self.try_sending_striker_message(&context, ground_to_field)?;
 
         if let Some(forced_role) = context.forced_role {
             self.role = *forced_role;
@@ -344,6 +347,7 @@ impl RoleAssignment {
             ))
             .wrap_err("failed to write GameControllerReturnMessage to hardware")
     }
+
     fn try_sending_striker_message(
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
@@ -358,32 +362,52 @@ impl RoleAssignment {
 
         self.last_transmitted_striker_message = Some(context.cycle_time.start_time);
         self.last_received_spl_striker_message = Some(context.cycle_time.start_time);
-        {
-            let pose = ground_to_field.as_pose();
-            let team_network_ball = context.team_ball.map(|team_ball| {
-                team_ball_to_network_ball_position(*team_ball, context.cycle_time.start_time)
-            });
-            let own_network_ball = context.ball_position.map(|seen_ball| {
-                own_ball_to_hulks_network_ball_position(
-                    *seen_ball,
-                    ground_to_field,
-                    context.cycle_time.start_time,
-                )
-            });
-            let ball_position = own_network_ball
-                .or(team_network_ball)
-                .expect("we are striker without a ball, this should never happen");
-            context
-                .hardware
-                .write_to_network(OutgoingMessage::Spl(HulkMessage::Striker(StrikerMessage {
-                    player_number: *context.player_number,
-                    pose,
-                    ball_position,
-                    time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
-                })))?;
+
+        let pose = ground_to_field.as_pose();
+        let team_network_ball = context.team_ball.map(|team_ball| {
+            team_ball_to_network_ball_position(*team_ball, context.cycle_time.start_time)
+        });
+        let own_network_ball = context.ball_position.map(|seen_ball| {
+            own_ball_to_hulks_network_ball_position(
+                *seen_ball,
+                ground_to_field,
+                context.cycle_time.start_time,
+            )
+        });
+        let ball_position = own_network_ball
+            .or(team_network_ball)
+            .ok_or_eyre("we are striker without a ball, this should never happen")?;
+
+        context
+            .hardware
+            .write_to_network(OutgoingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+                player_number: *context.player_number,
+                pose,
+                ball_position,
+                time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
+            })))
+            .wrap_err("failed to write StrikerMessage to hardware")
+    }
+
+    fn try_sending_loser_message(
+        &mut self,
+        context: &CycleContext<impl NetworkInterface>,
+        ground_to_field: Isometry2<Ground, Field>,
+    ) -> Result<()> {
+        if !is_enough_message_budget_left(context) {
+            return Ok(());
         }
 
-        Ok(())
+        self.last_transmitted_striker_message = Some(context.cycle_time.start_time);
+        self.last_received_spl_striker_message = Some(context.cycle_time.start_time);
+
+        context
+            .hardware
+            .write_to_network(OutgoingMessage::Spl(HulkMessage::Loser(LoserMessage {
+                player_number: *context.player_number,
+                pose: ground_to_field.as_pose(),
+            })))
+            .wrap_err("failed to write LoserMessage to hardware")
     }
 }
 
