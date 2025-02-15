@@ -478,7 +478,7 @@ fn process_role_state_machine(
     let striker_trusts_team_ball = |team_ball: BallPosition<Field>| {
         cycle_start_time
             .duration_since(team_ball.last_seen)
-            .unwrap()
+            .expect("time ran backwards")
             <= striker_trusts_team_ball_duration
     };
 
