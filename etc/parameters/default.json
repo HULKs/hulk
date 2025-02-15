@@ -1,4 +1,5 @@
 {
+  "time_between_waves": 120,
   "pose_detection": {
     "enable": true,
     "maximum_intersection_over_union": 0.45,
