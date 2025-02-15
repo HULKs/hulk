@@ -1,8 +1,9 @@
 use std::{collections::HashMap, path::Path, str::FromStr};
 
+use chrono::Utc;
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, ContextCompat, WrapErr},
+    eyre::{bail, WrapErr},
     Result,
 };
 
@@ -17,7 +18,7 @@ use tokio::{
     io::{stdin, AsyncBufReadExt, BufReader},
     process::Command,
 };
-use toml::{from_str, value::Datetime};
+use toml::from_str;
 use tracing::warn;
 
 use crate::{
@@ -74,8 +75,7 @@ pub struct PreGameArguments {
 
 #[derive(Deserialize)]
 pub struct Config {
-    date: Datetime,
-    opponent: String,
+    opponent: Option<String>,
     location: String,
     #[serde(deserialize_with = "deserialize_network")]
     wifi: Network,
@@ -87,10 +87,7 @@ pub struct Config {
 
 impl Config {
     async fn deploy(&self, repository: &Repository) -> Result<()> {
-        let branch_name = self
-            .branch_name()
-            .await
-            .wrap_err("failed to get branch name")?;
+        let branch_name = self.branch_name();
 
         if branch_exists(&branch_name)
             .await
@@ -153,13 +150,14 @@ impl Config {
         Ok(())
     }
 
-    async fn branch_name(&self) -> Result<String> {
-        let date = self.date.date.wrap_err("missing date")?;
+    fn branch_name(&self) -> String {
+        let date = Utc::now().date_naive();
 
-        Ok(format!(
-            "{date}-HULKs-vs-{opponent}",
-            opponent = self.opponent
-        ))
+        if let Some(opponent) = &self.opponent {
+            format!("{date}-HULKs-vs-{opponent}")
+        } else {
+            format!("{date}-testgame")
+        }
     }
 }
 
