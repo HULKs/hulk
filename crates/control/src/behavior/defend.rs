@@ -231,22 +231,13 @@ fn defend_pose(
     } else {
         role_positions.defender_y_offset
     };
-
     let position_to_defend = point![x_offset, y_offset];
 
     let in_passive_mode =
         ball.ball_in_ground.coords().norm() >= role_positions.defender_passive_distance;
-
-    let mut distance_to_target = match (in_passive_mode, field_side, ball.field_side) {
-        (true, _, _) => role_positions.defender_aggressive_ring_radius,
-        (_, Side::Left, Side::Left) | (_, Side::Right, Side::Right) => {
-            role_positions.defender_aggressive_ring_radius
-        }
-        _ => role_positions.defender_passive_ring_radius,
-    };
-
     if in_passive_mode {
-        let passive_target_position = position_to_defend + (Vector2::x_axis() * distance_to_target);
+        let passive_target_position = position_to_defend
+            + (Vector2::x_axis() * role_positions.defender_aggressive_ring_radius);
         return Some(
             ground_to_field.inverse()
                 * Pose2::<Field>::new(
@@ -256,12 +247,19 @@ fn defend_pose(
         );
     }
 
-    distance_to_target = penalty_kick_defender_radius(
+    let distance_to_target = if field_side == ball.field_side {
+        role_positions.defender_aggressive_ring_radius
+    } else {
+        role_positions.defender_passive_ring_radius
+    };
+
+    let distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
         world_state.filtered_game_controller_state.as_ref(),
         field_dimensions,
     );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
+
     Some(ground_to_field.inverse() * defend_pose)
 }
 
