@@ -1,0 +1,11 @@
+# opponent = "B-Human"
+# phase = "second-half"
+location = "smd"
+wifi = "SPL_A"
+base = "main"
+branches = [
+  "julianschuler/example-branch",
+]
+assignments = [
+  "33:1",
+]

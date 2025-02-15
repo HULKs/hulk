@@ -9,6 +9,7 @@ homepage.workspace = true
 aliveness = { workspace = true }
 argument_parsers = { workspace = true }
 bat = { workspace = true }
+chrono = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 color-eyre = { workspace = true }

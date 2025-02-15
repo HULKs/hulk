@@ -1,24 +1,30 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, str::FromStr};
 
-use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
-    Args,
-};
+use chrono::Utc;
+use clap::Args;
 use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
 
-use argument_parsers::{
-    parse_network, NaoAddress, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES,
-};
+use argument_parsers::{parse_network, NaoAddress, NaoAddressPlayerAssignment};
 use indicatif::ProgressBar;
 use nao::{Nao, Network, SystemctlAction};
 use repository::{upload::get_hulk_binary, Repository};
+use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
 use tempfile::tempdir;
+use tokio::{
+    fs::read_to_string,
+    io::{stdin, AsyncBufReadExt, BufReader},
+    process::Command,
+};
+use toml::from_str;
 
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
+    git::{
+        branch_exists, create_and_switch_to_branch, create_commit, reset_to_head, switch_to_branch,
+    },
     player_number::{player_number, Arguments as PlayerNumberArguments},
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
@@ -64,22 +70,166 @@ pub struct PreGameArguments {
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
-    /// The location to use for parameters
-    pub location: String,
-    /// The network to connect the wifi device to (None disconnects from anything)
-    #[arg(
-        value_parser = PossibleValuesParser::new(NETWORK_POSSIBLE_VALUES)
-            .map(|s| parse_network(&s).unwrap()))
-    ]
-    pub wifi: Network,
-    /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
-    #[arg(required = true)]
-    pub assignments: Vec<NaoAddressPlayerAssignment>,
+}
+
+#[derive(Deserialize)]
+pub struct Config {
+    opponent: Option<String>,
+    phase: Option<String>,
+    location: String,
+    #[serde(deserialize_with = "deserialize_network")]
+    wifi: Network,
+    base: String,
+    branches: Vec<Branch>,
+    #[serde(deserialize_with = "deserialize_assignments")]
+    assignments: Vec<NaoAddressPlayerAssignment>,
+}
+
+impl Config {
+    async fn deploy(&self, repository: &Repository) -> Result<()> {
+        let branch_name = self.branch_name();
+
+        if branch_exists(&branch_name)
+            .await
+            .wrap_err("failed to check whether branch exists")?
+        {
+            eprintln!("Game branch already exists, switching to it instead");
+
+            switch_to_branch(&branch_name)
+                .await
+                .wrap_err("failed to switch to branch")?;
+        } else {
+            create_and_switch_to_branch(&branch_name, &self.base)
+                .await
+                .wrap_err("failed to create branch")?;
+
+            'branches: for Branch { remote, branch } in &self.branches {
+                let status = Command::new(repository.root.join("scripts/deploy"))
+                    .arg(remote)
+                    .arg(branch)
+                    .status()
+                    .await
+                    .wrap_err("failed to execute deploy script")?;
+
+                if !status.success() {
+                    eprintln!("Automatic merge failed.");
+                    let skip_prompt = format!("Do you want to skip deploying '{remote}/{branch}'?");
+
+                    loop {
+                        let skip = confirmation_prompt(&skip_prompt)
+                            .await
+                            .wrap_err("failed to create confirmation prompt")?;
+
+                        if skip {
+                            reset_to_head()
+                                .await
+                                .wrap_err("failed to reset repository to HEAD")?;
+
+                            continue 'branches;
+                        } else {
+                            eprintln!("Please resolve all conflicts now.");
+
+                            let conflicts_resolved =
+                                confirmation_prompt("Were you able to resolve the conflicts?")
+                                    .await
+                                    .wrap_err("failed to create confirmation prompt")?;
+
+                            if conflicts_resolved {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                create_commit(&format!("{remote}/{branch}"))
+                    .await
+                    .wrap_err("failed to create commit")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn branch_name(&self) -> String {
+        let date = Utc::now().date_naive();
+
+        let mut branch_name = if let Some(opponent) = &self.opponent {
+            format!("{date}-HULKs-vs-{opponent}")
+        } else {
+            format!("{date}-testgame")
+        };
+
+        if let Some(phase) = &self.phase {
+            branch_name.push('-');
+            branch_name.push_str(phase);
+        }
+
+        branch_name
+    }
+}
+
+fn deserialize_network<'de, D, E>(deserializer: D) -> Result<Network, E>
+where
+    D: Deserializer<'de>,
+    E: DeserializeError + From<D::Error>,
+{
+    let network = String::deserialize(deserializer)?;
+
+    parse_network(&network).map_err(|error| E::custom(format!("{error:?}")))
+}
+
+fn deserialize_assignments<'de, D, E>(deserializer: D) -> Result<Vec<NaoAddressPlayerAssignment>, E>
+where
+    D: Deserializer<'de>,
+    E: DeserializeError + From<D::Error>,
+{
+    let assignments: Vec<String> = Vec::deserialize(deserializer)?;
+
+    assignments
+        .into_iter()
+        .map(|assignment| {
+            NaoAddressPlayerAssignment::from_str(&assignment)
+                .map_err(|error| E::custom(format!("{error:?}")))
+        })
+        .collect()
+}
+
+pub struct Branch {
+    remote: String,
+    branch: String,
+}
+
+impl<'de> Deserialize<'de> for Branch {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let branch = String::deserialize(deserializer)?;
+
+        let (remote, branch) = branch.split_once("/").ok_or_else(|| {
+            D::Error::custom("deploy target has to follow the format 'remote/branch'")
+        })?;
+
+        Ok(Self {
+            remote: remote.to_owned(),
+            branch: branch.to_owned(),
+        })
+    }
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let naos: Vec<_> = arguments
-        .pre_game
+    let deploy_config = read_to_string(repository.root.join("deploy.toml"))
+        .await
+        .wrap_err("failed to read deploy.toml")?;
+    let config: Config =
+        from_str(&deploy_config).wrap_err("could not deserialize config from deploy.toml")?;
+
+    config
+        .deploy(repository)
+        .await
+        .wrap_err("failed to deploy config")?;
+
+    let naos: Vec<_> = config
         .assignments
         .iter()
         .map(|assignment| assignment.nao_address)
@@ -93,14 +243,9 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to apply recording settings")?;
 
     repository
-        .set_location("nao", &arguments.pre_game.location)
+        .set_location("nao", &config.location)
         .await
-        .wrap_err_with(|| {
-            format!(
-                "failed setting location for nao to {}",
-                arguments.pre_game.location
-            )
-        })?;
+        .wrap_err_with(|| format!("failed setting location for nao to {}", config.location))?;
 
     repository
         .configure_communication(arguments.pre_game.with_communication)
@@ -109,8 +254,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
 
     player_number(
         PlayerNumberArguments {
-            assignments: arguments
-                .pre_game
+            assignments: config
                 .assignments
                 .iter()
                 .copied()
@@ -152,6 +296,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to populate upload directory")?;
 
     let arguments = &arguments.pre_game;
+    let config = &config;
     let upload_directory = &upload_directory;
 
     ProgressIndicator::map_tasks(
@@ -162,6 +307,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
                 nao_address,
                 upload_directory,
                 arguments,
+                config,
                 progress_bar,
                 repository,
             )
@@ -177,6 +323,7 @@ async fn setup_nao(
     nao_address: &NaoAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &PreGameArguments,
+    config: &Config,
     progress: ProgressBar,
     repository: &Repository,
 ) -> Result<()> {
@@ -210,7 +357,7 @@ async fn setup_nao(
     .await
     .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
 
-    if arguments.wifi != Network::None {
+    if config.wifi != Network::None {
         progress.set_message("Scanning for WiFi...");
         nao.scan_networks()
             .await
@@ -218,7 +365,7 @@ async fn setup_nao(
     }
 
     progress.set_message("Setting WiFi...");
-    nao.set_wifi(arguments.wifi)
+    nao.set_wifi(config.wifi)
         .await
         .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
 
@@ -234,4 +381,26 @@ async fn setup_nao(
     }
 
     Ok(())
+}
+
+async fn confirmation_prompt(message: &str) -> Result<bool> {
+    let reader = BufReader::new(stdin());
+
+    let mut lines = reader.lines();
+
+    loop {
+        eprint!("{message} [y/n] ");
+
+        if let Some(line) = lines
+            .next_line()
+            .await
+            .wrap_err("failed to get next line")?
+        {
+            match line {
+                line if line == "y" => return Ok(true),
+                line if line == "n" => return Ok(false),
+                _ => {}
+            }
+        }
+    }
 }
