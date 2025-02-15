@@ -390,6 +390,7 @@ pub fn cycle_robots(
         };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
+        robot.interface.set_time(now);
         robot.cycle(&messages_sent_last_cycle).unwrap();
 
         for message in robot.interface.take_outgoing_messages() {
