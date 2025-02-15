@@ -242,8 +242,7 @@ impl RoleAssignment {
         context
             .last_time_player_was_penalized
             .fill_if_subscribed(|| self.last_time_player_was_penalized);
-
-        if primary_state == PrimaryState::Playing {
+        if is_allowed_to_send_messages(&context) {
             match (self.role, new_role) {
                 (Role::Striker, Role::Striker) => {
                     if self.is_striker_beacon_cooldown_elapsed(&context) {
@@ -411,6 +410,21 @@ impl RoleAssignment {
     }
 }
 
+fn is_allowed_to_send_messages(context: &CycleContext<'_, impl NetworkInterface>) -> bool {
+    let is_playing = *context.primary_state == PrimaryState::Playing;
+    let not_in_penalty_kick =
+        context
+            .filtered_game_controller_state
+            .is_none_or(|game_controller_state| {
+                !matches!(
+                    game_controller_state.game_phase,
+                    GamePhase::PenaltyShootout { .. }
+                ) && !matches!(game_controller_state.sub_state, Some(SubState::PenaltyKick))
+            });
+
+    is_playing && not_in_penalty_kick
+}
+
 fn is_cooldown_elapsed(now: SystemTime, last: Option<SystemTime>, cooldown: Duration) -> bool {
     last.is_none_or(|last_time| {
         now.duration_since(last_time).expect("time ran backwards") > cooldown
@@ -456,15 +470,11 @@ fn process_role_state_machine(
     optional_roles: &[Role],
 ) -> Role {
     if let Some(game_controller_state) = filtered_game_controller_state {
-        match game_controller_state.game_phase {
-            // TODO prevent sending messages in these phases
-            GamePhase::PenaltyShootout {
-                kicking_team: Team::Hulks,
-            } => return Role::Striker,
-            GamePhase::PenaltyShootout {
-                kicking_team: Team::Opponent,
-            } => return Role::Keeper,
-            _ => {}
+        if let GamePhase::PenaltyShootout { kicking_team } = game_controller_state.game_phase {
+            return match kicking_team {
+                Team::Hulks => Role::Striker,
+                Team::Opponent => Role::Keeper,
+            };
         };
         if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
             return current_role;
