@@ -76,6 +76,7 @@ pub struct PreGameArguments {
 #[derive(Deserialize)]
 pub struct Config {
     opponent: Option<String>,
+    phase: Option<String>,
     location: String,
     #[serde(deserialize_with = "deserialize_network")]
     wifi: Network,
@@ -153,11 +154,18 @@ impl Config {
     fn branch_name(&self) -> String {
         let date = Utc::now().date_naive();
 
-        if let Some(opponent) = &self.opponent {
+        let mut branch_name = if let Some(opponent) = &self.opponent {
             format!("{date}-HULKs-vs-{opponent}")
         } else {
             format!("{date}-testgame")
+        };
+
+        if let Some(phase) = &self.phase {
+            branch_name.push('-');
+            branch_name.push_str(phase);
         }
+
+        branch_name
     }
 }
 
