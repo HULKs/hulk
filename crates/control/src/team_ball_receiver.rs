@@ -61,15 +61,12 @@ impl TeamBallReceiver {
                 _ => None,
             });
         for (time, message) in striker_messages.clone() {
-            self.received_balls[message.player_number] = Some(BallPosition {
-                position: message.ball_position.position,
-                velocity: Vector2::zeros(),
-                last_seen: time - message.ball_position.age,
-            });
+            self.process_message(time, message);
         }
         context
             .network_message_debug
             .fill_if_subscribed(|| striker_messages.collect());
+
         // === Team ball ===
         // if let Some(game_controller_state) = filtered_game_controller_state {
         //     match game_controller_state.game_phase {
@@ -84,8 +81,8 @@ impl TeamBallReceiver {
         //     if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
         //         return (current_role, false, None);
         //     }
-
         // }
+
         // if primary_state != PrimaryState::Playing {
         //     match detected_own_team_ball {
         //         None => return (current_role, false, team_ball), Some(own_team_ball) => return (current_role, false, own_team_ball),
@@ -102,19 +99,11 @@ impl TeamBallReceiver {
         // if spl_message.player_number != *context.player_number {
         //     network_robot_obstacles.push(sender_position);
         // }
-        let team_ball = self
-            .received_balls
-            .iter()
-            .filter_map(|(_player_number, ball)| *ball)
-            .max_by_key(|ball| ball.last_seen)
-            .filter(|ball| {
-                context
-                    .cycle_time
-                    .start_time
-                    .duration_since(ball.last_seen)
-                    .expect("time ran backwards")
-                    < *context.striker_trusts_team_ball * 3
-            });
+
+        let team_ball = self.get_best_received_ball(
+            context.cycle_time.start_time,
+            *context.striker_trusts_team_ball * 3,
+        );
 
         context.team_balls.fill_if_subscribed(|| {
             self.received_balls.map(|ball| {
@@ -133,5 +122,29 @@ impl TeamBallReceiver {
             team_ball: team_ball.into(),
             network_robot_obstacles: Vec::new().into(),
         })
+    }
+
+    fn process_message(&mut self, time: SystemTime, message: StrikerMessage) {
+        self.received_balls[message.player_number] = Some(BallPosition {
+            position: message.ball_position.position,
+            velocity: Vector2::zeros(),
+            last_seen: time - message.ball_position.age,
+        });
+    }
+
+    fn get_best_received_ball(
+        &self,
+        now: SystemTime,
+        trust_duration: Duration,
+    ) -> Option<BallPosition<Field>> {
+        self.received_balls
+            .iter()
+            .filter_map(|(_player_number, ball)| *ball)
+            .max_by_key(|ball| ball.last_seen)
+            .filter(|ball| {
+                now.duration_since(ball.last_seen)
+                    .expect("time ran backwards")
+                    < trust_duration
+            })
     }
 }
