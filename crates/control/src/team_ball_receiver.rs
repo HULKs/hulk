@@ -1,12 +1,16 @@
+use std::time::{Duration, SystemTime};
+
 use color_eyre::eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 
-use framework::{MainOutput, PerceptionInput};
-use spl_network_messages::HulkMessage;
-use types::{ball_position::BallPosition, messages::IncomingMessage, players::Players};
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use spl_network_messages::{HulkMessage, StrikerMessage};
+use types::{
+    ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage, players::Players,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct TeamBallReceiver {
@@ -18,7 +22,14 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message_debug:
+        AdditionalOutput<Vec<(SystemTime, StrikerMessage)>, "network_message_debug">,
+
+    striker_trusts_team_ball: Parameter<Duration, "spl_network.striker_trusts_team_ball">,
+
+    team_balls: AdditionalOutput<Players<Option<BallPosition<Field>>>, "team_balls">,
 }
 
 #[context]
@@ -35,7 +46,7 @@ impl TeamBallReceiver {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let striker_messages = context
             .network_message
             .persistent
@@ -46,16 +57,19 @@ impl TeamBallReceiver {
                     .filter_map(|message| Some((*time, (*message)?)))
             })
             .filter_map(|(time, message)| match message {
-                IncomingMessage::Spl(HulkMessage::Striker(message)) => Some((time, message)),
+                IncomingMessage::Spl(HulkMessage::Striker(message)) => Some((time, *message)),
                 _ => None,
             });
-        for (time, message) in striker_messages {
+        for (time, message) in striker_messages.clone() {
             self.received_balls[message.player_number] = Some(BallPosition {
                 position: message.ball_position.position,
                 velocity: Vector2::zeros(),
                 last_seen: time - message.ball_position.age,
             });
         }
+        context
+            .network_message_debug
+            .fill_if_subscribed(|| striker_messages.collect());
         // === Team ball ===
         // if let Some(game_controller_state) = filtered_game_controller_state {
         //     match game_controller_state.game_phase {
@@ -92,7 +106,29 @@ impl TeamBallReceiver {
             .received_balls
             .iter()
             .filter_map(|(_player_number, ball)| *ball)
-            .max_by_key(|ball| ball.last_seen);
+            .max_by_key(|ball| ball.last_seen)
+            .filter(|ball| {
+                context
+                    .cycle_time
+                    .start_time
+                    .duration_since(ball.last_seen)
+                    .expect("time ran backwards")
+                    < *context.striker_trusts_team_ball * 3
+            });
+
+        context.team_balls.fill_if_subscribed(|| {
+            self.received_balls.map(|ball| {
+                ball.filter(|ball| {
+                    context
+                        .cycle_time
+                        .start_time
+                        .duration_since(ball.last_seen)
+                        .expect("time ran backwards")
+                        < *context.striker_trusts_team_ball * 3
+                })
+            })
+        });
+
         Ok(MainOutputs {
             team_ball: team_ball.into(),
             network_robot_obstacles: Vec::new().into(),
