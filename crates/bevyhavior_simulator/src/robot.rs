@@ -216,6 +216,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
     for mut robot in &mut robots {
         if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
             ball.position += ball.velocity * time.delta_secs();
+            ball.velocity *= 0.98
         }
 
         let parameters = &robot.parameters;
