@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use color_eyre::{eyre::Context, Result};
-use eframe::epaint::{Color32, Stroke};
+use eframe::{
+    egui::{Align2, FontId},
+    epaint::{Color32, Stroke},
+};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{IntoFramed, Isometry2, Point2};
@@ -140,6 +143,15 @@ impl Layer<Field> for BehaviorSimulator {
                 0.25,
                 pose_color,
                 pose_stroke,
+            );
+            let mut font = FontId::default();
+            font.size *= 2.0;
+            painter.floating_text(
+                ground_to_field.as_pose().position(),
+                Align2::CENTER_CENTER,
+                format!("{player_number}"),
+                font,
+                Color32::BLACK,
             );
         }
 
