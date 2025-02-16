@@ -445,14 +445,14 @@ fn is_enough_message_budget_left(context: &CycleContext<impl NetworkInterface>) 
         })
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Event {
     None,
     Striker(StrikerEvent),
     Loser,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct StrikerEvent {
     player_number: PlayerNumber,
     time_to_reach_kick_position: Option<Duration>,
@@ -663,77 +663,69 @@ fn pick_role_with_penalties(
 
 #[cfg(test)]
 mod test {
-    use test_case::test_matrix;
+    use proptest::prelude::*;
+    // use test_case::test_matrix;
 
     use super::*;
 
-    #[allow(clippy::too_many_arguments)]
-    #[test_matrix(
-        [
-            Role::DefenderLeft,
-            Role::DefenderRight,
-            Role::Keeper,
-            Role::Loser,
-            Role::MidfielderLeft,
-            Role::MidfielderRight,
-            Role::ReplacementKeeper,
-            Role::Searcher,
-            Role::Striker,
-            Role::StrikerSupporter,
-        ],
-        [false, true],
-        [PrimaryState::Set, PrimaryState::Playing],
-        Event::None,
-        [None, Some(Duration::ZERO), Some(Duration::from_secs(10_000))],
-        [
-            None,
-            Some(BallPosition{ last_seen: SystemTime::UNIX_EPOCH, position: Default::default(), velocity: Default::default() }),
-            Some(BallPosition{ last_seen: SystemTime::UNIX_EPOCH + Duration::from_secs(10), position: Default::default(), velocity: Default::default() })],
-        [SystemTime::UNIX_EPOCH + Duration::from_secs(11)],
-        [None, Some(&FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()})],
-        PlayerNumber::Five,
-        Duration::from_secs(5),
-        [&[Role::DefenderLeft, Role::StrikerSupporter]]
-    )]
-    fn process_role_state_machine_should_be_idempotent_with_event_none(
-        initial_role: Role,
-        detected_own_ball: bool,
-        primary_state: PrimaryState,
-        event: Event,
-        time_to_reach_kick_position: Option<Duration>,
-        team_ball: Option<BallPosition<Field>>,
-        cycle_start_time: SystemTime,
-        filtered_game_controller_state: Option<&FilteredGameControllerState>,
-        player_number: PlayerNumber,
-        striker_trusts_team_ball_duration: Duration,
-        optional_roles: &[Role],
-    ) {
-        let new_role = process_role_state_machine(
-            initial_role,
-            detected_own_ball,
-            primary_state,
-            event,
-            time_to_reach_kick_position,
-            team_ball,
-            cycle_start_time,
-            filtered_game_controller_state,
-            player_number,
-            striker_trusts_team_ball_duration,
-            optional_roles,
-        );
-        let third_role = process_role_state_machine(
-            new_role,
-            detected_own_ball,
-            primary_state,
-            Event::None,
-            time_to_reach_kick_position,
-            team_ball,
-            cycle_start_time,
-            filtered_game_controller_state,
-            player_number,
-            striker_trusts_team_ball_duration,
-            optional_roles,
-        );
-        assert_eq!(new_role, third_role);
+    proptest! {
+        #[allow(clippy::too_many_arguments)]
+        #[test]
+        fn process_role_state_machine_should_be_idempotent_with_event_none(
+            initial_role in prop_oneof![
+                Just(Role::DefenderLeft),
+                Just(Role::DefenderRight),
+                Just(Role::Keeper),
+                Just(Role::Loser),
+                Just(Role::MidfielderLeft),
+                Just(Role::MidfielderRight),
+                Just(Role::ReplacementKeeper),
+                Just(Role::Searcher),
+                Just(Role::Striker),
+                Just(Role::StrikerSupporter),
+            ],
+            detected_own_ball: bool,
+            primary_state in prop_oneof![Just(PrimaryState::Set), Just(PrimaryState::Playing)],
+            event in Just(Event::None),
+            time_to_reach_kick_position in prop_oneof![Just(None), Just(Some(Duration::ZERO)), Just(Some(Duration::from_secs(10_000)))],
+            team_ball in prop_oneof![
+                Just(None),
+                Just(Some(BallPosition::<Field>{ last_seen: SystemTime::UNIX_EPOCH, position: Default::default(), velocity: Default::default() })),
+                Just(Some(BallPosition{ last_seen: SystemTime::UNIX_EPOCH + Duration::from_secs(10), position: Default::default(), velocity: Default::default() }))
+            ],
+            cycle_start_time in prop_oneof![Just(SystemTime::UNIX_EPOCH + Duration::from_secs(11))],
+            filtered_game_controller_state in prop_oneof![Just(None), Just(Some(FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()}))],
+            player_number in Just(PlayerNumber::Five),
+            striker_trusts_team_ball_duration in  Just(Duration::from_secs(5)),
+            optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
+        ) {
+            let new_role = process_role_state_machine(
+                initial_role,
+                detected_own_ball,
+                primary_state,
+                event,
+                time_to_reach_kick_position,
+                team_ball,
+                cycle_start_time,
+                filtered_game_controller_state.as_ref(),
+                player_number,
+                striker_trusts_team_ball_duration,
+                optional_roles,
+            );
+            let third_role = process_role_state_machine(
+                new_role,
+                detected_own_ball,
+                primary_state,
+                Event::None,
+                time_to_reach_kick_position,
+                team_ball,
+                cycle_start_time,
+                filtered_game_controller_state.as_ref(),
+                player_number,
+                striker_trusts_team_ball_duration,
+                optional_roles,
+            );
+            assert_eq!(new_role, third_role);
+        }
     }
 }
