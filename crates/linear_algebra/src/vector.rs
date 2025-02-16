@@ -1,4 +1,4 @@
-use nalgebra::{ClosedAdd, ClosedMul, ComplexField, SVector, Scalar, SimdComplexField};
+use nalgebra::{ClosedAddAssign, ClosedMulAssign, ComplexField, SVector, Scalar, SimdComplexField};
 use num_traits::{One, Signed, Zero};
 
 use crate::{Framed, Point};
@@ -76,7 +76,7 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
 
     pub fn dot(&self, rhs: &Self) -> T
     where
-        T: Scalar + Zero + ClosedAdd + ClosedMul,
+        T: Scalar + Zero + ClosedAddAssign + ClosedMulAssign,
     {
         self.inner.dot(&rhs.inner)
     }
@@ -90,7 +90,7 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
 
     pub fn component_mul(&self, rhs: &Self) -> Self
     where
-        T: Scalar + ClosedMul,
+        T: Scalar + ClosedMulAssign,
     {
         Self::wrap(self.inner.component_mul(&rhs.inner))
     }

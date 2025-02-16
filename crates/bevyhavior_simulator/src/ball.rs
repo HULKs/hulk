@@ -21,7 +21,7 @@ pub fn move_ball(mut ball: ResMut<BallResource>, time: Res<Time>) {
     let friction = ball.friction_coefficient;
 
     if let Some(state) = ball.state.as_mut() {
-        state.position += state.velocity * time.delta_seconds();
+        state.position += state.velocity * time.delta_secs();
         state.velocity *= friction;
     }
 }

@@ -165,7 +165,7 @@ fn find_last_consecutive_cluster(
     });
     let consecutive_segments = filtered_segments
         .tuple_windows()
-        .group_by(|(first, second)| first.end == second.start);
+        .chunk_by(|(first, second)| first.end == second.start);
     consecutive_segments
         .into_iter()
         .filter_map(|(is_consecutive, group)| if is_consecutive { Some(group) } else { None })

@@ -1,6 +1,6 @@
 use egui::{
-    vec2, Align2, Context, Id, InnerResponse, Key, Rect, Response, Rounding, Sense, TextStyle, Ui,
-    Widget,
+    vec2, Align2, Context, CornerRadius, Id, InnerResponse, Key, Rect, Response, Sense, TextStyle,
+    Ui, Widget,
 };
 
 const ANIMATION_TIME_SECONDS: f32 = 0.1;
@@ -8,7 +8,7 @@ const ANIMATION_TIME_SECONDS: f32 = 0.1;
 pub struct SegmentedControl<'ui, T> {
     selectables: &'ui [T],
     id: Id,
-    rounding: Option<Rounding>,
+    corner_radius: Option<CornerRadius>,
     text_style: TextStyle,
 }
 
@@ -22,13 +22,13 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
         SegmentedControl {
             id: id.into(),
             selectables,
-            rounding: None,
+            corner_radius: None,
             text_style: TextStyle::Body,
         }
     }
 
-    pub fn rounding(mut self, rounding: impl Into<Rounding>) -> Self {
-        self.rounding = Some(rounding.into());
+    pub fn corner_radius(mut self, corner_radius: impl Into<CornerRadius>) -> Self {
+        self.corner_radius = Some(corner_radius.into());
         self
     }
 
@@ -49,9 +49,9 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
             .expect("failed to get text style")
             .clone();
         let text_size = text_style.size * ui.ctx().pixels_per_point();
-        let rounding = self
-            .rounding
-            .unwrap_or(ui.style().noninteractive().rounding);
+        let corner_radius = self
+            .corner_radius
+            .unwrap_or(ui.style().noninteractive().corner_radius);
 
         let (mut response, painter) =
             ui.allocate_painter(vec2(width, 2.0 * text_size), Sense::hover());
@@ -66,7 +66,11 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
                 }
             })
         }
-        painter.rect_filled(response.rect, rounding, ui.style().visuals.extreme_bg_color);
+        painter.rect_filled(
+            response.rect,
+            corner_radius,
+            ui.style().visuals.extreme_bg_color,
+        );
 
         let text_rects = text_rects(response.rect, self.selectables.len());
         let offset = text_rects[0].width();
@@ -80,7 +84,7 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
         let selector_response =
             ui.interact(selector_rect, self.id.with("selector"), Sense::click());
         let selector_style = ui.style().interact(&selector_response);
-        painter.rect_filled(selector_rect, rounding, selector_style.bg_fill);
+        painter.rect_filled(selector_rect, corner_radius, selector_style.bg_fill);
 
         let noninteractive_style = ui.style().noninteractive();
 

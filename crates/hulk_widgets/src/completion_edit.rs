@@ -2,6 +2,7 @@ use std::{cmp::Reverse, fmt::Debug};
 
 use egui::{
     popup_below_widget,
+    response::Flags,
     text::{CCursor, CCursorRange},
     text_edit::{TextEditOutput, TextEditState},
     util::cache::{ComputerMut, FrameCache},
@@ -204,7 +205,8 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             set_cursor(ui.ctx(), &response, text_edit_state, 0, self.selected.len());
         }
         state.textedit_was_focused = response.has_focus();
-        response.changed = false;
+        // TODO: This is a workaround
+        response.flags.set(Flags::CHANGED, false);
 
         if is_popup_open {
             ui.ctx().memory_mut(|writer| {

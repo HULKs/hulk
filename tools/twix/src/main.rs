@@ -17,9 +17,12 @@ use configuration::{
     Configuration,
 };
 use eframe::{
-    egui::{CentralPanel, Context, Id, Layout, TopBottomPanel, Ui, Widget, WidgetText},
+    egui::{
+        CentralPanel, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui, Widget,
+        WidgetText,
+    },
     emath::Align,
-    epaint::{Color32, Rounding},
+    epaint::Color32,
     run_native, App, CreationContext, Frame, NativeOptions, Storage,
 };
 use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
@@ -571,8 +574,9 @@ impl App for TwixApp {
                 let rect = node.rect().unwrap();
                 ui.painter().rect_stroke(
                     rect,
-                    Rounding::same(4.0),
+                    CornerRadius::same(4),
                     ui.visuals().widgets.active.bg_stroke,
+                    StrokeKind::Outside,
                 );
             }
         });

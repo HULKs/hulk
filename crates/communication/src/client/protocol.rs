@@ -214,7 +214,7 @@ enum ClosingError {
 }
 
 impl ClosingError {
-    fn into_close_frame(self) -> CloseFrame<'static> {
+    fn into_close_frame(self) -> CloseFrame {
         let code = match &self {
             Self::JsonSerialization(_) => CloseCode::Error,
             Self::JsonDeserialization(_) => CloseCode::Invalid,
@@ -409,7 +409,9 @@ impl Protocol {
         self.next_request_id += 1;
         let request = Request { id, kind: request };
         let message = Message::Text(
-            serde_json::to_string(&request).map_err(ClosingError::JsonSerialization)?,
+            serde_json::to_string(&request)
+                .map_err(ClosingError::JsonSerialization)?
+                .into(),
         );
         self.socket.send_or_log(message).await;
         self.pending_requests.insert(id, response_sender);
@@ -429,7 +431,9 @@ impl Protocol {
             kind: RequestKind::Subscribe { path, format },
         };
         let message = Message::Text(
-            serde_json::to_string(&request).map_err(ClosingError::JsonSerialization)?,
+            serde_json::to_string(&request)
+                .map_err(ClosingError::JsonSerialization)?
+                .into(),
         );
         self.socket.send_or_log(message).await;
         self.subscriptions.insert(id, response_sender);

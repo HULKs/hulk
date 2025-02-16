@@ -4,7 +4,7 @@ use bevy::{
     app::{App, AppExit, First, Plugin, Update},
     core::{FrameCountPlugin, TaskPoolPlugin, TypeRegistrationPlugin},
     ecs::{
-        event::{Events, ManualEventReader},
+        event::{EventCursor, Events},
         schedule::IntoSystemConfigs,
     },
     time::Time,
@@ -76,7 +76,7 @@ pub trait AppExt {
 
 impl AppExt for App {
     fn run_to_completion(&mut self) -> Result<()> {
-        let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+        let mut app_exit_event_reader = EventCursor::<AppExit>::default();
         let exit = loop {
             self.update();
             if let Some(exit) = self
