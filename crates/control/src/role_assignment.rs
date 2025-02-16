@@ -226,14 +226,16 @@ impl RoleAssignment {
                 .last_time_player_was_penalized
                 .iter()
                 .find_map(|(player_number, penalized_time)| {
-                    penalized_time
-                        .is_none_or(|penalized_time| {
+                    match penalized_time {
+                        None => true,
+                        Some(penalized_time) => {
                             let since_last_penalized = cycle_start_time
-                                .duration_since(penalized_time)
+                                .duration_since(*penalized_time)
                                 .expect("time ran backwards");
                             since_last_penalized >= *context.keeper_replacementkeeper_switch_time
-                        })
-                        .then_some(player_number)
+                        }
+                    }
+                    .then_some(player_number)
                 });
             if Some(*context.player_number) == lowest_player_number_without_penalty {
                 new_role = Role::ReplacementKeeper;
@@ -412,23 +414,24 @@ impl RoleAssignment {
 
 fn is_allowed_to_send_messages(context: &CycleContext<'_, impl NetworkInterface>) -> bool {
     let is_playing = *context.primary_state == PrimaryState::Playing;
-    let not_in_penalty_kick =
+    let is_penalty_kick =
         context
             .filtered_game_controller_state
-            .is_none_or(|game_controller_state| {
-                !matches!(
+            .is_some_and(|game_controller_state| {
+                matches!(
                     game_controller_state.game_phase,
                     GamePhase::PenaltyShootout { .. }
-                ) && !matches!(game_controller_state.sub_state, Some(SubState::PenaltyKick))
+                ) || matches!(game_controller_state.sub_state, Some(SubState::PenaltyKick))
             });
 
-    is_playing && not_in_penalty_kick
+    is_playing && !is_penalty_kick
 }
 
 fn is_cooldown_elapsed(now: SystemTime, last: Option<SystemTime>, cooldown: Duration) -> bool {
-    last.is_none_or(|last_time| {
-        now.duration_since(last_time).expect("time ran backwards") > cooldown
-    })
+    match last {
+        None => true,
+        Some(last_time) => now.duration_since(last_time).expect("time ran backwards") > cooldown,
+    }
 }
 
 fn is_enough_message_budget_left(context: &CycleContext<impl NetworkInterface>) -> bool {
