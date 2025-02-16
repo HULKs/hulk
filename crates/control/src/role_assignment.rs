@@ -227,11 +227,11 @@ impl RoleAssignment {
                 .iter()
                 .find_map(|(player_number, penalized_time)| {
                     penalized_time
-                        .map_or(false, |penalized_time| {
+                        .is_none_or(|penalized_time| {
                             let since_last_penalized = cycle_start_time
                                 .duration_since(penalized_time)
-                                .expect("penalty time to be in the past");
-                            since_last_penalized < *context.keeper_replacementkeeper_switch_time
+                                .expect("time ran backwards");
+                            since_last_penalized >= *context.keeper_replacementkeeper_switch_time
                         })
                         .then_some(player_number)
                 });
