@@ -30,12 +30,12 @@ num-traits = { workspace = true }
 ordered-float = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
+proptest = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }
 splines = { workspace = true }
-test-case = "3.3.1"
 types = { workspace = true }
 walking_engine = { workspace = true }

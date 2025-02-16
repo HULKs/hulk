@@ -176,6 +176,7 @@ prettyplease = "0.2.29"
 proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
 projection = { path = "crates/projection" }
+proptest = "1.6.0"
 quote = "1.0.38"
 rand = "0.9.0"
 rand_chacha = { version = "0.9.0", features = ["serde"] }
