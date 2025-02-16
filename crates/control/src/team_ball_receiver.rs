@@ -102,7 +102,7 @@ impl TeamBallReceiver {
 
         let team_ball = self.get_best_received_ball(
             context.cycle_time.start_time,
-            *context.striker_trusts_team_ball * 3,
+            context.striker_trusts_team_ball.mul_f32(4.5),
         );
 
         context.team_balls.fill_if_subscribed(|| {
@@ -113,7 +113,7 @@ impl TeamBallReceiver {
                         .start_time
                         .duration_since(ball.last_seen)
                         .expect("time ran backwards")
-                        < *context.striker_trusts_team_ball * 3
+                        < context.striker_trusts_team_ball.mul_f32(4.5)
                 })
             })
         });
