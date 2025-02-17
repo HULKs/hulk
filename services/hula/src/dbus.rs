@@ -1,8 +1,8 @@
 use hula_types::{Battery, JointsArray};
 use std::sync::{Arc, Mutex};
 use zbus::{
-    blocking::{Connection, ConnectionBuilder},
-    dbus_interface,
+    blocking::{connection::Builder, Connection},
+    interface,
     zvariant::Optional,
     Error,
 };
@@ -16,7 +16,7 @@ struct RobotInfo {
     shared_state: Arc<Mutex<SharedState>>,
 }
 
-#[dbus_interface(name = "org.hulks.hula")]
+#[interface(name = "org.hulks.hula")]
 impl RobotInfo {
     fn head_id(&self) -> Optional<String> {
         let configuration = self.shared_state.lock().unwrap().configuration;
@@ -45,7 +45,7 @@ impl RobotInfo {
 
 pub fn serve_dbus(shared_state: Arc<Mutex<SharedState>>) -> Result<Connection, Error> {
     let robot_info = RobotInfo { shared_state };
-    ConnectionBuilder::system()?
+    Builder::system()?
         .name(HULA_DBUS_SERVICE)?
         .serve_at(HULA_DBUS_PATH, robot_info)?
         .build()
