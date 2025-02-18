@@ -11,10 +11,8 @@ use ordered_float::NotNan;
 use rand::{seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum RansacFeature<Frame> {
-    #[default]
-    None,
     Line(Line2<Frame>),
     TwoLines(TwoLines<Frame>),
 }
@@ -51,7 +49,6 @@ impl<Frame> RansacFeature<Frame> {
 impl<Frame> Distance<Point2<Frame>> for RansacFeature<Frame> {
     fn squared_distance_to(&self, point: Point2<Frame>) -> f32 {
         match self {
-            RansacFeature::None => f32::INFINITY,
             RansacFeature::Line(line) => line.squared_distance_to(point),
             RansacFeature::TwoLines(two_lines) => two_lines.squared_distance_to(point),
         }
@@ -65,7 +62,6 @@ impl<Frame> IntoIterator for RansacResult<Frame> {
 
     fn into_iter(self) -> Self::IntoIter {
         match self.feature {
-            RansacFeature::None => Vec::new(),
             RansacFeature::Line(line) => {
                 RansacLineSegment::try_from_used_points(line, self.used_points)
                     .map(|line_segment| vec![line_segment])
@@ -140,7 +136,7 @@ impl<Frame> RansacLineSegment<Frame> {
     }
 }
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct RansacResult<Frame> {
     pub feature: RansacFeature<Frame>,
     pub used_points: Vec<Point2<Frame>>,
@@ -164,21 +160,18 @@ impl<Frame> Ransac<Frame> {
         fit_two_lines: bool,
         maximum_score_distance: f32,
         maximum_inclusion_distance: f32,
-    ) -> RansacResult<Frame> {
+    ) -> Option<RansacResult<Frame>> {
         if self.unused_points.len() < 2 {
-            return RansacResult {
-                feature: RansacFeature::None,
-                used_points: vec![],
-            };
+            return None;
         }
         if self.unused_points.len() == 2 {
-            return RansacResult {
+            return Some(RansacResult {
                 feature: RansacFeature::Line(Line::from_points(
                     self.unused_points[0],
                     self.unused_points[1],
                 )),
                 used_points: self.unused_points.clone(),
-            };
+            });
         }
 
         let maximum_score_distance_squared = maximum_score_distance * maximum_score_distance;
@@ -224,10 +217,10 @@ impl<Frame> Ransac<Frame> {
         });
         self.unused_points = unused_points;
 
-        RansacResult {
+        Some(RansacResult {
             feature: best_feature,
             used_points,
-        }
+        })
     }
 }
 
@@ -247,20 +240,14 @@ mod test {
     fn ransac_empty_input() {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
         let mut rng = ChaChaRng::from_entropy();
-        assert_eq!(
-            ransac.next_feature(&mut rng, 10, false, 5.0, 5.0),
-            RansacResult::default()
-        );
+        assert_eq!(ransac.next_feature(&mut rng, 10, false, 5.0, 5.0), None);
     }
 
     #[test]
     fn ransac_single_point() {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
         let mut rng = ChaChaRng::from_entropy();
-        assert_eq!(
-            ransac.next_feature(&mut rng, 10, false, 5.0, 5.0),
-            RansacResult::default()
-        );
+        assert_eq!(ransac.next_feature(&mut rng, 10, false, 5.0, 5.0), None);
     }
 
     #[test]
@@ -272,7 +259,9 @@ mod test {
         let RansacResult {
             feature,
             used_points,
-        } = ransac.next_feature(&mut rng, 10, false, 5.0, 5.0);
+        } = ransac
+            .next_feature(&mut rng, 10, false, 5.0, 5.0)
+            .expect("expected a feature");
         println!("{feature:#?}");
         println!("{used_points:#?}");
 
@@ -298,7 +287,9 @@ mod test {
 
         let mut ransac = Ransac::<SomeFrame>::new(points.clone());
         let mut rng = ChaChaRng::from_entropy();
-        let result = ransac.next_feature(&mut rng, 15, false, 1.0, 1.0);
+        let result = ransac
+            .next_feature(&mut rng, 15, false, 1.0, 1.0)
+            .expect("expected feature");
 
         if let RansacFeature::Line(line) = result.feature {
             assert_relative_eq!(line.slope(), slope, epsilon = 0.0001);

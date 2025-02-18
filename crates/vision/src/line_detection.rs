@@ -171,13 +171,15 @@ impl LineDetection {
             if ransac.unused_points.len() < *context.minimum_number_of_points_on_line {
                 break;
             }
-            let ransac_result = ransac.next_feature(
+            let Some(ransac_result) = ransac.next_feature(
                 &mut self.random_state,
                 *context.ransac_iterations,
                 *context.ransac_fit_two_lines,
                 *context.maximum_fit_distance_in_ground,
                 *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,
-            );
+            ) else {
+                break;
+            };
             detected_features.push(ransac_result.feature.clone());
 
             for line_segment in ransac_result {
@@ -241,7 +243,6 @@ impl LineDetection {
             detected_features
                 .into_iter()
                 .map(|feature| match feature {
-                    RansacFeature::None => RansacFeature::None,
                     RansacFeature::Line(line) => RansacFeature::Line(Line::from_points(
                         context.camera_matrix.ground_to_pixel(line.point).unwrap(),
                         context

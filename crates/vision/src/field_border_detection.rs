@@ -110,13 +110,15 @@ fn find_border_lines(
     second_line_association_distance: f32,
 ) -> Vec<LineSegment<Pixel>> {
     // first line
-    let result = ransac.next_feature(
+    let Some(result) = ransac.next_feature(
         random_state,
         20,
         false,
         first_line_association_distance,
         first_line_association_distance,
-    );
+    ) else {
+        return Vec::new();
+    };
     if !matches!(result.feature, RansacFeature::Line(_))
         || result.used_points.len() < min_points_per_line
     {
@@ -124,13 +126,15 @@ fn find_border_lines(
     }
     let first_line = best_fit_line(&result.used_points);
     // second line
-    let result = ransac.next_feature(
+    let Some(result) = ransac.next_feature(
         random_state,
         20,
         false,
         second_line_association_distance,
         second_line_association_distance,
-    );
+    ) else {
+        return Vec::new();
+    };
     if !matches!(result.feature, RansacFeature::Line(_))
         || result.used_points.len() < min_points_per_line
     {

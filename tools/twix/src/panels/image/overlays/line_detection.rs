@@ -58,7 +58,6 @@ impl Overlay for LineDetection {
         };
         for feature in detected_features {
             match feature {
-                RansacFeature::None => {}
                 RansacFeature::Line(line) => {
                     painter.line(line.point, line.direction, Stroke::new(2.0, Color32::RED))
                 }
