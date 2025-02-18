@@ -250,22 +250,28 @@ impl LineDetection {
                             .unwrap(),
                     )),
                     RansacFeature::TwoLines(two_lines) => {
-                        let point = context
+                        let intersection_point = context
                             .camera_matrix
-                            .ground_to_pixel(two_lines.point)
+                            .ground_to_pixel(two_lines.intersection_point)
                             .unwrap();
                         RansacFeature::TwoLines(TwoLines {
-                            point,
-                            direction1: context
+                            intersection_point,
+                            first_direction: context
                                 .camera_matrix
-                                .ground_to_pixel(two_lines.point + two_lines.direction1.normalize())
-                                .unwrap_or(point)
-                                - point,
-                            direction2: context
+                                .ground_to_pixel(
+                                    two_lines.intersection_point
+                                        + two_lines.first_direction.normalize(),
+                                )
+                                .unwrap_or(intersection_point)
+                                - intersection_point,
+                            second_direction: context
                                 .camera_matrix
-                                .ground_to_pixel(two_lines.point + two_lines.direction2.normalize())
-                                .unwrap_or(point)
-                                - point,
+                                .ground_to_pixel(
+                                    two_lines.intersection_point
+                                        + two_lines.second_direction.normalize(),
+                                )
+                                .unwrap_or(intersection_point)
+                                - intersection_point,
                         })
                     }
                 })

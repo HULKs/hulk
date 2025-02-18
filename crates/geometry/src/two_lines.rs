@@ -7,7 +7,7 @@ use crate::{
     Distance,
 };
 
-/// A corner given by a point and the directions of two outgoing rays.
+/// Two intersecting lines given by their intersection point and directions.
 #[derive(
     Copy,
     Clone,
@@ -21,40 +21,41 @@ use crate::{
     PathDeserialize,
 )]
 pub struct TwoLines<Frame> {
-    pub point: Point2<Frame>,
-    pub direction1: Vector2<Frame>,
-    pub direction2: Vector2<Frame>,
+    pub intersection_point: Point2<Frame>,
+    pub first_direction: Vector2<Frame>,
+    pub second_direction: Vector2<Frame>,
 }
 
 impl<Frame> TwoLines<Frame> {
     /// Creates two orthogonal lines from a line and a point outside the line.
     pub fn from_line_and_point_orthogonal(line: &Line2<Frame>, point: Point2<Frame>) -> Self {
-        let corner_point = line.closest_point(point);
+        let intersection_point = line.closest_point(point);
         let direction1 = line.direction;
-        let direction2 = point - corner_point;
+        let direction2 = point - intersection_point;
 
         Self {
-            point: corner_point,
-            direction1,
-            direction2,
+            intersection_point,
+            first_direction: direction1,
+            second_direction: direction2,
         }
     }
 }
 
 impl<Frame> Distance<Point2<Frame>> for TwoLines<Frame> {
     fn squared_distance_to(&self, point: Point2<Frame>) -> f32 {
-        let line1 = Line {
-            point: self.point,
-            direction: self.direction1,
+        let first_line = Line {
+            point: self.intersection_point,
+            direction: self.first_direction,
         };
-        let line2 = Line {
-            point: self.point,
-            direction: self.direction2,
+        let second_line = Line {
+            point: self.intersection_point,
+            direction: self.second_direction,
         };
 
-        line1
-            .squared_distance_to(point)
-            .min(line2.squared_distance_to(point))
+        let squared_distance_to_first_line = first_line.squared_distance_to(point);
+        let squared_distance_to_second_line = second_line.squared_distance_to(point);
+
+        squared_distance_to_first_line.min(squared_distance_to_second_line)
     }
 }
 
@@ -71,9 +72,9 @@ mod tests {
     struct SomeFrame;
 
     const TWO_LINES: TwoLines<SomeFrame> = TwoLines {
-        point: point![5.0, 5.0],
-        direction1: vector![0.0, 3.0],
-        direction2: vector![-10.0, 0.0],
+        intersection_point: point![5.0, 5.0],
+        first_direction: vector![0.0, 3.0],
+        second_direction: vector![-10.0, 0.0],
     };
 
     #[test]
@@ -86,8 +87,8 @@ mod tests {
         let corner_point = point![15.0, 0.0];
 
         let corner = TwoLines::from_line_and_point_orthogonal(&line, point);
-        assert_relative_eq!(corner.point, corner_point);
-        assert_relative_eq!(corner.direction1.dot(corner.direction2), 0.0);
+        assert_relative_eq!(corner.intersection_point, corner_point);
+        assert_relative_eq!(corner.first_direction.dot(corner.second_direction), 0.0);
     }
 
     #[test]

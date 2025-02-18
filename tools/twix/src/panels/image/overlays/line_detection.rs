@@ -64,13 +64,13 @@ impl Overlay for LineDetection {
                 }
                 RansacFeature::TwoLines(two_lines) => {
                     painter.line(
-                        two_lines.point,
-                        two_lines.direction1,
+                        two_lines.intersection_point,
+                        two_lines.first_direction,
                         Stroke::new(2.0, Color32::GREEN),
                     );
                     painter.line(
-                        two_lines.point,
-                        two_lines.direction2,
+                        two_lines.intersection_point,
+                        two_lines.second_direction,
                         Stroke::new(2.0, Color32::GREEN),
                     );
                 }

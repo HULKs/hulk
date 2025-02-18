@@ -24,7 +24,7 @@ impl<Frame> RansacFeature<Frame> {
         let line = Line::from_points(point1, point2);
         let two_lines = TwoLines::from_line_and_point_orthogonal(&line, point3);
 
-        if two_lines.direction2.norm() > f32::EPSILON {
+        if two_lines.second_direction.norm() > f32::EPSILON {
             Self::TwoLines(two_lines)
         } else {
             Self::Line(line)
@@ -73,12 +73,14 @@ impl<Frame> IntoIterator for RansacResult<Frame> {
             }
             RansacFeature::TwoLines(two_lines) => {
                 let dividing_line1 = Line {
-                    point: two_lines.point,
-                    direction: two_lines.direction1.normalize() + two_lines.direction2.normalize(),
+                    point: two_lines.intersection_point,
+                    direction: two_lines.first_direction.normalize()
+                        + two_lines.second_direction.normalize(),
                 };
                 let dividing_line2 = Line {
-                    point: two_lines.point,
-                    direction: two_lines.direction1.normalize() - two_lines.direction2.normalize(),
+                    point: two_lines.intersection_point,
+                    direction: two_lines.first_direction.normalize()
+                        - two_lines.second_direction.normalize(),
                 };
 
                 let (used_points1, used_points2): (Vec<_>, Vec<_>) =
@@ -86,12 +88,12 @@ impl<Frame> IntoIterator for RansacResult<Frame> {
                         dividing_line1.is_above(*point) != dividing_line2.is_above(*point)
                     });
                 let line1 = Line {
-                    point: two_lines.point,
-                    direction: two_lines.direction1,
+                    point: two_lines.intersection_point,
+                    direction: two_lines.first_direction,
                 };
                 let line2 = Line {
-                    point: two_lines.point,
-                    direction: two_lines.direction2,
+                    point: two_lines.intersection_point,
+                    direction: two_lines.second_direction,
                 };
 
                 [
