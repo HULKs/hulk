@@ -88,7 +88,7 @@ mod tests {
 
         let corner = TwoLines::from_line_and_point_orthogonal(&line, point);
         assert_relative_eq!(corner.intersection_point, corner_point);
-        assert_relative_eq!(corner.first_direction.dot(corner.second_direction), 0.0);
+        assert_relative_eq!(corner.first_direction.dot(&corner.second_direction), 0.0);
     }
 
     #[test]
