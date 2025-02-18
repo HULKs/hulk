@@ -32,10 +32,12 @@ pub async fn post_game(arguments: Arguments) -> Result<()> {
                 .await
                 .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}"))?;
 
-            progress_bar.set_message("Disconnecting from WiFi...");
-            nao.set_wifi(Network::None)
-                .await
-                .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
+            if !arguments.no_disconnect {
+                progress_bar.set_message("Disconnecting from WiFi...");
+                nao.set_wifi(Network::None)
+                    .await
+                    .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
+            }
 
             progress_bar.set_message("Downloading logs...");
             let log_directory = arguments.log_directory.join(nao_address.to_string());
