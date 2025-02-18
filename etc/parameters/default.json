@@ -153,13 +153,14 @@
       "maximum_fit_distance_in_ground": 0.05,
       "maximum_gap_on_line": 0.2,
       "maximum_merge_gap_in_pixels": 5,
-      "maximum_number_of_lines": 10,
+      "maximum_number_of_features": 10,
       "allowed_projected_segment_length": {
         "start": 0.02,
         "end": 0.1
       },
       "minimum_number_of_points_on_line": 10,
-      "ransac_iterations": 20
+      "ransac_iterations": 50,
+      "ransac_fit_two_lines": false
     },
     "vision_bottom": {
       "use_horizontal_segments": true,
@@ -180,13 +181,14 @@
       "maximum_fit_distance_in_ground": 0.05,
       "maximum_gap_on_line": 0.1,
       "maximum_merge_gap_in_pixels": 30,
-      "maximum_number_of_lines": 10,
+      "maximum_number_of_features": 10,
       "allowed_projected_segment_length": {
         "start": 0.02,
         "end": 0.1
       },
       "minimum_number_of_points_on_line": 10,
-      "ransac_iterations": 20
+      "ransac_iterations": 50,
+      "ransac_fit_two_lines": false
     }
   },
   "field_border_detection": {

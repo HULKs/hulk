@@ -287,6 +287,13 @@ impl<World> TwixPainter<World> {
         self.painter.line_segment([start, end], stroke);
     }
 
+    pub fn line(&self, point: Point2<World>, direction: Vector2<World>, stroke: Stroke) {
+        let start = self.transform_world_to_pixel(point - direction * 10000.0);
+        let end = self.transform_world_to_pixel(point + direction * 10000.0);
+        let stroke = self.transform_stroke(stroke);
+        self.painter.line_segment([start, end], stroke);
+    }
+
     pub fn rect_filled(&self, min: Point2<World>, max: Point2<World>, fill_color: Color32) {
         let right_bottom = point![max.x(), min.y()];
         let left_top = point![min.x(), max.y()];

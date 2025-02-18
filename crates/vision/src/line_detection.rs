@@ -5,11 +5,9 @@ mod segment_merger;
 
 use std::{collections::HashSet, ops::Range};
 
-use checks::{has_opposite_gradients, is_in_length_range, is_non_field_segment};
 use color_eyre::Result;
-use geometry::line_segment::LineSegment;
-use iter_if::iter_if;
-use map_segments::{map_segments, HorizontalMapping, VerticalMapping};
+use geometry::{line::Line, line_segment::LineSegment, two_lines::TwoLines};
+use itertools::Itertools;
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Serialize};
@@ -18,15 +16,18 @@ use context_attribute::context;
 use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Point2};
-use ordered_float::NotNan;
 use projection::{camera_matrix::CameraMatrix, Projection};
-use ransac::{Ransac, RansacResult};
+use ransac::{Ransac, RansacFeature, RansacLineSegment};
 use types::{
     filtered_segments::FilteredSegments,
     image_segments::GenericSegment,
     line_data::{LineData, LineDiscardReason},
     ycbcr422_image::YCbCr422Image,
 };
+
+use checks::{has_opposite_gradients, is_in_length_range, is_non_field_segment};
+use iter_if::iter_if;
+use map_segments::{map_segments, HorizontalMapping, VerticalMapping};
 
 #[derive(Deserialize, Serialize)]
 pub struct LineDetection {
@@ -43,6 +44,7 @@ pub struct CycleContext {
         AdditionalOutput<Vec<(LineSegment<Pixel>, LineDiscardReason)>, "discarded_lines">,
     filtered_segments_output:
         AdditionalOutput<Vec<GenericSegment>, "line_detection.filtered_segments">,
+    detected_features: AdditionalOutput<Vec<RansacFeature<Pixel>>, "detected_features">,
 
     use_horizontal_segments:
         Parameter<bool, "line_detection.$cycler_instance.use_horizontal_segments">,
@@ -66,13 +68,14 @@ pub struct CycleContext {
     maximum_gap_on_line: Parameter<f32, "line_detection.$cycler_instance.maximum_gap_on_line">,
     maximum_merge_gap_in_pixels:
         Parameter<u16, "line_detection.$cycler_instance.maximum_merge_gap_in_pixels">,
-    maximum_number_of_lines:
-        Parameter<usize, "line_detection.$cycler_instance.maximum_number_of_lines">,
+    maximum_number_of_features:
+        Parameter<usize, "line_detection.$cycler_instance.maximum_number_of_features">,
     allowed_projected_segment_length:
         Parameter<Range<f32>, "line_detection.$cycler_instance.allowed_projected_segment_length">,
     minimum_number_of_points_on_line:
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
     ransac_iterations: Parameter<usize, "line_detection.$cycler_instance.ransac_iterations">,
+    ransac_fit_two_lines: Parameter<bool, "line_detection.$cycler_instance.ransac_fit_two_lines">,
 
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
@@ -93,8 +96,6 @@ impl LineDetection {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let mut discarded_lines = Vec::new();
-
         let horizontal_scan_lines = iter_if(
             *context.use_horizontal_segments,
             context
@@ -162,88 +163,123 @@ impl LineDetection {
                 .unzip();
 
         let mut ransac = Ransac::new(line_points);
-        let mut lines_in_ground = Vec::new();
-        for _ in 0..*context.maximum_number_of_lines {
+        let mut detected_features = Vec::new();
+        let mut line_segments = Vec::new();
+        let mut discarded_line_segments = Vec::new();
+
+        for _ in 0..*context.maximum_number_of_features {
             if ransac.unused_points.len() < *context.minimum_number_of_points_on_line {
                 break;
             }
-            let RansacResult {
-                line: ransac_line,
-                used_points,
-            } = ransac.next_line(
+            let Some(ransac_result) = ransac.next_feature(
                 &mut self.random_state,
                 *context.ransac_iterations,
+                *context.ransac_fit_two_lines,
                 *context.maximum_fit_distance_in_ground,
                 *context.maximum_fit_distance_in_ground + *context.margin_for_point_inclusion,
-            );
-            let ransac_line =
-                ransac_line.expect("Insufficient number of line points. Cannot fit line.");
-            if used_points.len() < *context.minimum_number_of_points_on_line {
-                discarded_lines.push((ransac_line, LineDiscardReason::TooFewPoints));
-                break;
-            }
-            let mut points_with_projection_onto_line: Vec<_> = used_points
-                .iter()
-                .map(|&point| (point, ransac_line.closest_point(point)))
-                .collect();
-            points_with_projection_onto_line.sort_by_key(|(_point, projected_point)| {
-                NotNan::new(projected_point.x()).expect("Tried to compare NaN")
-            });
-            let split_index = (1..points_with_projection_onto_line.len())
-                .find(|&index| {
-                    distance(
-                        points_with_projection_onto_line[index - 1].1,
-                        points_with_projection_onto_line[index].1,
-                    ) > *context.maximum_gap_on_line
-                })
-                .unwrap_or(points_with_projection_onto_line.len());
-            let after_gap = points_with_projection_onto_line.split_off(split_index);
-            ransac
-                .unused_points
-                .extend(after_gap.iter().map(|(point, _projected_point)| point));
-            if points_with_projection_onto_line.len() < *context.minimum_number_of_points_on_line {
-                // just drop and ignore this line
-                discarded_lines.push((ransac_line, LineDiscardReason::TooFewPoints));
-                continue;
-            }
-
-            let Some((_, projected_start_point)) =
-                points_with_projection_onto_line.first().copied()
-            else {
+            ) else {
                 break;
             };
-            let Some((_, projected_end_point)) = points_with_projection_onto_line.last().copied()
-            else {
-                break;
-            };
+            detected_features.push(ransac_result.feature.clone());
 
-            let line_in_ground = LineSegment(projected_start_point, projected_end_point);
-            let line_length_ground = line_in_ground.length();
-            let is_too_short = *context.check_line_length
-                && line_length_ground < context.allowed_line_length_in_field.start;
-            let is_too_long = *context.check_line_length
-                && line_length_ground > context.allowed_line_length_in_field.end;
-            if is_too_short {
-                discarded_lines.push((ransac_line, LineDiscardReason::LineTooShort));
-                continue;
-            }
-            if is_too_long {
-                discarded_lines.push((ransac_line, LineDiscardReason::LineTooLong));
-                continue;
-            }
+            for line_segment in ransac_result {
+                let RansacLineSegment {
+                    line_segment,
+                    sorted_used_points,
+                } = line_segment;
 
-            let is_too_far = *context.check_line_distance
-                && line_in_ground.center().coords().norm() > *context.maximum_distance_to_robot;
-            if is_too_far {
-                discarded_lines.push((ransac_line, LineDiscardReason::TooFarAway));
-                continue;
-            }
+                if sorted_used_points.len() < *context.minimum_number_of_points_on_line {
+                    discarded_line_segments.push((line_segment, LineDiscardReason::TooFewPoints));
+                    break;
+                }
 
-            lines_in_ground.push(line_in_ground);
+                let projected_sorted_points: Vec<_> = sorted_used_points
+                    .iter()
+                    .map(|&point| line_segment.closest_point(point))
+                    .collect();
+
+                if let Some((gap_index, _)) =
+                    projected_sorted_points.windows(2).find_position(|window| {
+                        distance(window[0], window[1]) > *context.maximum_gap_on_line
+                    })
+                {
+                    ransac
+                        .unused_points
+                        .extend(sorted_used_points.iter().skip(gap_index + 1).copied());
+
+                    if gap_index + 1 < *context.minimum_number_of_points_on_line {
+                        discarded_line_segments
+                            .push((line_segment, LineDiscardReason::TooFewPoints));
+                        break;
+                    }
+                }
+
+                let line_segment_length = line_segment.length();
+                let is_too_short = *context.check_line_length
+                    && line_segment_length < context.allowed_line_length_in_field.start;
+                let is_too_long = *context.check_line_length
+                    && line_segment_length > context.allowed_line_length_in_field.end;
+                if is_too_short {
+                    discarded_line_segments.push((line_segment, LineDiscardReason::LineTooShort));
+                    break;
+                }
+                if is_too_long {
+                    discarded_line_segments.push((line_segment, LineDiscardReason::LineTooLong));
+                    break;
+                }
+
+                let is_too_far = *context.check_line_distance
+                    && line_segment.center().coords().norm() > *context.maximum_distance_to_robot;
+                if is_too_far {
+                    discarded_line_segments.push((line_segment, LineDiscardReason::TooFarAway));
+                    break;
+                }
+
+                line_segments.push(line_segment)
+            }
         }
 
+        context.detected_features.fill_if_subscribed(|| {
+            detected_features
+                .into_iter()
+                .map(|feature| match feature {
+                    RansacFeature::Line(line) => RansacFeature::Line(Line::from_points(
+                        context.camera_matrix.ground_to_pixel(line.point).unwrap(),
+                        context
+                            .camera_matrix
+                            .ground_to_pixel(line.point + line.direction)
+                            .unwrap(),
+                    )),
+                    RansacFeature::TwoLines(two_lines) => {
+                        let intersection_point = context
+                            .camera_matrix
+                            .ground_to_pixel(two_lines.intersection_point)
+                            .unwrap();
+                        RansacFeature::TwoLines(TwoLines {
+                            intersection_point,
+                            first_direction: context
+                                .camera_matrix
+                                .ground_to_pixel(
+                                    two_lines.intersection_point
+                                        + two_lines.first_direction.normalize(),
+                                )
+                                .unwrap_or(intersection_point)
+                                - intersection_point,
+                            second_direction: context
+                                .camera_matrix
+                                .ground_to_pixel(
+                                    two_lines.intersection_point
+                                        + two_lines.second_direction.normalize(),
+                                )
+                                .unwrap_or(intersection_point)
+                                - intersection_point,
+                        })
+                    }
+                })
+                .collect()
+        });
         context.lines_in_image.fill_if_subscribed(|| {
-            lines_in_ground
+            line_segments
                 .iter()
                 .map(|line| {
                     LineSegment(
@@ -254,16 +290,13 @@ impl LineDetection {
                 .collect()
         });
         context.discarded_lines.fill_if_subscribed(|| {
-            discarded_lines
+            discarded_line_segments
                 .into_iter()
                 .map(|(line, discard_reason)| {
                     (
                         LineSegment(
-                            context.camera_matrix.ground_to_pixel(line.point).unwrap(),
-                            context
-                                .camera_matrix
-                                .ground_to_pixel(line.point + line.direction)
-                                .unwrap(),
+                            context.camera_matrix.ground_to_pixel(line.0).unwrap(),
+                            context.camera_matrix.ground_to_pixel(line.1).unwrap(),
                         ),
                         discard_reason,
                     )
@@ -273,7 +306,7 @@ impl LineDetection {
 
         Ok(MainOutputs {
             line_data: Some(LineData {
-                lines: lines_in_ground,
+                lines: line_segments,
                 used_segments,
             })
             .into(),
