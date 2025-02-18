@@ -8,9 +8,7 @@ use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{
-    center, distance, distance_squared, vector, Point2, Rotation2, Transform, Vector2,
-};
+use linear_algebra::{center, distance, distance_squared, Point2, Rotation2, Transform, Vector2};
 
 use crate::{
     arc::Arc,
@@ -131,7 +129,7 @@ impl<Frame> LineSegment<Frame> {
 
     pub fn get_direction(&self, point: Point2<Frame>) -> Direction {
         let direction_vector = self.1 - self.0;
-        let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()];
+        let clockwise_normal_vector = direction_vector.rotate_90_degrees(Direction::Clockwise);
         let directed_cathetus = clockwise_normal_vector.dot(&(point - self.0));
 
         match directed_cathetus {
