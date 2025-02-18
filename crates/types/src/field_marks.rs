@@ -1,4 +1,7 @@
-use geometry::{direction::Direction as RotationDirection, line_segment::LineSegment};
+use geometry::{
+    direction::{Direction as RotationDirection, Rotate90Degrees},
+    line_segment::LineSegment,
+};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
@@ -116,8 +119,8 @@ impl FieldMark {
                 let measured_direction = (measured_line.0 - measured_line.1).normalize();
                 let center_vector =
                     (correspondence_0_reference - center) + (correspondence_1_reference - center);
-                let reference_direction = RotationDirection::Counterclockwise
-                    .rotate_vector_90_degrees(center_vector)
+                let reference_direction = center_vector
+                    .rotate_90_degrees(RotationDirection::Counterclockwise)
                     .normalize();
 
                 Correspondences {
