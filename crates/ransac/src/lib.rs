@@ -42,7 +42,7 @@ impl<Frame> RansacFeature<Frame> {
     {
         unused_points
             .into_iter()
-            .filter(|point| self.squared_distance_to(**point) <= maximum_score_distance_squared)
+            .filter(|&point| self.squared_distance_to(*point) <= maximum_score_distance_squared)
             .map(|point| 1.0 - self.distance_to(*point) / maximum_score_distance)
             .sum()
     }
