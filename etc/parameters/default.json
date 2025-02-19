@@ -1262,11 +1262,11 @@
   "sacrificial_lamb": {
     "wait_for_opponent_penalties_period": {
       "nanos": 0,
-      "secs": 5
+      "secs": 0
     },
     "wait_for_own_penalties_period": {
       "nanos": 0,
-      "secs": 15
+      "secs": 0
     },
     "sacrificial_nao_playernumber": "Three"
   },
