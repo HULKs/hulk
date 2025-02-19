@@ -1,6 +1,7 @@
 use std::time::SystemTime;
 
 use color_eyre::Result;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -248,7 +249,31 @@ impl Behavior {
                 _ => actions.push(Action::SupportRight),
             },
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
-            Role::Searcher => actions.push(Action::Search),
+            Role::Searcher => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    // kicking_team: None, TODO: Change this to None when the game controller is fixed
+                    penalties,
+                    ..
+                }) => {
+                    let mut first_two_nonpenalized_nonkeeper_playernumbers = penalties
+                        .iter()
+                        .filter_map(|(player_number, penalty)| {
+                            penalty.is_none().then_some(player_number)
+                        })
+                        .skip(1)
+                        .take(2);
+                    if first_two_nonpenalized_nonkeeper_playernumbers
+                        .contains(&world_state.robot.player_number)
+                    {
+                        actions.push(Action::LookAtReferee);
+                        actions.push(Action::Search);
+                    } else {
+                        actions.push(Action::Search);
+                    }
+                }
+                _ => actions.push(Action::Search),
+            },
             Role::Striker => match world_state.filtered_game_controller_state {
                 None
                 | Some(FilteredGameControllerState {
