@@ -5,6 +5,9 @@ HOME="${HOME:-$(echo ~)}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 HULK_DATA_HOME="${HULK_DATA_HOME:-$DATA_HOME/hulk}"
 
+# create data home if not present to ensure realpath does not fail
+mkdir -p "$HULK_DATA_HOME"
+
 if [ "$(uname)" == "Darwin" ]; then
     echo -n $(grealpath "$HULK_DATA_HOME")
 else
