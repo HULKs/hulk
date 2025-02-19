@@ -215,7 +215,7 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
 pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>, time: Res<Time>) {
     for mut robot in &mut robots {
         if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
-            ball.position += ball.velocity * time.delta_seconds();
+            ball.position += ball.velocity * time.delta_secs();
         }
 
         let parameters = &robot.parameters;
@@ -229,7 +229,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 ..
             } => {
                 let steps_per_second = 1.0 / 0.35;
-                let steps_this_cycle = steps_per_second * time.delta_seconds();
+                let steps_this_cycle = steps_per_second * time.delta_secs();
                 let max_step = parameters.step_planner.max_step_size;
 
                 let target = match path[0] {
@@ -320,7 +320,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         };
 
         let max_head_rotation_per_cycle =
-            robot.parameters.head_motion.maximum_velocity.yaw * time.delta_seconds();
+            robot.parameters.head_motion.maximum_velocity.yaw * time.delta_secs();
         let diff = desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
         let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
 

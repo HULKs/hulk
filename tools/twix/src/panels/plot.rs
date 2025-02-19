@@ -97,7 +97,7 @@ impl LineData {
                     .map(|buffered_values| {
                         PlotPoints::from_iter(buffered_values.iter().map(|datum| {
                             let value = lua_function
-                                .call::<_, f64>(self.lua.to_value(&datum.value))
+                                .call(self.lua.to_value(&datum.value))
                                 .unwrap_or(f64::NAN);
                             [
                                 -latest_timestamp
@@ -174,7 +174,7 @@ impl LineData {
                         } else if let Ok(value) = &latest_value {
                             let lua_function: Function =
                                 self.lua.globals().get("conversion_function").unwrap();
-                            let value = lua_function.call::<_, f64>(self.lua.to_value(&value));
+                            let value = lua_function.call::<f64>(self.lua.to_value(&value));
                             match value {
                                 Ok(value) => {
                                     ui.label(value.to_string());

@@ -60,7 +60,7 @@ impl Widget for Row<'_> {
             let text_height = Vec2::new(0., text.size().y);
             let check_mark_offset = Vec2::new(text.size().x + 40.0, 0.0);
 
-            if response.hovered || self.highlight {
+            if response.hovered() || self.highlight {
                 ui.painter().rect_filled(rect, 2.0, visuals.bg_fill);
             }
 

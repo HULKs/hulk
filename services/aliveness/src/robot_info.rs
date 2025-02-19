@@ -3,11 +3,11 @@ use configparser::ini::Ini;
 use hula_types::{Battery, JointsArray};
 
 use tokio::process::Command;
-use zbus::{dbus_proxy, zvariant::Optional, Connection};
+use zbus::{proxy, zvariant::Optional, Connection};
 
 const OS_RELEASE_PATH: &str = "/etc/os-release";
 
-#[dbus_proxy(
+#[proxy(
     default_service = "org.hulks.hula",
     interface = "org.hulks.hula",
     default_path = "/org/hulks/HuLA"

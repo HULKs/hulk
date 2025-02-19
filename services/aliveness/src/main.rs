@@ -13,12 +13,14 @@ use futures_util::stream::StreamExt;
 use log::{error, info};
 use tokio::{net::UdpSocket, select, spawn, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
-use zbus::zvariant::{OwnedObjectPath, Value};
 use zbus::Connection;
 use zbus::MatchRule;
 use zbus::MessageStream;
-use zbus::MessageType;
 use zbus::Proxy;
+use zbus::{
+    message::Type,
+    zvariant::{OwnedObjectPath, Value},
+};
 
 use crate::robot_info::{get_network, RobotInfo};
 
@@ -45,7 +47,7 @@ async fn listen_for_network_change(interface_name: String) -> Result<()> {
     let link_object = get_link_object(&interface_name, &dbus_connection).await?;
 
     let rule = MatchRule::builder()
-        .msg_type(MessageType::Signal)
+        .msg_type(Type::Signal)
         .sender("org.freedesktop.network1")?
         .path(link_object)?
         .interface("org.freedesktop.DBus.Properties")?
@@ -62,7 +64,10 @@ async fn listen_for_network_change(interface_name: String) -> Result<()> {
     }
 
     while let Some(Ok(message)) = stream.next().await {
-        if let Ok((_, data, _)) = message.body::<(String, HashMap<String, Value>, Vec<String>)>() {
+        if let Ok((_, data, _)) = message
+            .body()
+            .deserialize::<(String, HashMap<String, Value>, Vec<String>)>()
+        {
             if let Some(Value::Str(data)) = data.get("IPv4AddressState") {
                 match data.as_str() {
                     "routable" => {

@@ -89,13 +89,13 @@ fn game_controller_controller(
             state.last_state_change = time.as_generic();
         }
         GameState::Standby => {
-            if time.elapsed_seconds() - state.last_state_change.elapsed_seconds() > 5.0 {
+            if time.elapsed_secs() - state.last_state_change.elapsed_secs() > 5.0 {
                 game_controller.state.game_state = GameState::Ready;
                 state.last_state_change = time.as_generic();
             }
         }
         GameState::Ready => {
-            if time.elapsed_seconds() - state.last_state_change.elapsed_seconds() > 30.0 {
+            if time.elapsed_secs() - state.last_state_change.elapsed_secs() > 30.0 {
                 game_controller.state.game_state = GameState::Set;
                 state.last_state_change = time.as_generic();
             }
@@ -111,7 +111,7 @@ fn game_controller_controller(
     }
 
     if game_controller.state.sub_state.is_some()
-        && time.elapsed_seconds() - state.last_state_change.elapsed_seconds() > 30.0
+        && time.elapsed_secs() - state.last_state_change.elapsed_secs() > 30.0
     {
         game_controller.state.sub_state = None;
         state.last_state_change = time.as_generic();

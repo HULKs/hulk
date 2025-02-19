@@ -9,7 +9,7 @@ use tokio_tungstenite::{
     tungstenite::{
         self,
         protocol::{frame::coding::CloseCode, CloseFrame},
-        Message,
+        Message, Utf8Bytes,
     },
     WebSocketStream,
 };
@@ -41,7 +41,7 @@ enum ClosingError {
 }
 
 impl ClosingError {
-    fn into_close_frame(self) -> CloseFrame<'static> {
+    fn into_close_frame(self) -> CloseFrame {
         let code = match &self {
             Self::JsonSerialization(_) => CloseCode::Error,
             Self::BincodeSerialization(_) => CloseCode::Error,
@@ -170,7 +170,7 @@ impl Connection {
         }
     }
 
-    async fn handle_text_request(&mut self, string: String) -> Result<(), ClosingError> {
+    async fn handle_text_request(&mut self, string: Utf8Bytes) -> Result<(), ClosingError> {
         let request: Request =
             serde_json::from_str(&string).map_err(ClosingError::JsonDeserialization)?;
         let id = request.id;
@@ -180,11 +180,14 @@ impl Connection {
             .map_err(|error| format!("{error:#}"));
         let response = Response { id, kind };
         let text = serde_json::to_string(&response).map_err(ClosingError::JsonSerialization)?;
-        self.stream.send_or_log(Message::Text(text)).await;
+        self.stream.send_or_log(Message::Text(text.into())).await;
         Ok(())
     }
 
-    async fn handle_binary_request(&mut self, bytes: Vec<u8>) -> Result<(), ClosingError> {
+    async fn handle_binary_request(
+        &mut self,
+        bytes: tokio_tungstenite::tungstenite::Bytes,
+    ) -> Result<(), ClosingError> {
         let request: Request =
             bincode::deserialize(&bytes).map_err(ClosingError::BincodeDeserialization)?;
         let id = request.id;
@@ -194,7 +197,7 @@ impl Connection {
             .map_err(|error| format!("{error:#}"));
         let response = Response { id, kind };
         let bytes = bincode::serialize(&response).map_err(ClosingError::BincodeSerialization)?;
-        self.stream.send_or_log(Message::Binary(bytes)).await;
+        self.stream.send_or_log(Message::Binary(bytes.into())).await;
         Ok(())
     }
 
@@ -258,7 +261,7 @@ fn compose_update_messages(update: Update) -> Result<Vec<Message>, ClosingError>
             let response = Response { id, kind };
             let string =
                 serde_json::to_string(&response).map_err(ClosingError::JsonSerialization)?;
-            Ok(Message::Text(string))
+            Ok(Message::Text(string.into()))
         })
         .chain(update.binaries.into_iter().map(|(id, value)| {
             let kind = value.map(|value| ResponseKind::Update {
@@ -268,7 +271,7 @@ fn compose_update_messages(update: Update) -> Result<Vec<Message>, ClosingError>
             let response = Response { id, kind };
             let bytes =
                 bincode::serialize(&response).map_err(ClosingError::BincodeSerialization)?;
-            Ok(Message::Binary(bytes))
+            Ok(Message::Binary(bytes.into()))
         }))
         .collect()
 }
