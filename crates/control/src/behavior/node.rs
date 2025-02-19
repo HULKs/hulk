@@ -116,15 +116,11 @@ impl Behavior {
 
         let now = context.cycle_time.start_time;
         match (self.active_since, world_state.robot.primary_state) {
-            (
-                None,
-                PrimaryState::Ready { .. } | PrimaryState::Set | PrimaryState::Playing { .. },
-            ) => self.active_since = Some(now),
+            (None, PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {
+                self.active_since = Some(now)
+            }
             (None, _) => {}
-            (
-                Some(_),
-                PrimaryState::Ready { .. } | PrimaryState::Set | PrimaryState::Playing { .. },
-            ) => {}
+            (Some(_), PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {}
             (Some(_), _) => self.active_since = None,
         }
 

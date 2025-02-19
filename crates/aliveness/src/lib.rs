@@ -68,10 +68,7 @@ async fn send_beacons_unicast(
 
     let errors: Vec<_> = results
         .into_iter()
-        .filter_map(|result| match result {
-            Err(error) => Some(error),
-            Ok(_) => None,
-        })
+        .filter_map(|result| result.err())
         .collect();
 
     if errors.is_empty() {

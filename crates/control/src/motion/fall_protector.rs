@@ -63,7 +63,7 @@ impl FallProtector {
         let measured_positions = context.sensor_data.positions;
 
         let (start_time, falling_direction) = match *context.fall_state {
-            FallState::Upright { .. } | FallState::Fallen { .. } | FallState::StandingUp { .. } => {
+            FallState::Upright | FallState::Fallen { .. } | FallState::StandingUp { .. } => {
                 context.motion_safe_exits[MotionType::FallProtection] = true;
                 return Ok(MainOutputs::default());
             }

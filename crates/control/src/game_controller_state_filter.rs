@@ -171,7 +171,7 @@ impl GameControllerStateFilter {
             game_controller_state.penalties[player_number],
             Some(Penalty::IllegalMotionInSet { .. })
         );
-        if matches!(self.state, State::Playing { .. }) || motion_in_set {
+        if matches!(self.state, State::Playing) || motion_in_set {
             self.whistle_in_set_ball_position = None;
         }
 
