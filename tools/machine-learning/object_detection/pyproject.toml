@@ -2,13 +2,12 @@
 name = "object-detection"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.12"
 
 dependencies = [
   "click>=8.1.7",
   "onnx==1.17.0",
-  "openvino==2025.0.0",
-  "ultralytics>=8.3.75",
+  "openvino==2024.6.0",
+  "ultralytics",
 ]
 
 [tool.uv]
