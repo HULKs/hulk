@@ -22,6 +22,8 @@ fn main() -> Result<()> {
                     "control::behavior::node",
                     "control::game_controller_state_filter",
                     "control::kick_selector",
+                    "control::team_ball_receiver",
+                    "control::dribble_path_planner",
                     "control::filtered_game_controller_state_timer",
                     "control::primary_state_filter",
                     "control::motion::look_around",
