@@ -1,0 +1,28 @@
+[package]
+name = "mio"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+bevy-inspector-egui = { workspace = true }
+bevy_asset_loader = { workspace = true }
+bevy_egui = { workspace = true }
+bevy_obj = { workspace = true }
+bevy_panorbit_camera = { workspace = true }
+bincode = { workspace = true }
+color-eyre = { workspace = true }
+communication = { workspace = true }
+coordinate_systems = { workspace = true }
+egui_dock = { workspace = true }
+geometry = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+repository = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+types = { workspace = true }
+urdf-rs = { workspace = true }
