@@ -66,10 +66,7 @@ impl Camera {
         let bgra_buffer = {
             let mut bgra_buffer = self.buffer.lock();
             self.buffer_updated.wait(&mut bgra_buffer);
-            bgra_buffer
-                .clone()
-                .take()
-                .ok_or_eyre("no updated image found")?
+            bgra_buffer.clone().ok_or_eyre("no updated image found")?
         };
         assert_eq!(bgra_buffer.len(), 4 * 640 * 480);
         let mut ycbcr_buffer = vec![
@@ -114,7 +111,7 @@ fn bgra_444_to_ycbcr_422(bgra_444: &[u8], ycbcr_422: &mut [YCbCr422]) {
         //      ^       ^    ^    ^    ^    ^    ^
         // offset       |    |    |    |    |    blue_values
         //    red_factors    |    |    |    blue_factors
-        //          red_values    |    green_valus
+        //          red_values    |    green_values
         //                  green_factors
         //
         // The multiplication by 128 transforms the color range from 0 - 255 to 0 - 32640.
@@ -169,8 +166,8 @@ fn bgra_444_to_ycbcr_422(bgra_444: &[u8], ycbcr_422: &mut [YCbCr422]) {
         // Since the calculations used the whole range of i16 because of the multiplication by 128, the last step is to divide by 128 again.
         // This is done by shifting the resulting vector 7 bits to the right.
         //
-        // The shuffle operation can only shuffle within both 128 bit halfs and cannot shuffle across halfs. To convert the sparse i16 to
-        // packed u8 again, we pack all items within the two halfs (with shuffle) and then permute the 64 bit of packed data into 128 bit.
+        // The shuffle operation can only shuffle within both 128 bit halves and cannot shuffle across halves. To convert the sparse i16 to
+        // packed u8 again, we pack all items within the two halves (with shuffle) and then permute the 64 bit of packed data into 128 bit.
         // The 256 bit containing packed 128 bit of data is then truncated and written to the output data slice.
 
         unsafe {
