@@ -244,6 +244,7 @@ fn send_standing_look_at(
             image_region_target: ImageRegion::Center,
             camera: camera_option,
         },
+        should_look_for_referee: false,
     });
     nao.write(
         INJECTED_MOTION_COMMAND,

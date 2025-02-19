@@ -21,24 +21,29 @@ use types::{
     bounding_box::BoundingBox,
     color::Rgb,
     motion_command::MotionCommand,
-    pose_detection::{HumanPose, Keypoints},
+    pose_detection::{HumanPose, ImageSize, Keypoints},
     ycbcr422_image::YCbCr422Image,
 };
 
 const DETECTION_IMAGE_HEIGHT: usize = 480;
-const DETECTION_IMAGE_WIDTH: usize = 192;
-const DETECTION_IMAGE_START_X: usize = (640 - DETECTION_IMAGE_WIDTH) / 2;
+const DETECTION_IMAGE_WIDTH_NARROW: usize = 192;
+const DETECTION_IMAGE_WIDTH_FULL: usize = 640;
+const DETECTION_IMAGE_START_X: usize = (640 - DETECTION_IMAGE_WIDTH_NARROW) / 2;
 
 const EXPECTED_OUTPUT_NAME: &str = "detections";
 
-const MAX_DETECTIONS: usize = 1890;
+const MAX_DETECTIONS_NARROW: usize = 1890;
+const MAX_DETECTIONS_FULL: usize = 6300;
 
-const STRIDE: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH;
+const STRIDE_NARROW: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH_NARROW;
+const STRIDE_FULL: usize = DETECTION_IMAGE_HEIGHT * DETECTION_IMAGE_WIDTH_FULL;
 
 #[derive(Deserialize, Serialize)]
 pub struct PoseDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
-    network: CompiledModel,
+    network_narrow: CompiledModel,
+    #[serde(skip, default = "deserialize_not_implemented")]
+    network_full: CompiledModel,
 }
 
 #[context]
@@ -73,20 +78,19 @@ impl PoseDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let model_xml_name = "yolo11n-pose-ov.xml";
-
-        let model_path = neural_network_folder.join(model_xml_name);
-        let weights_path = neural_network_folder
-            .join(model_xml_name)
-            .with_extension("bin");
+        let model_xml_name_narrow = "yolo11n-pose-ov-narrow.xml";
+        let model_xml_name_full = "yolo11n-pose-ov-full.xml";
 
         let mut core = Core::new()?;
-        let network = core
+        let network_narrow = core
             .read_model_from_file(
-                model_path
+                neural_network_folder
+                    .join(model_xml_name_narrow)
                     .to_str()
                     .wrap_err("failed to get detection model path")?,
-                weights_path
+                neural_network_folder
+                    .join(model_xml_name_narrow)
+                    .with_extension("bin")
                     .to_str()
                     .wrap_err("failed to get detection weights path")?,
             )
@@ -95,10 +99,38 @@ impl PoseDetection {
                 _ => eyre!("{error}: failed to create detection network"),
             })?;
 
-        let number_of_inputs = network
+        let number_of_inputs = network_narrow
             .get_inputs_len()
             .wrap_err("failed to get number of inputs")?;
-        let output_name = network.get_output_by_index(0)?.get_name()?;
+        let output_name = network_narrow.get_output_by_index(0)?.get_name()?;
+        if number_of_inputs != 1 || output_name != EXPECTED_OUTPUT_NAME {
+            bail!(
+                "expected exactly one input and output name to be '{}'",
+                EXPECTED_OUTPUT_NAME
+            );
+        }
+
+        let network_full = core
+            .read_model_from_file(
+                neural_network_folder
+                    .join(model_xml_name_full)
+                    .to_str()
+                    .wrap_err("failed to get detection model path")?,
+                neural_network_folder
+                    .join(model_xml_name_full)
+                    .with_extension("bin")
+                    .to_str()
+                    .wrap_err("failed to get detection weights path")?,
+            )
+            .map_err(|error| match error {
+                GeneralError => eyre!("{error}: possible incomplete OpenVino installation"),
+                _ => eyre!("{error}: failed to create detection network"),
+            })?;
+
+        let number_of_inputs = network_full
+            .get_inputs_len()
+            .wrap_err("failed to get number of inputs")?;
+        let output_name = network_full.get_output_by_index(0)?.get_name()?;
         if number_of_inputs != 1 || output_name != EXPECTED_OUTPUT_NAME {
             bail!(
                 "expected exactly one input and output name to be '{}'",
@@ -107,40 +139,82 @@ impl PoseDetection {
         }
 
         Ok(Self {
-            network: core.compile_model(&network, DeviceType::CPU)?,
+            network_narrow: core.compile_model(&network_narrow, DeviceType::CPU)?,
+            network_full: core.compile_model(&network_full, DeviceType::CPU)?,
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let behavior_requests_pose_detection = matches!(
-            context.motion_command,
-            MotionCommand::Initial {
-                should_look_for_referee: true,
-                ..
-            }
-        );
+        let (behavior_requests_pose_detection, image_size_used_for_detection) =
+            match context.motion_command {
+                MotionCommand::Initial {
+                    should_look_for_referee: true,
+                    ..
+                } => (true, ImageSize::Narrow),
+                MotionCommand::Stand {
+                    should_look_for_referee: true,
+                    ..
+                } => (true, ImageSize::Full),
+                _ => (false, ImageSize::Narrow),
+            };
         if !behavior_requests_pose_detection && !context.override_pose_detection {
             return Ok(MainOutputs::default());
         };
 
         let image = context.image;
 
-        let mut tensor = Tensor::new(ElementType::F32, &self.network.get_input()?.get_shape()?)?;
-        {
-            let earlier = SystemTime::now();
+        let mut infer_request = match image_size_used_for_detection {
+            ImageSize::Narrow => {
+                let mut tensor = Tensor::new(
+                    ElementType::F32,
+                    &self.network_narrow.get_input()?.get_shape()?,
+                )?;
+                {
+                    let earlier = SystemTime::now();
 
-            load_into_scratchpad(tensor.get_data_mut()?, image);
+                    load_into_scratchpad(
+                        tensor.get_data_mut()?,
+                        image,
+                        image_size_used_for_detection,
+                    );
 
-            context.preprocess_duration.fill_if_subscribed(|| {
-                SystemTime::now()
-                    .duration_since(earlier)
-                    .expect("time ran backwards")
-            });
-        }
+                    context.preprocess_duration.fill_if_subscribed(|| {
+                        SystemTime::now()
+                            .duration_since(earlier)
+                            .expect("time ran backwards")
+                    });
+                }
 
-        let mut infer_request = self.network.create_infer_request()?;
+                let mut infer_request = self.network_narrow.create_infer_request()?;
+                infer_request.set_input_tensor(&tensor)?;
+                infer_request
+            }
+            ImageSize::Full => {
+                let mut tensor = Tensor::new(
+                    ElementType::F32,
+                    &self.network_full.get_input()?.get_shape()?,
+                )?;
+                {
+                    let earlier = SystemTime::now();
 
-        infer_request.set_input_tensor(&tensor)?;
+                    load_into_scratchpad(
+                        tensor.get_data_mut()?,
+                        image,
+                        image_size_used_for_detection,
+                    );
+
+                    context.preprocess_duration.fill_if_subscribed(|| {
+                        SystemTime::now()
+                            .duration_since(earlier)
+                            .expect("time ran backwards")
+                    });
+                }
+
+                let mut infer_request = self.network_full.create_infer_request()?;
+                infer_request.set_input_tensor(&tensor)?;
+                infer_request
+            }
+        };
 
         {
             let earlier = SystemTime::now();
@@ -152,10 +226,21 @@ impl PoseDetection {
                     .expect("time ran backwards")
             });
         }
-        let prediction = infer_request.get_output_tensor_by_index(0)?;
-        let prediction =
-            ArrayView::from_shape((56, MAX_DETECTIONS), prediction.get_data::<f32>()?)?;
 
+        let detection_image_start = match image_size_used_for_detection {
+            ImageSize::Narrow => DETECTION_IMAGE_START_X,
+            ImageSize::Full => 0,
+        };
+
+        let prediction = infer_request.get_output_tensor_by_index(0)?;
+        let prediction = match image_size_used_for_detection {
+            ImageSize::Narrow => {
+                ArrayView::from_shape((56, MAX_DETECTIONS_NARROW), prediction.get_data::<f32>()?)?
+            }
+            ImageSize::Full => {
+                ArrayView::from_shape((56, MAX_DETECTIONS_FULL), prediction.get_data::<f32>()?)?
+            }
+        };
         let earlier = SystemTime::now();
         let poses = prediction
             .columns()
@@ -168,7 +253,7 @@ impl PoseDetection {
                 let bounding_box_slice = row.slice(s![0..4]);
 
                 // bbox re-scale
-                let center_x = bounding_box_slice[0] + DETECTION_IMAGE_START_X as f32;
+                let center_x = bounding_box_slice[0] + detection_image_start as f32;
                 let center_y = bounding_box_slice[1];
                 let center = point![center_x, center_y];
 
@@ -184,7 +269,7 @@ impl PoseDetection {
                 let keypoints_slice = row.slice(s![5..]);
                 let keypoints = Keypoints::try_new(
                     keypoints_slice.as_standard_layout().as_slice()?,
-                    DETECTION_IMAGE_START_X as f32,
+                    detection_image_start as f32,
                     0.0,
                 )?;
                 Some(HumanPose::new(bounding_box, keypoints))
@@ -205,17 +290,26 @@ impl PoseDetection {
     }
 }
 
-fn load_into_scratchpad(scratchpad: &mut [f32], image: &YCbCr422Image) {
+fn load_into_scratchpad(scratchpad: &mut [f32], image: &YCbCr422Image, image_size: ImageSize) {
+    let (detection_image_width, detection_image_start, stride) = match image_size {
+        ImageSize::Narrow => (
+            DETECTION_IMAGE_WIDTH_NARROW,
+            DETECTION_IMAGE_START_X,
+            STRIDE_NARROW,
+        ),
+        ImageSize::Full => (DETECTION_IMAGE_WIDTH_FULL, 0, STRIDE_FULL),
+    };
+
     let mut scratchpad_index = 0;
     for y in 0..DETECTION_IMAGE_HEIGHT as u32 {
         for x in
-            DETECTION_IMAGE_START_X as u32..(DETECTION_IMAGE_START_X + DETECTION_IMAGE_WIDTH) as u32
+            detection_image_start as u32..(detection_image_start + detection_image_width) as u32
         {
             let pixel: Rgb = image.at(x, y).into();
 
             scratchpad[scratchpad_index] = pixel.red as f32 / 255.;
-            scratchpad[scratchpad_index + STRIDE] = pixel.green as f32 / 255.;
-            scratchpad[scratchpad_index + 2 * STRIDE] = pixel.blue as f32 / 255.;
+            scratchpad[scratchpad_index + stride] = pixel.green as f32 / 255.;
+            scratchpad[scratchpad_index + 2 * stride] = pixel.blue as f32 / 255.;
 
             scratchpad_index += 1;
         }

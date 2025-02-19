@@ -299,7 +299,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 head
             }
             MotionCommand::SitDown { head } => head,
-            MotionCommand::Stand { head } => head,
+            MotionCommand::Stand { head, .. } => head,
             _ => HeadMotion::Center,
         };
 
