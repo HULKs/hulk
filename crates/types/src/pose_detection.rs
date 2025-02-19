@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
+use spl_network_messages::Team;
 
 use crate::bounding_box::BoundingBox;
 
@@ -152,6 +153,30 @@ impl HumanPose {
 pub struct RefereePoseCandidate {
     pub pose: HumanPose,
     pub distance_to_referee_position: f32,
+}
+
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct ReadySignalDetectionFeedback {
+    pub is_referee_ready_pose_detected: bool,
+    pub did_detect_any_ready_signal_this_cycle: bool,
+}
+
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct FreeKickSignalDetectionResult {
+    pub did_detect_any_free_kick_signal_this_cycle: bool,
+    pub detected_free_kick_kicking_team: Option<Team>,
+}
+
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct TimeTaggedKickingTeamDetections {
+    pub time: SystemTime,
+    pub detected_kicking_team: Team,
 }
 
 #[derive(
