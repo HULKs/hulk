@@ -4,7 +4,7 @@ use hulk_manifest::collect_hulk_cyclers;
 use source_analyzer::{pretty::to_string_pretty, structs::Structs};
 
 fn main() -> Result<()> {
-    let mut cyclers = collect_hulk_cyclers()?;
+    let mut cyclers = collect_hulk_cyclers("..")?;
     cyclers
         .cyclers
         .retain(|cycler| cycler.name != "ObjectDetection");
