@@ -19,7 +19,7 @@ use buffered_watch::Receiver;
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head};
 use framework::{future_queue, Producer, RecordingTrigger};
-use geometry::line_segment::LineSegment;
+use geometry::{direction::Rotate90Degrees, line_segment::LineSegment};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
@@ -234,9 +234,9 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
                 let target = match path[0] {
                     PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
-                    PathSegment::Arc(arc) => arc
-                        .direction
-                        .rotate_vector_90_degrees(arc.start - arc.circle.center),
+                    PathSegment::Arc(arc) => {
+                        (arc.start - arc.circle.center).rotate_90_degrees(arc.direction)
+                    }
                 };
 
                 let orientation = match orientation_mode {

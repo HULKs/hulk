@@ -1,5 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::{Ground, UpcomingSupport};
+use geometry::direction::Rotate90Degrees;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -105,9 +106,7 @@ impl StepPlanner {
                 Pose2::from_parts(line_segment.1, rotation)
             }
             PathSegment::Arc(arc) => {
-                let direction = arc
-                    .direction
-                    .rotate_vector_90_degrees(arc.start - arc.circle.center);
+                let direction = (arc.start - arc.circle.center).rotate_90_degrees(arc.direction);
                 Pose2::from_parts(
                     arc.start + direction * 1.0,
                     Orientation2::from_vector(direction),

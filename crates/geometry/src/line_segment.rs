@@ -8,11 +8,13 @@ use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{
-    center, distance, distance_squared, vector, Point2, Rotation2, Transform, Vector2,
-};
+use linear_algebra::{center, distance, distance_squared, Point2, Rotation2, Transform, Vector2};
 
-use crate::{arc::Arc, direction::Direction, Distance};
+use crate::{
+    arc::Arc,
+    direction::{Direction, Rotate90Degrees},
+    Distance,
+};
 
 #[derive(
     Clone,
@@ -50,8 +52,8 @@ impl<Frame> LineSegment<Frame> {
 
     pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {
         let line_vector = self.1 - self.0;
-        let normal_vector = Direction::Counterclockwise
-            .rotate_vector_90_degrees(line_vector)
+        let normal_vector = line_vector
+            .rotate_90_degrees(Direction::Counterclockwise)
             .normalize();
         normal_vector.dot(&point.coords()) - normal_vector.dot(&self.0.coords())
     }
@@ -69,8 +71,7 @@ impl<Frame> LineSegment<Frame> {
     pub fn signed_acute_angle_to_orthogonal(&self, other: Self) -> f32 {
         let self_direction = self.1 - self.0;
         let other_direction = other.1 - other.0;
-        let orthogonal_other_direction =
-            Direction::Clockwise.rotate_vector_90_degrees(other_direction);
+        let orthogonal_other_direction = other_direction.rotate_90_degrees(Direction::Clockwise);
         signed_acute_angle(self_direction, orthogonal_other_direction)
     }
 
@@ -128,7 +129,7 @@ impl<Frame> LineSegment<Frame> {
 
     pub fn get_direction(&self, point: Point2<Frame>) -> Direction {
         let direction_vector = self.1 - self.0;
-        let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()];
+        let clockwise_normal_vector = direction_vector.rotate_90_degrees(Direction::Clockwise);
         let directed_cathetus = clockwise_normal_vector.dot(&(point - self.0));
 
         match directed_cathetus {

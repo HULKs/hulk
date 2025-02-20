@@ -6,7 +6,11 @@ use serde::{Deserialize, Serialize};
 use linear_algebra::{distance_squared, Point, Point2, Transform, Vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{direction::Direction, line_segment::LineSegment, Distance};
+use crate::{
+    direction::{Direction, Rotate90Degrees},
+    line_segment::LineSegment,
+    Distance,
+};
 
 #[derive(
     Copy, Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect, PathDeserialize,
@@ -33,8 +37,9 @@ impl<Frame> Line2<Frame> {
     }
 
     pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {
-        let normal_vector = Direction::Counterclockwise
-            .rotate_vector_90_degrees(self.direction)
+        let normal_vector = self
+            .direction
+            .rotate_90_degrees(Direction::Counterclockwise)
             .normalize();
         normal_vector.dot(&(point - self.point))
     }

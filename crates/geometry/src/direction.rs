@@ -21,12 +21,16 @@ pub enum Direction {
     Colinear,
 }
 
-impl Direction {
-    pub fn rotate_vector_90_degrees<Frame>(&self, subject: Vector2<Frame>) -> Vector2<Frame> {
-        match self {
-            Direction::Clockwise => vector![subject.y(), -subject.x()],
-            Direction::Counterclockwise => vector![-subject.y(), subject.x()],
-            Direction::Colinear => subject,
+pub trait Rotate90Degrees {
+    fn rotate_90_degrees(&self, direction: Direction) -> Self;
+}
+
+impl<Frame> Rotate90Degrees for Vector2<Frame> {
+    fn rotate_90_degrees(&self, direction: Direction) -> Self {
+        match direction {
+            Direction::Clockwise => vector![self.y(), -self.x()],
+            Direction::Counterclockwise => vector![-self.y(), self.x()],
+            Direction::Colinear => *self,
         }
     }
 }
