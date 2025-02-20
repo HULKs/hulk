@@ -84,7 +84,6 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to populate upload directory")?;
 
     let arguments = &arguments.pre_game;
-    let config = &config;
     let upload_directory = &upload_directory;
 
     ProgressIndicator::map_tasks(
@@ -95,7 +94,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
                 nao_address,
                 upload_directory,
                 arguments,
-                config,
+                config.wifi,
                 progress_bar,
                 repository,
             )
@@ -111,7 +110,7 @@ async fn setup_nao(
     nao_address: &NaoAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &PreGameArguments,
-    config: &DeployConfig,
+    wifi: Network,
     progress: ProgressBar,
     repository: &Repository,
 ) -> Result<()> {
@@ -145,7 +144,7 @@ async fn setup_nao(
     .await
     .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
 
-    if config.wifi != Network::None {
+    if wifi != Network::None {
         progress.set_message("Scanning for WiFi...");
         nao.scan_networks()
             .await
@@ -153,7 +152,7 @@ async fn setup_nao(
     }
 
     progress.set_message("Setting WiFi...");
-    nao.set_wifi(config.wifi)
+    nao.set_wifi(wifi)
         .await
         .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
 
