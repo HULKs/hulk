@@ -9,4 +9,5 @@ homepage.workspace = true
 color-eyre = { workspace = true }
 nao = { workspace = true }
 regex = { workspace = true }
+serde = { workspace = true }
 spl_network_messages = { workspace = true }
