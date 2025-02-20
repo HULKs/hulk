@@ -55,9 +55,11 @@ pub async fn branch_exists(name: &str) -> Result<bool> {
         .success())
 }
 
-pub async fn create_and_switch_to_branch(name: &str, base: &str) -> Result<()> {
+pub async fn create_and_switch_to_branch(name: &str, base: &str, force: bool) -> Result<()> {
+    let create_flag = if force { "--force-create" } else { "--create" };
+
     GitCommand::new("switch")
-        .arg("-c")
+        .arg(create_flag)
         .arg(name)
         .arg(base)
         .run()

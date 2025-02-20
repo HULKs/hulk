@@ -13,6 +13,7 @@ use analyze::analyze;
 use cargo::{build, cargo, check, clippy, install, run, test};
 use communication::communication;
 use completions::completions;
+use game_branch::game_branch;
 use gammaray::gammaray;
 use hulk::hulk;
 use location::location;
@@ -35,6 +36,8 @@ mod analyze;
 mod cargo;
 mod communication;
 mod completions;
+mod deploy_config;
+mod game_branch;
 mod gammaray;
 mod git;
 mod hulk;
@@ -83,6 +86,8 @@ enum Command {
     Communication(communication::Arguments),
     /// Generate shell completion files
     Completions(completions::Arguments),
+    /// Create a game branch from the deploy.toml in the repository root
+    Gamebranch(game_branch::Arguments),
     /// Flash a HULKs-OS image to NAOs
     Gammaray(gammaray::Arguments),
     /// Control the HULK service
@@ -178,6 +183,9 @@ async fn main() -> Result<()> {
         Command::Completions(arguments) => completions(arguments, Arguments::command())
             .await
             .wrap_err("failed to execute completion command")?,
+        Command::Gamebranch(arguments) => game_branch(arguments, &repository?)
+            .await
+            .wrap_err("failed to execute gamebranch command")?,
         Command::Gammaray(arguments) => gammaray(arguments, &repository?)
             .await
             .wrap_err("failed to execute gammaray command")?,

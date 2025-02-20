@@ -1,30 +1,20 @@
-use std::{collections::HashMap, path::Path, str::FromStr};
+use std::{collections::HashMap, path::Path};
 
-use chrono::Utc;
 use clap::Args;
 use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
 
-use argument_parsers::{parse_network, NaoAddress, NaoAddressPlayerAssignment};
+use argument_parsers::NaoAddress;
 use indicatif::ProgressBar;
 use nao::{Nao, Network, SystemctlAction};
 use repository::{upload::get_hulk_binary, Repository};
-use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
 use tempfile::tempdir;
-use tokio::{
-    fs::read_to_string,
-    io::{stdin, AsyncBufReadExt, BufReader},
-    process::Command,
-};
-use toml::from_str;
 
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
-    git::{
-        branch_exists, create_and_switch_to_branch, create_commit, reset_to_head, switch_to_branch,
-    },
+    deploy_config::DeployConfig,
     player_number::{player_number, Arguments as PlayerNumberArguments},
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
@@ -72,168 +62,11 @@ pub struct PreGameArguments {
     pub prepare: bool,
 }
 
-#[derive(Deserialize)]
-pub struct Config {
-    opponent: Option<String>,
-    phase: Option<String>,
-    location: String,
-    #[serde(deserialize_with = "deserialize_network")]
-    wifi: Network,
-    base: String,
-    branches: Vec<Branch>,
-    #[serde(deserialize_with = "deserialize_assignments")]
-    assignments: Vec<NaoAddressPlayerAssignment>,
-}
-
-impl Config {
-    async fn deploy(&self, repository: &Repository) -> Result<()> {
-        let branch_name = self.branch_name();
-
-        if branch_exists(&branch_name)
-            .await
-            .wrap_err("failed to check whether branch exists")?
-        {
-            eprintln!("Game branch already exists, switching to it instead");
-
-            switch_to_branch(&branch_name)
-                .await
-                .wrap_err("failed to switch to branch")?;
-        } else {
-            create_and_switch_to_branch(&branch_name, &self.base)
-                .await
-                .wrap_err("failed to create branch")?;
-
-            'branches: for Branch { remote, branch } in &self.branches {
-                let status = Command::new(repository.root.join("scripts/deploy"))
-                    .arg(remote)
-                    .arg(branch)
-                    .status()
-                    .await
-                    .wrap_err("failed to execute deploy script")?;
-
-                if !status.success() {
-                    eprintln!("Automatic merge failed.");
-                    let skip_prompt = format!("Do you want to skip deploying '{remote}/{branch}'?");
-
-                    loop {
-                        let skip = confirmation_prompt(&skip_prompt)
-                            .await
-                            .wrap_err("failed to create confirmation prompt")?;
-
-                        if skip {
-                            reset_to_head()
-                                .await
-                                .wrap_err("failed to reset repository to HEAD")?;
-
-                            continue 'branches;
-                        } else {
-                            eprintln!("Please resolve all conflicts now.");
-
-                            let conflicts_resolved =
-                                confirmation_prompt("Were you able to resolve the conflicts?")
-                                    .await
-                                    .wrap_err("failed to create confirmation prompt")?;
-
-                            if conflicts_resolved {
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                create_commit(&format!("{remote}/{branch}"))
-                    .await
-                    .wrap_err("failed to create commit")?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn branch_name(&self) -> String {
-        let date = Utc::now().date_naive();
-
-        let mut branch_name = if let Some(opponent) = &self.opponent {
-            format!("{date}-HULKs-vs-{opponent}")
-        } else {
-            format!("{date}-testgame")
-        };
-
-        if let Some(phase) = &self.phase {
-            branch_name.push('-');
-            branch_name.push_str(phase);
-        }
-
-        branch_name
-    }
-}
-
-fn deserialize_network<'de, D, E>(deserializer: D) -> Result<Network, E>
-where
-    D: Deserializer<'de>,
-    E: DeserializeError + From<D::Error>,
-{
-    let network = String::deserialize(deserializer)?;
-
-    parse_network(&network).map_err(|error| E::custom(format!("{error:?}")))
-}
-
-fn deserialize_assignments<'de, D, E>(deserializer: D) -> Result<Vec<NaoAddressPlayerAssignment>, E>
-where
-    D: Deserializer<'de>,
-    E: DeserializeError + From<D::Error>,
-{
-    let assignments: Vec<String> = Vec::deserialize(deserializer)?;
-
-    assignments
-        .into_iter()
-        .map(|assignment| {
-            NaoAddressPlayerAssignment::from_str(&assignment)
-                .map_err(|error| E::custom(format!("{error:?}")))
-        })
-        .collect()
-}
-
-pub struct Branch {
-    remote: String,
-    branch: String,
-}
-
-impl<'de> Deserialize<'de> for Branch {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let branch = String::deserialize(deserializer)?;
-
-        let (remote, branch) = branch.split_once("/").ok_or_else(|| {
-            D::Error::custom("deploy target has to follow the format 'remote/branch'")
-        })?;
-
-        Ok(Self {
-            remote: remote.to_owned(),
-            branch: branch.to_owned(),
-        })
-    }
-}
-
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let deploy_config = read_to_string(repository.root.join("deploy.toml"))
+    let config = DeployConfig::read_from_file(repository)
         .await
-        .wrap_err("failed to read deploy.toml")?;
-    let config: Config =
-        from_str(&deploy_config).wrap_err("could not deserialize config from deploy.toml")?;
-
-    config
-        .deploy(repository)
-        .await
-        .wrap_err("failed to deploy config")?;
-
-    let naos: Vec<_> = config
-        .assignments
-        .iter()
-        .map(|assignment| assignment.nao_address)
-        .collect();
+        .wrap_err("failed to read deploy config from file")?;
+    let naos = config.naos();
 
     repository
         .configure_recording_intervals(HashMap::from_iter(
@@ -323,7 +156,7 @@ async fn setup_nao(
     nao_address: &NaoAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &PreGameArguments,
-    config: &Config,
+    config: &DeployConfig,
     progress: ProgressBar,
     repository: &Repository,
 ) -> Result<()> {
@@ -381,26 +214,4 @@ async fn setup_nao(
     }
 
     Ok(())
-}
-
-async fn confirmation_prompt(message: &str) -> Result<bool> {
-    let reader = BufReader::new(stdin());
-
-    let mut lines = reader.lines();
-
-    loop {
-        eprint!("{message} [y/n] ");
-
-        if let Some(line) = lines
-            .next_line()
-            .await
-            .wrap_err("failed to get next line")?
-        {
-            match line {
-                line if line == "y" => return Ok(true),
-                line if line == "n" => return Ok(false),
-                _ => {}
-            }
-        }
-    }
 }
