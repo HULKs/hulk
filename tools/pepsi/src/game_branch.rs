@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 use repository::Repository;
@@ -9,13 +11,27 @@ use tokio::{
 use crate::{
     deploy_config::{Branch, DeployConfig},
     git::{create_and_switch_to_branch, create_commit, reset_to_head},
+    player_number::{player_number, Arguments as PlayerNumberArguments},
+    recording::parse_key_value,
 };
 
 #[derive(Args)]
 pub struct Arguments {
+    /// Enable communication, communication is disabled by default
+    #[arg(long)]
+    pub with_communication: bool,
+    /// Intervals between cycle recordings, e.g. Control=1,VisionTop=30 to record every cycle in Control
+    /// and one out of every 30 in VisionTop. Set to 0 or don't specify to disable recording for a cycler.
+    #[arg(
+        long,
+        value_delimiter=',',
+        value_parser = parse_key_value::<String, usize>,
+        default_value = "Control=1,VisionTop=30,VisionBottom=30,SplNetwork=1",
+    )]
+    pub recording_intervals: Vec<(String, usize)>,
     /// Create the game branch even if it already exists
     #[arg(short, long)]
-    force: bool,
+    pub force: bool,
 }
 
 pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -24,10 +40,14 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
         .wrap_err("failed to read deploy config from file")?;
 
     let branch_name = config.branch_name();
-
     create_and_switch_to_branch(&branch_name, &config.base, arguments.force)
         .await
         .wrap_err("failed to create and switch to branch")?;
+
+    configure_repository(repository, arguments, &config).await?;
+    create_commit("Add player number assigments and framework config")
+        .await
+        .wrap_err("failed to create commit")?;
 
     'branches: for Branch { remote, branch } in &config.branches {
         let status = Command::new(repository.root.join("scripts/deploy"))
@@ -72,6 +92,42 @@ pub async fn game_branch(arguments: Arguments, repository: &Repository) -> Resul
             .wrap_err("failed to create commit")?;
     }
 
+    Ok(())
+}
+
+async fn configure_repository(
+    repository: &Repository,
+    arguments: Arguments,
+    config: &DeployConfig,
+) -> Result<()> {
+    repository
+        .configure_recording_intervals(HashMap::from_iter(arguments.recording_intervals))
+        .await
+        .wrap_err("failed to apply recording settings")?;
+
+    repository
+        .set_location("nao", &config.location)
+        .await
+        .wrap_err_with(|| format!("failed to set location for nao to {}", config.location))?;
+
+    repository
+        .configure_communication(arguments.with_communication)
+        .await
+        .wrap_err("failed to set communication")?;
+
+    player_number(
+        PlayerNumberArguments {
+            assignments: config
+                .assignments
+                .iter()
+                .copied()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
+        },
+        repository,
+    )
+    .await
+    .wrap_err("failed to set player numbers")?;
     Ok(())
 }
 

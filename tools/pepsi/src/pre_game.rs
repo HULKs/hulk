@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use clap::Args;
 use color_eyre::{
@@ -15,9 +15,7 @@ use tempfile::tempdir;
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
     deploy_config::DeployConfig,
-    player_number::{player_number, Arguments as PlayerNumberArguments},
     progress_indicator::ProgressIndicator,
-    recording::parse_key_value,
 };
 
 #[derive(Args)]
@@ -45,18 +43,6 @@ pub struct PreGameArguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
-    /// Enable communication, communication is disabled by default
-    #[arg(long)]
-    pub with_communication: bool,
-    /// Intervals between cycle recordings, e.g. Control=1,VisionTop=30 to record every cycle in Control
-    /// and one out of every 30 in VisionTop. Set to 0 or don't specify to disable recording for a cycler.
-    #[arg(
-        long,
-        value_delimiter=',',
-        value_parser = parse_key_value::<String, usize>,
-        default_value = "Control=1,VisionTop=30,VisionBottom=30,SplNetwork=1",
-    )]
-    pub recording_intervals: Vec<(String, usize)>,
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
@@ -67,37 +53,6 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .await
         .wrap_err("failed to read deploy config from file")?;
     let naos = config.naos();
-
-    repository
-        .configure_recording_intervals(HashMap::from_iter(
-            arguments.pre_game.recording_intervals.clone(),
-        ))
-        .await
-        .wrap_err("failed to apply recording settings")?;
-
-    repository
-        .set_location("nao", &config.location)
-        .await
-        .wrap_err_with(|| format!("failed setting location for nao to {}", config.location))?;
-
-    repository
-        .configure_communication(arguments.pre_game.with_communication)
-        .await
-        .wrap_err("failed to set communication")?;
-
-    player_number(
-        PlayerNumberArguments {
-            assignments: config
-                .assignments
-                .iter()
-                .copied()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()?,
-        },
-        repository,
-    )
-    .await
-    .wrap_err("failed to set player numbers")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let hulk_binary = get_hulk_binary(arguments.build.profile());
