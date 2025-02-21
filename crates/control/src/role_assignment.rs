@@ -413,7 +413,9 @@ fn process_role_state_machine(
             ..
         } = game_controller_state
         {
-            return (current_role, false, None);
+            if current_role != Role::Searcher && current_role != Role::Striker {
+                return (current_role, false, None);
+            }
         }
     }
 
