@@ -238,14 +238,14 @@ mod test {
     fn centre_of_mirrored_point_cloud() {
         let mut random_number_generator = StdRng::seed_from_u64(0);
         let centre = point![
-            random_number_generator.gen_range(-100.0..100.0),
-            random_number_generator.gen_range(-100.0..100.0)
+            random_number_generator.random_range(-100.0..100.0),
+            random_number_generator.random_range(-100.0..100.0)
         ];
         let points: Vec<_> = (0..50)
             .flat_map(|_| {
                 let new_point = point![
-                    random_number_generator.gen_range(-100.0..100.0),
-                    random_number_generator.gen_range(-100.0..100.0)
+                    random_number_generator.random_range(-100.0..100.0),
+                    random_number_generator.random_range(-100.0..100.0)
                 ];
                 let new_mirrored_point = centre + (centre - new_point);
                 vec![new_point, new_mirrored_point]
