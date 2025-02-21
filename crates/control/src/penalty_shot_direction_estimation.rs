@@ -60,13 +60,13 @@ impl PenaltyShotDirectionEstimation {
             context.filtered_game_controller_state.kicking_team,
         ) {
             (PrimaryState::Set, GamePhase::PenaltyShootout { .. }, ..)
-            | (PrimaryState::Set, _, Some(SubState::PenaltyKick), Team::Opponent) => {
+            | (PrimaryState::Set, _, Some(SubState::PenaltyKick), Some(Team::Opponent)) => {
                 self.last_shot_direction = PenaltyShotDirection::NotMoving;
                 self.placed_ball_position = Some(context.ball_position.position);
                 Ok(MainOutputs::default())
             }
             (PrimaryState::Playing, GamePhase::PenaltyShootout { .. }, ..)
-            | (PrimaryState::Playing, _, Some(SubState::PenaltyKick), Team::Opponent) => {
+            | (PrimaryState::Playing, _, Some(SubState::PenaltyKick), Some(Team::Opponent)) => {
                 let penalty_marker_position_in_ground = context.ground_to_field.inverse()
                     * FieldDimensions::penalty_spot(context.field_dimensions, Half::Own);
                 let reference_position = self
