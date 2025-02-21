@@ -306,7 +306,7 @@ mod tests {
         let mut random_number_generator = StdRng::seed_from_u64(SEED);
         for _ in 0..1000 {
             let bgra_444 = (0..32)
-                .map(|_| random_number_generator.gen_range(0..=255))
+                .map(|_| random_number_generator.random_range(0..=255))
                 .collect::<Vec<_>>();
             let mut ycbcr_422 = [Default::default(); 4];
             bgra_444_to_ycbcr_422(&bgra_444, &mut ycbcr_422);
