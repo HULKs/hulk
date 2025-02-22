@@ -1,16 +1,10 @@
 from ultralytics import YOLO
 from pathlib import Path
+from huggingface_hub import hf_hub_download
 
 import click
-import openvino as ov
-import torch
 
 @click.command()
-@click.argument(
-    "model_path",
-    type=click.Path(exists=True),
-)
-
 @click.argument(
     "height",
     type=int,
@@ -21,13 +15,28 @@ import torch
     type=int,
 )
 
-def main(model_path: str, height: int, width: int) -> None:
-    model_path = Path(model_path)
+@click.option(
+    "--model-path",
+    type=click.Path(exists=True),
+)
+
+@click.option(
+    "--download-model",
+    is_flag=True,
+    default=False
+)
+
+def main(height: int, width: int, model_path: str = "", download_model: bool = False) -> None:
+    if download_model:
+        model_path = hf_hub_download(repo_id="Ultralytics/YOLO11", filename="yolo11n-pose.pt", )
+    else:
+        model_path = Path(model_path)
     # Load a YOLOv8n PyTorch model
     model = YOLO(model_path)
 
     # Export the model
-    model.export(format="openvino",imgsz=(height,width))  # creates 'yolov8n_openvino_model/'
+    exported_model_path = model.export(format="openvino",imgsz=(height,width))
+    print(f"Exported model to {exported_model_path}")
 
 if __name__ == "__main__":
     main()
