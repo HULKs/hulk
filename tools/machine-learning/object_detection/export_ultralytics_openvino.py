@@ -31,10 +31,8 @@ def main(height: int, width: int, model_path: str = "", download_model: bool = F
         model_path = hf_hub_download(repo_id="Ultralytics/YOLO11", filename="yolo11n-pose.pt", )
     else:
         model_path = Path(model_path)
-    # Load a YOLOv8n PyTorch model
     model = YOLO(model_path)
 
-    # Export the model
     exported_model_path = model.export(format="openvino",imgsz=(height,width))
     print(f"Exported model to {exported_model_path}")
 
