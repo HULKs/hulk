@@ -3,7 +3,8 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 use approx::assert_relative_eq;
 
 use coordinate_systems::{Camera, Head, Pixel};
-use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector2, Vector3};
+use linear_algebra::{point, vector, IntoTransform, Isometry3, Rotation3, Vector2, Vector3};
+use nalgebra::UnitQuaternion;
 use projection::{camera_matrix::CameraMatrix, Projection};
 
 fn from_normalized_focal_and_center_short(
@@ -18,6 +19,8 @@ fn from_normalized_focal_and_center_short(
         Isometry3::identity(),
         Isometry3::identity(),
         Isometry3::from_translation(0.0, 0.0, 1.0),
+        Rotation3::from_euler_angles(0.0, 0.0, 0.0),
+        Rotation3::from_euler_angles(0.0, 0.0, 0.0),
     )
 }
 
@@ -292,5 +295,49 @@ fn get_pixel_radius_pitch_45_degree_down() {
             .unwrap(),
         54.36,
         epsilon = 0.01,
+    );
+}
+
+#[test]
+fn check_corrections_vs_from_construction() {
+    let correction_camera = UnitQuaternion::from_euler_angles(
+        4.0f32.to_radians(),
+        -2.0f32.to_radians(),
+        1.0f32.to_radians(),
+    )
+    .framed_transform();
+    let correction_robot = UnitQuaternion::from_euler_angles(
+        4.0f32.to_radians(),
+        -2.0f32.to_radians(),
+        1.0f32.to_radians(),
+    )
+    .framed_transform();
+
+    let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+        nalgebra::vector![0.95, 1.27],
+        nalgebra::point![0.5, 0.5],
+        vector![640.0, 480.0],
+        Isometry3::identity(),
+        Isometry3::identity(),
+        Isometry3::identity(),
+        correction_camera,
+        correction_robot,
+    );
+
+    let corrected_varient = camera_matrix.to_corrected(correction_robot, correction_camera);
+
+    // Doing equal-assert is fair as the calculations should be done in the same way and order.
+    assert_eq!(
+        camera_matrix.ground_to_robot,
+        corrected_varient.ground_to_robot
+    );
+    assert_eq!(
+        camera_matrix.head_to_camera,
+        corrected_varient.head_to_camera
+    );
+    assert_eq!(camera_matrix.robot_to_head, corrected_varient.robot_to_head);
+    assert_eq!(
+        camera_matrix.ground_to_pixel,
+        corrected_varient.ground_to_pixel
     );
 }

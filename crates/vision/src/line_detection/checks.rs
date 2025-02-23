@@ -109,7 +109,7 @@ fn get_gradient(
 
 #[cfg(test)]
 mod tests {
-    use linear_algebra::{point, IntoTransform};
+    use linear_algebra::{point, IntoTransform, Rotation3};
     use nalgebra::{Isometry3, Translation, UnitQuaternion};
 
     use super::*;
@@ -128,6 +128,8 @@ mod tests {
             .framed_transform(),
             Isometry3::identity().framed_transform(),
             Isometry3::identity().framed_transform(),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
         );
 
         let segment = GenericSegment {

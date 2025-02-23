@@ -166,7 +166,7 @@ mod tests {
     use std::iter::FromIterator;
 
     use approx::assert_relative_eq;
-    use linear_algebra::{vector, IntoTransform, Isometry3};
+    use linear_algebra::{vector, IntoTransform, Isometry3, Rotation3};
     use nalgebra::{Translation, UnitQuaternion};
     use types::{
         color::{Intensity, YCbCr444},
@@ -191,6 +191,8 @@ mod tests {
             .framed_transform(),
             Isometry3::identity(),
             Isometry3::identity(),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
         );
         let minimum_radius = 5.0;
 
@@ -213,6 +215,8 @@ mod tests {
             .framed_transform(),
             Isometry3::identity(),
             Isometry3::identity(),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
         );
         let minimum_radius = 5.0;
 
