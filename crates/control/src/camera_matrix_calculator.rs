@@ -51,12 +51,6 @@ impl CameraMatrixCalculator {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let image_size = vector![640.0, 480.0];
 
-        // TODO remove fake!
-        let mut copied_top = context.top_camera_matrix_parameters.extrinsic_rotations;
-        copied_top.x += 4.0;
-        copied_top.y += 2.0;
-        copied_top.z -= 1.0;
-
         let robot_rotation_radians = context
             .robot_rotation_parameters
             .map(|degree: f32| degree.to_radians());
@@ -68,7 +62,7 @@ impl CameraMatrixCalculator {
         );
 
         let (head_to_top_camera, corrections_top_camera) = head_to_camera(
-            copied_top,
+            context.top_camera_matrix_parameters.extrinsic_rotations,
             context.top_camera_matrix_parameters.camera_pitch,
             RobotDimensions::HEAD_TO_TOP_CAMERA,
         );
@@ -80,6 +74,8 @@ impl CameraMatrixCalculator {
             correction_robot * context.robot_to_ground.inverse(),
             context.robot_kinematics.head.head_to_robot.inverse() * correction_robot,
             head_to_top_camera,
+            corrections_top_camera,
+            correction_robot,
         );
 
         let (head_to_bottom_camera, corrections_bottom_camera) = head_to_camera(
@@ -98,6 +94,7 @@ impl CameraMatrixCalculator {
             context.robot_kinematics.head.head_to_robot.inverse() * correction_robot,
             head_to_bottom_camera,
             corrections_bottom_camera,
+            correction_robot,
         );
 
         assert_eq!(

@@ -21,9 +21,6 @@ use crate::{
     PathIntrospect,
 )]
 pub struct CameraMatrix {
-    pub ground_to_robot: Isometry3<Ground, Robot>,
-    pub robot_to_head: Isometry3<Robot, Head>,
-    pub head_to_camera: Isometry3<Head, Camera>,
     pub intrinsics: Intrinsic,
     pub focal_length: nalgebra::Vector2<f32>,
     pub optical_center: Point2<Pixel>,
@@ -32,7 +29,13 @@ pub struct CameraMatrix {
     pub image_size: Vector2<Pixel>,
 
     pub uncalibrated_head_to_camera: Isometry3<Head, Camera>,
+    pub uncalibrated_ground_to_robot: Isometry3<Ground, Robot>,
+    pub uncalibrated_robot_to_head: Isometry3<Robot, Head>,
+
     // Precomputed values for faster calculations
+    pub ground_to_robot: Isometry3<Ground, Robot>,
+    pub robot_to_head: Isometry3<Robot, Head>,
+    pub head_to_camera: Isometry3<Head, Camera>,
     pub ground_to_camera: Isometry3<Ground, Camera>,
 
     pub ground_to_pixel: CameraProjection<Ground>,
@@ -45,10 +48,11 @@ impl CameraMatrix {
         focal_length: nalgebra::Vector2<f32>,
         optical_center: nalgebra::Point2<f32>,
         image_size: Vector2<Pixel>,
-        ground_to_robot: Isometry3<Ground, Robot>,
-        robot_to_head: Isometry3<Robot, Head>,
+        uncalibrated_ground_to_robot: Isometry3<Ground, Robot>,
+        uncalibrated_robot_to_head: Isometry3<Robot, Head>,
         uncalibrated_head_to_camera: Isometry3<Head, Camera>,
         correction_in_camera: Rotation3<Camera, Camera>,
+        correction_in_robot: Rotation3<Robot, Robot>,
     ) -> Self {
         let focal_length_scaled = focal_length.component_mul(&image_size.inner);
         let optical_center_scaled = optical_center
@@ -59,8 +63,11 @@ impl CameraMatrix {
 
         let field_of_view = Self::calculate_field_of_view(focal_length_scaled, image_size);
 
+        let corrected_ground_to_robot = correction_in_robot * uncalibrated_ground_to_robot;
+        let corrected_robot_to_head = uncalibrated_robot_to_head * correction_in_robot;
         let corrected_head_to_camera = correction_in_camera * uncalibrated_head_to_camera;
-        let ground_to_camera = corrected_head_to_camera * robot_to_head * ground_to_robot;
+        let ground_to_camera =
+            corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot;
 
         let intrinsics = Intrinsic::new(focal_length_scaled, optical_center_scaled);
 
@@ -72,13 +79,15 @@ impl CameraMatrix {
             optical_center: optical_center_scaled,
             field_of_view,
             horizon,
-            ground_to_robot,
-            robot_to_head,
-            head_to_camera: corrected_head_to_camera,
             image_size,
 
             uncalibrated_head_to_camera,
+            uncalibrated_ground_to_robot,
+            uncalibrated_robot_to_head,
             // Precomputed values
+            ground_to_robot: corrected_ground_to_robot,
+            robot_to_head: corrected_robot_to_head,
+            head_to_camera: corrected_head_to_camera,
             ground_to_camera,
             ground_to_pixel: CameraProjection::new(ground_to_camera, intrinsics.clone()),
             pixel_to_ground: CameraProjection::new(ground_to_camera, intrinsics).inverse(0.0),
@@ -110,8 +119,8 @@ impl CameraMatrix {
         correction_in_robot: Rotation3<Robot, Robot>,
         correction_in_camera: Rotation3<Camera, Camera>,
     ) -> Self {
-        let corrected_ground_to_robot = correction_in_robot * self.ground_to_robot;
-        let corrected_robot_to_head = self.robot_to_head * correction_in_robot;
+        let corrected_ground_to_robot = correction_in_robot * self.uncalibrated_ground_to_robot;
+        let corrected_robot_to_head = self.uncalibrated_robot_to_head * correction_in_robot;
         let corrected_head_to_camera = correction_in_camera * self.uncalibrated_head_to_camera;
 
         let corrected_ground_to_camera =
@@ -121,6 +130,7 @@ impl CameraMatrix {
             CameraProjection::new(corrected_ground_to_camera, self.intrinsics.clone());
 
         Self {
+            // precomputed values with corrections
             ground_to_robot: corrected_ground_to_robot,
             robot_to_head: corrected_robot_to_head,
             head_to_camera: corrected_head_to_camera,
@@ -128,12 +138,15 @@ impl CameraMatrix {
             ground_to_pixel: ground_to_pixel.clone(),
             pixel_to_ground: ground_to_pixel.inverse(0.0),
             horizon: Horizon::from_parameters(corrected_ground_to_camera, &self.intrinsics),
+            // original values
             intrinsics: self.intrinsics.clone(),
             focal_length: self.focal_length,
             optical_center: self.optical_center,
             field_of_view: self.field_of_view,
             image_size: self.image_size,
             uncalibrated_head_to_camera: self.uncalibrated_head_to_camera,
+            uncalibrated_ground_to_robot: self.uncalibrated_ground_to_robot,
+            uncalibrated_robot_to_head: self.uncalibrated_robot_to_head,
         }
     }
 }
