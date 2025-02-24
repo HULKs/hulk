@@ -49,3 +49,4 @@ source_analyzer = { workspace = true }
 [features]
 realtime = ["libc"]
 systemd = ["dep:systemd"]
+no_realtime = []
