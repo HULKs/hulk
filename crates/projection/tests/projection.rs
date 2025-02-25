@@ -319,7 +319,7 @@ fn check_corrections_vs_from_construction() {
         vector![640.0, 480.0],
         Isometry3::identity(),
         Isometry3::identity(),
-        Isometry3::identity(),
+        Isometry3::from_translation(0.0, 0.0, 1.0),
         correction_camera,
         correction_robot,
     );
