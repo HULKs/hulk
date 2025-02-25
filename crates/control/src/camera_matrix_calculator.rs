@@ -98,19 +98,6 @@ impl CameraMatrixCalculator {
             correction_robot,
         );
 
-        assert_eq!(
-            bottom_camera_matrix.ground_to_pixel,
-            bottom_camera_matrix
-                .to_corrected(correction_robot, corrections_bottom_camera)
-                .ground_to_pixel
-        );
-        assert_eq!(
-            top_camera_matrix.ground_to_pixel,
-            top_camera_matrix
-                .to_corrected(correction_robot, corrections_top_camera)
-                .ground_to_pixel
-        );
-
         let field_dimensions = context.field_dimensions;
         context
             .projected_field_lines
