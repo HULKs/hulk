@@ -1,8 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
-use approx::assert_relative_eq;
 use color_eyre::Result;
-use nalgebra::UnitQuaternion;
+use nalgebra::{UnitQuaternion, Vector3 as NalgebraVector3};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +9,7 @@ use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector3};
+use linear_algebra::{point, vector, IntoTransform, Isometry3, Rotation3, Vector3};
 use types::{
     field_dimensions::FieldDimensions, field_lines::ProjectedFieldLines,
     parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
@@ -30,11 +29,13 @@ pub struct CycleContext {
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
 
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
+    robot_rotation_parameters:
+        Parameter<NalgebraVector3<f32>, "camera_matrix_parameters.robot_rotation_parameters">,
 }
 
 #[context]
@@ -173,8 +174,8 @@ fn project_penalty_area_on_images(
 }
 
 fn head_to_camera(
-    extrinsic_rotation: nalgebra::Vector3<f32>,
-    camera_pitch: f32,
+    extrinsic_rotation_degrees: nalgebra::Vector3<f32>,
+    camera_pitch_degrees: f32,
     head_to_camera: Vector3<Head>,
 ) -> (Isometry3<Head, Camera>, Rotation3<Camera, Camera>) {
     let extrinsic_angles_in_radians =
@@ -193,13 +194,5 @@ fn head_to_camera(
             * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
             * nalgebra::Isometry3::from(-head_to_camera.inner))
         .framed_transform();
-    // let uncalibrated_head_to_camera =
-    //     (UnitQuaternion::from_euler_angles(-camera_pitch_degrees.to_radians(), 0.0, 0.0)
-    //         * nalgebra::Isometry3::from(nalgebra::vector![
-    //             -head_to_camera.y(),
-    //             -head_to_camera.z(),
-    //             head_to_camera.x()
-    //         ]))
-    //     .framed_transform();
     (uncalibrated_head_to_camera, extrinsic_rotation)
 }
