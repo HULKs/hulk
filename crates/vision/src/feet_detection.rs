@@ -1,4 +1,5 @@
 use color_eyre::Result;
+use coordinate_systems::Ground;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -8,8 +9,8 @@ use filtering::{
     statistics::{mean, standard_deviation},
 };
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::distance;
 use linear_algebra::point;
+use linear_algebra::{distance, Vector2};
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
@@ -42,6 +43,8 @@ pub struct CycleContext {
     minimum_feet_width: Parameter<f32, "feet_detection.$cycler_instance.minimum_feet_width">,
     minimum_segment_height:
         Parameter<f32, "feet_detection.$cycler_instance.minimum_segment_height">,
+    maximum_standard_deviation:
+        Parameter<Vector2<Ground>, "feet_detection.$cycler_instance.maximum_standard_deviation">,
 
     balls: RequiredInput<Option<Vec<BallPercept>>, "balls?">,
     camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
@@ -84,6 +87,11 @@ impl FeetDetection {
             .into_iter()
             .filter(|cluster| cluster.samples > *context.minimum_samples_per_cluster)
             .filter(|cluster| {
+                let standard_deviation = cluster.standard_deviation();
+                standard_deviation.x() < context.maximum_standard_deviation.x()
+                    && standard_deviation.y() < context.maximum_standard_deviation.y()
+            })
+            .filter(|cluster| {
                 cluster.rightmost_point.y() - cluster.leftmost_point.y()
                     >= *context.minimum_feet_width
             })
@@ -94,7 +102,7 @@ impl FeetDetection {
 
         let positions = clusters_in_ground
             .into_iter()
-            .map(|cluster| cluster.mean)
+            .map(|cluster| cluster.mean())
             .collect();
         Ok(MainOutputs {
             detected_feet: DetectedFeet { positions }.into(),
@@ -211,7 +219,7 @@ fn cluster_scored_cluster_points(
         let nearest_cluster = clusters
             .iter_mut()
             .filter_map(|cluster| {
-                let distance = distance(cluster.mean, point.position_in_ground);
+                let distance = distance(cluster.mean(), point.position_in_ground);
                 if distance < maximum_cluster_distance {
                     Some((cluster, distance))
                 } else {
@@ -224,10 +232,11 @@ fn cluster_scored_cluster_points(
         match nearest_cluster {
             Some((cluster, _)) => cluster.push(point.position_in_ground),
             None => clusters.push(CountedCluster {
-                mean: point.position_in_ground,
                 samples: 1,
                 leftmost_point: point.position_in_ground,
                 rightmost_point: point.position_in_ground,
+                sum: point.position_in_ground,
+                sum_squared: point.position_in_ground.map(|x| x * x),
             }),
         }
     }

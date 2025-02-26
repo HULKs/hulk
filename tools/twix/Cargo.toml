@@ -23,6 +23,7 @@ egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 egui_plot = { workspace = true }
 fern = { workspace = true }
+filtering = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 gilrs = { workspace = true }
