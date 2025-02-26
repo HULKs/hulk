@@ -61,6 +61,7 @@ pub struct BallPosition<Frame> {
 }
 
 pub const HULKS_TEAM_NUMBER: u8 = 24;
+pub const NONE_TEAM_NUMBER: u8 = 255;
 
 #[derive(
     Clone,
