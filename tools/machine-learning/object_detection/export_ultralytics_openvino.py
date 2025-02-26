@@ -24,14 +24,14 @@ import click
     default=".",
     help="Path to the model file. Can be any format supported by Openvino.",
 )
-@click.option("--download-model", is_flag=True, default=False)
+@click.option("--download-model", is_flag=True)
 def main(
     input_image_height: int,
     input_image_width: int,
     repo_id: str,
     filename: str,
-    model_path: str = "",
-    download_model: bool = False,
+    model_path: str,
+    download_model: bool,
 ) -> None:
     if download_model:
         model_path = hf_hub_download(repo_id=repo_id, filename=filename)
