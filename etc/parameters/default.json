@@ -89,7 +89,8 @@
       "extrinsic_rotations": [0, 0, 0],
       "focal_lengths": [0.95, 1.27],
       "cc_optical_center": [0.5, 0.5]
-    }
+    },
+    "robot_rotation_parameters": [0, 0, 0]
   },
   "foot_bumper_filter": {
     "activations_needed": 2,
