@@ -1,0 +1,20 @@
+# opponent = "B-Human"
+# phase = "second-half"
+location = "smd"
+wifi = "SPL_A"
+base = "main"
+branches = [
+  "julianschuler/example-branch",
+]
+assignments = [
+  "33:1",
+]
+with_communication = false
+
+[recording_intervals]
+Control = 1
+VisionTop = 30
+VisionBottom = 30
+SplNetwork = 1
+# ObjectDetectionTop = 1
+# Audio = 1

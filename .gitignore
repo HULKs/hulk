@@ -32,4 +32,5 @@ rust-toolchain.toml
 
 site/
 
+deploy.toml
 logs
