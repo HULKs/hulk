@@ -4,7 +4,7 @@ Twix doesn't have to be installed to be used, it can be directly run from the re
 But you can also install it into your local system to conveniently use it without rebuilding:
 
 ```
-cargo install --path tools/twix
+./pepsi install twix
 ```
 
 Twix is subsequently installed at `~/.cargo/bin/twix`. <br>

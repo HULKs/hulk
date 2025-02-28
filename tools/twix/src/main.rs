@@ -104,6 +104,7 @@ fn main() -> Result<(), eframe::Error> {
             if let Err(error) = check_for_update(
                 env!("CARGO_PKG_VERSION"),
                 repository.root.join("tools/twix/Cargo.toml"),
+                "twix",
             ) {
                 error!("{error:#?}");
             }
