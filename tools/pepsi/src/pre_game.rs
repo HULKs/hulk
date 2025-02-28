@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use clap::Args;
 use color_eyre::{
@@ -16,6 +16,7 @@ use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
     deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
+    recording::parse_key_value,
 };
 
 #[derive(Args)]
@@ -43,16 +44,39 @@ pub struct PreGameArguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
+    /// Enable communication, communication is disabled by default
+    #[arg(long)]
+    pub with_communication: bool,
+    /// Intervals between cycle recordings, e.g. Control=1,VisionTop=30 to record every cycle in Control
+    /// and one out of every 30 in VisionTop. Set to 0 or don't specify to disable recording for a cycler.
+    #[arg(
+        long,
+        value_delimiter=',',
+        value_parser = parse_key_value::<String, usize>,
+    )]
+    pub recording_intervals: Option<Vec<(String, usize)>>,
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let config = DeployConfig::read_from_file(repository)
+    let mut config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
+
+    config.with_communication |= arguments.pre_game.with_communication;
+    if let Some(recording_intervals) = &arguments.pre_game.recording_intervals {
+        config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
+    }
+
     let naos = config.naos();
+    let wifi = config.wifi;
+
+    config
+        .configure_repository(repository)
+        .await
+        .wrap_err("failed to configure repository")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let hulk_binary = get_hulk_binary(arguments.build.profile());
@@ -94,7 +118,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
                 nao_address,
                 upload_directory,
                 arguments,
-                config.wifi,
+                wifi,
                 progress_bar,
                 repository,
             )

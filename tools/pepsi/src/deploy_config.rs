@@ -10,6 +10,8 @@ use argument_parsers::{parse_network, NaoAddress, NaoAddressPlayerAssignment};
 use nao::Network;
 use repository::Repository;
 
+use crate::player_number::{player_number, Arguments};
+
 #[derive(Deserialize)]
 pub struct DeployConfig {
     pub opponent: Option<String>,
@@ -56,6 +58,39 @@ impl DeployConfig {
             .iter()
             .map(|assignment| assignment.nao_address)
             .collect()
+    }
+
+    pub async fn configure_repository(self, repository: &Repository) -> Result<()> {
+        repository
+            .configure_recording_intervals(self.recording_intervals)
+            .await
+            .wrap_err("failed to apply recording settings")?;
+
+        repository
+            .set_location("nao", &self.location)
+            .await
+            .wrap_err_with(|| format!("failed to set location for nao to {}", self.location))?;
+
+        repository
+            .configure_communication(self.with_communication)
+            .await
+            .wrap_err("failed to set communication")?;
+
+        player_number(
+            Arguments {
+                assignments: self
+                    .assignments
+                    .iter()
+                    .copied()
+                    .map(TryFrom::try_from)
+                    .collect::<Result<Vec<_>, _>>()?,
+            },
+            repository,
+        )
+        .await
+        .wrap_err("failed to set player numbers")?;
+
+        Ok(())
     }
 }
 
