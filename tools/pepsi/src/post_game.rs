@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 
-use clap::Args;
+use clap::{Args, ValueEnum};
 use color_eyre::{eyre::WrapErr, Result};
 
-use argument_parsers::NaoAddress;
 use nao::{Nao, Network, SystemctlAction};
+use repository::Repository;
 
-use crate::progress_indicator::ProgressIndicator;
+use crate::{deploy_config::DeployConfig, progress_indicator::ProgressIndicator};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -14,16 +14,34 @@ pub struct Arguments {
     #[arg(long)]
     pub no_disconnect: bool,
     /// Directory where to store the downloaded logs (will be created if not existing)
-    pub log_directory: PathBuf,
-    /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
-    #[arg(required = true)]
-    pub naos: Vec<NaoAddress>,
+    #[arg(long)]
+    pub log_directory: Option<PathBuf>,
+    /// Current game phase
+    #[arg(value_enum)]
+    pub phase: Phase,
 }
 
-pub async fn post_game(arguments: Arguments) -> Result<()> {
-    let arguments = &arguments;
+#[derive(Clone, ValueEnum)]
+pub enum Phase {
+    GoldenGoal,
+    FirstHalf,
+    SecondHalf,
+}
+
+pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<()> {
+    let config = DeployConfig::read_from_file(repository)
+        .await
+        .wrap_err("failed to read deploy config from file")?;
+    let naos = config.naos();
+
+    let log_directory = &arguments.log_directory.unwrap_or_else(|| {
+        let log_directory_name = config.log_directory_name();
+
+        repository.root.join("logs").join(log_directory_name)
+    });
+
     ProgressIndicator::map_tasks(
-        &arguments.naos,
+        &naos,
         "Executing postgame tasks...",
         |nao_address, progress_bar| async move {
             let nao = Nao::try_new_with_ping(nao_address.ip).await?;
@@ -40,7 +58,7 @@ pub async fn post_game(arguments: Arguments) -> Result<()> {
             }
 
             progress_bar.set_message("Downloading logs...");
-            let log_directory = arguments.log_directory.join(nao_address.to_string());
+            let log_directory = log_directory.join(nao_address.to_string());
             nao.download_logs(log_directory, |status| {
                 progress_bar.set_message(format!("Downloading logs: {status}"))
             })

@@ -36,14 +36,18 @@ impl DeployConfig {
         from_str(&deploy_config).wrap_err("could not deserialize config from deploy.toml")
     }
 
-    pub fn branch_name(&self) -> String {
+    pub fn log_directory_name(&self) -> String {
         let date = Utc::now().date_naive();
 
-        let mut branch_name = if let Some(opponent) = &self.opponent {
+        if let Some(opponent) = &self.opponent {
             format!("{date}-HULKs-vs-{opponent}")
         } else {
             format!("{date}-testgame")
-        };
+        }
+    }
+
+    pub fn branch_name(&self) -> String {
+        let mut branch_name = self.log_directory_name();
 
         if let Some(phase) = &self.phase {
             branch_name.push('-');
