@@ -77,10 +77,12 @@ async fn main() -> Result<()> {
         println!("Battery: {:?}", battery);
 
         let mut time_to_sleep = 60;
-        if battery.charge < 0.20 {
+
+        // ceck if battery is low and is not charging
+        if battery.charge < 0.20 && battery.current < 0.0 {
             println!("Battery low, playing sound");
             audio_player.play();
-            time_to_sleep = (battery.charge * 50.0) as u64;
+            time_to_sleep = (battery.charge * 100.0) as u64;
         }
         std::thread::sleep(std::time::Duration::from_secs(time_to_sleep));
     }
