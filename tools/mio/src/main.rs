@@ -5,18 +5,24 @@ use ball::BallPlugin;
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_obj::ObjPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+// use camera::CameraPlugin;
 use color_eyre::eyre::Result;
 use field::FieldPlugin;
+use fps::FpsPlugin;
 use nao::NaoPlugin;
 use parameters::Parameters;
+use shadow_toggle::ShadowTogglePlugin;
 use ui::UiPlugin;
 
 mod async_runtime;
 mod ball;
+// mod camera;
 mod field;
+mod fps;
 mod nao;
 mod parameters;
 mod ring;
+mod shadow_toggle;
 mod ui;
 
 fn main() -> Result<()> {
@@ -24,13 +30,16 @@ fn main() -> Result<()> {
         .add_plugins(DefaultPlugins)
         .add_plugins(ObjPlugin)
         .add_plugins(UiPlugin)
+        .add_plugins(FpsPlugin)
         .add_plugins(PanOrbitCameraPlugin)
         .insert_resource(Parameters::default())
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(BallPlugin)
         .add_plugins(FieldPlugin)
         .add_plugins(NaoPlugin)
+        .add_plugins(ShadowTogglePlugin)
         .add_plugins(AsyncRuntimePlugin)
+        // .add_plugins(CameraPlugin)
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, setup_light)
         .add_systems(Startup, setup_gizmos)
@@ -60,7 +69,7 @@ fn setup_light(mut commands: Commands) {
     commands.spawn((
         Name::new("sun"),
         DirectionalLight {
-            shadows_enabled: true,
+            shadows_enabled: false,
             illuminance: 5000.0,
             ..default()
         },

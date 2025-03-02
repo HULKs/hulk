@@ -9,6 +9,7 @@ use egui_dock::{egui::Context, DockArea, DockState, NodeIndex, Style};
 use crate::{
     async_runtime::AsyncRuntime,
     nao::{Nao, SpawnRobot},
+    shadow_toggle::ShadowState,
     MainCamera,
 };
 
@@ -88,6 +89,11 @@ impl egui_dock::TabViewer for TabViewer<'_> {
                 }
                 if ui.button("+").clicked() {
                     self.world.send_event(SpawnRobot);
+                }
+
+                ui.separator();
+                if let Some(mut shadow_state) = self.world.get_resource_mut::<ShadowState>() {
+                    ui.checkbox(&mut shadow_state.enabled, "Shadows");
                 }
             }
         }

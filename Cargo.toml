@@ -233,9 +233,6 @@ serde = { git = "https://github.com/HULKs/serde.git", rev = "2e5e545dc9958ab39d7
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "2e5e545dc9958ab39d7b83120c16f15d864ea8a6" }
 
-[profile.dev.package.bevy]
-opt-level = 3
-
 [profile.dev]
 opt-level = 3
 debug = false
