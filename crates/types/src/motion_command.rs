@@ -29,7 +29,9 @@ pub enum WalkSpeed {
     Fast,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum OrientationMode {
     AlignWithPath,
     Override(Orientation2<Ground>),
