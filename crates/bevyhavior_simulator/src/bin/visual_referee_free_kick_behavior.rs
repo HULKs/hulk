@@ -68,23 +68,24 @@ fn update(
     }
 
     if time.ticks() == 3005 {
-        for relevant_robots in robots.iter().filter(|robot| {
+        for relevant_robot in robots.iter().filter(|robot| {
             matches!(
                 robot.database.main_outputs.role,
-                Role::DefenderRight | Role::MidfielderRight
+                Role::DefenderRight | Role::MidfielderRight | Role::Searcher
             )
         }) {
-            if let Some(expected_referee_position) = relevant_robots
+            if let Some(expected_referee_position) = relevant_robot
                 .database
                 .main_outputs
                 .expected_referee_position
             {
-                let ground_to_field = relevant_robots.ground_to_field();
+                let ground_to_field = relevant_robot.ground_to_field();
                 let expected_referee_position_in_ground =
                     ground_to_field.inverse() * expected_referee_position;
+
                 if matches!(
-                    relevant_robots.database.main_outputs.motion_command.head_motion(),
-                    Some(HeadMotion::LookAt { target, .. }) if target.abs_diff_eq(&expected_referee_position_in_ground, 1e-4)
+                    relevant_robot.database.main_outputs.motion_command.head_motion(),
+                    Some(HeadMotion::LookAtReferee { target, .. }) if target.abs_diff_eq(&expected_referee_position_in_ground, 1e-4)
                 ) {
                     *state.number_of_detecting_robots_when_home += 1;
                 }
@@ -128,7 +129,7 @@ fn update(
 
                 if matches!(
                     relevant_robot.database.main_outputs.motion_command.head_motion(),
-                    Some(HeadMotion::LookAt { target, .. }) if target.abs_diff_eq(&expected_referee_position_in_ground, 1e-4)
+                    Some(HeadMotion::LookAtReferee { target, .. }) if target.abs_diff_eq(&expected_referee_position_in_ground, 1e-4)
                 ) {
                     *state.number_of_detecting_robots_when_away += 1;
                 }
@@ -136,8 +137,8 @@ fn update(
         }
     }
 
-    if (*state.number_of_detecting_robots_when_home == 2)
-        && (*state.number_of_detecting_robots_when_away == 2)
+    if (*state.number_of_detecting_robots_when_home >= 2)
+        && (*state.number_of_detecting_robots_when_away >= 2)
     {
         println!("Done! Successfully performed behavior for free kick kicking team detection.");
         exit.send(AppExit::Success);
