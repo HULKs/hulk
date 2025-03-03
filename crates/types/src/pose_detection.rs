@@ -13,7 +13,7 @@ use crate::bounding_box::BoundingBox;
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub enum ImageSize {
+pub enum DetectionRegion {
     Narrow,
     Full,
 }

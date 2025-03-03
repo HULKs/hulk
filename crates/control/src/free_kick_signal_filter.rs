@@ -181,25 +181,25 @@ fn kicking_team_from_free_kick_signal_detection(
     match (own_team_is_home_after_coin_toss, free_kick_signal_pose) {
         (
             true,
-            Some(PoseKind::FreeKickPose {
+            Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Away,
             }),
         ) => Some(Team::Hulks),
         (
             true,
-            Some(PoseKind::FreeKickPose {
+            Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Home,
             }),
         ) => Some(Team::Opponent),
         (
             false,
-            Some(PoseKind::FreeKickPose {
+            Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Away,
             }),
         ) => Some(Team::Opponent),
         (
             false,
-            Some(PoseKind::FreeKickPose {
+            Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Home,
             }),
         ) => Some(Team::Hulks),
