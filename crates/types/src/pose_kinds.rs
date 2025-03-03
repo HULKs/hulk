@@ -17,8 +17,8 @@ use crate::field_dimensions::GlobalFieldSide;
     Eq,
 )]
 pub enum PoseKind {
-    AboveHeadArms,
-    FreeKickPose {
+    Ready,
+    FreeKick {
         global_field_side: GlobalFieldSide,
     },
     #[default]
