@@ -15,11 +15,18 @@ pub fn execute(
     let expected_referee_position = expected_referee_position?;
 
     Some(MotionCommand::Stand {
-        head: HeadMotion::LookAt {
-            target: ground_to_field.inverse() * expected_referee_position,
-            image_region_target: ImageRegion::Bottom,
-            camera: Some(CameraPosition::Top),
+        head: if enable_pose_detection {
+            HeadMotion::LookAtReferee {
+                target: ground_to_field.inverse() * expected_referee_position,
+                image_region_target: ImageRegion::Bottom,
+                camera: Some(CameraPosition::Top),
+            }
+        } else {
+            HeadMotion::LookAt {
+                target: ground_to_field.inverse() * expected_referee_position,
+                image_region_target: ImageRegion::Bottom,
+                camera: Some(CameraPosition::Top),
+            }
         },
-        should_look_for_referee: enable_pose_detection,
     })
 }

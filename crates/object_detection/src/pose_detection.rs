@@ -20,8 +20,8 @@ use linear_algebra::{point, vector};
 use types::{
     bounding_box::BoundingBox,
     color::Rgb,
-    motion_command::MotionCommand,
-    pose_detection::{HumanPose, ImageSize, Keypoints},
+    motion_command::{HeadMotion, MotionCommand},
+    pose_detection::{DetectionRegion, HumanPose, Keypoints},
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -148,14 +148,14 @@ impl PoseDetection {
         let (behavior_requests_pose_detection, image_size_used_for_detection) =
             match context.motion_command {
                 MotionCommand::Initial {
-                    should_look_for_referee: true,
+                    head: HeadMotion::LookAtReferee { .. },
                     ..
-                } => (true, ImageSize::Narrow),
+                } => (true, DetectionRegion::Narrow),
                 MotionCommand::Stand {
-                    should_look_for_referee: true,
+                    head: HeadMotion::LookAtReferee { .. },
                     ..
-                } => (true, ImageSize::Full),
-                _ => (false, ImageSize::Narrow),
+                } => (true, DetectionRegion::Full),
+                _ => (false, DetectionRegion::Narrow),
             };
         if !behavior_requests_pose_detection && !context.override_pose_detection {
             return Ok(MainOutputs::default());
@@ -164,7 +164,7 @@ impl PoseDetection {
         let image = context.image;
 
         let mut infer_request = match image_size_used_for_detection {
-            ImageSize::Narrow => {
+            DetectionRegion::Narrow => {
                 let mut tensor = Tensor::new(
                     ElementType::F32,
                     &self.network_narrow.get_input()?.get_shape()?,
@@ -189,7 +189,7 @@ impl PoseDetection {
                 infer_request.set_input_tensor(&tensor)?;
                 infer_request
             }
-            ImageSize::Full => {
+            DetectionRegion::Full => {
                 let mut tensor = Tensor::new(
                     ElementType::F32,
                     &self.network_full.get_input()?.get_shape()?,
@@ -228,16 +228,16 @@ impl PoseDetection {
         }
 
         let detection_image_start = match image_size_used_for_detection {
-            ImageSize::Narrow => DETECTION_IMAGE_START_X,
-            ImageSize::Full => 0,
+            DetectionRegion::Narrow => DETECTION_IMAGE_START_X,
+            DetectionRegion::Full => 0,
         };
 
         let prediction = infer_request.get_output_tensor_by_index(0)?;
         let prediction = match image_size_used_for_detection {
-            ImageSize::Narrow => {
+            DetectionRegion::Narrow => {
                 ArrayView::from_shape((56, MAX_DETECTIONS_NARROW), prediction.get_data::<f32>()?)?
             }
-            ImageSize::Full => {
+            DetectionRegion::Full => {
                 ArrayView::from_shape((56, MAX_DETECTIONS_FULL), prediction.get_data::<f32>()?)?
             }
         };
@@ -290,14 +290,18 @@ impl PoseDetection {
     }
 }
 
-fn load_into_scratchpad(scratchpad: &mut [f32], image: &YCbCr422Image, image_size: ImageSize) {
+fn load_into_scratchpad(
+    scratchpad: &mut [f32],
+    image: &YCbCr422Image,
+    image_size: DetectionRegion,
+) {
     let (detection_image_width, detection_image_start, stride) = match image_size {
-        ImageSize::Narrow => (
+        DetectionRegion::Narrow => (
             DETECTION_IMAGE_WIDTH_NARROW,
             DETECTION_IMAGE_START_X,
             STRIDE_NARROW,
         ),
-        ImageSize::Full => (DETECTION_IMAGE_WIDTH_FULL, 0, STRIDE_FULL),
+        DetectionRegion::Full => (DETECTION_IMAGE_WIDTH_FULL, 0, STRIDE_FULL),
     };
 
     let mut scratchpad_index = 0;

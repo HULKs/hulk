@@ -312,7 +312,9 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             HeadMotion::LookAround | HeadMotion::SearchForLostBall => {
                 robot.database.main_outputs.look_around.yaw
             }
-            HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
+            HeadMotion::LookAt { target, .. } | HeadMotion::LookAtReferee { target, .. } => {
+                Orientation2::from_vector(target.coords()).angle()
+            }
             HeadMotion::LookLeftAndRightOf { target } => {
                 let glance_factor = 0.0; //self.time_elapsed.as_secs_f32().sin();
                 target.coords().angle(&Vector2::x_axis())

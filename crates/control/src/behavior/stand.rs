@@ -16,7 +16,6 @@ pub fn execute(
     match world_state.robot.primary_state {
         PrimaryState::Initial => Some(MotionCommand::Stand {
             head: HeadMotion::ZeroAngles,
-            should_look_for_referee: false,
         }),
         PrimaryState::Set => {
             let ground_to_field = world_state.robot.ground_to_field?;
@@ -73,7 +72,6 @@ pub fn execute(
                         image_region_target: Default::default(),
                         camera: None,
                     },
-                    should_look_for_referee: false,
                 }),
             }
         }
@@ -125,7 +123,6 @@ pub fn execute(
                             image_region_target: ImageRegion::Center,
                             camera: None,
                         },
-                        should_look_for_referee: false,
                     })
                 }
                 _ => None,

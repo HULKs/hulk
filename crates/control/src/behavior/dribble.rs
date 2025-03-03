@@ -76,10 +76,7 @@ pub fn execute(
             path,
             walk_speed,
         )),
-        None => Some(MotionCommand::Stand {
-            head,
-            should_look_for_referee: false,
-        }),
+        None => Some(MotionCommand::Stand { head }),
     }
 }
 

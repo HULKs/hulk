@@ -197,11 +197,11 @@ fn interpret_pose(
     minimum_shoulder_angle: f32,
     free_kick_signal_angle_range: &Range<f32>,
 ) -> PoseKind {
-    if is_above_head_arms_pose(human_pose.keypoints, minimum_shoulder_angle) {
-        PoseKind::AboveHeadArms
+    if is_ready_signal_pose(human_pose.keypoints, minimum_shoulder_angle) {
+        PoseKind::Ready
     } else if let Some(side) = is_free_kick_pose(human_pose.keypoints, free_kick_signal_angle_range)
     {
-        PoseKind::FreeKickPose {
+        PoseKind::FreeKick {
             global_field_side: side,
         }
     } else {
@@ -230,7 +230,7 @@ fn is_free_kick_pose(
     }
 }
 
-fn is_above_head_arms_pose(keypoints: Keypoints, minimum_shoulder_angle: f32) -> bool {
+fn is_ready_signal_pose(keypoints: Keypoints, minimum_shoulder_angle: f32) -> bool {
     are_hands_above_shoulder(&keypoints)
         && is_right_shoulder_angled_up(
             &keypoints,

@@ -185,10 +185,7 @@ impl<'cycle> WalkAndStand<'cycle> {
         );
 
         if is_reached {
-            Some(MotionCommand::Stand {
-                head,
-                should_look_for_referee: false,
-            })
+            Some(MotionCommand::Stand { head })
         } else {
             let path = self.walk_path_planner.plan(
                 target_pose.position(),

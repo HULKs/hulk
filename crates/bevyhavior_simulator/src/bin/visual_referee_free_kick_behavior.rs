@@ -22,8 +22,8 @@ fn visual_referee_free_kick_behavior(app: &mut App) {
 
 #[derive(SystemParam)]
 struct State<'s> {
-    detecting_robots_when_home: Local<'s, usize>,
-    detecting_robots_when_away: Local<'s, usize>,
+    number_of_detecting_robots_when_home: Local<'s, usize>,
+    number_of_detecting_robots_when_away: Local<'s, usize>,
 }
 
 /// Runs at the start of the behavior simulator and is used to spawn in robots and set GameStates
@@ -86,7 +86,7 @@ fn update(
                     relevant_robots.database.main_outputs.motion_command.head_motion(),
                     Some(HeadMotion::LookAt { target, .. }) if target.abs_diff_eq(&expected_referee_position_in_ground, 1e-4)
                 ) {
-                    *state.detecting_robots_when_home += 1;
+                    *state.number_of_detecting_robots_when_home += 1;
                 }
             }
         }
@@ -130,13 +130,15 @@ fn update(
                     relevant_robot.database.main_outputs.motion_command.head_motion(),
                     Some(HeadMotion::LookAt { target, .. }) if target.abs_diff_eq(&expected_referee_position_in_ground, 1e-4)
                 ) {
-                    *state.detecting_robots_when_away += 1;
+                    *state.number_of_detecting_robots_when_away += 1;
                 }
             }
         }
     }
 
-    if (*state.detecting_robots_when_home == 2) && (*state.detecting_robots_when_away == 2) {
+    if (*state.number_of_detecting_robots_when_home == 2)
+        && (*state.number_of_detecting_robots_when_away == 2)
+    {
         println!("Done! Successfully performed behavior for free kick kicking team detection.");
         exit.send(AppExit::Success);
     }

@@ -46,8 +46,8 @@ pub struct CycleContext {
 
     initial_message_grace_period:
         Parameter<Duration, "ready_signal_detection_filter.initial_message_grace_period">,
-    minimum_above_head_arms_detections:
-        Parameter<usize, "ready_signal_detection_filter.minimum_above_head_arms_detections">,
+    minimum_ready_signal_detections:
+        Parameter<usize, "ready_signal_detection_filter.minimum_ready_signal_detections">,
     player_number: Parameter<PlayerNumber, "player_number">,
     referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
     minimum_number_poses_before_message:
@@ -106,7 +106,7 @@ impl ReadySignalDetectionFilter {
             self.ready_signal_detection_times,
             cycle_start_time,
             *context.initial_message_grace_period,
-            *context.minimum_above_head_arms_detections,
+            *context.minimum_ready_signal_detections,
         );
 
         context
@@ -156,7 +156,7 @@ impl ReadySignalDetectionFilter {
         let mut did_detect_any_ready_signal_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
-            let detected_visual_referee = detection == Some(PoseKind::AboveHeadArms);
+            let detected_visual_referee = detection == Some(PoseKind::Ready);
             self.detected_ready_signal_queue
                 .push_front(detected_visual_referee);
             did_detect_any_ready_signal_this_cycle |= detected_visual_referee
@@ -190,9 +190,9 @@ fn majority_vote_ready_signal(
     ready_signal_detection_times: Players<Option<SystemTime>>,
     cycle_start_time: SystemTime,
     initial_message_grace_period: Duration,
-    minimum_above_head_arms_detections: usize,
+    minimum_ready_signal_detections: usize,
 ) -> bool {
-    let detected_ready_signal_poses = ready_signal_detection_times
+    let detected_ready_signal_detections = ready_signal_detection_times
         .iter()
         .filter(|(_, detection_time)| match detection_time {
             Some(detection_time) => is_in_grace_period(
@@ -203,7 +203,7 @@ fn majority_vote_ready_signal(
             None => false,
         })
         .count();
-    detected_ready_signal_poses >= minimum_above_head_arms_detections
+    detected_ready_signal_detections >= minimum_ready_signal_detections
 }
 
 fn is_in_grace_period(
