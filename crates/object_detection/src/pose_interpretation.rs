@@ -215,16 +215,29 @@ fn is_free_kick_pose(
 ) -> Option<GlobalFieldSide> {
     let left_shoulder_to_hand =
         keypoints.left_shoulder.point.coords() - keypoints.left_hand.point.coords();
+    let left_shoulder_to_feet =
+        keypoints.left_shoulder.point.coords() - keypoints.left_foot.point.coords();
+    let left_arm_rotation =
+        Rotation2::rotation_between(left_shoulder_to_hand, left_shoulder_to_feet);
+
     let right_shoulder_to_hand =
         keypoints.right_shoulder.point.coords() - keypoints.right_hand.point.coords();
+    let right_shoulder_to_feet =
+        keypoints.right_shoulder.point.coords() - keypoints.right_foot.point.coords();
+    let right_arm_rotation =
+        Rotation2::rotation_between(right_shoulder_to_hand, right_shoulder_to_feet);
+
     let arm_rotation_difference =
-        Rotation2::rotation_between(left_shoulder_to_hand, right_shoulder_to_hand).angle();
-    if free_kick_signal_angle_range.contains(&arm_rotation_difference.abs()) {
-        if arm_rotation_difference.is_sign_positive() {
-            Some(GlobalFieldSide::Away)
-        } else {
-            Some(GlobalFieldSide::Home)
-        }
+        Rotation2::rotation_between(left_shoulder_to_hand, right_shoulder_to_hand);
+    let is_free_kick_pose =
+        free_kick_signal_angle_range.contains(&arm_rotation_difference.angle().abs());
+    if is_free_kick_pose && free_kick_signal_angle_range.contains(&left_arm_rotation.angle().abs())
+    {
+        Some(GlobalFieldSide::Away)
+    } else if is_free_kick_pose
+        && free_kick_signal_angle_range.contains(&right_arm_rotation.angle().abs())
+    {
+        Some(GlobalFieldSide::Home)
     } else {
         None
     }
