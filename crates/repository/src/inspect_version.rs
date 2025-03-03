@@ -27,7 +27,11 @@ pub fn inspect_version(toml_path: impl AsRef<Path>) -> Result<Version> {
 }
 
 /// Checks whether the package has a newer version than the provided version.
-pub fn check_for_update(own_version: &str, cargo_toml: impl AsRef<Path>) -> Result<()> {
+pub fn check_for_update(
+    own_version: &str,
+    cargo_toml: impl AsRef<Path>,
+    binary_name: &str,
+) -> Result<()> {
     let own_version = Version::parse(own_version)
         .wrap_err_with(|| format!("failed to parse own version '{own_version}' as SemVer"))?;
     let cargo_toml_version = inspect_version(&cargo_toml).wrap_err_with(|| {
@@ -37,14 +41,12 @@ pub fn check_for_update(own_version: &str, cargo_toml: impl AsRef<Path>) -> Resu
         )
     })?;
     if own_version < cargo_toml_version {
-        let crate_path = cargo_toml.as_ref().parent().unwrap();
         warn!(
             "New version available!
         Own version: {own_version}
         New version: {cargo_toml_version}
         To install new version use:
-            cargo install --path {}",
-            crate_path.display()
+            ./pepsi install {binary_name}",
         );
     }
     Ok(())

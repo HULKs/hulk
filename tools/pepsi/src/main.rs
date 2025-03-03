@@ -150,6 +150,7 @@ async fn main() -> Result<()> {
         if let Err(error) = check_for_update(
             env!("CARGO_PKG_VERSION"),
             repository.root.join("tools/pepsi/Cargo.toml"),
+            "pepsi",
         ) {
             warn!("{error:#?}");
         }

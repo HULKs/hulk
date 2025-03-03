@@ -80,7 +80,7 @@ The shells completions for fish, zsh and bash include dynamic suggestions for al
 Those suggestions are retrieved using the aliveness service and require a version of pepsi to be installed in the `PATH`, e.g. by using
 
 ```
-cargo install --path tools/pepsi
+./pepsi install pepsi
 ```
 
 and adding `~/.cargo/bin` to the `PATH`.
