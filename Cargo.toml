@@ -80,7 +80,7 @@ bat = { version = "0.25.0", default-features = false, features = [
   "paging",
   "regex-onig",
 ] }
-bevy = "0.15.2"
+bevy = { version = "0.15.2", default-features = false }
 bevy-inspector-egui = "0.29.1"
 bevy_asset_loader = "0.22.0"
 bevy_egui = "0.33.0"
@@ -232,6 +232,9 @@ zbus = "5.5.0"
 serde = { git = "https://github.com/HULKs/serde.git", rev = "2e5e545dc9958ab39d7b83120c16f15d864ea8a6" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "2e5e545dc9958ab39d7b83120c16f15d864ea8a6" }
+
+[profile.dev.package.bevy]
+opt-level = 3
 
 [profile.dev]
 opt-level = 3
