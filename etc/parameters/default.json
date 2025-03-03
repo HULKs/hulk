@@ -7,7 +7,7 @@
     "minimum_overall_keypoint_confidence": 0.5,
     "minimum_visual_referee_keypoint_confidence": 0.8,
     "minimum_shoulder_angle": 0.2,
-    "free_kick_signal_angle_range": [1.3, 1.8],
+    "free_kick_signal_angle_range": [1.2,2.3],
     "foot_z_offset": 0.025,
     "referee_pose_queue_length": 8,
     "minimum_number_poses_before_message": 3,
