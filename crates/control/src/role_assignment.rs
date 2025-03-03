@@ -407,6 +407,15 @@ fn process_role_state_machine(
         if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
             return (current_role, false, None);
         }
+        if let FilteredGameControllerState {
+            sub_state: Some(SubState::KickIn | SubState::PushingFreeKick),
+            ..
+        } = game_controller_state
+        {
+            if current_role != Role::Searcher && current_role != Role::Striker {
+                return (current_role, false, None);
+            }
+        }
     }
 
     if primary_state != PrimaryState::Playing {
