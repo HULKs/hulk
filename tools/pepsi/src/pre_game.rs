@@ -1,17 +1,12 @@
 use std::{collections::HashMap, path::Path};
 
-use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
-    Args,
-};
+use clap::Args;
 use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
 
-use argument_parsers::{
-    parse_network, NaoAddress, NaoAddressPlayerAssignment, NETWORK_POSSIBLE_VALUES,
-};
+use argument_parsers::NaoAddress;
 use indicatif::ProgressBar;
 use nao::{Nao, Network, SystemctlAction};
 use repository::{upload::get_hulk_binary, Repository};
@@ -19,7 +14,7 @@ use tempfile::tempdir;
 
 use crate::{
     cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
-    player_number::{player_number, Arguments as PlayerNumberArguments},
+    deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
 };
@@ -58,69 +53,30 @@ pub struct PreGameArguments {
         long,
         value_delimiter=',',
         value_parser = parse_key_value::<String, usize>,
-        default_value = "Control=1,VisionTop=30,VisionBottom=30,SplNetwork=1",
     )]
-    pub recording_intervals: Vec<(String, usize)>,
+    pub recording_intervals: Option<Vec<(String, usize)>>,
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
-    /// The location to use for parameters
-    pub location: String,
-    /// The network to connect the wifi device to (None disconnects from anything)
-    #[arg(
-        value_parser = PossibleValuesParser::new(NETWORK_POSSIBLE_VALUES)
-            .map(|s| parse_network(&s).unwrap()))
-    ]
-    pub wifi: Network,
-    /// The NAOs to upload to with player number assignments e.g. 20w:2 or 10.1.24.22:5 (player numbers start from 1)
-    #[arg(required = true)]
-    pub assignments: Vec<NaoAddressPlayerAssignment>,
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let naos: Vec<_> = arguments
-        .pre_game
-        .assignments
-        .iter()
-        .map(|assignment| assignment.nao_address)
-        .collect();
-
-    repository
-        .configure_recording_intervals(HashMap::from_iter(
-            arguments.pre_game.recording_intervals.clone(),
-        ))
+    let mut config = DeployConfig::read_from_file(repository)
         .await
-        .wrap_err("failed to apply recording settings")?;
+        .wrap_err("failed to read deploy config from file")?;
 
-    repository
-        .set_location("nao", &arguments.pre_game.location)
+    config.with_communication |= arguments.pre_game.with_communication;
+    if let Some(recording_intervals) = &arguments.pre_game.recording_intervals {
+        config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
+    }
+
+    let naos = config.naos();
+    let wifi = config.wifi;
+
+    config
+        .configure_repository(repository)
         .await
-        .wrap_err_with(|| {
-            format!(
-                "failed setting location for nao to {}",
-                arguments.pre_game.location
-            )
-        })?;
-
-    repository
-        .configure_communication(arguments.pre_game.with_communication)
-        .await
-        .wrap_err("failed to set communication")?;
-
-    player_number(
-        PlayerNumberArguments {
-            assignments: arguments
-                .pre_game
-                .assignments
-                .iter()
-                .copied()
-                .map(TryFrom::try_from)
-                .collect::<Result<Vec<_>, _>>()?,
-        },
-        repository,
-    )
-    .await
-    .wrap_err("failed to set player numbers")?;
+        .wrap_err("failed to configure repository")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let hulk_binary = get_hulk_binary(arguments.build.profile());
@@ -162,6 +118,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
                 nao_address,
                 upload_directory,
                 arguments,
+                wifi,
                 progress_bar,
                 repository,
             )
@@ -177,6 +134,7 @@ async fn setup_nao(
     nao_address: &NaoAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &PreGameArguments,
+    wifi: Network,
     progress: ProgressBar,
     repository: &Repository,
 ) -> Result<()> {
@@ -210,7 +168,7 @@ async fn setup_nao(
     .await
     .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
 
-    if arguments.wifi != Network::None {
+    if wifi != Network::None {
         progress.set_message("Scanning for WiFi...");
         nao.scan_networks()
             .await
@@ -218,7 +176,7 @@ async fn setup_nao(
     }
 
     progress.set_message("Setting WiFi...");
-    nao.set_wifi(arguments.wifi)
+    nao.set_wifi(wifi)
         .await
         .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
 

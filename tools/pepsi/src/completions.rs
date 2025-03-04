@@ -104,13 +104,10 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 }
             }
 
-            const ASSIGNEMNT_COMPLETION_SUBCOMMANDS: [&str; 2] = ["playernumber", "pregame"];
-            for subcommand in ASSIGNEMNT_COMPLETION_SUBCOMMANDS {
-                println!(
-                    "complete -c pepsi -n \"__fish_seen_subcommand_from {subcommand}\" \
-                         -f -a \"({assignement_completion_command})\""
-                );
-            }
+            println!(
+                "complete -c pepsi -n \"__fish_seen_subcommand_from playernumber\" \
+                     -f -a \"({assignement_completion_command})\""
+            );
         }
         Shell::Zsh => {
             let re = Regex::new("(:naos? -- .*):").unwrap();
