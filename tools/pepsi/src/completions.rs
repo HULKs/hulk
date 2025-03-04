@@ -107,6 +107,10 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 "complete -c pepsi -n \"__fish_seen_subcommand_from playernumber\" \
                      -f -a \"({assignement_completion_command})\""
             );
+            println!(
+                "complete -c pepsi -n \"__fish_seen_subcommand_from postgame\" \
+                     -f -a \"golden-goal first-half second-half\""
+            );
         }
         Shell::Zsh => {
             let re = Regex::new("(:naos? -- .*):").unwrap();
