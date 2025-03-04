@@ -26,6 +26,28 @@ jobs:
       - name: Check
         run: ./pepsi clippy --locked
 
+  check-cargo-lock:
+    name: Check Cargo.lock
+    strategy:
+      matrix:
+        path:
+          - .
+          - services/aliveness
+          - services/breeze
+          - services/hula
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.84.1
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Check
+        run: cargo update --locked --workspace --manifest-path ${{ matrix.path }}/Cargo.toml
+
   check-parameters:
     name: Check parameters
     runs-on:
