@@ -1,12 +1,13 @@
-use std::sync::Arc;
+use std::{env::temp_dir, fs::create_dir_all, sync::Arc, time::SystemTime};
 
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
-use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget};
+use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, Widget};
 use geometry::rectangle::Rectangle;
 use image::RgbImage;
 use linear_algebra::{point, vector};
+use log::{info, warn};
 use serde_json::{json, Value};
 
 use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
@@ -91,6 +92,40 @@ impl Panel for ImagePanel {
     }
 }
 
+fn absolute_time_to_time_string(time: SystemTime) -> String {
+    DateTime::<Utc>::from(time)
+        .format("%H:%M:%S%.3f")
+        .to_string()
+}
+
+fn save_jpeg_image(buffer: &BufferHandle<JpegImage>, vision_cycler_name: String) -> Result<()> {
+    let now = SystemTime::now();
+    let time_stamp = absolute_time_to_time_string(now);
+    let buffer = buffer
+        .get_last_value()?
+        .ok_or_else(|| eyre!("no image available"))?;
+    let directory = temp_dir().join("twix");
+    create_dir_all(&directory)?;
+    let path = directory.join(format!("image_{vision_cycler_name}_{time_stamp}.jpeg"));
+    image::save_buffer(&path, &buffer.data, 640, 480, image::ColorType::Rgb8)?;
+    info!("image saved to '{}'", path.display());
+    Ok(())
+}
+
+fn save_raw_image(buffer: &BufferHandle<YCbCr422Image>, vision_cycler_name: String) -> Result<()> {
+    let now = SystemTime::now();
+    let time_stamp = absolute_time_to_time_string(now);
+    let buffer = buffer
+        .get_last_value()?
+        .ok_or_else(|| eyre!("no image available"))?;
+    let directory = temp_dir().join("twix");
+    create_dir_all(&directory)?;
+    let path = directory.join(format!("image_{vision_cycler_name}_{time_stamp}.png"));
+    buffer.save_to_ycbcr_444_file(&path)?;
+    info!("image saved to '{}'", path.display());
+    Ok(())
+}
+
 impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
@@ -111,6 +146,17 @@ impl Widget for &mut ImagePanel {
             if let Ok(Some(timestamp)) = maybe_timestamp {
                 let date: DateTime<Utc> = timestamp.into();
                 ui.label(date.format("%T%.3f").to_string());
+            }
+            if ui.button("Save").clicked() {
+                let result = match &self.image_buffer {
+                    RawOrJpeg::Raw(buffer) => save_raw_image(buffer, format!("{:?}", self.cycler)),
+                    RawOrJpeg::Jpeg(buffer) => {
+                        save_jpeg_image(buffer, format!("{:?}", self.cycler))
+                    }
+                };
+                if let Err(error) = result {
+                    warn!("failed to save image: {error}");
+                }
             }
         });
         let (response, mut painter) = TwixPainter::allocate(
