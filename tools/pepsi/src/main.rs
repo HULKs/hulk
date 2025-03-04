@@ -206,7 +206,7 @@ async fn main() -> Result<()> {
         Command::Playernumber(arguments) => player_number(arguments, &repository?)
             .await
             .wrap_err("failed to execute player_number command")?,
-        Command::Postgame(arguments) => post_game(arguments)
+        Command::Postgame(arguments) => post_game(arguments, &repository?)
             .await
             .wrap_err("failed to execute post_game command")?,
         Command::Poweroff(arguments) => power_off(arguments, &repository?)
