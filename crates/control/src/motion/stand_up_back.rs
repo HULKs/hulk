@@ -13,7 +13,7 @@ use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
     joints::Joints,
-    motion_selection::{MotionSafeExits, MotionType},
+    motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
 
 #[derive(Deserialize, Serialize)]
@@ -34,6 +34,7 @@ pub struct CycleContext {
 
     condition_input: Input<ConditionInput, "condition_input">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    motion_selection: Input<MotionSelection, "motion_selection">,
     angular_velocity:
         Input<Vector3<Robot>, "sensor_data.inertial_measurement_unit.angular_velocity">,
 
@@ -62,15 +63,19 @@ impl StandUpBack {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let stand_up_back_estimated_remaining_duration = {
-            let last_cycle_duration = context.cycle_time.last_cycle_duration;
-            let condition_input = context.condition_input;
+        let stand_up_back_estimated_remaining_duration =
+            if context.motion_selection.current_motion == MotionType::StandUpBack {
+                let last_cycle_duration = context.cycle_time.last_cycle_duration;
+                let condition_input = context.condition_input;
+                self.interpolator
+                    .advance_by(last_cycle_duration, condition_input);
 
-            self.interpolator
-                .advance_by(last_cycle_duration, condition_input);
+                self.interpolator.estimated_remaining_duration()
+            } else {
+                self.interpolator.reset();
+                Duration::ZERO
+            };
 
-            self.interpolator.estimated_remaining_duration()
-        };
         context.motion_safe_exits[MotionType::StandUpBack] = self.interpolator.is_finished();
 
         self.filtered_gyro.update(context.angular_velocity.inner);
