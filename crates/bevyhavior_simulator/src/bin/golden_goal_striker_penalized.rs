@@ -10,7 +10,7 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
-use types::roles::Role;
+use types::{primary_state::PrimaryState, roles::Role};
 
 #[scenario]
 fn golden_goal(app: &mut App) {
@@ -59,14 +59,15 @@ fn update(
 
     let striker_count = robots
         .iter()
+        .filter(|robot| robot.database.main_outputs.primary_state != PrimaryState::Penalized)
         .filter(|robot| robot.database.main_outputs.role == Role::Striker)
         .count();
     if game_controller.state.game_state == GameState::Set {
         if striker_count == 1 {
-            println!("Striker is present");
+            println!("One striker is present");
             exit.send(AppExit::Success);
         } else {
-            println!("No striker");
+            println!("Error: Found {striker_count} strikers!");
             exit.send(AppExit::from_code(1));
         }
     }

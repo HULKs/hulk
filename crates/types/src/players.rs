@@ -28,6 +28,20 @@ pub struct Players<T> {
     pub seven: T,
 }
 
+impl<From> Players<From> {
+    pub fn map<To>(self, mut f: impl FnMut(From) -> To) -> Players<To> {
+        Players {
+            one: f(self.one),
+            two: f(self.two),
+            three: f(self.three),
+            four: f(self.four),
+            five: f(self.five),
+            six: f(self.six),
+            seven: f(self.seven),
+        }
+    }
+}
+
 impl<T: Clone> Players<T> {
     pub fn new(value: T) -> Self {
         Self {
