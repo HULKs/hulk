@@ -36,8 +36,7 @@ pub struct StrikerMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
     pub ball_position: BallPosition<Field>,
-    // TODO: make non-optional
-    pub time_to_reach_kick_position: Option<Duration>,
+    pub time_to_reach_kick_position: Duration,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -127,7 +126,7 @@ mod tests {
                 position: Point::origin(),
                 age: Duration::MAX,
             },
-            time_to_reach_kick_position: Some(Duration::MAX),
+            time_to_reach_kick_position: Duration::MAX,
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }
