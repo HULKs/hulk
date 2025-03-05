@@ -16,7 +16,7 @@ use types::roles::Role;
 /// If implemented correctly, the keeper should switch from loser to keeper after a short amount of
 /// time.
 #[scenario]
-fn keeper_never_loser(app: &mut App) {
+fn keeper_returns_after_loser(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
