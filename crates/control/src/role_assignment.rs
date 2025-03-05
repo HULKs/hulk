@@ -153,34 +153,34 @@ impl RoleAssignment {
         self.try_sending_game_controller_return_message(&context, ground_to_field)?;
 
         // TODO: reimplement whatever this did
-        // let is_in_penalty_kick = matches!(
-        //     context.filtered_game_controller_state,
-        //     Some(FilteredGameControllerState {
-        //         sub_state: Some(SubState::PenaltyKick),
-        //         ..
-        //     })
-        // );
-        //
-        // let spl_striker_message_timeout = match self.last_received_spl_striker_message {
-        //     None => false,
-        //     Some(last_received_spl_striker_message) => {
-        //         cycle_start_time.duration_since(last_received_spl_striker_message)?
-        //             > context.spl_network.spl_striker_message_receive_timeout
-        //     }
-        // };
-        //
-        // if spl_striker_message_timeout && !is_in_penalty_kick {
-        //     match new_role {
-        //         Role::Keeper | Role::ReplacementKeeper => {}
-        //         Role::Striker => {
-        //             new_role = Role::Loser;
-        //         }
-        //         Role::Loser if *context.player_number == PlayerNumber::One => {
-        //             new_role = Role::Keeper;
-        //         }
-        //         _ => new_role = Role::Searcher,
-        //     }
-        // }
+        let is_in_penalty_kick = matches!(
+            context.filtered_game_controller_state,
+            Some(FilteredGameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                ..
+            })
+        );
+
+        let spl_striker_message_timeout = match self.last_received_spl_striker_message {
+            None => true,
+            Some(last_received_spl_striker_message) => {
+                cycle_start_time.duration_since(last_received_spl_striker_message)?
+                    > context.spl_network.spl_striker_message_receive_timeout
+            }
+        };
+
+        if spl_striker_message_timeout && !is_in_penalty_kick {
+            match new_role {
+                Role::Keeper | Role::ReplacementKeeper => {}
+                Role::Striker => {
+                    new_role = Role::Loser;
+                }
+                Role::Loser if *context.player_number == PlayerNumber::One => {
+                    new_role = Role::Keeper;
+                }
+                _ => new_role = Role::Searcher,
+            }
+        }
 
         let events: Vec<_> = context
             .network_message
@@ -535,10 +535,11 @@ fn process_role_state_machine(
         (Role::Loser, true, Event::Loser) => Role::Striker,
 
         // Searcher remains Searcher
-        (Role::Searcher, false, Event::None) => Role::Searcher,
-
+        (Role::Searcher, false, Event::None) |
         // Edge-case, a striker (which should not exist) lost the ball
-        (Role::Searcher, false, Event::Loser) => Role::Searcher,
+        (Role::Searcher, false, Event::Loser) => {
+            pick_keeper_or_searcher(player_number, filtered_game_controller_state)
+        },
 
         // Searcher found ball and becomes Striker
         (Role::Searcher, true, Event::None) => Role::Striker,
@@ -637,9 +638,6 @@ fn pick_role_with_penalties(
     striker_player_number: PlayerNumber,
     optional_roles: &[Role],
 ) -> Role {
-    let mut role_assignment: Players<Option<Role>> = Players::new(None);
-
-    role_assignment[striker_player_number] = Some(Role::Striker);
     let mut unassigned_players: VecDeque<_> = penalties
         .iter()
         .filter_map(|(player_number, penalty)| {
@@ -647,6 +645,8 @@ fn pick_role_with_penalties(
         })
         .collect();
 
+    let mut role_assignment: Players<Option<Role>> = Players::new(None);
+    role_assignment[striker_player_number] = Some(Role::Striker);
     if let Some(keeper) = unassigned_players.pop_front() {
         role_assignment[keeper] = Some(match keeper {
             PlayerNumber::One => Role::Keeper,
@@ -659,6 +659,31 @@ fn pick_role_with_penalties(
     }
 
     role_assignment[own_player_number].unwrap_or_default()
+}
+
+fn pick_keeper_or_searcher(
+    own_player_number: PlayerNumber,
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
+) -> Role {
+    let Some(filtered_game_controller_state) = filtered_game_controller_state else {
+        // This case only happens if we don't have a game controller state
+        return Role::Searcher;
+    };
+
+    let mut unassigned_players: VecDeque<_> = filtered_game_controller_state
+        .penalties
+        .iter()
+        .filter_map(|(player_number, penalty)| penalty.is_none().then_some(player_number))
+        .collect();
+
+    if unassigned_players.pop_front() == Some(own_player_number) {
+        return match own_player_number {
+            PlayerNumber::One => Role::Keeper,
+            _ => Role::ReplacementKeeper,
+        };
+    }
+
+    Role::Searcher
 }
 
 #[cfg(test)]
