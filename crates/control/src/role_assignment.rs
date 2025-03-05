@@ -204,7 +204,9 @@ impl RoleAssignment {
             .collect();
 
         for event in events {
-            self.last_received_spl_striker_message = Some(cycle_start_time);
+            if let Event::Striker(_) = event {
+                self.last_received_spl_striker_message = Some(cycle_start_time)
+            }
 
             new_role = process_role_state_machine(
                 new_role,
