@@ -59,7 +59,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
-    time_to_reach_kick_position: Input<Duration, "time_to_reach_kick_position">,
+    time_to_reach_kick_position: Input<Option<Duration>, "time_to_reach_kick_position?">,
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -211,7 +211,7 @@ impl RoleAssignment {
                 context.ball_position.is_some(),
                 primary_state,
                 event,
-                Some(*context.time_to_reach_kick_position),
+                context.time_to_reach_kick_position.copied(),
                 context.team_ball.copied(),
                 cycle_start_time,
                 context.filtered_game_controller_state,
@@ -385,7 +385,7 @@ impl RoleAssignment {
                 player_number: *context.player_number,
                 pose,
                 ball_position,
-                time_to_reach_kick_position: Some(*context.time_to_reach_kick_position),
+                time_to_reach_kick_position: context.time_to_reach_kick_position.copied(),
             })))
             .wrap_err("failed to write StrikerMessage to hardware")
     }

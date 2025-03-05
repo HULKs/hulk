@@ -29,7 +29,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct MainOutputs {
-    pub time_to_reach_kick_position: MainOutput<Duration>,
+    pub time_to_reach_kick_position: MainOutput<Option<Duration>>,
 }
 
 impl TimeToReachKickPosition {
@@ -40,9 +40,10 @@ impl TimeToReachKickPosition {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let Some((orientation_mode, dribble_path)) = context.dribble_path_plan else {
             return Ok(MainOutputs {
-                time_to_reach_kick_position: Duration::MAX.into(),
+                time_to_reach_kick_position: None.into(),
             });
         };
+
         let walk_time = Duration::from_secs_f32(
             dribble_path
                 .iter()
@@ -89,7 +90,7 @@ impl TimeToReachKickPosition {
         .fold(Duration::ZERO, Duration::saturating_add);
 
         Ok(MainOutputs {
-            time_to_reach_kick_position: time_to_reach_kick_position.into(),
+            time_to_reach_kick_position: Some(time_to_reach_kick_position).into(),
         })
     }
 }
