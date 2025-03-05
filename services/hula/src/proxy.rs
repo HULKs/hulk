@@ -50,6 +50,13 @@ pub struct Proxy {
     shared_state: Arc<Mutex<SharedState>>,
 }
 
+#[derive(Debug)]
+enum OperationState {
+    GuestsInControl,
+    Idle,
+    SittingDown,
+}
+
 impl Proxy {
     pub fn initialize(shared_state: Arc<Mutex<SharedState>>) -> Result<Self> {
         let lola = wait_for_lola().wrap_err("failed to connect to LoLA")?;
@@ -78,43 +85,64 @@ impl Proxy {
 
     pub fn run(mut self) -> Result<()> {
         let proxy_start = Instant::now();
-        let mut connections = HashMap::new();
+        let mut connections: HashMap<i32, Connection> = HashMap::new();
         let mut events = [Event::new(Events::empty(), 0); 16];
         let mut writer = BufWriter::with_capacity(786, self.lola.try_clone()?);
 
+        let mut operation_state = OperationState::GuestsInControl;
+
         debug!("Entering epoll loop...");
         loop {
-            let number_of_events = epoll::wait(self.epoll_fd, NO_EPOLL_TIMEOUT, &mut events)
-                .wrap_err("failed to wait for epoll")?;
-            for event in &events[0..number_of_events] {
-                let notified_fd = event.data as i32;
-                if notified_fd == self.lola.as_raw_fd() {
-                    handle_lola_event(
-                        &mut self.lola,
-                        &mut connections,
-                        proxy_start,
-                        &self.shared_state,
-                    )?;
-                } else if notified_fd == self.hula.as_raw_fd() {
-                    register_connection(&mut self.hula, &mut connections, self.epoll_fd)?;
-                } else {
-                    handle_connection_event(
-                        &mut connections,
-                        notified_fd,
-                        &mut writer,
-                        &self.shared_state,
-                    )?;
-                }
-            }
+            debug!("Operation state: {:?}", operation_state);
 
-            if !connections
+            if matches!(operation_state, OperationState::SittingDown) {
+                // sitting down;
+                operation_state = OperationState::GuestsInControl;
+            } else if !connections
                 .values()
                 .any(|connection| connection.is_sending_control_frames)
             {
-                let battery = self.shared_state.lock().unwrap().battery;
-                send_idle(&mut writer, battery).wrap_err(
+                let shared_state = self.shared_state.lock().unwrap();
+                if let (Some(position), Some(inertial_measurement_unit)) = (
+                    shared_state.position,
+                    shared_state.inertial_measurement_unit,
+                ) {
+                    if (position.right_knee_pitch <= 90.0_f32.to_radians()
+                        || position.left_knee_pitch <= 90.0_f32.to_radians())
+                        && (position.left_hip_pitch >= -40.0_f32.to_radians()
+                            || position.right_hip_pitch >= -40.0_f32.to_radians())
+                        && inertial_measurement_unit.accelerometer.z < -8.0
+                    {
+                        operation_state = OperationState::SittingDown;
+                    }
+                }
+                send_idle(&mut writer, shared_state.battery).wrap_err(
                     "a shadowy flight into the dangerous world of a man who does not exist",
                 )?;
+            }
+            if matches!(operation_state, OperationState::GuestsInControl) {
+                let number_of_events = epoll::wait(self.epoll_fd, NO_EPOLL_TIMEOUT, &mut events)
+                    .wrap_err("failed to wait for epoll")?;
+                for event in &events[0..number_of_events] {
+                    let notified_fd = event.data as i32;
+                    if notified_fd == self.lola.as_raw_fd() {
+                        handle_lola_event(
+                            &mut self.lola,
+                            &mut connections,
+                            proxy_start,
+                            &self.shared_state,
+                        )?;
+                    } else if notified_fd == self.hula.as_raw_fd() {
+                        register_connection(&mut self.hula, &mut connections, self.epoll_fd)?;
+                    } else {
+                        handle_connection_event(
+                            &mut connections,
+                            notified_fd,
+                            &mut writer,
+                            &self.shared_state,
+                        )?;
+                    }
+                }
             }
         }
     }
@@ -138,6 +166,9 @@ fn handle_lola_event(
         let mut shared_state = shared_state.lock().unwrap();
         shared_state.battery = Some(robot_state.battery);
         shared_state.temperature = Some(robot_state.temperature);
+        shared_state.inertial_measurement_unit = Some(robot_state.inertial_measurement_unit);
+        shared_state.position = Some(robot_state.position);
+
         if shared_state.configuration.is_none() {
             shared_state.configuration = Some(robot_state.robot_configuration);
         }

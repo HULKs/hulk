@@ -76,15 +76,15 @@ pub struct Battery {
     pub temperature: f32,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
 #[repr(C)]
 pub struct InertialMeasurementUnit {
     #[serde(rename = "Accelerometer")]
-    accelerometer: Vertex3,
+    pub accelerometer: Vertex3,
     #[serde(rename = "Angles")]
-    angles: Vertex2,
+    pub angles: Vertex2,
     #[serde(rename = "Gyroscope")]
-    gyroscope: Vertex3,
+    pub gyroscope: Vertex3,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -150,31 +150,31 @@ pub struct SonarSensors {
 #[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
 #[repr(C)]
 pub struct JointsArray {
-    head_yaw: f32,
-    head_pitch: f32,
-    left_shoulder_pitch: f32,
-    left_shoulder_roll: f32,
-    left_elbow_yaw: f32,
-    left_elbow_roll: f32,
-    left_wrist_yaw: f32,
-    left_hip_yaw_pitch: f32,
-    left_hip_roll: f32,
-    left_hip_pitch: f32,
-    left_knee_pitch: f32,
-    left_ankle_pitch: f32,
-    left_ankle_roll: f32,
-    right_hip_roll: f32,
-    right_hip_pitch: f32,
-    right_knee_pitch: f32,
-    right_ankle_pitch: f32,
-    right_ankle_roll: f32,
-    right_shoulder_pitch: f32,
-    right_shoulder_roll: f32,
-    right_elbow_yaw: f32,
-    right_elbow_roll: f32,
-    right_wrist_yaw: f32,
-    left_hand: f32,
-    right_hand: f32,
+    pub head_yaw: f32,
+    pub head_pitch: f32,
+    pub left_shoulder_pitch: f32,
+    pub left_shoulder_roll: f32,
+    pub left_elbow_yaw: f32,
+    pub left_elbow_roll: f32,
+    pub left_wrist_yaw: f32,
+    pub left_hip_yaw_pitch: f32,
+    pub left_hip_roll: f32,
+    pub left_hip_pitch: f32,
+    pub left_knee_pitch: f32,
+    pub left_ankle_pitch: f32,
+    pub left_ankle_roll: f32,
+    pub right_hip_roll: f32,
+    pub right_hip_pitch: f32,
+    pub right_knee_pitch: f32,
+    pub right_ankle_pitch: f32,
+    pub right_ankle_roll: f32,
+    pub right_shoulder_pitch: f32,
+    pub right_shoulder_roll: f32,
+    pub right_elbow_yaw: f32,
+    pub right_elbow_roll: f32,
+    pub right_wrist_yaw: f32,
+    pub left_hand: f32,
+    pub right_hand: f32,
 }
 
 impl JointsArray {
@@ -209,17 +209,17 @@ impl JointsArray {
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[repr(C)]
 pub struct Vertex2 {
-    x: f32,
-    y: f32,
+    pub x: f32,
+    pub y: f32,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Deserialize)]
 #[repr(C)]
 pub struct Vertex3 {
-    x: f32,
-    y: f32,
-    z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }

@@ -5,7 +5,7 @@ use std::{
 
 use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr};
-use hula_types::{Battery, JointsArray, RobotConfiguration};
+use hula_types::{Battery, InertialMeasurementUnit, JointsArray, RobotConfiguration};
 use log::{debug, LevelFilter};
 use systemd::daemon::{notify, STATE_READY};
 
@@ -30,15 +30,17 @@ struct Arguments {
 pub struct SharedState {
     pub battery: Option<Battery>,
     pub temperature: Option<JointsArray>,
+    pub inertial_measurement_unit: Option<InertialMeasurementUnit>,
     pub configuration: Option<RobotConfiguration>,
+    pub position: Option<JointsArray>,
 }
 
 fn main() -> Result<()> {
-    let matches = Arguments::parse();
+    let arguments = Arguments::parse();
     env_logger::builder()
         .filter(
             None,
-            if matches.verbose {
+            if arguments.verbose {
                 LevelFilter::Debug
             } else {
                 LevelFilter::Info
