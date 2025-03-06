@@ -56,7 +56,7 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
     let naos = if let Some(naos) = &arguments.naos {
         for nao in naos {
             if !all_naos.contains(nao) {
-                bail!("NAO {nao} is not specified in the deploy.toml");
+                bail!("NAO with IP {nao} is not specified in the deploy.toml");
             }
         }
         naos
