@@ -1,4 +1,4 @@
-use std::{env::temp_dir, fs::create_dir_all, sync::Arc, time::SystemTime};
+use std::{env::temp_dir, fs::create_dir_all, path::PathBuf, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
@@ -92,35 +92,23 @@ impl Panel for ImagePanel {
     }
 }
 
-fn absolute_time_to_time_string(time: SystemTime) -> String {
-    DateTime::<Utc>::from(time)
-        .format("%H:%M:%S%.3f")
-        .to_string()
-}
-
-fn save_jpeg_image(buffer: &BufferHandle<JpegImage>, vision_cycler_name: String) -> Result<()> {
-    let now = SystemTime::now();
-    let time_stamp = absolute_time_to_time_string(now);
+fn save_jpeg_image(buffer: &BufferHandle<JpegImage>, path: PathBuf) -> Result<()> {
     let buffer = buffer
         .get_last_value()?
         .ok_or_else(|| eyre!("no image available"))?;
-    let directory = temp_dir().join("twix");
-    create_dir_all(&directory)?;
-    let path = directory.join(format!("image_{vision_cycler_name}_{time_stamp}.jpeg"));
-    image::save_buffer(&path, &buffer.data, 640, 480, image::ColorType::Rgb8)?;
+    buffer.save_to_jpeg_file(&path)?; // std::fs::write(&path, &buffer.data)?;
     info!("image saved to '{}'", path.display());
     Ok(())
 }
 
-fn save_raw_image(buffer: &BufferHandle<YCbCr422Image>, vision_cycler_name: String) -> Result<()> {
-    let now = SystemTime::now();
-    let time_stamp = absolute_time_to_time_string(now);
+fn save_raw_image(buffer: &BufferHandle<YCbCr422Image>, path: PathBuf) -> Result<()> {
+    // let time_stamp = Utc::now().format("%H:%M:%S%.3f").to_string();
     let buffer = buffer
         .get_last_value()?
         .ok_or_else(|| eyre!("no image available"))?;
-    let directory = temp_dir().join("twix");
-    create_dir_all(&directory)?;
-    let path = directory.join(format!("image_{vision_cycler_name}_{time_stamp}.png"));
+    // let directory = temp_dir().join("twix");
+    // create_dir_all(&directory)?;
+    // let path = directory.join(format!("image_{vision_cycler_name}_{time_stamp}.png"));
     buffer.save_to_ycbcr_444_file(&path)?;
     info!("image saved to '{}'", path.display());
     Ok(())
@@ -148,14 +136,22 @@ impl Widget for &mut ImagePanel {
                 ui.label(date.format("%T%.3f").to_string());
             }
             if ui.button("Save").clicked() {
-                let result = match &self.image_buffer {
-                    RawOrJpeg::Raw(buffer) => save_raw_image(buffer, format!("{:?}", self.cycler)),
-                    RawOrJpeg::Jpeg(buffer) => {
-                        save_jpeg_image(buffer, format!("{:?}", self.cycler))
+                let time_stamp = Utc::now().format("%H:%M:%S%.3f").to_string();
+                let directory = temp_dir().join("twix");
+                if let Err(error) = create_dir_all(&directory){
+                    warn!("failed to create temporary folder /tmp/twix: {error}");
+                } else {
+                    let cycler_name = format!("{:?}", self.cycler);
+                    let path = directory.join(format!("image_{cycler_name}_{time_stamp}.png"));
+                    let result = match &self.image_buffer {
+                        RawOrJpeg::Raw(buffer) => save_raw_image(buffer, path),
+                        RawOrJpeg::Jpeg(buffer) => {
+                            save_jpeg_image(buffer, path.with_extension("jpeg"))
+                        }
+                    };
+                    if let Err(error) = result {
+                        warn!("failed to save image: {error}");
                     }
-                };
-                if let Err(error) = result {
-                    warn!("failed to save image: {error}");
                 }
             }
         });
