@@ -48,7 +48,7 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
     let config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
-    let naos = arguments.naos.unwrap_or_else(|| config.naos());
+    let naos = arguments.naos.unwrap_or_else(|| config.all_naos());
 
     let log_directory = &arguments.log_directory.unwrap_or_else(|| {
         let log_directory_name = config.log_directory_name();
