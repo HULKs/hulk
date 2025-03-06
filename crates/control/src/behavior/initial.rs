@@ -17,7 +17,6 @@ pub fn execute(
     if world_state.robot.primary_state == PrimaryState::Initial {
         return Some(MotionCommand::Initial {
             head: HeadMotion::Center,
-            should_look_for_referee: false,
         });
     }
     if world_state.robot.primary_state == PrimaryState::Standby {
@@ -29,7 +28,6 @@ pub fn execute(
             )
             .unwrap_or(MotionCommand::Initial {
                 head: HeadMotion::Center,
-                should_look_for_referee: false,
             }),
         );
     }
@@ -66,11 +64,10 @@ fn look_at_referee(
     }
 
     Some(MotionCommand::Initial {
-        head: HeadMotion::LookAt {
+        head: HeadMotion::LookAtReferee {
             target: ground_to_field.inverse() * expected_referee_position,
             image_region_target: ImageRegion::Bottom,
             camera: Some(CameraPosition::Top),
         },
-        should_look_for_referee: true,
     })
 }

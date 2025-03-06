@@ -1717,6 +1717,7 @@ dependencies = [
 name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "ball_filter",
  "bevy",
  "bincode",
@@ -1738,6 +1739,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
+ "object_detection",
  "parameters",
  "parking_lot",
  "path_serde",
@@ -1754,6 +1756,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "types",
+ "vision",
  "walking_engine",
 ]
 

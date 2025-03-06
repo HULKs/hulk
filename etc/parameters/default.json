@@ -7,6 +7,10 @@
     "minimum_overall_keypoint_confidence": 0.5,
     "minimum_visual_referee_keypoint_confidence": 0.8,
     "minimum_shoulder_angle": 0.2,
+    "free_kick_signal_angle_range": [
+      1.2,
+      2.3
+    ],
     "foot_z_offset": 0.025,
     "referee_pose_queue_length": 8,
     "minimum_number_poses_before_message": 3,
@@ -55,7 +59,10 @@
       "image_containment_merge_factor": 1.0,
       "cluster_merge_radius_factor": 1.5,
       "ball_radius_enlargement_factor": 1.5,
-      "detection_noise": [8.0, 8.0],
+      "detection_noise": [
+        8.0,
+        8.0
+      ],
       "noise_increase_slope": 8.0,
       "noise_increase_distance_threshold": 3.0
     },
@@ -72,7 +79,10 @@
       "image_containment_merge_factor": 1.0,
       "cluster_merge_radius_factor": 1.5,
       "ball_radius_enlargement_factor": 1.5,
-      "detection_noise": [4.0, 4.0],
+      "detection_noise": [
+        4.0,
+        4.0
+      ],
       "noise_increase_slope": 0.0,
       "noise_increase_distance_threshold": 0.0
     }
@@ -80,20 +90,43 @@
   "camera_matrix_parameters": {
     "vision_top": {
       "camera_pitch": -1.2,
-      "extrinsic_rotations": [0, 0, 0],
-      "focal_lengths": [0.95, 1.27],
-      "cc_optical_center": [0.5, 0.5]
+      "extrinsic_rotations": [
+        0,
+        0,
+        0
+      ],
+      "focal_lengths": [
+        0.95,
+        1.27
+      ],
+      "cc_optical_center": [
+        0.5,
+        0.5
+      ]
     },
     "vision_bottom": {
       "camera_pitch": -39.7,
-      "extrinsic_rotations": [0, 0, 0],
-      "focal_lengths": [0.95, 1.27],
-      "cc_optical_center": [0.5, 0.5]
+      "extrinsic_rotations": [
+        0,
+        0,
+        0
+      ],
+      "focal_lengths": [
+        0.95,
+        1.27
+      ],
+      "cc_optical_center": [
+        0.5,
+        0.5
+      ]
     }
   },
   "foot_bumper_filter": {
     "activations_needed": 2,
-    "acceptance_duration": { "nanos": 0, "secs": 1 },
+    "acceptance_duration": {
+      "nanos": 0,
+      "secs": 1
+    },
     "buffer_size": 25,
     "number_of_detections_in_buffer_for_defective_declaration": 22,
     "number_of_detections_in_buffer_to_reset_in_use": 2,
@@ -338,9 +371,22 @@
     "validity_discard_threshold": 0.5,
     "velocity_decay_factor": 0.998,
     "noise": {
-      "process_noise_moving": [0.005, 0.005, 0.02, 0.02],
-      "process_noise_resting": [0.001, 0.001],
-      "initial_covariance": [0.5, 0.5, 40.0, 40.0]
+      "process_noise_moving": [
+        0.005,
+        0.005,
+        0.02,
+        0.02
+      ],
+      "process_noise_resting": [
+        0.001,
+        0.001
+      ],
+      "initial_covariance": [
+        0.5,
+        0.5,
+        40.0,
+        40.0
+      ]
     }
   },
   "button_filter": {
@@ -371,12 +417,30 @@
     "feet_detection_measurement_matching_distance": 0.2,
     "goal_post_measurement_matching_distance": 0.35,
     "hypothesis_merge_distance": 0.3,
-    "process_noise": [0.005, 0.005],
-    "feet_measurement_noise": [500.0, 500.0],
-    "robot_measurement_noise": [1000.0, 1000.0],
-    "sonar_measurement_noise": [1000.0, 1000.0],
-    "network_robot_measurement_noise": [3.0, 5.0],
-    "initial_covariance": [0.25, 0.25],
+    "process_noise": [
+      0.005,
+      0.005
+    ],
+    "feet_measurement_noise": [
+      500.0,
+      500.0
+    ],
+    "robot_measurement_noise": [
+      1000.0,
+      1000.0
+    ],
+    "sonar_measurement_noise": [
+      1000.0,
+      1000.0
+    ],
+    "network_robot_measurement_noise": [
+      3.0,
+      5.0
+    ],
+    "initial_covariance": [
+      0.25,
+      0.25
+    ],
     "measurement_count_threshold": 10,
     "use_feet_detection_measurements": true,
     "use_sonar_measurements": true,
@@ -433,9 +497,20 @@
         "left": 0.12,
         "turn": 0.025
       },
-      "foot_offset_left": [0.0, 0.052, 0.0],
-      "foot_offset_right": [0.0, -0.052, 0.0],
-      "step_duration": { "nanos": 235000000, "secs": 0 },
+      "foot_offset_left": [
+        0.0,
+        0.052,
+        0.0
+      ],
+      "foot_offset_right": [
+        0.0,
+        -0.052,
+        0.0
+      ],
+      "step_duration": {
+        "nanos": 235000000,
+        "secs": 0
+      },
       "step_duration_increase": {
         "forward": 0.1,
         "left": 0.03,
@@ -478,13 +553,22 @@
     "max_rotation_speed": 50000.0,
     "max_forward_acceleration": 0.01,
     "max_inside_turn": 0.1,
-    "max_step_duration": { "nanos": 0, "secs": 2 },
+    "max_step_duration": {
+      "nanos": 0,
+      "secs": 2
+    },
     "max_support_foot_lift_speed": 0.025,
-    "min_step_duration": { "nanos": 100000000, "secs": 0 },
+    "min_step_duration": {
+      "nanos": 100000000,
+      "secs": 0
+    },
     "sole_pressure_threshold": 0.4,
     "starting_step": {
       "foot_lift_apex": 0.009,
-      "step_duration": { "nanos": 200000000, "secs": 0 }
+      "step_duration": {
+        "nanos": 200000000,
+        "secs": 0
+      }
     },
     "step_midpoint": {
       "forward": 0.45,
@@ -515,23 +599,38 @@
         "shoulder_roll": -0.3,
         "wrist_yaw": -1.57
       },
-      "pulling_back_duration": { "nanos": 0, "secs": 1 },
-      "pulling_tight_duration": { "nanos": 0, "secs": 1 },
+      "pulling_back_duration": {
+        "nanos": 0,
+        "secs": 1
+      },
+      "pulling_tight_duration": {
+        "nanos": 0,
+        "secs": 1
+      },
       "roll_factor": 0.4,
       "torso_tilt_compensation_factor": 0.05
     }
   },
   "stand_up_back": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.08]
+    "leg_balancing_factor": [
+      0,
+      0.08
+    ]
   },
   "stand_up_front": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.12]
+    "leg_balancing_factor": [
+      0,
+      0.12
+    ]
   },
   "stand_up_sitting": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.08]
+    "leg_balancing_factor": [
+      0,
+      0.08
+    ]
   },
   "keeper_motion": {
     "maximum_ball_distance": 1.5,
@@ -543,42 +642,118 @@
   "kick_steps": {
     "forward": [
       {
-        "base_step": { "forward": 0.02, "left": 0.0, "turn": 0.0 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.02,
+          "left": 0.0,
+          "turn": 0.0
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.015,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.05, "left": 0.0, "turn": 0.0 },
-        "step_duration": { "nanos": 280000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.05,
+          "left": 0.0,
+          "turn": 0.0
+        },
+        "step_duration": {
+          "nanos": 280000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
         "hip_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 100000000, "secs": 0 } },
-          { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 100000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": -0.4,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 240000000,
+              "secs": 0
+            }
+          }
         ],
         "ankle_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
-          { "value": 0.1, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 50000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.1,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 200000000,
+              "secs": 0
+            }
+          }
         ]
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.015,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.01,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
@@ -587,34 +762,103 @@
     ],
     "turn": [
       {
-        "base_step": { "forward": 0.0, "left": 0.005, "turn": -0.8 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.005,
+          "turn": -0.8
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.01,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.03, "left": 0.0, "turn": -0.2 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.03,
+          "left": 0.0,
+          "turn": -0.2
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
         "hip_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 100000000, "secs": 0 } },
-          { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 100000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": -0.4,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 240000000,
+              "secs": 0
+            }
+          }
         ],
         "ankle_pitch_overrides": [
-          { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
-          { "value": 0.2, "timepoint": { "nanos": 150000000, "secs": 0 } },
-          { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 0,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 50000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.2,
+            "timepoint": {
+              "nanos": 150000000,
+              "secs": 0
+            }
+          },
+          {
+            "value": 0.0,
+            "timepoint": {
+              "nanos": 200000000,
+              "secs": 0
+            }
+          }
         ]
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.01,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
@@ -623,16 +867,30 @@
     ],
     "side": [
       {
-        "base_step": { "forward": 0.0, "left": 0.0, "turn": 0.0 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.0,
+          "turn": 0.0
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.01,
         "midpoint": 0.5,
         "hip_pitch_overrides": null,
         "ankle_pitch_overrides": null
       },
       {
-        "base_step": { "forward": 0.0, "left": 0.12, "turn": 0.0 },
-        "step_duration": { "nanos": 260000000, "secs": 0 },
+        "base_step": {
+          "forward": 0.0,
+          "left": 0.12,
+          "turn": 0.0
+        },
+        "step_duration": {
+          "nanos": 260000000,
+          "secs": 0
+        },
         "foot_lift_apex": 0.02,
         "midpoint": 0.4,
         "hip_pitch_overrides": null,
@@ -641,13 +899,24 @@
     ]
   },
   "localization": {
-    "circle_measurement_noise": [1000.0, 1000.0],
+    "circle_measurement_noise": [
+      1000.0,
+      1000.0
+    ],
     "gradient_convergence_threshold": 1e-2,
     "gradient_descent_step_size": 0.01,
     "hypothesis_prediction_score_reduction_factor": 0.9,
     "hypothesis_retain_factor": 0.05,
     "initial_hypothesis_covariance": [
-      0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001
+      0.001,
+      0.0,
+      0.0,
+      0.0,
+      0.001,
+      0.0,
+      0.0,
+      0.0,
+      0.001
     ],
     "initial_hypothesis_score": 10.0,
     "initial_poses": {
@@ -681,15 +950,30 @@
       }
     },
     "line_length_acceptance_factor": 1.5,
-    "line_measurement_noise": [1000.0, 320.0],
+    "line_measurement_noise": [
+      1000.0,
+      320.0
+    ],
     "maximum_amount_of_gradient_descent_iterations": 20,
     "maximum_amount_of_outer_iterations": 10,
     "minimum_fit_error": 0.001,
-    "odometry_noise": [0.05, 0.01, 0.008],
+    "odometry_noise": [
+      0.05,
+      0.01,
+      0.008
+    ],
     "use_line_measurements": true,
     "penalized_distance": 0.5,
     "penalized_hypothesis_covariance": [
-      0.01, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0, 0.001
+      0.01,
+      0.0,
+      0.0,
+      0.0,
+      0.002,
+      0.0,
+      0.0,
+      0.0,
+      0.001
     ],
     "good_matching_threshold": 0.5,
     "score_per_good_match": 2.0,
@@ -700,7 +984,10 @@
     "hypothesis_score_base_increase": 0.1
   },
   "odometry": {
-    "odometry_scale_factor": [1.075, 1.125]
+    "odometry_scale_factor": [
+      1.075,
+      1.125
+    ]
   },
   "orientation_filter": {
     "filter_gain": 0.01,
@@ -713,9 +1000,19 @@
     "angular_velocity_low_pass_factor": 0.2,
     "roll_pitch_low_pass_factor": 0.9,
     "gravitational_acceleration_threshold": 7.0,
-    "gravitational_force_sitting": [3.6, 0.0, 8.8],
-    "falling_angle_threshold_forward": [-0.3, 0.5],
-    "falling_angle_threshold_forward_with_catching_steps": [-0.45, 0.6],
+    "gravitational_force_sitting": [
+      3.6,
+      0.0,
+      8.8
+    ],
+    "falling_angle_threshold_forward": [
+      -0.3,
+      0.5
+    ],
+    "falling_angle_threshold_forward_with_catching_steps": [
+      -0.45,
+      0.6
+    ],
     "falling_timeout": {
       "nanos": 0,
       "secs": 1
@@ -1032,8 +1329,14 @@
     },
     "minimum_bottom_focus_pitch": 0.2,
     "image_regions": {
-      "bottom": [0.5, 0.7],
-      "center": [0.5, 0.5]
+      "bottom": [
+        0.5,
+        1.0
+      ],
+      "center": [
+        0.5,
+        0.5
+      ]
     }
   },
   "look_around": {
@@ -1076,26 +1379,56 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.22, -0.04],
-      "position_offset": [0.0, 0.0],
+      "position": [
+        -0.22,
+        -0.04
+      ],
+      "position_offset": [
+        0.0,
+        0.0
+      ],
       "orientation": 0.0,
-      "reached_thresholds": [0.04, 0.02, 0.05],
+      "reached_thresholds": [
+        0.04,
+        0.02,
+        0.05
+      ],
       "shot_distance": 4.0,
       "enabled": true
     },
     "turn": {
-      "position": [-0.15, -0.11],
-      "position_offset": [0.0, 0.0],
+      "position": [
+        -0.15,
+        -0.11
+      ],
+      "position_offset": [
+        0.0,
+        0.0
+      ],
       "orientation": 0.8,
-      "reached_thresholds": [0.04, 0.04, 0.1],
+      "reached_thresholds": [
+        0.04,
+        0.04,
+        0.1
+      ],
       "shot_distance": 3.5,
       "enabled": true
     },
     "side": {
-      "position": [-0.15, 0.03],
-      "position_offset": [0.0, 0.0],
+      "position": [
+        -0.15,
+        0.03
+      ],
+      "position_offset": [
+        0.0,
+        0.0
+      ],
       "orientation": -1.57,
-      "reached_thresholds": [0.05, 0.06, 0.1],
+      "reached_thresholds": [
+        0.05,
+        0.06,
+        0.1
+      ],
       "shot_distance": 0.8,
       "enabled": true
     }
@@ -1105,10 +1438,24 @@
     "corner_kick_target_distance_to_goal": 1.3,
     "min_obstacle_distance": 1.0,
     "kick_pose_robot_radius": 0.1,
-    "default_kick_variants": ["Forward", "Side", "Turn"],
-    "corner_kick_variants": ["Forward", "Side", "Turn"],
-    "kick_off_kick_variants": ["Forward", "Side", "Turn"],
-    "penalty_shot_kick_variants": ["Forward"],
+    "default_kick_variants": [
+      "Forward",
+      "Side",
+      "Turn"
+    ],
+    "corner_kick_variants": [
+      "Forward",
+      "Side",
+      "Turn"
+    ],
+    "kick_off_kick_variants": [
+      "Forward",
+      "Side",
+      "Turn"
+    ],
+    "penalty_shot_kick_variants": [
+      "Forward"
+    ],
     "default_kick_strength": 1.0,
     "corner_kick_strength": 0.25,
     "kick_off_kick_strength": 0.25,
@@ -1119,7 +1466,10 @@
   },
   "role_assignment": {
     "forced_role": null,
-    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 }
+    "keeper_replacementkeeper_switch_time": {
+      "nanos": 0,
+      "secs": 12
+    }
   },
   "walk_speed": {
     "defend": "Normal",
@@ -1158,8 +1508,14 @@
       "keeper_passive_distance": 4.5,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_pose": {
-        "translation": [-0.15, 0.15],
-        "rotation": [0.707, -0.707]
+        "translation": [
+          -0.15,
+          0.15
+        ],
+        "rotation": [
+          0.707,
+          -0.707
+        ]
       }
     },
     "dribbling": {
@@ -1170,14 +1526,23 @@
       "distance_to_look_directly_at_the_ball": 1.0
     },
     "walk_and_stand": {
-      "hysteresis": [0.1, 0.1],
-      "target_reached_thresholds": [0.02, 0.05],
+      "hysteresis": [
+        0.1,
+        0.1
+      ],
+      "target_reached_thresholds": [
+        0.02,
+        0.05
+      ],
       "hybrid_align_distance": 0.95,
       "normal_distance_to_be_aligned": 0.05,
       "defender_distance_to_be_aligned": 1.05
     },
     "lost_ball": {
-      "offset_to_last_ball_location": [1.0, 0.0]
+      "offset_to_last_ball_location": [
+        1.0,
+        0.0
+      ]
     },
     "path_planning": {
       "robot_radius_at_hip_height": 0.15,
@@ -1200,7 +1565,10 @@
     "look_action": {
       "angle_threshold": 0.95,
       "distance_threshold": 3.0,
-      "look_forward_position": [1.0, 0.0],
+      "look_forward_position": [
+        1.0,
+        0.0
+      ],
       "position_of_interest_switch_interval": {
         "nanos": 0,
         "secs": 1
@@ -1250,14 +1618,24 @@
       "secs": 4
     },
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
-    "whistle_acceptance_goal_distance": [0.5, 0.5]
+    "whistle_acceptance_goal_distance": [
+      0.5,
+      0.5
+    ]
   },
-  "referee_pose_detection_filter": {
+  "ready_signal_detection_filter": {
     "initial_message_grace_period": {
       "nanos": 0,
       "secs": 3
     },
-    "minimum_above_head_arms_detections": 1
+    "minimum_ready_signal_detections": 1
+  },
+  "free_kick_signal_detection_filter": {
+    "initial_message_grace_period": {
+      "nanos": 0,
+      "secs": 3
+    },
+    "minimum_free_kick_signal_detections": 1
   },
   "sacrificial_lamb": {
     "wait_for_opponent_penalties_period": {
@@ -1289,79 +1667,339 @@
       "enable": true
     },
     "torso_bounding_polygon": [
-      [0, -0.09799999743700027, 0.23499999940395355],
-      [-0.03500000014901161, -0.09799999743700027, 0.2199999988079071],
-      [-0.05999999865889549, -0.09799999743700027, 0.17000000178813934],
-      [-0.05000000074505806, -0.07000000029802322, 0.17000000178813934],
-      [-0.05000000074505806, -0.05000000074505806, 0.17000000178813934],
-      [-0.05000000074505806, -0.029999999329447743, 0.17000000178813934],
-      [-0.05000000074505806, 0, 0.17000000178813934],
-      [-0.05000000074505806, 0.029999999329447743, 0.17000000178813934],
-      [-0.05000000074505806, 0.05000000074505806, 0.17000000178813934],
-      [-0.05000000074505806, 0.07000000029802322, 0.17000000178813934],
-      [-0.05999999865889549, 0.09799999743700027, 0.17000000178813934],
-      [-0.03500000014901161, 0.09799999743700027, 0.2199999988079071],
-      [0, 0.09799999743700027, 0.23499999940395355],
-      [0.03500000014901161, 0.09799999743700027, 0.2199999988079071],
-      [0.05999999865889549, 0.09799999743700027, 0.17000000178813934],
-      [0.03650000074505806, 0.06000000029802322, 0.1850000059604645],
-      [0.06000000029802322, 0.03500000014901161, 0.15000000596046448],
-      [0.06300000029802322, 0, 0.15000000596046448],
-      [0.06000000029802322, -0.03500000014901161, 0.15000000596046448],
-      [0.05000000074505806, -0.07000000029802322, 0.15000000596046448],
-      [0.05999999865889549, -0.09799999743700027, 0.17000000178813934],
-      [0.03500000014901161, -0.09799999743700027, 0.2199999988079071],
-      [0, -0.09799999743700027, 0.23499999940395355]
+      [
+        0,
+        -0.09799999743700027,
+        0.23499999940395355
+      ],
+      [
+        -0.03500000014901161,
+        -0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        -0.05999999865889549,
+        -0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        -0.07000000029802322,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        -0.05000000074505806,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        -0.029999999329447743,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0.029999999329447743,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0.05000000074505806,
+        0.17000000178813934
+      ],
+      [
+        -0.05000000074505806,
+        0.07000000029802322,
+        0.17000000178813934
+      ],
+      [
+        -0.05999999865889549,
+        0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        -0.03500000014901161,
+        0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        0,
+        0.09799999743700027,
+        0.23499999940395355
+      ],
+      [
+        0.03500000014901161,
+        0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        0.05999999865889549,
+        0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        0.03650000074505806,
+        0.06000000029802322,
+        0.1850000059604645
+      ],
+      [
+        0.06000000029802322,
+        0.03500000014901161,
+        0.15000000596046448
+      ],
+      [
+        0.06300000029802322,
+        0,
+        0.15000000596046448
+      ],
+      [
+        0.06000000029802322,
+        -0.03500000014901161,
+        0.15000000596046448
+      ],
+      [
+        0.05000000074505806,
+        -0.07000000029802322,
+        0.15000000596046448
+      ],
+      [
+        0.05999999865889549,
+        -0.09799999743700027,
+        0.17000000178813934
+      ],
+      [
+        0.03500000014901161,
+        -0.09799999743700027,
+        0.2199999988079071
+      ],
+      [
+        0,
+        -0.09799999743700027,
+        0.23499999940395355
+      ]
     ],
     "lower_arm_bounding_polygon": [
-      [-0.06, 0.03, 0],
-      [-0.06, 0.0225, 0.0225],
-      [-0.06, 0, 0.03],
-      [-0.06, -0.0225, 0.0225],
-      [-0.06, -0.03, 0],
-      [-0.06, -0.0225, -0.0225],
-      [-0.06, 0, -0.03],
-      [-0.06, 0.0225, -0.0225],
-      [-0.06, 0.03, 0],
-      [0.085, 0.045, 0],
-      [0.085, 0.0325, 0.0325],
-      [0.085, 0, 0.045],
-      [0.085, -0.0325, 0.0325],
-      [0.085, -0.045, 0],
-      [0.085, -0.0325, -0.0325],
-      [0.085, 0, -0.045],
-      [0.085, 0.0325, -0.0325],
-      [0.085, 0.045, 0]
+      [
+        -0.06,
+        0.03,
+        0
+      ],
+      [
+        -0.06,
+        0.0225,
+        0.0225
+      ],
+      [
+        -0.06,
+        0,
+        0.03
+      ],
+      [
+        -0.06,
+        -0.0225,
+        0.0225
+      ],
+      [
+        -0.06,
+        -0.03,
+        0
+      ],
+      [
+        -0.06,
+        -0.0225,
+        -0.0225
+      ],
+      [
+        -0.06,
+        0,
+        -0.03
+      ],
+      [
+        -0.06,
+        0.0225,
+        -0.0225
+      ],
+      [
+        -0.06,
+        0.03,
+        0
+      ],
+      [
+        0.085,
+        0.045,
+        0
+      ],
+      [
+        0.085,
+        0.0325,
+        0.0325
+      ],
+      [
+        0.085,
+        0,
+        0.045
+      ],
+      [
+        0.085,
+        -0.0325,
+        0.0325
+      ],
+      [
+        0.085,
+        -0.045,
+        0
+      ],
+      [
+        0.085,
+        -0.0325,
+        -0.0325
+      ],
+      [
+        0.085,
+        0,
+        -0.045
+      ],
+      [
+        0.085,
+        0.0325,
+        -0.0325
+      ],
+      [
+        0.085,
+        0.045,
+        0
+      ]
     ],
     "upper_arm_bounding_polygon": [
-      [0, 0.029999999329447746, 0],
-      [0, 0.02250000089406967, 0.02250000089406967],
-      [0, 0, 0.029999999329447746],
-      [0, -0.02250000089406967, 0.02250000089406967],
-      [0, -0.029999999329447746, 0],
-      [0, -0.02250000089406967, -0.02250000089406967],
-      [0, 0, -0.029999999329447746],
-      [0, 0.02250000089406967, -0.02250000089406967],
-      [0, 0.029999999329447746, 0],
-      [-0.12, 0.029999999329447746, 0],
-      [-0.12, 0.02250000089406967, 0.02250000089406967],
-      [-0.12, 0, 0.029999999329447746],
-      [-0.12, -0.02250000089406967, 0.02250000089406967],
-      [-0.12, -0.029999999329447746, 0],
-      [-0.12, -0.02250000089406967, -0.02250000089406967],
-      [-0.12, 0, -0.029999999329447746],
-      [-0.12, 0.02250000089406967, -0.02250000089406967],
-      [-0.12, 0.029999999329447746, 0]
+      [
+        0,
+        0.029999999329447746,
+        0
+      ],
+      [
+        0,
+        0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        0,
+        0,
+        0.029999999329447746
+      ],
+      [
+        0,
+        -0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        0,
+        -0.029999999329447746,
+        0
+      ],
+      [
+        0,
+        -0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        0,
+        0,
+        -0.029999999329447746
+      ],
+      [
+        0,
+        0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        0,
+        0.029999999329447746,
+        0
+      ],
+      [
+        -0.12,
+        0.029999999329447746,
+        0
+      ],
+      [
+        -0.12,
+        0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        -0.12,
+        0,
+        0.029999999329447746
+      ],
+      [
+        -0.12,
+        -0.02250000089406967,
+        0.02250000089406967
+      ],
+      [
+        -0.12,
+        -0.029999999329447746,
+        0
+      ],
+      [
+        -0.12,
+        -0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        -0.12,
+        0,
+        -0.029999999329447746
+      ],
+      [
+        -0.12,
+        0.02250000089406967,
+        -0.02250000089406967
+      ],
+      [
+        -0.12,
+        0.029999999329447746,
+        0
+      ]
     ],
     "knee_bounding_polygon": [
-      [0.05, 0.05, -0.1],
-      [0.08, 0, -0.1],
-      [0.05, -0.05, -0.1]
+      [
+        0.05,
+        0.05,
+        -0.1
+      ],
+      [
+        0.08,
+        0,
+        -0.1
+      ],
+      [
+        0.05,
+        -0.05,
+        -0.1
+      ]
     ],
     "foot_bounding_polygon": [
-      [0.1, 0.06, 0.02],
-      [0.12, 0, 0.02],
-      [0.1, -0.06, 0.02]
+      [
+        0.1,
+        0.06,
+        0.02
+      ],
+      [
+        0.12,
+        0,
+        0.02
+      ],
+      [
+        0.1,
+        -0.06,
+        0.02
+      ]
     ]
   },
   "field_dimensions": {
@@ -1382,7 +2020,12 @@
     "goal_depth": 0.5
   },
   "player_number": "Seven",
-  "recorded_primary_states": ["Standby", "Ready", "Set", "Playing"],
+  "recorded_primary_states": [
+    "Standby",
+    "Ready",
+    "Set",
+    "Playing"
+  ],
   "spl_network": {
     "game_controller_return_message_interval": {
       "nanos": 0,
