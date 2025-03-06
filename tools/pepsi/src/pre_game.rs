@@ -76,7 +76,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     let naos = if let Some(naos) = &arguments.pre_game.naos {
         for nao in naos {
             if !playing_naos.contains(nao) {
-                bail!("NAO {nao} is not one of the playing NAOs in the deploy.toml");
+                bail!("NAO with IP {nao} is not one of the playing NAOs in the deploy.toml");
             }
         }
         naos
