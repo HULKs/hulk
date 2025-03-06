@@ -3,10 +3,13 @@ use std::{collections::HashMap, str::FromStr};
 use chrono::Utc;
 use color_eyre::{eyre::WrapErr, Result};
 use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
+use spl_network_messages::PlayerNumber;
 use tokio::fs::read_to_string;
 use toml::from_str;
 
-use argument_parsers::{parse_network, NaoAddress, NaoAddressPlayerAssignment};
+use argument_parsers::{
+    parse_network, NaoAddress, NaoAddressPlayerAssignment, NaoNumberPlayerAssignment,
+};
 use nao::Network;
 use repository::Repository;
 
@@ -23,6 +26,8 @@ pub struct DeployConfig {
     pub branches: Vec<Branch>,
     #[serde(deserialize_with = "deserialize_assignments")]
     pub assignments: Vec<NaoAddressPlayerAssignment>,
+    #[serde(deserialize_with = "deserialize_assignments")]
+    pub substitutions: Vec<NaoAddressPlayerAssignment>,
     pub with_communication: bool,
     pub recording_intervals: HashMap<String, usize>,
 }
@@ -57,14 +62,46 @@ impl DeployConfig {
         branch_name
     }
 
-    pub fn naos(&self) -> Vec<NaoAddress> {
-        self.assignments
+    pub fn playing_naos(&self) -> Vec<NaoAddress> {
+        self.assignments().into_values().collect()
+    }
+
+    pub fn all_naos(&self) -> Vec<NaoAddress> {
+        let mut naos: Vec<_> = self
+            .assignments
             .iter()
+            .chain(&self.substitutions)
             .map(|assignment| assignment.nao_address)
-            .collect()
+            .collect();
+
+        naos.sort_unstable();
+        naos.dedup();
+
+        naos
     }
 
     pub async fn configure_repository(self, repository: &Repository) -> Result<()> {
+        player_number(
+            Arguments {
+                assignments: self
+                    .assignments()
+                    .into_iter()
+                    .map(|(player_number, nao_address)| {
+                        nao_address
+                            .try_into()
+                            .map(|nao_number| NaoNumberPlayerAssignment {
+                                nao_number,
+                                player_number,
+                            })
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .wrap_err("failed to convert NAO addresses to NAO numbers")?,
+            },
+            repository,
+        )
+        .await
+        .wrap_err("failed to set player numbers")?;
+
         repository
             .configure_recording_intervals(self.recording_intervals)
             .await
@@ -80,21 +117,21 @@ impl DeployConfig {
             .await
             .wrap_err("failed to set communication")?;
 
-        player_number(
-            Arguments {
-                assignments: self
-                    .assignments
-                    .iter()
-                    .copied()
-                    .map(TryFrom::try_from)
-                    .collect::<Result<Vec<_>, _>>()?,
-            },
-            repository,
-        )
-        .await
-        .wrap_err("failed to set player numbers")?;
-
         Ok(())
+    }
+
+    fn assignments(&self) -> HashMap<PlayerNumber, NaoAddress> {
+        let mut assignments: HashMap<_, _> = self
+            .assignments
+            .iter()
+            .map(|assignment| (assignment.player_number, assignment.nao_address))
+            .collect();
+
+        for substitution in &self.substitutions {
+            assignments.insert(substitution.player_number, substitution.nao_address);
+        }
+
+        assignments
     }
 }
 
