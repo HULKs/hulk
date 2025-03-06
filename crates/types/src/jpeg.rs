@@ -1,3 +1,5 @@
+use std::path::Path;
+use color_eyre::eyre;
 use image::{codecs::jpeg::JpegEncoder, ImageBuffer, ImageError, Luma, RgbImage};
 use serde::{Deserialize, Serialize};
 
@@ -34,5 +36,11 @@ impl TryFrom<&YCbCr422Image> for JpegImage {
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
         encoder.encode_image(&rgb_image)?;
         Ok(Self { data: jpeg_buffer })
+    }
+}
+
+impl JpegImage {
+    pub fn save_to_jpeg_file(&self, file: impl AsRef<Path>) -> eyre::Result<()> {
+        Ok(std::fs::write(file, self.data.clone())?)
     }
 }
