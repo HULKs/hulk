@@ -27,6 +27,14 @@ impl Repository {
         .await
         .wrap_err("failed to link executable")?;
 
+        create_dir_all(upload_directory.join("logs"))
+            .await
+            .wrap_err("failed to create directory for logs")?;
+
+        symlink(&self.root, upload_directory.join("logs/source"))
+            .await
+            .wrap_err("failed to link source directory")?;
+
         Ok(())
     }
 }
