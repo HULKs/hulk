@@ -1,7 +1,7 @@
-use std::path::Path;
 use color_eyre::eyre;
 use image::{codecs::jpeg::JpegEncoder, ImageBuffer, ImageError, Luma, RgbImage};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 use crate::{grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image};
 
