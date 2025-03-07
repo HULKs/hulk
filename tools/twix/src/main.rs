@@ -34,9 +34,10 @@ use log::{error, warn};
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    BallCandidatePanel, BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel,
-    ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel,
-    RemotePanel, TextPanel, VisionTunerPanel,
+    AutomaticCameraCalibrationExportPanel, BallCandidatePanel, BehaviorSimulatorPanel,
+    EnumPlotPanel, ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel,
+    ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel,
+    VisionTunerPanel,
 };
 
 use reachable_naos::ReachableNaos;
@@ -139,6 +140,7 @@ impl_selectable_panel!(
     ImageSegmentsPanel,
     LookAtPanel,
     ManualCalibrationPanel,
+    AutomaticCameraCalibrationExportPanel,
     MapPanel,
     ParameterPanel,
     PlotPanel,
