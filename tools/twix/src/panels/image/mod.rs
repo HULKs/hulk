@@ -96,19 +96,15 @@ fn save_jpeg_image(buffer: &BufferHandle<JpegImage>, path: PathBuf) -> Result<()
     let buffer = buffer
         .get_last_value()?
         .ok_or_else(|| eyre!("no image available"))?;
-    buffer.save_to_jpeg_file(&path)?; // std::fs::write(&path, &buffer.data)?;
+    buffer.save_to_jpeg_file(&path)?;
     info!("image saved to '{}'", path.display());
     Ok(())
 }
 
 fn save_raw_image(buffer: &BufferHandle<YCbCr422Image>, path: PathBuf) -> Result<()> {
-    // let time_stamp = Utc::now().format("%H:%M:%S%.3f").to_string();
     let buffer = buffer
         .get_last_value()?
         .ok_or_else(|| eyre!("no image available"))?;
-    // let directory = temp_dir().join("twix");
-    // create_dir_all(&directory)?;
-    // let path = directory.join(format!("image_{vision_cycler_name}_{time_stamp}.png"));
     buffer.save_to_ycbcr_444_file(&path)?;
     info!("image saved to '{}'", path.display());
     Ok(())
@@ -138,7 +134,7 @@ impl Widget for &mut ImagePanel {
             if ui.button("Save").clicked() {
                 let time_stamp = Utc::now().format("%H:%M:%S%.3f").to_string();
                 let directory = temp_dir().join("twix");
-                if let Err(error) = create_dir_all(&directory){
+                if let Err(error) = create_dir_all(&directory) {
                     warn!("failed to create temporary folder /tmp/twix: {error}");
                 } else {
                     let cycler_name = format!("{:?}", self.cycler);
