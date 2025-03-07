@@ -293,10 +293,7 @@ impl Behavior {
                     actions.push(Action::Dribble);
                 }
                 Some(FilteredGameControllerState {
-                    game_state:
-                        FilteredGameState::Ready {
-                            kicking_team_known: true,
-                        },
+                    game_state: FilteredGameState::Ready,
                     kicking_team: Some(Team::Hulks),
                     sub_state,
                     ..
