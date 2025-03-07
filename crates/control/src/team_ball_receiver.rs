@@ -7,7 +7,7 @@ use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use spl_network_messages::{HulkMessage, StrikerMessage};
+use spl_network_messages::{GamePhase, HulkMessage, SubState};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage, players::Players,
 };
@@ -57,7 +57,7 @@ impl TeamBallReceiver {
                     .filter_map(|message| Some((*time, (*message)?)))
             })
             .filter_map(|(time, message)| match message {
-                IncomingMessage::Spl(HulkMessage::Striker(message)) => Some((time, *message)),
+                IncomingMessage::Spl(message) => Some((time, *message)),
                 _ => None,
             });
         for (time, message) in striker_messages.clone() {
@@ -124,12 +124,20 @@ impl TeamBallReceiver {
         })
     }
 
-    fn process_message(&mut self, time: SystemTime, message: StrikerMessage) {
-        self.received_balls[message.player_number] = Some(BallPosition {
-            position: message.ball_position.position,
-            velocity: Vector2::zeros(),
-            last_seen: time - message.ball_position.age,
-        });
+    fn process_message(&mut self, time: SystemTime, message: HulkMessage) {
+        let (player, ball) = match message {
+            HulkMessage::Striker(striker_message) => (
+                striker_message.player_number,
+                Some(BallPosition {
+                    position: striker_message.ball_position.position,
+                    velocity: Vector2::zeros(),
+                    last_seen: time - striker_message.ball_position.age,
+                }),
+            ),
+            HulkMessage::Loser(loser_message) => (loser_message.player_number, None),
+            HulkMessage::VisualReferee(_) => return,
+        };
+        self.received_balls[player] = ball;
     }
 
     fn get_best_received_ball(
