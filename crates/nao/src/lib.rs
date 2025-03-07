@@ -55,6 +55,14 @@ impl Nao {
         Self { address }
     }
 
+    pub async fn ping_until_available(host: Ipv4Addr) -> Self {
+        loop {
+            if let Ok(nao) = Self::try_new_with_ping(host).await {
+                return nao;
+            }
+        }
+    }
+
     pub async fn try_new_with_ping(host: Ipv4Addr) -> Result<Self> {
         Self::try_new_with_ping_and_arguments(host, PING_TIMEOUT).await
     }

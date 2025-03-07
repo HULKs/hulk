@@ -60,7 +60,9 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
         &naos,
         "Executing postgame tasks...",
         |nao_address, progress_bar| async move {
-            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+            progress_bar.set_message("Pinging NAO...");
+            let nao = Nao::ping_until_available(nao_address.ip).await;
+
             progress_bar.set_message("Stopping HULK service...");
             nao.execute_systemctl(SystemctlAction::Stop, "hulk")
                 .await
