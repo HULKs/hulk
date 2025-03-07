@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use argument_parsers::NaoAddress;
 use clap::{Args, ValueEnum};
 use color_eyre::{eyre::WrapErr, Result};
 
@@ -19,6 +20,8 @@ pub struct Arguments {
     /// Current game phase
     #[arg(value_enum)]
     pub phase: Phase,
+    /// The NAOs to apply the postgame to, queried from the deploy.toml if not specified
+    pub naos: Option<Vec<NaoAddress>>,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -32,7 +35,7 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
     let config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
-    let naos = config.naos();
+    let naos = arguments.naos.unwrap_or_else(|| config.naos());
 
     let log_directory = &arguments.log_directory.unwrap_or_else(|| {
         let log_directory_name = config.log_directory_name();

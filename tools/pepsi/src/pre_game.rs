@@ -58,6 +58,8 @@ pub struct PreGameArguments {
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
+    /// The NAOs to apply the pregame to, queried from the deploy.toml if not specified
+    pub naos: Option<Vec<NaoAddress>>,
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -70,7 +72,17 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
     }
 
-    let naos = config.naos();
+    let config_naos = config.naos();
+    let naos = if let Some(naos) = &arguments.pre_game.naos {
+        for nao in naos {
+            if !config_naos.contains(nao) {
+                bail!("NAO {nao} is not present in deploy.toml");
+            }
+        }
+        naos
+    } else {
+        &config_naos
+    };
     let wifi = config.wifi;
 
     config
@@ -111,7 +123,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     let upload_directory = &upload_directory;
 
     ProgressIndicator::map_tasks(
-        &naos,
+        naos,
         "Executing pregame tasks",
         |nao_address, progress_bar| async move {
             setup_nao(

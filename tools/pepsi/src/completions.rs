@@ -72,7 +72,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
         Shell::Fish => {
             print!("{static_completions}");
 
-            const COMPLETION_SUBCOMMANDS: [(&str, &str); 14] = [
+            const COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
                 ("aliveness", ""),
                 ("gammaray", ""),
                 ("hulk", ""),
@@ -80,7 +80,11 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 ("logs", "downloads"),
                 ("logs", "show"),
                 ("ping", ""),
+                ("postgame", "golden-goal"),
+                ("postgame", "first-half"),
+                ("postgame", "second-half"),
                 ("poweroff", ""),
+                ("pregame", ""),
                 ("reboot", ""),
                 ("shell", ""),
                 ("upload", ""),
@@ -88,16 +92,16 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 ("wifi", "set"),
                 ("wifi", "status"),
             ];
-            for (first, second) in COMPLETION_SUBCOMMANDS {
-                if second.is_empty() {
+            for (subcommand, argument) in COMPLETION_SUBCOMMANDS {
+                if argument.is_empty() {
                     println!(
-                        "complete -c pepsi -n \"__fish_seen_subcommand_from {first}\" \
+                        "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}\" \
                              -f -a \"({nao_completion_command})\""
                     );
                 } else {
                     println!(
-                        "complete -c pepsi -n \"__fish_seen_subcommand_from {first}; \
-                             and __fish_seen_subcommand_from {second}\" \
+                        "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}; \
+                             and __fish_seen_subcommand_from {argument}\" \
                              -f -a \"({nao_completion_command})\""
                     );
                 }
@@ -108,7 +112,8 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                      -f -a \"({assignement_completion_command})\""
             );
             println!(
-                "complete -c pepsi -n \"__fish_seen_subcommand_from postgame\" \
+                "complete -c pepsi -n \"__fish_seen_subcommand_from postgame; \
+                     and not __fish_seen_subcommand_from golden-goal first-half second-half\" \
                      -f -a \"golden-goal first-half second-half\""
             );
         }
