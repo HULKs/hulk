@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use spl_network_messages::{GamePhase, HulkMessage, SubState};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage, players::Players,
+    ball_position::BallPosition, cycle_time::CycleTime,
+    filtered_game_controller_state::FilteredGameControllerState, messages::IncomingMessage,
+    players::Players,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -23,9 +25,9 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
-    network_message_debug:
-        AdditionalOutput<Vec<(SystemTime, StrikerMessage)>, "network_message_debug">,
 
     striker_trusts_team_ball: Parameter<Duration, "spl_network.striker_trusts_team_ball">,
 
@@ -63,26 +65,24 @@ impl TeamBallReceiver {
         for (time, message) in striker_messages.clone() {
             self.process_message(time, message);
         }
-        context
-            .network_message_debug
-            .fill_if_subscribed(|| striker_messages.collect());
+
+        // Ignore everything during penalty_*
+        if let Some(game_controller_state) = context.filtered_game_controller_state {
+            let in_penalty_shootout = matches!(
+                game_controller_state.game_phase,
+                GamePhase::PenaltyShootout { .. }
+            );
+            let in_penalty_kick = game_controller_state.sub_state == Some(SubState::PenaltyKick);
+
+            if in_penalty_shootout || in_penalty_kick {
+                return Ok(MainOutputs {
+                    team_ball: None.into(),
+                    network_robot_obstacles: Vec::new().into(),
+                });
+            }
+        }
 
         // === Team ball ===
-        // if let Some(game_controller_state) = filtered_game_controller_state {
-        //     match game_controller_state.game_phase {
-        //         GamePhase::PenaltyShootout {
-        //             kicking_team: Team::Hulks,
-        //         } => return (Role::Striker, false, None),
-        //         GamePhase::PenaltyShootout {
-        //             kicking_team: Team::Opponent,
-        //         } => return (Role::Keeper, false, None),
-        //         _ => {}
-        //     };
-        //     if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
-        //         return (current_role, false, None);
-        //     }
-        // }
-
         // if primary_state != PrimaryState::Playing {
         //     match detected_own_team_ball {
         //         None => return (current_role, false, team_ball), Some(own_team_ball) => return (current_role, false, own_team_ball),
