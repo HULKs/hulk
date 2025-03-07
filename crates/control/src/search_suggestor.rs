@@ -171,17 +171,17 @@ fn get_rule_hypotheses(
 
     match (primary_state, filtered_game_controller_state.sub_state) {
         (PrimaryState::Ready, Some(SubState::PenaltyKick)) => {
-            let kick_half = kicking_team_half.unwrap_or(Half::Own).mirror();
-            vec![field_dimensions.penalty_spot(kick_half)]
+            let kicking_team_half = kicking_team_half.unwrap_or(Half::Own).mirror();
+            vec![field_dimensions.penalty_spot(kicking_team_half)]
         }
         // Kick-off
         (PrimaryState::Ready, None) => vec![field_dimensions.center()],
         (PrimaryState::Playing, Some(SubState::CornerKick)) => {
-            if let Some(kicking_team) = kicking_team_half {
-                let kick_half = kicking_team.mirror();
+            if let Some(kicking_team_half) = kicking_team_half {
+                let kicking_team_half = kicking_team_half.mirror();
                 vec![
-                    field_dimensions.corner(kick_half, Side::Left),
-                    field_dimensions.corner(kick_half, Side::Right),
+                    field_dimensions.corner(kicking_team_half, Side::Left),
+                    field_dimensions.corner(kicking_team_half, Side::Right),
                 ]
             } else {
                 vec![
@@ -193,11 +193,10 @@ fn get_rule_hypotheses(
             }
         }
         (PrimaryState::Playing, Some(SubState::GoalKick)) => {
-            if let Some(kicking_team) = kicking_team_half {
-                let kick_half = kicking_team;
+            if let Some(kicking_team_half) = kicking_team_half {
                 vec![
-                    field_dimensions.goal_box_corner(kick_half, Side::Left),
-                    field_dimensions.goal_box_corner(kick_half, Side::Right),
+                    field_dimensions.goal_box_corner(kicking_team_half, Side::Left),
+                    field_dimensions.goal_box_corner(kicking_team_half, Side::Right),
                 ]
             } else {
                 vec![
