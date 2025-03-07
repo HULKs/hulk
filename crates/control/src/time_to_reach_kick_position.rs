@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_1_PI, time::Duration};
+use std::{f32::consts::PI, time::Duration};
 
 use color_eyre::{eyre::Ok, Result};
 use framework::MainOutput;
@@ -44,47 +44,42 @@ impl TimeToReachKickPosition {
             });
         };
 
-        let walk_time = Duration::from_secs_f32(
-            dribble_path
-                .iter()
-                .map(|segment: &PathSegment| {
-                    let length = segment.length();
-                    match segment {
-                        PathSegment::LineSegment(_) => {
-                            length / context.configuration.path_planning.line_walking_speed
-                        }
-                        PathSegment::Arc(_) => {
-                            length / context.configuration.path_planning.arc_walking_speed
-                        }
+        let walk_time = dribble_path
+            .iter()
+            .map(|segment: &PathSegment| {
+                let length = segment.length();
+                match segment {
+                    PathSegment::LineSegment(_) => {
+                        length / context.configuration.path_planning.line_walking_speed
                     }
-                })
-                .sum(),
-        );
-        let turning_angle = match orientation_mode {
-            OrientationMode::Override(orientation) => Some(orientation.angle().abs()),
-            _ => {
-                let turning_angle_towards_path = match dribble_path.first() {
-                    Some(PathSegment::LineSegment(line_segment)) => {
-                        Some(line_segment.1.coords().angle(&Vector2::x_axis()).abs())
+                    PathSegment::Arc(_) => {
+                        length / context.configuration.path_planning.arc_walking_speed
                     }
-                    _ => None,
-                };
-                turning_angle_towards_path
-            }
+                }
+            })
+            .sum();
+        let walk_duration = Duration::from_secs_f32(walk_time);
+
+        let turn_angle = match orientation_mode {
+            OrientationMode::Override(orientation) => orientation.angle().abs(),
+            _ => match dribble_path.first() {
+                Some(PathSegment::LineSegment(line_segment)) => {
+                    line_segment.1.coords().angle(&Vector2::x_axis()).abs()
+                }
+                _ => 0.0,
+            },
         };
-        let time_to_turn = turning_angle.map_or(Duration::ZERO, |angle| {
-            context
-                .configuration
-                .path_planning
-                .half_rotation
-                .mul_f32(angle * FRAC_1_PI)
-        });
+        let turn_duration = context
+            .configuration
+            .path_planning
+            .half_rotation
+            .mul_f32(turn_angle / PI);
 
         let time_to_reach_kick_position = [
-            walk_time,
+            walk_duration,
             *context.stand_up_back_estimated_remaining_duration,
             *context.stand_up_front_estimated_remaining_duration,
-            time_to_turn,
+            turn_duration,
         ]
         .into_iter()
         .fold(Duration::ZERO, Duration::saturating_add);
