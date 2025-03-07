@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::MainOutput;
 use spl_network_messages::{SubState, Team};
-use types::{game_controller_state::GameControllerState, world_state::BallState};
+use types::{
+    filtered_whistle::FilteredWhistle, game_controller_state::GameControllerState,
+    world_state::BallState,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct KickingTeamFilter {}
@@ -17,6 +20,7 @@ pub struct CycleContext {
     last_ball_state: CyclerState<BallState, "last_ball_position">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
+    filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
 }
 
 #[context]
@@ -60,6 +64,14 @@ impl KickingTeamFilter {
                 {
                     Some(Team::Hulks)
                 }
+                None => match (
+                    context.filtered_whistle.is_detected,
+                    last_ball_state.ball_in_field.x().is_sign_positive(),
+                ) {
+                    (true, true) => Some(Team::Opponent),
+                    (true, false) => Some(Team::Hulks),
+                    _ => None,
+                },
                 _ => None,
             }
         };
