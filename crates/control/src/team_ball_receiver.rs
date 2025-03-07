@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 use color_eyre::eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
@@ -27,6 +27,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     striker_trusts_team_ball: Parameter<Duration, "spl_network.striker_trusts_team_ball">,
@@ -49,7 +50,7 @@ impl TeamBallReceiver {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let striker_messages = context
+        let messages = context
             .network_message
             .persistent
             .iter()
@@ -62,8 +63,20 @@ impl TeamBallReceiver {
                 IncomingMessage::Spl(message) => Some((time, *message)),
                 _ => None,
             });
-        for (time, message) in striker_messages.clone() {
+        let mut network_robot_obstacles = Vec::new();
+        for (time, message) in messages.clone() {
             self.process_message(time, message);
+
+            let Some(own_ground_to_field) = context.ground_to_field else {
+                continue;
+            };
+            let pose = match message {
+                HulkMessage::Striker(striker_message) => striker_message.pose,
+                HulkMessage::Loser(loser_message) => loser_message.pose,
+                HulkMessage::VisualReferee(_) => continue,
+            };
+            let sender_position = own_ground_to_field.inverse() * pose.position();
+            network_robot_obstacles.push(sender_position);
         }
 
         // Ignore everything during penalty_*
@@ -82,23 +95,7 @@ impl TeamBallReceiver {
             }
         }
 
-        // === Team ball ===
-        // if primary_state != PrimaryState::Playing {
-        //     match detected_own_team_ball {
-        //         None => return (current_role, false, team_ball), Some(own_team_ball) => return (current_role, false, own_team_ball),
-        //     }
-
-        // let team_ball_from_spl_message = Some(BallPosition {
-        //     position: striker_event.ball_position.position,
-        //     velocity: Vector::zeros(),
-        //     last_seen: cycle_start_time - striker_event.ball_position.age,
-        // });
-
         // === Obstacles ===
-        // let sender_position = ground_to_field.inverse() * spl_message.pose.position();
-        // if spl_message.player_number != *context.player_number {
-        //     network_robot_obstacles.push(sender_position);
-        // }
 
         let team_ball = self.get_best_received_ball(
             context.cycle_time.start_time,
@@ -120,7 +117,7 @@ impl TeamBallReceiver {
 
         Ok(MainOutputs {
             team_ball: team_ball.into(),
-            network_robot_obstacles: Vec::new().into(),
+            network_robot_obstacles: network_robot_obstacles.into(),
         })
     }
 
