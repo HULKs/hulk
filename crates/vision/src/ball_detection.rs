@@ -372,7 +372,7 @@ mod tests {
 
     use approx::assert_relative_eq;
     use coordinate_systems::{Camera, Ground, Head};
-    use linear_algebra::{IntoTransform, Isometry3, Vector3};
+    use linear_algebra::{IntoTransform, Isometry3, Rotation3, Vector3};
     use nalgebra::{Translation, UnitQuaternion};
 
     use super::*;
@@ -527,6 +527,8 @@ mod tests {
             .framed_transform(),
             nalgebra::Isometry3::identity().framed_transform(),
             head_to_camera(0.0, Vector3::zeros()),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
+            Rotation3::from_euler_angles(0.0, 0.0, 0.0),
         );
 
         let mut additional_output_buffer = None;
