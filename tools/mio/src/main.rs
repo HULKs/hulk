@@ -5,7 +5,6 @@ use ball::BallPlugin;
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_obj::ObjPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-// use camera::CameraPlugin;
 use color_eyre::eyre::Result;
 use field::FieldPlugin;
 use fps::FpsPlugin;
@@ -16,7 +15,6 @@ use ui::UiPlugin;
 
 mod async_runtime;
 mod ball;
-// mod camera;
 mod field;
 mod fps;
 mod nao;
@@ -39,7 +37,6 @@ fn main() -> Result<()> {
         .add_plugins(NaoPlugin)
         .add_plugins(ShadowTogglePlugin)
         .add_plugins(AsyncRuntimePlugin)
-        // .add_plugins(CameraPlugin)
         .add_systems(Startup, setup_camera)
         .add_systems(Startup, setup_light)
         .add_systems(Startup, setup_gizmos)
