@@ -409,6 +409,7 @@ fn process_role_state_machine(
         }
         if let FilteredGameControllerState {
             sub_state: Some(SubState::KickIn | SubState::PushingFreeKick),
+            kicking_team: None,
             ..
         } = game_controller_state
         {
