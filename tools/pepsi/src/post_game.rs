@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    fmt::{Display, Formatter, Result as FormatResult},
+    path::PathBuf,
+};
 
 use clap::{Args, ValueEnum};
 use color_eyre::{eyre::WrapErr, Result};
@@ -21,11 +24,21 @@ pub struct Arguments {
     pub phase: Phase,
 }
 
-#[derive(Clone, ValueEnum)]
+#[derive(Clone, Copy, ValueEnum)]
 pub enum Phase {
     GoldenGoal,
     FirstHalf,
     SecondHalf,
+}
+
+impl Display for Phase {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FormatResult {
+        match self {
+            Phase::GoldenGoal => write!(f, "golden-goal"),
+            Phase::FirstHalf => write!(f, "first-half"),
+            Phase::SecondHalf => write!(f, "second-half"),
+        }
+    }
 }
 
 pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -58,7 +71,9 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
             }
 
             progress_bar.set_message("Downloading logs...");
-            let log_directory = log_directory.join(nao_address.to_string());
+            let log_directory = log_directory
+                .join(arguments.phase.to_string())
+                .join(nao_address.to_string());
             nao.download_logs(log_directory, |status| {
                 progress_bar.set_message(format!("Downloading logs: {status}"))
             })
