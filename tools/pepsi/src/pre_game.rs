@@ -72,7 +72,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
     }
 
-    let playing_naos = config.playing_naos();
+    let playing_naos = config.playing_naos()?;
     let naos = if let Some(naos) = &arguments.pre_game.naos {
         for nao in naos {
             if !playing_naos.contains(nao) {
