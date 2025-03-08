@@ -10,6 +10,7 @@ impl Plugin for FpsPlugin {
             .add_systems(Update, update_fps);
     }
 }
+
 #[derive(Component)]
 struct FpsText;
 
