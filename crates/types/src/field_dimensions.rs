@@ -67,6 +67,26 @@ impl GlobalFieldSide {
     }
 }
 
+impl FieldDimensions {
+    pub const SPL_2025: Self = Self {
+        ball_radius: 0.05,
+        length: 9.0,
+        width: 6.0,
+        line_width: 0.05,
+        penalty_marker_size: 0.1,
+        goal_box_area_length: 0.6,
+        goal_box_area_width: 2.2,
+        penalty_area_length: 1.65,
+        penalty_area_width: 4.0,
+        penalty_marker_distance: 1.3,
+        center_circle_diameter: 1.5,
+        border_strip_width: 2.0,
+        goal_inner_width: 1.5,
+        goal_post_diameter: 0.1,
+        goal_depth: 0.5,
+    };
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Half {
     Own,
@@ -151,6 +171,24 @@ impl FieldDimensions {
     pub fn t_crossing(&self, side: Side) -> Point2<Field> {
         let unsigned_y = self.width / 2.0;
         point![0.0, unsigned_y * side.sign()]
+    }
+
+    pub fn penalty_box_corner(&self, half: Half, side: Side) -> Point2<Field> {
+        let unsigned_x = self.length / 2.0 - self.penalty_area_length;
+        let unsigned_y = self.penalty_area_width / 2.0;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
+    }
+
+    pub fn goal_box_goal_line_intersection(&self, half: Half, side: Side) -> Point2<Field> {
+        let unsigned_x = self.length / 2.0;
+        let unsigned_y = self.goal_box_area_width / 2.0;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
+    }
+
+    pub fn penalty_box_goal_line_intersection(&self, half: Half, side: Side) -> Point2<Field> {
+        let unsigned_x = self.length / 2.0;
+        let unsigned_y = self.penalty_area_width / 2.0;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
     }
 
     pub fn center(&self) -> Point2<Field> {
