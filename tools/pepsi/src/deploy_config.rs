@@ -13,7 +13,7 @@ use argument_parsers::{
 use nao::Network;
 use repository::Repository;
 
-use crate::player_number::{player_number, Arguments};
+use crate::player_number::{check_for_duplication, player_number, Arguments};
 
 #[derive(Deserialize)]
 pub struct DeployConfig {
@@ -62,8 +62,8 @@ impl DeployConfig {
         branch_name
     }
 
-    pub fn playing_naos(&self) -> Vec<NaoAddress> {
-        self.assignments().into_values().collect()
+    pub fn playing_naos(&self) -> Result<Vec<NaoAddress>> {
+        Ok(self.assignments()?.into_values().collect())
     }
 
     pub fn all_naos(&self) -> Vec<NaoAddress> {
@@ -84,7 +84,7 @@ impl DeployConfig {
         player_number(
             Arguments {
                 assignments: self
-                    .assignments()
+                    .assignments()?
                     .into_iter()
                     .map(|(player_number, nao_address)| {
                         nao_address
@@ -120,7 +120,15 @@ impl DeployConfig {
         Ok(())
     }
 
-    fn assignments(&self) -> HashMap<PlayerNumber, NaoAddress> {
+    fn assignments(&self) -> Result<HashMap<PlayerNumber, NaoAddress>> {
+        let inital_assignments = self
+            .assignments
+            .iter()
+            .copied()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, _>>()?;
+        check_for_duplication(&inital_assignments)?;
+
         let mut assignments: HashMap<_, _> = self
             .assignments
             .iter()
@@ -131,7 +139,7 @@ impl DeployConfig {
             assignments.insert(substitution.player_number, substitution.nao_address);
         }
 
-        assignments
+        Ok(assignments)
     }
 }
 
