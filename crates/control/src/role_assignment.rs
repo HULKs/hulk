@@ -556,10 +556,10 @@ fn process_role_state_machine(
 
         // Either someone found or lost a ball. if found: do I want to claim striker ?
         (other_role, false, Event::Loser) => {
-            if other_role != Role::Keeper && other_role != Role::ReplacementKeeper {
-                Role::Searcher
-            } else {
+            if other_role == Role::Keeper || other_role == Role::ReplacementKeeper {
                 other_role
+            } else {
+                Role::Searcher
             }
         }
 
