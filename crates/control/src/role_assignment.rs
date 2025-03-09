@@ -514,7 +514,7 @@ fn process_role_state_machine(
             optional_roles,
         ),
 
-        // Striker remains Striker, sends message after timeout
+        // Striker remains Striker
         (Role::Striker, true, Event::None) => Role::Striker,
 
         // Edge-case, another Striker became Loser, so we claim striker since we see a ball
