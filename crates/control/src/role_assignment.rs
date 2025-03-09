@@ -41,12 +41,14 @@ pub struct RoleAssignment {
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
     last_transmitted_spl_message: Option<SystemTime>,
     role: Role,
-    role_initialized: bool,
     last_time_player_was_penalized: Players<Option<SystemTime>>,
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
+    player_number: Parameter<PlayerNumber, "player_number">,
+}
 
 #[context]
 pub struct CycleContext {
@@ -84,13 +86,23 @@ pub struct MainOutputs {
 }
 
 impl RoleAssignment {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext) -> Result<Self> {
+        #[allow(clippy::get_first)]
+        let role = match context.player_number {
+            PlayerNumber::One => Some(Role::Keeper),
+            PlayerNumber::Two => context.optional_roles.get(0).copied(),
+            PlayerNumber::Three => context.optional_roles.get(1).copied(),
+            PlayerNumber::Four => context.optional_roles.get(2).copied(),
+            PlayerNumber::Five => context.optional_roles.get(3).copied(),
+            PlayerNumber::Six => context.optional_roles.get(4).copied(),
+            PlayerNumber::Seven => Some(Role::Striker),
+        }
+        .unwrap_or(Role::Striker);
         Ok(Self {
             last_received_spl_message: None,
             last_system_time_transmitted_game_controller_return_message: None,
             last_transmitted_spl_message: None,
-            role: Role::Striker,
-            role_initialized: false,
+            role,
             last_time_player_was_penalized: Players::new(None),
         })
     }
@@ -103,10 +115,8 @@ impl RoleAssignment {
         let primary_state = *context.primary_state;
         let mut new_role = self.role;
 
-        if !self.role_initialized
-            || primary_state == PrimaryState::Ready
-            || primary_state == PrimaryState::Set
-        {
+        if primary_state == PrimaryState::Ready || primary_state == PrimaryState::Set {
+            // remove role_initialized
             #[allow(clippy::get_first)]
             let mut player_roles = Players {
                 one: Some(Role::Keeper),
@@ -134,7 +144,6 @@ impl RoleAssignment {
             }
             new_role = player_roles[*context.player_number];
 
-            self.role_initialized = true;
             // set self.last_received_spl_message = None;
             self.last_received_spl_message = Some(cycle_start_time);
         }
