@@ -10,6 +10,7 @@ mod map;
 mod parameter;
 mod plot;
 mod remote;
+mod semi_automatic_camera_calibration;
 mod text;
 mod vision_tuner;
 
@@ -25,5 +26,6 @@ pub use map::MapPanel;
 pub use parameter::ParameterPanel;
 pub use plot::PlotPanel;
 pub use remote::RemotePanel;
+pub use semi_automatic_camera_calibration::SemiAutomaticCalibrationPanel;
 pub use text::TextPanel;
 pub use vision_tuner::VisionTunerPanel;
