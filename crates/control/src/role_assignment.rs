@@ -122,34 +122,15 @@ impl RoleAssignment {
         {
             #[allow(clippy::get_first)]
             let mut player_roles = Players {
-                one: Role::Keeper,
-                two: context
-                    .optional_roles
-                    .get(0)
-                    .copied()
-                    .unwrap_or(Role::Striker),
-                three: context
-                    .optional_roles
-                    .get(1)
-                    .copied()
-                    .unwrap_or(Role::Striker),
-                four: context
-                    .optional_roles
-                    .get(2)
-                    .copied()
-                    .unwrap_or(Role::Striker),
-                five: context
-                    .optional_roles
-                    .get(3)
-                    .copied()
-                    .unwrap_or(Role::Striker),
-                six: context
-                    .optional_roles
-                    .get(4)
-                    .copied()
-                    .unwrap_or(Role::Striker),
-                seven: Role::Striker,
-            };
+                one: Some(Role::Keeper),
+                two: context.optional_roles.get(0).copied(),
+                three: context.optional_roles.get(1).copied(),
+                four: context.optional_roles.get(2).copied(),
+                five: context.optional_roles.get(3).copied(),
+                six: context.optional_roles.get(4).copied(),
+                seven: Some(Role::Striker),
+            }
+            .map(|role| role.unwrap_or(Role::Striker));
 
             if let Some(game_controller_state) = context.filtered_game_controller_state {
                 if let Some(striker) = [
