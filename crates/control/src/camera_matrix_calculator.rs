@@ -34,7 +34,6 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
-
     correction_in_robot: Parameter<
         nalgebra::Vector3<f32>,
         "camera_matrix_parameters.calibration.correction_in_robot",
@@ -76,8 +75,8 @@ impl CameraMatrixCalculator {
             context.top_camera_matrix_parameters.cc_optical_center,
             image_size,
             context.robot_to_ground.inverse(),
-            context.robot_kinematics.head.head_to_robot.inverse(),
-            head_to_top_camera,
+            context.robot_kinematics.head.head_to_robot.inverse() * robot_correction,
+            top_correction * head_to_top_camera,
         );
 
         let head_to_bottom_camera = head_to_camera(
@@ -93,8 +92,8 @@ impl CameraMatrixCalculator {
             context.bottom_camera_matrix_parameters.cc_optical_center,
             image_size,
             context.robot_to_ground.inverse(),
-            context.robot_kinematics.head.head_to_robot.inverse(),
-            head_to_bottom_camera,
+            context.robot_kinematics.head.head_to_robot.inverse() * robot_correction,
+            bottom_correction * head_to_bottom_camera,
         );
 
         let correction_in_robot = Rotation3::from_euler_angles(

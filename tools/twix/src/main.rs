@@ -36,7 +36,7 @@ use panel::Panel;
 use panels::{
     BallCandidatePanel, BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel,
     ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel,
-    RemotePanel, TextPanel, VisionTunerPanel,
+    RemotePanel, SemiAutomaticCalibrationPanel, TextPanel, VisionTunerPanel,
 };
 
 use reachable_naos::ReachableNaos;
@@ -135,6 +135,8 @@ fn main() -> Result<(), eframe::Error> {
 impl_selectable_panel!(
     BallCandidatePanel,
     BehaviorSimulatorPanel,
+    EnumPlotPanel,
+    ImageColorSelectPanel,
     ImagePanel,
     ImageSegmentsPanel,
     LookAtPanel,
@@ -142,11 +144,10 @@ impl_selectable_panel!(
     MapPanel,
     ParameterPanel,
     PlotPanel,
-    EnumPlotPanel,
     RemotePanel,
+    SemiAutomaticCalibrationPanel,
     TextPanel,
     VisionTunerPanel,
-    ImageColorSelectPanel,
 );
 
 struct TwixApp {
