@@ -151,7 +151,7 @@ async fn setup_nao(
     repository: &Repository,
 ) -> Result<()> {
     progress.set_message("Pinging NAO...");
-    let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+    let nao = Nao::ping_until_available(nao_address.ip).await;
 
     if !arguments.skip_os_check {
         progress.set_message("Checking OS version...");
