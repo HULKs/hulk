@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{env::temp_dir, fs::create_dir_all, path::PathBuf, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use color_eyre::{eyre::eyre, Result};
@@ -7,6 +7,7 @@ use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder
 use geometry::rectangle::Rectangle;
 use image::RgbImage;
 use linear_algebra::{point, vector};
+use log::{info, warn};
 use serde_json::{json, Value};
 
 use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
@@ -91,6 +92,24 @@ impl Panel for ImagePanel {
     }
 }
 
+fn save_jpeg_image(buffer: &BufferHandle<JpegImage>, path: PathBuf) -> Result<()> {
+    let buffer = buffer
+        .get_last_value()?
+        .ok_or_else(|| eyre!("no image available"))?;
+    buffer.save_to_jpeg_file(&path)?;
+    info!("image saved to '{}'", path.display());
+    Ok(())
+}
+
+fn save_raw_image(buffer: &BufferHandle<YCbCr422Image>, path: PathBuf) -> Result<()> {
+    let buffer = buffer
+        .get_last_value()?
+        .ok_or_else(|| eyre!("no image available"))?;
+    buffer.save_to_ycbcr_444_file(&path)?;
+    info!("image saved to '{}'", path.display());
+    Ok(())
+}
+
 impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
@@ -111,6 +130,25 @@ impl Widget for &mut ImagePanel {
             if let Ok(Some(timestamp)) = maybe_timestamp {
                 let date: DateTime<Utc> = timestamp.into();
                 ui.label(date.format("%T%.3f").to_string());
+            }
+            if ui.button("Save").clicked() {
+                let time_stamp = Utc::now().format("%H:%M:%S%.3f").to_string();
+                let directory = temp_dir().join("twix");
+                if let Err(error) = create_dir_all(&directory) {
+                    warn!("failed to create temporary folder /tmp/twix: {error}");
+                } else {
+                    let cycler_name = format!("{:?}", self.cycler);
+                    let path = directory.join(format!("image_{cycler_name}_{time_stamp}.png"));
+                    let result = match &self.image_buffer {
+                        RawOrJpeg::Raw(buffer) => save_raw_image(buffer, path),
+                        RawOrJpeg::Jpeg(buffer) => {
+                            save_jpeg_image(buffer, path.with_extension("jpeg"))
+                        }
+                    };
+                    if let Err(error) = result {
+                        warn!("failed to save image: {error}");
+                    }
+                }
             }
         });
         let (response, mut painter) = TwixPainter::allocate(
