@@ -225,6 +225,19 @@ impl RoleAssignment {
             );
         }
 
+        if let Some(game_controller_state) = context.filtered_game_controller_state {
+            for player in self
+                .last_time_player_was_penalized
+                .clone()
+                .iter()
+                .map(|(playernumber, ..)| playernumber)
+            {
+                if game_controller_state.penalties[player].is_some() {
+                    self.last_time_player_was_penalized[player] = Some(cycle_start_time);
+                }
+            }
+        }
+
         if self.role == Role::ReplacementKeeper && new_role != Role::Striker {
             let lowest_player_number_without_penalty = self
                 .last_time_player_was_penalized
@@ -270,19 +283,6 @@ impl RoleAssignment {
             self.role = *forced_role;
         } else {
             self.role = new_role;
-        }
-
-        if let Some(game_controller_state) = context.filtered_game_controller_state {
-            for player in self
-                .last_time_player_was_penalized
-                .clone()
-                .iter()
-                .map(|(playernumber, ..)| playernumber)
-            {
-                if game_controller_state.penalties[player].is_some() {
-                    self.last_time_player_was_penalized[player] = Some(cycle_start_time);
-                }
-            }
         }
 
         Ok(MainOutputs {
