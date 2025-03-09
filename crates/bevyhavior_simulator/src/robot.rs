@@ -216,6 +216,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
     for mut robot in &mut robots {
         if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
             ball.position += ball.velocity * time.delta_secs();
+            ball.velocity *= 0.98
         }
 
         let parameters = &robot.parameters;
@@ -284,9 +285,11 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                         Side::Right => 1.0,
                     };
 
-                    // TODO: Check if ball is even in range
-                    // let kick_location = ground_to_field * ();
-                    if (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0 {
+                    let in_range =
+                        (robot.ground_to_field().as_pose().position() - ball.position).norm() < 0.3;
+                    let previous_kick_finished =
+                        (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0;
+                    if in_range && previous_kick_finished {
                         let direction = match kick {
                             KickVariant::Forward => vector![1.0, 0.0],
                             KickVariant::Turn => vector![0.707, 0.707 * side],
@@ -389,6 +392,7 @@ pub fn cycle_robots(
         };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
+        robot.interface.set_time(now);
         robot.cycle(&messages_sent_last_cycle).unwrap();
 
         for message in robot.interface.take_outgoing_messages() {
