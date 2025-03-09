@@ -140,6 +140,7 @@ impl HeadMotion {
                 }
             }
             Some(HeadMotionCommand::LookAt { .. })
+            | Some(HeadMotionCommand::LookAtReferee { .. })
             | Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => MotorCommands {
                 positions: *context.look_at,
                 stiffnesses,
