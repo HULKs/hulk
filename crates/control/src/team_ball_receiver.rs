@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    collections::BTreeMap,
+    time::{Duration, SystemTime},
+};
 
 use color_eyre::eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -47,20 +50,8 @@ impl TeamBallReceiver {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let messages = context
-            .network_message
-            .persistent
-            .iter()
-            .flat_map(|(time, messages)| {
-                messages
-                    .iter()
-                    .filter_map(|message| Some((*time, (*message)?)))
-            })
-            .filter_map(|(time, message)| match message {
-                IncomingMessage::Spl(message) => Some((time, *message)),
-                _ => None,
-            });
-        for (time, message) in messages.clone() {
+        let messages = get_spl_messages(&context.network_message.persistent);
+        for (time, message) in messages {
             self.process_message(time, message);
         }
 
@@ -133,4 +124,20 @@ impl TeamBallReceiver {
                     < trust_duration
             })
     }
+}
+
+fn get_spl_messages<'a>(
+    persistent_messages: &'a BTreeMap<SystemTime, Vec<Option<&'_ IncomingMessage>>>,
+) -> impl Iterator<Item = (SystemTime, HulkMessage)> + 'a {
+    persistent_messages
+        .iter()
+        .flat_map(|(time, messages)| {
+            messages
+                .iter()
+                .filter_map(|message| Some((*time, (*message)?)))
+        })
+        .filter_map(|(time, message)| match message {
+            IncomingMessage::Spl(message) => Some((time, *message)),
+            _ => None,
+        })
 }
