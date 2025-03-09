@@ -6,13 +6,14 @@ use calibration::{
     problem::CalibrationProblem,
 };
 use color_eyre::eyre::ContextCompat;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use communication::messages::TextOrBinary;
 use coordinate_systems::Pixel;
-use eframe::egui::{Color32, Response, RichText, Ui, Widget};
+use eframe::egui::{Align::Center, Color32, Layout, Response, RichText, Ui, Widget};
 use geometry::line_segment::LineSegment;
 use levenberg_marquardt::{LevenbergMarquardt, MinimizationReport};
 use linear_algebra::{point, Isometry2};
+use parameters::directory::Scope;
 use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
 use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
@@ -30,12 +31,24 @@ pub struct SemiAutomaticCalibrationPanel {
     nao: Arc<Nao>,
     top_camera: BufferHandle<CameraMatrix>,
     bottom_camera: BufferHandle<CameraMatrix>,
-    last_optimization_state: Option<Result<(Corrections, MinimizationReport<f32>)>>,
+    state: OptimizationState,
 
     top_camera_correction: BufferHandle<nalgebra::Vector3<f32>>,
     bottom_camera_correction: BufferHandle<nalgebra::Vector3<f32>>,
     robot_correction: BufferHandle<nalgebra::Vector3<f32>>,
     field_dimensions: BufferHandle<FieldDimensions>,
+}
+
+enum OptimizationState {
+    NotOptimized,
+    OptimizationRequested {
+        initial_corrections: Corrections,
+    },
+    Optimized {
+        corrections: Corrections,
+        report: MinimizationReport<f32>,
+    },
+    Error(Report),
 }
 
 impl Panel for SemiAutomaticCalibrationPanel {
@@ -54,7 +67,7 @@ impl Panel for SemiAutomaticCalibrationPanel {
             nao,
             top_camera,
             bottom_camera,
-            last_optimization_state: None,
+            state: OptimizationState::NotOptimized,
             top_camera_correction,
             bottom_camera_correction,
             robot_correction,
@@ -101,22 +114,23 @@ impl SemiAutomaticCalibrationPanel {
         })
     }
 
-    fn apply_corrections(&self, corrections: Corrections) -> Result<()> {
+    fn apply_corrections(
+        &self,
+        corrections: Corrections,
+        save_function: impl Fn(&str, Value) -> Result<()>,
+    ) -> Result<()> {
         let (x, y, z) = corrections.correction_in_robot.euler_angles();
-        self.nao.write(
-            ROBOT_CORRECTION_PATH,
-            TextOrBinary::Text(serde_json::to_value([x, y, z])?),
-        );
+        save_function(ROBOT_CORRECTION_PATH, serde_json::to_value([x, y, z])?)?;
+
         let (x, y, z) = corrections.correction_in_camera_top.euler_angles();
-        self.nao.write(
-            CAMERA_TOP_CORRECTION_PATH,
-            TextOrBinary::Text(serde_json::to_value([x, y, z])?),
-        );
+        save_function(CAMERA_TOP_CORRECTION_PATH, serde_json::to_value([x, y, z])?)?;
+
         let (x, y, z) = corrections.correction_in_camera_bottom.euler_angles();
-        self.nao.write(
+        save_function(
             CAMERA_BOTTOM_CORRECTION_PATH,
-            TextOrBinary::Text(serde_json::to_value([x, y, z])?),
-        );
+            serde_json::to_value([x, y, z])?,
+        )?;
+
         Ok(())
     }
 
@@ -153,24 +167,16 @@ impl SemiAutomaticCalibrationPanel {
         Ok((optimized_corrections, report))
     }
 
-    fn should_start_calibration(&self, ui: &mut Ui) -> Option<Result<Corrections>> {
-        if ui.button("Start Calibration").clicked() {
-            Some(self.corrections())
-        } else {
-            None
-        }
-    }
-
-    fn start_optimization(
+    fn run_optimization(
         &self,
-        initial_corrections: Result<Corrections>,
+        initial_corrections: Corrections,
         drawn_lines: Vec<(LineType, LineSegment<Pixel>)>,
     ) -> Result<(Corrections, MinimizationReport<f32>)> {
-        let initial_corrections = initial_corrections?;
-
         let result = self.optimize(initial_corrections, drawn_lines);
         if let Ok((corrections, _)) = result {
-            self.apply_corrections(corrections)?;
+            self.apply_corrections(corrections, |path, value| {
+                Ok(self.nao.write(path, TextOrBinary::Text(value)))
+            })?;
         }
         result
     }
@@ -190,24 +196,59 @@ impl Widget for &mut SemiAutomaticCalibrationPanel {
                 ),
             ];
 
-            let result = if let Some(corrections) = self.should_start_calibration(ui) {
-                Some(self.start_optimization(corrections, drawn_lines))
-            } else {
-                None
-            };
+            let (start_optimization_clicked, save_to_head_clicked) = ui
+                .horizontal(|ui| {
+                    (
+                        ui.button("Start Optimization").clicked(),
+                        ui.button("Save to head").clicked(),
+                    )
+                })
+                .inner;
 
-            if result.is_some() {
-                self.last_optimization_state = result;
+            if start_optimization_clicked {
+                self.state = match self.corrections() {
+                    Ok(initial_corrections) => OptimizationState::OptimizationRequested {
+                        initial_corrections,
+                    },
+                    Err(error) => OptimizationState::Error(error),
+                };
             }
 
-            if let Some(Err(error)) = &self.last_optimization_state {
-                ui.label(RichText::new(error.to_string()).color(Color32::RED));
+            if let OptimizationState::OptimizationRequested {
+                initial_corrections,
+            } = self.state
+            {
+                self.state = match self.run_optimization(initial_corrections, drawn_lines) {
+                    Ok((corrections, report)) => OptimizationState::Optimized {
+                        corrections,
+                        report,
+                    },
+                    Err(error) => OptimizationState::Error(error),
+                };
             }
 
-            if let Some(Ok((_, report))) = &self.last_optimization_state {
-                ui.label(format!("Iterations: {}", report.number_of_evaluations));
-                ui.label(format!("Residual: {}", report.objective_function));
-                ui.label(format!("Termination reason: {:?}", report.termination));
+            match &self.state {
+                OptimizationState::Optimized { report, .. } => {
+                    ui.label(format!("Iterations: {}", report.number_of_evaluations));
+                    ui.label(format!("Residual: {}", report.objective_function));
+                    ui.label(format!("Termination reason: {:?}", report.termination));
+                }
+                OptimizationState::Error(error) => {
+                    ui.label(RichText::new(error.to_string()).color(Color32::RED));
+                }
+                _ => (),
+            }
+
+            if save_to_head_clicked {
+                if let OptimizationState::Optimized { corrections, .. } = &self.state {
+                    let save_result = self.apply_corrections(corrections.clone(), |path, value| {
+                        self.nao
+                            .store_parameters(path, value, Scope::current_head())
+                    });
+                    if let Err(error) = save_result {
+                        self.state = OptimizationState::Error(error);
+                    }
+                }
             }
         })
         .response
