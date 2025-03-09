@@ -518,14 +518,6 @@ fn process_role_state_machine(
         (Role::Striker, true, Event::None) => Role::Striker,
 
         // Edge-case, another Striker became Loser, so we claim striker since we see a ball
-        // TODO: On main, this sends a striker message immediately, ignoring the spl_striker_message_send_interval
-        //       but not the silence_interval_between_messages.
-        //       With the new implementation this is no longer possible since the message sending
-        //       is only based on the previous and new roles and does not consider the cause of the
-        //       transition.
-        //       This was already broken on main since the message would silently be dropped if the
-        //       edge case occured within the silence interval but might lead to a faster
-        //       striker convergence in this rare circumstance.
         (Role::Striker, true, Event::Loser) => Role::Striker,
 
         // Loser remains Loser
