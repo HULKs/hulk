@@ -123,11 +123,31 @@ impl RoleAssignment {
             #[allow(clippy::get_first)]
             let mut player_roles = Players {
                 one: Role::Keeper,
-                two: context.optional_roles.get(0).copied().unwrap_or_default(),
-                three: context.optional_roles.get(1).copied().unwrap_or_default(),
-                four: context.optional_roles.get(2).copied().unwrap_or_default(),
-                five: context.optional_roles.get(3).copied().unwrap_or_default(),
-                six: context.optional_roles.get(4).copied().unwrap_or_default(),
+                two: context
+                    .optional_roles
+                    .get(0)
+                    .copied()
+                    .unwrap_or(Role::Striker),
+                three: context
+                    .optional_roles
+                    .get(1)
+                    .copied()
+                    .unwrap_or(Role::Striker),
+                four: context
+                    .optional_roles
+                    .get(2)
+                    .copied()
+                    .unwrap_or(Role::Striker),
+                five: context
+                    .optional_roles
+                    .get(3)
+                    .copied()
+                    .unwrap_or(Role::Striker),
+                six: context
+                    .optional_roles
+                    .get(4)
+                    .copied()
+                    .unwrap_or(Role::Striker),
                 seven: Role::Striker,
             };
 
@@ -660,7 +680,7 @@ fn pick_role_with_penalties(
         role_assignment[player_number] = Some(optional_role)
     }
 
-    role_assignment[own_player_number].unwrap_or_default()
+    role_assignment[own_player_number].unwrap_or(Role::Striker)
 }
 
 fn pick_keeper_or_searcher(

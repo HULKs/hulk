@@ -35,7 +35,6 @@ pub struct CycleContext {
 }
 
 #[context]
-#[derive(Default)]
 pub struct MainOutputs {
     pub team_ball: MainOutput<Option<BallPosition<Field>>>,
 }
