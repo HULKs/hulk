@@ -37,9 +37,9 @@ use crate::localization::generate_initial_pose;
 
 #[derive(Deserialize, Serialize)]
 pub struct RoleAssignment {
-    last_received_spl_striker_message: Option<SystemTime>,
+    last_received_spl_message: Option<SystemTime>, // Set to none when sending
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
-    last_transmitted_striker_message: Option<SystemTime>,
+    last_transmitted_spl_message: Option<SystemTime>,
     role: Role,
     role_initialized: bool,
     last_time_player_was_penalized: Players<Option<SystemTime>>,
@@ -86,9 +86,9 @@ pub struct MainOutputs {
 impl RoleAssignment {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_received_spl_striker_message: None,
+            last_received_spl_message: None,
             last_system_time_transmitted_game_controller_return_message: None,
-            last_transmitted_striker_message: None,
+            last_transmitted_spl_message: None,
             role: Role::Striker,
             role_initialized: false,
             last_time_player_was_penalized: Players::new(None),
@@ -148,7 +148,8 @@ impl RoleAssignment {
             new_role = player_roles[*context.player_number];
 
             self.role_initialized = true;
-            self.last_received_spl_striker_message = Some(cycle_start_time);
+            // set self.last_received_spl_message = None;
+            self.last_received_spl_message = Some(cycle_start_time);
         }
 
         self.try_sending_game_controller_return_message(&context, ground_to_field)?;
@@ -162,7 +163,7 @@ impl RoleAssignment {
             })
         );
 
-        let spl_striker_message_timeout = match self.last_received_spl_striker_message {
+        let spl_striker_message_timeout = match self.last_received_spl_message {
             None => true,
             Some(last_received_spl_striker_message) => {
                 cycle_start_time.duration_since(last_received_spl_striker_message)?
@@ -206,7 +207,7 @@ impl RoleAssignment {
 
         for event in events {
             if let Event::Striker(_) = event {
-                self.last_received_spl_striker_message = Some(cycle_start_time)
+                self.last_received_spl_message = Some(cycle_start_time)
             }
 
             new_role = process_role_state_machine(
@@ -306,7 +307,7 @@ impl RoleAssignment {
     ) -> bool {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
-            self.last_transmitted_striker_message,
+            self.last_transmitted_spl_message,
             context.spl_network.spl_striker_message_send_interval,
         )
     }
@@ -317,7 +318,7 @@ impl RoleAssignment {
     ) -> bool {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
-            self.last_transmitted_striker_message,
+            self.last_transmitted_spl_message,
             context.spl_network.silence_interval_between_messages,
         )
     }
@@ -364,8 +365,8 @@ impl RoleAssignment {
             return Ok(());
         }
 
-        self.last_transmitted_striker_message = Some(context.cycle_time.start_time);
-        self.last_received_spl_striker_message = Some(context.cycle_time.start_time);
+        self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
+        self.last_received_spl_message = Some(context.cycle_time.start_time);
 
         let pose = ground_to_field.as_pose();
         let team_network_ball = context.team_ball.map(|team_ball| {
@@ -402,8 +403,8 @@ impl RoleAssignment {
             return Ok(());
         }
 
-        self.last_transmitted_striker_message = Some(context.cycle_time.start_time);
-        self.last_received_spl_striker_message = Some(context.cycle_time.start_time);
+        self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
+        self.last_received_spl_message = Some(context.cycle_time.start_time);
 
         context
             .hardware
