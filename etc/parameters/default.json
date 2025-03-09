@@ -1379,7 +1379,13 @@
     "goal_depth": 0.5
   },
   "player_number": "Seven",
-  "recorded_primary_states": ["Standby", "Ready", "Set", "Playing"],
+  "recorded_primary_states": [
+    "Standby",
+    "Ready",
+    "Set",
+    "Playing",
+    "Calibration"
+  ],
   "spl_network": {
     "game_controller_return_message_interval": {
       "nanos": 0,
