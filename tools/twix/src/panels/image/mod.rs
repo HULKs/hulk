@@ -129,7 +129,17 @@ impl Widget for &mut ImagePanel {
 
         self.overlays.paint(&painter);
 
-        response
+        match response.hover_pos() {
+            Some(position) => {
+                let pixel_position = painter.transform_pixel_to_world(position);
+                response.on_hover_text_at_pointer(format!(
+                    "x: {:.1}, y: {:.1}",
+                    pixel_position.x(),
+                    pixel_position.y()
+                ))
+            }
+            _ => response,
+        }
     }
 }
 
