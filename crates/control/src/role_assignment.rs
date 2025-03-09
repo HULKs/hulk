@@ -103,19 +103,6 @@ impl RoleAssignment {
         let primary_state = *context.primary_state;
         let mut new_role = self.role;
 
-        let ground_to_field =
-            context
-                .ground_to_field
-                .copied()
-                .unwrap_or_else(|| match context.primary_state {
-                    PrimaryState::Initial => generate_initial_pose(
-                        &context.initial_poses[*context.player_number],
-                        context.field_dimensions,
-                    )
-                    .as_transform(),
-                    _ => Default::default(),
-                });
-
         if !self.role_initialized
             || primary_state == PrimaryState::Ready
             || primary_state == PrimaryState::Set
@@ -152,7 +139,7 @@ impl RoleAssignment {
             self.last_received_spl_message = Some(cycle_start_time);
         }
 
-        self.try_sending_game_controller_return_message(&context, ground_to_field)?;
+        self.try_sending_game_controller_return_message(&context)?;
 
         // TODO: reimplement whatever this did
         let is_in_penalty_kick = matches!(
@@ -265,15 +252,15 @@ impl RoleAssignment {
             match (self.role, new_role) {
                 (Role::Striker, Role::Striker) => {
                     if self.is_striker_beacon_cooldown_elapsed(&context) {
-                        self.try_sending_striker_message(&context, ground_to_field)?;
+                        self.try_sending_striker_message(&context)?;
                     }
                 }
                 (_other_role, Role::Striker) => {
-                    self.try_sending_striker_message(&context, ground_to_field)?;
+                    self.try_sending_striker_message(&context)?;
                 }
 
                 (Role::Striker, Role::Loser) => {
-                    self.try_sending_loser_message(&context, ground_to_field)?;
+                    self.try_sending_loser_message(&context)?;
                 }
                 _ => {}
             }
@@ -326,16 +313,17 @@ impl RoleAssignment {
     fn try_sending_game_controller_return_message(
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
-        ground_to_field: Isometry2<Ground, Field>,
     ) -> Result<()> {
         if !self.is_return_message_cooldown_elapsed(context) {
             return Ok(());
         }
-        self.last_system_time_transmitted_game_controller_return_message =
-            Some(context.cycle_time.start_time);
         let Some(address) = context.game_controller_address else {
             return Ok(());
         };
+        let ground_to_field = ground_to_field_or_initial_pose(context);
+
+        self.last_system_time_transmitted_game_controller_return_message =
+            Some(context.cycle_time.start_time);
         context
             .hardware
             .write_to_network(OutgoingMessage::GameController(
@@ -356,7 +344,6 @@ impl RoleAssignment {
     fn try_sending_striker_message(
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
-        ground_to_field: Isometry2<Ground, Field>,
     ) -> Result<()> {
         if !self.is_striker_silence_period_elapsed(context) {
             return Ok(());
@@ -368,6 +355,7 @@ impl RoleAssignment {
         self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
         self.last_received_spl_message = Some(context.cycle_time.start_time);
 
+        let ground_to_field = ground_to_field_or_initial_pose(context);
         let pose = ground_to_field.as_pose();
         let team_network_ball = context.team_ball.map(|team_ball| {
             team_ball_to_network_ball_position(*team_ball, context.cycle_time.start_time)
@@ -397,7 +385,6 @@ impl RoleAssignment {
     fn try_sending_loser_message(
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
-        ground_to_field: Isometry2<Ground, Field>,
     ) -> Result<()> {
         if !is_enough_message_budget_left(context) {
             return Ok(());
@@ -406,6 +393,7 @@ impl RoleAssignment {
         self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
         self.last_received_spl_message = Some(context.cycle_time.start_time);
 
+        let ground_to_field = ground_to_field_or_initial_pose(context);
         context
             .hardware
             .write_to_network(OutgoingMessage::Spl(HulkMessage::Loser(LoserMessage {
@@ -414,6 +402,22 @@ impl RoleAssignment {
             })))
             .wrap_err("failed to write LoserMessage to hardware")
     }
+}
+
+fn ground_to_field_or_initial_pose(
+    context: &CycleContext<'_, impl NetworkInterface>,
+) -> Isometry2<Ground, Field> {
+    context
+        .ground_to_field
+        .copied()
+        .unwrap_or_else(|| match context.primary_state {
+            PrimaryState::Initial => generate_initial_pose(
+                &context.initial_poses[*context.player_number],
+                context.field_dimensions,
+            )
+            .as_transform(),
+            _ => Default::default(),
+        })
 }
 
 fn is_allowed_to_send_messages(context: &CycleContext<'_, impl NetworkInterface>) -> bool {
