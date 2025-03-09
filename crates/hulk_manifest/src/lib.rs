@@ -90,6 +90,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::motion::walking_engine",
                     "control::motion::wide_stance",
                     "control::obstacle_filter",
+                    "control::obstacle_receiver",
                     "control::odometry",
                     "control::orientation_filter",
                     "control::penalty_shot_direction_estimation",

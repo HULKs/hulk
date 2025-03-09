@@ -21,6 +21,7 @@ pub mod led_status;
 pub mod localization;
 pub mod motion;
 pub mod obstacle_filter;
+pub mod obstacle_receiver;
 pub mod odometry;
 pub mod orientation_filter;
 pub mod path_planner;
