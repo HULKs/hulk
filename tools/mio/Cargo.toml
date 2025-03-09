@@ -13,6 +13,7 @@ bevy = { workspace = true, features = [
   "bevy_winit",
   "bevy_gizmos",
   "bevy_picking",
+  "bevy_ui",
   "dynamic_linking",
   "png",
   "tonemapping_luts",
