@@ -8,44 +8,43 @@ use types::{
 };
 
 pub fn execute(world_state: &WorldState, enable_pose_detection: bool) -> Option<MotionCommand> {
+    if world_state.robot.primary_state != PrimaryState::Initial
+        && world_state.robot.primary_state != PrimaryState::Standby
+    {
+        return None;
+    }
+
     if world_state.robot.primary_state == PrimaryState::Initial {
         return Some(MotionCommand::Initial {
             head: HeadMotion::Center,
         });
     }
-    if world_state.robot.primary_state == PrimaryState::Standby {
-        return Some(
-            look_at_referee(world_state.clone(), enable_pose_detection).unwrap_or(
-                MotionCommand::Initial {
-                    head: HeadMotion::Center,
-                },
-            ),
-        );
-    }
-    None
-}
 
-fn look_at_referee(world_state: WorldState, enable_pose_detection: bool) -> Option<MotionCommand> {
-    let filtered_game_controller_state = world_state.filtered_game_controller_state.as_ref()?;
-    if !enable_pose_detection
-        || filtered_game_controller_state.game_state != FilteredGameState::Standby
-    {
-        return None;
-    }
+    let filtered_game_controller_state = world_state.filtered_game_controller_state.clone()?;
 
-    match (
-        world_state.robot.player_number,
-        filtered_game_controller_state.own_team_is_home_after_coin_toss,
-    ) {
-        (PlayerNumber::Four | PlayerNumber::Seven, true) => {}
-        (PlayerNumber::Two | PlayerNumber::Six, false) => {}
-        _ => return None,
-    }
+    let should_pose_detection_be_active = world_state.robot.primary_state == PrimaryState::Standby
+        && filtered_game_controller_state.game_state == FilteredGameState::Standby
+        && enable_pose_detection;
+
+    let player_number_should_look_for_referee = matches!(
+        (
+            world_state.robot.player_number,
+            filtered_game_controller_state.own_team_is_home_after_coin_toss,
+        ),
+        (PlayerNumber::Four | PlayerNumber::Seven, true)
+            | (PlayerNumber::Two | PlayerNumber::Six, false)
+    );
 
     Some(MotionCommand::Initial {
-        head: HeadMotion::LookAtReferee {
-            image_region_target: ImageRegion::Bottom,
-            camera: Some(CameraPosition::Top),
+        head: match (
+            should_pose_detection_be_active,
+            player_number_should_look_for_referee,
+        ) {
+            (true, true) => HeadMotion::LookAtReferee {
+                image_region_target: ImageRegion::Bottom,
+                camera: Some(CameraPosition::Top),
+            },
+            _ => HeadMotion::Center,
         },
     })
 }
