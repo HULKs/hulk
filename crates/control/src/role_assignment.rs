@@ -117,9 +117,6 @@ impl RoleAssignment {
 
         self.try_sending_game_controller_return_message(&context)?;
 
-        let role_from_state_machine =
-            self.role_from_state_machine(&context, cycle_start_time, self.role);
-
         if let Some(game_controller_state) = context.filtered_game_controller_state {
             for player in self
                 .last_time_player_was_penalized
@@ -132,6 +129,9 @@ impl RoleAssignment {
                 }
             }
         }
+
+        let role_from_state_machine =
+            self.role_from_state_machine(&context, cycle_start_time, self.role);
 
         let mut new_role = [
             context.forced_role.copied(),
