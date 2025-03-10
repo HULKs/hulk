@@ -77,8 +77,8 @@ impl TimeToReachKickPosition {
 
         let time_to_reach_kick_position = [
             walk_duration,
-            *context.stand_up_back_estimated_remaining_duration,
-            *context.stand_up_front_estimated_remaining_duration,
+            *context.stand_up_back_estimated_remaining_duration, // Make optional
+            *context.stand_up_front_estimated_remaining_duration, // Make optional
             turn_duration,
         ]
         .into_iter()

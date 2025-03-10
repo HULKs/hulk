@@ -115,42 +115,9 @@ impl RoleAssignment {
         let primary_state = *context.primary_state;
         let mut new_role = self.role;
 
-        if primary_state == PrimaryState::Ready || primary_state == PrimaryState::Set {
-            // remove role_initialized
-            #[allow(clippy::get_first)]
-            let mut player_roles = Players {
-                one: Some(Role::Keeper),
-                two: context.optional_roles.get(0).copied(),
-                three: context.optional_roles.get(1).copied(),
-                four: context.optional_roles.get(2).copied(),
-                five: context.optional_roles.get(3).copied(),
-                six: context.optional_roles.get(4).copied(),
-                seven: Some(Role::Striker),
-            }
-            .map(|role| role.unwrap_or(Role::Striker));
-
-            if let Some(game_controller_state) = context.filtered_game_controller_state {
-                if let Some(striker) = [
-                    PlayerNumber::Seven,
-                    PlayerNumber::Six,
-                    PlayerNumber::Five,
-                    PlayerNumber::Four,
-                ]
-                .into_iter()
-                .find(|player| game_controller_state.penalties[*player].is_none())
-                {
-                    player_roles[striker] = Role::Striker;
-                }
-            }
-            new_role = player_roles[*context.player_number];
-
-            // set self.last_received_spl_message = None;
-            self.last_received_spl_message = Some(cycle_start_time);
-        }
-
         self.try_sending_game_controller_return_message(&context)?;
 
-        // TODO: reimplement whatever this did
+        // TODO: remove
         let is_in_penalty_kick = matches!(
             context.filtered_game_controller_state,
             Some(FilteredGameControllerState {
@@ -180,46 +147,8 @@ impl RoleAssignment {
             }
         }
 
-        let events: Vec<_> = context
-            .network_message
-            .persistent
-            .values()
-            .flatten()
-            .filter_map(|message| match message {
-                Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
-                    player_number,
-                    time_to_reach_kick_position,
-                    ..
-                }))) => Some(Event::Striker(StrikerEvent {
-                    player_number: *player_number,
-                    time_to_reach_kick_position: *time_to_reach_kick_position,
-                })),
-                Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
-                _ => None,
-            })
-            // Update the state machine at least once
-            .chain([Event::None])
-            .collect();
-
-        for event in events {
-            if let Event::Striker(_) = event {
-                self.last_received_spl_message = Some(cycle_start_time)
-            }
-
-            new_role = process_role_state_machine(
-                new_role,
-                context.ball_position.is_some(),
-                primary_state,
-                event,
-                context.time_to_reach_kick_position.copied(),
-                context.team_ball.copied(),
-                cycle_start_time,
-                context.filtered_game_controller_state,
-                *context.player_number,
-                context.spl_network.striker_trusts_team_ball,
-                context.optional_roles,
-            );
-        }
+        let role_from_state_machine =
+            self.role_from_state_machine(&context, cycle_start_time, self.role);
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
             for player in self
@@ -233,6 +162,18 @@ impl RoleAssignment {
                 }
             }
         }
+
+        let mut new_role = [
+            context.forced_role.copied(),
+            self.role_for_ready_and_set(&context, cycle_start_time),
+            role_for_penalty_shootout(context.filtered_game_controller_state),
+            keep_current_role_in_penalty_kick(context.filtered_game_controller_state, self.role),
+            keep_current_role_if_not_in_playing(primary_state, self.role),
+            Some(role_from_state_machine),
+        ]
+        .iter()
+        .find_map(|maybe_role| *maybe_role)
+        .expect("at least role_from_state_machine should be Some");
 
         if self.role == Role::ReplacementKeeper && new_role != Role::Striker {
             let lowest_player_number_without_penalty = self
@@ -254,6 +195,7 @@ impl RoleAssignment {
                 new_role = Role::ReplacementKeeper;
             }
         }
+
         context
             .last_time_player_was_penalized
             .fill_if_subscribed(|| self.last_time_player_was_penalized);
@@ -275,15 +217,104 @@ impl RoleAssignment {
             }
         }
 
-        if let Some(forced_role) = context.forced_role {
-            self.role = *forced_role;
-        } else {
-            self.role = new_role;
-        }
+        self.role = new_role;
 
         Ok(MainOutputs {
             role: self.role.into(),
         })
+    }
+
+    fn role_for_ready_and_set(
+        &mut self,
+        context: &CycleContext<'_, impl NetworkInterface>,
+        cycle_start_time: SystemTime,
+    ) -> Option<Role> {
+        if *context.primary_state == PrimaryState::Ready
+            || *context.primary_state == PrimaryState::Set
+        {
+            #[allow(clippy::get_first)]
+            let mut player_roles = Players {
+                one: Some(Role::Keeper),
+                two: context.optional_roles.get(0).copied(),
+                three: context.optional_roles.get(1).copied(),
+                four: context.optional_roles.get(2).copied(),
+                five: context.optional_roles.get(3).copied(),
+                six: context.optional_roles.get(4).copied(),
+                seven: Some(Role::Striker),
+            }
+            .map(|role| role.unwrap_or(Role::Striker));
+
+            if let Some(game_controller_state) = context.filtered_game_controller_state {
+                if let Some(striker) = [
+                    PlayerNumber::Seven,
+                    PlayerNumber::Six,
+                    PlayerNumber::Five,
+                    PlayerNumber::Four,
+                ]
+                .into_iter()
+                .find(|player| game_controller_state.penalties[*player].is_none())
+                {
+                    player_roles[striker] = Role::Striker;
+                }
+            }
+
+            // set self.last_received_spl_message = None;
+            self.last_received_spl_message = Some(cycle_start_time);
+
+            return Some(player_roles[*context.player_number]);
+        }
+
+        None
+    }
+
+    fn role_from_state_machine(
+        &mut self,
+        context: &CycleContext<'_, impl NetworkInterface>,
+        cycle_start_time: SystemTime,
+        current_role: Role,
+    ) -> Role {
+        let events: Vec<_> = context
+            .network_message
+            .persistent
+            .values()
+            .flatten()
+            .filter_map(|message| match message {
+                Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+                    player_number,
+                    time_to_reach_kick_position,
+                    ..
+                }))) => Some(Event::Striker(StrikerEvent {
+                    player_number: *player_number,
+                    time_to_reach_kick_position: *time_to_reach_kick_position,
+                })),
+                Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
+                _ => None,
+            })
+            // Update the state machine at least once
+            .chain([Event::None])
+            .collect();
+
+        let mut new_role = current_role;
+        for event in events {
+            if let Event::Striker(_) = event {
+                self.last_received_spl_message = Some(cycle_start_time)
+            }
+
+            new_role = process_role_state_machine(
+                new_role,
+                context.ball_position.is_some(),
+                event,
+                context.time_to_reach_kick_position.copied(),
+                context.team_ball.copied(),
+                cycle_start_time,
+                context.filtered_game_controller_state,
+                *context.player_number,
+                context.spl_network.striker_trusts_team_ball,
+                context.optional_roles,
+            );
+        }
+
+        new_role
     }
 
     fn is_return_message_cooldown_elapsed(
@@ -479,7 +510,6 @@ struct StrikerEvent {
 fn process_role_state_machine(
     current_role: Role,
     detected_own_ball: bool,
-    primary_state: PrimaryState,
     event: Event,
     time_to_reach_kick_position: Option<Duration>,
     team_ball: Option<BallPosition<Field>>,
@@ -489,22 +519,6 @@ fn process_role_state_machine(
     striker_trusts_team_ball_duration: Duration,
     optional_roles: &[Role],
 ) -> Role {
-    if let Some(game_controller_state) = filtered_game_controller_state {
-        if let GamePhase::PenaltyShootout { kicking_team } = game_controller_state.game_phase {
-            return match kicking_team {
-                Team::Hulks => Role::Striker,
-                Team::Opponent => Role::Keeper,
-            };
-        };
-        if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
-            return current_role;
-        }
-    }
-
-    if primary_state != PrimaryState::Playing {
-        return current_role;
-    }
-
     let striker_trusts_team_ball = |team_ball: BallPosition<Field>| {
         cycle_start_time
             .duration_since(team_ball.last_seen)
@@ -577,6 +591,43 @@ fn process_role_state_machine(
         // Striker lost ball but we see one, claim striker
         (_other_role, true, Event::Loser) => Role::Striker,
     }
+}
+
+fn keep_current_role_if_not_in_playing(
+    primary_state: PrimaryState,
+    current_role: Role,
+) -> Option<Role> {
+    if primary_state != PrimaryState::Playing {
+        return Some(current_role);
+    }
+    None
+}
+
+fn role_for_penalty_shootout(
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
+) -> Option<Role> {
+    if let Some(game_controller_state) = filtered_game_controller_state {
+        // move to cycle
+        if let GamePhase::PenaltyShootout { kicking_team } = game_controller_state.game_phase {
+            return Some(match kicking_team {
+                Team::Hulks => Role::Striker,
+                Team::Opponent => Role::Keeper,
+            });
+        };
+    }
+    None
+}
+
+fn keep_current_role_in_penalty_kick(
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
+    current_role: Role,
+) -> Option<Role> {
+    if let Some(game_controller_state) = filtered_game_controller_state {
+        if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
+            return Some(current_role);
+        }
+    }
+    None
 }
 
 fn claim_striker_or_other_role(
@@ -698,7 +749,6 @@ fn pick_keeper_or_searcher(
 #[cfg(test)]
 mod test {
     use proptest::prelude::*;
-    // use test_case::test_matrix;
 
     use super::*;
 
@@ -719,7 +769,6 @@ mod test {
                 Just(Role::StrikerSupporter),
             ],
             detected_own_ball: bool,
-            primary_state in prop_oneof![Just(PrimaryState::Set), Just(PrimaryState::Playing)],
             event in Just(Event::None),
             time_to_reach_kick_position in prop_oneof![Just(None), Just(Some(Duration::ZERO)), Just(Some(Duration::from_secs(10_000)))],
             team_ball in prop_oneof![
@@ -736,7 +785,6 @@ mod test {
             let new_role = process_role_state_machine(
                 initial_role,
                 detected_own_ball,
-                primary_state,
                 event,
                 time_to_reach_kick_position,
                 team_ball,
@@ -749,7 +797,6 @@ mod test {
             let third_role = process_role_state_machine(
                 new_role,
                 detected_own_ball,
-                primary_state,
                 Event::None,
                 time_to_reach_kick_position,
                 team_ball,
