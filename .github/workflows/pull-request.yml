@@ -24,7 +24,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: ./pepsi clippy --locked
+        run: ./pepsi clippy --locked . -- --deny warnings
 
   check-cargo-lock:
     name: Check Cargo.lock
