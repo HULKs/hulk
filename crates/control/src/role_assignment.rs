@@ -68,6 +68,7 @@ pub struct CycleContext {
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
     keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
+    striker_trusts_team_ball: Parameter<Duration, "role_assignment.striker_trusts_team_ball">,
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
@@ -298,7 +299,7 @@ impl RoleAssignment {
                 cycle_start_time,
                 context.filtered_game_controller_state,
                 *context.player_number,
-                context.spl_network.striker_trusts_team_ball,
+                *context.striker_trusts_team_ball,
                 context.optional_roles,
             );
         }
@@ -505,14 +506,14 @@ fn update_role_state_machine(
     cycle_start_time: SystemTime,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
-    striker_trusts_team_ball_duration: Duration,
+    striker_trusts_team_ball: Duration,
     optional_roles: &[Role],
 ) -> Role {
     let striker_trusts_team_ball = |team_ball: BallPosition<Field>| {
         cycle_start_time
             .duration_since(team_ball.last_seen)
             .expect("time ran backwards")
-            <= striker_trusts_team_ball_duration
+            <= striker_trusts_team_ball
     };
 
     match (current_role, detected_own_ball, event) {

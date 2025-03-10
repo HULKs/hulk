@@ -313,7 +313,6 @@ pub struct SplNetworkParameters {
     pub silence_interval_between_messages: Duration,
     pub spl_striker_message_receive_timeout: Duration,
     pub spl_striker_message_send_interval: Duration,
-    pub striker_trusts_team_ball: Duration,
 }
 
 #[derive(

@@ -32,7 +32,7 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
-    striker_trusts_team_ball: Parameter<Duration, "spl_network.striker_trusts_team_ball">,
+    maximum_age: Parameter<Duration, "team_ball.maximum_age">,
 
     team_balls: AdditionalOutput<Players<Option<BallPosition<Field>>>, "team_balls">,
 }
@@ -70,10 +70,8 @@ impl TeamBallReceiver {
             }
         }
 
-        let team_ball = self.get_best_received_ball(
-            context.cycle_time.start_time,
-            context.striker_trusts_team_ball.mul_f32(4.5),
-        );
+        let team_ball =
+            self.get_best_received_ball(context.cycle_time.start_time, *context.maximum_age);
 
         context.team_balls.fill_if_subscribed(|| {
             self.received_balls.map(|ball| {
@@ -83,7 +81,7 @@ impl TeamBallReceiver {
                         .start_time
                         .duration_since(ball.last_seen)
                         .expect("time ran backwards")
-                        < context.striker_trusts_team_ball.mul_f32(4.5)
+                        < *context.maximum_age
                 })
             })
         });
