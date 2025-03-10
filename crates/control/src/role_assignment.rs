@@ -629,8 +629,8 @@ fn claim_striker_or_other_role(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     optional_roles: &[Role],
 ) -> Role {
-    let shorter_time_to_reach =
-        time_to_reach_kick_position.unwrap() < striker_event.time_to_reach_kick_position;
+    let shorter_time_to_reach = time_to_reach_kick_position
+        .is_some_and(|duration| duration < striker_event.time_to_reach_kick_position);
     let time_to_reach_viable =
         time_to_reach_kick_position.is_some_and(|duration| duration < Duration::from_secs(1200));
 
