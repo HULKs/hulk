@@ -107,7 +107,7 @@ impl FreeKickSignalFilter {
         context: &CycleContext<impl NetworkInterface>,
     ) -> Result<FreeKickSignalDetectionResult> {
         let own_detected_pose_times: BTreeMap<SystemTime, Option<PoseKind>> =
-            unpack_own_detection_tree(&context.referee_pose_kind.persistent);
+            unpack_own_detections(&context.referee_pose_kind.persistent);
 
         let mut did_detect_any_free_kick_signal_this_cycle = false;
 
@@ -246,10 +246,10 @@ fn is_in_grace_period(
         < grace_period
 }
 
-fn unpack_own_detection_tree(
-    pose_kind_tree: &BTreeMap<SystemTime, Vec<Option<&PoseKind>>>,
+fn unpack_own_detections(
+    detections: &BTreeMap<SystemTime, Vec<Option<&PoseKind>>>,
 ) -> BTreeMap<SystemTime, Option<PoseKind>> {
-    pose_kind_tree
+    detections
         .iter()
         .flat_map(|(time, pose_kinds)| {
             pose_kinds
