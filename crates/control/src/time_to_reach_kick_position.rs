@@ -1,4 +1,4 @@
-use std::{convert::identity, f32::consts::PI, time::Duration};
+use std::{f32::consts::PI, time::Duration};
 
 use color_eyre::{eyre::Ok, Result};
 use framework::MainOutput;
