@@ -70,9 +70,11 @@ fn game_controller_controller(
             }
             GameControllerCommand::SetSubState(sub_state, team) => {
                 game_controller.state.sub_state = sub_state;
-                game_controller.state.kicking_team = Some(team);
                 if sub_state == Some(SubState::PenaltyKick) {
+                    game_controller.state.kicking_team = Some(team);
                     game_controller.state.game_state = GameState::Ready;
+                } else {
+                    game_controller.state.kicking_team = None;
                 }
                 state.last_state_change = time.as_generic();
             }
