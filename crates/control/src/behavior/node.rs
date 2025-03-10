@@ -251,18 +251,17 @@ impl Behavior {
             Role::Searcher => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
-                    // kicking_team: None, TODO: Change this to None when the game controller is fixed
                     penalties,
                     ..
                 }) => {
-                    let mut first_two_nonpenalized_nonkeeper_playernumbers = penalties
+                    let mut first_two_nonpenalized_nonkeeper_player_numbers = penalties
                         .iter()
                         .filter_map(|(player_number, penalty)| {
                             penalty.is_none().then_some(player_number)
                         })
                         .skip(1)
                         .take(2);
-                    if first_two_nonpenalized_nonkeeper_playernumbers
+                    if first_two_nonpenalized_nonkeeper_player_numbers
                         .contains(&world_state.robot.player_number)
                     {
                         actions.push(Action::LookAtReferee);
