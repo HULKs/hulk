@@ -24,7 +24,15 @@ pub struct WhistleDetectionParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct StepPlannerParameters {
     pub injected_step: Option<Step>,
@@ -70,7 +78,15 @@ pub struct LookActionParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct RolePositionsParameters {
     pub defender_aggressive_ring_radius: f32,
@@ -93,7 +109,15 @@ pub struct RolePositionsParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct SearchParameters {
     pub position_reached_distance: f32,
@@ -101,7 +125,15 @@ pub struct SearchParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct InWalkKicksParameters {
     pub forward: InWalkKickInfoParameters,
@@ -122,7 +154,15 @@ impl Index<KickVariant> for InWalkKicksParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct InWalkKickInfoParameters {
     pub position: nalgebra::Point2<f32>,
@@ -134,7 +174,15 @@ pub struct InWalkKickInfoParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct DribblingParameters {
     pub hybrid_align_distance: f32,
@@ -145,7 +193,15 @@ pub struct DribblingParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct WalkAndStandParameters {
     pub hysteresis: nalgebra::Vector2<f32>,
@@ -156,7 +212,15 @@ pub struct WalkAndStandParameters {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct LostBallParameters {
     pub offset_to_last_ball_location: Vector2<Field>,
@@ -249,7 +313,6 @@ pub struct SplNetworkParameters {
     pub silence_interval_between_messages: Duration,
     pub spl_striker_message_receive_timeout: Duration,
     pub spl_striker_message_send_interval: Duration,
-    pub striker_trusts_team_ball: Duration,
 }
 
 #[derive(

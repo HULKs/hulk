@@ -1,21 +1,17 @@
-use std::time::SystemTime;
-
 use bevy::prelude::*;
 
-use linear_algebra::{point, Vector2};
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 
 use bevyhavior_simulator::{
-    ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     time::{Ticks, TicksTime},
 };
-use types::ball_position::BallPosition;
+use types::roles::Role;
 
 #[scenario]
-fn walk_around_ball(app: &mut App) {
+fn striker_dies(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
@@ -24,29 +20,32 @@ fn startup(
     mut commands: Commands,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
-    commands.spawn(Robot::new(PlayerNumber::Seven));
+    for number in [
+        PlayerNumber::One,
+        PlayerNumber::Two,
+        PlayerNumber::Three,
+        PlayerNumber::Four,
+        PlayerNumber::Five,
+        PlayerNumber::Six,
+        PlayerNumber::Seven,
+    ] {
+        commands.spawn(Robot::new(number));
+    }
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
+    mut commands: Commands,
     game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
-    mut robots: Query<&mut Robot>,
-    mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
+    robots: Query<(Entity, &Robot)>,
 ) {
-    if time.ticks() == 3200 {
-        if let Some(ball) = ball.state.as_mut() {
-            ball.position = point![0.0, 0.0];
-
-            // loser never looks behind itself, so we need to tell it where the ball is
-            let mut robot = robots.get_single_mut().unwrap();
-            robot.database.main_outputs.ball_position = Some(BallPosition {
-                position: robot.ground_to_field().inverse() * ball.position,
-                velocity: Vector2::zeros(),
-                last_seen: SystemTime::UNIX_EPOCH + time.elapsed(),
-            });
-        }
+    if time.ticks() == 5000 {
+        robots
+            .iter()
+            .filter(|(_, robot)| robot.database.main_outputs.role == Role::Striker)
+            .for_each(|(entity, _)| commands.entity(entity).despawn());
     }
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");

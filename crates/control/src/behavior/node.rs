@@ -14,7 +14,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::{MotionCommand, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
         LostBallParameters,
@@ -26,8 +26,6 @@ use types::{
     step::Step,
     world_state::WorldState,
 };
-
-use crate::dribble_path_planner;
 
 use super::{
     animation, calibrate,
@@ -42,7 +40,6 @@ use super::{
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {
-    last_motion_command: MotionCommand,
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
@@ -53,13 +50,10 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
-    dribble_path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
-    active_action_output: AdditionalOutput<Action, "active_action">,
-
     expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
+    dribble_path_plan: Input<Option<(OrientationMode, Vec<PathSegment>)>, "dribble_path_plan?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
 
@@ -82,19 +76,22 @@ pub struct CycleContext {
     support_walk_speed: Parameter<WalkSpeed, "walk_speed.support">,
     walk_to_kickoff_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_kickoff">,
     walk_to_penalty_kick_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_penalty_kick">,
+
+    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
+    active_action_output: AdditionalOutput<Action, "active_action">,
+
+    last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub motion_command: MainOutput<MotionCommand>,
-    pub dribble_path: MainOutput<Option<Vec<PathSegment>>>,
 }
 
 impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_motion_command: MotionCommand::Unstiff,
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
@@ -106,7 +103,6 @@ impl Behavior {
         if let Some(command) = &context.parameters.injected_motion_command {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
-                dribble_path: None.into(),
             });
         }
 
@@ -235,13 +231,13 @@ impl Behavior {
             context.field_dimensions,
             &world_state.obstacles,
             &context.parameters.path_planning,
-            &self.last_motion_command,
+            context.last_motion_command,
         );
         let walk_and_stand = WalkAndStand::new(
             world_state,
             &context.parameters.walk_and_stand,
             &walk_path_planner,
-            &self.last_motion_command,
+            context.last_motion_command,
         );
         let look_action = LookAction::new(world_state);
         let defend = Defend::new(
@@ -251,23 +247,6 @@ impl Behavior {
             &walk_and_stand,
             &look_action,
         );
-
-        let mut dribble_path_obstacles = None;
-        let mut dribble_path_obstacles_output = AdditionalOutput::new(
-            context.path_obstacles_output.is_subscribed()
-                || context.dribble_path_obstacles_output.is_subscribed(),
-            &mut dribble_path_obstacles,
-        );
-
-        let dribble_path = dribble_path_planner::plan(
-            &walk_path_planner,
-            world_state,
-            &context.parameters.dribbling,
-            &mut dribble_path_obstacles_output,
-        );
-        context
-            .dribble_path_obstacles_output
-            .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
         let (action, motion_command) = actions
             .iter()
@@ -368,7 +347,7 @@ impl Behavior {
                         &walk_path_planner,
                         context.in_walk_kicks,
                         &context.parameters.dribbling,
-                        dribble_path.clone(),
+                        context.dribble_path_plan.cloned(),
                         *context.dribble_walk_speed,
                     ),
                     Action::Jump => jump::execute(world_state),
@@ -498,17 +477,10 @@ impl Behavior {
             });
         context.active_action_output.fill_if_subscribed(|| *action);
 
-        self.last_motion_command = motion_command.clone();
-
-        if matches!(action, Action::Dribble) {
-            context
-                .path_obstacles_output
-                .fill_if_subscribed(|| dribble_path_obstacles.unwrap_or_default())
-        }
+        *context.last_motion_command = motion_command.clone();
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
-            dribble_path: dribble_path.into(),
         })
     }
 }
