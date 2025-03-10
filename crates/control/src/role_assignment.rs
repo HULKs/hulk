@@ -599,7 +599,6 @@ fn role_for_penalty_shootout(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
 ) -> Option<Role> {
     if let Some(game_controller_state) = filtered_game_controller_state {
-        // move to cycle
         if let GamePhase::PenaltyShootout { kicking_team } = game_controller_state.game_phase {
             return Some(match kicking_team {
                 Team::Hulks => Role::Striker,
