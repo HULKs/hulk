@@ -6,7 +6,7 @@ use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Camera, Ground, Head, Robot};
+use coordinate_systems::{Camera, Field, Ground, Head, Robot};
 use framework::MainOutput;
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
@@ -16,6 +16,7 @@ use types::{
     motion_command::{GlanceDirection, HeadMotion, ImageRegion, MotionCommand},
     parameters::ImageRegionParameters,
     sensor_data::SensorData,
+    world_state::WorldState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -34,6 +35,8 @@ pub struct CycleContext {
     ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "ground_to_robot?">,
     motion_command: Input<MotionCommand, "motion_command">,
     sensor_data: Input<SensorData, "sensor_data">,
+    expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
+    world_state: Input<WorldState, "world_state">,
 
     glance_angle: Parameter<f32, "look_at.glance_angle">,
     image_region_parameters: Parameter<ImageRegionParameters, "look_at.image_regions">,
@@ -73,6 +76,11 @@ impl LookAt {
             None => return default_output,
         };
 
+        let ground_to_field = match context.world_state.robot.ground_to_field {
+            Some(ground_to_robot) => ground_to_robot,
+            None => return default_output,
+        };
+
         let head_motion = match context.motion_command {
             MotionCommand::Initial { head, .. } => head,
             MotionCommand::SitDown { head } => head,
@@ -92,12 +100,21 @@ impl LookAt {
             self.last_glance_direction_toggle = Some(cycle_start_time);
         }
 
+        let expected_referee_position = ground_to_field.inverse()
+            * context
+                .expected_referee_position
+                .unwrap_or(&point!(1.0, 0.0));
+
         let (target, image_region_target, camera) = match *head_motion {
             HeadMotion::LookAt {
                 target,
                 image_region_target,
                 camera,
             } => (target, image_region_target, camera),
+            HeadMotion::LookAtReferee {
+                image_region_target,
+                camera,
+            } => (expected_referee_position, image_region_target, camera),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
