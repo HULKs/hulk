@@ -1119,7 +1119,8 @@
   },
   "role_assignment": {
     "forced_role": null,
-    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 }
+    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 },
+    "striker_trusts_team_ball": { "nanos": 0, "secs": 1 }
   },
   "walk_speed": {
     "defend": "Normal",
@@ -1400,10 +1401,12 @@
     "spl_striker_message_send_interval": {
       "nanos": 0,
       "secs": 2
-    },
-    "striker_trusts_team_ball": {
-      "nanos": 0,
-      "secs": 1
+    }
+  },
+  "team_ball": {
+    "maximum_age": {
+      "nanos": 500000000,
+      "secs": 4
     }
   },
   "joint_calibration_offsets": {

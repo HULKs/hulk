@@ -90,16 +90,15 @@ impl Widget for &mut LookAtPanel {
                     None
                 }
             };
-            let is_safe_to_override_current_motion_command =
-                current_motion_command.as_ref().is_some_and(|command| {
-                    matches!(
-                        command,
-                        MotionCommand::Penalized
-                            | MotionCommand::Stand { .. }
-                            | MotionCommand::Walk { .. }
-                            | MotionCommand::InWalkKick { .. }
-                    )
-                });
+            let is_safe_to_override_current_motion_command = matches!(
+                current_motion_command,
+                Some(
+                    MotionCommand::Penalized
+                        | MotionCommand::Stand { .. }
+                        | MotionCommand::Walk { .. }
+                        | MotionCommand::InWalkKick { .. }
+                )
+            );
             if !is_safe_to_override_current_motion_command {
                 status_text_job.append(
                     "Cannot safely override motion, please put the NAO into a standing position!",

@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
 use color_eyre::{eyre::Context, Result};
-use eframe::epaint::{Color32, Stroke};
+use eframe::{
+    egui::{Align2, FontId},
+    epaint::{Color32, Stroke},
+};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{IntoFramed, Isometry2, Point2};
 use types::{
     ball_position::SimulatorBallState, field_dimensions::FieldDimensions,
-    motion_command::MotionCommand,
+    motion_command::MotionCommand, roles::Role,
 };
 
 use crate::{
@@ -20,6 +23,7 @@ const TRANSPARENT_LIGHT_BLUE: Color32 = Color32::from_rgba_premultiplied(136, 17
 
 pub struct BehaviorSimulator {
     ground_to_field: PlayersBufferHandle<Option<Isometry2<Ground, Field>>>,
+    role: PlayersBufferHandle<Role>,
     motion_command: PlayersBufferHandle<MotionCommand>,
     head_yaw: PlayersBufferHandle<f32>,
     ball: BufferHandle<Option<SimulatorBallState>>,
@@ -33,6 +37,12 @@ impl Layer<Field> for BehaviorSimulator {
             nao.clone(),
             "BehaviorSimulator.main_outputs.databases",
             "main_outputs.ground_to_field",
+        )
+        .unwrap();
+        let role = PlayersBufferHandle::try_new(
+            nao.clone(),
+            "BehaviorSimulator.main_outputs.databases",
+            "main_outputs.role",
         )
         .unwrap();
         let motion_command = PlayersBufferHandle::try_new(
@@ -50,6 +60,7 @@ impl Layer<Field> for BehaviorSimulator {
         let ball = nao.subscribe_value("BehaviorSimulator.main_outputs.ball");
         Self {
             ground_to_field,
+            role,
             motion_command,
             head_yaw: sensor_data,
             ball,
@@ -70,7 +81,23 @@ impl Layer<Field> for BehaviorSimulator {
                 continue;
             };
 
-            let pose_color = Color32::from_white_alpha(63);
+            let pose_color = match self.role.0[player_number]
+                .get_last_value()
+                .wrap_err("role")?
+            {
+                Some(
+                    Role::DefenderLeft
+                    | Role::DefenderRight
+                    | Role::MidfielderLeft
+                    | Role::MidfielderRight,
+                ) => Color32::BLUE,
+                Some(Role::Keeper | Role::ReplacementKeeper) => Color32::YELLOW,
+                Some(Role::Loser) => Color32::BLACK,
+                Some(Role::Searcher) => Color32::WHITE,
+                Some(Role::Striker) => Color32::RED,
+                Some(Role::StrikerSupporter) => Color32::LIGHT_BLUE,
+                None => Color32::PLACEHOLDER,
+            };
             let pose_stroke = Stroke {
                 width: 0.02,
                 color: Color32::BLACK,
@@ -116,6 +143,15 @@ impl Layer<Field> for BehaviorSimulator {
                 0.25,
                 pose_color,
                 pose_stroke,
+            );
+            let mut font = FontId::default();
+            font.size *= 2.0;
+            painter.floating_text(
+                ground_to_field.as_pose().position(),
+                Align2::CENTER_CENTER,
+                format!("{player_number}"),
+                font,
+                Color32::BLACK,
             );
         }
 
