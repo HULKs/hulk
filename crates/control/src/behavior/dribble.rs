@@ -1,6 +1,5 @@
 use coordinate_systems::{Ground, UpcomingSupport};
-use geometry::look_at::LookAt;
-use linear_algebra::{Isometry2, Point, Pose2};
+use linear_algebra::{Isometry2, Pose2};
 use spl_network_messages::GamePhase;
 use types::{
     camera_position::CameraPosition,
@@ -13,7 +12,7 @@ use types::{
     world_state::WorldState,
 };
 
-use super::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
+use super::walk_to_pose::WalkPathPlanner;
 
 #[allow(clippy::too_many_arguments)]
 pub fn execute(
@@ -21,7 +20,7 @@ pub fn execute(
     walk_path_planner: &WalkPathPlanner,
     in_walk_kicks: &InWalkKicksParameters,
     parameters: &DribblingParameters,
-    dribble_path: Option<Vec<PathSegment>>,
+    dribble_path_plan: Option<(OrientationMode, Vec<PathSegment>)>,
     mut walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
@@ -62,27 +61,6 @@ pub fn execute(
         return Some(command);
     }
 
-    let best_kick_decision = match kick_decisions.first() {
-        Some(decision) => decision,
-        None => return Some(MotionCommand::Stand { head }),
-    };
-
-    let best_pose = best_kick_decision.kick_pose;
-
-    let hybrid_orientation_mode = hybrid_alignment(
-        best_pose,
-        parameters.hybrid_align_distance,
-        parameters.distance_to_be_aligned,
-    );
-    let orientation_mode = match hybrid_orientation_mode {
-        types::motion_command::OrientationMode::AlignWithPath
-            if ball_position.coords().norm() > 0.0 =>
-        {
-            OrientationMode::Override(Point::origin().look_at(&ball_position))
-        }
-        orientation_mode => orientation_mode,
-    };
-
     if let Some(FilteredGameControllerState {
         game_phase: GamePhase::PenaltyShootout { .. },
         ..
@@ -91,8 +69,8 @@ pub fn execute(
         walk_speed = WalkSpeed::Slow;
     }
 
-    match dribble_path {
-        Some(path) => Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
+    match dribble_path_plan {
+        Some((orientation_mode, path)) => Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
             orientation_mode,
             path,

@@ -29,7 +29,9 @@ pub enum WalkSpeed {
     Fast,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum OrientationMode {
     AlignWithPath,
     Override(Orientation2<Ground>),
@@ -48,7 +50,6 @@ pub enum MotionCommand {
     },
     Initial {
         head: HeadMotion,
-        should_look_for_referee: bool,
     },
     Jump {
         direction: JumpDirection,
@@ -151,6 +152,10 @@ pub enum HeadMotion {
     SearchForLostBall,
     LookAt {
         target: Point2<Ground>,
+        image_region_target: ImageRegion,
+        camera: Option<CameraPosition>,
+    },
+    LookAtReferee {
         image_region_target: ImageRegion,
         camera: Option<CameraPosition>,
     },

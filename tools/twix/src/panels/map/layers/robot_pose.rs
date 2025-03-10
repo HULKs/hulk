@@ -23,7 +23,7 @@ impl Layer<Ground> for RobotPose {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let pose_color = Color32::from_white_alpha(187);
+        let pose_color = Color32::from_white_alpha(127);
         let pose_stroke = Stroke {
             width: 0.02,
             color: Color32::BLACK,

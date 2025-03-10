@@ -8,7 +8,10 @@ use parking_lot::Mutex;
 
 use buffered_watch::{Receiver, Sender};
 use color_eyre::Result;
-use hardware::{NetworkInterface, RecordingInterface, SpeakerInterface, TimeInterface};
+use hardware::{
+    CameraInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
+    TimeInterface,
+};
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
@@ -17,7 +20,7 @@ use types::{
 use crate::{cyclers::control::Database, HardwareInterface};
 
 pub struct Interfake {
-    time: SystemTime,
+    time: Mutex<SystemTime>,
     messages: Arc<Mutex<Vec<OutgoingMessage>>>,
     last_database_receiver: Mutex<Receiver<Database>>,
     last_database_sender: Mutex<Sender<Database>>,
@@ -28,7 +31,7 @@ impl Default for Interfake {
         let (last_database_sender, last_database_receiver) =
             buffered_watch::channel(Default::default());
         Self {
-            time: UNIX_EPOCH,
+            time: Mutex::new(UNIX_EPOCH),
             messages: Default::default(),
             last_database_receiver: Mutex::new(last_database_receiver),
             last_database_sender: Mutex::new(last_database_sender),
@@ -57,12 +60,27 @@ impl RecordingInterface for Interfake {
 
 impl TimeInterface for Interfake {
     fn get_now(&self) -> SystemTime {
-        self.time
+        *self.time.lock()
     }
 }
 
 impl SpeakerInterface for Interfake {
     fn write_to_speakers(&self, _request: SpeakerRequest) {}
+}
+
+impl PathsInterface for Interfake {
+    fn get_paths(&self) -> types::hardware::Paths {
+        unimplemented!()
+    }
+}
+
+impl CameraInterface for Interfake {
+    fn read_from_camera(
+        &self,
+        _camera_position: types::camera_position::CameraPosition,
+    ) -> Result<types::ycbcr422_image::YCbCr422Image> {
+        unimplemented!()
+    }
 }
 
 pub trait FakeDataInterface {
@@ -81,6 +99,10 @@ impl FakeDataInterface for Interfake {
 }
 
 impl Interfake {
+    pub fn set_time(&self, now: SystemTime) {
+        *self.time.lock() = now;
+    }
+
     pub fn take_outgoing_messages(&self) -> Vec<OutgoingMessage> {
         take(&mut self.messages.lock())
     }
