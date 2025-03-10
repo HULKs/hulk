@@ -156,7 +156,6 @@ pub enum HeadMotion {
         camera: Option<CameraPosition>,
     },
     LookAtReferee {
-        target: Point2<Ground>,
         image_region_target: ImageRegion,
         camera: Option<CameraPosition>,
     },

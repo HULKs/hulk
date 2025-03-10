@@ -51,7 +51,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
     dribble_path_plan: Input<Option<(OrientationMode, Vec<PathSegment>)>, "dribble_path_plan?">,
@@ -337,16 +336,12 @@ impl Behavior {
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
-                    Action::Initial => initial::execute(
-                        world_state,
-                        context.expected_referee_position.cloned(),
-                        *context.enable_pose_detection,
-                    ),
-                    Action::LookAtReferee => look_at_referee::execute(
-                        world_state,
-                        context.expected_referee_position.cloned(),
-                        *context.enable_pose_detection,
-                    ),
+                    Action::Initial => {
+                        initial::execute(world_state, *context.enable_pose_detection)
+                    }
+                    Action::LookAtReferee => {
+                        look_at_referee::execute(*context.enable_pose_detection)
+                    }
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)
                     }
