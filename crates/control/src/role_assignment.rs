@@ -113,39 +113,8 @@ impl RoleAssignment {
     ) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
         let primary_state = *context.primary_state;
-        let mut new_role = self.role;
 
         self.try_sending_game_controller_return_message(&context)?;
-
-        // TODO: remove
-        let is_in_penalty_kick = matches!(
-            context.filtered_game_controller_state,
-            Some(FilteredGameControllerState {
-                sub_state: Some(SubState::PenaltyKick),
-                ..
-            })
-        );
-
-        let spl_striker_message_timeout = match self.last_received_spl_message {
-            None => true,
-            Some(last_received_spl_striker_message) => {
-                cycle_start_time.duration_since(last_received_spl_striker_message)?
-                    > context.spl_network.spl_striker_message_receive_timeout
-            }
-        };
-
-        if spl_striker_message_timeout && !is_in_penalty_kick {
-            match new_role {
-                Role::Keeper | Role::ReplacementKeeper => {}
-                Role::Striker => {
-                    new_role = Role::Loser;
-                }
-                Role::Loser if *context.player_number == PlayerNumber::One => {
-                    new_role = Role::Keeper;
-                }
-                _ => new_role = Role::Searcher,
-            }
-        }
 
         let role_from_state_machine =
             self.role_from_state_machine(&context, cycle_start_time, self.role);
@@ -530,7 +499,10 @@ fn process_role_state_machine(
         // Striker lost Ball
         (Role::Striker, false, Event::None | Event::Loser) => match team_ball {
             Some(team_ball) if striker_trusts_team_ball(team_ball) => Role::Striker,
-            _ => Role::Loser,
+            _ => match player_number{
+                PlayerNumber::One => Role::Keeper,
+                _ => Role::Loser,
+            }
         },
 
         (_other_role, _, Event::Striker(striker_event)) => claim_striker_or_other_role(
