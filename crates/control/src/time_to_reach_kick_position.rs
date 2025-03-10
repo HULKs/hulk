@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, time::Duration};
+use std::{convert::identity, f32::consts::PI, time::Duration};
 
 use color_eyre::{eyre::Ok, Result};
 use framework::MainOutput;
@@ -6,6 +6,7 @@ use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
 use types::{
     motion_command::OrientationMode, parameters::BehaviorParameters, planned_path::PathSegment,
+    stand_up::RemainingStandUpDuration,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -19,9 +20,11 @@ pub struct CycleContext {
     configuration: Parameter<BehaviorParameters, "behavior">,
 
     stand_up_back_estimated_remaining_duration:
-        CyclerState<Duration, "stand_up_back_estimated_remaining_duration">,
+        CyclerState<RemainingStandUpDuration, "stand_up_back_estimated_remaining_duration">,
     stand_up_front_estimated_remaining_duration:
-        CyclerState<Duration, "stand_up_front_estimated_remaining_duration">,
+        CyclerState<RemainingStandUpDuration, "stand_up_front_estimated_remaining_duration">,
+    stand_up_sitting_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
 }
 
 #[context]
@@ -76,12 +79,13 @@ impl TimeToReachKickPosition {
             .mul_f32(turn_angle / PI);
 
         let time_to_reach_kick_position = [
-            walk_duration,
-            *context.stand_up_back_estimated_remaining_duration, // Make optional
-            *context.stand_up_front_estimated_remaining_duration, // Make optional
-            turn_duration,
+            Some(walk_duration),
+            (*context.stand_up_back_estimated_remaining_duration).into(),
+            (*context.stand_up_front_estimated_remaining_duration).into(),
+            Some(turn_duration),
         ]
         .into_iter()
+        .flatten()
         .fold(Duration::ZERO, Duration::saturating_add);
 
         Ok(MainOutputs {

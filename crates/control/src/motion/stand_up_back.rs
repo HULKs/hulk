@@ -1,6 +1,6 @@
-use std::time::Duration;
-
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
@@ -8,12 +8,12 @@ use framework::MainOutput;
 use hardware::PathsInterface;
 use linear_algebra::Vector3;
 use motionfile::{MotionFile, MotionInterpolator};
-use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
     joints::Joints,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    stand_up::RemainingStandUpDuration,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -40,7 +40,7 @@ pub struct CycleContext {
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     stand_up_back_estimated_remaining_duration:
-        CyclerState<Duration, "stand_up_back_estimated_remaining_duration">,
+        CyclerState<RemainingStandUpDuration, "stand_up_back_estimated_remaining_duration">,
 }
 
 #[context]
@@ -70,10 +70,10 @@ impl StandUpBack {
                 self.interpolator
                     .advance_by(last_cycle_duration, condition_input);
 
-                self.interpolator.estimated_remaining_duration()
+                RemainingStandUpDuration::Running(self.interpolator.estimated_remaining_duration())
             } else {
                 self.interpolator.reset();
-                Duration::ZERO
+                RemainingStandUpDuration::NotRunning
             };
 
         context.motion_safe_exits[MotionType::StandUpBack] = self.interpolator.is_finished();
