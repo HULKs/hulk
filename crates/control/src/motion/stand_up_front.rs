@@ -39,13 +39,14 @@ pub struct CycleContext {
         Input<Vector3<Robot>, "sensor_data.inertial_measurement_unit.angular_velocity">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    stand_up_front_estimated_remaining_duration:
+        CyclerState<Duration, "stand_up_front_estimated_remaining_duration">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub stand_up_front_positions: MainOutput<Joints<f32>>,
-    pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
 }
 
 impl StandUpFront {
@@ -62,18 +63,18 @@ impl StandUpFront {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let stand_up_front_estimated_remaining_duration =
-            if let MotionType::StandUpFront = context.motion_selection.current_motion {
+        let estimated_remaining_duration =
+            if context.motion_selection.current_motion == MotionType::StandUpFront {
                 let last_cycle_duration = context.cycle_time.last_cycle_duration;
                 let condition_input = context.condition_input;
 
                 self.interpolator
                     .advance_by(last_cycle_duration, condition_input);
 
-                Some(self.interpolator.estimated_remaining_duration())
+                self.interpolator.estimated_remaining_duration()
             } else {
                 self.interpolator.reset();
-                None
+                Duration::ZERO
             };
         context.motion_safe_exits[MotionType::StandUpFront] = self.interpolator.is_finished();
 
@@ -86,10 +87,10 @@ impl StandUpFront {
         positions.right_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.right_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
 
+        *context.stand_up_front_estimated_remaining_duration = estimated_remaining_duration;
+
         Ok(MainOutputs {
             stand_up_front_positions: positions.into(),
-            stand_up_front_estimated_remaining_duration:
-                stand_up_front_estimated_remaining_duration.into(),
         })
     }
 }

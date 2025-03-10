@@ -40,13 +40,14 @@ pub struct CycleContext {
         Input<Vector3<Robot>, "sensor_data.inertial_measurement_unit.angular_velocity">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    stand_up_sitting_estimated_remaining_duration:
+        CyclerState<Duration, "stand_up_sitting_estimated_remaining_duration">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub stand_up_sitting_positions: MainOutput<Joints<f32>>,
-    pub stand_up_sitting_estimated_remaining_duration: MainOutput<Option<Duration>>,
 }
 
 impl StandUpSitting {
@@ -64,17 +65,17 @@ impl StandUpSitting {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let estimated_remaining_duration =
-            if let MotionType::StandUpSitting = context.motion_selection.current_motion {
+            if context.motion_selection.current_motion == MotionType::StandUpSitting {
                 let last_cycle_duration = context.cycle_time.last_cycle_duration;
                 let condition_input = context.condition_input;
 
                 self.interpolator
                     .advance_by(last_cycle_duration, condition_input);
 
-                Some(self.interpolator.estimated_remaining_duration())
+                self.interpolator.estimated_remaining_duration()
             } else {
                 self.interpolator.reset();
-                None
+                Duration::ZERO
             };
         context.motion_safe_exits[MotionType::StandUpSitting] = self.interpolator.is_finished();
 
@@ -87,9 +88,10 @@ impl StandUpSitting {
         positions.right_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.right_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
 
+        *context.stand_up_sitting_estimated_remaining_duration = estimated_remaining_duration;
+
         Ok(MainOutputs {
             stand_up_sitting_positions: positions.into(),
-            stand_up_sitting_estimated_remaining_duration: estimated_remaining_duration.into(),
         })
     }
 }
