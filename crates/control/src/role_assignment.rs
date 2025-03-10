@@ -37,7 +37,7 @@ use crate::localization::generate_initial_pose;
 
 #[derive(Deserialize, Serialize)]
 pub struct RoleAssignment {
-    last_received_spl_message: Option<SystemTime>, // Set to none when sending
+    last_received_striker_message: Option<SystemTime>,
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
     last_transmitted_spl_message: Option<SystemTime>,
     role: Role,
@@ -99,7 +99,7 @@ impl RoleAssignment {
         }
         .unwrap_or(Role::Striker);
         Ok(Self {
-            last_received_spl_message: None,
+            last_received_striker_message: None,
             last_system_time_transmitted_game_controller_return_message: None,
             last_transmitted_spl_message: None,
             role,
@@ -134,7 +134,7 @@ impl RoleAssignment {
 
         let mut new_role = [
             context.forced_role.copied(),
-            self.role_for_ready_and_set(&context, cycle_start_time),
+            self.role_for_ready_and_set(&context),
             role_for_penalty_shootout(context.filtered_game_controller_state),
             keep_current_role_in_penalty_kick(context.filtered_game_controller_state, self.role),
             keep_current_role_if_not_in_playing(primary_state, self.role),
@@ -196,7 +196,6 @@ impl RoleAssignment {
     fn role_for_ready_and_set(
         &mut self,
         context: &CycleContext<'_, impl NetworkInterface>,
-        cycle_start_time: SystemTime,
     ) -> Option<Role> {
         if *context.primary_state == PrimaryState::Ready
             || *context.primary_state == PrimaryState::Set
@@ -227,8 +226,7 @@ impl RoleAssignment {
                 }
             }
 
-            // set self.last_received_spl_message = None;
-            self.last_received_spl_message = Some(cycle_start_time);
+            self.last_received_striker_message = None;
 
             return Some(player_roles[*context.player_number]);
         }
@@ -242,7 +240,26 @@ impl RoleAssignment {
         cycle_start_time: SystemTime,
         current_role: Role,
     ) -> Role {
-        let events: Vec<_> = context
+        let spl_striker_message_timeout = match self.last_received_striker_message {
+            None => false,
+            Some(last_received_spl_striker_message) => {
+                if cycle_start_time
+                    .duration_since(last_received_spl_striker_message)
+                    .expect("time ran backwards")
+                    > context.spl_network.spl_striker_message_receive_timeout
+                {
+                    self.last_received_striker_message = None;
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+        let striker_message_timeout_event = spl_striker_message_timeout
+            .then_some(Event::Loser)
+            .into_iter();
+
+        let messages: Vec<_> = context
             .network_message
             .persistent
             .values()
@@ -259,17 +276,20 @@ impl RoleAssignment {
                 Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
                 _ => None,
             })
-            // Update the state machine at least once
-            .chain([Event::None])
             .collect();
+
+        let events = striker_message_timeout_event
+            .chain(messages)
+            // Update the state machine at least once
+            .chain([Event::None]);
 
         let mut new_role = current_role;
         for event in events {
             if let Event::Striker(_) = event {
-                self.last_received_spl_message = Some(cycle_start_time)
+                self.last_received_striker_message = Some(cycle_start_time)
             }
 
-            new_role = process_role_state_machine(
+            new_role = update_role_state_machine(
                 new_role,
                 context.ball_position.is_some(),
                 event,
@@ -362,7 +382,7 @@ impl RoleAssignment {
         }
 
         self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
-        self.last_received_spl_message = Some(context.cycle_time.start_time);
+        self.last_received_striker_message = None;
 
         let ground_to_field = ground_to_field_or_initial_pose(context);
         let pose = ground_to_field.as_pose();
@@ -400,7 +420,7 @@ impl RoleAssignment {
         }
 
         self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
-        self.last_received_spl_message = Some(context.cycle_time.start_time);
+        self.last_received_striker_message = None;
 
         let ground_to_field = ground_to_field_or_initial_pose(context);
         context
@@ -476,7 +496,7 @@ struct StrikerEvent {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn process_role_state_machine(
+fn update_role_state_machine(
     current_role: Role,
     detected_own_ball: bool,
     event: Event,
@@ -754,7 +774,7 @@ mod test {
             striker_trusts_team_ball_duration in  Just(Duration::from_secs(5)),
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
-            let new_role = process_role_state_machine(
+            let new_role = update_role_state_machine(
                 initial_role,
                 detected_own_ball,
                 event,
@@ -766,7 +786,7 @@ mod test {
                 striker_trusts_team_ball_duration,
                 optional_roles,
             );
-            let third_role = process_role_state_machine(
+            let third_role = update_role_state_machine(
                 new_role,
                 detected_own_ball,
                 Event::None,
