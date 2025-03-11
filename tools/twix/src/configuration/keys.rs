@@ -92,7 +92,7 @@ impl KeybindTrigger {
                 return Err(Error::DuplicateModifier(String::from(*raw_modifier)));
             }
 
-            modifiers = modifiers | modifier;
+            modifiers |= modifier;
         }
 
         let result = Self { key, modifiers };
