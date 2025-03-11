@@ -632,7 +632,14 @@ fn keep_current_role_during_free_kicks(
         ..
     }) = filtered_game_controller_state
     {
-        if current_role != Role::Searcher && current_role != Role::Striker {
+        if [
+            Role::DefenderLeft,
+            Role::DefenderRight,
+            Role::MidfielderLeft,
+            Role::DefenderRight,
+        ]
+        .contains(&current_role)
+        {
             return Some(current_role);
         }
     }
