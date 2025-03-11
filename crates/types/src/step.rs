@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Div, Sub};
 
 use nalgebra::Vector2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -61,6 +61,18 @@ impl Sub<Step> for Step {
             forward: self.forward - right.forward,
             left: self.left - right.left,
             turn: self.turn - right.turn,
+        }
+    }
+}
+
+impl Div<Step> for Step {
+    type Output = Step;
+
+    fn div(self, rhs: Step) -> Self::Output {
+        Self {
+            forward: self.forward / rhs.forward,
+            left: self.left / rhs.left,
+            turn: self.turn / rhs.turn,
         }
     }
 }

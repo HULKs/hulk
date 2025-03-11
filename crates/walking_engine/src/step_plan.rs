@@ -42,14 +42,15 @@ impl StepPlan {
             + travel_weighting(
                 swing_foot_travel,
                 turn_travel,
-                parameters.base.foot_lift_apex_increase,
+                parameters.base.foot_lift_apex_increase
+                    / context.step_plan_parameters.max_step_size,
             );
 
         let step_duration = parameters.base.step_duration
             + Duration::from_secs_f32(travel_weighting(
                 swing_foot_travel,
                 turn_travel,
-                parameters.base.step_duration_increase,
+                parameters.base.step_duration_increase / context.step_plan_parameters.max_step_size,
             ));
 
         let midpoint = interpolate_midpoint(
