@@ -125,15 +125,7 @@ pub struct SearchParameters {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct InWalkKicksParameters {
     pub forward: InWalkKickInfoParameters,
@@ -154,21 +146,15 @@ impl Index<KickVariant> for InWalkKicksParameters {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct InWalkKickInfoParameters {
     pub position: nalgebra::Point2<f32>,
     pub position_offset: nalgebra::Vector2<f32>,
     pub orientation: f32,
-    pub reached_thresholds: nalgebra::Vector3<f32>,
+    pub reached_x: Range<f32>,
+    pub reached_y: Range<f32>,
+    pub reached_turn: Range<f32>,
     pub shot_distance: f32,
     pub enabled: bool,
 }

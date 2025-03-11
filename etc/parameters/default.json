@@ -1079,7 +1079,18 @@
       "position": [-0.22, -0.04],
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
-      "reached_thresholds": [0.04, 0.02, 0.05],
+      "reached_x": {
+        "start": -0.04,
+        "end": 0.04
+      },
+      "reached_y": {
+        "start": -0.02,
+        "end": 0.02
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
       "shot_distance": 4.0,
       "enabled": true
     },
@@ -1087,7 +1098,18 @@
       "position": [-0.15, -0.11],
       "position_offset": [0.0, 0.0],
       "orientation": 0.8,
-      "reached_thresholds": [0.04, 0.04, 0.1],
+      "reached_x": {
+        "start": -0.04,
+        "end": 0.04
+      },
+      "reached_y": {
+        "start": -0.04,
+        "end": 0.04
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
       "shot_distance": 3.5,
       "enabled": true
     },
@@ -1095,7 +1117,18 @@
       "position": [-0.15, 0.03],
       "position_offset": [0.0, 0.0],
       "orientation": -1.57,
-      "reached_thresholds": [0.05, 0.06, 0.1],
+      "reached_x": {
+        "start": -0.05,
+        "end": 0.05
+      },
+      "reached_y": {
+        "start": -0.06,
+        "end": 0.06
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
       "shot_distance": 0.8,
       "enabled": true
     }
