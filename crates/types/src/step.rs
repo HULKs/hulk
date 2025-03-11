@@ -1,6 +1,7 @@
 use std::ops::{Add, Div, Sub};
 
 use nalgebra::Vector2;
+use num_traits::CheckedDiv;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +74,16 @@ impl Div<Step> for Step {
             forward: self.forward / rhs.forward,
             left: self.left / rhs.left,
             turn: self.turn / rhs.turn,
+        }
+    }
+}
+
+impl CheckedDiv for Step {
+    fn checked_div(&self, rhs: &Self) -> Option<Self> {
+        if rhs.forward == 0.0 || rhs.left == 0.0 || rhs.turn == 0.0 {
+            None
+        } else {
+            Some(*self / *rhs)
         }
     }
 }

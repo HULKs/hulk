@@ -1,3 +1,4 @@
+use num_traits::ops::checked::CheckedDiv;
 use std::time::Duration;
 
 use coordinate_systems::Walk;
@@ -42,15 +43,22 @@ impl StepPlan {
             + travel_weighting(
                 swing_foot_travel,
                 turn_travel,
-                parameters.base.foot_lift_apex_increase
-                    / context.step_plan_parameters.max_step_size,
+                parameters
+                    .base
+                    .foot_lift_apex_increase
+                    .checked_div(&context.step_plan_parameters.max_step_size)
+                    .unwrap_or(Step::ZERO),
             );
 
         let step_duration = parameters.base.step_duration
             + Duration::from_secs_f32(travel_weighting(
                 swing_foot_travel,
                 turn_travel,
-                parameters.base.step_duration_increase / context.step_plan_parameters.max_step_size,
+                parameters
+                    .base
+                    .step_duration_increase
+                    .checked_div(&context.step_plan_parameters.max_step_size)
+                    .unwrap_or(Step::ZERO),
             ));
 
         let midpoint = interpolate_midpoint(

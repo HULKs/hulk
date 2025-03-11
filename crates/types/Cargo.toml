@@ -20,3 +20,4 @@ path_serde = { workspace = true }
 serde = { workspace = true }
 spl_network_messages = { workspace = true }
 splines = { workspace = true }
+num-traits = { workspace = true }
