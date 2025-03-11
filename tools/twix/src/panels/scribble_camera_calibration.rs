@@ -1,155 +1,241 @@
 use std::sync::Arc;
 
-// use communication::messages::TextOrBinary;
-// use eframe::egui::{Response, Slider, Ui, Widget, WidgetText};
+use color_eyre::{eyre::eyre, Result};
+use coordinate_systems::Pixel;
 use eframe::egui::{
-    emath,
-    epaint::{self, CubicBezierShape, PathShape, QuadraticBezierShape},
-    pos2, Color32, Context, Frame, Grid, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind,
-    Ui, Vec2, Widget, Window,
+    Color32, ColorImage, Response, Shape, SizeHint, Stroke, TextureOptions, Ui, UiBuilder, Widget,
 };
-// use log::error;
+use geometry::{line_segment::LineSegment, rectangle::Rectangle};
+use image::RgbImage;
+use linear_algebra::{distance, point, vector, Point2};
 use nalgebra::Vector3;
-// use parameters::directory::Scope;
 use serde_json::Value;
 
-use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
+
+use crate::{
+    nao::Nao,
+    panel::Panel,
+    twix_painter::{Orientation, TwixPainter},
+    value_buffer::BufferHandle,
+};
+
+use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
+
+const KEYPOINT_RADIUS: f32 = 5.0;
+const KEYPOINT_COLOR: Color32 = Color32::from_rgb(155, 0, 0);
+
+enum RawOrJpeg {
+    Raw(BufferHandle<YCbCr422Image>),
+    Jpeg(BufferHandle<JpegImage>),
+}
+
+#[derive(Clone, Copy)]
+enum UserState {
+    Idle,
+    DrawingLine { start: Point2<Pixel> },
+}
 
 pub struct ScribbleCalibrationPanel {
     nao: Arc<Nao>,
-    top_camera: BufferHandle<Vector3<f32>>,
-    bottom_camera: BufferHandle<Vector3<f32>>,
+    _top_camera: BufferHandle<Vector3<f32>>,
+    _bottom_camera: BufferHandle<Vector3<f32>>,
 
-    line_1_goal: bool,
-    line_2_penalty_horizontal: bool,
-    line_3_penalty_left: bool,
-    line_4_penalty_right: bool,
+    image_buffer: RawOrJpeg,
+    cycler: VisionCycler,
 
-    /// The control points. The [`Self::degree`] first of them are used.
-    lines: [(Pos2, Pos2); 4],
-
-    /// Stroke for Bézier curve.
+    state: UserState,
+    lines: Vec<LineSegment<Pixel>>,
     stroke: Stroke,
 }
 
 impl Panel for ScribbleCalibrationPanel {
     const NAME: &'static str = "Scribble Calibration";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let top_camera = nao.subscribe_value(
+    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+        let _top_camera = nao.subscribe_value(
             "parameters.camera_matrix_parameters.vision_top.extrinsic_rotations".to_string(),
         );
-        let bottom_camera = nao.subscribe_value(
+        let _bottom_camera = nao.subscribe_value(
             "parameters.camera_matrix_parameters.vision_bottom.extrinsic_rotations".to_string(),
         );
 
+        let cycler = value
+            .and_then(|value| {
+                let string = value.get("cycler")?.as_str()?;
+                VisionCycler::try_from(string).ok()
+            })
+            .unwrap_or(VisionCycler::Top);
+        let cycler_path = cycler.as_path();
+
+        let is_jpeg = value
+            .and_then(|value| value.get("is_jpeg"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+
+        let image_buffer = if is_jpeg {
+            let path = format!("{cycler_path}.main_outputs.image.jpeg");
+            RawOrJpeg::Jpeg(nao.subscribe_value(path))
+        } else {
+            let path = format!("{cycler_path}.main_outputs.image");
+            RawOrJpeg::Raw(nao.subscribe_value(path))
+        };
+
         Self {
             nao,
-            top_camera,
-            bottom_camera,
+            _top_camera,
+            _bottom_camera,
 
-            line_1_goal: true,
-            line_2_penalty_horizontal: true,
-            line_3_penalty_left: true,
-            line_4_penalty_right: true,
+            image_buffer,
+            cycler,
 
-            lines: [
-                (pos2(50.0, 50.0), pos2(250.0, 50.0)),
-                (pos2(50.0, 200.0), pos2(250.0, 200.0)),
-                (pos2(110.0, 100.0), pos2(100.0, 150.0)),
-                (pos2(190.0, 100.0), pos2(200.0, 150.0)),
-            ],
-            stroke: Stroke::new(1.0, Color32::from_rgb(25, 200, 100)),
+            state: UserState::Idle,
+            lines: Vec::new(),
+            stroke: Stroke::new(3.0, Color32::from_rgb(55, 80, 250)),
         }
     }
 }
 
 impl Widget for &mut ScribbleCalibrationPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.vertical(|ui| {
-            ui.collapsing("Lines", |ui| {
-                ui.vertical(|ui| {
-                    ui.checkbox(&mut self.line_1_goal, "Line 1: Goal line");
-                    ui.checkbox(
-                        &mut self.line_2_penalty_horizontal,
-                        "Line 2: Penalty horizontal",
-                    );
-                    ui.checkbox(&mut self.line_3_penalty_left, "Line 3: Penalty left");
-                    ui.checkbox(&mut self.line_4_penalty_right, "Line 4: Penalty right");
-                });
-            });
+        let jpeg = matches!(self.image_buffer, RawOrJpeg::Jpeg(_));
+        let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
+        if cycler_selector.ui(ui).changed() {
+            self.resubscribe(jpeg);
+        }
 
-            ui.separator();
-
-            self.ui_content(ui);
-        })
-        .response
+        self.ui_content(ui)
     }
 }
 
 impl ScribbleCalibrationPanel {
-    fn int_to_bool(&self, number: usize) -> bool {
-        match number {
-            0 => self.line_1_goal,
-            1 => self.line_2_penalty_horizontal,
-            2 => self.line_3_penalty_left,
-            3 => self.line_4_penalty_right,
-            _ => false,
-        }
+    // TODO: implement this only once
+    fn resubscribe(&mut self, jpeg: bool) {
+        let cycler_path = self.cycler.as_path();
+        self.image_buffer = if jpeg {
+            RawOrJpeg::Jpeg(
+                self.nao
+                    .subscribe_value(format!("{cycler_path}.main_outputs.image.jpeg")),
+            )
+        } else {
+            RawOrJpeg::Raw(
+                self.nao
+                    .subscribe_value(format!("{cycler_path}.main_outputs.image")),
+            )
+        };
+    }
+
+    fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
+        let context = painter.context();
+
+        let image_identifier = format!("bytes://image-{:?}", self.cycler);
+        let image = match &self.image_buffer {
+            RawOrJpeg::Raw(buffer) => {
+                let ycbcr = buffer
+                    .get_last_value()?
+                    .ok_or_else(|| eyre!("no image available"))?;
+                let image = ColorImage::from_rgb(
+                    [ycbcr.width() as usize, ycbcr.height() as usize],
+                    RgbImage::from(ycbcr).as_raw(),
+                );
+                context
+                    .load_texture(&image_identifier, image, TextureOptions::NEAREST)
+                    .id()
+            }
+            RawOrJpeg::Jpeg(buffer) => {
+                let jpeg = buffer
+                    .get_last_value()?
+                    .ok_or_else(|| eyre!("no image available"))?;
+                context.forget_image(&image_identifier);
+                context.include_bytes(image_identifier.clone(), jpeg.data);
+                context
+                    .try_load_texture(
+                        &image_identifier,
+                        TextureOptions::NEAREST,
+                        SizeHint::Size(640, 480),
+                    )?
+                    .texture_id()
+                    .unwrap()
+            }
+        };
+
+        painter.image(
+            image,
+            Rectangle {
+                min: point!(0.0, 0.0),
+                max: point!(640.0, 480.0),
+            },
+        );
+        Ok(())
     }
 
     pub fn ui_content(&mut self, ui: &mut Ui) -> Response {
-        let (response, painter) =
-            ui.allocate_painter(Vec2::new(ui.available_width(), 300.0), Sense::hover());
-
-        let to_screen = emath::RectTransform::from_to(
-            Rect::from_min_size(Pos2::ZERO, response.rect.size()),
-            response.rect,
+        let (response, mut painter) = TwixPainter::allocate(
+            ui,
+            vector![640.0, 480.0],
+            point![0.0, 0.0],
+            Orientation::LeftHanded,
         );
 
-        let line_states: Vec<bool> = (0..self.lines.len()).map(|i| self.int_to_bool(i)).collect();
-
-        self.lines
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, (start, end))| {
-                if line_states[i] {
-                    let start_screen = to_screen * *start;
-                    let end_screen = to_screen * *end;
-
-                    let radius = 5.0;
-                    let start_response = ui.interact(
-                        Rect::from_center_size(start_screen, Vec2::splat(radius * 2.0)),
-                        response.id.with(format!("start_{}", i)),
-                        Sense::drag(),
-                    );
-                    if start_response.dragged() {
-                        *start += start_response.drag_delta() / to_screen.scale();
-                        *start = to_screen.from().clamp(*start);
-                    }
-                    painter.add(Shape::circle_filled(start_screen, radius, Color32::WHITE));
-
-                    let end_response = ui.interact(
-                        Rect::from_center_size(end_screen, Vec2::splat(radius * 2.0)),
-                        response.id.with(format!("end_{}", i)),
-                        Sense::drag(),
-                    );
-                    if end_response.dragged() {
-                        *end += end_response.drag_delta() / to_screen.scale();
-                        *end = to_screen.from().clamp(*end);
-                    }
-                    painter.add(Shape::circle_filled(end_screen, radius, Color32::WHITE));
-
-                    // Update the line with the new positions
-                    let updated_start_screen = to_screen * *start;
-                    let updated_end_screen = to_screen * *end;
-                    painter.add(PathShape::line(
-                        vec![updated_start_screen, updated_end_screen],
-                        self.stroke,
-                    ));
-                }
+        if let Err(error) = self.show_image(&painter) {
+            ui.scope_builder(UiBuilder::new().max_rect(response.rect), |ui| {
+                ui.label(format!("{error}"))
             });
+        };
 
+        for line in &self.lines {
+            painter.line_segment(line.0, line.1, self.stroke);
+            painter.add(Shape::circle_filled(
+                painter.transform_world_to_pixel(line.0),
+                KEYPOINT_RADIUS,
+                KEYPOINT_COLOR,
+            ));
+            painter.add(Shape::circle_filled(
+                painter.transform_world_to_pixel(line.1),
+                KEYPOINT_RADIUS,
+                KEYPOINT_COLOR,
+            ));
+        }
+
+        let primary_clicked = ui.input(|reader| reader.pointer.primary_pressed());
+        let pointer_position = response
+            .hover_pos()
+            .map(|pos| painter.transform_pixel_to_world(pos));
+
+        self.state = match (self.state, pointer_position) {
+            (UserState::Idle, _) if !primary_clicked => UserState::Idle,
+            (UserState::Idle, Some(pointer)) if primary_clicked => {
+                let closest_line_index = self.lines.iter().position(|line| {
+                    distance(line.0, pointer) < KEYPOINT_RADIUS
+                        || distance(line.1, pointer) < KEYPOINT_RADIUS
+                });
+                if let Some(line_index) = closest_line_index {
+                    let modified_line = self.lines.remove(line_index);
+                    let start = if distance(modified_line.0, pointer) < KEYPOINT_RADIUS {
+                        modified_line.1
+                    } else {
+                        modified_line.0
+                    };
+                    UserState::DrawingLine { start }
+                } else {
+                    UserState::DrawingLine { start: pointer }
+                }
+            }
+            (UserState::DrawingLine { start }, Some(end)) if primary_clicked => {
+                self.lines.push(LineSegment::new(start, end));
+                UserState::Idle
+            }
+            (UserState::DrawingLine { start }, Some(end)) if !primary_clicked => {
+                painter.line_segment(start, end, self.stroke);
+                painter.add(Shape::circle_filled(
+                    painter.transform_world_to_pixel(start),
+                    KEYPOINT_RADIUS,
+                    KEYPOINT_COLOR,
+                ));
+                UserState::DrawingLine { start }
+            }
+            (_, _) => self.state,
+        };
         response
     }
 }
