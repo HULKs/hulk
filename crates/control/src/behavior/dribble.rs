@@ -86,9 +86,14 @@ fn is_kick_pose_reached(
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
 ) -> bool {
     let upcoming_kick_pose = ground_to_upcoming_support * kick_pose;
-    let is_x_reached = upcoming_kick_pose.position().x().abs() < kick_info.reached_thresholds.x;
-    let is_y_reached = upcoming_kick_pose.position().y().abs() < kick_info.reached_thresholds.y;
-    let is_orientation_reached =
-        upcoming_kick_pose.orientation().angle().abs() < kick_info.reached_thresholds.z;
+    let is_x_reached = kick_info
+        .reached_x
+        .contains(&upcoming_kick_pose.position().x());
+    let is_y_reached = kick_info
+        .reached_y
+        .contains(&upcoming_kick_pose.position().y());
+    let is_orientation_reached = kick_info
+        .reached_turn
+        .contains(&upcoming_kick_pose.orientation().angle());
     is_x_reached && is_y_reached && is_orientation_reached
 }
