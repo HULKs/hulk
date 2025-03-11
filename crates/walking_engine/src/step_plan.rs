@@ -1,4 +1,3 @@
-use num_traits::ops::checked::CheckedDiv;
 use std::time::Duration;
 
 use coordinate_systems::Walk;
@@ -46,8 +45,7 @@ impl StepPlan {
                 parameters
                     .base
                     .foot_lift_apex_increase
-                    .checked_div(&context.max_step_size)
-                    .unwrap_or(Step::ZERO),
+                    .div_or_zero(&context.max_step_size),
             );
 
         let step_duration = parameters.base.step_duration
@@ -57,8 +55,7 @@ impl StepPlan {
                 parameters
                     .base
                     .step_duration_increase
-                    .checked_div(&context.max_step_size)
-                    .unwrap_or(Step::ZERO),
+                    .div_or_zero(&context.max_step_size),
             ));
 
         let midpoint = interpolate_midpoint(
