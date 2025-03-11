@@ -156,6 +156,9 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                                     let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
                                     communication_server.expose_source("parameters", parameters_receiver, parameters_subscriptions)?;
                                     communication_server.expose_sink("parameters", parameters_sender)?;
+                                    let (_, ids_receiver) = buffered_watch::channel((std::time::SystemTime::now(), hardware_ids));
+                                    let (ids_subscriptions, _) = buffered_watch::channel(Default::default());
+                                    communication_server.expose_source("hardware_ids", ids_receiver, ids_subscriptions)?;
                                     communication_server.serve(addresses, keep_running).await?;
                                     Ok(())
                                 })
