@@ -259,6 +259,7 @@ impl Behavior {
                         .filter_map(|(player_number, penalty)| {
                             penalty.is_none().then_some(player_number)
                         })
+                        // Skip the lowest non-penalized player number since this is always the Keeper or ReplacementKeeper
                         .skip(1)
                         .take(2);
                     if first_two_nonpenalized_nonkeeper_player_numbers
