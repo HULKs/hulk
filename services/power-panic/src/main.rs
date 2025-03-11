@@ -1,10 +1,12 @@
+use std::io::Cursor;
+use std::thread::sleep;
+use std::time::Duration;
+
 use color_eyre::eyre::{eyre, Result, WrapErr};
-use zbus::{proxy, zvariant::Optional};
+use rodio::{source::Buffered, Decoder, OutputStream, Sink, Source};
+use zbus::{proxy, Connection, zvariant::Optional};
 
 use hula_types::Battery;
-
-use rodio::{source::Buffered, Decoder, OutputStream, Sink, Source};
-use std::io::Cursor;
 
 const AUDIO_FILE: &[u8] = include_bytes!("../sound/water-drop.mp3");
 
@@ -23,7 +25,7 @@ struct BatteryInfo {
 
 impl BatteryInfo {
     pub async fn initialize() -> Result<Self> {
-        let connection = zbus::Connection::system().await?;
+        let connection = Connection::system().await?;
         let proxy = BatteryInfoProxy::new(&connection)
             .await
             .wrap_err("failed to connect to dbus proxy")?;
@@ -78,12 +80,14 @@ async fn main() -> Result<()> {
 
         let mut time_to_sleep = 60;
 
-        // ceck if battery is low and is not charging
-        if battery.charge < 0.20 && battery.current < 0.0 {
-            println!("Battery low, playing sound");
+        let battery_is_low = battery.charge < 0.20;
+        let battery_is_charging = battery.current > 0.0;
+
+        if  battery_is_low && !battery_is_charging {
             audio_player.play();
             time_to_sleep = (battery.charge * 100.0) as u64;
         }
-        std::thread::sleep(std::time::Duration::from_secs(time_to_sleep));
+        
+        sleep(Duration::from_secs(time_to_sleep));
     }
 }
