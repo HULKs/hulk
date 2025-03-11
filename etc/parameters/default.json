@@ -429,8 +429,8 @@
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.00495
-        "left": 0.0072
+        "forward": 0.00495,
+        "left": 0.0072,
         "turn": 0.0125
       },
       "foot_offset_left": [0.0, 0.052, 0.0],
