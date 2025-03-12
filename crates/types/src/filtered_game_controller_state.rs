@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -7,10 +7,10 @@ use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use crate::{filtered_game_state::FilteredGameState, players::Players};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
-
 pub struct FilteredGameControllerState {
     pub game_state: FilteredGameState,
     pub opponent_game_state: FilteredGameState,
+    pub remaining_time_in_half: Duration,
     pub game_phase: GamePhase,
     pub kicking_team: Team,
     pub penalties: Players<Option<Penalty>>,
@@ -27,6 +27,7 @@ impl Default for FilteredGameControllerState {
         Self {
             game_state: Default::default(),
             opponent_game_state: Default::default(),
+            remaining_time_in_half: Duration::ZERO,
             game_phase: Default::default(),
             kicking_team: Team::Opponent,
             penalties: Default::default(),
