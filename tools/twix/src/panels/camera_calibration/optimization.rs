@@ -30,8 +30,6 @@ const CAMERA_BOTTOM_CORRECTION_PATH: &'static str =
 
 pub struct SemiAutomaticCalibrationContext {
     nao: Arc<Nao>,
-    top_camera: BufferHandle<CameraMatrix>,
-    bottom_camera: BufferHandle<CameraMatrix>,
     state: OptimizationState,
 
     top_camera_correction: BufferHandle<nalgebra::Vector3<f32>>,
@@ -40,15 +38,22 @@ pub struct SemiAutomaticCalibrationContext {
     field_dimensions: BufferHandle<FieldDimensions>,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct DrawnLine {
     pub line_segment: LineSegment<Pixel>,
     pub line_type: LineType,
 }
 
+#[derive(Clone, Debug)]
 pub struct SavedMeasurement {
-    camera_position: CameraPosition,
-    camera_matrix: CameraMatrix,
-    drawn_lines: Vec<DrawnLine>,
+    pub camera_position: CameraPosition,
+    pub camera_matrix: CameraMatrix,
+    pub drawn_lines: Vec<DrawnLine>,
+}
+
+#[derive(Clone)]
+pub struct SavedMeasurements {
+    pub measurements: HashMap<RobotLookState, SavedMeasurement>,
 }
 
 enum OptimizationState {
@@ -60,10 +65,7 @@ enum OptimizationState {
 }
 
 impl SemiAutomaticCalibrationContext {
-    pub fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let top_camera = nao.subscribe_value("Control.main_outputs.camera_matrices.top");
-        let bottom_camera = nao.subscribe_value("Control.main_outputs.camera_matrices.bottom");
-
+    pub fn new(nao: Arc<Nao>) -> Self {
         let top_camera_correction = nao.subscribe_value(ROBOT_CORRECTION_PATH);
         let bottom_camera_correction = nao.subscribe_value(CAMERA_BOTTOM_CORRECTION_PATH);
         let robot_correction = nao.subscribe_value(CAMERA_TOP_CORRECTION_PATH);
@@ -71,8 +73,6 @@ impl SemiAutomaticCalibrationContext {
 
         Self {
             nao,
-            top_camera,
-            bottom_camera,
             state: OptimizationState::NotOptimized,
             top_camera_correction,
             bottom_camera_correction,
