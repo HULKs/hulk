@@ -127,9 +127,16 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 println!("{:?}", self.saved_measurements)
             }
         
-            if ui.button("Clear").clicked() {
+            if ui.button("Clear Drawings").clicked() {
                 self.drawn_lines = Vec::new();
             }
+            if ui.button("Clear Measurements").clicked() {
+                self.saved_measurements = HashMap::new();
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.label(format!("# drwan lines: {}", self.drawn_lines.len()));
+            ui.label(format!("# measurements: {}", self.saved_measurements.len()));
         });
         ui.separator();
         ui.vertical(|ui| {
