@@ -22,6 +22,8 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
+use crate::field_color_tree::{self, Features};
+
 #[derive(Deserialize, Serialize)]
 pub struct ImageSegmenter {
     ground_to_field_of_home_after_coin_toss_before_second_half: Isometry2<Ground, Field>,
@@ -642,19 +644,23 @@ impl FieldColorDetection for FieldColorParameters {
         let rg_chromaticity = RgChromaticity::from(rgb);
         let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
         let hsv = Hsv::from(rgb);
+        let features = Features {
+            blue_luminance: rgb.blue,
+            green_luminance: rgb.green,
+            red_luminance: rgb.red,
+            luminance: color.y,
+            red_difference: color.cr,
+            blue_difference: color.cb,
+            blue_chromaticity,
+            green_chromaticity: rg_chromaticity.green,
+            red_chromaticity: rg_chromaticity.red,
+            intensity: ((rgb.blue as u16 + rgb.green as u16 + rgb.red as u16) / 3) as u8,
+            hue: hsv.hue,
+            saturation: hsv.saturation,
+            value: hsv.value,
+        };
 
-        if self.luminance.contains(&color.y)
-            && self.green_luminance.contains(&color.y)
-            && self.red_chromaticity.contains(&rg_chromaticity.red)
-            && self.green_chromaticity.contains(&rg_chromaticity.green)
-            && self.blue_chromaticity.contains(&blue_chromaticity)
-            && self.hue.contains(&hsv.hue)
-            && self.saturation.contains(&hsv.saturation)
-        {
-            Intensity::High
-        } else {
-            Intensity::Low
-        }
+        field_color_tree::predict(&features)
     }
 }
 
