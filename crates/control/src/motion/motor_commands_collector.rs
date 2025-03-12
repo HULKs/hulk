@@ -114,6 +114,7 @@ impl MotorCommandCollector {
                         head_joints_command.positions,
                         context.initial_pose.body(),
                     ),
+                    context.sensor_data.positions,
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),
@@ -144,6 +145,7 @@ impl MotorCommandCollector {
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,
                     *context.penalized_pose,
+                    context.sensor_data.positions,
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),
@@ -160,6 +162,7 @@ impl MotorCommandCollector {
                 self.current_minimizer.optimize(
                     context.sensor_data.currents,
                     Joints::from_head_and_body(head_joints_command.positions, walk.positions),
+                    context.sensor_data.positions,
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
                 ),

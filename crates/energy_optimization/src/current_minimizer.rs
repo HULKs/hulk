@@ -16,27 +16,9 @@ use crate::parameters::CurrentMinimizerParameters;
     PathDeserialize,
     PathIntrospect,
 )]
-enum State {
-    #[default]
-    Optimizing,
-    Resetting,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
 pub struct CurrentMinimizer {
     minimum_reached: bool,
     position_offset: Joints<f32>,
-    state: State,
     parameters: CurrentMinimizerParameters,
 }
 
@@ -45,54 +27,29 @@ impl CurrentMinimizer {
         &mut self,
         currents: Joints<f32>,
         positions: Joints<f32>,
+        measured_positions: Joints<f32>,
         cycle_time: CycleTime,
         parameters: CurrentMinimizerParameters,
     ) -> Joints<f32> {
         self.parameters = parameters;
 
-        let squared_position_offset_sum: f32 = self
-            .position_offset
-            .into_iter()
-            .map(|position| position.powf(2.0))
-            .sum();
+        // this optimization is inspired by the approach of Berlin United in their team research report 2019.
+        let (joint, maximal_current) = currents
+            .enumerate()
+            .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
+            .expect("currents must not be empty.");
 
-        if squared_position_offset_sum >= self.parameters.reset_threshold {
-            self.state = State::Resetting;
-        }
+        self.minimum_reached = less_than_with_absolute_hysteresis(
+            self.minimum_reached,
+            maximal_current,
+            self.parameters.allowed_current..=self.parameters.allowed_current_upper_threshold,
+        );
 
-        match self.state {
-            State::Optimizing => {
-                // this optimization is inspired by the approach of Berlin United in their team research report 2019.
-                let (joint, maximal_current) = currents
-                    .enumerate()
-                    .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
-                    .expect("currents must not be empty.");
-
-                self.minimum_reached = less_than_with_absolute_hysteresis(
-                    self.minimum_reached,
-                    maximal_current,
-                    self.parameters.allowed_current
-                        ..=self.parameters.allowed_current_upper_threshold,
-                );
-                if !self.minimum_reached {
-                    self.position_offset[joint] += self.parameters.optimization_sign[joint]
-                        * self.parameters.optimization_speed
-                        / cycle_time.last_cycle_duration.as_secs_f32();
-                }
-            }
-            State::Resetting => {
-                let resetting_finished =
-                    squared_position_offset_sum < self.parameters.reset_base_offset;
-
-                if resetting_finished {
-                    self.state = State::Optimizing;
-                } else {
-                    self.position_offset = self.position_offset
-                        / (1.0
-                            + self.parameters.reset_speed
-                                / cycle_time.last_cycle_duration.as_secs_f32());
-                }
-            }
+        if !self.minimum_reached {
+            let max_adjustment =
+                self.parameters.optimization_speed / cycle_time.last_cycle_duration.as_secs_f32();
+            self.position_offset[joint] += (positions[joint] - measured_positions[joint])
+                .clamp(-max_adjustment, max_adjustment)
         }
 
         positions + self.position_offset

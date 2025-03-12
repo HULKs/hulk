@@ -276,51 +276,9 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current": 0.13,
-    "allowed_current_upper_threshold": 0.2,
-    "optimization_speed": 0.000005,
-    "position_difference_threshold": 0.0,
-    "reset_base_offset": 0.0002,
-    "reset_speed": 0.0006,
-    "reset_threshold": 0.0007,
-    "optimization_sign": {
-      "head": {
-        "yaw": 1,
-        "pitch": 1
-      },
-      "left_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": 1,
-        "elbow_yaw": 1,
-        "elbow_roll": 1,
-        "wrist_yaw": 1,
-        "hand": 1
-      },
-      "right_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": -1,
-        "elbow_yaw": 1,
-        "elbow_roll": 1,
-        "wrist_yaw": 1,
-        "hand": 1
-      },
-      "left_leg": {
-        "hip_yaw_pitch": -1,
-        "hip_roll": -1,
-        "hip_pitch": 1,
-        "knee_pitch": 1,
-        "ankle_pitch": -1,
-        "ankle_roll": -1
-      },
-      "right_leg": {
-        "hip_yaw_pitch": -1,
-        "hip_roll": 1,
-        "hip_pitch": 1,
-        "knee_pitch": 1,
-        "ankle_pitch": -1,
-        "ankle_roll": 1
-      }
-    }
+    "allowed_current": 0.09,
+    "allowed_current_upper_threshold": 0.1,
+    "optimization_speed": 0.000005
   },
   "ball_filter": {
     "hypothesis_timeout": {
