@@ -36,7 +36,7 @@ use panel::Panel;
 use panels::{
     BallCandidatePanel, BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel,
     ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel,
-    RemotePanel, SemiAutomaticCalibrationPanel, TextPanel, VisionTunerPanel,
+    RemotePanel, SemiAutomaticCameraCalibrationPanel, TextPanel, VisionTunerPanel,
 };
 
 use reachable_naos::ReachableNaos;
@@ -145,7 +145,7 @@ impl_selectable_panel!(
     ParameterPanel,
     PlotPanel,
     RemotePanel,
-    SemiAutomaticCalibrationPanel,
+    SemiAutomaticCameraCalibrationPanel,
     TextPanel,
     VisionTunerPanel,
 );

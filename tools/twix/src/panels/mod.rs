@@ -16,6 +16,7 @@ mod vision_tuner;
 
 pub use ball_candidates::BallCandidatePanel;
 pub use behavior_simulator::BehaviorSimulatorPanel;
+pub use camera_calibration::SemiAutomaticCameraCalibrationPanel;
 pub use enum_plot::EnumPlotPanel;
 pub use image::ImagePanel;
 pub use image_color_select::ImageColorSelectPanel;
