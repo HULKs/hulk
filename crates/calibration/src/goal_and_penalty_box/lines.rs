@@ -71,23 +71,31 @@ pub struct Measurement<Frame> {
     pub field_to_ground: Isometry2<Field, Ground>,
 }
 
-pub fn line_segment_error(expected: LineSegment<Pixel>, drawn: LineSegment<Pixel>) -> f32 {
+pub fn line_segment_error(expected: LineSegment<Pixel>, drawn: LineSegment<Pixel>) -> (f32, f32) {
     let t_0 = expected.projection_factor(drawn.0);
     let intersection_0 = expected.0 + (expected.1 - expected.0) * t_0;
 
     let t_1 = expected.projection_factor(drawn.1);
     let intersection_1 = expected.0 + (expected.1 - expected.0) * t_1;
-    distance(drawn.0, intersection_0) + distance(drawn.1, intersection_1)
+
+    (
+        distance(drawn.0, intersection_0),
+        distance(drawn.1, intersection_1),
+    )
 }
 
 #[derive(Debug)]
 pub struct Residuals {
-    residual: f32,
+    left_projected_residual: f32,
+    right_projected_residual: f32,
 }
 
 impl From<Residuals> for Vec<f32> {
     fn from(residuals: Residuals) -> Self {
-        vec![residuals.residual]
+        vec![
+            residuals.left_projected_residual,
+            residuals.right_projected_residual,
+        ]
     }
 }
 
@@ -114,8 +122,12 @@ impl CalculateResiduals for Residuals {
             .line_segment(field_dimensions, Half::Opponent);
         let expected_line = expected_line
             .try_map(|point| camera_matrix.ground_to_pixel(measurement.field_to_ground * point))?;
-        let residual = line_segment_error(expected_line, measurement.line);
+        let (left_projected_residual, right_projected_residual) =
+            line_segment_error(expected_line, measurement.line);
 
-        Ok(Residuals { residual })
+        Ok(Residuals {
+            left_projected_residual,
+            right_projected_residual,
+        })
     }
 }

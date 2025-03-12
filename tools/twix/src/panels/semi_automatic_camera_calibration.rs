@@ -147,6 +147,9 @@ impl SemiAutomaticCalibrationPanel {
             .top_camera
             .get_last_value()?
             .wrap_err("failed to get top camera")?;
+        // TODO: Camera Matrix already has corrections applied!!!
+        // Therefore new corrections are almost zero
+        // When setting these parameters however, all of the corrections are removed
         let measurements = drawn_lines
             .into_iter()
             .map(|(line_type, line)| Measurement {
@@ -187,12 +190,20 @@ impl Widget for &mut SemiAutomaticCalibrationPanel {
         ui.group(|ui| {
             let drawn_lines = vec![
                 (
-                    LineType::FrontPenaltyArea,
-                    LineSegment::new(point![151.0, 80.0], point![640.0, 86.0]),
+                    LineType::Goal,
+                    LineSegment::new(point![86.0, 196.0], point![640.0, 212.0]),
                 ),
                 (
                     LineType::LeftPenaltyArea,
-                    LineSegment::new(point![151.0, 80.0], point![262.0, 29.5]),
+                    LineSegment::new(point![7.2, 250.0], point![176.0, 198.0]),
+                ),
+                (
+                    LineType::FrontPenaltyArea,
+                    LineSegment::new(point![7.2, 250.0], point![640.0, 285.0]),
+                ),
+                (
+                    LineType::LeftGoalArea,
+                    LineSegment::new(point![253.0, 216.0], point![280.0, 203.0]),
                 ),
             ];
 
