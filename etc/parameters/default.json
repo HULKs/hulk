@@ -89,6 +89,11 @@
       "extrinsic_rotations": [0, 0, 0],
       "focal_lengths": [0.95, 1.27],
       "cc_optical_center": [0.5, 0.5]
+    },
+    "calibration": {
+      "correction_in_robot": [0.0, 0.0, 0.0],
+      "correction_in_camera_top": [0.0, 0.0, 0.0],
+      "correction_in_camera_bottom": [0.0, 0.0, 0.0]
     }
   },
   "foot_bumper_filter": {
