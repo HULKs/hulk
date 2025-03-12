@@ -51,11 +51,6 @@ pub struct SavedMeasurement {
     pub drawn_lines: Vec<DrawnLine>,
 }
 
-#[derive(Clone)]
-pub struct SavedMeasurements {
-    pub measurements: HashMap<RobotLookState, SavedMeasurement>,
-}
-
 enum OptimizationState {
     NotOptimized,
     Optimized {
