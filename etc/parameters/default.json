@@ -388,17 +388,17 @@
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.00495,
-        "left": 0.0072,
-        "turn": 0.0125
+        "forward": 0.003,
+        "left": 0.003,
+        "turn": 0.015
       },
       "foot_offset_left": [0.0, 0.052, 0.0],
       "foot_offset_right": [0.0, -0.052, 0.0],
       "step_duration": { "nanos": 235000000, "secs": 0 },
       "step_duration_increase": {
-        "forward": 0.0045,
-        "left": 0.0018,
-        "turn": 0.0
+        "forward": 0.005,
+        "left": 0.002,
+        "turn": 0.02
       },
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
@@ -447,7 +447,7 @@
     },
     "step_midpoint": {
       "forward": 0.45,
-      "left": 0.35,
+      "left": 0.75,
       "turn": 0.5
     },
     "stiffnesses": {
