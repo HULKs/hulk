@@ -1,25 +1,25 @@
-// TODO(oleflb): delete
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
+
+use color_eyre::{
+    eyre::{Context, ContextCompat},
+    Result,
+};
 
 use calibration::{
     corrections::Corrections,
     goal_and_penalty_box::{LineType, Measurement, Residuals},
     problem::CalibrationProblem,
 };
-use color_eyre::eyre::ContextCompat;
-use color_eyre::{Report, Result};
 use communication::messages::TextOrBinary;
 use coordinate_systems::Pixel;
-use eframe::egui::{Align::Center, Color32, Layout, Response, RichText, Ui, Widget};
 use geometry::line_segment::LineSegment;
 use levenberg_marquardt::{LevenbergMarquardt, MinimizationReport};
-use linear_algebra::{point, Isometry2};
-use parameters::directory::Scope;
+use linear_algebra::Isometry2;
 use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
 use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
 
-use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{nao::Nao, value_buffer::BufferHandle};
 
 const ROBOT_CORRECTION_PATH: &'static str =
     "parameters.camera_matrix_parameters.calibration.correction_in_robot";
@@ -28,7 +28,30 @@ const CAMERA_TOP_CORRECTION_PATH: &'static str =
 const CAMERA_BOTTOM_CORRECTION_PATH: &'static str =
     "parameters.camera_matrix_parameters.calibration.correction_in_camera_bottom";
 
-pub struct SemiAutomaticCalibrationPanel {
+#[derive(Debug, Clone, Copy, Hash)]
+pub enum RobotLookState {
+    LeftCameraTop,
+    CenterCameraTop,
+    RightCameraTop,
+    LeftCameraBottom,
+    CenterCameraBottom,
+    RightCameraBottom,
+}
+
+impl RobotLookState {
+    pub fn camera_position(&self) -> CameraPosition {
+        match self {
+            Self::LeftCameraTop => CameraPosition::Top,
+            Self::CenterCameraTop => CameraPosition::Top,
+            Self::RightCameraTop => CameraPosition::Top,
+            Self::LeftCameraBottom => CameraPosition::Bottom,
+            Self::CenterCameraBottom => CameraPosition::Bottom,
+            Self::RightCameraBottom => CameraPosition::Bottom,
+        }
+    }
+}
+
+pub struct SemiAutomaticCalibrationContext {
     nao: Arc<Nao>,
     top_camera: BufferHandle<CameraMatrix>,
     bottom_camera: BufferHandle<CameraMatrix>,
@@ -40,22 +63,30 @@ pub struct SemiAutomaticCalibrationPanel {
     field_dimensions: BufferHandle<FieldDimensions>,
 }
 
+pub struct DrawnLine {
+    pub line_segment: LineSegment<Pixel>,
+    pub line_type: LineType,
+}
+
+pub struct SavedMeasurement {
+    camera_matrix: CameraMatrix,
+    drawn_lines: Vec<DrawnLine>,
+}
+
+pub struct SavedMeasurements {
+    measurements: HashMap<RobotLookState, SavedMeasurement>,
+}
+
 enum OptimizationState {
     NotOptimized,
-    OptimizationRequested {
-        initial_corrections: Corrections,
-    },
     Optimized {
         corrections: Corrections,
         report: MinimizationReport<f32>,
     },
-    Error(Report),
 }
 
-impl Panel for SemiAutomaticCalibrationPanel {
-    const NAME: &'static str = "Semi-Automatic Calibration";
-
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+impl SemiAutomaticCalibrationContext {
+    pub fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let top_camera = nao.subscribe_value("Control.main_outputs.camera_matrices.top");
         let bottom_camera = nao.subscribe_value("Control.main_outputs.camera_matrices.bottom");
 
@@ -75,9 +106,7 @@ impl Panel for SemiAutomaticCalibrationPanel {
             field_dimensions,
         }
     }
-}
 
-impl SemiAutomaticCalibrationPanel {
     fn corrections(&self) -> Result<Corrections> {
         let correction_in_robot = self
             .robot_correction
@@ -138,32 +167,19 @@ impl SemiAutomaticCalibrationPanel {
     fn optimize(
         &self,
         initial_corrections: Corrections,
-        drawn_lines: Vec<(LineType, LineSegment<Pixel>)>,
+        measurements: SavedMeasurements,
     ) -> Result<(Corrections, MinimizationReport<f32>)> {
         let field_dimensions = self
             .field_dimensions
             .get_last_value()?
             .wrap_err("failed to get field dimensions")?;
-        let top_camera = self
-            .top_camera
-            .get_last_value()?
-            .wrap_err("failed to get top camera")?;
+
         // TODO: Camera Matrix already has corrections applied!!!
         // Therefore new corrections are almost zero
         // When setting these parameters however, all of the corrections are removed
-        let measurements = drawn_lines
-            .into_iter()
-            .map(|(line_type, line)| Measurement {
-                line_type,
-                line_segment: line,
-                camera_matrix: top_camera.clone(),
-                position: CameraPosition::Top,
-                field_to_ground: Isometry2::identity(),
-            })
-            .collect();
         let problem = CalibrationProblem::<Residuals>::new(
             initial_corrections,
-            measurements,
+            measurements.into(),
             field_dimensions,
         );
         let (result, report) = LevenbergMarquardt::new().minimize(problem);
@@ -171,98 +187,40 @@ impl SemiAutomaticCalibrationPanel {
         Ok((optimized_corrections, report))
     }
 
-    fn run_optimization(
-        &self,
-        initial_corrections: Corrections,
-        drawn_lines: Vec<(LineType, LineSegment<Pixel>)>,
-    ) -> Result<(Corrections, MinimizationReport<f32>)> {
-        let result = self.optimize(initial_corrections, drawn_lines);
-        if let Ok((corrections, _)) = result {
-            self.apply_corrections(corrections, |path, value| {
-                Ok(self.nao.write(path, TextOrBinary::Text(value)))
-            })?;
-        }
-        result
+    pub fn run_optimization(&mut self, measurements: SavedMeasurements) -> Result<()> {
+        let initial_corrections = self.corrections()?;
+        let (corrections, report) = self
+            .optimize(initial_corrections, measurements)
+            .wrap_err("failed to optimize")?;
+
+        self.apply_corrections(corrections, |path, value| {
+            Ok(self.nao.write(path, TextOrBinary::Text(value)))
+        })?;
+        self.state = OptimizationState::Optimized {
+            corrections,
+            report,
+        };
+        Ok(())
     }
 }
 
-impl Widget for &mut SemiAutomaticCalibrationPanel {
-    fn ui(self, ui: &mut Ui) -> Response {
-        ui.group(|ui| {
-            let drawn_lines = vec![
-                (
-                    LineType::Goal,
-                    LineSegment::new(point![86.0, 196.0], point![640.0, 212.0]),
-                ),
-                (
-                    LineType::LeftPenaltyArea,
-                    LineSegment::new(point![7.2, 250.0], point![176.0, 198.0]),
-                ),
-                (
-                    LineType::FrontPenaltyArea,
-                    LineSegment::new(point![7.2, 250.0], point![640.0, 285.0]),
-                ),
-                (
-                    LineType::LeftGoalArea,
-                    LineSegment::new(point![253.0, 216.0], point![280.0, 203.0]),
-                ),
-            ];
-
-            let (start_optimization_clicked, save_to_head_clicked) = ui
-                .horizontal(|ui| {
-                    (
-                        ui.button("Start Optimization").clicked(),
-                        ui.button("Save to head").clicked(),
-                    )
-                })
-                .inner;
-
-            if start_optimization_clicked {
-                self.state = match self.corrections() {
-                    Ok(initial_corrections) => OptimizationState::OptimizationRequested {
-                        initial_corrections,
-                    },
-                    Err(error) => OptimizationState::Error(error),
-                };
-            }
-
-            if let OptimizationState::OptimizationRequested {
-                initial_corrections,
-            } = self.state
-            {
-                self.state = match self.run_optimization(initial_corrections, drawn_lines) {
-                    Ok((corrections, report)) => OptimizationState::Optimized {
-                        corrections,
-                        report,
-                    },
-                    Err(error) => OptimizationState::Error(error),
-                };
-            }
-
-            match &self.state {
-                OptimizationState::Optimized { report, .. } => {
-                    ui.label(format!("Iterations: {}", report.number_of_evaluations));
-                    ui.label(format!("Residual: {}", report.objective_function));
-                    ui.label(format!("Termination reason: {:?}", report.termination));
-                }
-                OptimizationState::Error(error) => {
-                    ui.label(RichText::new(error.to_string()).color(Color32::RED));
-                }
-                _ => (),
-            }
-
-            if save_to_head_clicked {
-                if let OptimizationState::Optimized { corrections, .. } = &self.state {
-                    let save_result = self.apply_corrections(corrections.clone(), |path, value| {
-                        self.nao
-                            .store_parameters(path, value, Scope::current_head())
-                    });
-                    if let Err(error) = save_result {
-                        self.state = OptimizationState::Error(error);
-                    }
-                }
-            }
-        })
-        .response
+impl From<SavedMeasurements> for Vec<Measurement<Pixel>> {
+    fn from(value: SavedMeasurements) -> Self {
+        value
+            .measurements
+            .into_iter()
+            .flat_map(|(state, saved_measurement)| {
+                saved_measurement
+                    .drawn_lines
+                    .into_iter()
+                    .map(move |line| Measurement {
+                        camera_matrix: saved_measurement.camera_matrix.clone(),
+                        line_type: line.line_type,
+                        line_segment: line.line_segment,
+                        position: state.camera_position(),
+                        field_to_ground: Isometry2::identity(),
+                    })
+            })
+            .collect()
     }
 }

@@ -65,7 +65,7 @@ impl LineType {
 
 pub struct Measurement<Frame> {
     pub line_type: LineType,
-    pub line: LineSegment<Frame>,
+    pub line_segment: LineSegment<Frame>,
     pub camera_matrix: CameraMatrix,
     pub position: CameraPosition,
     pub field_to_ground: Isometry2<Field, Ground>,
@@ -123,7 +123,7 @@ impl CalculateResiduals for Residuals {
         let expected_line = expected_line
             .try_map(|point| camera_matrix.ground_to_pixel(measurement.field_to_ground * point))?;
         let (left_projected_residual, right_projected_residual) =
-            line_segment_error(expected_line, measurement.line);
+            line_segment_error(expected_line, measurement.line_segment);
 
         Ok(Residuals {
             left_projected_residual,

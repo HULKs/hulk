@@ -46,7 +46,7 @@ mod tests {
 
         let measurement = Measurement {
             line_type: LineType::Goal,
-            line: LineSegment::new(point![3200.0, 1680.0], point![3200.0, -1200.0]),
+            line_segment: LineSegment::new(point![3200.0, 1680.0], point![3200.0, -1200.0]),
             camera_matrix,
             position: CameraPosition::Top,
             field_to_ground,
