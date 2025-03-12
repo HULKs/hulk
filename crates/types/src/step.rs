@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Sub};
+use std::ops::{Add, Sub};
 
 use nalgebra::Vector2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
