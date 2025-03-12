@@ -48,6 +48,8 @@
 #define SET_PLAY_KICK_IN           4
 #define SET_PLAY_PENALTY_KICK      5
 
+#define KICKING_TEAM_NONE 255
+
 #define PENALTY_NONE                          0
 // SPL
 #define PENALTY_SPL_ILLEGAL_BALL_CONTACT      1 // ball holding / playing with hands
@@ -96,7 +98,7 @@ struct RoboCupGameControlData
   uint8_t state;            // state of the game (STATE_READY, STATE_PLAYING, etc)
   uint8_t setPlay;          // active set play (SET_PLAY_NONE, SET_PLAY_GOAL_KICK, etc)
   uint8_t firstHalf;        // 1 = game in first half, 0 otherwise
-  uint8_t kickingTeam;      // the team number of the next team to kick off, free kick etc
+  uint8_t kickingTeam;      // the team number of the next team to kick off, free kick etc, or KICKING_TEAM_NONE
   int16_t secsRemaining;    // estimate of number of seconds remaining in the half
   int16_t secondaryTime;    // number of seconds shown as secondary time (remaining ready, until free ball, etc)
   struct TeamInfo teams[2];

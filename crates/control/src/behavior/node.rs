@@ -1,6 +1,7 @@
 use std::time::SystemTime;
 
 use color_eyre::Result;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -32,8 +33,8 @@ use super::{
     defend::Defend,
     dribble, fall_safely,
     head::LookAction,
-    initial, intercept_ball, jump, look_around, lost_ball, no_ground_contact, penalize,
-    prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
+    initial, intercept_ball, jump, look_around, look_at_referee, lost_ball, no_ground_contact,
+    penalize, prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
     walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
@@ -50,7 +51,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
     dribble_path_plan: Input<Option<(OrientationMode, Vec<PathSegment>)>, "dribble_path_plan?">,
@@ -67,6 +67,7 @@ pub struct CycleContext {
     keeper_motion: Parameter<KeeperMotionParameters, "keeper_motion">,
     use_stand_head_unstiff_calibration:
         Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
+    is_challenger_shield_game: Parameter<bool, "is_challenger_shield_game">,
 
     defend_walk_speed: Parameter<WalkSpeed, "walk_speed.defend">,
     dribble_walk_speed: Parameter<WalkSpeed, "walk_speed.dribble">,
@@ -159,17 +160,49 @@ impl Behavior {
             Role::DefenderLeft => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Left }),
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    kicking_team: None,
+                    own_team_is_home_after_coin_toss: false,
+                    ..
+                }) => {
+                    if !*context.is_challenger_shield_game {
+                        actions.push(Action::LookAtReferee);
+                    }
+                    actions.push(Action::DefendLeft);
+                }
                 _ => actions.push(Action::DefendLeft),
             },
             Role::DefenderRight => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Right }),
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    kicking_team: None,
+                    own_team_is_home_after_coin_toss: true,
+                    ..
+                }) => {
+                    if !*context.is_challenger_shield_game {
+                        actions.push(Action::LookAtReferee);
+                    }
+                    actions.push(Action::DefendRight);
+                }
                 _ => actions.push(Action::DefendRight),
             },
             Role::Keeper => match world_state.filtered_game_controller_state {
@@ -179,7 +212,7 @@ impl Behavior {
                 })
                 | Some(FilteredGameControllerState {
                     game_state: FilteredGameState::Playing { .. },
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     sub_state: Some(SubState::PenaltyKick),
                     ..
                 }) => {
@@ -189,10 +222,72 @@ impl Behavior {
                 _ => actions.push(Action::DefendGoal),
             },
             Role::Loser => actions.push(Action::SearchForLostBall),
-            Role::MidfielderLeft => actions.push(Action::SupportLeft),
-            Role::MidfielderRight => actions.push(Action::SupportRight),
+            Role::MidfielderLeft => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    kicking_team: None,
+                    own_team_is_home_after_coin_toss: false,
+                    ..
+                }) => {
+                    if !*context.is_challenger_shield_game {
+                        actions.push(Action::LookAtReferee);
+                    }
+                    actions.push(Action::SupportLeft);
+                }
+                _ => actions.push(Action::SupportLeft),
+            },
+            Role::MidfielderRight => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: false,
+                            ..
+                        },
+                    kicking_team: None,
+                    own_team_is_home_after_coin_toss: true,
+                    ..
+                }) => {
+                    if !*context.is_challenger_shield_game {
+                        actions.push(Action::LookAtReferee);
+                    }
+                    actions.push(Action::SupportRight);
+                }
+                _ => actions.push(Action::SupportRight),
+            },
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
-            Role::Searcher => actions.push(Action::Search),
+            Role::Searcher => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+                    kicking_team: None,
+                    penalties,
+                    ..
+                }) => {
+                    let mut first_two_nonpenalized_nonkeeper_player_numbers = penalties
+                        .iter()
+                        .filter_map(|(player_number, penalty)| {
+                            penalty.is_none().then_some(player_number)
+                        })
+                        .skip(1)
+                        .take(2);
+                    if first_two_nonpenalized_nonkeeper_player_numbers
+                        .contains(&world_state.robot.player_number)
+                    {
+                        if !*context.is_challenger_shield_game {
+                            actions.push(Action::LookAtReferee);
+                        }
+                        actions.push(Action::Search);
+                    } else {
+                        actions.push(Action::Search);
+                    }
+                }
+                _ => actions.push(Action::Search),
+            },
             Role::Striker => match world_state.filtered_game_controller_state {
                 None
                 | Some(FilteredGameControllerState {
@@ -205,11 +300,8 @@ impl Behavior {
                     actions.push(Action::Dribble);
                 }
                 Some(FilteredGameControllerState {
-                    game_state:
-                        FilteredGameState::Ready {
-                            kicking_team_known: true,
-                        },
-                    kicking_team: Team::Hulks,
+                    game_state: FilteredGameState::Ready,
+                    kicking_team: Some(Team::Hulks),
                     sub_state,
                     ..
                 }) => match sub_state {
@@ -219,7 +311,7 @@ impl Behavior {
                 Some(FilteredGameControllerState {
                     game_state: FilteredGameState::Ready { .. } | FilteredGameState::Playing { .. },
                     sub_state: Some(SubState::PenaltyKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendPenaltyKick),
                 _ => actions.push(Action::DefendKickOff),
@@ -256,11 +348,12 @@ impl Behavior {
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
-                    Action::Initial => initial::execute(
-                        world_state,
-                        context.expected_referee_position.cloned(),
-                        *context.enable_pose_detection,
-                    ),
+                    Action::Initial => {
+                        initial::execute(world_state, *context.enable_pose_detection)
+                    }
+                    Action::LookAtReferee => {
+                        look_at_referee::execute(*context.enable_pose_detection)
+                    }
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)
                     }
