@@ -97,7 +97,7 @@ impl ToWriterPretty for Field {
             Field::Input { name, .. } => write!(writer, "{name}: Input"),
             Field::MainOutput { name, .. } => write!(writer, "{name}: MainOutput"),
             Field::Parameter { name, .. } => write!(writer, "{name}: Parameter"),
-            Field::PerceptionInput { name, .. } => write!(writer, "{name}: PerceptfmtnInput"),
+            Field::PerceptionInput { name, .. } => write!(writer, "{name}: PerceptionInput"),
             Field::RequiredInput { name, .. } => write!(writer, "{name}: RequiredInput"),
         }
     }
