@@ -20,7 +20,7 @@ use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head};
 use framework::{future_queue, Producer, RecordingTrigger};
 use geometry::{direction::Rotate90Degrees, line_segment::LineSegment};
-use linear_algebra::{point, vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
+use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
 use spl_network_messages::{HulkMessage, PlayerNumber};
@@ -313,15 +313,19 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 robot.database.main_outputs.look_around.yaw
             }
             HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
-            HeadMotion::LookAtReferee { .. } => Orientation2::from_vector(
-                robot
-                    .database
-                    .main_outputs
-                    .expected_referee_position
-                    .unwrap_or(point!(1.0, 0.0))
-                    .coords(),
-            )
-            .angle(),
+            HeadMotion::LookAtReferee { .. } => {
+                if let Some(ground_to_field) = robot.database.main_outputs.ground_to_field {
+                    let expected_referee_position = ground_to_field.inverse()
+                        * robot
+                            .database
+                            .main_outputs
+                            .expected_referee_position
+                            .unwrap_or_default();
+                    Orientation2::from_vector(expected_referee_position.coords()).angle()
+                } else {
+                    0.0
+                }
+            }
             HeadMotion::LookLeftAndRightOf { target } => {
                 let glance_factor = 0.0; //self.time_elapsed.as_secs_f32().sin();
                 target.coords().angle(&Vector2::x_axis())
