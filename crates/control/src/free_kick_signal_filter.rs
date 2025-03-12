@@ -140,7 +140,7 @@ impl FreeKickSignalFilter {
         for (_, detection) in own_detected_pose_times {
             let detected_kicking_team = kicking_team_from_free_kick_signal_detection(
                 detection,
-                context.filtered_game_controller_state.global_field_side,
+                context.game_controller_state.global_field_side,
             );
             if let Some(detected_kicking_team) = detected_kicking_team {
                 self.detected_free_kick_detections_queue
