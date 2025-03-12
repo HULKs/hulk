@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::{
     eyre::{Context, ContextCompat},
@@ -28,29 +28,6 @@ const CAMERA_TOP_CORRECTION_PATH: &'static str =
 const CAMERA_BOTTOM_CORRECTION_PATH: &'static str =
     "parameters.camera_matrix_parameters.calibration.correction_in_camera_bottom";
 
-#[derive(Debug, Clone, Copy, Hash)]
-pub enum RobotLookState {
-    LeftCameraTop,
-    CenterCameraTop,
-    RightCameraTop,
-    LeftCameraBottom,
-    CenterCameraBottom,
-    RightCameraBottom,
-}
-
-impl RobotLookState {
-    pub fn camera_position(&self) -> CameraPosition {
-        match self {
-            Self::LeftCameraTop => CameraPosition::Top,
-            Self::CenterCameraTop => CameraPosition::Top,
-            Self::RightCameraTop => CameraPosition::Top,
-            Self::LeftCameraBottom => CameraPosition::Bottom,
-            Self::CenterCameraBottom => CameraPosition::Bottom,
-            Self::RightCameraBottom => CameraPosition::Bottom,
-        }
-    }
-}
-
 pub struct SemiAutomaticCalibrationContext {
     nao: Arc<Nao>,
     top_camera: BufferHandle<CameraMatrix>,
@@ -69,12 +46,9 @@ pub struct DrawnLine {
 }
 
 pub struct SavedMeasurement {
+    camera_position: CameraPosition,
     camera_matrix: CameraMatrix,
     drawn_lines: Vec<DrawnLine>,
-}
-
-pub struct SavedMeasurements {
-    measurements: HashMap<RobotLookState, SavedMeasurement>,
 }
 
 enum OptimizationState {
@@ -167,8 +141,24 @@ impl SemiAutomaticCalibrationContext {
     fn optimize(
         &self,
         initial_corrections: Corrections,
-        measurements: SavedMeasurements,
+        measurements: Vec<SavedMeasurement>,
     ) -> Result<(Corrections, MinimizationReport<f32>)> {
+        let measurements = measurements
+            .into_iter()
+            .flat_map(|measurement| {
+                measurement
+                    .drawn_lines
+                    .into_iter()
+                    .map(move |line| Measurement {
+                        camera_matrix: measurement.camera_matrix.clone(),
+                        line_type: line.line_type,
+                        line_segment: line.line_segment,
+                        position: measurement.camera_position,
+                        field_to_ground: Isometry2::identity(),
+                    })
+            })
+            .collect();
+
         let field_dimensions = self
             .field_dimensions
             .get_last_value()?
@@ -179,7 +169,7 @@ impl SemiAutomaticCalibrationContext {
         // When setting these parameters however, all of the corrections are removed
         let problem = CalibrationProblem::<Residuals>::new(
             initial_corrections,
-            measurements.into(),
+            measurements,
             field_dimensions,
         );
         let (result, report) = LevenbergMarquardt::new().minimize(problem);
@@ -187,7 +177,7 @@ impl SemiAutomaticCalibrationContext {
         Ok((optimized_corrections, report))
     }
 
-    pub fn run_optimization(&mut self, measurements: SavedMeasurements) -> Result<()> {
+    pub fn run_optimization(&mut self, measurements: Vec<SavedMeasurement>) -> Result<()> {
         let initial_corrections = self.corrections()?;
         let (corrections, report) = self
             .optimize(initial_corrections, measurements)
@@ -202,25 +192,11 @@ impl SemiAutomaticCalibrationContext {
         };
         Ok(())
     }
-}
 
-impl From<SavedMeasurements> for Vec<Measurement<Pixel>> {
-    fn from(value: SavedMeasurements) -> Self {
-        value
-            .measurements
-            .into_iter()
-            .flat_map(|(state, saved_measurement)| {
-                saved_measurement
-                    .drawn_lines
-                    .into_iter()
-                    .map(move |line| Measurement {
-                        camera_matrix: saved_measurement.camera_matrix.clone(),
-                        line_type: line.line_type,
-                        line_segment: line.line_segment,
-                        position: state.camera_position(),
-                        field_to_ground: Isometry2::identity(),
-                    })
-            })
-            .collect()
+    pub fn reset(&mut self) -> Result<()> {
+        self.state = OptimizationState::NotOptimized;
+        self.apply_corrections(Corrections::default(), |path, value| {
+            Ok(self.nao.write(path, TextOrBinary::Text(value)))
+        })
     }
 }
