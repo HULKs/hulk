@@ -1,18 +1,21 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use calibration::goal_and_penalty_box::LineType;
-use color_eyre::{eyre::{eyre, ContextCompat}, Result};
+use color_eyre::{
+    eyre::{eyre, Context, ContextCompat},
+    Result,
+};
 use coordinate_systems::Pixel;
 use eframe::egui::{
-    Align, Align2, Color32, ColorImage, ComboBox, Response, Shape, SizeHint, Stroke, TextureOptions, Ui, UiBuilder, Widget
+    Align2, Color32, ColorImage, ComboBox, Response, Shape, SizeHint, Stroke, TextureOptions, Ui,
+    UiBuilder, Widget,
 };
 use geometry::{line_segment::LineSegment, rectangle::Rectangle};
 use image::RgbImage;
 use linear_algebra::{distance, point, vector, Point2};
 use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
-
-use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
+use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image, camera_position::CameraPosition};
 
 use crate::{
     nao::Nao,
@@ -23,7 +26,7 @@ use crate::{
 
 use crate::panels::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
 
-use super::optimization::{DrawnLine, RobotLookState, SavedMeasurement, SavedMeasurements, SemiAutomaticCalibrationContext};
+use super::optimization::{DrawnLine, SavedMeasurement, SemiAutomaticCalibrationContext};
 
 const KEYPOINT_RADIUS: f32 = 5.0;
 const KEYPOINT_COLOR: Color32 = Color32::from_rgb(155, 0, 0);
@@ -48,10 +51,9 @@ pub struct SemiAutomaticCameraCalibrationPanel {
     cycler: VisionCycler,
 
     user_state: UserState,
-    head_pos: RobotLookState,
     drawn_lines: Vec<DrawnLine>,
     line_type: LineType,
-    saved_measurements: HashMap<RobotLookState, SavedMeasurement>,
+    saved_measurements: Vec<SavedMeasurement>,
     optimization: SemiAutomaticCalibrationContext,
     stroke: Stroke,
 }
@@ -60,9 +62,10 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
     const NAME: &'static str = "semi-automatic camera calibration";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let top_camera = nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrices.top");
-        let bottom_camera = nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrices.bottom");
-
+        let top_camera =
+            nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrices.top");
+        let bottom_camera =
+            nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrices.bottom");
 
         let cycler = value
             .and_then(|value| {
@@ -94,10 +97,9 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
             cycler,
 
             user_state: UserState::Idle,
-            head_pos: RobotLookState::CenterCameraTop,
             drawn_lines: Vec::new(),
             line_type: LineType::Goal,
-            saved_measurements: HashMap::new(),
+            saved_measurements: Vec::new(),
             optimization: SemiAutomaticCalibrationContext::new(nao.clone()),
             stroke: Stroke::new(3.0, Color32::from_rgb(55, 80, 250)),
         }
@@ -112,26 +114,29 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
             self.resubscribe(jpeg);
         }
         ui.horizontal(|ui| {
-            if ui.button("save measurements").clicked() {
+            if ui.button("Next (and save lines)").clicked() {
                 let result = self.save_measurement();
                 if let Err(error) = result {
                     println!("Error: {}", error.to_string());
                 }
-                self.drawn_lines = Vec::new();
-            }
-            if ui.button("optimize / save to Head").clicked() {
-                let result = self.optimization.run_optimization(SavedMeasurements{ measurements: self.saved_measurements.clone()});
+                let result = self
+                    .optimization
+                    .run_optimization(self.saved_measurements.clone());
                 if let Err(error) = result {
                     println!("Error: {}", error.to_string());
                 }
-                println!("{:?}", self.saved_measurements)
+                self.drawn_lines = Vec::new();
             }
-        
+
             if ui.button("Clear Drawings").clicked() {
                 self.drawn_lines = Vec::new();
             }
-            if ui.button("Clear Measurements").clicked() {
-                self.saved_measurements = HashMap::new();
+            if ui.button("Reset Calibration").clicked() {
+                self.saved_measurements = Vec::new();
+                let result = self.optimization.reset();
+                if let Err(error) = result {
+                    println!("Error: {}", error.to_string());
+                }
             }
         });
         ui.horizontal(|ui| {
@@ -140,48 +145,10 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
         });
         ui.separator();
         ui.vertical(|ui| {
-            ComboBox::from_label("Head position:")
-                .selected_text(format!("{:?}",self.head_pos))
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut self.head_pos,
-                        RobotLookState::CenterCameraTop,
-                        "Top-Center",
-                    );
-                    ui.selectable_value(
-                        &mut self.head_pos,
-                        RobotLookState::LeftCameraTop,
-                        "Top-Left",
-                    );
-                    ui.selectable_value(
-                        &mut self.head_pos,
-                        RobotLookState::RightCameraTop,
-                        "Top-Right",
-                    );
-                    ui.selectable_value(
-                        &mut self.head_pos,
-                        RobotLookState::CenterCameraBottom,
-                        "Bottom-Center",
-                    );
-                    ui.selectable_value(
-                        &mut self.head_pos,
-                        RobotLookState::LeftCameraBottom,
-                        "Bottom-Left",
-                    );
-                    ui.selectable_value(
-                        &mut self.head_pos,
-                        RobotLookState::RightCameraBottom,
-                        "Bottom-Right",
-                    );
-                });
             ComboBox::from_label("Line type:")
-                .selected_text(format!("{:?}",self.line_type))
+                .selected_text(format!("{:?}", self.line_type))
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(
-                        &mut self.line_type,
-                        LineType::Goal,
-                        "Goal",
-                    );
+                    ui.selectable_value(&mut self.line_type, LineType::Goal, "Goal");
                     ui.selectable_value(
                         &mut self.line_type,
                         LineType::LeftPenaltyArea,
@@ -215,7 +182,6 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 });
         });
         self.ui_content(ui)
-
     }
 }
 
@@ -280,16 +246,24 @@ impl SemiAutomaticCameraCalibrationPanel {
         Ok(())
     }
 
-    pub fn save_measurement(&mut self) -> Result<()>{
+    pub fn save_measurement(&mut self) -> Result<()> {
+
         if self.cycler == VisionCycler::Top {
-            self.saved_measurements.insert(self.head_pos, SavedMeasurement{
-                camera_matrix: self.top_camera.get_last_value()?.wrap_err("no camera_matrix found")?,
+            self.saved_measurements.push(SavedMeasurement {
+                camera_position: CameraPosition::Top,
+                camera_matrix: self
+                    .top_camera
+                    .get_last_value()?
+                    .wrap_err("no camera_matrix found")?,
                 drawn_lines: self.drawn_lines.clone(),
             });
         } else {
-            
-            self.saved_measurements.insert(self.head_pos, SavedMeasurement{
-                camera_matrix: self.bottom_camera.get_last_value()?.wrap_err("no camera_matrix found")?,
+            self.saved_measurements.push(SavedMeasurement {
+                camera_position: CameraPosition::Bottom,
+                camera_matrix: self
+                    .bottom_camera
+                    .get_last_value()?
+                    .wrap_err("no camera_matrix found")?,
                 drawn_lines: self.drawn_lines.clone(),
             });
         }
@@ -322,7 +296,13 @@ impl SemiAutomaticCameraCalibrationPanel {
                 KEYPOINT_RADIUS,
                 KEYPOINT_COLOR,
             ));
-            painter.floating_text(line.line_segment.center(), Align2::CENTER_CENTER, format!("{:?}", line.line_type), Default::default(), Color32::BLACK);
+            painter.floating_text(
+                line.line_segment.center(),
+                Align2::CENTER_CENTER,
+                format!("{:?}", line.line_type),
+                Default::default(),
+                Color32::BLACK,
+            );
         }
 
         let primary_clicked = ui.input(|reader| reader.pointer.primary_pressed());
