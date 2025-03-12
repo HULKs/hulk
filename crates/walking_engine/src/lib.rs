@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime, joints::body::BodyJoints, motion_command::KickVariant,
     motor_commands::MotorCommands, obstacle_avoiding_arms::ArmCommands,
-    parameters::StepPlannerParameters, sensor_data::ForceSensitiveResistors, step::Step,
-    support_foot::Side,
+    sensor_data::ForceSensitiveResistors, step::Step, support_foot::Side,
 };
 
 mod anatomic_constraints;
@@ -36,7 +35,7 @@ mod stiffness;
 /// report from 2014 (<http://cgi.cse.unsw.edu.au/~robocup/2014ChampionTeamPaperReports/20140930-Bernhard.Hengst-Walk2014Report.pdf>).
 pub struct Context<'a> {
     pub parameters: &'a Parameters,
-    pub step_plan_parameters: &'a StepPlannerParameters,
+    pub max_step_size: &'a Step,
     pub kick_steps: &'a KickSteps,
     pub cycle_time: &'a CycleTime,
     pub center_of_mass: &'a Point3<Robot>,

@@ -46,7 +46,7 @@ impl StepPlan {
                 parameters
                     .base
                     .foot_lift_apex_increase
-                    .checked_div(&context.step_plan_parameters.max_step_size)
+                    .checked_div(&context.max_step_size)
                     .unwrap_or(Step::ZERO),
             );
 
@@ -57,7 +57,7 @@ impl StepPlan {
                 parameters
                     .base
                     .step_duration_increase
-                    .checked_div(&context.step_plan_parameters.max_step_size)
+                    .checked_div(&context.max_step_size)
                     .unwrap_or(Step::ZERO),
             ));
 
