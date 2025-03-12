@@ -31,7 +31,7 @@ impl Default for FilteredGameControllerState {
             opponent_game_state: Default::default(),
             remaining_time_in_half: Duration::ZERO,
             game_phase: Default::default(),
-            kicking_team: Some(Team::Opponent),
+            kicking_team: Default::default(),
             penalties: Default::default(),
             remaining_number_of_messages: Default::default(),
             sub_state: Default::default(),
