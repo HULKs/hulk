@@ -85,25 +85,3 @@ impl Sub<Step> for Step {
         }
     }
 }
-
-impl Div<Step> for Step {
-    type Output = Step;
-
-    fn div(self, rhs: Step) -> Self::Output {
-        Self {
-            forward: self.forward / rhs.forward,
-            left: self.left / rhs.left,
-            turn: self.turn / rhs.turn,
-        }
-    }
-}
-
-impl CheckedDiv for Step {
-    fn checked_div(&self, rhs: &Self) -> Option<Self> {
-        if rhs.forward == 0.0 || rhs.left == 0.0 || rhs.turn == 0.0 {
-            None
-        } else {
-            Some(*self / *rhs)
-        }
-    }
-}
