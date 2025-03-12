@@ -21,7 +21,7 @@ pub struct Starting {
 impl Starting {
     pub fn new(context: &Context, support_side: Side) -> Self {
         let mut plan = StepPlan::new_from_request(context, Step::ZERO, support_side);
-        plan.foot_lift_apex= plan.foot_lift_apex / 2.0;
+        plan.foot_lift_apex /= 2.0;
         let step = StepState::new(plan);
         Self { step }
     }
