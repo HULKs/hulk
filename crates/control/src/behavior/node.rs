@@ -160,7 +160,7 @@ impl Behavior {
                     .filtered_game_controller_state
                     .clone()
                     .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                        is_free_kick(filtered_game_controller_state, world_state)
                     }) =>
             {
                 actions.push(Action::LookAtReferee);
@@ -179,7 +179,7 @@ impl Behavior {
                     .filtered_game_controller_state
                     .clone()
                     .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                        is_free_kick(filtered_game_controller_state, world_state)
                     }) =>
             {
                 actions.push(Action::LookAtReferee);
@@ -215,7 +215,7 @@ impl Behavior {
                     .filtered_game_controller_state
                     .clone()
                     .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                        is_free_kick(filtered_game_controller_state, world_state)
                     }) =>
             {
                 actions.push(Action::LookAtReferee);
@@ -227,7 +227,7 @@ impl Behavior {
                     .filtered_game_controller_state
                     .clone()
                     .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                        is_free_kick(filtered_game_controller_state, world_state)
                     }) =>
             {
                 actions.push(Action::LookAtReferee);
@@ -240,7 +240,7 @@ impl Behavior {
                     .filtered_game_controller_state
                     .clone()
                     .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                        is_free_kick(filtered_game_controller_state, world_state)
                     }) =>
             {
                 actions.push(Action::LookAtReferee);
@@ -542,7 +542,7 @@ impl Behavior {
 
 pub fn is_free_kick(
     filtered_game_controller_state: FilteredGameControllerState,
-    world_state: WorldState,
+    world_state: &WorldState,
 ) -> bool {
     let is_free_kick_filtered_game_controller_state = matches!(
         filtered_game_controller_state,
