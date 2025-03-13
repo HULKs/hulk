@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
@@ -73,6 +75,7 @@ pub fn execute(
     parameters: &SearchParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     previous_role: Role,
+    last_time_role_changed: SystemTime,
     walk_speed: WalkSpeed,
     distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
@@ -99,6 +102,9 @@ pub fn execute(
             camera: None,
         },
         None => HeadMotion::SearchForLostBall,
+    };
+    if world_state.now.duration_since(last_time_role_changed).expect("time went backwards") < parameters.time_to_wait_before_moving {
+        return Some(MotionCommand::Stand { head });
     };
     if let Some(SearchRole::Goal) = search_role {
         let goal_pose = Pose2::from(search_position);
