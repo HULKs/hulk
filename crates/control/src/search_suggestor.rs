@@ -62,7 +62,7 @@ impl SearchSuggestor {
                 .round() as usize,
         );
         let heatmap = Heatmap {
-            map: Array2::from_elem((heatmap_length, heatmap_width), 0.0),
+            map: Array2::zeros((heatmap_length, heatmap_width)),
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
         };
