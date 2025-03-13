@@ -693,7 +693,7 @@ fn role_for_penalty_kick(
         (filtered_game_controller_state, striker_number)
     {
         match current_role {
-            Role::Keeper | Role::ReplacementKeeper | Role::Striker => {},
+            Role::Keeper | Role::ReplacementKeeper | Role::Striker => {}
             _ => {
                 if game_controller_state.penalties[striker_number].is_some() {
                     match filtered_game_controller_state {

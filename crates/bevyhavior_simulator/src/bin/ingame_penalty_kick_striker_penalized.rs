@@ -48,13 +48,28 @@ fn update(
         ));
     }
     if time.ticks() == 3050 {
-    game_controller_commands.send(GameControllerCommand::Penalize(PlayerNumber::Seven, Penalty::Manual { remaining: Duration::from_secs(10) }));
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            PlayerNumber::Seven,
+            Penalty::Manual {
+                remaining: Duration::from_secs(10),
+            },
+        ));
     }
     if time.ticks() == 3100 {
-    game_controller_commands.send(GameControllerCommand::Penalize(PlayerNumber::Six, Penalty::Manual { remaining: Duration::from_secs(10) }));
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            PlayerNumber::Six,
+            Penalty::Manual {
+                remaining: Duration::from_secs(10),
+            },
+        ));
     }
     if time.ticks() == 3150 {
-        game_controller_commands.send(GameControllerCommand::Penalize(PlayerNumber::Five, Penalty::Manual { remaining: Duration::from_secs(10) }));
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            PlayerNumber::Five,
+            Penalty::Manual {
+                remaining: Duration::from_secs(10),
+            },
+        ));
     }
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
