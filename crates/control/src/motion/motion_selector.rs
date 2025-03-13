@@ -130,10 +130,19 @@ fn transition_motion(
         (MotionType::Walk, _, MotionType::WideStance, _) => MotionType::WideStance,
         (MotionType::Walk, _, MotionType::KeeperJumpRight, _) => MotionType::KeeperJumpRight,
         (MotionType::Walk, _, MotionType::KeeperJumpLeft, _) => MotionType::KeeperJumpLeft,
+
+        (MotionType::WideStance, true, MotionType::WideStance, _) => MotionType::WideStance,
+        (MotionType::KeeperJumpRight, true, MotionType::KeeperJumpRight, _) => {
+            MotionType::KeeperJumpRight
+        }
+        (MotionType::KeeperJumpLeft, true, MotionType::KeeperJumpLeft, _) => {
+            MotionType::KeeperJumpLeft
+        }
         (_, true, MotionType::WideStance, _) => MotionType::WideStance,
         (_, true, MotionType::KeeperJumpRight, _) => MotionType::KeeperJumpRight,
         (_, true, MotionType::KeeperJumpLeft, _) => MotionType::KeeperJumpLeft,
         (_, _, MotionType::CenterJump, _) => MotionType::CenterJump,
+
         (MotionType::ArmsUpStand, _, _, false) => MotionType::ArmsUpStand,
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
