@@ -20,17 +20,7 @@ use spl_network_messages::{
     StrikerMessage, SubState, Team,
 };
 use types::{
-    ball_position::BallPosition,
-    cycle_time::CycleTime,
-    fall_state::FallState,
-    field_dimensions::FieldDimensions,
-    filtered_game_controller_state::FilteredGameControllerState,
-    initial_pose::InitialPose,
-    messages::{IncomingMessage, OutgoingMessage},
-    parameters::SplNetworkParameters,
-    players::Players,
-    primary_state::PrimaryState,
-    roles::Role,
+    ball_position::BallPosition, cycle_time::CycleTime, fall_state::FallState, field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState, filtered_game_state::FilteredGameState, initial_pose::InitialPose, messages::{IncomingMessage, OutgoingMessage}, parameters::SplNetworkParameters, players::Players, primary_state::PrimaryState, roles::Role
 };
 
 use crate::localization::generate_initial_pose;
@@ -187,6 +177,52 @@ impl RoleAssignment {
             }
         }
 
+        let messages: Vec<_> = context
+        .network_message
+        .persistent
+        .values()
+        .flatten()
+        .filter_map(|message| match message {
+            Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+                player_number,
+                time_to_reach_kick_position,
+                ..
+            }))) => Some(Event::Striker(StrikerEvent {
+                player_number: *player_number,
+                time_to_reach_kick_position: *time_to_reach_kick_position,
+            })),
+            Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
+            _ => None,
+        })
+        .collect();
+
+        let striker_number: Option<PlayerNumber> = messages.iter().find_map(|message| {
+            match message {
+                Event::Striker(StrikerEvent{ player_number, time_to_reach_kick_position: _ }) => Some(*player_number),
+                _ => None,
+            }
+        });
+
+        if let (Some(game_controller_state), Some(striker_number)) = (context.filtered_game_controller_state, striker_number) {
+            if game_controller_state.penalties[striker_number].is_some() && self.role != Role::Striker {
+            match context.filtered_game_controller_state {
+            Some(FilteredGameControllerState {
+                game_state:
+                    FilteredGameState::Ready {
+                        kicking_team_known: true,
+                    },
+                kicking_team: Team::Hulks,
+                sub_state,
+                ..
+            }) => match sub_state {
+                Some(SubState::PenaltyKick) => new_role = Role::Striker,
+                _ => {}
+            },
+            _ => {}
+            }
+            }
+        }
+        
         self.role = new_role;
 
         Ok(MainOutputs {
