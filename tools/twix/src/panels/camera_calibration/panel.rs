@@ -132,6 +132,12 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                     println!("Error: {}", error.to_string());
                 }
             }
+            if ui.button("Save to head").clicked() {
+                let result = self.optimization.save_to_head();
+                if let Err(error) = result {
+                    println!("Error: {}", error.to_string());
+                }
+            }
         });
         ui.horizontal(|ui| {
             ui.label(format!("# drawn lines: {}", self.drawn_lines.len()));
