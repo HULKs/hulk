@@ -25,6 +25,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    last_ball_state: CyclerState<BallState, "last_ball_state">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
@@ -98,8 +100,9 @@ impl BallStateComposer {
                 }),
             ) => {
                 let side_factor = match kicking_team {
-                    Team::Opponent => -1.0,
-                    Team::Hulks => 1.0,
+                    Some(Team::Opponent) => -1.0,
+                    Some(Team::Hulks) => 1.0,
+                    _ => -1.0,
                 };
                 let penalty_spot_x = context.field_dimensions.length / 2.0
                     - context.field_dimensions.penalty_marker_distance;
@@ -123,6 +126,8 @@ impl BallStateComposer {
             )),
             _ => None,
         };
+
+        *context.last_ball_state = ball.unwrap_or(BallState::default());
 
         Ok(MainOutputs {
             ball_state: ball.into(),
