@@ -1,5 +1,5 @@
 use std::{
-    collections::VecDeque,
+    collections::{BTreeMap, VecDeque},
     net::SocketAddr,
     time::{Duration, SystemTime},
 };
@@ -20,7 +20,18 @@ use spl_network_messages::{
     StrikerMessage, SubState, Team,
 };
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, fall_state::FallState, field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState, filtered_game_state::FilteredGameState, initial_pose::InitialPose, messages::{IncomingMessage, OutgoingMessage}, parameters::SplNetworkParameters, players::Players, primary_state::PrimaryState, roles::Role
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    fall_state::FallState,
+    field_dimensions::FieldDimensions,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
+    initial_pose::InitialPose,
+    messages::{IncomingMessage, OutgoingMessage},
+    parameters::SplNetworkParameters,
+    players::Players,
+    primary_state::PrimaryState,
+    roles::Role,
 };
 
 use crate::localization::generate_initial_pose;
@@ -142,7 +153,11 @@ impl RoleAssignment {
             context.forced_role.copied(),
             self.role_for_ready_and_set(&context),
             role_for_penalty_shootout(context.filtered_game_controller_state),
-            keep_current_role_in_penalty_kick(context.filtered_game_controller_state, self.role),
+            keep_current_role_in_penalty_kick(
+                context.filtered_game_controller_state,
+                self.role,
+                context.network_message.persistent.clone(),
+            ),
             keep_current_role_if_not_in_playing(primary_state, self.role),
             Some(role_from_state_machine),
         ]
@@ -647,7 +662,55 @@ fn role_for_penalty_shootout(
 fn keep_current_role_in_penalty_kick(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     current_role: Role,
+    persistent: BTreeMap<std::time::SystemTime, Vec<std::option::Option<&IncomingMessage>>>,
 ) -> Option<Role> {
+    let messages: Vec<_> = persistent
+        .values()
+        .flatten()
+        .filter_map(|message| match message {
+            Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+                player_number,
+                time_to_reach_kick_position,
+                ..
+            }))) => Some(Event::Striker(StrikerEvent {
+                player_number: *player_number,
+                time_to_reach_kick_position: *time_to_reach_kick_position,
+            })),
+            Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
+            _ => None,
+        })
+        .collect();
+
+    let striker_number: Option<PlayerNumber> = messages.iter().find_map(|message| match message {
+        Event::Striker(StrikerEvent {
+            player_number,
+            time_to_reach_kick_position: _,
+        }) => Some(*player_number),
+        _ => None,
+    });
+
+    if let (Some(game_controller_state), Some(striker_number)) =
+        (filtered_game_controller_state, striker_number)
+    {
+        if game_controller_state.penalties[striker_number].is_some() && current_role != Role::Striker {
+            match filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Ready {
+                            kicking_team_known: true,
+                        },
+                    kicking_team: Team::Hulks,
+                    sub_state,
+                    ..
+                }) => match sub_state {
+                    Some(SubState::PenaltyKick) => return Some(Role::Striker),
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+    }
+
     if let Some(game_controller_state) = filtered_game_controller_state {
         if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
             return Some(current_role);
