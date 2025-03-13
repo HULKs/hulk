@@ -360,6 +360,7 @@ impl Behavior {
                         &mut context.path_obstacles_output,
                         self.previous_role,
                         self.last_time_role_changed,
+                        self.last_known_ball_position,
                         *context.search_walk_speed,
                         context
                             .parameters
