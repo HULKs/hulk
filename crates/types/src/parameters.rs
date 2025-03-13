@@ -407,7 +407,7 @@ pub struct CameraMatrixParameters {
 )]
 pub struct SearchSuggestorParameters {
     pub cells_per_meter: f32,
-    pub heatmap_decay_factor: f32,
+    pub heatmap_convolution_kernel_weight: f32,
     pub minimum_validity: f32,
 }
 
