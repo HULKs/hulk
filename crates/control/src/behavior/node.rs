@@ -1,7 +1,6 @@
 use std::time::SystemTime;
 
 use color_eyre::Result;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -12,7 +11,7 @@ use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
-    field_dimensions::{FieldDimensions, Side},
+    field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
@@ -156,46 +155,42 @@ impl Behavior {
         actions.push(Action::InterceptBall);
 
         match world_state.robot.role {
+            Role::DefenderLeft
+                if world_state
+                    .filtered_game_controller_state
+                    .clone()
+                    .is_some_and(|filtered_game_controller_state| {
+                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                    }) =>
+            {
+                actions.push(Action::LookAtReferee);
+                actions.push(Action::DefendLeft);
+            }
             Role::DefenderLeft => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
                     kicking_team: Team::Opponent,
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Left }),
-                Some(FilteredGameControllerState {
-                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
-                    game_state:
-                        FilteredGameState::Playing {
-                            ball_is_free: false,
-                            ..
-                        },
-                    own_team_is_home_after_coin_toss: false,
-                    ..
-                }) => {
-                    actions.push(Action::LookAtReferee);
-                    actions.push(Action::DefendLeft);
-                }
                 _ => actions.push(Action::DefendLeft),
             },
+            Role::DefenderRight
+                if world_state
+                    .filtered_game_controller_state
+                    .clone()
+                    .is_some_and(|filtered_game_controller_state| {
+                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                    }) =>
+            {
+                actions.push(Action::LookAtReferee);
+                actions.push(Action::DefendRight);
+            }
             Role::DefenderRight => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
                     kicking_team: Team::Opponent,
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Right }),
-                Some(FilteredGameControllerState {
-                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
-                    game_state:
-                        FilteredGameState::Playing {
-                            ball_is_free: false,
-                            ..
-                        },
-                    own_team_is_home_after_coin_toss: true,
-                    ..
-                }) => {
-                    actions.push(Action::LookAtReferee);
-                    actions.push(Action::DefendRight);
-                }
                 _ => actions.push(Action::DefendRight),
             },
             Role::Keeper => match world_state.filtered_game_controller_state {
@@ -215,64 +210,43 @@ impl Behavior {
                 _ => actions.push(Action::DefendGoal),
             },
             Role::Loser => actions.push(Action::SearchForLostBall),
-            Role::MidfielderLeft => match world_state.filtered_game_controller_state {
-                Some(FilteredGameControllerState {
-                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
-                    game_state:
-                        FilteredGameState::Playing {
-                            ball_is_free: false,
-                            ..
-                        },
-                    own_team_is_home_after_coin_toss: false,
-                    ..
-                }) => {
-                    actions.push(Action::LookAtReferee);
-                    actions.push(Action::SupportLeft);
-                }
-                _ => actions.push(Action::SupportLeft),
-            },
-            Role::MidfielderRight => match world_state.filtered_game_controller_state {
-                Some(FilteredGameControllerState {
-                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
-                    game_state:
-                        FilteredGameState::Playing {
-                            ball_is_free: false,
-                            ..
-                        },
-                    own_team_is_home_after_coin_toss: true,
-                    ..
-                }) => {
-                    actions.push(Action::LookAtReferee);
-                    actions.push(Action::SupportRight);
-                }
-                _ => actions.push(Action::SupportRight),
-            },
+            Role::MidfielderLeft
+                if world_state
+                    .filtered_game_controller_state
+                    .clone()
+                    .is_some_and(|filtered_game_controller_state| {
+                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                    }) =>
+            {
+                actions.push(Action::LookAtReferee);
+                actions.push(Action::SupportLeft);
+            }
+            Role::MidfielderLeft => actions.push(Action::SupportLeft),
+            Role::MidfielderRight
+                if world_state
+                    .filtered_game_controller_state
+                    .clone()
+                    .is_some_and(|filtered_game_controller_state| {
+                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                    }) =>
+            {
+                actions.push(Action::LookAtReferee);
+                actions.push(Action::SupportRight);
+            }
+            Role::MidfielderRight => actions.push(Action::SupportRight),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
-            Role::Searcher => match world_state.filtered_game_controller_state {
-                Some(FilteredGameControllerState {
-                    sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
-                    penalties,
-                    ..
-                }) => {
-                    let mut first_two_nonpenalized_nonkeeper_player_numbers = penalties
-                        .iter()
-                        .filter_map(|(player_number, penalty)| {
-                            penalty.is_none().then_some(player_number)
-                        })
-                        // Skip the lowest non-penalized player number since this is always the Keeper or ReplacementKeeper
-                        .skip(1)
-                        .take(2);
-                    if first_two_nonpenalized_nonkeeper_player_numbers
-                        .contains(&world_state.robot.player_number)
-                    {
-                        actions.push(Action::LookAtReferee);
-                        actions.push(Action::Search);
-                    } else {
-                        actions.push(Action::Search);
-                    }
-                }
-                _ => actions.push(Action::Search),
-            },
+            Role::Searcher
+                if world_state
+                    .filtered_game_controller_state
+                    .clone()
+                    .is_some_and(|filtered_game_controller_state| {
+                        is_free_kick(filtered_game_controller_state, world_state.clone())
+                    }) =>
+            {
+                actions.push(Action::LookAtReferee);
+                actions.push(Action::Search);
+            }
+            Role::Searcher => actions.push(Action::Search),
             Role::Striker => match world_state.filtered_game_controller_state {
                 None
                 | Some(FilteredGameControllerState {
@@ -564,4 +538,48 @@ impl Behavior {
             motion_command: motion_command.into(),
         })
     }
+}
+
+pub fn is_free_kick(
+    filtered_game_controller_state: FilteredGameControllerState,
+    world_state: WorldState,
+) -> bool {
+    let is_free_kick_filtered_game_controller_state = matches!(
+        filtered_game_controller_state,
+        FilteredGameControllerState {
+            sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
+            game_state: FilteredGameState::Playing {
+                ball_is_free: false,
+                ..
+            },
+            ..
+        }
+    );
+
+    let first_two_nonpenalized_nonkeeper_player_numbers: Vec<PlayerNumber> =
+        filtered_game_controller_state
+            .penalties
+            .iter()
+            .filter_map(|(player_number, penalty)| penalty.is_none().then_some(player_number))
+            // Skip the lowest non-penalized player number since this is always the Keeper or ReplacementKeeper
+            .skip(1)
+            .take(2)
+            .collect();
+
+    let is_correct_free_kick_role = match (
+        world_state.robot.role,
+        filtered_game_controller_state.global_field_side,
+    ) {
+        (Role::DefenderRight | Role::MidfielderRight, GlobalFieldSide::Home) => true,
+        (Role::DefenderLeft | Role::MidfielderLeft, GlobalFieldSide::Away) => true,
+        (Role::Searcher, _)
+            if first_two_nonpenalized_nonkeeper_player_numbers
+                .contains(&world_state.robot.player_number) =>
+        {
+            true
+        }
+        _ => false,
+    };
+
+    is_free_kick_filtered_game_controller_state && is_correct_free_kick_role
 }

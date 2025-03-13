@@ -6,7 +6,6 @@ use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 
 use crate::{
     field_dimensions::GlobalFieldSide, filtered_game_state::FilteredGameState, players::Players,
-    roles::Role, world_state::WorldState,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
