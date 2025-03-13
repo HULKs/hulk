@@ -103,7 +103,7 @@ impl LookAt {
         let expected_referee_position = ground_to_field.inverse()
             * context
                 .expected_referee_position
-                .unwrap_or(&point!(1.0, 0.0));
+                .unwrap_or(&point!(0.0, 0.0));
 
         let (target, image_region_target, camera) = match *head_motion {
             HeadMotion::LookAt {
