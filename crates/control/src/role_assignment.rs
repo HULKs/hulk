@@ -38,6 +38,7 @@ use crate::localization::generate_initial_pose;
 #[derive(Deserialize, Serialize)]
 pub struct RoleAssignment {
     last_received_striker_message: Option<SystemTime>,
+    last_received_loser_message: Option<SystemTime>,
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
     last_transmitted_spl_message: Option<SystemTime>,
     role: Role,
@@ -101,6 +102,7 @@ impl RoleAssignment {
         .unwrap_or(Role::Striker);
         Ok(Self {
             last_received_striker_message: None,
+            last_received_loser_message: None,
             last_system_time_transmitted_game_controller_return_message: None,
             last_transmitted_spl_message: None,
             role,
@@ -290,12 +292,16 @@ impl RoleAssignment {
             if let Event::Striker(_) = event {
                 self.last_received_striker_message = Some(cycle_start_time)
             }
+            if let Event::Loser = event {
+                self.last_received_loser_message = Some(cycle_start_time)
+            }
 
             new_role = update_role_state_machine(
                 new_role,
                 context.ball_position.is_some(),
                 event,
                 context.time_to_reach_kick_position.copied(),
+                self.last_received_loser_message,
                 context.team_ball.copied(),
                 cycle_start_time,
                 context.filtered_game_controller_state,
@@ -503,6 +509,7 @@ fn update_role_state_machine(
     detected_own_ball: bool,
     event: Event,
     time_to_reach_kick_position: Option<Duration>,
+    last_received_loser_message: Option<SystemTime>,
     team_ball: Option<BallPosition<Field>>,
     cycle_start_time: SystemTime,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
@@ -564,6 +571,20 @@ fn update_role_state_machine(
         // Searcher found Ball at the same time as receiving a message
         (Role::Searcher, true, Event::Loser) => Role::Striker,
 
+        // Defender become Searcher after timeout
+        (Role::DefenderLeft | Role::DefenderRight, false, Event::None) => {
+            if last_received_loser_message.is_some_and(|last_received_loser_message| {
+                cycle_start_time
+                    .duration_since(last_received_loser_message)
+                    .expect("time ran backwards")
+                    > Duration::from_secs(2)
+            }) {
+                Role::Searcher
+            } else {
+                current_role
+            }
+        }
+
         // Remain in other_role
         (other_role, false, Event::None) => other_role,
 
@@ -571,7 +592,10 @@ fn update_role_state_machine(
         (other_role, false, Event::Loser) => {
             if other_role == Role::Keeper || other_role == Role::ReplacementKeeper {
                 other_role
-            } else {
+                //
+            } else if other_role == Role::DefenderLeft || other_role == Role::DefenderRight {
+               other_role
+            }else {
                 Role::Searcher
             }
         }
