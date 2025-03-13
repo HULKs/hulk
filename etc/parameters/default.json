@@ -488,15 +488,15 @@
   },
   "stand_up_back": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.08]
+    "leg_balancing_factor": [0, 0.05]
   },
   "stand_up_front": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.08]
+    "leg_balancing_factor": [0, 0.05]
   },
   "stand_up_sitting": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.08]
+    "leg_balancing_factor": [0, 0.05]
   },
   "keeper_motion": {
     "maximum_ball_distance": 1.5,

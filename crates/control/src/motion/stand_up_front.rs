@@ -84,8 +84,10 @@ impl StandUpFront {
         let mut positions = self.interpolator.value();
         positions.left_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.left_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
+        positions.left_leg.hip_yaw_pitch += context.leg_balancing_factor.x * gyro.x;
         positions.right_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.right_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
+        positions.right_leg.hip_yaw_pitch += context.leg_balancing_factor.x * gyro.x;
 
         *context.stand_up_front_estimated_remaining_duration = estimated_remaining_duration;
 
