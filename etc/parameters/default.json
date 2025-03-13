@@ -379,7 +379,7 @@
       "left": 0.04,
       "turn": 0.2
     },
-    "max_step_size_backwards": 0.04,
+    "max_step_size_backwards": 0.02,
     "translation_exponent": 1.5,
     "rotation_exponent": 2.0
   },
