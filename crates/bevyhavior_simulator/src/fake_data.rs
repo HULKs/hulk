@@ -2,6 +2,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::Result;
 use linear_algebra::Isometry2;
+use projection::camera_matrices::CameraMatrices;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -48,6 +49,7 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
     pub buttons: MainOutput<Buttons>,
+    pub camera_matrices: MainOutput<Option<CameraMatrices>>,
     pub cycle_time: MainOutput<CycleTime>,
     pub fall_state: MainOutput<FallState>,
     pub filtered_whistle: MainOutput<FilteredWhistle>,
@@ -81,6 +83,7 @@ impl FakeData {
         Ok(MainOutputs {
             ball_position: last_database.ball_position.into(),
             buttons: last_database.buttons.into(),
+            camera_matrices: last_database.camera_matrices.clone().into(),
             cycle_time: last_database.cycle_time.into(),
             fall_state: last_database.fall_state.into(),
             filtered_whistle: last_database.filtered_whistle.clone().into(),

@@ -605,6 +605,9 @@
       }
     ]
   },
+  "kicking_team_filter": {
+    "duration_to_keep_non_default_last_ball_state": { "nanos": 3000000000, "secs": 3 }
+  },
   "localization": {
     "circle_measurement_noise": [1000.0, 1000.0],
     "gradient_convergence_threshold": 1e-2,
