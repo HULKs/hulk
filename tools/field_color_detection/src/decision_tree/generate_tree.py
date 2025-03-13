@@ -10,7 +10,7 @@ from sklearn.tree import DecisionTreeClassifier, export_graphviz
 @dataclass
 class Feature:
     identifier: str
-    data_type: str
+    data_type: Literal["u8", "f32", "u16"]
 
 
 def convert_pixels_BGR2bgrI(
