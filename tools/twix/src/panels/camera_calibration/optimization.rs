@@ -204,7 +204,7 @@ impl SemiAutomaticCalibrationContext {
         if let OptimizationState::Optimized { corrections, .. } = &self.state {
             return self.apply_corrections(corrections.clone(), |path, value| {
                 self.nao
-                    .store_parameters(path, value, Scope::current_head())
+                    .store_parameters(path, value, Scope::default_head())
             });
         }
         bail!("optimization is not done yet")
