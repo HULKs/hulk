@@ -123,7 +123,7 @@
       "horizontal_median_mode": "FivePixels",
       "horizontal_stride": 4,
       "vertical_edge_detection_source": "Luminance",
-      "vertical_edge_threshold": 20,
+      "vertical_edge_threshold": 15,
       "vertical_median_mode": "FivePixels",
       "vertical_stride": 2
     },
