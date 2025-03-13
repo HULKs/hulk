@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use nalgebra::vector;
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber, SubState, Team};
 
@@ -8,6 +9,7 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
+use types::ball_position::SimulatorBallState;
 
 #[scenario]
 fn corner_kicks(app: &mut App) {
@@ -45,6 +47,13 @@ fn update(
             Team::Hulks,
         ));
     }
+    if time.ticks() = 4500 {
+        ball.state = Some(SimulatorBallState {
+            position: point!(-2.25, 1.0),
+            velocity: vector![-6.0, 2.0],
+        });
+    }
+
     if time.ticks() == 5000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::CornerKick),
