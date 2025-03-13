@@ -104,15 +104,15 @@ pub fn execute(
         },
         None => HeadMotion::SearchForLostBall,
     };
-    let ball_eta = (ground_to_field.inverse() * last_known_ball_position)
+    let distance_to_ball = (ground_to_field.inverse() * last_known_ball_position)
         .coords()
-        .norm()
-        / parameters.estimated_ball_speed;
+        .norm();
+    let estimated_ball_arrival_time = distance_to_ball / parameters.estimated_ball_speed;
     if world_state
         .now
         .duration_since(last_time_role_changed)
         .expect("time went backwards")
-        < Duration::from_secs_f32(ball_eta)
+        < Duration::from_secs_f32(estimated_ball_arrival_time)
     {
         return Some(MotionCommand::Stand { head });
     };
