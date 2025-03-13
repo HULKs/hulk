@@ -7,7 +7,8 @@ use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
 use linear_algebra::{point, Isometry2, Point2};
 use nalgebra::clamp;
-use ndarray::Array2;
+use ndarray::{array, Array2};
+use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
@@ -70,7 +71,7 @@ impl SearchSuggestor {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        self.update_heatmap(&context);
+        let _ = self.update_heatmap(&context);
         let suggested_search_position = self
             .heatmap
             .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
@@ -84,7 +85,7 @@ impl SearchSuggestor {
         })
     }
 
-    fn update_heatmap(&mut self, context: &CycleContext) {
+    fn update_heatmap(&mut self, context: &CycleContext) -> Result<()> {
         if let Some(ball_position) = context.ball_position {
             if let Some(ground_to_field) = context.ground_to_field {
                 self.heatmap[ground_to_field * ball_position.position] = 1.0;
@@ -107,7 +108,15 @@ impl SearchSuggestor {
             }
         }
 
-        self.heatmap.map *= 1.0 - context.search_suggestor_configuration.heatmap_decay_factor;
+        let alpha: f32 = 1.0 / 9.0;
+        let kernel: Array2<f32> =
+            1.0 / (8.0 + alpha) * array![[1.0, 1.0, 1.0], [1.0, alpha, 1.0], [1.0, 1.0, 1.0]];
+
+        self.heatmap.map =
+            self.heatmap
+                .map
+                .conv(&kernel, ConvMode::Full, PaddingMode::Replicate)?;
+        Ok(())
     }
 }
 
