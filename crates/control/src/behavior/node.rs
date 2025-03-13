@@ -14,6 +14,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
+    kick_decision::DecisionParameters,
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
@@ -58,6 +59,7 @@ pub struct CycleContext {
     is_localization_converged: Input<bool, "is_localization_converged">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
+    kick_decision_parameters: Parameter<DecisionParameters, "kick_selector">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
@@ -448,7 +450,11 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles_output,
-                        context.parameters.role_positions.striker_kickoff_pose,
+                        context
+                            .parameters
+                            .role_positions
+                            .striker_distance_to_kickoff,
+                        context.kick_decision_parameters.kick_off_angle,
                         *context.walk_to_kickoff_walk_speed,
                         context
                             .parameters
