@@ -108,14 +108,27 @@ impl SearchSuggestor {
             }
         }
 
-        let alpha: f32 = 1.0 / 9.0;
-        let kernel: Array2<f32> =
-            1.0 / (8.0 + alpha) * array![[1.0, 1.0, 1.0], [1.0, alpha, 1.0], [1.0, 1.0, 1.0]];
-
+        let kernel: Array2<f32> = 1.0
+            / (8.0
+                + context
+                    .search_suggestor_configuration
+                    .heatmap_convolution_kernel_weight)
+            * array![
+                [1.0, 1.0, 1.0],
+                [
+                    1.0,
+                    context
+                        .search_suggestor_configuration
+                        .heatmap_convolution_kernel_weight,
+                    1.0
+                ],
+                [1.0, 1.0, 1.0]
+            ];
         self.heatmap.map =
             self.heatmap
                 .map
-                .conv(&kernel, ConvMode::Full, PaddingMode::Replicate)?;
+                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)?;
+        self.heatmap.map /= self.heatmap.map.sum();
         Ok(())
     }
 }
