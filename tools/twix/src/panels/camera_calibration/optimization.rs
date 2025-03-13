@@ -53,10 +53,7 @@ pub struct SavedMeasurement {
 
 enum OptimizationState {
     NotOptimized,
-    Optimized {
-        corrections: Corrections,
-        report: MinimizationReport<f32>,
-    },
+    Optimized { report: MinimizationReport<f32> },
 }
 
 impl SemiAutomaticCalibrationContext {
@@ -73,6 +70,13 @@ impl SemiAutomaticCalibrationContext {
             bottom_camera_correction,
             robot_correction,
             field_dimensions,
+        }
+    }
+
+    pub fn optimization_report(&self) -> Option<&MinimizationReport<f32>> {
+        match &self.state {
+            OptimizationState::NotOptimized => None,
+            OptimizationState::Optimized { report, .. } => Some(report),
         }
     }
 
@@ -159,9 +163,6 @@ impl SemiAutomaticCalibrationContext {
             .get_last_value()?
             .wrap_err("failed to get field dimensions")?;
 
-        // TODO: Camera Matrix already has corrections applied!!!
-        // Therefore new corrections are almost zero
-        // When setting these parameters however, all of the corrections are removed
         let problem = CalibrationProblem::<Residuals>::new(
             initial_corrections,
             measurements,
@@ -181,10 +182,7 @@ impl SemiAutomaticCalibrationContext {
         self.apply_corrections(corrections, |path, value| {
             Ok(self.nao.write(path, TextOrBinary::Text(value)))
         })?;
-        self.state = OptimizationState::Optimized {
-            corrections,
-            report,
-        };
+        self.state = OptimizationState::Optimized { report };
         Ok(())
     }
 
