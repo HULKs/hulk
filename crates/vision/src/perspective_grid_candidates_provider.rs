@@ -177,7 +177,12 @@ fn generate_candidates(
         },
     ));
 
-    candidates.sort_by(|a, b| b.center.y().total_cmp(&a.center.y()));
+    candidates.sort_by(|a, b| {
+        b.center
+            .y()
+            .total_cmp(&a.center.y())
+            .then(b.center.x().total_cmp(&a.center.x()))
+    });
 
     PerspectiveGridCandidates { candidates }
 }
@@ -187,6 +192,10 @@ mod tests {
     use approx::assert_relative_eq;
     use linear_algebra::{vector, IntoTransform, Isometry3};
     use nalgebra::{Translation, UnitQuaternion};
+    use types::{
+        color::{Intensity, YCbCr444},
+        image_segments::EdgeType,
+    };
 
     use super::*;
 
@@ -246,136 +255,183 @@ mod tests {
         });
     }
 
-    // TODO: Fix and reenable tests
-    // #[test]
-    // fn candidates_correct_single_segment() {
-    //     let rows = vec![
-    //         Row {
-    //             circle_radius: 10.0,
-    //             center_y: 10.0,
-    //         },
-    //         Row {
-    //             circle_radius: 10.0,
-    //             center_y: 30.0,
-    //         },
-    //         Row {
-    //             circle_radius: 10.0,
-    //             center_y: 50.0,
-    //         },
-    //     ];
-    //     let vertical_scan_lines = vec![ScanLine {
-    //         position: 42,
-    //         segments: vec![Segment {
-    //             start: 20,
-    //             end: 50,
-    //             start_edge_type: EdgeType::ImageBorder,
-    //             end_edge_type: EdgeType::ImageBorder,
-    //             color: YCbCr444 { y: 0, cb: 0, cr: 0 },
-    //             field_color: Intensity::Low,
-    //         }],
-    //     }];
-    //     let skip_segments = HashSet::new();
-    //     let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows);
-    //     assert_relative_eq!(
-    //         candidates,
-    //         PerspectiveGridCandidates {
-    //             candidates: vec![Circle {
-    //                 center: point![50.0, 30.0],
-    //                 radius: 10.0
-    //             }]
-    //         }
-    //     );
-    // }
+    #[test]
+    fn candidates_correct_single_segment() {
+        let rows = vec![
+            Row {
+                circle_radius: 10.0,
+                center_y: 10.0,
+            },
+            Row {
+                circle_radius: 10.0,
+                center_y: 30.0,
+            },
+            Row {
+                circle_radius: 10.0,
+                center_y: 50.0,
+            },
+        ];
+        let vertical_scan_lines = vec![ScanLine {
+            position: 42,
+            segments: vec![Segment {
+                start: 20,
+                end: 50,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
+                color: YCbCr444 { y: 0, cb: 0, cr: 0 },
+                field_color: Intensity::Low,
+            }],
+        }];
+        let skip_segments = HashSet::new();
+        let image = YCbCr422Image::zero(640, 480);
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            nalgebra::vector![2.0, 2.0],
+            nalgebra::point![1.0, 1.0],
+            vector![640.0, 480.0],
+            Isometry3::identity(),
+            Isometry3::identity(),
+            Isometry3::from_translation(0.0, 0.0, 1.0),
+        );
+        let minimum_number_of_segments_per_circle = 1;
+        let ball_radius = 0.05;
 
-    // #[test]
-    // fn candidates_correct_multi_segment() {
-    //     let rows = vec![
-    //         Row {
-    //             circle_radius: 10.0,
-    //             center_y: 10.0,
-    //         },
-    //         Row {
-    //             circle_radius: 10.0,
-    //             center_y: 30.0,
-    //         },
-    //         Row {
-    //             circle_radius: 10.0,
-    //             center_y: 50.0,
-    //         },
-    //     ];
-    //     let segments = vec![
-    //         Segment {
-    //             start: 5,
-    //             end: 12,
-    //             start_edge_type: EdgeType::ImageBorder,
-    //             end_edge_type: EdgeType::ImageBorder,
-    //             color: YCbCr444 { y: 0, cb: 0, cr: 0 },
-    //             field_color: Intensity::Low,
-    //         },
-    //         Segment {
-    //             start: 18,
-    //             end: 28,
-    //             start_edge_type: EdgeType::ImageBorder,
-    //             end_edge_type: EdgeType::ImageBorder,
-    //             color: YCbCr444 { y: 0, cb: 0, cr: 0 },
-    //             field_color: Intensity::Low,
-    //         },
-    //         Segment {
-    //             start: 45,
-    //             end: 50,
-    //             start_edge_type: EdgeType::ImageBorder,
-    //             end_edge_type: EdgeType::ImageBorder,
-    //             color: YCbCr444 { y: 0, cb: 0, cr: 0 },
-    //             field_color: Intensity::Low,
-    //         },
-    //     ];
-    //     let vertical_scan_lines = vec![
-    //         ScanLine {
-    //             position: 0,
-    //             segments: segments.clone(),
-    //         },
-    //         ScanLine {
-    //             position: 42,
-    //             segments: segments.clone(),
-    //         },
-    //         ScanLine {
-    //             position: 110,
-    //             segments,
-    //         },
-    //     ];
-    //     let skip_segments = HashSet::from_iter(
-    //         [
-    //             point![0, 18],
-    //             point![42, 5],
-    //             point![42, 45],
-    //             point![110, 5],
-    //             point![110, 18],
-    //         ]
-    //         .map(|point| point),
-    //     );
-    //     let candidates = generate_candidates(&vertical_scan_lines, &skip_segments, &rows);
-    //     assert_relative_eq!(
-    //         candidates,
-    //         PerspectiveGridCandidates {
-    //             candidates: vec![
-    //                 Circle {
-    //                     center: point![10.0, 50.0],
-    //                     radius: 10.0
-    //                 },
-    //                 Circle {
-    //                     center: point![110.0, 50.0],
-    //                     radius: 10.0
-    //                 },
-    //                 Circle {
-    //                     center: point![50.0, 30.0],
-    //                     radius: 10.0
-    //                 },
-    //                 Circle {
-    //                     center: point![10.0, 10.0],
-    //                     radius: 10.0
-    //                 },
-    //             ]
-    //         }
-    //     );
-    // }
+        let candidates = generate_candidates(
+            &camera_matrix,
+            &image,
+            &vertical_scan_lines,
+            &skip_segments,
+            &rows,
+            minimum_number_of_segments_per_circle,
+            ball_radius,
+        );
+
+        assert_relative_eq!(
+            candidates,
+            PerspectiveGridCandidates {
+                candidates: vec![
+                    Circle {
+                        center: point![320.0, 240.0],
+                        radius: 43.953747
+                    },
+                    Circle {
+                        center: point![50.0, 30.0],
+                        radius: 10.0
+                    },
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn candidates_correct_multi_segment() {
+        let rows = vec![
+            Row {
+                circle_radius: 10.0,
+                center_y: 10.0,
+            },
+            Row {
+                circle_radius: 10.0,
+                center_y: 30.0,
+            },
+            Row {
+                circle_radius: 10.0,
+                center_y: 50.0,
+            },
+        ];
+        let segments = vec![
+            Segment {
+                start: 5,
+                end: 12,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
+                color: YCbCr444 { y: 0, cb: 0, cr: 0 },
+                field_color: Intensity::Low,
+            },
+            Segment {
+                start: 18,
+                end: 28,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
+                color: YCbCr444 { y: 0, cb: 0, cr: 0 },
+                field_color: Intensity::Low,
+            },
+            Segment {
+                start: 45,
+                end: 50,
+                start_edge_type: EdgeType::ImageBorder,
+                end_edge_type: EdgeType::ImageBorder,
+                color: YCbCr444 { y: 0, cb: 0, cr: 0 },
+                field_color: Intensity::Low,
+            },
+        ];
+        let vertical_scan_lines = vec![
+            ScanLine {
+                position: 0,
+                segments: segments.clone(),
+            },
+            ScanLine {
+                position: 42,
+                segments: segments.clone(),
+            },
+            ScanLine {
+                position: 110,
+                segments,
+            },
+        ];
+        let skip_segments = HashSet::from_iter(
+            [
+                point![0, 18],
+                point![42, 5],
+                point![42, 45],
+                point![110, 5],
+                point![110, 18],
+            ]
+            .map(|point| point),
+        );
+        let image = YCbCr422Image::zero(640, 480);
+        let camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            nalgebra::vector![2.0, 2.0],
+            nalgebra::point![1.0, 1.0],
+            vector![640.0, 480.0],
+            Isometry3::identity(),
+            Isometry3::identity(),
+            Isometry3::from_translation(0.0, 0.0, 1.0),
+        );
+        let minimum_number_of_segments_per_circle = 1;
+        let ball_radius = 0.05;
+
+        let candidates = generate_candidates(
+            &camera_matrix,
+            &image,
+            &vertical_scan_lines,
+            &skip_segments,
+            &rows,
+            minimum_number_of_segments_per_circle,
+            ball_radius,
+        );
+
+        assert_relative_eq!(
+            candidates,
+            PerspectiveGridCandidates {
+                candidates: vec![
+                    Circle {
+                        center: point![320.0, 240.0],
+                        radius: 43.953747
+                    },
+                    Circle {
+                        center: point![120.0, 50.0],
+                        radius: 10.0
+                    },
+                    Circle {
+                        center: point![10.0, 50.0],
+                        radius: 10.0
+                    },
+                    Circle {
+                        center: point![10.0, 10.0],
+                        radius: 10.0
+                    },
+                ]
+            }
+        );
+    }
 }
