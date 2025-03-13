@@ -4,7 +4,9 @@ use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 
-use crate::{filtered_game_state::FilteredGameState, players::Players};
+use crate::{
+    field_dimensions::GlobalFieldSide, filtered_game_state::FilteredGameState, players::Players,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
 pub struct FilteredGameControllerState {
@@ -16,7 +18,7 @@ pub struct FilteredGameControllerState {
     pub penalties: Players<Option<Penalty>>,
     pub remaining_number_of_messages: u16,
     pub sub_state: Option<SubState>,
-    pub own_team_is_home_after_coin_toss: bool,
+    pub global_field_side: GlobalFieldSide,
 
     pub new_own_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
     pub new_opponent_penalties_last_cycle: HashMap<PlayerNumber, Penalty>,
@@ -33,7 +35,7 @@ impl Default for FilteredGameControllerState {
             penalties: Default::default(),
             remaining_number_of_messages: Default::default(),
             sub_state: Default::default(),
-            own_team_is_home_after_coin_toss: Default::default(),
+            global_field_side: GlobalFieldSide::Away,
             new_own_penalties_last_cycle: Default::default(),
             new_opponent_penalties_last_cycle: Default::default(),
         }

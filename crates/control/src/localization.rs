@@ -18,7 +18,7 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use types::{
     cycle_time::CycleTime,
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, GlobalFieldSide},
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,
     initial_pose::InitialPose,
@@ -577,7 +577,7 @@ impl Localization {
                         Some((ground_to_field, context.filtered_game_controller_state?))
                     })
                     .map(|(ground_to_field, game_controller_state)| {
-                        if !game_controller_state.own_team_is_home_after_coin_toss {
+                        if game_controller_state.global_field_side == GlobalFieldSide::Away {
                             (nalgebra::Isometry2::from_parts(
                                 Translation2::default(),
                                 Rotation2::new(PI).into(),
