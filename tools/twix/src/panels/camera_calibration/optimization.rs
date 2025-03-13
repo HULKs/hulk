@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use color_eyre::{
-    eyre::{Context, ContextCompat},
+    eyre::{bail, Context, ContextCompat},
     Result,
 };
 
@@ -15,6 +15,7 @@ use coordinate_systems::Pixel;
 use geometry::line_segment::LineSegment;
 use levenberg_marquardt::{LevenbergMarquardt, MinimizationReport};
 use linear_algebra::Isometry2;
+use parameters::directory::Scope;
 use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
 use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
@@ -53,7 +54,10 @@ pub struct SavedMeasurement {
 
 enum OptimizationState {
     NotOptimized,
-    Optimized { report: MinimizationReport<f32> },
+    Optimized {
+        corrections: Corrections,
+        report: MinimizationReport<f32>,
+    },
 }
 
 impl SemiAutomaticCalibrationContext {
@@ -182,7 +186,10 @@ impl SemiAutomaticCalibrationContext {
         self.apply_corrections(corrections, |path, value| {
             Ok(self.nao.write(path, TextOrBinary::Text(value)))
         })?;
-        self.state = OptimizationState::Optimized { report };
+        self.state = OptimizationState::Optimized {
+            corrections,
+            report,
+        };
         Ok(())
     }
 
@@ -191,5 +198,15 @@ impl SemiAutomaticCalibrationContext {
         self.apply_corrections(Corrections::default(), |path, value| {
             Ok(self.nao.write(path, TextOrBinary::Text(value)))
         })
+    }
+
+    pub fn save_to_head(&self) -> Result<()> {
+        if let OptimizationState::Optimized { corrections, .. } = &self.state {
+            return self.apply_corrections(corrections.clone(), |path, value| {
+                self.nao
+                    .store_parameters(path, value, Scope::current_head())
+            });
+        }
+        bail!("optimization is not done yet")
     }
 }
