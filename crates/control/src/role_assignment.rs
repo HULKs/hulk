@@ -153,7 +153,7 @@ impl RoleAssignment {
             context.forced_role.copied(),
             self.role_for_ready_and_set(&context),
             role_for_penalty_shootout(context.filtered_game_controller_state),
-            keep_current_role_in_penalty_kick(
+            role_for_penalty_kick(
                 context.filtered_game_controller_state,
                 self.role,
                 context.network_message.persistent.clone(),
@@ -659,7 +659,7 @@ fn role_for_penalty_shootout(
     None
 }
 
-fn keep_current_role_in_penalty_kick(
+fn role_for_penalty_kick(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     current_role: Role,
     persistent: BTreeMap<std::time::SystemTime, Vec<std::option::Option<&IncomingMessage>>>,
