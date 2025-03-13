@@ -129,7 +129,7 @@ impl FreeKickSignalFilter {
             .truncate(*context.referee_pose_queue_length);
 
         let (own_detected_kicking_team, number_of_detections) =
-            most_detections(self.detected_free_kick_detections_queue.clone().into());
+            most_detections(self.detected_free_kick_detections_queue.make_contiguous());
 
         if number_of_detections >= *context.minimum_number_poses_before_message {
             self.free_kick_signal_detection_times[*context.player_number] =
@@ -153,22 +153,22 @@ impl FreeKickSignalFilter {
     }
 }
 
-fn most_detections(detections: Vec<Team>) -> (Team, usize) {
-    let own_detections_hulks: Vec<Team> = detections
+fn most_detections(detections: &[Team]) -> (Team, usize) {
+    let number_of_own_detections_hulks = detections
         .iter()
-        .cloned()
+        .copied()
         .filter(|kicking_team| *kicking_team == Team::Hulks)
-        .collect();
-    let own_detections_opponent: Vec<Team> = detections
+        .count();
+    let number_of_own_detections_opponent = detections
         .iter()
-        .cloned()
+        .copied()
         .filter(|kicking_team| *kicking_team == Team::Opponent)
-        .collect();
+        .count();
 
-    if own_detections_hulks.len() > own_detections_opponent.len() {
-        (Team::Hulks, own_detections_hulks.len())
+    if number_of_own_detections_hulks > number_of_own_detections_opponent {
+        (Team::Hulks, number_of_own_detections_hulks)
     } else {
-        (Team::Opponent, own_detections_opponent.len())
+        (Team::Opponent, number_of_own_detections_opponent)
     }
 }
 
@@ -176,33 +176,13 @@ fn kicking_team_from_free_kick_signal_detection(
     free_kick_signal_pose: Option<PoseKind>,
     global_field_side: GlobalFieldSide,
 ) -> Option<Team> {
-    match (global_field_side, free_kick_signal_pose) {
-        (
-            GlobalFieldSide::Home,
-            Some(PoseKind::FreeKick {
-                global_field_side: GlobalFieldSide::Away,
-            }),
-        ) => Some(Team::Hulks),
-        (
-            GlobalFieldSide::Home,
-            Some(PoseKind::FreeKick {
-                global_field_side: GlobalFieldSide::Home,
-            }),
-        ) => Some(Team::Opponent),
-        (
-            GlobalFieldSide::Away,
-            Some(PoseKind::FreeKick {
-                global_field_side: GlobalFieldSide::Away,
-            }),
-        ) => Some(Team::Opponent),
-        (
-            GlobalFieldSide::Away,
-            Some(PoseKind::FreeKick {
-                global_field_side: GlobalFieldSide::Home,
-            }),
-        ) => Some(Team::Hulks),
-        _ => None,
-    }
+    free_kick_signal_pose.map(|pose_kind| {
+        if pose_kind == (PoseKind::FreeKick { global_field_side }) {
+            Team::Opponent
+        } else {
+            Team::Hulks
+        }
+    })
 }
 
 fn majority_vote_free_kick_signal(
@@ -211,7 +191,7 @@ fn majority_vote_free_kick_signal(
     initial_message_grace_period: Duration,
     minimum_free_kick_signal_detections: usize,
 ) -> Option<Team> {
-    let still_valid_detections = free_kick_signal_detection_times
+    let still_valid_detections: Vec<Team> = free_kick_signal_detection_times
         .iter()
         .filter_map(|(_, time_tagged_detection)| match time_tagged_detection {
             Some(TimeTaggedKickingTeamDetections {
@@ -225,7 +205,7 @@ fn majority_vote_free_kick_signal(
         .collect();
 
     let (majority_voted_kicking_team, number_of_detections) =
-        most_detections(still_valid_detections);
+        most_detections(&still_valid_detections);
     if number_of_detections >= minimum_free_kick_signal_detections {
         Some(majority_voted_kicking_team)
     } else {
