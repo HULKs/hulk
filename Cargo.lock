@@ -2169,8 +2169,10 @@ checksum = "2d2c12f985c78475a6b8d629afd0c360260ef34cfef52efccdcfd31972f81c2e"
 name = "calibration"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "coordinate_systems",
  "geometry",
+ "itertools 0.14.0",
  "levenberg-marquardt",
  "linear_algebra",
  "nalgebra",

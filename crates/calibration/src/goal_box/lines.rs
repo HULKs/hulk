@@ -38,7 +38,7 @@ pub enum LinesError {
     },
 }
 
-fn project_line_and_map_error(
+pub(crate) fn project_line_and_map_error(
     matrix: &CameraMatrix,
     line: LineSegment<Pixel>,
     which: &str,
