@@ -63,7 +63,6 @@ impl SearchSuggestor {
         );
         let heatmap = Heatmap {
             map: Array2::from_elem((heatmap_length, heatmap_width), 0.0),
-            //DMatrix::from_element(heatmap_length, heatmap_width, 0.0),
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
         };
