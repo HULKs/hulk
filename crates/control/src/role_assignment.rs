@@ -20,17 +20,7 @@ use spl_network_messages::{
     StrikerMessage, SubState, Team,
 };
 use types::{
-    ball_position::BallPosition,
-    cycle_time::CycleTime,
-    fall_state::FallState,
-    field_dimensions::FieldDimensions,
-    filtered_game_controller_state::FilteredGameControllerState,
-    initial_pose::InitialPose,
-    messages::{IncomingMessage, OutgoingMessage},
-    parameters::SplNetworkParameters,
-    players::Players,
-    primary_state::PrimaryState,
-    roles::Role,
+    ball_position::BallPosition, cycle_time::CycleTime, fall_state::FallState, field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState, filtered_game_state::FilteredGameState, initial_pose::InitialPose, messages::{IncomingMessage, OutgoingMessage}, parameters::SplNetworkParameters, players::Players, primary_state::PrimaryState, roles::Role
 };
 
 use crate::localization::generate_initial_pose;
