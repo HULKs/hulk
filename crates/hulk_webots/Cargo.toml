@@ -17,6 +17,7 @@ hulk = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
