@@ -24,6 +24,7 @@ ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 mcap = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
 parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }

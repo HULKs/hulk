@@ -26,6 +26,7 @@ ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
 path_serde = { workspace = true }

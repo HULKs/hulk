@@ -4,8 +4,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
+use itertools::Itertools;
 use linear_algebra::{point, Isometry2, Point2};
-use nalgebra::{clamp, DMatrix};
+use nalgebra::clamp;
+use ndarray::Array2;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
@@ -40,7 +42,7 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 
-    heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
+    heatmap: AdditionalOutput<Array2<f32>, "ball_search_heatmap">,
 }
 
 #[context]
@@ -60,7 +62,8 @@ impl SearchSuggestor {
                 .round() as usize,
         );
         let heatmap = Heatmap {
-            map: DMatrix::from_element(heatmap_length, heatmap_width, 0.0),
+            map: Array2::from_elem((heatmap_length, heatmap_width), 0.0),
+            //DMatrix::from_element(heatmap_length, heatmap_width, 0.0),
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
         };
@@ -105,15 +108,13 @@ impl SearchSuggestor {
             }
         }
 
-        self.heatmap
-            .map
-            .scale_mut(1.0 - context.search_suggestor_configuration.heatmap_decay_factor);
+        self.heatmap.map *= 1.0 - context.search_suggestor_configuration.heatmap_decay_factor;
     }
 }
 
 #[derive(Deserialize, Serialize)]
 struct Heatmap {
-    map: DMatrix<f32>,
+    map: Array2<f32>,
     field_dimensions: FieldDimensions,
     cells_per_meter: f32,
 }
@@ -126,14 +127,18 @@ impl Heatmap {
             ((field_point.y() + self.field_dimensions.width / 2.0) * self.cells_per_meter) as usize,
         );
         (
-            clamp(heatmap_point.0, 0, self.map.shape().0 - 1),
-            clamp(heatmap_point.1, 0, self.map.shape().1 - 1),
+            clamp(heatmap_point.0, 0, self.map.dim().0 - 1),
+            clamp(heatmap_point.1, 0, self.map.dim().1 - 1),
         )
     }
 
     fn get_maximum_position(&self, minimum_validity: f32) -> Option<Point2<Field>> {
-        let maximum_heat_heatmap_position = self.map.iamax_full();
-
+        let linear_maximum_heat_heatmap_position =
+            self.map.iter().position_max_by(|a, b| a.total_cmp(b))?;
+        let maximum_heat_heatmap_position = (
+            linear_maximum_heat_heatmap_position / self.map.dim().1,
+            linear_maximum_heat_heatmap_position % self.map.dim().1,
+        );
         if self.map[maximum_heat_heatmap_position] > minimum_validity {
             let search_suggestion = point![
                 ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0) / self.cells_per_meter
