@@ -13,6 +13,7 @@ use spl_network_messages::GameControllerStateMessage;
 use types::{
     audio::{Sound, SpeakerRequest},
     cycle_time::CycleTime,
+    field_dimensions::GlobalFieldSide,
     game_controller_state::GameControllerState,
     messages::IncomingMessage,
 };
@@ -118,7 +119,11 @@ impl GameControllerFilter {
             penalties: message.hulks_team.clone().into(),
             opponent_penalties: message.opponent_team.clone().into(),
             sub_state: message.sub_state,
-            hulks_team_is_home_after_coin_toss: message.hulks_team_is_home_after_coin_toss,
+            global_field_side: if message.hulks_team_is_home_after_coin_toss {
+                GlobalFieldSide::Home
+            } else {
+                GlobalFieldSide::Away
+            },
             hulks_team: message.hulks_team.clone(),
             opponent_team: message.opponent_team.clone(),
         });

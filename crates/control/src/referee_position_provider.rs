@@ -5,7 +5,8 @@ use framework::MainOutput;
 use linear_algebra::{point, Point2};
 use serde::{Deserialize, Serialize};
 use types::{
-    field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
+    field_dimensions::{FieldDimensions, GlobalFieldSide},
+    filtered_game_controller_state::FilteredGameControllerState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -34,14 +35,12 @@ impl RefereePositionProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let expected_referee_position = if context
-            .filtered_game_controller_state
-            .own_team_is_home_after_coin_toss
-        {
-            point![0.0, context.field_dimensions.width / 2.0,]
-        } else {
-            point![0.0, -context.field_dimensions.width / 2.0,]
-        };
+        let expected_referee_position =
+            if context.filtered_game_controller_state.global_field_side == GlobalFieldSide::Home {
+                point![0.0, context.field_dimensions.width / 2.0,]
+            } else {
+                point![0.0, -context.field_dimensions.width / 2.0,]
+            };
 
         Ok(MainOutputs {
             expected_referee_position: Some(expected_referee_position).into(),

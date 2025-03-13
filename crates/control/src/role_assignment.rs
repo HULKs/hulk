@@ -139,6 +139,7 @@ impl RoleAssignment {
             role_for_penalty_shootout(context.filtered_game_controller_state),
             keep_current_role_in_penalty_kick(context.filtered_game_controller_state, self.role),
             keep_current_role_if_not_in_playing(primary_state, self.role),
+            keep_current_role_during_free_kicks(context.filtered_game_controller_state, self.role),
             Some(role_from_state_machine),
         ]
         .iter()
@@ -622,6 +623,29 @@ fn keep_current_role_in_penalty_kick(
     None
 }
 
+fn keep_current_role_during_free_kicks(
+    filtered_game_controller_state: Option<&FilteredGameControllerState>,
+    current_role: Role,
+) -> Option<Role> {
+    if let Some(FilteredGameControllerState {
+        sub_state: Some(SubState::KickIn | SubState::PushingFreeKick),
+        ..
+    }) = filtered_game_controller_state
+    {
+        if [
+            Role::DefenderLeft,
+            Role::DefenderRight,
+            Role::MidfielderLeft,
+            Role::DefenderRight,
+        ]
+        .contains(&current_role)
+        {
+            return Some(current_role);
+        }
+    }
+    None
+}
+
 fn claim_striker_or_other_role(
     striker_event: StrikerEvent,
     time_to_reach_kick_position: Option<Duration>,
@@ -774,6 +798,7 @@ mod test {
             striker_trusts_team_ball_duration in  Just(Duration::from_secs(5)),
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
+            let filtered_game_controller_state: Option<FilteredGameControllerState> = filtered_game_controller_state;
             let new_role = update_role_state_machine(
                 initial_role,
                 detected_own_ball,

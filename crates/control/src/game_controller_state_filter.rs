@@ -35,6 +35,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
+    filtered_kicking_team: Input<Option<Team>, "filtered_kicking_team?">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -98,16 +99,14 @@ impl GameControllerStateFilter {
             opponent_game_state: game_states.opponent,
             remaining_time_in_half: context.game_controller_state.remaining_time_in_half,
             game_phase: context.game_controller_state.game_phase,
-            kicking_team: context.game_controller_state.kicking_team,
+            kicking_team: context.filtered_kicking_team.copied(),
             penalties: context.game_controller_state.penalties,
             remaining_number_of_messages: context
                 .game_controller_state
                 .hulks_team
                 .remaining_amount_of_messages,
             sub_state: context.game_controller_state.sub_state,
-            own_team_is_home_after_coin_toss: context
-                .game_controller_state
-                .hulks_team_is_home_after_coin_toss,
+            global_field_side: context.game_controller_state.global_field_side,
             new_own_penalties_last_cycle,
             new_opponent_penalties_last_cycle,
         };
@@ -187,7 +186,7 @@ impl GameControllerStateFilter {
 
         let filtered_game_state = self.state.construct_filtered_game_state_for_team(
             game_controller_state,
-            Team::Hulks,
+            Some(Team::Hulks),
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             config,
@@ -197,7 +196,7 @@ impl GameControllerStateFilter {
         let filtered_opponent_game_state =
             self.opponent_state.construct_filtered_game_state_for_team(
                 game_controller_state,
-                Team::Opponent,
+                Some(Team::Opponent),
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
                 config,
@@ -407,7 +406,7 @@ impl State {
     fn construct_filtered_game_state_for_team(
         &self,
         game_controller_state: &GameControllerState,
-        team: Team,
+        team: Option<Team>,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
@@ -420,16 +419,12 @@ impl State {
             State::Initial => FilteredGameState::Initial,
             State::Standby => {
                 if visual_referee_proceed_to_ready {
-                    FilteredGameState::Ready {
-                        kicking_team_known: true,
-                    }
+                    FilteredGameState::Ready
                 } else {
                     FilteredGameState::Standby
                 }
             }
-            State::Ready => FilteredGameState::Ready {
-                kicking_team_known: true,
-            },
+            State::Ready => FilteredGameState::Ready,
             State::Set => FilteredGameState::Set,
             State::WhistleInSet {
                 time_when_whistle_was_detected,
@@ -453,9 +448,7 @@ impl State {
                 ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
                 kick_off: false,
             },
-            State::WhistleInPlaying { .. } => FilteredGameState::Ready {
-                kicking_team_known: false,
-            },
+            State::WhistleInPlaying { .. } => FilteredGameState::Ready,
             State::Finished => match game_controller_state.game_phase {
                 GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
                 _ => FilteredGameState::Finished,

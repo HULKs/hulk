@@ -5,7 +5,9 @@ use bevy::prelude::*;
 use spl_network_messages::{
     GamePhase, GameState, Penalty, PlayerNumber, SubState, Team, TeamColor, TeamState,
 };
-use types::{game_controller_state::GameControllerState, players::Players};
+use types::{
+    field_dimensions::GlobalFieldSide, game_controller_state::GameControllerState, players::Players,
+};
 
 use crate::{autoref::autoref, whistle::WhistleResource};
 
@@ -44,17 +46,17 @@ fn game_controller_controller(
                 state.last_state_change = time.as_generic();
             }
             GameControllerCommand::SetKickingTeam(team) => {
-                game_controller.state.kicking_team = team;
+                game_controller.state.kicking_team = Some(team);
                 state.last_state_change = time.as_generic();
             }
             GameControllerCommand::Goal(team) => {
                 match team {
                     Team::Hulks => {
-                        game_controller.state.kicking_team = Team::Opponent;
+                        game_controller.state.kicking_team = Some(Team::Opponent);
                         &mut game_controller.state.hulks_team
                     }
                     Team::Opponent => {
-                        game_controller.state.kicking_team = Team::Hulks;
+                        game_controller.state.kicking_team = Some(Team::Hulks);
                         &mut game_controller.state.opponent_team
                     }
                 }
@@ -70,9 +72,11 @@ fn game_controller_controller(
             }
             GameControllerCommand::SetSubState(sub_state, team) => {
                 game_controller.state.sub_state = sub_state;
-                game_controller.state.kicking_team = team;
                 if sub_state == Some(SubState::PenaltyKick) {
+                    game_controller.state.kicking_team = Some(team);
                     game_controller.state.game_state = GameState::Ready;
+                } else {
+                    game_controller.state.kicking_team = None;
                 }
                 state.last_state_change = time.as_generic();
             }
@@ -130,12 +134,12 @@ impl Default for GameController {
                 game_state: GameState::Initial,
                 game_phase: GamePhase::Normal,
                 remaining_time_in_half: Duration::ZERO,
-                kicking_team: Team::Hulks,
+                kicking_team: Some(Team::Hulks),
                 last_game_state_change: SystemTime::UNIX_EPOCH,
                 penalties: Players::new(None),
                 opponent_penalties: Players::new(None),
                 sub_state: None,
-                hulks_team_is_home_after_coin_toss: true,
+                global_field_side: GlobalFieldSide::Home,
                 hulks_team: TeamState {
                     team_number: 24,
                     field_player_color: TeamColor::Green,
