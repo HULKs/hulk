@@ -36,6 +36,7 @@ pub struct FieldDimensions {
 
 #[derive(
     Clone,
+    Copy,
     Debug,
     Serialize,
     Deserialize,

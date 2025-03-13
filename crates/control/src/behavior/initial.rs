@@ -1,6 +1,7 @@
 use spl_network_messages::PlayerNumber;
 use types::{
     camera_position::CameraPosition,
+    field_dimensions::GlobalFieldSide,
     filtered_game_state::FilteredGameState,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     primary_state::PrimaryState,
@@ -29,10 +30,12 @@ pub fn execute(world_state: &WorldState, enable_pose_detection: bool) -> Option<
     let player_number_should_look_for_referee = matches!(
         (
             world_state.robot.player_number,
-            filtered_game_controller_state.own_team_is_home_after_coin_toss,
+            filtered_game_controller_state.global_field_side,
         ),
-        (PlayerNumber::Four | PlayerNumber::Seven, true)
-            | (PlayerNumber::Two | PlayerNumber::Six, false)
+        (
+            PlayerNumber::Four | PlayerNumber::Seven,
+            GlobalFieldSide::Home
+        ) | (PlayerNumber::Two | PlayerNumber::Six, GlobalFieldSide::Away)
     );
 
     Some(MotionCommand::Initial {

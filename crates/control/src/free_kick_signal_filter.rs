@@ -114,9 +114,7 @@ impl FreeKickSignalFilter {
         for (_, detection) in own_detected_pose_times {
             let detected_kicking_team = kicking_team_from_free_kick_signal_detection(
                 detection,
-                context
-                    .filtered_game_controller_state
-                    .own_team_is_home_after_coin_toss,
+                context.filtered_game_controller_state.global_field_side,
             );
             if let Some(detected_kicking_team) = detected_kicking_team {
                 self.detected_free_kick_detections_queue
@@ -176,29 +174,29 @@ fn most_detections(detections: Vec<Team>) -> (Team, usize) {
 
 fn kicking_team_from_free_kick_signal_detection(
     free_kick_signal_pose: Option<PoseKind>,
-    own_team_is_home_after_coin_toss: bool,
+    global_field_side: GlobalFieldSide,
 ) -> Option<Team> {
-    match (own_team_is_home_after_coin_toss, free_kick_signal_pose) {
+    match (global_field_side, free_kick_signal_pose) {
         (
-            true,
+            GlobalFieldSide::Home,
             Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Away,
             }),
         ) => Some(Team::Hulks),
         (
-            true,
+            GlobalFieldSide::Home,
             Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Home,
             }),
         ) => Some(Team::Opponent),
         (
-            false,
+            GlobalFieldSide::Away,
             Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Away,
             }),
         ) => Some(Team::Opponent),
         (
-            false,
+            GlobalFieldSide::Away,
             Some(PoseKind::FreeKick {
                 global_field_side: GlobalFieldSide::Home,
             }),

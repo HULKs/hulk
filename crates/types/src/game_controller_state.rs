@@ -4,7 +4,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, GameState, Penalty, SubState, Team, TeamState};
 
-use crate::players::Players;
+use crate::{field_dimensions::GlobalFieldSide, players::Players};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct GameControllerState {
@@ -16,7 +16,7 @@ pub struct GameControllerState {
     pub penalties: Players<Option<Penalty>>,
     pub opponent_penalties: Players<Option<Penalty>>,
     pub sub_state: Option<SubState>,
-    pub hulks_team_is_home_after_coin_toss: bool,
+    pub global_field_side: GlobalFieldSide,
     pub hulks_team: TeamState,
     pub opponent_team: TeamState,
 }

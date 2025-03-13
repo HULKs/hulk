@@ -10,7 +10,7 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
-use types::{motion_command::HeadMotion, roles::Role};
+use types::{field_dimensions::GlobalFieldSide, motion_command::HeadMotion, roles::Role};
 
 /// Is used to generate the test functions for cargo test
 #[scenario]
@@ -98,7 +98,7 @@ fn update(
             Team::Opponent,
         ));
 
-        game_controller.state.hulks_team_is_home_after_coin_toss = false;
+        game_controller.state.global_field_side = GlobalFieldSide::Away;
 
         if let Some(ball) = ball.state.as_mut() {
             ball.position = point!(2.0, 4.5);
