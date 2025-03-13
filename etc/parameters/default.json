@@ -365,10 +365,10 @@
     "injected_step": null,
     "max_step_size": {
       "forward": 0.045,
-      "left": 0.06,
+      "left": 0.1,
       "turn": 0.5
     },
-    "initial_side_bonus": 0.04,
+    "initial_side_bonus": 0.06,
     "step_size_delta_slow": {
       "forward": -0.025,
       "left": 0.0,
@@ -376,7 +376,7 @@
     },
     "step_size_delta_fast": {
       "forward": 0.01,
-      "left": 0.04,
+      "left": 0.02,
       "turn": 0.2
     },
     "max_step_size_backwards": 0.02,
@@ -665,7 +665,7 @@
     "hypothesis_score_base_increase": 0.1
   },
   "odometry": {
-    "odometry_scale_factor": [1.075, 1.125]
+    "odometry_scale_factor": [1.1, 1.2]
   },
   "orientation_filter": {
     "filter_gain": 0.01,
