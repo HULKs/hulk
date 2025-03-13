@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,9 @@ pub struct Behavior {
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
+    previous_defender_or_searcher: Role,
     last_defender_mode: DefendMode,
+    last_time_role_changed: SystemTime,
 }
 
 #[context]
@@ -99,6 +101,8 @@ impl Behavior {
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
+            previous_defender_or_searcher: Role::Searcher,
+            last_time_role_changed: UNIX_EPOCH,
             last_defender_mode: DefendMode::Passive,
         })
     }
@@ -131,6 +135,11 @@ impl Behavior {
             && self.previous_role != Role::Keeper
         {
             self.previous_role = context.world_state.robot.role;
+        }
+
+        if self.previous_defender_or_searcher != context.world_state.robot.role {
+            self.last_time_role_changed = now;
+            self.previous_defender_or_searcher = context.world_state.robot.role;
         }
 
         let mut actions = vec![
@@ -397,6 +406,8 @@ impl Behavior {
                         &context.parameters.search,
                         &mut context.path_obstacles_output,
                         self.previous_role,
+                        self.last_time_role_changed,
+                        self.last_known_ball_position,
                         *context.search_walk_speed,
                         context
                             .parameters

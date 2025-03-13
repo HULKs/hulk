@@ -75,6 +75,8 @@ pub fn execute(
     parameters: &SearchParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     previous_role: Role,
+    last_time_role_changed: SystemTime,
+    last_known_ball_position: Point2<Field>,
     walk_speed: WalkSpeed,
     distance_to_be_aligned: f32,
     cycle_start_time: SystemTime,
@@ -102,6 +104,18 @@ pub fn execute(
             camera: None,
         },
         None => HeadMotion::SearchForLostBall,
+    };
+    let distance_to_ball = (ground_to_field.inverse() * last_known_ball_position)
+        .coords()
+        .norm();
+    let estimated_ball_arrival_time = distance_to_ball / parameters.estimated_ball_speed;
+    if world_state
+        .now
+        .duration_since(last_time_role_changed)
+        .expect("time went backwards")
+        < Duration::from_secs_f32(estimated_ball_arrival_time)
+    {
+        return Some(MotionCommand::Stand { head });
     };
     if let Some(SearchRole::Goal) = search_role {
         let goal_pose = Pose2::from(search_position);
