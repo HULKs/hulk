@@ -23,9 +23,9 @@
       "minimum_segment_height": 0.08
     },
     "vision_bottom": {
-      "enable": false,
+      "enable": true,
       "maximum_cluster_distance": 0.2,
-      "minimum_consecutive_segments": 7,
+      "minimum_consecutive_segments": 4,
       "minimum_luminance_standard_deviation": 7,
       "minimum_samples_per_cluster": 8,
       "minimum_feet_width": 0.06,
