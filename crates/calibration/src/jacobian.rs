@@ -49,11 +49,8 @@ fn get_parameter_support_points_from_parameters_with_epsilon(
     epsilon: f32,
 ) -> (Corrections, Corrections) {
     let parameters: SVector<f32, AMOUNT_OF_PARAMETERS> = parameters.into();
-    let epsilon_vector = SVector::<f32, AMOUNT_OF_PARAMETERS>::from_vec(
-        (0..AMOUNT_OF_PARAMETERS)
-            .map(|index| if index == epsilon_index { epsilon } else { 0.0 })
-            .collect(),
-    );
+    let mut epsilon_vector = SVector::<f32, AMOUNT_OF_PARAMETERS>::zeros();
+    epsilon_vector[epsilon_index] = epsilon;
     (
         (&(parameters + epsilon_vector)).into(),
         (&(parameters - epsilon_vector)).into(),
