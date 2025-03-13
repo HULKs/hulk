@@ -284,7 +284,7 @@
   },
   "current_minimizer_parameters": {
     "allowed_current": 0.09,
-    "allowed_current_upper_threshold": 0.1,
+    "allowed_current_upper_threshold": 0.12,
     "optimization_speed": 0.000005
   },
   "ball_filter": {
