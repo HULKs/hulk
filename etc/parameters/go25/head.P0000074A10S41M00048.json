@@ -1,5 +1,4 @@
 {
-  "parameters": {
     "camera_matrix_parameters": {
       "calibration": {
         "correction_in_camera_bottom": [
@@ -20,4 +19,4 @@
       }
     }
   }
-}
+
