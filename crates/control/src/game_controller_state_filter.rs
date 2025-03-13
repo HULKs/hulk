@@ -93,7 +93,9 @@ impl GameControllerStateFilter {
             *context.visual_referee_proceed_to_ready,
             *context.player_number,
             did_receive_motion_in_set_penalty,
+            context.filtered_kicking_team.copied(),
         );
+
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
@@ -133,6 +135,7 @@ impl GameControllerStateFilter {
         visual_referee_proceed_to_ready: bool,
         player_number: PlayerNumber,
         did_receive_motion_in_set_penalty: bool,
+        filtered_kicking_team: Option<Team>,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
             ground_to_field,
@@ -186,21 +189,23 @@ impl GameControllerStateFilter {
 
         let filtered_game_state = self.state.construct_filtered_game_state_for_team(
             game_controller_state,
-            Some(Team::Hulks),
+            Team::Hulks,
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             config,
             visual_referee_proceed_to_ready,
+            filtered_kicking_team,
         );
 
         let filtered_opponent_game_state =
             self.opponent_state.construct_filtered_game_state_for_team(
                 game_controller_state,
-                Some(Team::Opponent),
+                Team::Opponent,
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
                 config,
                 visual_referee_proceed_to_ready,
+                filtered_kicking_team,
             );
 
         FilteredGameStates {
@@ -403,17 +408,19 @@ impl State {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn construct_filtered_game_state_for_team(
         &self,
         game_controller_state: &GameControllerState,
-        team: Option<Team>,
+        team: Team,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
         visual_referee_proceed_to_ready: bool,
+        filtered_kicking_team: Option<Team>,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
-        let opponent_is_kicking_team = game_controller_state.kicking_team != team;
+        let opponent_is_kicking_team = filtered_kicking_team != Some(team);
 
         match self {
             State::Initial => FilteredGameState::Initial,
