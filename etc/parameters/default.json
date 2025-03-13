@@ -275,10 +275,12 @@
   },
   "perspective_grid_candidates_provider": {
     "vision_top": {
-      "minimum_radius": 3.0
+      "minimum_radius": 3.0,
+      "minimum_number_of_segments_per_circle": 3
     },
     "vision_bottom": {
-      "minimum_radius": 3.0
+      "minimum_radius": 3.0,
+      "minimum_number_of_segments_per_circle": 3
     }
   },
   "current_minimizer_parameters": {
