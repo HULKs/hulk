@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use bevy::prelude::*;
 
@@ -129,6 +129,7 @@ impl Default for GameController {
             state: GameControllerState {
                 game_state: GameState::Initial,
                 game_phase: GamePhase::Normal,
+                remaining_time_in_half: Duration::ZERO,
                 kicking_team: Team::Hulks,
                 last_game_state_change: SystemTime::UNIX_EPOCH,
                 penalties: Players::new(None),

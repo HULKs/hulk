@@ -96,6 +96,7 @@ impl GameControllerStateFilter {
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
+            remaining_time_in_half: context.game_controller_state.remaining_time_in_half,
             game_phase: context.game_controller_state.game_phase,
             kicking_team: context.game_controller_state.kicking_team,
             penalties: context.game_controller_state.penalties,

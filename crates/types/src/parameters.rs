@@ -10,7 +10,6 @@ use crate::{
     joints::head::HeadJoints,
     motion_command::{KickVariant, MotionCommand},
     roles::Role,
-    step::Step,
 };
 
 #[derive(
@@ -21,25 +20,6 @@ pub struct WhistleDetectionParameters {
     pub background_noise_scaling: f32,
     pub whistle_scaling: f32,
     pub number_of_chunks: usize,
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub struct StepPlannerParameters {
-    pub injected_step: Option<Step>,
-    pub max_step_size: Step,
-    pub max_step_size_backwards: f32,
-    pub translation_exponent: f32,
-    pub rotation_exponent: f32,
 }
 
 #[derive(
@@ -125,15 +105,7 @@ pub struct SearchParameters {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct InWalkKicksParameters {
     pub forward: InWalkKickInfoParameters,
@@ -154,21 +126,15 @@ impl Index<KickVariant> for InWalkKicksParameters {
 }
 
 #[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct InWalkKickInfoParameters {
     pub position: nalgebra::Point2<f32>,
     pub position_offset: nalgebra::Vector2<f32>,
     pub orientation: f32,
-    pub reached_thresholds: nalgebra::Vector3<f32>,
+    pub reached_x: Range<f32>,
+    pub reached_y: Range<f32>,
+    pub reached_turn: Range<f32>,
     pub shot_distance: f32,
     pub enabled: bool,
 }

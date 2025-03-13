@@ -89,6 +89,11 @@
       "extrinsic_rotations": [0, 0, 0],
       "focal_lengths": [0.95, 1.27],
       "cc_optical_center": [0.5, 0.5]
+    },
+    "calibration": {
+      "correction_in_robot": [0.0, 0.0, 0.0],
+      "correction_in_camera_top": [0.0, 0.0, 0.0],
+      "correction_in_camera_bottom": [0.0, 0.0, 0.0]
     }
   },
   "foot_bumper_filter": {
@@ -276,51 +281,9 @@
     }
   },
   "current_minimizer_parameters": {
-    "allowed_current": 0.13,
-    "allowed_current_upper_threshold": 0.2,
-    "optimization_speed": 0.000005,
-    "position_difference_threshold": 0.0,
-    "reset_base_offset": 0.0002,
-    "reset_speed": 0.0006,
-    "reset_threshold": 0.0007,
-    "optimization_sign": {
-      "head": {
-        "yaw": 1,
-        "pitch": 1
-      },
-      "left_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": 1,
-        "elbow_yaw": 1,
-        "elbow_roll": 1,
-        "wrist_yaw": 1,
-        "hand": 1
-      },
-      "right_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": -1,
-        "elbow_yaw": 1,
-        "elbow_roll": 1,
-        "wrist_yaw": 1,
-        "hand": 1
-      },
-      "left_leg": {
-        "hip_yaw_pitch": -1,
-        "hip_roll": -1,
-        "hip_pitch": 1,
-        "knee_pitch": 1,
-        "ankle_pitch": -1,
-        "ankle_roll": -1
-      },
-      "right_leg": {
-        "hip_yaw_pitch": -1,
-        "hip_roll": 1,
-        "hip_pitch": 1,
-        "knee_pitch": 1,
-        "ankle_pitch": -1,
-        "ankle_roll": 1
-      }
-    }
+    "allowed_current": 0.09,
+    "allowed_current_upper_threshold": 0.1,
+    "optimization_speed": 0.000005
   },
   "ball_filter": {
     "hypothesis_timeout": {
@@ -429,17 +392,17 @@
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.11,
-        "left": 0.12,
-        "turn": 0.025
+        "forward": 0.003,
+        "left": 0.003,
+        "turn": 0.015
       },
       "foot_offset_left": [0.0, 0.052, 0.0],
       "foot_offset_right": [0.0, -0.052, 0.0],
       "step_duration": { "nanos": 235000000, "secs": 0 },
       "step_duration_increase": {
-        "forward": 0.1,
-        "left": 0.03,
-        "turn": 0.0
+        "forward": 0.005,
+        "left": 0.002,
+        "turn": 0.02
       },
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
@@ -488,7 +451,7 @@
     },
     "step_midpoint": {
       "forward": 0.45,
-      "left": 0.35,
+      "left": 0.75,
       "turn": 0.5
     },
     "stiffnesses": {
@@ -527,7 +490,7 @@
   },
   "stand_up_front": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.12]
+    "leg_balancing_factor": [0, 0.08]
   },
   "stand_up_sitting": {
     "gyro_low_pass_factor": 0.4,
@@ -1079,7 +1042,18 @@
       "position": [-0.22, -0.04],
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
-      "reached_thresholds": [0.04, 0.02, 0.05],
+      "reached_x": {
+        "start": -0.04,
+        "end": 0.04
+      },
+      "reached_y": {
+        "start": -0.02,
+        "end": 0.02
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
       "shot_distance": 4.0,
       "enabled": true
     },
@@ -1087,7 +1061,18 @@
       "position": [-0.15, -0.11],
       "position_offset": [0.0, 0.0],
       "orientation": 0.8,
-      "reached_thresholds": [0.04, 0.04, 0.1],
+      "reached_x": {
+        "start": -0.04,
+        "end": 0.04
+      },
+      "reached_y": {
+        "start": -0.04,
+        "end": 0.04
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
       "shot_distance": 3.5,
       "enabled": true
     },
@@ -1095,7 +1080,18 @@
       "position": [-0.15, 0.03],
       "position_offset": [0.0, 0.0],
       "orientation": -1.57,
-      "reached_thresholds": [0.05, 0.06, 0.1],
+      "reached_x": {
+        "start": -0.05,
+        "end": 0.05
+      },
+      "reached_y": {
+        "start": -0.06,
+        "end": 0.06
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
       "shot_distance": 0.8,
       "enabled": true
     }

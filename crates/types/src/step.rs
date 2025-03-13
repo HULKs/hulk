@@ -39,6 +39,27 @@ impl Step {
     pub fn offsets(self) -> Vector2<f32> {
         Vector2::new(self.forward, self.left)
     }
+
+    /// Element wise division, with 0.0 as the result if the divisor is 0.0
+    pub fn div_or_zero(self, rhs: &Self) -> Self {
+        Self {
+            forward: if rhs.forward == 0.0 {
+                0.0
+            } else {
+                self.forward / rhs.forward
+            },
+            left: if rhs.left == 0.0 {
+                0.0
+            } else {
+                self.left / rhs.left
+            },
+            turn: if rhs.turn == 0.0 {
+                0.0
+            } else {
+                self.turn / rhs.turn
+            },
+        }
+    }
 }
 
 impl Add for Step {
