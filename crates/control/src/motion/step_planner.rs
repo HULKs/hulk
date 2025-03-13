@@ -135,7 +135,7 @@ impl StepPlanner {
             step = *injected_step;
         }
 
-        let initial_side_bonus = if self.last_planned_step.left == 0.0 {
+        let initial_side_bonus = if self.last_planned_step.left.abs() <= f32::EPSILON {
             Step {
                 forward: 0.0,
                 left: *context.initial_side_bonus,
