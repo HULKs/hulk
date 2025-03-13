@@ -6,7 +6,7 @@ use spl_network_messages::{GameState, PlayerNumber};
 
 use bevyhavior_simulator::{
     ball::BallResource,
-    game_controller::GameControllerCommand,
+    game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     time::{Ticks, TicksTime},
 };
@@ -38,14 +38,15 @@ fn startup(
 
 fn update(
     time: Res<Time<Ticks>>,
+    game_controller: Res<GameController>,
     mut exit: EventWriter<AppExit>,
     mut ball: ResMut<BallResource>,
     mut robots: Query<&mut Robot>,
 ) {
     if time.ticks() == 4500 {
         ball.state = Some(SimulatorBallState {
-            position: point!(2.25, 0.0),
-            velocity: vector![-3.0, -1.0],
+            position: point!(1.25, 2.0),
+            velocity: vector![1.0, -3.0],
         });
     }
     if time.ticks() > 4500 && time.ticks() <= 4700 {
@@ -56,7 +57,7 @@ fn update(
                     match motion_command {
                         MotionCommand::Stand { .. } => {}
                         _ => {
-                            println!("Defenders moved unnecessarily");
+                            println!("Defenders moved unnecessarily because of the following command at tick {}: \n{:?}", time.ticks(), motion_command);
                             exit.send(AppExit::from_code(1));
                         }
                     }
@@ -65,8 +66,12 @@ fn update(
             }
         }
     }
+    if game_controller.state.hulks_team.score > 0 {
+        println!("Done. Goal was scored.");
+        exit.send(AppExit::Success);
+    }
     if time.ticks() >= 8_000 {
-        println!("Done");
+        println!("Done. But no goal was scored");
         exit.send(AppExit::Success);
     }
 }
