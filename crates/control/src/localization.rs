@@ -544,7 +544,7 @@ impl Localization {
             .and_then(|game_controller_state| game_controller_state.sub_state);
         let kicking_team = context
             .filtered_game_controller_state
-            .map(|game_controller_state| game_controller_state.kicking_team);
+            .and_then(|game_controller_state| game_controller_state.kicking_team);
 
         self.reset_state(primary_state, game_phase, &context, &penalty);
         self.modify_state(&context, sub_state, kicking_team);
