@@ -36,7 +36,7 @@ fn startup(
 }
 
 fn update(time: Res<Time<Ticks>>, mut ball: ResMut<BallResource>, mut exit: EventWriter<AppExit>) {
-    if time.ticks() == 2500 {
+    if time.ticks() == 2600 {
         let state = ball.state.as_mut().expect("ball state not found");
         state.position = point![-3.6, 2.5];
     }

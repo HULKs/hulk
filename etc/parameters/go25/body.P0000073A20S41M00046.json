@@ -1,0 +1,26 @@
+{
+  "parameters": {
+    "step_planner": {
+      "initial_side_bonus": 0.03999999910593033,
+      "injected_step": null,
+      "max_step_size": {
+        "forward": 0.03999999910593033,
+        "left": 0.05999999865889549,
+        "turn": 0.5
+      },
+      "max_step_size_backwards": 0.03999999910593033,
+      "rotation_exponent": 2.0,
+      "step_size_delta_fast": {
+        "forward": 0.009999999776482582,
+        "left": 0.03999999910593033,
+        "turn": 0.20000000298023224
+      },
+      "step_size_delta_slow": {
+        "forward": -0.02500000037252903,
+        "left": 0.0,
+        "turn": 0.0
+      },
+      "translation_exponent": 1.5
+    }
+  }
+}
