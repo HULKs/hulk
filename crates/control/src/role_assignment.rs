@@ -696,20 +696,17 @@ fn role_for_penalty_kick(
             Role::Keeper | Role::ReplacementKeeper | Role::Striker => {}
             _ => {
                 if game_controller_state.penalties[striker_number].is_some() {
-                    match filtered_game_controller_state {
-                        Some(FilteredGameControllerState {
-                            game_state:
-                                FilteredGameState::Ready {
-                                    kicking_team_known: true,
-                                },
-                            kicking_team: Team::Hulks,
-                            sub_state,
-                            ..
-                        }) => match sub_state {
-                            Some(SubState::PenaltyKick) => return Some(Role::Striker),
-                            _ => {}
-                        },
-                        _ => {}
+                    if let Some(FilteredGameControllerState {
+                        game_state:
+                            FilteredGameState::Ready {
+                                kicking_team_known: true,
+                            },
+                        kicking_team: Team::Hulks,
+                        sub_state: Some(SubState::PenaltyKick),
+                        ..
+                    }) = filtered_game_controller_state
+                    {
+                        return Some(Role::Striker);
                     }
                 }
             }
