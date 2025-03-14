@@ -137,6 +137,11 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 if let Err(error) = result {
                     println!("Error: {}", error.to_string());
                 }
+                self.saved_measurements = Vec::new();
+                let result = self.optimization.reset();
+                if let Err(error) = result {
+                    println!("Error: {}", error.to_string());
+                }
             }
         });
         ui.horizontal(|ui| {
@@ -234,9 +239,11 @@ impl SemiAutomaticCameraCalibrationPanel {
         ];
         let mut response = ui.response();
         for line_type in &line_types {
-            let local_response =
-                ui.selectable_value(&mut self.line_type, *line_type, format!("{:?}", line_type));
-            if local_response.changed() {
+            if ui
+                .selectable_label(false, format!("{:?}", line_type))
+                .clicked()
+            {
+                self.line_type = *line_type;
                 response.mark_changed();
             }
         }
