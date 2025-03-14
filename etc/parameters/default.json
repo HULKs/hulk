@@ -119,7 +119,7 @@
   "image_segmenter": {
     "vision_top": {
       "horizontal_edge_detection_source": "Luminance",
-      "horizontal_edge_threshold": 20,
+      "horizontal_edge_threshold": 15,
       "horizontal_median_mode": "FivePixels",
       "horizontal_stride": 4,
       "vertical_edge_detection_source": "Luminance",
@@ -151,8 +151,8 @@
       "check_line_distance": true,
       "check_line_length": true,
       "check_line_segments_projection": true,
-      "gradient_alignment": -0.95,
-      "gradient_sobel_stride": 5,
+      "gradient_alignment": -0.9,
+      "gradient_sobel_stride": 3,
       "margin_for_point_inclusion": 0.025,
       "maximum_distance_to_robot": 6.0,
       "maximum_fit_distance_in_ground": 0.05,
