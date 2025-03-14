@@ -144,6 +144,7 @@ impl StepPlanner {
         } else {
             Step::default()
         };
+        step = step + initial_side_bonus;
 
         let max_step_size = match speed {
             WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
