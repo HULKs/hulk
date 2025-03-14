@@ -293,13 +293,13 @@
       "secs": 20
     },
     "maximum_matching_cost": 0.25,
-    "reset_validity_after_mismatch": 1.3,
+    "reset_validity_after_mismatch": 1.4,
     "hypothesis_merge_distance": 0.1,
     "log_likelihood_of_zero_velocity_threshold": 0.5,
     "maximum_number_of_hypotheses": 10,
     "visible_validity_exponential_decay_factor": 0.93,
     "hidden_validity_exponential_decay_factor": 0.997,
-    "validity_output_threshold": 1.2,
+    "validity_output_threshold": 1.1,
     "validity_discard_threshold": 0.5,
     "velocity_decay_factor": 0.998,
     "noise": {
