@@ -53,7 +53,15 @@ impl Default for WorldState {
 }
 
 #[derive(
-    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
 )]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
