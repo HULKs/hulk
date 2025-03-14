@@ -128,7 +128,7 @@ impl SearchSuggestor {
             self.heatmap
                 .map
                 .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)?;
-        self.heatmap.map /= self.heatmap.map.sum();
+        self.heatmap.map /= self.heatmap.map.sum() + f32::EPSILON;
         Ok(())
     }
 }
