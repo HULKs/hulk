@@ -17,9 +17,7 @@ use serde::{Deserialize, Serialize};
 pub enum FilteredGameState {
     #[default]
     Initial,
-    Ready {
-        kicking_team_known: bool,
-    },
+    Ready,
     Set,
     Playing {
         ball_is_free: bool,
