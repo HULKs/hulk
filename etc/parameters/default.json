@@ -366,7 +366,7 @@
     "max_step_size": {
       "forward": 0.045,
       "left": 0.1,
-      "turn": 0.09
+      "turn": 0.08
     },
     "initial_side_bonus": 0.03,
     "step_size_delta_slow": {
