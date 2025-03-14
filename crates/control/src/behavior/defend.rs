@@ -111,7 +111,7 @@ impl<'cycle> Defend<'cycle> {
             self.world_state,
             self.field_dimensions,
             self.role_positions,
-            -self.field_dimensions.length / 2.0,
+            (-self.field_dimensions.length / 2.0)*self.role_positions.defender_x_scale,
             Side::Left,
         )?;
         self.with_pose(
@@ -132,7 +132,7 @@ impl<'cycle> Defend<'cycle> {
             self.world_state,
             self.field_dimensions,
             self.role_positions,
-            -self.field_dimensions.length / 2.0,
+            (-self.field_dimensions.length / 2.0)*self.role_positions.defender_x_scale,
             Side::Right,
         )?;
         self.with_pose(
