@@ -1157,7 +1157,7 @@
       "keeper_x_offset": 0.1,
       "keeper_passive_distance": 4.5,
       "striker_distance_to_non_free_center_circle": 0.4,
-      "striker_distance_to_kickoff": 0.21
+      "striker_kickoff_position": [-0.21, 0.03]
     },
     "dribbling": {
       "hybrid_align_distance": 0.4,

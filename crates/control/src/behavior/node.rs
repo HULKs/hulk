@@ -450,10 +450,7 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles_output,
-                        context
-                            .parameters
-                            .role_positions
-                            .striker_distance_to_kickoff,
+                        context.parameters.role_positions.striker_kickoff_position,
                         context.kick_decision_parameters.kick_off_angle,
                         *context.walk_to_kickoff_walk_speed,
                         context
