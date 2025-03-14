@@ -3,6 +3,8 @@ import re
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
+from enum import Enum
 
 import cv2
 import numpy as np
@@ -11,41 +13,65 @@ from PyQt6.QtWidgets import QApplication, QFileDialog
 from src.decision_tree import optimize_thresholds
 
 IMAGE_DIRECTORY = os.path.join(tempfile.gettempdir(), "twix")
-FIELD_COLOR = (0, 255, 0)
-NOT_FIELD_COLOR = (255, 0, 0)
-DELETE_COLOR = (0, 0, 0)
 
-ix = -1
-iy = -1
-brush_size = 10
-cursor_position = (0, 0)
-drawing = False
-a_pressed = False
-d_pressed = False
+colors = Enum(
+    "colors",
+    [
+        ("FIELD_COLOR", (0, 255, 0)),
+        ("NOT_FIELD_COLOR", (255, 0, 0)),
+        ("DELETE_COLOR", (0, 0, 0)),
+        ("WHITE", (255, 255, 255)),
+    ],
+)
 
 
-def draw_circle_with_drag(
-    event: int, x: int, y: int, flags: any, param: any
+@dataclass
+class DrawingBoard:
+    ix: int = -1
+    iy: int = -1
+    brush_size: int = 11
+    cursor_position: tuple[int, int] = (0, 0)
+    drawing: bool = False
+    color: tuple[int, int, int] = colors.FIELD_COLOR
+    starting_position_line: tuple[int, int] = (0, 0)
+    line: bool = False
+
+
+def draw_with_drag(
+    event: int, x: int, y: int, flags: any, param: DrawingBoard
 ) -> None:
-    _ = flags, param
-    global ix, iy, drawing, overlay, brush_size, cursor_position
-
-    cursor_position = (x, y)
-    color = (
-        DELETE_COLOR
-        if d_pressed
-        else (NOT_FIELD_COLOR if a_pressed else FIELD_COLOR)
-    )
+    _ = flags
+    drawing_board = param
+    drawing_board.cursor_position = (x, y)
+    brush_size = drawing_board.brush_size
+    color = drawing_board.color
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        drawing = True
-        ix = x
-        iy = y
+        if drawing_board.line:
+            drawing_board.starting_position_line = (x, y)
+            cv2.circle(
+                overlay,
+                drawing_board.starting_position_line,
+                int(brush_size / 2),
+                color.value,
+                -1,
+            )
+        drawing_board.drawing = True
+        drawing_board.ix = x
+        drawing_board.iy = y
     elif event == cv2.EVENT_MOUSEMOVE:
-        if drawing:
-            cv2.circle(overlay, (x, y), brush_size, color, -1)
+        if drawing_board.drawing and not drawing_board.line:
+            cv2.circle(overlay, (x, y), brush_size, color.value, -1)
     elif event == cv2.EVENT_LBUTTONUP:
-        drawing = False
+        drawing_board.drawing = False
+        if drawing_board.line:
+            cv2.line(
+                overlay,
+                drawing_board.starting_position_line,
+                (x, y),
+                color.value,
+                brush_size,
+            )
 
 
 def extract_pixels(
@@ -56,16 +82,26 @@ def extract_pixels(
     image_BGR: NDArray[np.integer],
     y: NDArray[np.integer],
 ) -> tuple[NDArray, NDArray, NDArray]:
-    not_field_mask = np.all(overlay == NOT_FIELD_COLOR, axis=-1)
-    field_mask = np.all(overlay == FIELD_COLOR, axis=-1)
-    pixels_YCrCb = np.append(pixels_YCrCb, image_YCrCb[not_field_mask], axis=0)
-    pixels_YCrCb = np.append(pixels_YCrCb, image_YCrCb[field_mask], axis=0)
-    pixels_BGR = np.append(pixels_BGR, image_BGR[not_field_mask], axis=0)
-    pixels_BGR = np.append(pixels_BGR, image_BGR[field_mask], axis=0)
-    y = np.append(y, np.zeros(np.sum(not_field_mask)))
-    y = np.append(y, np.ones(np.sum(field_mask)))
+    not_field_mask = np.all(overlay == colors.NOT_FIELD_COLOR, axis=-1)
+    field_mask = np.all(overlay == colors.FIELD_COLOR, axis=-1)
+    pixels_YCrCb = np.concatenate(
+        [pixels_YCrCb, image_YCrCb[not_field_mask], image_YCrCb[field_mask]],
+        axis=0,
+    )
+    pixels_BGR = np.concatenate(
+        [pixels_BGR, image_BGR[not_field_mask], image_BGR[field_mask]], axis=0
+    )
+    y = np.concatenate(
+        [y, np.zeros(np.sum(not_field_mask)), np.ones(np.sum(field_mask))]
+    )
 
     return pixels_YCrCb, pixels_BGR, y
+
+
+def switch_coloring_mode(actual_color: colors, wanted_color: colors) -> colors:
+    if actual_color == wanted_color:
+        return colors.FIELD_COLOR
+    return wanted_color
 
 
 if __name__ == "__main__":
@@ -86,6 +122,7 @@ if __name__ == "__main__":
     os.makedirs(labeled_images_folder, exist_ok=True)
 
     for file_path in files:
+        drawing_board = DrawingBoard()
         file_name = os.path.basename(file_path)
         image_CrCbY = cv2.imread(file_path)
         image_YCrCb = image_CrCbY[..., [2, 0, 1]]
@@ -124,14 +161,21 @@ if __name__ == "__main__":
             canvas = np.zeros_like(image_BGR, dtype=np.uint8)
 
             cv2.namedWindow("Label the image!")
-            cv2.setMouseCallback("Label the image!", draw_circle_with_drag)
+            cv2.setMouseCallback(
+                "Label the image!", draw_with_drag, param=drawing_board
+            )
 
             while True:
                 combined = image_BGR.copy()
                 temp_canvas = canvas.copy()
+                color = drawing_board.color
 
                 cv2.circle(
-                    temp_canvas, cursor_position, brush_size, (255, 255, 255), 1
+                    temp_canvas,
+                    drawing_board.cursor_position,
+                    drawing_board.brush_size,
+                    colors.WHITE.value,
+                    1,
                 )
 
                 cv2.addWeighted(overlay, 0.5, combined, 1, 0, combined)
@@ -140,18 +184,19 @@ if __name__ == "__main__":
 
                 key = cv2.waitKey(50) & 0xFF
 
-                # changes to coloring "NOT_FIELD_COLOR" instead of "FIELD_COLOR"
-                a_pressed = key == ord("a")
-                # changes to eraser
-                d_pressed = key == ord("d")
-
                 if key == ord("q"):
                     exit()
+                elif key == ord("y"):
+                    drawing_board.line = not drawing_board.line
+                elif key == ord("d"):
+                    color = switch_coloring_mode(color, colors.DELETE_COLOR)
+                elif key == ord("a"):
+                    color = switch_coloring_mode(color, colors.NOT_FIELD_COLOR)
                 elif key == ord("+") or key == ord("w"):
-                    brush_size += 2
+                    drawing_board.brush_size += 2
                 elif key == ord("-") or key == ord("s"):
-                    if brush_size > 3:
-                        brush_size -= 2
+                    if drawing_board.brush_size >= 3:
+                        drawing_board.brush_size -= 2
                 elif key == ord("n"):
                     cv2.imwrite(
                         os.path.join(
@@ -183,6 +228,7 @@ if __name__ == "__main__":
                             )
                         )
                     break
+                drawing_board.color = color
 
             cv2.destroyAllWindows()
 
