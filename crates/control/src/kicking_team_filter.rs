@@ -79,39 +79,17 @@ impl KickingTeamFilter {
         } else if context.detected_free_kick_kicking_team.is_some() {
             context.detected_free_kick_kicking_team.copied()
         } else if let Some(last_non_default_ball_state) = self.last_non_default_ball_state {
+            let ball_is_in_out_half = last_non_default_ball_state
+                .ball_in_field
+                .x()
+                .is_sign_negative();
             match sub_state {
-                Some(SubState::CornerKick)
-                    if last_non_default_ball_state
-                        .ball_in_field
-                        .x()
-                        .is_sign_positive() =>
-                {
-                    Some(Team::Hulks)
-                }
-                Some(SubState::CornerKick)
-                    if last_non_default_ball_state
-                        .ball_in_field
-                        .x()
-                        .is_sign_negative() =>
-                {
-                    Some(Team::Opponent)
-                }
-                Some(SubState::GoalKick)
-                    if last_non_default_ball_state
-                        .ball_in_field
-                        .x()
-                        .is_sign_positive() =>
-                {
-                    Some(Team::Opponent)
-                }
-                Some(SubState::GoalKick)
-                    if last_non_default_ball_state
-                        .ball_in_field
-                        .x()
-                        .is_sign_negative() =>
-                {
-                    Some(Team::Hulks)
-                }
+                Some(SubState::CornerKick) if !ball_is_in_out_half => Some(Team::Hulks),
+                Some(SubState::CornerKick) if ball_is_in_out_half => Some(Team::Opponent),
+                Some(SubState::GoalKick) if !ball_is_in_out_half => Some(Team::Opponent),
+                Some(SubState::GoalKick) if ball_is_in_out_half => Some(Team::Hulks),
+                Some(SubState::PenaltyKick) if ball_is_in_out_half => Some(Team::Opponent),
+                Some(SubState::PenaltyKick) if !ball_is_in_out_half => Some(Team::Hulks),
                 None => match (
                     context.filtered_whistle.is_detected,
                     last_non_default_ball_state
