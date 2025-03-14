@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Literal
 
 import cv2
@@ -6,11 +7,33 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn.tree import DecisionTreeClassifier, export_graphviz
 
+color_channels = Enum(
+    "color_channel",
+    [
+        ("B", "blue_luminance"),
+        ("G", "green_luminance"),
+        ("R", "red_luminance"),
+        ("Y", "luminance"),
+        ("CR", "red_difference"),
+        ("CB", "blue_difference"),
+        ("b", "blue_chromaticity"),
+        ("g", "green_chromaticity"),
+        ("r", "red_chromaticity"),
+        ("I", "intensity"),
+        ("H", "hue"),
+        ("S", "saturation"),
+        ("V", "value"),
+    ],
+)
+
+data_types = Literal["u8", "f32", "u16"]
+camera = Literal["top", "bottom"]
+
 
 @dataclass
 class Feature:
-    identifier: str
-    data_type: Literal["u8", "f32", "u16"]
+    identifier: color_channels
+    data_type: data_types
 
 
 def convert_pixels_BGR2bgrI(
@@ -27,7 +50,7 @@ def optimize_thresholds(
     pixels_BGR: NDArray[np.integer],
     pixels_YCrCb: NDArray[np.integer],
     y: NDArray[np.integer],
-    camera: Literal["top", "bottom"],
+    camera: camera,
 ) -> DecisionTreeClassifier:
     pixels_bgrI = convert_pixels_BGR2bgrI(pixels_BGR)
     pixels_HSV = cv2.cvtColor(
@@ -41,19 +64,19 @@ def optimize_thresholds(
     classifier = DecisionTreeClassifier(class_weight="balanced", max_depth=14)
     model = classifier.fit(X, y)
     features = [
-        Feature("blue_luminance", "u8"),
-        Feature("green_luminance", "u8"),
-        Feature("red_luminance", "u8"),
-        Feature("luminance", "u8"),
-        Feature("red_difference", "u8"),
-        Feature("blue_difference", "u8"),
-        Feature("blue_chromaticity", "f32"),
-        Feature("green_chromaticity", "f32"),
-        Feature("red_chromaticity", "f32"),
-        Feature("intensity", "u8"),
-        Feature("hue", "u16"),
-        Feature("saturation", "u8"),
-        Feature("value", "u8"),
+        Feature(color_channels.B, "u8"),
+        Feature(color_channels.G, "u8"),
+        Feature(color_channels.R, "u8"),
+        Feature(color_channels.Y, "u8"),
+        Feature(color_channels.Cr, "u8"),
+        Feature(color_channels.Cb, "u8"),
+        Feature(color_channels.B, "f32"),
+        Feature(color_channels.g, "f32"),
+        Feature(color_channels.r, "f32"),
+        Feature(color_channels.I, "u8"),
+        Feature(color_channels.H, "u16"),
+        Feature(color_channels.S, "u8"),
+        Feature(color_channels.V, "u8"),
     ]
     labels = ["Intensity::Low", "Intensity::High"]
     rust_expression = tree_to_rust_code(model, features, labels)
