@@ -121,13 +121,13 @@ impl DeployConfig {
     }
 
     fn assignments(&self) -> Result<HashMap<PlayerNumber, NaoAddress>> {
-        let inital_assignments = self
+        let initial_assignments = self
             .assignments
             .iter()
             .copied()
             .map(TryInto::try_into)
             .collect::<Result<Vec<_>, _>>()?;
-        check_for_duplication(&inital_assignments)?;
+        check_for_duplication(&initial_assignments)?;
 
         let mut assignments: HashMap<_, _> = self
             .assignments
