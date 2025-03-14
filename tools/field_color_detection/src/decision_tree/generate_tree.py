@@ -111,9 +111,9 @@ def tree_to_rust_code(
         return (
             f"if features.{field} <= {threshold_str} {{\n"
             f"{left_branch}\n"
-            "}} else {{\n"
+            "} else {\n"
             f"{right_branch}\n"
-            "}}"
+            "}"
         )
 
     out = "use types::color::Intensity;\n\n"
