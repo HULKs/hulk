@@ -13,7 +13,7 @@ use repository::{upload::get_hulk_binary, Repository};
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
+    cargo::{self, build, cargo, environment::EnvironmentArguments, run, CargoCommand},
     deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
@@ -63,6 +63,8 @@ pub struct PreGameArguments {
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
+    run_parameter_tester(arguments.environment.clone(), repository).await?;
+
     let mut config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
@@ -140,6 +142,26 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     .await;
 
     Ok(())
+}
+
+async fn run_parameter_tester(
+    environment: EnvironmentArguments,
+    repository: &Repository,
+) -> Result<()> {
+    let cargo_arguments = cargo::Arguments {
+        manifest: Some(
+            repository
+                .root
+                .join("tools/parameter_tester/Cargo.toml")
+                .into_os_string(),
+        ),
+        environment,
+        cargo: run::Arguments::default(),
+    };
+
+    cargo(cargo_arguments, repository, &[] as &[&str])
+        .await
+        .wrap_err("failed to run parameter tester")
 }
 
 async fn setup_nao(
