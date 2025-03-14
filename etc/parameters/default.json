@@ -1146,6 +1146,7 @@
     "role_positions": {
       "defender_aggressive_ring_radius": 2.0,
       "defender_passive_ring_radius": 1.7,
+      "defender_x_scale": 0.98,
       "defender_y_offset": 0.7,
       "defender_passive_distance": 4.0,
       "left_midfielder_distance_to_ball": 2.5,
