@@ -368,7 +368,8 @@
       "left": 0.1,
       "turn": 0.5
     },
-    "initial_side_bonus": 0.06,
+    "max_inside_turn": 0.9,
+    "initial_side_bonus": 0.03,
     "step_size_delta_slow": {
       "forward": -0.025,
       "left": 0.0,
@@ -442,7 +443,8 @@
     "max_level_delta": 10000.0,
     "max_rotation_speed": 50000.0,
     "max_forward_acceleration": 0.01,
-    "max_inside_turn": 0.1,
+    "max_base_inside_turn": 0.1,
+    "max_inside_turn_increase": 4,
     "max_step_duration": { "nanos": 0, "secs": 2 },
     "max_support_foot_lift_speed": 0.025,
     "min_step_duration": { "nanos": 100000000, "secs": 0 },
@@ -1164,7 +1166,7 @@
       "striker_kickoff_position": [-0.21, 0.03]
     },
     "dribbling": {
-      "hybrid_align_distance": 0.4,
+      "hybrid_align_distance": 0.5,
       "distance_to_be_aligned": 0.1,
       "angle_to_approach_ball_from_threshold": 0.78,
       "ignore_robot_when_near_ball_radius": 0.6,
