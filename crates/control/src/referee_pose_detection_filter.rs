@@ -141,25 +141,14 @@ impl RefereePoseDetectionFilter {
         if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
             let now = context.cycle_time.start_time;
             self.detection_times[*context.player_number] = Some(now);
-            match self.last_time_message_sent {
-                None => {
-                    send_own_detection_message(
-                        context.hardware_interface.clone(),
-                        *context.player_number,
-                    )?;
-                    self.last_time_message_sent = Some(now);
-                }
-                Some(time)
-                    if now.duration_since(time).expect("Time ran backwards")
-                        < *context.message_interval =>
-                {
-                    send_own_detection_message(
-                        context.hardware_interface.clone(),
-                        *context.player_number,
-                    )?;
-                    self.last_time_message_sent = Some(now);
-                }
-                _ => (),
+            if self.last_time_message_sent.as_ref().map_or(true, |time| {
+                now.duration_since(*time).expect("Time ran backwards") >= *context.message_interval
+            }) {
+                send_own_detection_message(
+                    context.hardware_interface.clone(),
+                    *context.player_number,
+                )?;
+                self.last_time_message_sent = Some(now);
             }
         }
 
