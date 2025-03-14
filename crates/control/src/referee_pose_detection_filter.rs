@@ -14,6 +14,7 @@ use spl_network_messages::{HulkMessage, PlayerNumber, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
     messages::{IncomingMessage, OutgoingMessage},
+    parameters::SplNetworkParameters,
     players::Players,
     pose_detection::VisualRefereeState,
     pose_kinds::PoseKind,
@@ -42,6 +43,8 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
+    remaining_amount_of_messages:
+        Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
 
     initial_message_grace_period:
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
@@ -52,6 +55,7 @@ pub struct CycleContext {
     referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
     minimum_number_poses_before_message:
         Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
+    spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
 
     player_referee_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
@@ -137,13 +141,19 @@ impl RefereePoseDetectionFilter {
             .iter()
             .filter(|x| **x)
             .count();
-
         if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
             let now = context.cycle_time.start_time;
             self.detection_times[*context.player_number] = Some(now);
             if self.last_time_message_sent.as_ref().map_or(true, |time| {
                 now.duration_since(*time).expect("Time ran backwards") >= *context.message_interval
-            }) {
+            }) && context.remaining_amount_of_messages.is_some_and(
+                |remaining_amount_of_messages| {
+                    *remaining_amount_of_messages
+                        > context
+                            .spl_network_parameters
+                            .remaining_amount_of_messages_to_stop_sending
+                },
+            ) {
                 send_own_detection_message(
                     context.hardware_interface.clone(),
                     *context.player_number,

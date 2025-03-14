@@ -93,6 +93,7 @@ impl GameControllerStateFilter {
             *context.player_number,
             did_receive_motion_in_set_penalty,
         );
+
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
