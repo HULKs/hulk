@@ -107,11 +107,14 @@ def tree_to_rust_code(
             threshold_str = f"{np.floor(threshold):.0f}"
         else:
             threshold_str = f"{threshold:.3f}"
-        return f"""if features.{features[feature_index].identifier} <= {threshold_str} {{
-            {left_branch}
-            }} else {{
-            {right_branch}
-            }}"""
+        field = features[feature_index].identifier
+        return (
+            f"if features.{field} <= {threshold_str} {{\n"
+            f"{left_branch}\n"
+            "}} else {{\n"
+            f"{right_branch}\n"
+            "}}"
+        )
 
     out = "use types::color::Intensity;\n\n"
     out += "pub struct Features {\n"
