@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from PyQt6.QtWidgets import QApplication, QFileDialog
 from src.decision_tree import optimize_thresholds
 
-IMAGE_DIRECTORY = "/home/franziska-sophie/Downloads/tmp"  # os.path.join(tempfile.gettempdir(), "twix")
+IMAGE_DIRECTORY = os.path.join(tempfile.gettempdir(), "twix")
 
 colors = Enum(
     "colors",
