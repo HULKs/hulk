@@ -163,13 +163,13 @@ impl FreeKickSignalFilter {
                     time: context.cycle_time.start_time,
                     detected_kicking_team: own_detected_kicking_team,
                 });
-            if self.has_sent_free_kick_signal_message {
+            if !self.has_sent_free_kick_signal_message {
+                self.has_sent_free_kick_signal_message = true;
                 send_own_detection_message(
                     context.hardware_interface.clone(),
                     *context.player_number,
                     Some(own_detected_kicking_team),
                 )?;
-                self.has_sent_free_kick_signal_message = true;
             }
         }
 
