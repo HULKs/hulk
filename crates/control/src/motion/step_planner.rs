@@ -178,7 +178,7 @@ fn clamp_step_to_walk_volume(
     rotation_exponent: f32,
 ) -> Step {
     // Values in range [-1..1]
-    let clamped_turn = request.turn.clamp(-max_step_size.turn, max_step_size.turn);
+    let clamped_turn = request.turn.clamp(-max_step_size.turn, 0.5);
     let request = Step {
         forward: request.forward,
         left: request.left,

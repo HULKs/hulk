@@ -28,8 +28,11 @@ impl StepPlan {
         let start_feet =
             Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
 
-        let step =
-            requested_step.clamp_to_anatomic_constraints(support_side, parameters.max_inside_turn);
+        let step = requested_step.clamp_to_anatomic_constraints(
+            support_side,
+            parameters.base_max_inside_turn,
+            parameters.max_inside_turn_increase,
+        );
         let end_feet = Feet::end_from_request(parameters, step, support_side);
 
         let swing_foot_travel = start_feet.swing_travel_over_ground(&end_feet).abs();
