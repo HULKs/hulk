@@ -66,7 +66,10 @@ impl DeployConfig {
     }
 
     pub fn playing_naos(&self) -> Result<Vec<NaoAddress>> {
-        Ok(self.assignments()?.into_values().collect())
+        Ok(self
+            .assignments_with_substitutions()?
+            .into_values()
+            .collect())
     }
 
     pub fn all_naos(&self) -> BTreeSet<NaoAddress> {
@@ -81,7 +84,7 @@ impl DeployConfig {
         player_number(
             Arguments {
                 assignments: self
-                    .assignments()?
+                    .assignments_with_substitutions()?
                     .into_iter()
                     .map(|(player_number, nao_address)| {
                         nao_address
@@ -117,7 +120,7 @@ impl DeployConfig {
         Ok(())
     }
 
-    fn assignments(&self) -> Result<HashMap<PlayerNumber, NaoAddress>> {
+    fn assignments_with_substitutions(&self) -> Result<HashMap<PlayerNumber, NaoAddress>> {
         let initial_assignments = self
             .assignments
             .iter()
