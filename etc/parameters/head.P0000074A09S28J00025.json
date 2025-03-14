@@ -1,5 +1,22 @@
 {
   "camera_matrix_parameters": {
+    "calibration": {
+      "correction_in_camera_bottom": [
+        0.0028303340077400208,
+        0.046178188174963,
+        0.022231360897421837
+      ],
+      "correction_in_camera_top": [
+        -0.0018394384533166883,
+        0.05194100737571716,
+        0.007830588147044182
+      ],
+      "correction_in_robot": [
+        -0.006233933847397566,
+        0.0008935049991123378,
+        0.02064734511077404
+      ]
+    },
     "vision_bottom": {
       "extrinsic_rotations": [
         -5.737607955932617,
