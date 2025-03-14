@@ -27,6 +27,7 @@ pub struct CycleContext {
     buttons: Input<Buttons, "buttons">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
     recorded_primary_states: Parameter<HashSet<PrimaryState>, "recorded_primary_states">,
@@ -58,7 +59,7 @@ impl PrimaryStateFilter {
             None => false,
         };
 
-        self.last_primary_state = match (
+        let next_primary_state = match (
             self.last_primary_state,
             context.buttons.head_buttons_touched,
             context.buttons.is_chest_button_pressed_once,
@@ -82,12 +83,12 @@ impl PrimaryStateFilter {
 
             // GameController transitions (entering listening mode and staying within)
             (PrimaryState::Unstiff, _, true, _, Some(filtered_game_controller_state), _)
-            | (PrimaryState::Finished, _, true, _, Some(filtered_game_controller_state), _) => {
-                Self::game_state_to_primary_state(
+            | (PrimaryState::Finished, _, true, _, Some(filtered_game_controller_state), _) => self
+                .game_state_to_primary_state(
                     filtered_game_controller_state.game_state,
                     is_penalized,
-                )
-            }
+                    *context.has_ground_contact,
+                ),
             (_, _, _, _, Some(filtered_game_controller_state), _)
                 if {
                     let finished_to_initial = self.last_primary_state == PrimaryState::Finished
@@ -96,9 +97,10 @@ impl PrimaryStateFilter {
                     self.last_primary_state != PrimaryState::Unstiff || finished_to_initial
                 } =>
             {
-                Self::game_state_to_primary_state(
+                self.game_state_to_primary_state(
                     filtered_game_controller_state.game_state,
                     is_penalized,
+                    *context.has_ground_contact,
                 )
             }
 
@@ -126,21 +128,30 @@ impl PrimaryStateFilter {
         context.hardware_interface.set_whether_to_record(
             context
                 .recorded_primary_states
-                .contains(&self.last_primary_state),
+                .contains(&next_primary_state),
         );
 
+        self.last_primary_state = next_primary_state;
+
         Ok(MainOutputs {
-            primary_state: self.last_primary_state.into(),
+            primary_state: next_primary_state.into(),
         })
     }
 
     fn game_state_to_primary_state(
+        &self,
         game_state: FilteredGameState,
         is_penalized: bool,
+        has_ground_contact: bool,
     ) -> PrimaryState {
         if is_penalized {
             return PrimaryState::Penalized;
         }
+
+        if self.last_primary_state == PrimaryState::Penalized && !has_ground_contact {
+            return PrimaryState::Penalized;
+        }
+
         match game_state {
             FilteredGameState::Ready { .. } => PrimaryState::Ready,
             FilteredGameState::Initial => PrimaryState::Initial,
