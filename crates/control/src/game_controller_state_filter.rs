@@ -35,6 +35,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
+    filtered_kicking_team: Input<Option<Team>, "filtered_kicking_team?">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -92,13 +93,15 @@ impl GameControllerStateFilter {
             *context.visual_referee_proceed_to_ready,
             *context.player_number,
             did_receive_motion_in_set_penalty,
+            context.filtered_kicking_team.copied(),
         );
+
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
             remaining_time_in_half: context.game_controller_state.remaining_time_in_half,
             game_phase: context.game_controller_state.game_phase,
-            kicking_team: context.game_controller_state.kicking_team,
+            kicking_team: context.filtered_kicking_team.copied(),
             penalties: context.game_controller_state.penalties,
             remaining_number_of_messages: context
                 .game_controller_state
@@ -134,6 +137,7 @@ impl GameControllerStateFilter {
         visual_referee_proceed_to_ready: bool,
         player_number: PlayerNumber,
         did_receive_motion_in_set_penalty: bool,
+        filtered_kicking_team: Option<Team>,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
             ground_to_field,
@@ -192,6 +196,7 @@ impl GameControllerStateFilter {
             ball_detected_far_from_kick_off_point,
             config,
             visual_referee_proceed_to_ready,
+            filtered_kicking_team,
         );
 
         let filtered_opponent_game_state =
@@ -202,6 +207,7 @@ impl GameControllerStateFilter {
                 ball_detected_far_from_kick_off_point,
                 config,
                 visual_referee_proceed_to_ready,
+                filtered_kicking_team,
             );
 
         FilteredGameStates {
@@ -404,6 +410,7 @@ impl State {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn construct_filtered_game_state_for_team(
         &self,
         game_controller_state: &GameControllerState,
@@ -412,24 +419,21 @@ impl State {
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
         visual_referee_proceed_to_ready: bool,
+        filtered_kicking_team: Option<Team>,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
-        let opponent_is_kicking_team = game_controller_state.kicking_team != team;
+        let opponent_is_kicking_team = filtered_kicking_team != Some(team);
 
         match self {
             State::Initial => FilteredGameState::Initial,
             State::Standby => {
                 if visual_referee_proceed_to_ready {
-                    FilteredGameState::Ready {
-                        kicking_team_known: true,
-                    }
+                    FilteredGameState::Ready
                 } else {
                     FilteredGameState::Standby
                 }
             }
-            State::Ready => FilteredGameState::Ready {
-                kicking_team_known: true,
-            },
+            State::Ready => FilteredGameState::Ready,
             State::Set => FilteredGameState::Set,
             State::WhistleInSet {
                 time_when_whistle_was_detected,
@@ -453,9 +457,7 @@ impl State {
                 ball_is_free: !(is_in_sub_state && opponent_is_kicking_team),
                 kick_off: false,
             },
-            State::WhistleInPlaying { .. } => FilteredGameState::Ready {
-                kicking_team_known: false,
-            },
+            State::WhistleInPlaying { .. } => FilteredGameState::Ready,
             State::Finished => match game_controller_state.game_phase {
                 GamePhase::PenaltyShootout { .. } => FilteredGameState::Set,
                 _ => FilteredGameState::Finished,

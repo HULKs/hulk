@@ -26,7 +26,7 @@ use crate::{
         STATE_PLAYING, STATE_READY, STATE_SET, STATE_STANDBY, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN,
         TEAM_GRAY, TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE, TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
     },
-    PlayerNumber, HULKS_TEAM_NUMBER,
+    PlayerNumber, HULKS_TEAM_NUMBER, NONE_TEAM_NUMBER,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect)]
@@ -41,7 +41,7 @@ pub struct GameControllerStateMessage {
     pub secondary_time: Duration,
     pub hulks_team: TeamState,
     pub opponent_team: TeamState,
-    pub kicking_team: Team,
+    pub kicking_team: Option<Team>,
     pub hulks_team_is_home_after_coin_toss: bool,
 }
 
@@ -195,7 +195,7 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                 remaining_amount_of_messages: message.teams[opponent_team_index].messageBudget,
                 players: opponent_players,
             },
-            kicking_team: Team::try_from(message.kickingTeam)?,
+            kicking_team: Team::try_from(message.kickingTeam).ok(),
             hulks_team_is_home_after_coin_toss: hulks_team_index == 0,
         })
     }
@@ -328,9 +328,13 @@ pub enum Team {
     Opponent,
 }
 
-impl Team {
+impl TryFrom<u8> for Team {
+    type Error = Report;
+
     fn try_from(team_number: u8) -> Result<Self> {
-        let team = if team_number == HULKS_TEAM_NUMBER {
+        let team = if team_number == NONE_TEAM_NUMBER {
+            return Err(Report::msg("kicking team is none"));
+        } else if team_number == HULKS_TEAM_NUMBER {
             Team::Hulks
         } else {
             Team::Opponent
