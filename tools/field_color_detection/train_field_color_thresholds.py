@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from PyQt6.QtWidgets import QApplication, QFileDialog
 from src.decision_tree import optimize_thresholds
 
-IMAGE_DIRECTORY = os.path.join(tempfile.gettempdir(), "twix")
+IMAGE_DIRECTORY = "/home/franziska-sophie/Downloads/tmp"  # os.path.join(tempfile.gettempdir(), "twix")
 
 colors = Enum(
     "colors",
@@ -82,18 +82,14 @@ def extract_pixels(
     image_BGR: NDArray[np.integer],
     y: NDArray[np.integer],
 ) -> tuple[NDArray, NDArray, NDArray]:
-    not_field_mask = np.all(overlay == colors.NOT_FIELD_COLOR, axis=-1)
-    field_mask = np.all(overlay == colors.FIELD_COLOR, axis=-1)
-    pixels_YCrCb = np.concatenate(
-        [pixels_YCrCb, image_YCrCb[not_field_mask], image_YCrCb[field_mask]],
-        axis=0,
-    )
-    pixels_BGR = np.concatenate(
-        [pixels_BGR, image_BGR[not_field_mask], image_BGR[field_mask]], axis=0
-    )
-    y = np.concatenate(
-        [y, np.zeros(np.sum(not_field_mask)), np.ones(np.sum(field_mask))]
-    )
+    not_field_mask = np.all(overlay == colors.NOT_FIELD_COLOR.value, axis=-1)
+    field_mask = np.all(overlay == colors.FIELD_COLOR.value, axis=-1)
+    pixels_YCrCb = np.append(pixels_YCrCb, image_YCrCb[not_field_mask], axis=0)
+    pixels_YCrCb = np.append(pixels_YCrCb, image_YCrCb[field_mask], axis=0)
+    pixels_BGR = np.append(pixels_BGR, image_BGR[not_field_mask], axis=0)
+    pixels_BGR = np.append(pixels_BGR, image_BGR[field_mask], axis=0)
+    y = np.append(y, np.zeros(np.sum(not_field_mask)))
+    y = np.append(y, np.ones(np.sum(field_mask)))
 
     return pixels_YCrCb, pixels_BGR, y
 
