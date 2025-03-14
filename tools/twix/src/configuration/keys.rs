@@ -36,6 +36,7 @@ pub enum KeybindAction {
     OpenSplit,
     OpenTab,
     Reconnect,
+    CloseAll,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
