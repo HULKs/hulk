@@ -1078,7 +1078,7 @@
         "end": 0.1
       },
       "shot_distance": 3.5,
-      "enabled": false
+      "enabled": true
     },
     "side": {
       "position": [-0.15, 0.03],
@@ -1097,7 +1097,7 @@
         "end": 0.1
       },
       "shot_distance": 0.8,
-      "enabled": false
+      "enabled": true
     }
   },
   "kick_selector": {
