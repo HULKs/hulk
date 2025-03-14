@@ -43,6 +43,7 @@ pub struct DecisionParameters {
     pub corner_kick_target_distance_to_goal: f32,
     pub min_obstacle_distance: f32,
     pub kick_pose_robot_radius: f32,
+    pub kick_off_angle: f32,
 
     pub default_kick_variants: Vec<KickVariant>,
     pub corner_kick_variants: Vec<KickVariant>,
