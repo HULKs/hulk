@@ -5,7 +5,10 @@ use std::{
 
 use argument_parsers::NaoAddress;
 use clap::{Args, ValueEnum};
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{
+    eyre::{bail, WrapErr},
+    Result,
+};
 
 use nao::{Nao, Network, SystemctlAction};
 use repository::Repository;
@@ -48,7 +51,18 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
     let config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
-    let naos = arguments.naos.unwrap_or_else(|| config.naos());
+
+    let all_naos = config.all_naos();
+    let naos = if let Some(naos) = &arguments.naos {
+        for nao in naos {
+            if !all_naos.contains(nao) {
+                bail!("NAO with IP {nao} is not specified in the deploy.toml");
+            }
+        }
+        naos.iter().copied().collect()
+    } else {
+        all_naos
+    };
 
     let log_directory = &arguments.log_directory.unwrap_or_else(|| {
         let log_directory_name = config.log_directory_name();
@@ -57,7 +71,7 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
     });
 
     ProgressIndicator::map_tasks(
-        &naos,
+        naos,
         "Executing postgame tasks...",
         |nao_address, progress_bar| async move {
             progress_bar.set_message("Pinging NAO...");

@@ -53,7 +53,7 @@ pub fn parse_network(network: &str) -> Result<Network> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct NaoAddress {
     pub ip: Ipv4Addr,
 }

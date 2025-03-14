@@ -49,9 +49,9 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
     Ok(())
 }
 
-fn check_for_duplication(assignments: &[NaoNumberPlayerAssignment]) -> Result<()> {
-    // Check if two NaoNumbers are assigned to the same PlayerNumber
-    // or if a NaoNumber is assigned to multiple PlayerNumbers
+/// Check if two NaoNumbers are assigned to the same PlayerNumber
+/// or if a NaoNumber is assigned to multiple PlayerNumbers
+pub fn check_for_duplication(assignments: &[NaoNumberPlayerAssignment]) -> Result<()> {
     let mut existing_player_numbers = HashSet::new();
     let mut existing_nao_numbers = HashSet::new();
 

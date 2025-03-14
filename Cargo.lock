@@ -6506,7 +6506,7 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "pepsi"
-version = "5.3.0"
+version = "6.0.0"
 dependencies = [
  "aliveness",
  "argument_parsers",

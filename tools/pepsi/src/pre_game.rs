@@ -79,16 +79,16 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
     }
 
-    let config_naos = config.naos();
+    let playing_naos = config.playing_naos()?;
     let naos = if let Some(naos) = &arguments.pre_game.naos {
         for nao in naos {
-            if !config_naos.contains(nao) {
-                bail!("NAO {nao} is not present in deploy.toml");
+            if !playing_naos.contains(nao) {
+                bail!("NAO with IP {nao} is not one of the playing NAOs in the deploy.toml");
             }
         }
         naos
     } else {
-        &config_naos
+        &playing_naos
     };
     let wifi = config.wifi;
 
