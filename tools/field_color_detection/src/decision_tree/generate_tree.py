@@ -64,19 +64,19 @@ def optimize_thresholds(
     classifier = DecisionTreeClassifier(class_weight="balanced", max_depth=14)
     model = classifier.fit(X, y)
     features = [
-        Feature(color_channels.B, "u8"),
-        Feature(color_channels.G, "u8"),
-        Feature(color_channels.R, "u8"),
-        Feature(color_channels.Y, "u8"),
-        Feature(color_channels.CR, "u8"),
-        Feature(color_channels.CB, "u8"),
-        Feature(color_channels.B_C, "f32"),
-        Feature(color_channels.G_C, "f32"),
-        Feature(color_channels.R_C, "f32"),
-        Feature(color_channels.I, "u8"),
-        Feature(color_channels.H, "u16"),
-        Feature(color_channels.S, "u8"),
-        Feature(color_channels.V, "u8"),
+        Feature(color_channels.B.value, "u8"),
+        Feature(color_channels.G.value, "u8"),
+        Feature(color_channels.R.value, "u8"),
+        Feature(color_channels.Y.value, "u8"),
+        Feature(color_channels.CR.value, "u8"),
+        Feature(color_channels.CB.value, "u8"),
+        Feature(color_channels.B_C.value, "f32"),
+        Feature(color_channels.G_C.value, "f32"),
+        Feature(color_channels.R_C.value, "f32"),
+        Feature(color_channels.I.value, "u8"),
+        Feature(color_channels.H.value, "u16"),
+        Feature(color_channels.S.value, "u8"),
+        Feature(color_channels.V.value, "u8"),
     ]
     labels = ["Intensity::Low", "Intensity::High"]
     rust_expression = tree_to_rust_code(model, features, labels)
