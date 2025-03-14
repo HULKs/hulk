@@ -4,7 +4,7 @@ use clap::Args;
 use color_eyre::eyre::{bail, Context, Error, Result};
 use repository::{cargo::Environment as RepositoryEnvironment, Repository};
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 pub struct EnvironmentArguments {
     /// The execution environment (default: native)
     #[arg(long)]
