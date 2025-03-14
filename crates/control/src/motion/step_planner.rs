@@ -32,7 +32,6 @@ pub struct CycleContext {
     rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
     initial_side_bonus: Parameter<f32, "step_planner.initial_side_bonus">,
-    max_inside_turn: Parameter<f32, "step_planner.max_inside_turn">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -158,7 +157,6 @@ impl StepPlanner {
         let step = clamp_step_to_walk_volume(
             step,
             &max_step_size,
-            *context.max_inside_turn,
             *context.max_step_size_backwards,
             *context.translation_exponent,
             *context.rotation_exponent,
@@ -175,13 +173,12 @@ impl StepPlanner {
 fn clamp_step_to_walk_volume(
     request: Step,
     max_step_size: &Step,
-    max_inside_turn: f32,
     max_step_size_backwards: f32,
     translation_exponent: f32,
     rotation_exponent: f32,
 ) -> Step {
     // Values in range [-1..1]
-    let clamped_turn = request.turn.clamp(-max_inside_turn, max_step_size.turn);
+    let clamped_turn = request.turn.clamp(-max_step_size.turn, max_step_size.turn);
     let request = Step {
         forward: request.forward,
         left: request.left,
@@ -190,7 +187,6 @@ fn clamp_step_to_walk_volume(
     if calculate_walk_volume(
         request,
         max_step_size,
-        max_inside_turn,
         max_step_size_backwards,
         translation_exponent,
         rotation_exponent,
@@ -202,7 +198,6 @@ fn clamp_step_to_walk_volume(
     let (forward, left) = calculate_max_step_size_in_walk_volume(
         request,
         max_step_size,
-        max_inside_turn,
         max_step_size_backwards,
         translation_exponent,
         rotation_exponent,
@@ -217,7 +212,6 @@ fn clamp_step_to_walk_volume(
 fn calculate_walk_volume(
     request: Step,
     max_step_size: &Step,
-    max_inside_turn: f32,
     max_step_size_backwards: f32,
     translation_exponent: f32,
     rotation_exponent: f32,
@@ -230,11 +224,7 @@ fn calculate_walk_volume(
     };
     let x = request.forward / max_forward;
     let y = request.left / max_step_size.left;
-    let angle = if request.turn.is_sign_positive() {
-        request.turn / max_step_size.turn
-    } else {
-        request.turn / max_inside_turn
-    };
+    let angle = request.turn / max_step_size.turn;
     assert!(angle.abs() <= 1.0, "angle was {angle}");
     (x.abs().powf(translation_exponent) + y.abs().powf(translation_exponent))
         .powf(rotation_exponent / translation_exponent)
@@ -244,7 +234,6 @@ fn calculate_walk_volume(
 fn calculate_max_step_size_in_walk_volume(
     request: Step,
     max_step_size: &Step,
-    max_inside_turn: f32,
     max_step_size_backwards: f32,
     translation_exponent: f32,
     rotation_exponent: f32,
@@ -257,11 +246,7 @@ fn calculate_max_step_size_in_walk_volume(
     };
     let x = request.forward / max_forward;
     let y = request.left / max_step_size.left;
-    let angle = if request.turn.is_sign_positive() {
-        request.turn / max_step_size.turn
-    } else {
-        request.turn / max_inside_turn
-    };
+    let angle = request.turn / max_step_size.turn;
     assert!(angle.abs() <= 1.0);
     let scale = ((1.0 - angle.abs().powf(rotation_exponent))
         .powf(translation_exponent / rotation_exponent)

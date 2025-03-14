@@ -19,6 +19,7 @@ pub struct Parameters {
     pub max_forward_acceleration: f32,
     pub max_base_inside_turn: f32,
     pub max_inside_turn_increase: f32,
+    pub max_outside_turn: f32,
     pub max_level_delta: f32,
     pub max_rotation_speed: f32,
     pub max_step_duration: Duration,

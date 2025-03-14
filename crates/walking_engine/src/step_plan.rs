@@ -32,6 +32,7 @@ impl StepPlan {
             support_side,
             parameters.max_base_inside_turn,
             parameters.max_inside_turn_increase,
+            parameters.max_outside_turn,
         );
         let end_feet = Feet::end_from_request(parameters, step, support_side);
 
