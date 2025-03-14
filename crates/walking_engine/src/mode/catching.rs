@@ -102,7 +102,6 @@ fn catching_end_feet(
             support_side,
             parameters.max_base_inside_turn,
             parameters.max_inside_turn_increase,
-            parameters.max_outside_turn,
         ),
         support_side,
     )

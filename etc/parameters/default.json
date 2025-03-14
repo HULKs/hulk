@@ -366,8 +366,9 @@
     "max_step_size": {
       "forward": 0.045,
       "left": 0.1,
-      "turn": 0.08
+      "turn": 0.5
     },
+    "max_inside_turn": 0.9,
     "initial_side_bonus": 0.03,
     "step_size_delta_slow": {
       "forward": -0.025,
@@ -391,7 +392,6 @@
     "minimum_detections": 2
   },
   "walking_engine": {
-    "max_outside_turn": 0.5,
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {

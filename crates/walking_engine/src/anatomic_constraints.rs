@@ -6,7 +6,6 @@ pub trait AnatomicConstraints {
         support_side: Side,
         base_maximum_inside_turn: f32,
         maximum_inside_turn_increase: f32,
-        maximum_outside_turn: f32,
     ) -> Step;
 }
 
@@ -16,7 +15,6 @@ impl AnatomicConstraints for Step {
         support_side: Side,
         base_maximum_inside_turn: f32,
         maximum_inside_turn_increase: f32,
-        maximum_outside_turn: f32,
     ) -> Step {
         let sideways_direction = if self.left.is_sign_positive() {
             Side::Left
@@ -39,7 +37,7 @@ impl AnatomicConstraints for Step {
                 base_maximum_inside_turn + maximum_inside_turn_increase * self.left.abs(),
             )
         } else {
-            self.turn.clamp(-maximum_outside_turn, maximum_outside_turn)
+            self.turn
         };
         Step {
             forward: self.forward,
