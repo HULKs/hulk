@@ -554,6 +554,17 @@ impl App for TwixApp {
                 }
             }
 
+            if context.keybind_pressed(KeybindAction::CloseAll) {
+                self.dock_state = DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
+                    self.nao.clone(),
+                    None,
+                ))
+                .into()]);
+                self.last_focused_tab = (0.into(), 0.into());
+                self.dock_state
+                    .set_focused_node_and_surface((0.into(), 0.into()));
+            }
+
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.buttons.add_tab_align = TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
