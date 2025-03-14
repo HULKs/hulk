@@ -789,6 +789,7 @@ mod test {
             striker_trusts_team_ball_duration in  Just(Duration::from_secs(5)),
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
+            let filtered_game_controller_state : Option<FilteredGameControllerState> = filtered_game_controller_state;
             let new_role = update_role_state_machine(
                 initial_role,
                 detected_own_ball,
