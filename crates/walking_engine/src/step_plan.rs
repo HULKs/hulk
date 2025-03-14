@@ -30,7 +30,7 @@ impl StepPlan {
 
         let step = requested_step.clamp_to_anatomic_constraints(
             support_side,
-            parameters.base_max_inside_turn,
+            parameters.max_base_inside_turn,
             parameters.max_inside_turn_increase,
         );
         let end_feet = Feet::end_from_request(parameters, step, support_side);

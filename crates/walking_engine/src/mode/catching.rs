@@ -100,7 +100,7 @@ fn catching_end_feet(
         }
         .clamp_to_anatomic_constraints(
             support_side,
-            parameters.base_max_inside_turn,
+            parameters.max_base_inside_turn,
             parameters.max_inside_turn_increase,
         ),
         support_side,
