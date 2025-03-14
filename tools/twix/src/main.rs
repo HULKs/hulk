@@ -216,7 +216,7 @@ impl TwixApp {
                 .and_then(|string| from_str(&string).ok())
         };
 
-        let dock_state = match dock_state {
+        let mut dock_state = match dock_state {
             Some(dock_state) => dock_state.map_tabs(|value| {
                 SelectablePanel::new(nao.clone(), Some(value))
                     .unwrap()
@@ -228,6 +228,7 @@ impl TwixApp {
             ))
             .into()]),
         };
+        dock_state.set_focused_node_and_surface((0.into(), 0.into()));
 
         let context = creation_context.egui_ctx.clone();
 
