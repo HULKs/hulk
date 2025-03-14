@@ -42,6 +42,7 @@ pub struct CycleContext {
         AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image_bottom">,
     filtered_balls_in_image_top:
         AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image_top">,
+    has_no_ball_output: AdditionalOutput<bool, "has_no_ball_output">,
 
     current_odometry_to_last_odometry:
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -150,8 +151,9 @@ impl BallFilter {
                 if let Some(assigned_percept) = assigned_percept {
                     let mahalanobis_distance = -assigned_percept.cost;
                     if mahalanobis_distance > filter_parameters.maximum_matching_cost {
-                        hypothesis.validity *=
-                            filter_parameters.maximum_matching_cost_validity_penalty_factor;
+                        hypothesis.validity = filter_parameters
+                            .reset_validity_after_mismatch
+                            .min(hypothesis.validity);
                         continue;
                     }
                     let validity_increase = assigned_percept.cost.exp();
@@ -176,6 +178,21 @@ impl BallFilter {
                     percept.percept_in_ground,
                     Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
                 );
+            }
+
+            let best_hypothesis = self
+                .ball_filter
+                .best_hypothesis(filter_parameters.validity_discard_threshold);
+            if let Some(best_hypothesis) = best_hypothesis {
+                if let BallMode::Resting(_) = best_hypothesis.mode {
+                    for percept in &balls {
+                        self.ball_filter.spawn(
+                            detection_time,
+                            percept.percept_in_ground,
+                            Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
+                        );
+                    }
+                }
             }
         }
 
@@ -274,6 +291,10 @@ impl BallFilter {
                     project_to_image(&output_balls, &camera_matrices.bottom, ball_radius)
                 })
             });
+
+        context
+            .has_no_ball_output
+            .fill_if_subscribed(|| filtered_ball.is_none());
 
         Ok(MainOutputs {
             ball_position: filtered_ball.into(),
