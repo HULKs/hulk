@@ -57,9 +57,11 @@ impl RecordingIndex {
                 .stream_position()
                 .wrap_err("failed to get stream position")?
                 - offset;
-            recording_file
-                .seek(SeekFrom::Current(length as i64))
-                .wrap_err("failed to seek to end of data")?;
+            if let Err(error) = recording_file.seek(SeekFrom::Current(length as i64)) {
+                eprintln!("failed to seek to end of data: {error}");
+                break;
+            }
+
             if offset + header_length + length as u64 > file_length {
                 eprintln!("unexpected end of file of recording file");
                 break;
