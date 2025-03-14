@@ -59,9 +59,9 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
                 bail!("NAO with IP {nao} is not specified in the deploy.toml");
             }
         }
-        naos
+        naos.iter().copied().collect()
     } else {
-        &all_naos
+        all_naos
     };
 
     let log_directory = &arguments.log_directory.unwrap_or_else(|| {

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{BTreeSet, HashMap},
+    str::FromStr,
+};
 
 use chrono::Utc;
 use color_eyre::{eyre::WrapErr, Result};
@@ -66,18 +69,12 @@ impl DeployConfig {
         Ok(self.assignments()?.into_values().collect())
     }
 
-    pub fn all_naos(&self) -> Vec<NaoAddress> {
-        let mut naos: Vec<_> = self
-            .assignments
+    pub fn all_naos(&self) -> BTreeSet<NaoAddress> {
+        self.assignments
             .iter()
             .chain(&self.substitutions)
             .map(|assignment| assignment.nao_address)
-            .collect();
-
-        naos.sort_unstable();
-        naos.dedup();
-
-        naos
+            .collect()
     }
 
     pub async fn configure_repository(self, repository: &Repository) -> Result<()> {
