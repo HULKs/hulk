@@ -1,7 +1,7 @@
 use eframe::{
     egui::{
         pos2, vec2, Align2, CentralPanel, Color32, FontId, Key, Modifiers, ScrollArea, Shape,
-        TopBottomPanel, Widget,
+        Stroke, TopBottomPanel, Widget,
     },
     epaint::{PathStroke, QuadraticBezierShape},
     App, CreationContext,
@@ -97,7 +97,7 @@ impl App for DependencyInspector {
                         if node_selection_changed && self.selected_node_index == Some(index) {
                             label.scroll_to_me(None);
                         }
-                        if label.clicked {
+                        if label.clicked() {
                             self.selected_node_index = Some(index);
                         }
                         node_points.push(label.rect.right_center() + vec2(3.0, 0.0));
@@ -267,11 +267,11 @@ impl App for DependencyInspector {
                                 Color32::LIGHT_GRAY,
                             )
                             .left_center();
-                        painter.line_segment([a, b], PathStroke::new(1.0, Color32::RED));
+                        painter.line_segment([a, b], Stroke::new(1.0, Color32::RED));
                     }
                     painter.line_segment(
                         [node_points[selected_node_index], input_end],
-                        PathStroke::new(1.0, Color32::LIGHT_BLUE),
+                        Stroke::new(1.0, Color32::LIGHT_BLUE),
                     );
                 });
         });
