@@ -32,6 +32,9 @@ pub struct Arguments {
 
 #[derive(Args)]
 pub struct PreGameArguments {
+    /// Skip running the parameter tester
+    #[arg(long)]
+    pub skip_parameter_check: bool,
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
@@ -63,7 +66,9 @@ pub struct PreGameArguments {
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
-    run_parameter_tester(arguments.environment.clone(), repository).await?;
+    if !arguments.pre_game.skip_parameter_check {
+        run_parameter_tester(arguments.environment.clone(), repository).await?;
+    }
 
     let mut config = DeployConfig::read_from_file(repository)
         .await
