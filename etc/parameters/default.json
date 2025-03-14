@@ -368,7 +368,7 @@
       "left": 0.1,
       "turn": 0.5
     },
-    "max_inside_turn": 0.9,
+    "max_inside_turn": 0.6,
     "initial_side_bonus": 0.03,
     "step_size_delta_slow": {
       "forward": -0.025,
