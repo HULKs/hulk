@@ -61,7 +61,9 @@ impl Widget for &mut ParameterPanel {
                         .parameter_value
                         .as_ref()
                         .is_ok_and(|value| !value.is_empty());
-                ui.add_enabled_ui(settable, |ui| {
+                let local_parameter_path = self.path.strip_prefix("parameters.");
+
+                ui.add_enabled_ui(settable && local_parameter_path.is_some(), |ui| {
                     if ui.button("Set").clicked() {
                         let serialized =
                             serde_json::from_str::<Value>(self.parameter_value.as_ref().unwrap());
@@ -80,7 +82,13 @@ impl Widget for &mut ParameterPanel {
                         match serialized {
                             Ok(value) => {
                                 self.nao
-                                    .store_parameters(&self.path, value, Scope::current_head())
+                                    .store_parameters(
+                                        &local_parameter_path.expect(
+                                            "parameter path should start with 'parameters.'",
+                                        ),
+                                        value,
+                                        Scope::current_head(),
+                                    )
                                     .log_err();
                             }
                             Err(error) => error!(
@@ -94,7 +102,13 @@ impl Widget for &mut ParameterPanel {
                         match serialized {
                             Ok(value) => {
                                 self.nao
-                                    .store_parameters(&self.path, value, Scope::current_body())
+                                    .store_parameters(
+                                        &local_parameter_path.expect(
+                                            "parameter path should start with 'parameters.'",
+                                        ),
+                                        value,
+                                        Scope::current_body(),
+                                    )
                                     .log_err();
                             }
                             Err(error) => error!(
