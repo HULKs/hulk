@@ -514,10 +514,12 @@
         "midpoint": 0.5,
         "support_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         },
         "swing_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         }
       },
@@ -533,6 +535,7 @@
             { "value": -0.04, "timepoint": { "nanos": 150000000, "secs": 0 } },
             { "value": -0.02, "timepoint": { "nanos": 240000000, "secs": 0 } }
           ],
+          "knee_pitch": null,
           "ankle_pitch": [
             { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
             { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
@@ -547,6 +550,7 @@
             { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
             { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
           ],
+          "knee_pitch": null,
           "ankle_pitch": [
             { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
             { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
@@ -562,10 +566,12 @@
         "midpoint": 0.5,
         "support_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         },
         "swing_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         }
       },
@@ -576,10 +582,12 @@
         "midpoint": 0.5,
         "support_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         },
         "swing_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         }
       }
@@ -592,10 +600,12 @@
         "midpoint": 0.5,
         "support_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         },
         "swing_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         }
       },
@@ -611,6 +621,7 @@
             { "value": -0.04, "timepoint": { "nanos": 150000000, "secs": 0 } },
             { "value": -0.02, "timepoint": { "nanos": 240000000, "secs": 0 } }
           ],
+          "knee_pitch": null,
           "ankle_pitch": [
             { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
             { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
@@ -625,6 +636,7 @@
             { "value": -0.4, "timepoint": { "nanos": 150000000, "secs": 0 } },
             { "value": 0.0, "timepoint": { "nanos": 240000000, "secs": 0 } }
           ],
+          "knee_pitch": null,
           "ankle_pitch": [
             { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
             { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
@@ -640,10 +652,12 @@
         "midpoint": 0.5,
         "support_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         },
         "swing_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         }
       }
@@ -656,10 +670,12 @@
         "midpoint": 0.5,
         "support_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         },
         "swing_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         }
       },
@@ -670,10 +686,12 @@
         "midpoint": 0.4,
         "support_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         },
         "swing_overrides": {
           "hip_pitch": null,
+          "knee_pitch": null,
           "ankle_pitch": null
         }
       }

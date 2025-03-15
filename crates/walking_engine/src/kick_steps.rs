@@ -13,6 +13,7 @@ pub struct JointOverride {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JointOverrides {
     pub hip_pitch: Option<Vec<JointOverride>>,
+    pub knee_pitch: Option<Vec<JointOverride>>,
     pub ankle_pitch: Option<Vec<JointOverride>>,
 }
 

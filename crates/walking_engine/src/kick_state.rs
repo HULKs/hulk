@@ -100,6 +100,11 @@ fn compute_kick_overrides(
         .as_ref()
         .map(|overrides| strength * compute_override(overrides, t))
         .unwrap_or(0.0);
+    let knee_pitch = joint_overrides
+        .knee_pitch
+        .as_ref()
+        .map(|overrides| strength * compute_override(overrides, t))
+        .unwrap_or(0.0);
     let ankle_pitch = joint_overrides
         .ankle_pitch
         .as_ref()
@@ -110,7 +115,7 @@ fn compute_kick_overrides(
         hip_yaw_pitch: 0.0,
         hip_pitch,
         hip_roll: 0.0,
-        knee_pitch: 0.0,
+        knee_pitch,
         ankle_pitch,
         ankle_roll: 0.0,
     }
