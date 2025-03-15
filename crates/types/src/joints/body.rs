@@ -176,6 +176,15 @@ where
     }
 }
 
+impl<T> From<BodyJoints<T>> for LowerBodyJoints<T> {
+    fn from(joints: BodyJoints<T>) -> Self {
+        Self {
+            left_leg: joints.left_leg,
+            right_leg: joints.right_leg,
+        }
+    }
+}
+
 #[derive(
     Clone,
     Copy,

@@ -28,6 +28,7 @@ pub struct Parameters {
     pub starting_step: StartingStepParameters,
     pub step_midpoint: Step,
     pub stiffnesses: Stiffnesses,
+    pub stiffness_loss_compensation: StiffnessLossCompensation,
     pub swinging_arms: SwingingArmsParameters,
 }
 
@@ -63,6 +64,13 @@ pub struct Stiffnesses {
     pub arm_stiffness: f32,
     pub leg_stiffness_walk: f32,
     pub leg_stiffness_stand: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct StiffnessLossCompensation {
+    pub ankle_pitch: LegJoints<f32>,
 }
 
 #[derive(

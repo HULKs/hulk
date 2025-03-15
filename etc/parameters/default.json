@@ -468,6 +468,16 @@
       "leg_stiffness_stand": 0.6,
       "leg_stiffness_walk": 1.0
     },
+    "stiffness_loss_compensation": {
+      "ankle_pitch": {
+        "hip_yaw_pitch": 0.0,
+        "hip_roll": 0.0,
+        "hip_pitch": 0.0,
+        "knee_pitch": 0.1,
+        "ankle_pitch": 0.0,
+        "ankle_roll": 0.0
+      }
+    },
     "swinging_arms": {
       "default_roll": 0.13,
       "pitch_factor": 8.0,

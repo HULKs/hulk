@@ -25,8 +25,11 @@ pub struct StepPlan {
 impl StepPlan {
     pub fn new_from_request(context: &Context, requested_step: Step, support_side: Side) -> Self {
         let parameters = &context.parameters;
-        let start_feet =
-            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
+        let start_feet = Feet::from_joints(
+            context.robot_to_walk,
+            &context.last_actuated_joints,
+            support_side,
+        );
 
         let step = requested_step.clamp_to_anatomic_constraints(
             support_side,
