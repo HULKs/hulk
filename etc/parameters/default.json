@@ -396,7 +396,7 @@
       "foot_lift_apex_increase": {
         "forward": 0.003,
         "left": 0.003,
-        "turn": 0.015
+        "turn": 0.005
       },
       "foot_offset_left": [0.0, 0.052, 0.0],
       "foot_offset_right": [0.0, -0.052, 0.0],
