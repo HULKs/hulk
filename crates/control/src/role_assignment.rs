@@ -54,6 +54,8 @@ pub struct CreationContext {
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     fall_state: Input<FallState, "fall_state">,
+    remaining_amount_of_messages:
+        Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
@@ -72,7 +74,7 @@ pub struct CycleContext {
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
-    spl_network: Parameter<SplNetworkParameters, "spl_network">,
+    spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
 
     hardware: HardwareInterface,
 
@@ -247,7 +249,9 @@ impl RoleAssignment {
                 if cycle_start_time
                     .duration_since(last_received_spl_striker_message)
                     .expect("time ran backwards")
-                    > context.spl_network.spl_striker_message_receive_timeout
+                    > context
+                        .spl_network_parameters
+                        .spl_striker_message_receive_timeout
                 {
                     self.last_received_striker_message = None;
                     true
@@ -314,7 +318,9 @@ impl RoleAssignment {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
             self.last_system_time_transmitted_game_controller_return_message,
-            context.spl_network.game_controller_return_message_interval,
+            context
+                .spl_network_parameters
+                .game_controller_return_message_interval,
         )
     }
 
@@ -325,7 +331,9 @@ impl RoleAssignment {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
             self.last_transmitted_spl_message,
-            context.spl_network.spl_striker_message_send_interval,
+            context
+                .spl_network_parameters
+                .spl_striker_message_send_interval,
         )
     }
 
@@ -336,7 +344,9 @@ impl RoleAssignment {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
             self.last_transmitted_spl_message,
-            context.spl_network.silence_interval_between_messages,
+            context
+                .spl_network_parameters
+                .silence_interval_between_messages,
         )
     }
 
@@ -378,7 +388,15 @@ impl RoleAssignment {
         if !self.is_striker_silence_period_elapsed(context) {
             return Ok(());
         }
-        if !is_enough_message_budget_left(context) {
+        if context
+            .remaining_amount_of_messages
+            .is_some_and(|remaining_amount_of_messages| {
+                *remaining_amount_of_messages
+                    < context
+                        .spl_network_parameters
+                        .remaining_amount_of_messages_to_stop_sending
+            })
+        {
             return Ok(());
         }
 
@@ -416,7 +434,15 @@ impl RoleAssignment {
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
     ) -> Result<()> {
-        if !is_enough_message_budget_left(context) {
+        if context
+            .remaining_amount_of_messages
+            .is_some_and(|remaining_amount_of_messages| {
+                *remaining_amount_of_messages
+                    < context
+                        .spl_network_parameters
+                        .remaining_amount_of_messages_to_stop_sending
+            })
+        {
             return Ok(());
         }
 
@@ -470,17 +496,6 @@ fn is_cooldown_elapsed(now: SystemTime, last: Option<SystemTime>, cooldown: Dura
         None => true,
         Some(last_time) => now.duration_since(last_time).expect("time ran backwards") > cooldown,
     }
-}
-
-fn is_enough_message_budget_left(context: &CycleContext<impl NetworkInterface>) -> bool {
-    context
-        .filtered_game_controller_state
-        .is_some_and(|game_controller_state| {
-            game_controller_state.remaining_number_of_messages
-                > context
-                    .spl_network
-                    .remaining_amount_of_messages_to_stop_sending
-        })
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -774,6 +789,7 @@ mod test {
             striker_trusts_team_ball_duration in  Just(Duration::from_secs(5)),
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
+            let filtered_game_controller_state : Option<FilteredGameControllerState> = filtered_game_controller_state;
             let new_role = update_role_state_machine(
                 initial_role,
                 detected_own_ball,
