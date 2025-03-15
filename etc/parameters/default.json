@@ -1304,7 +1304,8 @@
     },
     "search": {
       "position_reached_distance": 0.4,
-      "rotation_per_step": 0.5
+      "rotation_per_step": 0.5,
+      "estimated_ball_speed": 1.0
     },
     "look_action": {
       "angle_threshold": 0.95,
