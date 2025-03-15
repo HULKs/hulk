@@ -30,7 +30,7 @@ use types::{
 
 use super::{
     animation, calibrate,
-    defend::Defend,
+    defend::{Defend, DefendMode},
     dribble, fall_safely,
     head::LookAction,
     initial, intercept_ball, jump, look_around, lost_ball, no_ground_contact, penalize,
@@ -44,6 +44,7 @@ pub struct Behavior {
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
+    last_defender_mode: DefendMode,
 }
 
 #[context]
@@ -97,6 +98,7 @@ impl Behavior {
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
+            last_defender_mode: DefendMode::Passive,
         })
     }
 
@@ -216,7 +218,7 @@ impl Behavior {
                     _ => actions.push(Action::WalkToKickOff),
                 },
                 Some(FilteredGameControllerState {
-                    game_state: FilteredGameState::Ready { .. } | FilteredGameState::Playing { .. },
+                    game_state: FilteredGameState::Ready | FilteredGameState::Playing { .. },
                     sub_state: Some(SubState::PenaltyKick),
                     kicking_team: Some(Team::Opponent),
                     ..
@@ -239,12 +241,13 @@ impl Behavior {
             context.last_motion_command,
         );
         let look_action = LookAction::new(world_state);
-        let defend = Defend::new(
+        let mut defend = Defend::new(
             world_state,
             context.field_dimensions,
             &context.parameters.role_positions,
             &walk_and_stand,
             &look_action,
+            &mut self.last_defender_mode,
         );
 
         let (action, motion_command) = actions
