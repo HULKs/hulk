@@ -61,6 +61,7 @@ impl<'cycle> Defend<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
         distance_to_be_aligned: f32,
+        hysteresis: nalgebra::Vector2<f32>,
     ) -> Option<MotionCommand> {
         self.walk_and_stand.execute(
             pose,
@@ -68,6 +69,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            hysteresis,
         )
     }
 
@@ -131,6 +133,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
@@ -153,6 +156,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
@@ -176,6 +180,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
@@ -192,6 +197,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
@@ -207,6 +213,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.hysteresis,
         )
     }
 
@@ -223,6 +230,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 }

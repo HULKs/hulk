@@ -1285,6 +1285,7 @@
       "hybrid_align_distance": 0.95,
       "normal_distance_to_be_aligned": 0.05,
       "defender_distance_to_be_aligned": 1.05
+      "defender_hysteresis": [0.5, 0.5],
     },
     "lost_ball": {
       "offset_to_last_ball_location": [1.0, 0.0]
