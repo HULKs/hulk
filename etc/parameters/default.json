@@ -1157,7 +1157,7 @@
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
       "reached_x": {
-        "start": -0.04,
+        "start": -0.1,
         "end": 0.04
       },
       "reached_y": {
