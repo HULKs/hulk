@@ -15,7 +15,7 @@ use crate::{
     roles::Role, rule_obstacles::RuleObstacle,
 };
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathIntrospect)]
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub rule_ball: Option<BallState>,
@@ -29,6 +29,27 @@ pub struct WorldState {
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub robot: RobotState,
     pub calibration_command: Option<CalibrationCommand>,
+    pub now: SystemTime,
+}
+
+impl Default for WorldState {
+    fn default() -> Self {
+        Self {
+            ball: Default::default(),
+            rule_ball: Default::default(),
+            hypothetical_ball_positions: Default::default(),
+            filtered_game_controller_state: Default::default(),
+            obstacles: Default::default(),
+            rule_obstacles: Default::default(),
+            position_of_interest: Point2::origin(),
+            suggested_search_position: Default::default(),
+            kick_decisions: Default::default(),
+            instant_kick_decisions: Default::default(),
+            robot: Default::default(),
+            calibration_command: Default::default(),
+            now: UNIX_EPOCH,
+        }
+    }
 }
 
 #[derive(
