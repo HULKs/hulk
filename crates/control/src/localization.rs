@@ -4,7 +4,7 @@ use std::{
 };
 
 use approx::assert_relative_eq;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{eyre::Context, Result};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{distance, point, IntoTransform, Isometry2, Pose2};
 use nalgebra::{matrix, Matrix, Matrix2, Matrix3, Rotation2, Translation2, Vector2, Vector3};
@@ -27,6 +27,7 @@ use types::{
     multivariate_normal_distribution::MultivariateNormalDistribution,
     players::Players,
     primary_state::PrimaryState,
+    stand_up::RemainingStandUpDuration,
     support_foot::Side,
 };
 
@@ -101,6 +102,12 @@ pub struct CycleContext {
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+    stand_up_back_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_back_estimated_remaining_duration">,
+    stand_up_front_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_front_estimated_remaining_duration">,
+    stand_up_sitting_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
     cycle_time: Input<CycleTime, "cycle_time">,
 }
 
@@ -291,6 +298,16 @@ impl Localization {
     fn update_state(&mut self, context: &mut CycleContext) -> Result<()> {
         let mut fit_errors_per_measurement = vec![];
 
+        let getting_up = context
+            .stand_up_back_estimated_remaining_duration
+            .is_running()
+            || context
+                .stand_up_front_estimated_remaining_duration
+                .is_running()
+            || context
+                .stand_up_sitting_estimated_remaining_duration
+                .is_running();
+
         context.measured_lines_in_field.fill_if_subscribed(Vec::new);
         context.correspondence_lines.fill_if_subscribed(Vec::new);
         context
@@ -323,7 +340,7 @@ impl Localization {
                     .wrap_err("failed to predict pose filter")?;
                     scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
                 }
-                if *context.use_line_measurements {
+                if *context.use_line_measurements && !getting_up {
                     let ground_to_field: Isometry2<Ground, Field> =
                         scored_state.state.as_isometry().framed_transform();
                     let current_measured_lines_in_field: Vec<_> = line_data_top
