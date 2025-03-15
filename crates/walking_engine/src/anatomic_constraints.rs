@@ -1,11 +1,21 @@
 use types::{step::Step, support_foot::Side};
 
 pub trait AnatomicConstraints {
-    fn clamp_to_anatomic_constraints(self, support_side: Side, maximum_inside_turn: f32) -> Step;
+    fn clamp_to_anatomic_constraints(
+        self,
+        support_side: Side,
+        base_maximum_inside_turn: f32,
+        maximum_inside_turn_increase: f32,
+    ) -> Step;
 }
 
 impl AnatomicConstraints for Step {
-    fn clamp_to_anatomic_constraints(self, support_side: Side, maximum_inside_turn: f32) -> Step {
+    fn clamp_to_anatomic_constraints(
+        self,
+        support_side: Side,
+        base_maximum_inside_turn: f32,
+        maximum_inside_turn_increase: f32,
+    ) -> Step {
         let sideways_direction = if self.left.is_sign_positive() {
             Side::Left
         } else {
@@ -22,7 +32,10 @@ impl AnatomicConstraints for Step {
             Side::Right
         };
         let clamped_turn = if turn_direction == support_side {
-            self.turn.clamp(-maximum_inside_turn, maximum_inside_turn)
+            self.turn.clamp(
+                -base_maximum_inside_turn - maximum_inside_turn_increase * self.left.abs(),
+                base_maximum_inside_turn + maximum_inside_turn_increase * self.left.abs(),
+            )
         } else {
             self.turn
         };
