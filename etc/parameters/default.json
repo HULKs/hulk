@@ -376,7 +376,7 @@
       "turn": 0.0
     },
     "step_size_delta_fast": {
-      "forward": 0.01,
+      "forward": 0.015,
       "left": 0.02,
       "turn": 0.2
     },
@@ -395,7 +395,7 @@
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {
-        "forward": 0.003,
+        "forward": 0.0035,
         "left": 0.003,
         "turn": 0.005
       },
