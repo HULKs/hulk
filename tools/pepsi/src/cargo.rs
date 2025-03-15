@@ -177,6 +177,7 @@ async fn resolve_manifest_path(
         Some("aliveness") => repository.root.join("services/aliveness/Cargo.toml"),
         Some("breeze") => repository.root.join("services/breeze/Cargo.toml"),
         Some("hula") => repository.root.join("services/hula/Cargo.toml"),
+        Some("power-panic") => repository.root.join("services/power-panic/Cargo.toml"),
 
         Some("annotato") => repository.root.join("tools/annotato/Cargo.toml"),
         Some("camera_matrix_extractor") => repository
