@@ -382,7 +382,12 @@
     },
     "max_step_size_backwards": 0.02,
     "translation_exponent": 1.5,
-    "rotation_exponent": 2.0
+    "rotation_exponent": 2.0,
+    "request_scale": {
+      "forward": 1.0,
+      "left": 1.4,
+      "turn": 1.0
+    }
   },
   "zero_moment_point": {
     "linear_acceleration_low_pass_factor": 0.05
@@ -525,7 +530,7 @@
   "kick_steps": {
     "forward": [
       {
-        "base_step": { "forward": 0.02, "left": 0.0, "turn": 0.0 },
+        "base_step": { "forward": 0.04, "left": 0.0, "turn": 0.0 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.015,
         "midpoint": 0.5,
@@ -541,7 +546,7 @@
         }
       },
       {
-        "base_step": { "forward": 0.05, "left": 0.0, "turn": 0.0 },
+        "base_step": { "forward": 0.08, "left": 0.0, "turn": 0.0 },
         "step_duration": { "nanos": 280000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
@@ -627,7 +632,7 @@
         }
       },
       {
-        "base_step": { "forward": 0.03, "left": 0.0, "turn": -0.2 },
+        "base_step": { "forward": 0.06, "left": 0.0, "turn": -0.2 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
@@ -1153,12 +1158,12 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.22, -0.04],
+      "position": [-0.18, -0.04],
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
       "reached_x": {
-        "start": -0.1,
-        "end": 0.04
+        "start": -0.12,
+        "end": 0.06
       },
       "reached_y": {
         "start": -0.02,
@@ -1172,16 +1177,16 @@
       "enabled": true
     },
     "turn": {
-      "position": [-0.15, -0.11],
+      "position": [-0.16, -0.09],
       "position_offset": [0.0, 0.0],
-      "orientation": 0.8,
+      "orientation": 0.9,
       "reached_x": {
-        "start": -0.04,
-        "end": 0.04
+        "start": -0.02,
+        "end": 0.02
       },
       "reached_y": {
-        "start": -0.04,
-        "end": 0.04
+        "start": -0.02,
+        "end": 0.02
       },
       "reached_turn": {
         "start": -0.1,
