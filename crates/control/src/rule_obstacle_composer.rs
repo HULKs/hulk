@@ -101,14 +101,30 @@ impl RuleObstacleComposer {
                     ..
                 },
                 _,
-            ) => {
-                let penalty_box_obstacle = create_penalty_box(
+            ) => match context.filtered_game_controller_state.kicking_team {
+                Some(Team::Hulks) => rule_obstacles.push(create_penalty_box(
                     context.field_dimensions,
-                    context.filtered_game_controller_state.kicking_team,
+                    Team::Hulks,
                     *context.penaltykick_box_extension,
-                );
-                rule_obstacles.push(penalty_box_obstacle);
-            }
+                )),
+                Some(Team::Opponent) => rule_obstacles.push(create_penalty_box(
+                    context.field_dimensions,
+                    Team::Opponent,
+                    *context.penaltykick_box_extension,
+                )),
+                None => {
+                    rule_obstacles.push(create_penalty_box(
+                        context.field_dimensions,
+                        Team::Hulks,
+                        *context.penaltykick_box_extension,
+                    ));
+                    rule_obstacles.push(create_penalty_box(
+                        context.field_dimensions,
+                        Team::Opponent,
+                        *context.penaltykick_box_extension,
+                    ));
+                }
+            },
             (
                 FilteredGameControllerState {
                     game_state: FilteredGameState::Ready,
@@ -159,17 +175,14 @@ impl RuleObstacleComposer {
 
 pub fn create_penalty_box(
     field_dimensions: &FieldDimensions,
-    kicking_team: Option<Team>,
+    kicking_team: Team,
     penaltykick_box_extension: f32,
 ) -> RuleObstacle {
     let side_factor: f32 = match kicking_team {
-        Some(Team::Hulks) => 1.0,
-        Some(Team::Opponent) => -1.0,
-        _ => {
-            eprintln!("uncertain team during penalty kick should not occur");
-            1.0
-        }
+        Team::Hulks => 1.0,
+        Team::Opponent => -1.0,
     };
+
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
     let center_x = side_factor
