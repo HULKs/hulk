@@ -51,6 +51,7 @@ pub struct Robot {
     pub parameters: Parameters,
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
+    pub simulator_parameters: SimulatedRobotParameters,
 
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
@@ -115,12 +116,18 @@ impl Robot {
             .borrow_mut()
             .insert("additional_outputs".to_string());
 
+        let simulator_parameters = SimulatedRobotParameters {
+            ball_view_range: 3.0,
+            ball_timeout_factor: 0.1,
+        };
+
         Ok(Self {
             interface,
             database,
             parameters,
             last_kick_time: Duration::default(),
             ball_last_seen: None,
+            simulator_parameters,
 
             cycler,
             control_receiver,
@@ -367,7 +374,8 @@ pub fn cycle_robots(
             let field_of_view = robot.field_of_view();
             let angle_to_ball = ball_in_head.coords().angle(&Vector2::x_axis());
 
-            angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.coords().norm() < 3.0
+            angle_to_ball.abs() < field_of_view / 2.0
+                && ball_in_head.coords().norm() < robot.simulator_parameters.ball_view_range
         });
         if ball_visible {
             robot.ball_last_seen = Some(now);
@@ -380,7 +388,11 @@ pub fn cycle_robots(
         }
         if !robot.ball_last_seen.is_some_and(|last_seen| {
             now.duration_since(last_seen).expect("time ran backwards")
-                < robot.parameters.ball_filter.hypothesis_timeout.mul_f32(0.1)
+                < robot
+                    .parameters
+                    .ball_filter
+                    .hypothesis_timeout
+                    .mul_f32(robot.simulator_parameters.ball_timeout_factor)
         }) {
             robot.database.main_outputs.ball_position = None
         };
@@ -408,4 +420,9 @@ pub fn cycle_robots(
             }
         }
     }
+}
+
+pub struct SimulatedRobotParameters {
+    pub ball_view_range: f32,
+    pub ball_timeout_factor: f32,
 }
