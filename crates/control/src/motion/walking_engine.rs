@@ -104,11 +104,11 @@ impl WalkingEngine {
         let step_compensation = if let WalkCommand::Walk { step } = *cycle_context.walk_command {
             let parameters = cycle_context.parameters.base.torso_tilt;
             let translational = nalgebra::vector![
-                step.forward * parameters.forward,
-                step.left * parameters.left,
+                step.forward.abs() * parameters.forward,
+                step.left.abs() * parameters.left,
             ]
             .norm();
-            let rotational = step.turn * parameters.turn;
+            let rotational = step.turn.abs() * parameters.turn;
             translational + rotational
         } else {
             0.0
