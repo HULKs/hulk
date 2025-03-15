@@ -18,6 +18,7 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use types::{
     cycle_time::CycleTime,
+    fall_state::FallState,
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -64,6 +65,7 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
+    fall_state: Input<FallState, "fall_state">,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -340,7 +342,10 @@ impl Localization {
                     .wrap_err("failed to predict pose filter")?;
                     scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
                 }
-                if *context.use_line_measurements && !getting_up {
+                if *context.use_line_measurements
+                    && !getting_up
+                    && *context.fall_state == FallState::Upright
+                {
                     let ground_to_field: Isometry2<Ground, Field> =
                         scored_state.state.as_isometry().framed_transform();
                     let current_measured_lines_in_field: Vec<_> = line_data_top
