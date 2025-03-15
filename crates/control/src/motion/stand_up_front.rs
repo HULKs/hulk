@@ -7,7 +7,7 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use linear_algebra::Vector3;
-use motionfile::{MotionFile, MotionInterpolator};
+use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
@@ -19,6 +19,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct StandUpFront {
     interpolator: MotionInterpolator<Joints<f32>>,
+    state: InterpolatorState<Joints<f32>>,
     filtered_gyro: LowPassFilter<nalgebra::Vector3<f32>>,
 }
 
@@ -55,6 +56,7 @@ impl StandUpFront {
         Ok(Self {
             interpolator: MotionFile::from_path(paths.motions.join("stand_up_front.json"))?
                 .try_into()?,
+            state: InterpolatorState::INITIAL,
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 nalgebra::Vector3::zeros(),
                 *context.gyro_low_pass_factor,
@@ -69,19 +71,21 @@ impl StandUpFront {
                 let condition_input = context.condition_input;
 
                 self.interpolator
-                    .advance_by(last_cycle_duration, condition_input);
+                    .advance_by(&mut self.state, last_cycle_duration, condition_input);
 
-                RemainingStandUpDuration::Running(self.interpolator.estimated_remaining_duration())
+                RemainingStandUpDuration::Running(
+                    self.interpolator.estimated_remaining_duration(self.state),
+                )
             } else {
-                self.interpolator.reset();
+                self.state.reset();
                 RemainingStandUpDuration::NotRunning
             };
-        context.motion_safe_exits[MotionType::StandUpFront] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::StandUpFront] = self.state.is_finished();
 
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
 
-        let mut positions = self.interpolator.value();
+        let mut positions = self.interpolator.value(self.state);
         positions.left_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.left_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
         positions.left_leg.hip_yaw_pitch += context.leg_balancing_factor.x * gyro.x;

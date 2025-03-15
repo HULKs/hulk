@@ -23,11 +23,10 @@ pub struct ConditionedSpline<T> {
 #[derive(Default, Debug, Deserialize, Serialize)]
 pub struct MotionInterpolator<T> {
     frames: Vec<ConditionedSpline<T>>,
-    current_state: State<T>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-enum State<T> {
+pub enum InterpolatorState<T> {
     CheckEntry {
         current_frame_index: usize,
         time_since_start: Duration,
@@ -46,18 +45,23 @@ enum State<T> {
     },
 }
 
-impl<T> State<T> {
+impl<T> InterpolatorState<T> {
+    pub const INITIAL: Self = InterpolatorState::CheckEntry {
+        current_frame_index: 0,
+        time_since_start: Duration::ZERO,
+    };
+
     pub fn current_frame_index(&self) -> Option<usize> {
         match self {
-            State::CheckEntry {
+            InterpolatorState::CheckEntry {
                 current_frame_index,
                 ..
             }
-            | State::InterpolateSpline {
+            | InterpolatorState::InterpolateSpline {
                 current_frame_index,
                 ..
             }
-            | State::CheckExit {
+            | InterpolatorState::CheckExit {
                 current_frame_index,
                 ..
             } => Some(*current_frame_index),
@@ -65,8 +69,31 @@ impl<T> State<T> {
         }
     }
 
-    fn is_aborted(&self) -> bool {
+    pub fn is_aborted(&self) -> bool {
         matches!(self, Self::Aborted { .. })
+    }
+
+    pub fn is_finished(&self) -> bool {
+        matches!(
+            self,
+            InterpolatorState::Finished | InterpolatorState::Aborted { .. }
+        )
+    }
+
+    pub fn reset(&mut self) {
+        *self = InterpolatorState::CheckEntry {
+            current_frame_index: 0,
+            time_since_start: Duration::ZERO,
+        };
+    }
+}
+
+impl<T> Default for InterpolatorState<T> {
+    fn default() -> Self {
+        InterpolatorState::CheckEntry {
+            current_frame_index: 0,
+            time_since_start: Duration::ZERO,
+        }
     }
 }
 
@@ -75,19 +102,13 @@ enum ReturnState {
     Continue,
 }
 
-impl<T> Default for State<T> {
-    fn default() -> Self {
-        State::CheckEntry {
-            current_frame_index: 0,
-            time_since_start: Duration::ZERO,
-        }
-    }
-}
-
 impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
-    fn check_continuous_conditions(&mut self, condition_input: &ConditionInput) -> ReturnState {
-        if let Some(continuous_conditions) = self
-            .current_state
+    fn check_continuous_conditions(
+        &self,
+        state: &mut InterpolatorState<T>,
+        condition_input: &ConditionInput,
+    ) -> ReturnState {
+        if let Some(continuous_conditions) = state
             .current_frame_index()
             .map(|frame_index| &self.frames[frame_index].interrupt_conditions)
         {
@@ -102,8 +123,8 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     _ => accumulated,
                 }) {
                 Some(Response::Abort) => {
-                    self.current_state = State::Aborted {
-                        at_position: self.value(),
+                    *state = InterpolatorState::Aborted {
+                        at_position: self.value(*state),
                     };
                     ReturnState::Return
                 }
@@ -115,9 +136,14 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         ReturnState::Continue
     }
 
-    fn advance_state(&mut self, time_step: Duration, condition_input: &ConditionInput) {
-        self.current_state = match self.current_state {
-            State::CheckEntry {
+    fn advance_state(
+        &self,
+        state: &mut InterpolatorState<T>,
+        time_step: Duration,
+        condition_input: &ConditionInput,
+    ) {
+        *state = match *state {
+            InterpolatorState::CheckEntry {
                 current_frame_index,
                 time_since_start,
             } => {
@@ -127,37 +153,37 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                         .evaluate(condition_input)
                         .with_timeout(condition.timeout(time_since_start))
                 }) {
-                    Some(Response::Abort) => State::Aborted {
-                        at_position: self.value(),
+                    Some(Response::Abort) => InterpolatorState::Aborted {
+                        at_position: self.value(*state),
                     },
-                    Some(Response::Wait) => State::CheckEntry {
+                    Some(Response::Wait) => InterpolatorState::CheckEntry {
                         current_frame_index,
                         time_since_start: time_since_start + time_step,
                     },
-                    _ => State::InterpolateSpline {
+                    _ => InterpolatorState::InterpolateSpline {
                         current_frame_index,
                         time_since_start: Duration::ZERO,
                     },
                 }
             }
-            State::InterpolateSpline {
+            InterpolatorState::InterpolateSpline {
                 current_frame_index,
                 time_since_start,
             } => {
                 let current_frame = &self.frames[current_frame_index];
                 if time_since_start >= current_frame.spline.total_duration() {
-                    State::CheckExit {
+                    InterpolatorState::CheckExit {
                         current_frame_index,
                         time_since_start: Duration::ZERO,
                     }
                 } else {
-                    State::InterpolateSpline {
+                    InterpolatorState::InterpolateSpline {
                         current_frame_index,
                         time_since_start: time_since_start + time_step,
                     }
                 }
             }
-            State::CheckExit {
+            InterpolatorState::CheckExit {
                 current_frame_index,
                 time_since_start,
             } => {
@@ -167,62 +193,58 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                         .evaluate(condition_input)
                         .with_timeout(condition.timeout(time_since_start))
                 }) {
-                    Some(Response::Abort) => State::Aborted {
-                        at_position: self.value(),
+                    Some(Response::Abort) => InterpolatorState::Aborted {
+                        at_position: self.value(*state),
                     },
-                    Some(Response::Wait) => State::CheckExit {
+                    Some(Response::Wait) => InterpolatorState::CheckExit {
                         current_frame_index,
                         time_since_start: time_since_start + time_step,
                     },
-                    _ if current_frame_index < self.frames.len() - 1 => State::CheckEntry {
-                        current_frame_index: current_frame_index + 1,
-                        time_since_start: Duration::ZERO,
-                    },
-                    _ => State::Finished,
+                    _ if current_frame_index < self.frames.len() - 1 => {
+                        InterpolatorState::CheckEntry {
+                            current_frame_index: current_frame_index + 1,
+                            time_since_start: Duration::ZERO,
+                        }
+                    }
+                    _ => InterpolatorState::Finished,
                 }
             }
             other_state => other_state,
         };
     }
 
-    pub fn advance_by(&mut self, time_step: Duration, condition_input: &ConditionInput) {
-        if let ReturnState::Return = self.check_continuous_conditions(condition_input) {
+    pub fn advance_by(
+        &self,
+        state: &mut InterpolatorState<T>,
+        time_step: Duration,
+        condition_input: &ConditionInput,
+    ) {
+        if let ReturnState::Return = self.check_continuous_conditions(state, condition_input) {
             return;
         }
 
-        self.advance_state(time_step, condition_input);
+        self.advance_state(state, time_step, condition_input);
     }
 
-    pub fn is_finished(&self) -> bool {
-        matches!(self.current_state, State::Finished | State::Aborted { .. })
-    }
-
-    pub fn value(&self) -> T {
-        match self.current_state {
-            State::CheckEntry {
+    pub fn value(&self, state: InterpolatorState<T>) -> T {
+        match state {
+            InterpolatorState::CheckEntry {
                 current_frame_index,
                 ..
             } => self.frames[current_frame_index].spline.start_position(),
-            State::InterpolateSpline {
+            InterpolatorState::InterpolateSpline {
                 current_frame_index,
                 time_since_start,
             } => self.frames[current_frame_index]
                 .spline
                 .value_at(time_since_start),
-            State::CheckExit {
+            InterpolatorState::CheckExit {
                 current_frame_index,
                 ..
             } => self.frames[current_frame_index].spline.end_position(),
-            State::Finished => self.frames.last().unwrap().spline.end_position(),
-            State::Aborted { at_position } => at_position,
+            InterpolatorState::Finished => self.frames.last().unwrap().spline.end_position(),
+            InterpolatorState::Aborted { at_position } => at_position,
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.current_state = State::CheckEntry {
-            current_frame_index: 0,
-            time_since_start: Duration::ZERO,
-        };
     }
 
     pub fn set_initial_positions(&mut self, position: T) {
@@ -231,8 +253,8 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         }
     }
 
-    pub fn estimated_remaining_duration(&self) -> Duration {
-        match self.current_state.current_frame_index() {
+    pub fn estimated_remaining_duration(&self, state: InterpolatorState<T>) -> Duration {
+        match state.current_frame_index() {
             Some(index) => {
                 let mut remaining = self
                     .frames
@@ -240,22 +262,24 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     .skip(index + 1)
                     .map(|frame| frame.spline.total_duration())
                     .sum::<Duration>();
-                remaining += match self.current_state {
-                    State::CheckEntry { .. } => self.frames[index].spline.total_duration(),
-                    State::InterpolateSpline {
+                remaining += match state {
+                    InterpolatorState::CheckEntry { .. } => {
+                        self.frames[index].spline.total_duration()
+                    }
+                    InterpolatorState::InterpolateSpline {
                         time_since_start, ..
                     } => Duration::saturating_sub(
                         self.frames[index].spline.total_duration(),
                         time_since_start,
                     ),
-                    State::CheckExit { .. } => Duration::ZERO,
-                    State::Finished => Duration::ZERO,
-                    State::Aborted { .. } => Duration::MAX,
+                    InterpolatorState::CheckExit { .. } => Duration::ZERO,
+                    InterpolatorState::Finished => Duration::ZERO,
+                    InterpolatorState::Aborted { .. } => Duration::MAX,
                 };
                 remaining
             }
             None => {
-                if self.current_state.is_aborted() {
+                if state.is_aborted() {
                     Duration::MAX
                 } else {
                     Duration::ZERO
@@ -305,10 +329,6 @@ impl<T: Debug + Interpolate<f32>> TryFrom<MotionFile<T>> for MotionInterpolator<
         );
 
         Ok(Self {
-            current_state: State::CheckEntry {
-                current_frame_index: 0,
-                time_since_start: Duration::ZERO,
-            },
             frames: motion_frames,
         })
     }

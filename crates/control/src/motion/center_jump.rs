@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::PathsInterface;
-use motionfile::{MotionFile, MotionInterpolator};
+use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
 use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
@@ -14,6 +14,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct CenterJump {
     interpolator: MotionInterpolator<Joints<f32>>,
+    state: InterpolatorState<Joints<f32>>,
 }
 
 #[context]
@@ -42,6 +43,7 @@ impl CenterJump {
         Ok(Self {
             interpolator: MotionFile::from_path(paths.motions.join("center_jump.json"))?
                 .try_into()?,
+            state: InterpolatorState::INITIAL,
         })
     }
 
@@ -51,14 +53,14 @@ impl CenterJump {
 
         if context.motion_selection.current_motion == MotionType::CenterJump {
             self.interpolator
-                .advance_by(last_cycle_duration, condition_input);
+                .advance_by(&mut self.state, last_cycle_duration, condition_input);
         } else {
-            self.interpolator.reset();
+            self.state.reset();
         }
-        context.motion_safe_exits[MotionType::CenterJump] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::CenterJump] = self.state.is_finished();
 
         Ok(MainOutputs {
-            center_jump_positions: self.interpolator.value().into(),
+            center_jump_positions: self.interpolator.value(self.state).into(),
         })
     }
 }
