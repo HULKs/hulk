@@ -61,11 +61,25 @@ impl Kicking {
 impl WalkTransition for Kicking {
     fn stand(self, context: &Context) -> Mode {
         let current_step = self.step;
-        if current_step.is_support_switched(context)
-            || current_step.is_timeouted(context.parameters)
-        {
+
+        if current_step.is_timeouted(context.parameters) {
             return Mode::Stopping(Stopping::new(
                 context,
+                current_step.plan.support_side.opposite(),
+            ));
+        }
+
+        if current_step.is_support_switched(context) {
+            let kick = self.kick.advance_to_next_step();
+            if kick.is_finished(context.kick_steps) {
+                return Mode::Stopping(Stopping::new(
+                    context,
+                    current_step.plan.support_side.opposite(),
+                ));
+            }
+            return Mode::Kicking(Kicking::new(
+                context,
+                kick,
                 current_step.plan.support_side.opposite(),
             ));
         }
