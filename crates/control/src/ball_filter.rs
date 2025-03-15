@@ -442,22 +442,22 @@ mod tests {
 
     #[test]
     fn hypothesis_update_matching() {
-        let hypothesis1 = BallHypothesis {
-            mode: BallMode::Moving(MultivariateNormalDistribution {
+        let hypothesis1 = BallHypothesis::new(
+            MultivariateNormalDistribution {
                 mean: nalgebra::vector![0.0, 1.0, 0.0, 0.0],
                 covariance: Matrix4::identity(),
-            }),
-            last_seen: SystemTime::now(),
-            validity: 0.0,
-        };
-        let hypothesis2 = BallHypothesis {
-            mode: BallMode::Moving(MultivariateNormalDistribution {
+            },
+            0,
+            SystemTime::now(),
+        );
+        let hypothesis2 = BallHypothesis::new(
+            MultivariateNormalDistribution {
                 mean: nalgebra::vector![0.0, -1.0, 0.0, 0.0],
                 covariance: Matrix4::identity(),
-            }),
-            last_seen: SystemTime::now(),
-            validity: 0.0,
-        };
+            },
+            0,
+            SystemTime::now(),
+        );
 
         let percept1 = BallPercept {
             percept_in_ground: MultivariateNormalDistribution {
