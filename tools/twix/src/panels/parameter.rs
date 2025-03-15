@@ -83,7 +83,7 @@ impl Widget for &mut ParameterPanel {
                             Ok(value) => {
                                 self.nao
                                     .store_parameters(
-                                        &local_parameter_path.expect(
+                                        local_parameter_path.expect(
                                             "parameter path should start with 'parameters.'",
                                         ),
                                         value,
@@ -103,7 +103,7 @@ impl Widget for &mut ParameterPanel {
                             Ok(value) => {
                                 self.nao
                                     .store_parameters(
-                                        &local_parameter_path.expect(
+                                        local_parameter_path.expect(
                                             "parameter path should start with 'parameters.'",
                                         ),
                                         value,
