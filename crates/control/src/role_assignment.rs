@@ -35,6 +35,12 @@ use types::{
 
 use crate::localization::generate_initial_pose;
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+enum SentState {
+    Striker,
+    Loser,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct RoleAssignment {
     last_received_striker_message: Option<SystemTime>,
@@ -42,6 +48,7 @@ pub struct RoleAssignment {
     last_transmitted_spl_message: Option<SystemTime>,
     role: Role,
     last_time_player_was_penalized: Players<Option<SystemTime>>,
+    last_sent_state: SentState,
 }
 
 #[context]
@@ -80,6 +87,8 @@ pub struct CycleContext {
 
     last_time_player_was_penalized:
         AdditionalOutput<Players<Option<SystemTime>>, "last_time_player_penalized">,
+    last_sent_state: AdditionalOutput<String, "last_sent_state">,
+    last_sent_message: AdditionalOutput<String, "last_sent_message">,
 }
 
 #[context]
@@ -107,6 +116,7 @@ impl RoleAssignment {
             last_transmitted_spl_message: None,
             role,
             last_time_player_was_penalized: Players::new(None),
+            last_sent_state: SentState::Loser,
         })
     }
 
@@ -118,6 +128,9 @@ impl RoleAssignment {
         let primary_state = *context.primary_state;
 
         self.try_sending_game_controller_return_message(&context)?;
+        context
+            .last_sent_message
+            .fill_if_subscribed(|| "None".to_string());
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
             for player in self
@@ -175,19 +188,23 @@ impl RoleAssignment {
             match (self.role, new_role) {
                 (Role::Striker, Role::Striker) => {
                     if self.is_striker_beacon_cooldown_elapsed(&context) {
-                        self.try_sending_striker_message(&context)?;
+                        self.try_sending_striker_message(&mut context)?;
                     }
                 }
                 (_other_role, Role::Striker) => {
-                    self.try_sending_striker_message(&context)?;
+                    self.try_sending_striker_message(&mut context)?;
                 }
 
                 (Role::Striker, Role::Loser) => {
-                    self.try_sending_loser_message(&context)?;
+                    self.try_sending_loser_message(&mut context)?;
                 }
                 _ => {}
             }
         }
+
+        context
+            .last_sent_state
+            .fill_if_subscribed(|| format!("{:?}", self.last_sent_state));
 
         self.role = new_role;
 
@@ -383,7 +400,7 @@ impl RoleAssignment {
 
     fn try_sending_striker_message(
         &mut self,
-        context: &CycleContext<impl NetworkInterface>,
+        context: &mut CycleContext<impl NetworkInterface>,
     ) -> Result<()> {
         if !self.is_striker_silence_period_elapsed(context) {
             return Ok(());
@@ -419,6 +436,10 @@ impl RoleAssignment {
             .or(team_network_ball)
             .ok_or_eyre("we are striker without a ball, this should never happen")?;
 
+        self.last_sent_state = SentState::Striker;
+        context
+            .last_sent_message
+            .fill_if_subscribed(|| "Striker".to_string());
         context
             .hardware
             .write_to_network(OutgoingMessage::Spl(HulkMessage::Striker(StrikerMessage {
@@ -432,7 +453,7 @@ impl RoleAssignment {
 
     fn try_sending_loser_message(
         &mut self,
-        context: &CycleContext<impl NetworkInterface>,
+        context: &mut CycleContext<impl NetworkInterface>,
     ) -> Result<()> {
         if context
             .remaining_amount_of_messages
@@ -446,10 +467,18 @@ impl RoleAssignment {
             return Ok(());
         }
 
+        if self.last_sent_state == SentState::Loser {
+            return Ok(());
+        }
+        self.last_sent_state = SentState::Loser;
+
         self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
         self.last_received_striker_message = None;
 
         let ground_to_field = ground_to_field_or_initial_pose(context);
+        context
+            .last_sent_message
+            .fill_if_subscribed(|| "Loser".to_string());
         context
             .hardware
             .write_to_network(OutgoingMessage::Spl(HulkMessage::Loser(LoserMessage {
