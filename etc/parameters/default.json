@@ -385,7 +385,7 @@
     "rotation_exponent": 2.0,
     "request_scale": {
       "forward": 1.0,
-      "left": 1.1,
+      "left": 1.4,
       "turn": 1.0
     }
   },
