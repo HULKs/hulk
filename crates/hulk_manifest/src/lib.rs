@@ -99,7 +99,6 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::referee_position_provider",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
-                    "control::sacrificial_lamb",
                     "control::search_suggestor",
                     "control::sole_pressure_filter",
                     "control::sonar_filter",
