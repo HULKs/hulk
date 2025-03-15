@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use spl_network_messages::{SubState, Team};
+use spl_network_messages::{GameState, SubState, Team};
 use types::{
     filtered_whistle::FilteredWhistle, game_controller_state::GameControllerState,
     world_state::BallState,
@@ -53,7 +53,6 @@ impl KickingTeamFilter {
             .fill_if_subscribed(|| *context.last_ball_state);
 
         let game_controller_state = context.game_controller_state;
-        let sub_state = context.game_controller_state.sub_state;
 
         let duration_since_last_non_default_ball_state =
             SystemTime::now().duration_since(self.time_last_ball_state_became_default)?;
@@ -83,22 +82,41 @@ impl KickingTeamFilter {
                 .ball_in_field
                 .x()
                 .is_sign_negative();
-            match sub_state {
-                Some(SubState::CornerKick) if ball_is_in_opponent_half => Some(Team::Hulks),
-                Some(SubState::CornerKick) if !ball_is_in_opponent_half => Some(Team::Opponent),
-                Some(SubState::GoalKick) if ball_is_in_opponent_half => Some(Team::Opponent),
-                Some(SubState::GoalKick) if !ball_is_in_opponent_half => Some(Team::Hulks),
-                Some(SubState::PenaltyKick) if !ball_is_in_opponent_half => Some(Team::Opponent),
-                Some(SubState::PenaltyKick) if ball_is_in_opponent_half => Some(Team::Hulks),
-                None => match (
+            match game_controller_state {
+                GameControllerState {
+                    sub_state: Some(SubState::CornerKick),
+                    ..
+                } if ball_is_in_opponent_half => Some(Team::Hulks),
+                GameControllerState {
+                    sub_state: Some(SubState::CornerKick),
+                    ..
+                } if !ball_is_in_opponent_half => Some(Team::Opponent),
+                GameControllerState {
+                    sub_state: Some(SubState::GoalKick),
+                    ..
+                } if ball_is_in_opponent_half => Some(Team::Opponent),
+                GameControllerState {
+                    sub_state: Some(SubState::GoalKick),
+                    ..
+                } if !ball_is_in_opponent_half => Some(Team::Hulks),
+                GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    ..
+                } if !ball_is_in_opponent_half => Some(Team::Opponent),
+                GameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    ..
+                } if ball_is_in_opponent_half => Some(Team::Hulks),
+                GameControllerState {
+                    game_state: GameState::Playing,
+                    sub_state: None,
+                    ..
+                } => match (
                     context.filtered_whistle.is_detected,
-                    last_non_default_ball_state
-                        .ball_in_field
-                        .x()
-                        .is_sign_positive(),
+                    ball_is_in_opponent_half,
                 ) {
-                    (true, true) => Some(Team::Opponent),
-                    (true, false) => Some(Team::Hulks),
+                    (true, false) => Some(Team::Opponent),
+                    (true, true) => Some(Team::Hulks),
                     _ => None,
                 },
                 _ => None,
