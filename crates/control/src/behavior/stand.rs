@@ -1,3 +1,4 @@
+use linear_algebra::point;
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Half},
@@ -19,34 +20,45 @@ pub fn execute(
         }),
         PrimaryState::Set => {
             let ground_to_field = world_state.robot.ground_to_field?;
-            let (fallback_target, is_opponent_penalty_kick) =
-                match world_state.filtered_game_controller_state {
-                    Some(FilteredGameControllerState {
-                        sub_state: Some(SubState::PenaltyKick),
-                        kicking_team,
-                        ..
-                    })
-                    | Some(FilteredGameControllerState {
-                        game_phase: GamePhase::PenaltyShootout { .. },
-                        kicking_team,
-                        ..
-                    }) => {
-                        let (half, is_opponent_penalty_kick) = match kicking_team {
-                            Team::Hulks => (Half::Opponent, false),
-                            Team::Opponent => (Half::Own, true),
-                        };
-                        (
-                            world_state
-                                .rule_ball
-                                .map(|rule_ball| rule_ball.ball_in_ground)
-                                .unwrap_or({
-                                    ground_to_field.inverse() * field_dimensions.penalty_spot(half)
-                                }),
-                            is_opponent_penalty_kick,
-                        )
+            let (fallback_target, is_opponent_penalty_kick) = match world_state
+                .filtered_game_controller_state
+            {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::PenaltyKick),
+                    kicking_team,
+                    ..
+                })
+                | Some(FilteredGameControllerState {
+                    game_phase: GamePhase::PenaltyShootout { .. },
+                    kicking_team,
+                    ..
+                }) => match kicking_team {
+                    Some(Team::Hulks) => (
+                        world_state
+                            .rule_ball
+                            .map(|rule_ball| rule_ball.ball_in_ground)
+                            .unwrap_or({
+                                ground_to_field.inverse()
+                                    * field_dimensions.penalty_spot(Half::Opponent)
+                            }),
+                        false,
+                    ),
+                    Some(Team::Opponent) => (
+                        world_state
+                            .rule_ball
+                            .map(|rule_ball| rule_ball.ball_in_ground)
+                            .unwrap_or({
+                                ground_to_field.inverse() * field_dimensions.penalty_spot(Half::Own)
+                            }),
+                        true,
+                    ),
+                    _ => {
+                        eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
+                        (point!(0.5, 0.0), true)
                     }
-                    _ => (ground_to_field.inverse().as_pose().position(), false),
-                };
+                },
+                _ => (ground_to_field.inverse().as_pose().position(), false),
+            };
             let target = world_state
                 .ball
                 .map(|state| state.ball_in_ground)
@@ -92,17 +104,27 @@ pub fn execute(
                     None,
                 ) => {
                     let ground_to_field = world_state.robot.ground_to_field?;
-                    let half = match kicking_team {
-                        Team::Hulks => Half::Opponent,
-                        Team::Opponent => Half::Own,
+                    let target = match kicking_team {
+                        Some(Team::Hulks) => world_state
+                            .ball
+                            .or(world_state.rule_ball)
+                            .map(|ball| ball.ball_in_ground)
+                            .unwrap_or({
+                                ground_to_field.inverse()
+                                    * field_dimensions.penalty_spot(Half::Opponent)
+                            }),
+                        Some(Team::Opponent) => world_state
+                            .ball
+                            .or(world_state.rule_ball)
+                            .map(|ball| ball.ball_in_ground)
+                            .unwrap_or({
+                                ground_to_field.inverse() * field_dimensions.penalty_spot(Half::Own)
+                            }),
+                        _ => {
+                            eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
+                            point!(0.5, 0.0)
+                        }
                     };
-                    let target = world_state
-                        .ball
-                        .or(world_state.rule_ball)
-                        .map(|ball| ball.ball_in_ground)
-                        .unwrap_or({
-                            ground_to_field.inverse() * field_dimensions.penalty_spot(half)
-                        });
 
                     Some(MotionCommand::Stand {
                         head: HeadMotion::LookAt {

@@ -55,6 +55,7 @@ pub struct Robot {
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
+    _object_detection_top_sender: Producer<crate::structs::object_detection::MainOutputs>,
 }
 
 impl Robot {
@@ -83,6 +84,7 @@ impl Robot {
         let (mut parameters_sender, parameters_receiver) =
             buffered_watch::channel((UNIX_EPOCH, Default::default()));
         let (spl_network_sender, spl_network_consumer) = future_queue();
+        let (_object_detection_top_sender, object_detection_top_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
         *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
 
@@ -93,6 +95,7 @@ impl Robot {
             subscriptions_receiver,
             parameters_receiver,
             spl_network_consumer,
+            object_detection_top_consumer,
             recording_sender,
             RecordingTrigger::new(0),
         )?;
@@ -125,6 +128,7 @@ impl Robot {
             cycler,
             control_receiver,
             spl_network_sender,
+            _object_detection_top_sender,
         })
     }
 
@@ -302,7 +306,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 head
             }
             MotionCommand::SitDown { head } => head,
-            MotionCommand::Stand { head } => head,
+            MotionCommand::Stand { head, .. } => head,
             _ => HeadMotion::Center,
         };
 
@@ -313,6 +317,19 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 robot.database.main_outputs.look_around.yaw
             }
             HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
+            HeadMotion::LookAtReferee { .. } => {
+                if let Some(ground_to_field) = robot.database.main_outputs.ground_to_field {
+                    let expected_referee_position = ground_to_field.inverse()
+                        * robot
+                            .database
+                            .main_outputs
+                            .expected_referee_position
+                            .unwrap_or_default();
+                    Orientation2::from_vector(expected_referee_position.coords()).angle()
+                } else {
+                    0.0
+                }
+            }
             HeadMotion::LookLeftAndRightOf { target } => {
                 let glance_factor = 0.0; //self.time_elapsed.as_secs_f32().sin();
                 target.coords().angle(&Vector2::x_axis())
