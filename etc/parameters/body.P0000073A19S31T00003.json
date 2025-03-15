@@ -1,1 +1,7 @@
-{}
+{
+  "joint_calibration_offsets": {
+    "left_leg": {
+      "hip_yaw_pitch": -0.2
+    }
+  }
+}
