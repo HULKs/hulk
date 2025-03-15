@@ -527,8 +527,18 @@
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
         "support_overrides": {
-          "hip_pitch": null,
-          "ankle_pitch": null
+          "hip_pitch": [
+            { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
+            { "value": -0.02, "timepoint": { "nanos": 100000000, "secs": 0 } },
+            { "value": -0.04, "timepoint": { "nanos": 150000000, "secs": 0 } },
+            { "value": -0.02, "timepoint": { "nanos": 240000000, "secs": 0 } }
+          ],
+          "ankle_pitch": [
+            { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
+            { "value": 0.0, "timepoint": { "nanos": 50000000, "secs": 0 } },
+            { "value": 0.0, "timepoint": { "nanos": 150000000, "secs": 0 } },
+            { "value": 0.0, "timepoint": { "nanos": 200000000, "secs": 0 } }
+          ]
         },
         "swing_overrides": {
           "hip_pitch": [
@@ -597,9 +607,9 @@
         "support_overrides": {
           "hip_pitch": [
             { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
-            { "value": -0.1, "timepoint": { "nanos": 100000000, "secs": 0 } },
-            { "value": -0.2, "timepoint": { "nanos": 150000000, "secs": 0 } },
-            { "value": -0.1, "timepoint": { "nanos": 240000000, "secs": 0 } }
+            { "value": -0.02, "timepoint": { "nanos": 100000000, "secs": 0 } },
+            { "value": -0.04, "timepoint": { "nanos": 150000000, "secs": 0 } },
+            { "value": -0.02, "timepoint": { "nanos": 240000000, "secs": 0 } }
           ],
           "ankle_pitch": [
             { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
