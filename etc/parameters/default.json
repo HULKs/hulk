@@ -1158,7 +1158,7 @@
       "orientation": 0.0,
       "reached_x": {
         "start": -0.04,
-        "end": 0.04
+        "end": 0.1
       },
       "reached_y": {
         "start": -0.02,
