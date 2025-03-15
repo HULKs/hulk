@@ -55,7 +55,7 @@ impl RuleObstacleComposer {
                             | SubState::GoalKick
                             | SubState::PushingFreeKick,
                         ),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     game_state: FilteredGameState::Playing { .. },
                     ..
                 },
@@ -101,22 +101,35 @@ impl RuleObstacleComposer {
                     ..
                 },
                 _,
-            ) => {
-                let penalty_box_obstacle = create_penalty_box(
+            ) => match context.filtered_game_controller_state.kicking_team {
+                Some(Team::Hulks) => rule_obstacles.push(create_penalty_box(
                     context.field_dimensions,
-                    context.filtered_game_controller_state.kicking_team,
+                    Team::Hulks,
                     *context.penaltykick_box_extension,
-                );
-                rule_obstacles.push(penalty_box_obstacle);
-            }
+                )),
+                Some(Team::Opponent) => rule_obstacles.push(create_penalty_box(
+                    context.field_dimensions,
+                    Team::Opponent,
+                    *context.penaltykick_box_extension,
+                )),
+                None => {
+                    rule_obstacles.push(create_penalty_box(
+                        context.field_dimensions,
+                        Team::Hulks,
+                        *context.penaltykick_box_extension,
+                    ));
+                    rule_obstacles.push(create_penalty_box(
+                        context.field_dimensions,
+                        Team::Opponent,
+                        *context.penaltykick_box_extension,
+                    ));
+                }
+            },
             (
                 FilteredGameControllerState {
-                    game_state:
-                        FilteredGameState::Ready {
-                            kicking_team_known: true,
-                        },
+                    game_state: FilteredGameState::Ready,
                     sub_state: None,
-                    kicking_team: Team::Hulks,
+                    kicking_team: Some(Team::Hulks),
                     ..
                 },
                 _,
@@ -130,20 +143,15 @@ impl RuleObstacleComposer {
             }
             (
                 FilteredGameControllerState {
-                    game_state:
-                        FilteredGameState::Ready {
-                            kicking_team_known: false,
-                        },
+                    game_state: FilteredGameState::Ready,
                     sub_state: None,
+                    kicking_team: None,
                     ..
                 }
                 | FilteredGameControllerState {
-                    game_state:
-                        FilteredGameState::Ready {
-                            kicking_team_known: true,
-                        },
+                    game_state: FilteredGameState::Ready,
                     sub_state: None,
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 },
                 _,
@@ -174,6 +182,7 @@ pub fn create_penalty_box(
         Team::Hulks => 1.0,
         Team::Opponent => -1.0,
     };
+
     let half_field_length = field_dimensions.length / 2.0;
     let half_penalty_area_length = field_dimensions.penalty_area_length / 2.0;
     let center_x = side_factor
