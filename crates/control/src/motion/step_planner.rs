@@ -35,6 +35,7 @@ pub struct CycleContext {
     rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
     initial_side_bonus: Parameter<f32, "step_planner.initial_side_bonus">,
+    request_scale: Parameter<Step, "step_planner.request_scale">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -150,6 +151,12 @@ impl StepPlanner {
             },
         };
 
+        step = Step {
+            forward: step.forward * context.request_scale.forward,
+            left: step.left * context.request_scale.left,
+            turn: step.turn * context.request_scale.turn,
+        };
+
         if let Some(injected_step) = context.injected_step {
             step = *injected_step;
         }
@@ -163,7 +170,7 @@ impl StepPlanner {
         } else {
             Step::default()
         };
-        step = step + initial_side_bonus;
+        step += initial_side_bonus;
 
         let max_step_size = match speed {
             WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
