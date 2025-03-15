@@ -36,6 +36,7 @@ fn main() -> Result<()> {
                     "control::time_to_reach_kick_position",
                     "control::world_state_composer",
                 ],
+                execution_time_warning_threshold: None,
             },
             CyclerManifest {
                 name: "SplNetwork",
@@ -43,6 +44,7 @@ fn main() -> Result<()> {
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
                 nodes: vec!["spl_network::message_filter"],
+                execution_time_warning_threshold: None,
             },
         ],
     };
