@@ -8,10 +8,7 @@ use parking_lot::Mutex;
 
 use buffered_watch::{Receiver, Sender};
 use color_eyre::Result;
-use hardware::{
-    CameraInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
-    TimeInterface,
-};
+use hardware::{NetworkInterface, RecordingInterface, SpeakerInterface, TimeInterface};
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
@@ -66,21 +63,6 @@ impl TimeInterface for Interfake {
 
 impl SpeakerInterface for Interfake {
     fn write_to_speakers(&self, _request: SpeakerRequest) {}
-}
-
-impl PathsInterface for Interfake {
-    fn get_paths(&self) -> types::hardware::Paths {
-        unimplemented!()
-    }
-}
-
-impl CameraInterface for Interfake {
-    fn read_from_camera(
-        &self,
-        _camera_position: types::camera_position::CameraPosition,
-    ) -> Result<types::ycbcr422_image::YCbCr422Image> {
-        unimplemented!()
-    }
 }
 
 pub trait FakeDataInterface {

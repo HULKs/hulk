@@ -47,17 +47,6 @@ fn main() -> Result<()> {
                 nodes: vec!["spl_network::message_filter"],
                 execution_time_warning_threshold: None,
             },
-            CyclerManifest {
-                name: "ObjectDetection",
-                kind: CyclerKind::Perception,
-                instances: vec!["Top"],
-                setup_nodes: vec!["vision::image_receiver"],
-                nodes: vec![
-                    "object_detection::pose_detection",
-                    "object_detection::pose_filter",
-                    "object_detection::pose_interpretation",
-                ],
-            },
         ],
     };
     let root = "../../crates/";
