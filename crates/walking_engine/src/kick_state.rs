@@ -9,7 +9,7 @@ use types::{
     support_foot::Side,
 };
 
-use crate::kick_steps::{JointOverride, KickStep, KickSteps};
+use crate::kick_steps::{JointOverride, JointOverrides, KickStep, KickSteps};
 
 use super::step_state::StepState;
 
@@ -63,36 +63,59 @@ impl KickOverride for BodyJoints {
         step: &StepState,
     ) -> Self {
         let kick_step = kick_steps.get_step_at(kick.variant, kick.index);
-        let overrides = compute_kick_overrides(kick_step, step.time_since_start, kick.strength);
+
+        let support_overrides = compute_kick_overrides(
+            &kick_step.support_overrides,
+            step.time_since_start,
+            kick.strength,
+        );
+        let swing_overrides = compute_kick_overrides(
+            &kick_step.swing_overrides,
+            step.time_since_start,
+            kick.strength,
+        );
+
         match step.plan.support_side {
             Side::Left => BodyJoints {
-                right_leg: self.right_leg + overrides,
+                left_leg: self.left_leg + support_overrides,
+                right_leg: self.right_leg + swing_overrides,
                 ..self
             },
             Side::Right => BodyJoints {
-                left_leg: self.left_leg + overrides,
+                left_leg: self.left_leg + swing_overrides,
+                right_leg: self.right_leg + support_overrides,
                 ..self
             },
         }
     }
 }
 
-fn compute_kick_overrides(kick_step: &KickStep, t: Duration, strength: f32) -> LegJoints {
-    let hip_pitch = kick_step
-        .hip_pitch_overrides
+fn compute_kick_overrides(
+    joint_overrides: &JointOverrides,
+    t: Duration,
+    strength: f32,
+) -> LegJoints {
+    let hip_pitch = joint_overrides
+        .hip_pitch
         .as_ref()
         .map(|overrides| strength * compute_override(overrides, t))
         .unwrap_or(0.0);
-    let ankle_pitch = kick_step
-        .ankle_pitch_overrides
+    let knee_pitch = joint_overrides
+        .knee_pitch
         .as_ref()
         .map(|overrides| strength * compute_override(overrides, t))
         .unwrap_or(0.0);
+    let ankle_pitch = joint_overrides
+        .ankle_pitch
+        .as_ref()
+        .map(|overrides| strength * compute_override(overrides, t))
+        .unwrap_or(0.0);
+
     LegJoints {
         hip_yaw_pitch: 0.0,
         hip_pitch,
         hip_roll: 0.0,
-        knee_pitch: 0.0,
+        knee_pitch,
         ankle_pitch,
         ankle_roll: 0.0,
     }
