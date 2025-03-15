@@ -31,11 +31,14 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
-    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+    majority_vote_is_referee_ready_pose_detected:
+        Input<bool, "majority_vote_is_referee_ready_pose_detected">,
+
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     player_number: Parameter<PlayerNumber, "player_number">,
@@ -89,10 +92,11 @@ impl GameControllerStateFilter {
             context.game_controller_state,
             context.filtered_whistle,
             context.cycle_time,
-            *context.visual_referee_proceed_to_ready,
             *context.player_number,
             did_receive_motion_in_set_penalty,
+            *context.majority_vote_is_referee_ready_pose_detected,
         );
+
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
             opponent_game_state: game_states.opponent,
@@ -131,9 +135,9 @@ impl GameControllerStateFilter {
         game_controller_state: &GameControllerState,
         filtered_whistle: &FilteredWhistle,
         cycle_time: &CycleTime,
-        visual_referee_proceed_to_ready: bool,
         player_number: PlayerNumber,
         did_receive_motion_in_set_penalty: bool,
+        majority_vote_is_referee_ready_pose_detected: bool,
     ) -> FilteredGameStates {
         let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
             ground_to_field,
@@ -148,7 +152,7 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             config,
             ball_detected_far_from_any_goal,
-            visual_referee_proceed_to_ready,
+            majority_vote_is_referee_ready_pose_detected,
             did_receive_motion_in_set_penalty,
         );
         self.opponent_state = next_filtered_state(
@@ -158,7 +162,7 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             config,
             ball_detected_far_from_any_goal,
-            visual_referee_proceed_to_ready,
+            majority_vote_is_referee_ready_pose_detected,
             did_receive_motion_in_set_penalty,
         );
 
@@ -190,8 +194,8 @@ impl GameControllerStateFilter {
             Team::Hulks,
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
+            majority_vote_is_referee_ready_pose_detected,
             config,
-            visual_referee_proceed_to_ready,
         );
 
         let filtered_opponent_game_state =
@@ -200,8 +204,8 @@ impl GameControllerStateFilter {
                 Team::Opponent,
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
+                majority_vote_is_referee_ready_pose_detected,
                 config,
-                visual_referee_proceed_to_ready,
             );
 
         FilteredGameStates {
@@ -224,7 +228,7 @@ fn next_filtered_state(
     cycle_start_time: SystemTime,
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
-    visual_referee_proceed_to_ready: bool,
+    majority_vote_is_referee_ready_pose_detected: bool,
     did_receive_motion_in_set_penalty: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
@@ -258,7 +262,7 @@ fn next_filtered_state(
             time_when_finished_clicked: cycle_start_time,
         },
         (State::Standby, GameState::Standby) => {
-            if visual_referee_proceed_to_ready {
+            if majority_vote_is_referee_ready_pose_detected {
                 State::Ready
             } else {
                 State::Standby
@@ -410,8 +414,8 @@ impl State {
         team: Team,
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
+        majority_vote_is_referee_ready_pose_detected: bool,
         config: &GameStateFilterParameters,
-        visual_referee_proceed_to_ready: bool,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
         let opponent_is_kicking_team = game_controller_state.kicking_team != team;
@@ -419,7 +423,7 @@ impl State {
         match self {
             State::Initial => FilteredGameState::Initial,
             State::Standby => {
-                if visual_referee_proceed_to_ready {
+                if majority_vote_is_referee_ready_pose_detected {
                     FilteredGameState::Ready {
                         kicking_team_known: true,
                     }
