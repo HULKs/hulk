@@ -101,6 +101,19 @@ impl WalkingEngine {
             torso_tilt_compensation_factor,
         );
 
+        let step_compensation = if let WalkCommand::Walk { step } = *cycle_context.walk_command {
+            let parameters = cycle_context.parameters.base.torso_tilt;
+            let translational = nalgebra::vector![
+                step.forward * parameters.forward,
+                step.left * parameters.left,
+            ]
+            .norm();
+            let rotational = step.turn * parameters.turn;
+            translational + rotational
+        } else {
+            0.0
+        };
+
         let robot_to_walk = Isometry3::from_parts(
             vector![
                 cycle_context.parameters.base.torso_offset,
@@ -108,7 +121,10 @@ impl WalkingEngine {
                 cycle_context.parameters.base.walk_height,
             ],
             Orientation3::new(
-                Vector3::y_axis() * (cycle_context.parameters.base.torso_tilt + arm_compensation),
+                Vector3::y_axis()
+                    * (cycle_context.parameters.base.torso_tilt_base
+                        + step_compensation
+                        + arm_compensation),
             ),
         );
 

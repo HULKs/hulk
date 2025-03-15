@@ -42,7 +42,8 @@ pub struct Base {
     pub step_duration_increase: Step,
     pub step_midpoint: f32,
     pub torso_offset: f32,
-    pub torso_tilt: f32,
+    pub torso_tilt_base: f32,
+    pub torso_tilt: Step,
     pub walk_height: f32,
 }
 
