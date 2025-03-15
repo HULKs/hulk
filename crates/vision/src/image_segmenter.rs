@@ -22,6 +22,8 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
+use crate::field_color_tree::{self, Features};
+
 #[derive(Deserialize, Serialize)]
 pub struct ImageSegmenter {
     ground_to_field_of_home_after_coin_toss_before_second_half: Isometry2<Ground, Field>,
@@ -293,7 +295,7 @@ fn median_of_five(mut values: [u8; 5]) -> u8 {
 
 fn new_horizontal_scan_line(
     image: &YCbCr422Image,
-    field_color: &FieldColorParameters,
+    _field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_detection_source: EdgeDetectionSourceParameters,
@@ -326,10 +328,12 @@ fn new_horizontal_scan_line(
         if let Some(segment) =
             detect_edge(&mut state, x as u16, edge_detection_value, edge_threshold)
         {
-            segments.push(set_field_color_in_segment(
-                set_color_in_segment(segment, position, Direction::Horizontal, image),
-                field_color,
-            ));
+            segments.push(detect_field_color_in_segment(average_color_in_segment(
+                segment,
+                position,
+                Direction::Horizontal,
+                image,
+            )));
         }
     }
 
@@ -341,10 +345,12 @@ fn new_horizontal_scan_line(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    segments.push(set_field_color_in_segment(
-        set_color_in_segment(last_segment, position, Direction::Horizontal, image),
-        field_color,
-    ));
+    segments.push(detect_field_color_in_segment(average_color_in_segment(
+        last_segment,
+        position,
+        Direction::Horizontal,
+        image,
+    )));
 
     ScanLine {
         position: position as u16,
@@ -355,7 +361,7 @@ fn new_horizontal_scan_line(
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line(
     image: &YCbCr422Image,
-    field_color: &FieldColorParameters,
+    _field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_detection_source: EdgeDetectionSourceParameters,
@@ -400,10 +406,12 @@ fn new_vertical_scan_line(
                 fix_previous_edge_type(&mut segments);
                 break;
             }
-            segments.push(set_field_color_in_segment(
-                set_color_in_segment(segment, position, Direction::Vertical, image),
-                field_color,
-            ));
+            segments.push(detect_field_color_in_segment(average_color_in_segment(
+                segment,
+                position,
+                Direction::Vertical,
+                image,
+            )));
         }
     }
 
@@ -416,10 +424,12 @@ fn new_vertical_scan_line(
         field_color: Intensity::Low,
     };
     if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
-        segments.push(set_field_color_in_segment(
-            set_color_in_segment(last_segment, position, Direction::Vertical, image),
-            field_color,
-        ));
+        segments.push(detect_field_color_in_segment(average_color_in_segment(
+            last_segment,
+            position,
+            Direction::Vertical,
+            image,
+        )));
     }
 
     ScanLine {
@@ -481,8 +491,30 @@ fn pixel_to_edge_detection_value(
     }
 }
 
-fn set_field_color_in_segment(mut segment: Segment, field_color: &FieldColorParameters) -> Segment {
-    segment.field_color = field_color.get_intensity(segment.color);
+fn detect_field_color_in_segment(mut segment: Segment) -> Segment {
+    let color = segment.color;
+    let rgb = Rgb::from(color);
+    let rg_chromaticity = RgChromaticity::from(rgb);
+    let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
+    let hsv = Hsv::from(rgb);
+
+    let features = Features {
+        blue_luminance: rgb.blue,
+        green_luminance: rgb.green,
+        red_luminance: rgb.red,
+        luminance: color.y,
+        red_difference: color.cr,
+        blue_difference: color.cb,
+        blue_chromaticity,
+        green_chromaticity: rg_chromaticity.green,
+        red_chromaticity: rg_chromaticity.red,
+        intensity: ((rgb.blue as u16 + rgb.green as u16 + rgb.red as u16) / 3) as u8,
+        hue: hsv.hue,
+        saturation: hsv.saturation,
+        value: hsv.value,
+    };
+
+    segment.field_color = field_color_tree::predict(&features);
     segment
 }
 
@@ -547,7 +579,7 @@ fn fix_previous_edge_type(segments: &mut [Segment]) {
     }
 }
 
-fn set_color_in_segment(
+fn average_color_in_segment(
     mut segment: Segment,
     position: u32,
     direction: Direction,
@@ -630,32 +662,6 @@ fn detect_edge(
     state.previous_difference = value_difference;
 
     segment
-}
-
-trait FieldColorDetection {
-    fn get_intensity(&self, color: YCbCr444) -> Intensity;
-}
-
-impl FieldColorDetection for FieldColorParameters {
-    fn get_intensity(&self, color: YCbCr444) -> Intensity {
-        let rgb = Rgb::from(color);
-        let rg_chromaticity = RgChromaticity::from(rgb);
-        let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
-        let hsv = Hsv::from(rgb);
-
-        if self.luminance.contains(&color.y)
-            && self.green_luminance.contains(&color.y)
-            && self.red_chromaticity.contains(&rg_chromaticity.red)
-            && self.green_chromaticity.contains(&rg_chromaticity.green)
-            && self.blue_chromaticity.contains(&blue_chromaticity)
-            && self.hue.contains(&hsv.hue)
-            && self.saturation.contains(&hsv.saturation)
-        {
-            Intensity::High
-        } else {
-            Intensity::Low
-        }
-    }
 }
 
 #[cfg(test)]
