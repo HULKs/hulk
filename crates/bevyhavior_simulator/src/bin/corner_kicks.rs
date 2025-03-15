@@ -52,7 +52,7 @@ fn update(
     if time.ticks() == 4500 {
         ball.state = Some(SimulatorBallState {
             position: point!(-2.25, -1.0),
-            velocity: vector![-6.0, -2.0],
+            velocity: vector![-1.0, -0.5],
         });
     }
 
