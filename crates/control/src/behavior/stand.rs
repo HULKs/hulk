@@ -1,4 +1,3 @@
-use linear_algebra::point;
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Half},
@@ -53,8 +52,9 @@ pub fn execute(
                         true,
                     ),
                     _ => {
-                        eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
-                        (point!(0.5, 0.0), true)
+                        return Some(MotionCommand::Stand {
+                            head: HeadMotion::SearchForLostBall,
+                        })
                     }
                 },
                 _ => (ground_to_field.inverse().as_pose().position(), false),
@@ -121,8 +121,9 @@ pub fn execute(
                                 ground_to_field.inverse() * field_dimensions.penalty_spot(Half::Own)
                             }),
                         _ => {
-                            eprintln!("uncertain team during penalty kick or penalty shootout should not occur");
-                            point!(0.5, 0.0)
+                            return Some(MotionCommand::Stand {
+                                head: HeadMotion::SearchForLostBall,
+                            })
                         }
                     };
 
