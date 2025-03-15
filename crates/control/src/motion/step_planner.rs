@@ -10,7 +10,9 @@ use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     planned_path::PathSegment,
     step::Step,
+    support_foot::Side,
 };
+use walking_engine::mode::Mode;
 
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
@@ -29,12 +31,14 @@ pub struct CycleContext {
     step_size_delta_slow: Parameter<Step, "step_planner.step_size_delta_slow">,
     step_size_delta_fast: Parameter<Step, "step_planner.step_size_delta_fast">,
     max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
+    max_inside_turn: Parameter<f32, "step_planner.max_inside_turn">,
     rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
     initial_side_bonus: Parameter<f32, "step_planner.initial_side_bonus">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
+    walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
 
     ground_to_upcoming_support_out:
         AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -54,6 +58,21 @@ impl StepPlanner {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let support_side = if let Mode::Walking(walking) = *context.walking_engine_mode {
+            Some(walking.step.plan.support_side)
+        } else {
+            None
+        };
+        let (max_turn_left, max_turn_right) = if let Some(support_side) = support_side {
+            if support_side == Side::Left {
+                (-*context.max_inside_turn, context.max_step_size.turn)
+            } else {
+                (-context.max_step_size.turn, *context.max_inside_turn)
+            }
+        } else {
+            (-context.max_step_size.turn, context.max_step_size.turn)
+        };
+
         context
             .ground_to_upcoming_support_out
             .fill_if_subscribed(|| *context.ground_to_upcoming_support);
@@ -160,6 +179,8 @@ impl StepPlanner {
             *context.max_step_size_backwards,
             *context.translation_exponent,
             *context.rotation_exponent,
+            max_turn_left,
+            max_turn_right,
         );
 
         self.last_planned_step = step;
@@ -176,9 +197,13 @@ fn clamp_step_to_walk_volume(
     max_step_size_backwards: f32,
     translation_exponent: f32,
     rotation_exponent: f32,
+    max_turn_left: f32,
+    max_turn_right: f32,
 ) -> Step {
     // Values in range [-1..1]
-    let clamped_turn = request.turn.clamp(-max_step_size.turn, max_step_size.turn);
+    let clamped_turn = request.turn.clamp(max_turn_left, max_turn_right);
+
+    // let =
     let request = Step {
         forward: request.forward,
         left: request.left,
@@ -190,6 +215,8 @@ fn clamp_step_to_walk_volume(
         max_step_size_backwards,
         translation_exponent,
         rotation_exponent,
+        max_turn_left,
+        max_turn_right,
     ) <= 1.0
     {
         return request;
@@ -201,6 +228,8 @@ fn clamp_step_to_walk_volume(
         max_step_size_backwards,
         translation_exponent,
         rotation_exponent,
+        max_turn_left,
+        max_turn_right,
     );
     Step {
         forward,
@@ -215,6 +244,8 @@ fn calculate_walk_volume(
     max_step_size_backwards: f32,
     translation_exponent: f32,
     rotation_exponent: f32,
+    max_turn_left: f32,
+    max_turn_right: f32,
 ) -> f32 {
     let is_walking_forward = request.forward.is_sign_positive();
     let max_forward = if is_walking_forward {
@@ -224,7 +255,11 @@ fn calculate_walk_volume(
     };
     let x = request.forward / max_forward;
     let y = request.left / max_step_size.left;
-    let angle = request.turn / max_step_size.turn;
+    let angle = if request.turn.is_sign_positive() {
+        request.turn / max_turn_right
+    } else {
+        request.turn / max_turn_left
+    };
     assert!(angle.abs() <= 1.0, "angle was {angle}");
     (x.abs().powf(translation_exponent) + y.abs().powf(translation_exponent))
         .powf(rotation_exponent / translation_exponent)
@@ -237,6 +272,8 @@ fn calculate_max_step_size_in_walk_volume(
     max_step_size_backwards: f32,
     translation_exponent: f32,
     rotation_exponent: f32,
+    max_turn_left: f32,
+    max_turn_right: f32,
 ) -> (f32, f32) {
     let is_walking_forward = request.forward.is_sign_positive();
     let max_forward = if is_walking_forward {
@@ -246,7 +283,11 @@ fn calculate_max_step_size_in_walk_volume(
     };
     let x = request.forward / max_forward;
     let y = request.left / max_step_size.left;
-    let angle = request.turn / max_step_size.turn;
+    let angle = if request.turn.is_sign_positive() {
+        request.turn / max_turn_right
+    } else {
+        request.turn / max_turn_left
+    };
     assert!(angle.abs() <= 1.0);
     let scale = ((1.0 - angle.abs().powf(rotation_exponent))
         .powf(translation_exponent / rotation_exponent)
