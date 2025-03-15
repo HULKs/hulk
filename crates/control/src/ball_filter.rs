@@ -21,9 +21,13 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
+    motion_command::KickVariant,
     parameters::BallFilterParameters,
 };
-use walking_engine::mode::Mode;
+use walking_engine::{
+    mode::{kicking::Kicking, Mode},
+    KickState,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
@@ -187,7 +191,17 @@ impl BallFilter {
                 .expect("time ran backwards");
             let validity_high_enough =
                 hypothesis.validity >= filter_parameters.validity_discard_threshold;
-            let ball_kicked = matches!(walking_engine_mode, Mode::Kicking(_));
+
+            let ball_kicked = matches!(
+                walking_engine_mode,
+                Mode::Kicking(Kicking {
+                    kick: KickState {
+                        variant: KickVariant::Side,
+                        ..
+                    },
+                    ..
+                })
+            );
             is_ball_inside_field(ball, field_dimensions)
                 && validity_high_enough
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout
@@ -241,10 +255,17 @@ impl BallFilter {
 
         let best_hypothesis = self
             .ball_filter
-            .best_hypothesis(filter_parameters.validity_output_threshold);
+            .best_hypothesis(filter_parameters.validity_output_threshold)
+            .or(self.ball_filter.last_output_hypothesis_if_available())
+            .cloned();
+        let its_identifier = best_hypothesis
+            .as_ref()
+            .map(|hypothesis| hypothesis.identifier());
+        self.ball_filter.set_last_output_identifier(its_identifier);
+
         context
             .best_ball_hypothesis
-            .fill_if_subscribed(|| best_hypothesis.cloned());
+            .fill_if_subscribed(|| best_hypothesis.clone());
 
         let filtered_ball = best_hypothesis.map(|hypothesis| hypothesis.position());
 
