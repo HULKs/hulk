@@ -13,6 +13,7 @@ use types::{
 };
 
 use crate::{
+    compensate_stiffness_loss::CompensateStiffnessLossExt,
     parameters::{Parameters, SwingingArmsParameters},
     Context,
 };
@@ -94,7 +95,13 @@ impl StepState {
             right_sole_to_robot * right_foot,
         )
         .balance_using_gyro(&self.gyro_balancing, self.plan.support_side)
-        .level_swing_foot(&self.foot_leveling, self.plan.support_side);
+        .level_swing_foot(&self.foot_leveling, self.plan.support_side)
+        .compensate_stiffness_loss(
+            &context.parameters.stiffness_loss_compensation,
+            &context.last_actuated_joints.into(),
+            &context.measured_joints.into(),
+            self.plan.support_side,
+        );
 
         let left_arm = swinging_arm(
             &context.parameters.swinging_arms,

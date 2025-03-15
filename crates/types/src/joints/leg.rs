@@ -1,5 +1,5 @@
 use std::{
-    ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub},
     time::Duration,
 };
 
@@ -115,6 +115,17 @@ where
             ankle_pitch: self.ankle_pitch + right.ankle_pitch,
             ankle_roll: self.ankle_roll + right.ankle_roll,
         }
+    }
+}
+
+impl AddAssign for LegJoints<f32> {
+    fn add_assign(&mut self, right: Self) {
+        self.hip_yaw_pitch += right.hip_yaw_pitch;
+        self.hip_roll += right.hip_roll;
+        self.hip_pitch += right.hip_pitch;
+        self.knee_pitch += right.knee_pitch;
+        self.ankle_pitch += right.ankle_pitch;
+        self.ankle_roll += right.ankle_roll;
     }
 }
 

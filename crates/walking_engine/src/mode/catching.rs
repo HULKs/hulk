@@ -32,8 +32,11 @@ impl Catching {
         let parameters = &context.parameters;
 
         let step_duration = parameters.base.step_duration;
-        let start_feet =
-            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
+        let start_feet = Feet::from_joints(
+            context.robot_to_walk,
+            &context.last_actuated_joints,
+            support_side,
+        );
 
         let end_feet = catching_end_feet(parameters, *context.zero_moment_point, support_side);
         let max_swing_foot_lift =

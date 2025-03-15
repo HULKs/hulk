@@ -27,8 +27,11 @@ pub struct Kicking {
 
 impl Kicking {
     pub fn new(context: &Context, kick: KickState, support_side: Side) -> Self {
-        let start_feet =
-            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
+        let start_feet = Feet::from_joints(
+            context.robot_to_walk,
+            &context.last_actuated_joints,
+            support_side,
+        );
 
         let kick_step = kick.get_step(context.kick_steps);
         let base_step = kick_step.base_step;
