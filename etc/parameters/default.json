@@ -525,7 +525,7 @@
   "kick_steps": {
     "forward": [
       {
-        "base_step": { "forward": 0.02, "left": 0.0, "turn": 0.0 },
+        "base_step": { "forward": 0.03, "left": 0.0, "turn": 0.0 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.015,
         "midpoint": 0.5,
@@ -541,7 +541,7 @@
         }
       },
       {
-        "base_step": { "forward": 0.05, "left": 0.0, "turn": 0.0 },
+        "base_step": { "forward": 0.06, "left": 0.0, "turn": 0.0 },
         "step_duration": { "nanos": 280000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
@@ -627,7 +627,7 @@
         }
       },
       {
-        "base_step": { "forward": 0.03, "left": 0.0, "turn": -0.2 },
+        "base_step": { "forward": 0.045, "left": 0.0, "turn": -0.2 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
@@ -1153,7 +1153,7 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.22, -0.04],
+      "position": [-0.18, -0.04],
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
       "reached_x": {
