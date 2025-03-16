@@ -414,7 +414,7 @@
       },
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
-      "torso_tilt_base": 0.055,
+      "torso_tilt_base": 0.0575,
       "torso_tilt": {
         "forward": 0.0,
         "left": 0.0,
