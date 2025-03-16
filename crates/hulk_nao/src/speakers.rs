@@ -14,10 +14,9 @@ use enum_iterator::all;
 use log::{error, warn};
 use opusfile_ng::OggOpusFile;
 use serde::Deserialize;
-use types::{
-    audio::{Sound, SpeakerRequest},
-    hardware::Paths,
-};
+
+use hula_types::Paths;
+use types::audio::{Sound, SpeakerRequest};
 
 use crate::audio_parameter_deserializers::{deserialize_access, deserialize_format};
 

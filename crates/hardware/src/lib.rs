@@ -1,10 +1,11 @@
 use std::time::SystemTime;
 
 use color_eyre::eyre::Result;
+
+use hula_types::{Ids, Paths};
 use types::{
     audio::SpeakerRequest,
     camera_position::CameraPosition,
-    hardware::{Ids, Paths},
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
