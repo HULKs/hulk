@@ -279,8 +279,9 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             state.typed_since_focused = false;
         }
         let should_open_popup = response.has_focus() && state.typed_since_focused;
-        let user_completed_search = matches!(should_close_popup, Some(true))
-            || response.lost_focus() && ui.input(|reader| reader.key_pressed(Key::Enter));
+        let pressed_enter = ui.input(|reader| reader.key_pressed(Key::Enter));
+        let user_completed_search =
+            matches!(should_close_popup, Some(true)) || response.lost_focus() && pressed_enter;
 
         ui.memory_mut(|memory| {
             if should_open_popup {
@@ -292,6 +293,10 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         });
         if user_completed_search {
             response.mark_changed();
+            if pressed_enter && state.user_state == UserState::Typing && !matching_items.is_empty()
+            {
+                state.user_state = UserState::Selecting { index: 0 };
+            }
             if let UserState::Selecting { index } = state.user_state {
                 let (actual_index, _) = matching_items[index];
                 *self.selected = self.suggestions[actual_index].to_string();
