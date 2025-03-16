@@ -43,7 +43,6 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
-    filtered_kicking_team: Input<Option<Team>, "filtered_kicking_team?">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -94,6 +93,12 @@ impl GameControllerStateFilter {
             .chain(new_opponent_penalties_last_cycle.iter())
             .any(|(_, penalty)| matches!(penalty, Penalty::IllegalMotionInSet { .. }));
 
+        let kicking_team = self.find_kicking_team(
+            &context,
+            &new_own_penalties_last_cycle,
+            &new_opponent_penalties_last_cycle,
+        );
+
         let game_states = self.filter_game_states(
             *context.ground_to_field,
             context.ball_position,
@@ -105,7 +110,7 @@ impl GameControllerStateFilter {
             *context.visual_referee_proceed_to_ready,
             *context.player_number,
             did_receive_motion_in_set_penalty,
-            context.filtered_kicking_team.copied(),
+            kicking_team,
         );
 
         let filtered_game_controller_state = FilteredGameControllerState {
@@ -113,11 +118,7 @@ impl GameControllerStateFilter {
             opponent_game_state: game_states.opponent,
             remaining_time_in_half: context.game_controller_state.remaining_time_in_half,
             game_phase: context.game_controller_state.game_phase,
-            kicking_team: self.find_kicking_team(
-                &context,
-                &new_own_penalties_last_cycle,
-                &new_opponent_penalties_last_cycle,
-            ),
+            kicking_team,
             penalties: context.game_controller_state.penalties,
             remaining_number_of_messages: context
                 .game_controller_state
@@ -250,18 +251,20 @@ impl GameControllerStateFilter {
 
         let (time, ball) = self.last_observed_ball?;
 
-        if context
-            .cycle_time
-            .start_time
-            .duration_since(time)
-            .expect("time ran backwards")
-            > context.config.duration_to_keep_observed_ball
+        let is_not_in_penalty_kick = game_controller_state.sub_state != Some(SubState::PenaltyKick);
+        if is_not_in_penalty_kick
+            && context
+                .cycle_time
+                .start_time
+                .duration_since(time)
+                .expect("time ran backwards")
+                > context.config.duration_to_keep_observed_ball
         {
             self.last_observed_ball = None;
             return None;
         }
 
-        if new_own_penalties_last_cycle.len() > 0 {
+        if !new_own_penalties_last_cycle.is_empty() {
             self.last_time_hulk_was_penalized = Some(context.cycle_time.start_time);
         }
 
@@ -279,7 +282,7 @@ impl GameControllerStateFilter {
             self.last_time_hulk_was_penalized = None;
         }
 
-        if new_opponent_penalties_last_cycle.len() > 0 {
+        if !new_opponent_penalties_last_cycle.is_empty() {
             self.last_time_opponent_was_penalized = Some(context.cycle_time.start_time);
         }
 
