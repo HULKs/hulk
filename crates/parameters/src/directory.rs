@@ -7,7 +7,8 @@ use std::{
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{error, from_str, to_string_pretty, to_value, Value};
-use types::hardware::Ids;
+
+use hula_types::Ids;
 
 use super::json::{clone_nested_value, merge_json, prune_equal_branches};
 

@@ -5,19 +5,20 @@ use color_eyre::{
     eyre::{eyre, Context, OptionExt},
     Report, Result,
 };
-use communication::{
-    client::{Client, ClientHandle, PathsEvent, Status},
-    messages::{Path, TextOrBinary},
-};
 use log::error;
-use parameters::{directory::Scope, json::nest_value_at_path};
-use repository::Repository;
 use serde_json::Value;
 use tokio::{
     runtime::{Builder, Runtime},
     spawn,
 };
-use types::hardware::Ids;
+
+use communication::{
+    client::{Client, ClientHandle, PathsEvent, Status},
+    messages::{Path, TextOrBinary},
+};
+use hula_types::Ids;
+use parameters::{directory::Scope, json::nest_value_at_path};
+use repository::Repository;
 
 use crate::{
     change_buffer::{Change, ChangeBuffer, ChangeBufferHandle},

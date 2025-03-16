@@ -1829,6 +1829,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
+ "hula_types",
  "ittapi",
  "linear_algebra",
  "log",
@@ -4242,6 +4243,7 @@ name = "hardware"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "hula_types",
  "types",
 ]
 
@@ -4377,6 +4379,7 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 name = "hula_types"
 version = "0.1.0"
 dependencies = [
+ "path_serde",
  "serde",
  "zbus 5.5.0",
 ]
@@ -4399,6 +4402,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
+ "hula_types",
  "hulk_manifest",
  "ittapi",
  "libc",
@@ -4441,6 +4445,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
+ "hula_types",
  "hulk_manifest",
  "indicatif",
  "ittapi",
@@ -4484,6 +4489,7 @@ dependencies = [
  "fern",
  "framework",
  "hardware",
+ "hula_types",
  "hulk",
  "libc",
  "linear_algebra",
@@ -4524,6 +4530,7 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
+ "hula_types",
  "hulk_manifest",
  "ittapi",
  "linear_algebra",
@@ -4557,6 +4564,7 @@ dependencies = [
  "fern",
  "framework",
  "hardware",
+ "hula_types",
  "hulk",
  "linear_algebra",
  "log",
@@ -6389,22 +6397,22 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "framework",
+ "hula_types",
  "hulk",
  "parameters",
  "repository",
  "serde_json",
- "types",
 ]
 
 [[package]]
 name = "parameters"
 version = "0.1.0"
 dependencies = [
+ "hula_types",
  "serde",
  "serde_ignored",
  "serde_json",
  "thiserror 2.0.12",
- "types",
 ]
 
 [[package]]
@@ -7188,6 +7196,7 @@ dependencies = [
  "color-eyre",
  "futures-util",
  "home",
+ "hula_types",
  "itertools 0.14.0",
  "nao",
  "parameters",
@@ -7200,7 +7209,6 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
- "types",
  "xdg",
 ]
 
@@ -8730,6 +8738,7 @@ dependencies = [
  "framework",
  "geometry",
  "gilrs",
+ "hula_types",
  "hulk_widgets",
  "image",
  "itertools 0.14.0",

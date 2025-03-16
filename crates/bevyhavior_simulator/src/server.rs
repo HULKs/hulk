@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use tokio::{net::ToSocketAddrs, select, time::interval};
 use tokio_util::sync::CancellationToken;
 
+use hula_types::Ids;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use types::{
-    ball_position::SimulatorBallState, field_dimensions::FieldDimensions, hardware::Ids,
-    players::Players,
+    ball_position::SimulatorBallState, field_dimensions::FieldDimensions, players::Players,
 };
 
 use crate::{cyclers::control::Database, recorder::Frame, robot::to_player_number};

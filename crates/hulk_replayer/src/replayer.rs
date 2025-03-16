@@ -8,10 +8,10 @@ use ctrlc::set_handler;
 use eframe::run_native;
 use framework::Parameters as FrameworkParameters;
 use hardware::IdInterface;
+use hula_types::Ids;
 use serde_json::from_reader;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
-use types::hardware::Ids;
 
 use crate::{
     execution::Replayer,

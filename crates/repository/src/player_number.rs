@@ -1,10 +1,10 @@
 use color_eyre::{eyre::Context, Result};
+use hula_types::Ids;
 use parameters::{
     directory::{serialize, Id, Location, Scope},
     json::nest_value_at_path,
 };
 use spl_network_messages::PlayerNumber;
-use types::hardware::Ids;
 
 use crate::Repository;
 
