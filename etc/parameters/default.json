@@ -371,7 +371,7 @@
     "max_inside_turn": 0.6,
     "initial_side_bonus": 0.03,
     "step_size_delta_slow": {
-      "forward": -0.025,
+      "forward": 0.0,
       "left": 0.0,
       "turn": 0.0
     },
