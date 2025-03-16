@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use serde::{Deserialize, Serialize};
 
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use spl_network_messages::{GameState, SubState, Team};
 use types::{
     cycle_time::CycleTime,
@@ -28,6 +28,8 @@ pub struct CycleContext {
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
 
+    last_observed_ball: AdditionalOutput<Option<(SystemTime, BallState)>, "last_observed_ball">,
+
     duration_to_keep_observed_ball:
         Parameter<Duration, "kicking_team_filter.duration_to_keep_observed_ball">,
 }
@@ -44,15 +46,18 @@ impl KickingTeamFilter {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let filtered_kicking_team = self.find_kicking_team(context);
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let filtered_kicking_team = self.find_kicking_team(&context);
+        context
+            .last_observed_ball
+            .fill_if_subscribed(|| self.last_observed_ball.clone());
 
         Ok(MainOutputs {
             filtered_kicking_team: filtered_kicking_team.into(),
         })
     }
 
-    fn find_kicking_team(&mut self, context: CycleContext) -> Option<Team> {
+    fn find_kicking_team(&mut self, context: &CycleContext) -> Option<Team> {
         let game_controller_state = context.game_controller_state;
 
         if let Some(kicking_team) = game_controller_state.kicking_team {
@@ -64,10 +69,10 @@ impl KickingTeamFilter {
         };
 
         let (time, ball) = self.last_observed_ball?;
-        let is_in_penalty_kick = game_controller_state.sub_state == Some(SubState::PenaltyKick);
+        let is_not_in_penalty_kick = game_controller_state.sub_state != Some(SubState::PenaltyKick);
 
-        if is_in_penalty_kick
-            || context
+        if is_not_in_penalty_kick
+            && context
                 .cycle_time
                 .start_time
                 .duration_since(time)
