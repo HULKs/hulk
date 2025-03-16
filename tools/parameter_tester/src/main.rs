@@ -1,4 +1,8 @@
-use std::{env::args, fs::File};
+use std::{
+    env::{args, set_current_dir},
+    fs::File,
+    path::PathBuf,
+};
 
 use color_eyre::{
     eyre::{Ok, WrapErr},
@@ -7,16 +11,20 @@ use color_eyre::{
 
 use framework::Parameters as FrameworkParameters;
 use parameters::directory::deserialize;
+use repository::Repository;
 use serde_json::from_reader;
 use types::hardware::Ids;
 
 fn main() -> Result<()> {
-    let framework_parameters_path = args()
-        .nth(1)
-        .unwrap_or("etc/parameters/framework.json".to_string());
+    let repository_search_path = match args().nth(1) {
+        Some(path) => PathBuf::from(path),
+        None => PathBuf::from("."),
+    };
+    let repository = Repository::find_root(repository_search_path).expect("no repository found");
+    set_current_dir(repository.root).expect("failed to cd to repo root");
 
-    let file =
-        File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
+    let file = File::open("etc/parameters/framework.json")
+        .wrap_err("failed to open framework parameters")?;
     let framework_parameters: FrameworkParameters =
         from_reader(file).wrap_err("failed to parse framework parameters")?;
 
