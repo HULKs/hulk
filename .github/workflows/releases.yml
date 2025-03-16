@@ -1,0 +1,64 @@
+name: Check Releases
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  releases:
+    name: Check for releases
+    outputs:
+      trigger_pepsi_release: ${{ steps.pepsi_version.outputs.is_new_version }}
+      pepsi_release_ref: pepsi-v${{ steps.pepsi_version.outputs.version }}
+    runs-on:
+      ubuntu-latest
+      # - self-hosted
+      # - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.84.1
+      # options: --user=1000:1000
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for pepsi release
+        id: pepsi_version
+        uses: hulks/rust-release@v1.1
+        with:
+          title: pepsi
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cargo: tools/pepsi/Cargo.toml
+          dry_run: false
+      - name: Push Tag
+        if: ${{ steps.pepsi_version.outputs.is_new_version == 'true' }}
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: pepsi-v${{ steps.pepsi_version.outputs.version }}
+
+  pepsi_release:
+    name: "pepsi release"
+    needs: releases
+    if: ${{ needs.releases.outputs.trigger_pepsi_release == 'true' }}
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu]
+    runs-on:
+      ubuntu-latest
+      # - self-hosted
+      # - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.84.1
+      # options: --user=1000:1000
+      options: --user root
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.releases.outputs.pepsi_release_ref }}
+      - name: Build Pepsi
+        run: |
+          cargo build --target ${{ matrix.target }} --manifest-path tools/pepsi/Cargo.toml --release
+          gzip -c target/${{ matrix.target }}/release/pepsi > pepsi-${{ matrix.target }}.gz
+      - name: Upload compiled artifact to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.releases.outputs.pepsi_release_ref }}
+          files: pepsi-*.gz
