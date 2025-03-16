@@ -114,6 +114,7 @@ pub fn execute(
         .duration_since(last_time_role_changed)
         .expect("time went backwards")
         < Duration::from_secs_f32(estimated_ball_arrival_time)
+        && ground_to_field.as_pose().position().y().abs() < field_dimensions.penalty_area_width / 2.0
     {
         return Some(MotionCommand::Stand { head });
     };
