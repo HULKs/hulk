@@ -196,8 +196,9 @@ impl Localization {
                 }),
             ) => {
                 let penalty_shoot_out_striker_pose = Pose2::from(point![
-                    -context.field_dimensions.penalty_area_length
-                        + (context.field_dimensions.length / 2.0),
+                    (context.field_dimensions.length / 2.0)
+                        - context.field_dimensions.penalty_marker_distance
+                        - 1.0,
                     0.0,
                 ]);
                 self.hypotheses = vec![ScoredPose::from_isometry(
