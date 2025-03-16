@@ -1,0 +1,38 @@
+opponent = "HTWK"
+phase = "second-half-penalty-shootout"
+location = "go25"
+wifi = "SPL_A"
+base = "hulk/main"
+branches = [
+  "oleflb/fix-kicking-team-filter",
+  "oleflb/ball-filter-save-last-mode",
+  "Franziska-Sophie/field-color-detection",
+  "paudar/change-line_measurement_noise",
+  "paudar/defender-searcher-delay",
+  "schmidma/more-aggressive-defender",
+  "schluis/penalty-shot-strength",
+  "schmidma/parameters",
+  "JackyBloxx/semi_final_cal",
+]
+assignments = [
+  "41:1",
+  "21:2",
+  "34:3",
+  "32:4",
+  "37:5",
+  "33:6",
+  "40:7",
+]
+substitutions = [
+  # "30:",
+  # "31:",
+]
+with_communication = false
+
+[recording_intervals]
+Control = 1
+VisionTop = 30
+VisionBottom = 30
+SplNetwork = 1
+# ObjectDetectionTop = 30
+# Audio = 1
