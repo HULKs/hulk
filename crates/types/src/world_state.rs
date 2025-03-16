@@ -51,6 +51,27 @@ pub struct BallState {
     pub field_side: Side,
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
+)]
+pub enum LastBallState {
+    #[default]
+    NoLastBall,
+    LastBall {
+        time: SystemTime,
+        ball: BallState,
+    },
+}
+
 impl Default for BallState {
     fn default() -> Self {
         Self {
