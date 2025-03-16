@@ -223,6 +223,14 @@ impl Field {
             }
             "CyclerState" => {
                 let (data_type, path) = extract_two_arguments(&first_segment.arguments, true)?;
+                if path.contains_optional() {
+                    return Err(ParseError::new_spanned(
+                        &first_segment.arguments,
+                        format!(
+                            "unexpected optional segments in path of cycler state `{field_name}`"
+                        ),
+                    ));
+                }
                 Ok(Field::CyclerState {
                     data_type: data_type.to_absolute(uses),
                     name: field_name.clone(),
