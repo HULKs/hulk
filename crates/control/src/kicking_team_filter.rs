@@ -64,13 +64,15 @@ impl KickingTeamFilter {
         };
 
         let (time, ball) = self.last_observed_ball?;
+        let is_in_penalty_kick = game_controller_state.sub_state == Some(SubState::PenaltyKick);
 
-        if context
-            .cycle_time
-            .start_time
-            .duration_since(time)
-            .expect("time ran backwards")
-            > *context.duration_to_keep_observed_ball
+        if is_in_penalty_kick
+            || context
+                .cycle_time
+                .start_time
+                .duration_since(time)
+                .expect("time ran backwards")
+                > *context.duration_to_keep_observed_ball
         {
             self.last_observed_ball = None;
             return None;
