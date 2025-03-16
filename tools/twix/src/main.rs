@@ -448,7 +448,7 @@ impl App for TwixApp {
                     if context.keybind_pressed(KeybindAction::FocusPanel) {
                         panel_input.request_focus();
                     }
-                    if panel_input.changed() || panel_input.lost_focus() {
+                    if panel_input.changed() {
                         match SelectablePanel::try_from_name(
                             &self.panel_selection,
                             self.nao.clone(),
