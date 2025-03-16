@@ -5,22 +5,40 @@ on: push
 #     branches:
 #       - main
 #   workflow_dispatch:
+
 jobs:
   build_pepsi:
     name: Build pepsi
     runs-on:
+      ubuntu-latest
       # - self-hosted
       # - v3
-      - ubuntu-latest
     container:
       image: ghcr.io/hulks/hulk-ci:1.84.1
-      options: --user=1000:1000
+      # options: --user=1000:1000
+      options: --user root
     steps:
-      - uses: actions/checkout@v4
-      - name: Build pepsi
-        run: ./pepsi build pepsi
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # - name: Build
+      #   run: cargo build --manifest-path tools/pepsi/Cargo.toml --release
+
+      - name: Push tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # tag: ${{ steps.package-version.outputs.version }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rustdoc
-          path: target/release/pepsi
+          name: pepsi
+          # path: target/release/pepsi
+          path: Cargo.toml
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: Cargo.toml
