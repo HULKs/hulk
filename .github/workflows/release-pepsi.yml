@@ -1,0 +1,26 @@
+name: Release Pepsi
+on: push
+# on:
+#   push:
+#     branches:
+#       - main
+#   workflow_dispatch:
+jobs:
+  build_pepsi:
+    name: Build pepsi
+    runs-on:
+      # - self-hosted
+      # - v3
+      - ubuntu-latest
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.84.1
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pepsi
+        run: ./pepsi build pepsi
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdoc
+          path: target/release/pepsi
