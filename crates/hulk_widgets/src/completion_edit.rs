@@ -214,6 +214,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                     response.id,
                     EventFilter {
                         tab: true,
+                        horizontal_arrows: true,
                         vertical_arrows: true,
                         ..Default::default()
                     },
