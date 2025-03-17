@@ -4,11 +4,11 @@ use color_eyre::{
     eyre::{Ok, WrapErr},
     Result,
 };
+use serde_json::from_reader;
 
 use framework::Parameters as FrameworkParameters;
+use hula_types::Ids;
 use parameters::directory::deserialize;
-use serde_json::from_reader;
-use types::hardware::Ids;
 
 fn main() -> Result<()> {
     let framework_parameters_path = args()

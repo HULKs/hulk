@@ -26,6 +26,7 @@ fern = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 gilrs = { workspace = true }
+hula_types = { workspace = true }
 hulk_widgets = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }

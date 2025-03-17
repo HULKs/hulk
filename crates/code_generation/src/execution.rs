@@ -22,7 +22,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
             parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
             log_path: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
-            hardware_ids: types::hardware::Ids,
+            hardware_ids: hula_types::Ids,
             keep_running: tokio_util::sync::CancellationToken,
             recording_intervals: std::collections::HashMap<String, usize>,
         ) -> color_eyre::Result<()>
@@ -189,7 +189,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
             pub fn new(
                 hardware_interface: std::sync::Arc<Hardware>,
                 parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
-                hardware_ids: types::hardware::Ids,
+                hardware_ids: hula_types::Ids,
                 recordings_file_path: impl std::convert::AsRef<std::path::Path>,
                 #replayer_arguments
             ) -> color_eyre::Result<Self>

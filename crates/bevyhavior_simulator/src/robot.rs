@@ -20,6 +20,7 @@ use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head};
 use framework::{future_queue, Producer, RecordingTrigger};
 use geometry::{direction::Rotate90Degrees, line_segment::LineSegment};
+use hula_types::Ids;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
@@ -27,7 +28,6 @@ use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
-    hardware::Ids,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     motion_selection::MotionSafeExits,
