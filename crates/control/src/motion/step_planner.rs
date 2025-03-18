@@ -43,6 +43,7 @@ pub struct CycleContext {
 
     ground_to_upcoming_support_out:
         AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
+    max_step_size_output: AdditionalOutput<Step, "max_step_size">,
 }
 
 #[context]
@@ -64,6 +65,7 @@ impl StepPlanner {
         } else {
             None
         };
+
         let (max_turn_left, max_turn_right) = if let Some(support_side) = support_side {
             if support_side == Side::Left {
                 (-*context.max_inside_turn, context.max_step_size.turn)
@@ -87,20 +89,41 @@ impl StepPlanner {
             } => (path, orientation_mode, speed),
             _ => {
                 return Ok(MainOutputs {
-                    planned_step: Step {
-                        forward: 0.0,
-                        left: 0.0,
-                        turn: 0.0,
-                    }
-                    .into(),
+                    planned_step: Step::default().into(),
                 })
             }
         };
 
+        let initial_side_bonus = if self.last_planned_step.forward.abs()
+            + self.last_planned_step.left.abs()
+            + self.last_planned_step.turn.abs()
+            <= f32::EPSILON
+        {
+            Step {
+                forward: 0.0,
+                left: *context.initial_side_bonus,
+                turn: 0.0,
+            }
+        } else {
+            Step::default()
+        };
+
+        let max_step_size = match speed {
+            WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
+            WalkSpeed::Normal => *context.max_step_size + initial_side_bonus,
+            WalkSpeed::Fast => {
+                *context.max_step_size + *context.step_size_delta_fast + initial_side_bonus
+            }
+        };
+
+        context
+            .max_step_size_output
+            .fill_if_subscribed(|| max_step_size);
+
         let segment = path
             .iter()
             .scan(0.0f32, |distance, segment| {
-                let result = if *distance < context.max_step_size.forward {
+                let result = if *distance < max_step_size.forward {
                     Some(segment)
                 } else {
                     None
@@ -161,28 +184,6 @@ impl StepPlanner {
             step = *injected_step;
         }
 
-        let initial_side_bonus = if self.last_planned_step.forward.abs()
-            + self.last_planned_step.left.abs()
-            + self.last_planned_step.turn.abs()
-            <= f32::EPSILON
-        {
-            Step {
-                forward: 0.0,
-                left: *context.initial_side_bonus,
-                turn: 0.0,
-            }
-        } else {
-            Step::default()
-        };
-
-        let max_step_size = match speed {
-            WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
-            WalkSpeed::Normal => *context.max_step_size + initial_side_bonus,
-            WalkSpeed::Fast => {
-                *context.max_step_size + *context.step_size_delta_fast + initial_side_bonus
-            }
-        };
-
         let step = clamp_step_to_walk_volume(
             step,
             &max_step_size,
@@ -213,7 +214,6 @@ fn clamp_step_to_walk_volume(
     // Values in range [-1..1]
     let clamped_turn = request.turn.clamp(max_turn_left, max_turn_right);
 
-    // let =
     let request = Step {
         forward: request.forward,
         left: request.left,
