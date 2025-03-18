@@ -6391,6 +6391,7 @@ dependencies = [
  "framework",
  "hulk",
  "parameters",
+ "repository",
  "serde_json",
  "types",
 ]
