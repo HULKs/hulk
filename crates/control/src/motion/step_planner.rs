@@ -161,7 +161,11 @@ impl StepPlanner {
             step = *injected_step;
         }
 
-        let initial_side_bonus = if self.last_planned_step.left.abs() <= f32::EPSILON {
+        let initial_side_bonus = if self.last_planned_step.forward.abs()
+            + self.last_planned_step.left.abs()
+            + self.last_planned_step.turn.abs()
+            <= f32::EPSILON
+        {
             Step {
                 forward: 0.0,
                 left: *context.initial_side_bonus,
