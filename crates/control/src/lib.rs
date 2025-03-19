@@ -1,5 +1,6 @@
 pub mod a_star;
 pub mod active_vision;
+pub mod ball_contact_counter;
 pub mod ball_filter;
 pub mod ball_state_composer;
 pub mod behavior;
