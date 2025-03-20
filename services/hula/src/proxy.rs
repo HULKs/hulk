@@ -19,10 +19,16 @@ use color_eyre::eyre::{bail, Result, WrapErr};
 use epoll::{ControlOptions, Event, Events};
 use hula_types::{HulaControlFrame, RobotState};
 use log::{debug, error, info, warn};
+use motionfile::{MotionFile, MotionInterpolator};
+use nalgebra::Vector3;
 use rmp_serde::{encode::write_named, from_slice};
+use types::{
+    condition_input::ConditionInput, fall_state::FallState, joints::Joints,
+    motor_commands::MotorCommands,
+};
 
 use crate::{
-    idle::{charging_skull, send_idle},
+    idle::{charging_skull, send_idle, send_sit_down},
     SharedState,
 };
 
@@ -88,16 +94,46 @@ impl Proxy {
         let mut connections: HashMap<i32, Connection> = HashMap::new();
         let mut events = [Event::new(Events::empty(), 0); 16];
         let mut writer = BufWriter::with_capacity(786, self.lola.try_clone()?);
+        let mut loop_start = Instant::now();
+
+        let mut sit_down_interpolator: MotionInterpolator<Joints<f32>> =
+            MotionFile::from_path("etc/motions/sit_down.json")?.try_into()?;
 
         let mut operation_state = OperationState::GuestsInControl;
 
         debug!("Entering epoll loop...");
         loop {
+            let loop_duration = loop_start.elapsed();
+            loop_start = Instant::now();
+
             debug!("Operation state: {:?}", operation_state);
 
             if matches!(operation_state, OperationState::SittingDown) {
-                // sitting down;
-                operation_state = OperationState::GuestsInControl;
+                sit_down_interpolator.advance_by(
+                    loop_duration,
+                    &ConditionInput {
+                        filtered_angular_velocity: Vector3::zeros(),
+                        ground_contact: true,
+                        fall_state: FallState::Upright,
+                    },
+                );
+
+                let sit_down_joints_command = MotorCommands {
+                    positions: sit_down_interpolator.value(),
+                    stiffnesses: Joints::fill(0.8),
+                };
+
+                send_sit_down(
+                    &mut writer,
+                    sit_down_joints_command.positions,
+                    sit_down_joints_command.stiffnesses,
+                )
+                .wrap_err("failed to send sit down command to LoLA")?;
+
+                if sit_down_interpolator.is_finished() {
+                    operation_state = OperationState::GuestsInControl;
+                    sit_down_interpolator.reset();
+                }
             } else if !connections
                 .values()
                 .any(|connection| connection.is_sending_control_frames)

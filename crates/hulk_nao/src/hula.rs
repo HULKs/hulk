@@ -3,10 +3,7 @@ use std::{io::Write, mem::size_of, os::unix::net::UnixStream, slice::from_raw_pa
 use color_eyre::{eyre::Context, Result};
 use linear_algebra::IntoFramed;
 use nalgebra::{vector, Vector2, Vector3};
-use types::{
-    self,
-    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints, Joints},
-};
+use types;
 
 use super::double_buffered_reader::{DoubleBufferedReader, SelectPoller};
 

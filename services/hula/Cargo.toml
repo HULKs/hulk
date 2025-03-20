@@ -20,3 +20,6 @@ rmp-serde = "1.3.0"
 serde = { version = "1.0.217", features = ["derive"] }
 systemd = "0.10.0"
 zbus = "5.5.0"
+nalgebra = { version = "0.33.2" }
+motionfile = { path = "../../crates/motionfile/" }
+types = { path = "../../crates/types/" }

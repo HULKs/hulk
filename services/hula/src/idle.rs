@@ -6,8 +6,9 @@ use std::{
 };
 
 use color_eyre::eyre::{Result, WrapErr};
-use hula_types::{Battery, LolaControlFrame};
+use hula_types::{Battery, JointsArray, LolaControlFrame};
 use rmp_serde::encode::write_named;
+use types::joints::Joints;
 
 pub fn knight_rider_eyes() -> ([f32; 24], [f32; 24]) {
     let since_epoch = UNIX_EPOCH.elapsed().expect("time ran backwards");
@@ -116,6 +117,26 @@ pub fn send_idle(writer: &mut BufWriter<UnixStream>, battery: Option<Battery>) -
     if let Some(battery) = &battery {
         control_frame.skull = charging_skull(battery);
     }
+    write_named(writer, &control_frame).wrap_err("failed to serialize control message")?;
+    writer
+        .flush()
+        .wrap_err("failed to flush control data to LoLA")?;
+    Ok(())
+}
+
+pub fn send_sit_down(
+    writer: &mut BufWriter<UnixStream>,
+    positions: Joints<f32>,
+    stiffnesses: Joints<f32>,
+) -> Result<()> {
+    let mut control_frame = LolaControlFrame::default();
+
+    let positions: JointsArray = positions.into();
+    let stifnesses: JointsArray = stiffnesses.into();
+
+    control_frame.position = positions.into_lola();
+    control_frame.stiffness = stifnesses.into_lola();
+
     write_named(writer, &control_frame).wrap_err("failed to serialize control message")?;
     writer
         .flush()
