@@ -1,0 +1,34 @@
+opponent = "B-Human"
+phase = "second-half"
+location = "go25"
+wifi = "SPL_A"
+base = "hulk/main"
+branches = [
+  "oleflb/fix-kicking-team-filter",
+  "oleflb/ball-filter-save-last-mode",
+  "Franziska-Sophie/field-color-detection",
+  "paudar/defender-searcher-delay",
+  "JackyBloxx/finla_calibration",
+]
+assignments = [
+  "40:1",
+  "37:2",
+  "33:3",
+  "21:4",
+  "32:5",
+  "34:6",
+  "41:7",
+]
+substitutions = [
+  # ":",
+  # "31:",
+]
+with_communication = false
+
+[recording_intervals]
+Control = 1
+VisionTop = 30
+VisionBottom = 30
+SplNetwork = 1
+# ObjectDetectionTop = 30
+# Audio = 1
