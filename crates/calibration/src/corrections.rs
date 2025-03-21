@@ -1,6 +1,7 @@
 use nalgebra::{vector, Rotation3, SVector, UnitQuaternion};
 use serde::{Deserialize, Serialize};
 
+use approx_derive::{AbsDiffEq, RelativeEq};
 use linear_algebra::IntoTransform;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::camera_matrix::CameraMatrix;
@@ -18,7 +19,11 @@ pub const AMOUNT_OF_PARAMETERS: usize = 9;
     PathDeserialize,
     PathSerialize,
     PathIntrospect,
+    PartialEq,
+    AbsDiffEq,
+    RelativeEq,
 )]
+#[abs_diff_eq(epsilon_type = f32)]
 pub struct Corrections {
     pub correction_in_robot: Rotation3<f32>,
     pub correction_in_camera_top: Rotation3<f32>,
