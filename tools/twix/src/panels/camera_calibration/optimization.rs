@@ -22,11 +22,11 @@ use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
 
 use crate::{nao::Nao, value_buffer::BufferHandle};
 
-const ROBOT_CORRECTION_PATH: &'static str =
+const ROBOT_CORRECTION_PATH: &str =
     "parameters.camera_matrix_parameters.calibration.correction_in_robot";
-const CAMERA_TOP_CORRECTION_PATH: &'static str =
+const CAMERA_TOP_CORRECTION_PATH: &str =
     "parameters.camera_matrix_parameters.calibration.correction_in_camera_top";
-const CAMERA_BOTTOM_CORRECTION_PATH: &'static str =
+const CAMERA_BOTTOM_CORRECTION_PATH: &str =
     "parameters.camera_matrix_parameters.calibration.correction_in_camera_bottom";
 
 pub struct SemiAutomaticCalibrationContext {
@@ -184,7 +184,8 @@ impl SemiAutomaticCalibrationContext {
             .wrap_err("failed to optimize")?;
 
         self.apply_corrections(corrections, |path, value| {
-            Ok(self.nao.write(path, TextOrBinary::Text(value)))
+            self.nao.write(path, TextOrBinary::Text(value));
+            Ok(())
         })?;
         self.state = OptimizationState::Optimized {
             corrections,
@@ -196,13 +197,14 @@ impl SemiAutomaticCalibrationContext {
     pub fn reset(&mut self) -> Result<()> {
         self.state = OptimizationState::NotOptimized;
         self.apply_corrections(Corrections::default(), |path, value| {
-            Ok(self.nao.write(path, TextOrBinary::Text(value)))
+            self.nao.write(path, TextOrBinary::Text(value));
+            Ok(())
         })
     }
 
     pub fn save_to_head(&self) -> Result<()> {
         if let OptimizationState::Optimized { corrections, .. } = &self.state {
-            return self.apply_corrections(corrections.clone(), |path, value| {
+            return self.apply_corrections(*corrections, |path, value| {
                 let parameter_path = path.split_once('.').wrap_err("invalid path")?.1;
                 self.nao
                     .store_parameters(parameter_path, value, Scope::default_head())

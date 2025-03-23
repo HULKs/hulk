@@ -110,14 +110,14 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
             if ui.button("Next (and save lines)").clicked() {
                 let result = self.save_measurement();
                 if let Err(error) = result {
-                    println!("Error: {}", error.to_string());
+                    println!("Error: {}", error);
                 }
                 let result = self
                     .optimization
                     .run_optimization(self.saved_measurements.clone());
 
                 if let Err(error) = result {
-                    println!("Error: {}", error.to_string());
+                    println!("Error: {}", error);
                 }
                 self.drawn_lines = Vec::new();
             }
@@ -129,18 +129,18 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 self.saved_measurements = Vec::new();
                 let result = self.optimization.reset();
                 if let Err(error) = result {
-                    println!("Error: {}", error.to_string());
+                    println!("Error: {}", error);
                 }
             }
             if ui.button("Save to head").clicked() {
                 let result = self.optimization.save_to_head();
                 if let Err(error) = result {
-                    println!("Error: {}", error.to_string());
+                    println!("Error: {}", error);
                 }
                 self.saved_measurements = Vec::new();
                 let result = self.optimization.reset();
                 if let Err(error) = result {
-                    println!("Error: {}", error.to_string());
+                    println!("Error: {}", error);
                 }
             }
         });
