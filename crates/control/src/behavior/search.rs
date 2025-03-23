@@ -109,13 +109,15 @@ pub fn execute(
         .coords()
         .norm();
     let estimated_ball_arrival_time = distance_to_ball / parameters.estimated_ball_speed;
+    let near_own_penalty_box = ground_to_field.as_pose().position().y().abs()
+        < field_dimensions.penalty_area_width / 2.0
+        && ground_to_field.as_pose().position().x() < 0.0;
     if world_state
         .now
         .duration_since(last_time_role_changed)
         .expect("time went backwards")
         < Duration::from_secs_f32(estimated_ball_arrival_time)
-        && ground_to_field.as_pose().position().y().abs()
-            < field_dimensions.penalty_area_width / 2.0
+        && near_own_penalty_box
     {
         return Some(MotionCommand::Stand { head });
     };
