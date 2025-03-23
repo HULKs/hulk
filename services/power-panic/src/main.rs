@@ -78,16 +78,16 @@ async fn main() -> Result<()> {
         let battery = get_battery_info().await?;
         println!("Battery: {:?}", battery);
 
-        let mut time_to_sleep = 60;
+        let mut time_to_sleep = Duration::from_secs(60);
 
         let battery_is_low = battery.charge < 0.20;
         let battery_is_charging = battery.current > 0.0;
 
         if  battery_is_low && !battery_is_charging {
             audio_player.play();
-            time_to_sleep = (battery.charge * 100.0) as u64;
+            time_to_sleep = Duration::from_secs((battery.charge * 100.0) as u64);
         }
         
-        sleep(Duration::from_secs(time_to_sleep));
+        sleep(time_to_sleep);
     }
 }
