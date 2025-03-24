@@ -22,36 +22,43 @@ pub struct FootLeveling {
 
 impl FootLeveling {
     pub fn tick(&mut self, context: &Context, normalized_time_since_start: f32) {
-        let robot_orientation = *context.robot_orientation;
-        let robot_to_walk_rotation = context.robot_to_walk.rotation();
-        let level_orientation = robot_orientation.inner * robot_to_walk_rotation.inner.inverse();
-        let (level_roll, level_pitch, _) = level_orientation.euler_angles();
+        let parameters = &context.parameters.foot_leveling;
 
-        let return_factor =
-            if normalized_time_since_start < context.parameters.start_level_reduce_to_zero {
-                1.0
-            } else {
-                1.0 - normalized_time_since_start
-            };
+        // The default torso rotation represents the desired, slightly leaned forward/backward configuration
+        let default_torso_rotation = context.robot_to_walk.rotation();
 
-        let pitch_base_factor = if level_pitch > 0.0 {
-            context.parameters.pitch_positive_level_factor
+        // The current sensed orientation of the robot
+        let current_orientation = context.robot_orientation;
+
+        // This difference (leveling_error) represents the misalignment that we need to correct for foot leveling
+        let leveling_error = current_orientation.inner * default_torso_rotation.inner.inverse();
+        let (roll_angle, pitch_angle, _) = leveling_error.euler_angles();
+
+        // Use a full effect early in the step, then reduce the leveling effect gradually over the step progress
+        let leveling_factor = if normalized_time_since_start < parameters.start_reduce_to_zero {
+            1.0
         } else {
-            context.parameters.pitch_negative_level_factor
+            1.0 - normalized_time_since_start
         };
 
-        let pitch_scale_factor =
-            (level_pitch.abs() / context.parameters.pitch_level_scale).min(1.0);
-        let target_pitch = -level_pitch * return_factor * pitch_base_factor * pitch_scale_factor;
+        // Choose the base pitch factor depending on whether the robot is leaning forward or backward
+        let base_pitch_factor = if pitch_angle > 0.0 {
+            parameters.leaning_forward_factor
+        } else {
+            parameters.leaning_backwards_factor
+        };
 
-        let roll_scale_factor = (level_roll.abs() / context.parameters.roll_level_scale).min(1.0);
-        let target_roll =
-            -level_roll * return_factor * context.parameters.roll_level_factor * roll_scale_factor;
+        let pitch_scaling = (pitch_angle.abs() / parameters.pitch_scale).min(1.0);
+        let desired_pitch = -pitch_angle * leveling_factor * base_pitch_factor * pitch_scaling;
 
-        let max_delta = context.parameters.max_level_delta;
+        let base_roll_factor = parameters.roll_factor;
+        let roll_scaling = (roll_angle.abs() / parameters.roll_scale).min(1.0);
+        let desired_roll = -roll_angle * leveling_factor * base_roll_factor * roll_scaling;
 
-        self.roll = self.roll + (target_roll - self.roll).clamp(-max_delta, max_delta);
-        self.pitch = self.pitch + (target_pitch - self.pitch).clamp(-max_delta, max_delta);
+        // Smoothly update the corrections with a maximum allowed delta.
+        let max_delta = parameters.max_level_delta;
+        self.roll += (desired_roll - self.roll).clamp(-max_delta, max_delta);
+        self.pitch += (desired_pitch - self.pitch).clamp(-max_delta, max_delta);
     }
 }
 
