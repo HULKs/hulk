@@ -16,16 +16,10 @@ pub struct Parameters {
     pub base: Base,
     pub catching_steps: CatchingStepsParameters,
     pub gyro_balancing: GyroBalancingParameters,
+    pub foot_leveling: FootLevelingParameters,
     pub max_forward_acceleration: f32,
     pub max_base_inside_turn: f32,
     pub max_inside_turn_increase: f32,
-    pub max_level_delta: f32,
-    pub start_level_reduce_to_zero: f32,
-    pub pitch_level_scale: f32,
-    pub roll_level_scale: f32,
-    pub pitch_positive_level_factor: f32,
-    pub pitch_negative_level_factor: f32,
-    pub roll_level_factor: f32,
     pub max_rotation_speed: f32,
     pub max_step_duration: Duration,
     pub max_support_foot_lift_speed: f32,
@@ -86,6 +80,19 @@ pub struct GyroBalancingParameters {
     pub balance_factors: LegJoints<f32>,
     pub low_pass_factor: f32,
     pub max_delta: LegJoints<f32>,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct FootLevelingParameters {
+    pub leaning_backwards_factor: f32,
+    pub leaning_forward_factor: f32,
+    pub max_level_delta: f32,
+    pub pitch_scale: f32,
+    pub roll_factor: f32,
+    pub roll_scale: f32,
+    pub start_reduce_to_zero: f32,
 }
 
 #[derive(
