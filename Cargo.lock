@@ -9037,6 +9037,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "vista"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "hulk_manifest",
+ "hulk_widgets",
+ "repository",
+ "source_analyzer",
+ "tokio",
+]
+
+[[package]]
 name = "wait-timeout"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,26 +1,20 @@
-use egui::{
-    vec2, Align2, Context, CornerRadius, Id, InnerResponse, Key, Rect, Response, Sense, TextStyle,
-    Ui, Widget,
-};
+use egui::{vec2, Align2, CornerRadius, Id, Key, Rect, Response, Sense, TextStyle, Ui, Widget};
 
 const ANIMATION_TIME_SECONDS: f32 = 0.1;
 
 pub struct SegmentedControl<'ui, T> {
-    selectables: &'ui [T],
     id: Id,
+    selected: &'ui mut usize,
+    selectables: &'ui [T],
     corner_radius: Option<CornerRadius>,
     text_style: TextStyle,
 }
 
-#[derive(Debug, Default, Clone)]
-struct SegmentedControlState {
-    selected: usize,
-}
-
 impl<'ui, T: ToString> SegmentedControl<'ui, T> {
-    pub fn new(id: impl Into<Id>, selectables: &'ui [T]) -> Self {
+    pub fn new(id: impl Into<Id>, selected: &'ui mut usize, selectables: &'ui [T]) -> Self {
         SegmentedControl {
             id: id.into(),
+            selected,
             selectables,
             corner_radius: None,
             text_style: TextStyle::Body,
@@ -31,25 +25,20 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
         self.corner_radius = Some(corner_radius.into());
         self
     }
+}
 
-    pub fn ui(self, ui: &mut Ui) -> InnerResponse<&'ui T> {
-        let mut state = load_state(ui.ctx(), self.id);
-        let response = self.show(ui, &mut state);
-        let selected = &self.selectables[state.selected];
-        save_state(ui.ctx(), self.id, state);
-        InnerResponse::new(selected, response)
-    }
-
-    fn show(&self, ui: &mut Ui, state: &mut SegmentedControlState) -> Response {
+impl<T: ToString> Widget for SegmentedControl<'_, T> {
+    fn ui(mut self, ui: &mut Ui) -> Response {
+        let this = &mut self;
         let width = ui.available_width();
         let text_style = ui
             .style()
             .text_styles
-            .get(&self.text_style)
+            .get(&this.text_style)
             .expect("failed to get text style")
             .clone();
         let text_size = text_style.size * ui.ctx().pixels_per_point();
-        let corner_radius = self
+        let corner_radius = this
             .corner_radius
             .unwrap_or(ui.style().noninteractive().corner_radius);
 
@@ -58,10 +47,10 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
         if response.contains_pointer() {
             ui.input(|reader| {
                 if reader.key_pressed(Key::ArrowLeft) || reader.key_pressed(Key::ArrowDown) {
-                    state.selected = state.selected.saturating_sub(1);
+                    *this.selected = this.selected.saturating_sub(1);
                     response.mark_changed();
                 } else if reader.key_pressed(Key::ArrowRight) || reader.key_pressed(Key::ArrowUp) {
-                    state.selected = (state.selected + 1).min(self.selectables.len() - 1);
+                    *this.selected = (*this.selected + 1).min(this.selectables.len() - 1);
                     response.mark_changed();
                 }
             })
@@ -72,31 +61,31 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
             ui.style().visuals.extreme_bg_color,
         );
 
-        let text_rects = text_rects(response.rect, self.selectables.len());
+        let text_rects = text_rects(response.rect, this.selectables.len());
         let offset = text_rects[0].width();
 
         let translation = ui.ctx().animate_value_with_time(
-            self.id,
-            offset * state.selected as f32,
+            this.id,
+            offset * *this.selected as f32,
             ANIMATION_TIME_SECONDS,
         );
         let selector_rect = text_rects[0].translate(vec2(translation, 0.0)).shrink(2.0);
         let selector_response =
-            ui.interact(selector_rect, self.id.with("selector"), Sense::click());
+            ui.interact(selector_rect, this.id.with("selector"), Sense::click());
         let selector_style = ui.style().interact(&selector_response);
         painter.rect_filled(selector_rect, corner_radius, selector_style.bg_fill);
 
         let noninteractive_style = ui.style().noninteractive();
 
-        for (idx, (&rect, text)) in text_rects.iter().zip(self.selectables.iter()).enumerate() {
-            let label_response = ui.interact(rect, self.id.with(idx), Sense::click());
+        for (idx, (&rect, text)) in text_rects.iter().zip(this.selectables.iter()).enumerate() {
+            let label_response = ui.interact(rect, this.id.with(idx), Sense::click());
             let style = ui.style().interact(&response);
 
-            let show_line = idx > 0 && state.selected != idx && state.selected + 1 != idx;
+            let show_line = idx > 0 && *this.selected != idx && *this.selected + 1 != idx;
             {
                 let animated_height = ui
                     .ctx()
-                    .animate_bool(self.id.with("vline").with(idx), show_line);
+                    .animate_bool(this.id.with("vline").with(idx), show_line);
 
                 let height = vec2(0.0, rect.height() - 4.0);
                 let center = rect.left_center();
@@ -111,7 +100,7 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
             }
 
             if label_response.clicked() {
-                state.selected = idx;
+                *this.selected = idx;
                 response.mark_changed();
             }
             painter.text(
@@ -124,24 +113,6 @@ impl<'ui, T: ToString> SegmentedControl<'ui, T> {
         }
         response
     }
-}
-
-impl<T: ToString> Widget for SegmentedControl<'_, T> {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let mut state = load_state(ui.ctx(), self.id);
-        let response = self.show(ui, &mut state);
-        save_state(ui.ctx(), self.id, state);
-        response
-    }
-}
-
-fn load_state(ctx: &Context, id: Id) -> SegmentedControlState {
-    let persisted = ctx.data_mut(|reader| reader.get_temp(id));
-    persisted.unwrap_or_default()
-}
-
-fn save_state(ctx: &Context, id: Id, state: SegmentedControlState) {
-    ctx.data_mut(|writer| writer.insert_temp(id, state));
 }
 
 fn text_rects(mut rect: Rect, number_of_texts: usize) -> Vec<Rect> {

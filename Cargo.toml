@@ -54,6 +54,7 @@ members = [
   "tools/parameter_tester",
   "tools/pepsi",
   "tools/twix",
+  "tools/vista",
   "tools/widget_gallery",
 ]
 resolver = "2"
