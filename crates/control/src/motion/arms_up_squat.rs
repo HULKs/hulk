@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
+use framework::deserialize_not_implemented;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
@@ -14,8 +15,9 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct ArmsUpSquat {
-    state: InterpolatorState<Joints<f32>>,
+    #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<Joints<f32>>,
+    state: InterpolatorState<Joints<f32>>,
 }
 
 #[context]
@@ -53,7 +55,7 @@ impl ArmsUpSquat {
 
         if motion_selection.current_motion == MotionType::ArmsUpSquat {
             self.interpolator
-                .advance_by(&mut self.state, last_cycle_duration, condition_input);
+                .advance_state(&mut self.state, last_cycle_duration, condition_input);
         } else {
             self.state.reset();
         }

@@ -1,8 +1,9 @@
 use color_eyre::Result;
 use context_attribute::context;
+use framework::deserialize_not_implemented;
 use framework::MainOutput;
 use hardware::PathsInterface;
-use motionfile::{MotionFile, MotionInterpolator};
+use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
 use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
@@ -14,7 +15,9 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct JumpLeft {
+    #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<MotorCommands<Joints<f32>>>,
+    state: InterpolatorState<MotorCommands<Joints<f32>>>,
 }
 
 #[context]
@@ -43,6 +46,7 @@ impl JumpLeft {
         Ok(Self {
             interpolator: MotionFile::from_path(paths.motions.join("jump_left.json"))?
                 .try_into()?,
+            state: InterpolatorState::INITIAL,
         })
     }
 
@@ -52,14 +56,14 @@ impl JumpLeft {
 
         if context.motion_selection.current_motion == MotionType::JumpLeft {
             self.interpolator
-                .advance_by(last_cycle_duration, condition_input);
+                .advance_state(&mut self.state, last_cycle_duration, condition_input);
         } else {
-            self.interpolator.reset();
+            self.state.reset();
         }
-        context.motion_safe_exits[MotionType::JumpLeft] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::JumpLeft] = self.state.is_finished();
 
         Ok(MainOutputs {
-            jump_left_joints_command: self.interpolator.value().into(),
+            jump_left_joints_command: self.interpolator.value(self.state).into(),
         })
     }
 }

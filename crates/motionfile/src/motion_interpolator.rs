@@ -136,7 +136,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         ReturnState::Continue
     }
 
-    fn advance_state(
+    fn handle_state_transitions(
         &self,
         state: &mut InterpolatorState<T>,
         time_step: Duration,
@@ -213,7 +213,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         };
     }
 
-    pub fn advance_by(
+    pub fn advance_state(
         &self,
         state: &mut InterpolatorState<T>,
         time_step: Duration,
@@ -223,7 +223,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
             return;
         }
 
-        self.advance_state(state, time_step, condition_input);
+        self.handle_state_transitions(state, time_step, condition_input);
     }
 
     pub fn value(&self, state: InterpolatorState<T>) -> T {

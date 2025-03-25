@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
+use framework::deserialize_not_implemented;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use linear_algebra::Vector3;
@@ -18,6 +19,7 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct StandUpSitting {
+    #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<Joints<f32>>,
     state: InterpolatorState<Joints<f32>>,
     filtered_gyro: LowPassFilter<nalgebra::Vector3<f32>>,
@@ -66,27 +68,28 @@ impl StandUpSitting {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let estimated_remaining_duration =
-            if context.motion_selection.current_motion == MotionType::StandUpSitting {
-                let last_cycle_duration = context.cycle_time.last_cycle_duration;
-                let condition_input = context.condition_input;
+        let estimated_remaining_duration = if context.motion_selection.current_motion
+            == MotionType::StandUpSitting
+        {
+            let last_cycle_duration = context.cycle_time.last_cycle_duration;
+            let condition_input = context.condition_input;
 
-                self.interpolator
-                    .advance_by(&mut self.state, last_cycle_duration, condition_input);
+            self.interpolator
+                .advance_state(&mut self.state, last_cycle_duration, condition_input);
 
-                RemainingStandUpDuration::Running(
-                    self.interpolator.estimated_remaining_duration(self.state),
-                )
-            } else {
-                self.state.reset();
-                RemainingStandUpDuration::NotRunning
-            };
+            RemainingStandUpDuration::Running(
+                self.interpolator.estimated_remaining_duration(self.state),
+            )
+        } else {
+            self.state.reset();
+            RemainingStandUpDuration::NotRunning
+        };
         context.motion_safe_exits[MotionType::StandUpSitting] = self.state.is_finished();
 
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
 
-        let mut positions = self.interpolator.value();
+        let mut positions = self.interpolator.value(self.state);
         positions.left_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.left_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
         positions.right_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
