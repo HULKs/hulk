@@ -7,6 +7,7 @@ use linear_algebra::{Point2, Vector2};
     Clone,
     Copy,
     Debug,
+    Default,
     Deserialize,
     PartialEq,
     PathDeserialize,
