@@ -13,7 +13,7 @@ ctrlc = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
-hulk = { workspace = true }
+hulk = { workspace = true, features = ["no_realtime"] }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
