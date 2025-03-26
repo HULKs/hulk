@@ -34,7 +34,7 @@ impl BallFilter {
             .max_by(|a, b| a.validity.partial_cmp(&b.validity).unwrap())
     }
 
-    pub fn last_output_hypothesis_if_available(&self) -> Option<&BallHypothesis> {
+    pub fn last_output_hypothesis(&self) -> Option<&BallHypothesis> {
         let identifier = self.last_output_hypothesis_identifier?;
         self.hypotheses
             .iter()
@@ -95,10 +95,10 @@ impl BallFilter {
                         Some(identifier) if identifier == hypothesis.identifier() => {
                             hypothesis.identifier()
                         }
-                        Some(_) | None => mergeable_hypothesis.identifier(),
+                        Some(_) | None => mergeable_hypothesis.identifier,
                     };
                     mergeable_hypothesis.merge(hypothesis);
-                    mergeable_hypothesis.set_identifier(preferred_identifier);
+                    mergeable_hypothesis.identifier = preferred_identifier;
                 } else {
                     deduplicated.push(hypothesis);
                 }

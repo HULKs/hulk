@@ -192,7 +192,7 @@ impl BallFilter {
             let validity_high_enough =
                 hypothesis.validity >= filter_parameters.validity_discard_threshold;
 
-            let ball_kicked = matches!(
+            let ball_kicked_with_side_kick = matches!(
                 walking_engine_mode,
                 Mode::Kicking(Kicking {
                     kick: KickState {
@@ -205,7 +205,7 @@ impl BallFilter {
             is_ball_inside_field(ball, field_dimensions)
                 && validity_high_enough
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout
-                && !ball_kicked
+                && !ball_kicked_with_side_kick
         };
 
         let should_merge_hypotheses =
@@ -256,7 +256,7 @@ impl BallFilter {
         let best_hypothesis = self
             .ball_filter
             .best_hypothesis(filter_parameters.validity_output_threshold)
-            .or(self.ball_filter.last_output_hypothesis_if_available())
+            .or(self.ball_filter.last_output_hypothesis())
             .cloned();
         let its_identifier = best_hypothesis
             .as_ref()
