@@ -1585,8 +1585,8 @@
   },
   "search_suggestor": {
     "cells_per_meter": 2.0,
-    "heatmap_convolution_kernel_weight": 992.0,
-    "minimum_validity": 0.01
+    "heatmap_convolution_kernel_weight": 0.001007049,
+    "minimum_validity": 0.01  
   },
   "physical_constants": {
     "gravity_acceleration": 9.81
