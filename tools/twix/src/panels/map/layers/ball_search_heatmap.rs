@@ -54,9 +54,10 @@ impl Layer<Field> for BallSearchHeatmap {
                         0,
                         0,
                         255,
-                        (value.powf(1.2) * 255.0 * 4.0).min(255.0) as u8,
+                        (value.powf(1.2) * 255.0 * 3.0) as u8,
                     ),
                 );
+                dbg!(value);
             }
         }
 

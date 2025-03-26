@@ -63,7 +63,8 @@ impl SearchSuggestor {
                 .round() as usize,
         );
         let heatmap = Heatmap {
-            map: Array2::zeros((heatmap_length, heatmap_width)),
+            map: Array2::ones((heatmap_length, heatmap_width))
+                / (heatmap_length * heatmap_width) as f32,
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
         };
@@ -71,7 +72,7 @@ impl SearchSuggestor {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let _ = self.update_heatmap(&context);
+        self.update_heatmap(&context);
         let suggested_search_position = self
             .heatmap
             .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
@@ -85,7 +86,7 @@ impl SearchSuggestor {
         })
     }
 
-    fn update_heatmap(&mut self, context: &CycleContext) -> Result<()> {
+    fn update_heatmap(&mut self, context: &CycleContext) {
         if let Some(ball_position) = context.ball_position {
             if let Some(ground_to_field) = context.ground_to_field {
                 self.heatmap[ground_to_field * ball_position.position] = 1.0;
@@ -107,30 +108,28 @@ impl SearchSuggestor {
                 self.heatmap[rule_ball_hypothesis] = 1.0;
             }
         }
-
-        let kernel: Array2<f32> = 1.0
-            / (8.0
-                + context
-                    .search_suggestor_configuration
-                    .heatmap_convolution_kernel_weight)
-            * array![
-                [1.0, 1.0, 1.0],
-                [
-                    1.0,
-                    context
-                        .search_suggestor_configuration
-                        .heatmap_convolution_kernel_weight,
-                    1.0
-                ],
-                [1.0, 1.0, 1.0]
-            ];
-        self.heatmap.map =
+        let kernel = create_kernel(
+            context
+                .search_suggestor_configuration
+                .heatmap_convolution_kernel_weight,
+        );
+        if let Ok(convolved_heatmap) =
             self.heatmap
                 .map
-                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)?;
-        self.heatmap.map /= self.heatmap.map.sum() + f32::EPSILON;
-        Ok(())
+                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
+        {
+            self.heatmap.map = convolved_heatmap;
+            self.heatmap.map /= self.heatmap.map.sum();
+        }
     }
+}
+
+fn create_kernel(alpha: f32) -> Array2<f32> {
+    array![
+        [alpha, alpha, alpha],
+        [alpha, 1.0 - alpha, alpha],
+        [alpha, alpha, alpha]
+    ] / (1.0 + 7.0 * alpha)
 }
 
 #[derive(Deserialize, Serialize)]
