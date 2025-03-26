@@ -27,11 +27,12 @@ impl BallFilter {
         self.last_output_hypothesis_identifier = identifier;
     }
 
-    pub fn best_hypothesis(&self, validity_threshold: f32) -> Option<&BallHypothesis> {
-        self.hypotheses
+    pub fn output_hypothesis(&self, validity_threshold: f32) -> Option<&BallHypothesis> {
+        let best_hypothesis = self
+            .hypotheses
             .iter()
             .filter(|hypothesis| hypothesis.validity >= validity_threshold)
-            .max_by(|a, b| a.validity.partial_cmp(&b.validity).unwrap())
+            .max_by(|a, b| a.validity.partial_cmp(&b.validity).unwrap());
     }
 
     pub fn last_output_hypothesis(&self) -> Option<&BallHypothesis> {
