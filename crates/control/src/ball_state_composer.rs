@@ -28,7 +28,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    last_ball_state: CyclerState<LastBallState, "last_ball_state">,
+    last_ball_state: CyclerState<Option<LastBallState>, "last_ball_state">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
@@ -131,11 +131,11 @@ impl BallStateComposer {
         };
 
         *context.last_ball_state = match ball {
-            Some(ball) => LastBallState::LastBall {
+            Some(ball) => Some(LastBallState {
                 time: context.cycle_time.start_time,
                 ball,
-            },
-            None => LastBallState::NoLastBall,
+            }),
+            None => None,
         };
 
         Ok(MainOutputs {

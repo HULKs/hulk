@@ -24,7 +24,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
-    last_ball_state: CyclerState<LastBallState, "last_ball_state">,
+    last_ball_state: CyclerState<Option<LastBallState>, "last_ball_state">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
 
@@ -50,7 +50,7 @@ impl KickingTeamFilter {
         let filtered_kicking_team = self.find_kicking_team(&context);
         context
             .last_observed_ball
-            .fill_if_subscribed(|| self.last_observed_ball.clone());
+            .fill_if_subscribed(|| self.last_observed_ball);
 
         Ok(MainOutputs {
             filtered_kicking_team: filtered_kicking_team.into(),
@@ -64,9 +64,9 @@ impl KickingTeamFilter {
             return Some(kicking_team);
         }
 
-        if let LastBallState::LastBall { time, ball } = *context.last_ball_state {
+        if let Some(LastBallState { time, ball }) = *context.last_ball_state {
             self.last_observed_ball = Some((time, ball));
-        };
+        }
 
         let (time, ball) = self.last_observed_ball?;
         let is_not_in_penalty_kick = game_controller_state.sub_state != Some(SubState::PenaltyKick);

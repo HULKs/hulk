@@ -55,7 +55,6 @@ pub struct BallState {
     Clone,
     Copy,
     Debug,
-    Default,
     Serialize,
     Deserialize,
     PathSerialize,
@@ -63,13 +62,9 @@ pub struct BallState {
     PathIntrospect,
     PartialEq,
 )]
-pub enum LastBallState {
-    #[default]
-    NoLastBall,
-    LastBall {
-        time: SystemTime,
-        ball: BallState,
-    },
+pub struct LastBallState {
+    pub time: SystemTime,
+    pub ball: BallState,
 }
 
 impl Default for BallState {
