@@ -19,7 +19,7 @@ use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
     PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface, TimeInterface,
 };
-use hula_types::{Ids, Paths};
+use hula_types::hardware::{Ids, Paths};
 use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},

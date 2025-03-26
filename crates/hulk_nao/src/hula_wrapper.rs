@@ -7,7 +7,7 @@ use std::{
 use color_eyre::{eyre::WrapErr, Result};
 use parking_lot::{Mutex, RwLock};
 
-use hula_types::Ids;
+use hula_types::hardware::Ids;
 use types::{joints::Joints, led::Leds, sensor_data::SensorData};
 
 use super::{

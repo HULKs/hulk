@@ -1,5 +1,5 @@
 use color_eyre::{eyre::Context, Result};
-use hula_types::Ids;
+use hula_types::hardware::Ids;
 use parameters::{
     directory::{serialize, Id, Location, Scope},
     json::nest_value_at_path,

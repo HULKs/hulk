@@ -23,7 +23,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use hardware::{PathsInterface, RecordingInterface, SpeakerInterface};
-use hula_types::{Ids, Paths};
+use hula_types::hardware::{Ids, Paths};
 use spl_network::endpoint::{Endpoint, Ports};
 use types::{
     audio::SpeakerRequest,

@@ -16,7 +16,7 @@ use communication::{
     client::{Client, ClientHandle, PathsEvent, Status},
     messages::{Path, TextOrBinary},
 };
-use hula_types::Ids;
+use hula_types::hardware::Ids;
 use parameters::{directory::Scope, json::nest_value_at_path};
 use repository::Repository;
 

@@ -15,7 +15,7 @@ use log::{error, warn};
 use opusfile_ng::OggOpusFile;
 use serde::Deserialize;
 
-use hula_types::Paths;
+use hula_types::hardware::Paths;
 use types::audio::{Sound, SpeakerRequest};
 
 use crate::audio_parameter_deserializers::{deserialize_access, deserialize_format};

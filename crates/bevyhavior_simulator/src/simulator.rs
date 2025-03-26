@@ -14,7 +14,7 @@ use color_eyre::{
     Result,
 };
 
-use hula_types::Ids;
+use hula_types::hardware::Ids;
 use repository::Repository;
 
 use crate::{

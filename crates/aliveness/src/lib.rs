@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use service_manager::SystemServices;
 use tokio::{net::UdpSocket, time};
 
-pub use hula_types::{Battery, JointsArray};
+pub use hula_types::robot_state::{Battery, JointsArray};
 
 pub mod service_manager;
 

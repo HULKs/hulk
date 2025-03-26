@@ -13,7 +13,7 @@ use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
     PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface,
 };
-use hula_types::{Ids, Paths};
+use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
 use types::{
     audio::SpeakerRequest,

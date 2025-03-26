@@ -11,7 +11,7 @@ use color_eyre::{
 use serde_json::from_reader;
 
 use framework::Parameters as FrameworkParameters;
-use hula_types::Ids;
+use hula_types::hardware::Ids;
 use parameters::directory::deserialize;
 use repository::Repository;
 

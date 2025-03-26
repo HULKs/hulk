@@ -4,7 +4,7 @@ use hardware::{
 
 use color_eyre::eyre::Result;
 
-use hula_types::Paths;
+use hula_types::hardware::Paths;
 use types::{
     audio::SpeakerRequest,
     joints::Joints,
