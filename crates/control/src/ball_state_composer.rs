@@ -130,13 +130,10 @@ impl BallStateComposer {
             _ => None,
         };
 
-        *context.last_ball_state = match ball {
-            Some(ball) => Some(LastBallState {
-                time: context.cycle_time.start_time,
-                ball,
-            }),
-            None => None,
-        };
+        *context.last_ball_state = ball.map(|ball| LastBallState {
+            time: context.cycle_time.start_time,
+            ball,
+        });
 
         Ok(MainOutputs {
             ball_state: ball.into(),
