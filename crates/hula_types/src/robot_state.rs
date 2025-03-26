@@ -1,4 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize};
+#[cfg(feature = "zbus")]
 use zbus::zvariant::Type;
 
 #[derive(Debug, Default, Deserialize)]
@@ -67,7 +68,8 @@ where
         .ok_or_else(|| serde::de::Error::custom("version is not a number"))
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "zbus", derive(Type))]
 #[repr(C)]
 pub struct Battery {
     pub charge: f32,
@@ -147,7 +149,8 @@ pub struct SonarSensors {
     right: f32,
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "zbus", derive(Type))]
 #[repr(C)]
 pub struct JointsArray {
     head_yaw: f32,

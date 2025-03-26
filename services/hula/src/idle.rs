@@ -6,7 +6,7 @@ use std::{
 };
 
 use color_eyre::eyre::{Result, WrapErr};
-use hula_types::{Battery, LolaControlFrame};
+use hula_types::{lola::LolaControlFrame, robot_state::Battery};
 use rmp_serde::encode::write_named;
 
 pub fn knight_rider_eyes() -> ([f32; 24], [f32; 24]) {

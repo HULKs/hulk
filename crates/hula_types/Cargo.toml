@@ -8,4 +8,9 @@ homepage.workspace = true
 [dependencies]
 path_serde = { workspace = true }
 serde = { workspace = true }
-zbus = { workspace = true }
+zbus = { workspace = true, optional = true }
+
+[features]
+default = []
+
+zbus = ["dep:zbus"]
