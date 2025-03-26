@@ -255,7 +255,7 @@ impl BallFilter {
 
         let best_hypothesis = self
             .ball_filter
-            .best_hypothesis(filter_parameters.validity_output_threshold)
+            .output_hypothesis(filter_parameters.validity_output_threshold)
             .or(self.ball_filter.last_output_hypothesis())
             .cloned();
         let its_identifier = best_hypothesis
