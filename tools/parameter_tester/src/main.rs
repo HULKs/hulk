@@ -5,7 +5,7 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{Ok, WrapErr},
+    eyre::{ContextCompat, Ok, WrapErr},
     Result,
 };
 
@@ -20,8 +20,9 @@ fn main() -> Result<()> {
         Some(path) => PathBuf::from(path),
         None => PathBuf::from("."),
     };
-    let repository = Repository::find_root(repository_search_path).expect("no repository found");
-    set_current_dir(repository.root).expect("failed to cd to repo root");
+    let repository =
+        Repository::find_root(repository_search_path).wrap_err("no repository found")?;
+    set_current_dir(repository.root).wrap_err("failed to cd to repo root")?;
 
     let file = File::open("etc/parameters/framework.json")
         .wrap_err("failed to open framework parameters")?;
