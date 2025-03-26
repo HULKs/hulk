@@ -450,13 +450,15 @@
         "ankle_roll": 0.05
       }
     },
-    "max_level_delta": 0.122173,
-    "start_level_reduce_to_zero": 0.75,
-    "pitch_level_scale": 0.0872665,
-    "roll_level_scale": 0.0872665,
-    "pitch_positive_level_factor": 0.75,
-    "pitch_negative_level_factor": 0.5,
-    "roll_level_factor": 0.5,
+    "foot_leveling": {
+      "leaning_backwards_factor": 0.5,
+      "leaning_forward_factor": 0.75,
+      "max_level_delta": 0.122173,
+      "pitch_scale": 0.0872665,
+      "roll_factor": 0.5,
+      "roll_scale": 0.0872665,
+      "start_reduce_to_zero": 0.75
+    },
     "max_rotation_speed": 50000.0,
     "max_forward_acceleration": 0.01,
     "max_base_inside_turn": 0.1,
