@@ -9,13 +9,6 @@ use color_eyre::{
     eyre::{bail, eyre, Context as _, ContextCompat},
     Result,
 };
-
-use communication::client::Status;
-use configuration::{
-    keybind_plugin::{self, KeybindSystem},
-    keys::KeybindAction,
-    Configuration,
-};
 use eframe::{
     egui::{
         CentralPanel, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui, Widget,
@@ -27,9 +20,16 @@ use eframe::{
 };
 use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
-
-use hulk_widgets::CompletionEdit;
 use itertools::chain;
+use serde_json::{from_str, to_string, Value};
+
+use communication::client::Status;
+use configuration::{
+    keybind_plugin::{self, KeybindSystem},
+    keys::KeybindAction,
+    Configuration,
+};
+use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use nao::Nao;
 use panel::Panel;
@@ -38,10 +38,8 @@ use panels::{
     ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel,
     RemotePanel, TextPanel, VisionTunerPanel,
 };
-
 use reachable_naos::ReachableNaos;
 use repository::{inspect_version::check_for_update, Repository};
-use serde_json::{from_str, to_string, Value};
 use visuals::Visuals;
 
 mod change_buffer;

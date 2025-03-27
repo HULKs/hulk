@@ -1,4 +1,4 @@
-use hula_types::{Battery, JointsArray};
+use hula_types::robot_state::{Battery, JointsArray};
 use std::sync::{Arc, Mutex};
 use zbus::{
     blocking::{connection::Builder, Connection},

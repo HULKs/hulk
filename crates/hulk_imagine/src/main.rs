@@ -20,8 +20,8 @@ use mcap::{records::Metadata, Attachment};
 use rmp_serde::to_vec_named;
 use serde_json::from_str;
 
+use hula_types::hardware::Ids;
 use structs::Parameters;
-use types::hardware::Ids;
 
 use crate::execution::Replayer;
 use crate::{

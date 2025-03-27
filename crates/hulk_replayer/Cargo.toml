@@ -23,6 +23,7 @@ energy_optimization = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
+hula_types = { workspace = true }
 ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }

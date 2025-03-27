@@ -13,8 +13,9 @@ use color_eyre::{
     eyre::{eyre, Context, ContextCompat},
     Result,
 };
+
+use hula_types::hardware::Ids;
 use repository::Repository;
-use types::hardware::Ids;
 
 use crate::{
     autoref::{autoref, autoref_plugin},

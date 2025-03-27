@@ -6,7 +6,9 @@ use std::{
 
 use color_eyre::{eyre::WrapErr, Result};
 use parking_lot::{Mutex, RwLock};
-use types::{hardware::Ids, joints::Joints, led::Leds, sensor_data::SensorData};
+
+use hula_types::hardware::Ids;
+use types::{joints::Joints, led::Leds, sensor_data::SensorData};
 
 use super::{
     double_buffered_reader::{DoubleBufferedReader, SelectPoller},

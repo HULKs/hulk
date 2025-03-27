@@ -8,8 +8,8 @@ homepage.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 framework = { workspace = true }
+hula_types = { workspace = true }
 hulk = { workspace = true }
 parameters = { workspace = true }
 repository = { workspace = true }
 serde_json = { workspace = true }
-types = { workspace = true }
