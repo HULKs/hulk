@@ -18,6 +18,7 @@ fn main() -> Result<()> {
                 setup_nodes: vec!["crate::fake_data"],
                 nodes: vec![
                     "control::active_vision",
+                    "control::ball_contact_counter",
                     "control::ball_state_composer",
                     "control::behavior::node",
                     "control::dribble_path_planner",
