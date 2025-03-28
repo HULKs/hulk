@@ -1372,7 +1372,7 @@
     },
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
     "whistle_acceptance_goal_distance": [0.5, 0.5],
-    "duration_to_keep_observed_ball": { "nanos": 0, "secs": 8 },
+    "duration_to_keep_observed_ball": { "nanos": 0, "secs": 14 },
     "duration_to_keep_new_penalties": { "nanos": 0, "secs": 8 }
   },
   "referee_pose_detection_filter": {
