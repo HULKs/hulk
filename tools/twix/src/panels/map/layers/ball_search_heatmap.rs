@@ -50,8 +50,14 @@ impl Layer<Field> for BallSearchHeatmap {
                 painter.rect_filled(
                     first_point,
                     second_point,
-                    Color32::from_rgba_unmultiplied(0, 0, 255, ((value * 255.0) / 2.0) as u8),
+                    Color32::from_rgba_unmultiplied(
+                        0,
+                        0,
+                        255,
+                        (value.powf(1.2) * 255.0 * 3.0) as u8,
+                    ),
                 );
+                dbg!(value);
             }
         }
 

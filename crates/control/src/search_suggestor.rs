@@ -7,7 +7,8 @@ use framework::{AdditionalOutput, MainOutput};
 use itertools::Itertools;
 use linear_algebra::{point, Isometry2, Point2};
 use nalgebra::clamp;
-use ndarray::Array2;
+use ndarray::{array, Array2};
+use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
@@ -62,7 +63,8 @@ impl SearchSuggestor {
                 .round() as usize,
         );
         let heatmap = Heatmap {
-            map: Array2::zeros((heatmap_length, heatmap_width)),
+            map: Array2::ones((heatmap_length, heatmap_width))
+                / (heatmap_length * heatmap_width) as f32,
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
         };
@@ -106,9 +108,28 @@ impl SearchSuggestor {
                 self.heatmap[rule_ball_hypothesis] = 1.0;
             }
         }
-
-        self.heatmap.map *= 1.0 - context.search_suggestor_configuration.heatmap_decay_factor;
+        let kernel = create_kernel(
+            context
+                .search_suggestor_configuration
+                .heatmap_convolution_kernel_weight,
+        );
+        if let Ok(convolved_heatmap) =
+            self.heatmap
+                .map
+                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
+        {
+            self.heatmap.map = convolved_heatmap;
+            self.heatmap.map /= self.heatmap.map.sum();
+        }
     }
+}
+
+fn create_kernel(alpha: f32) -> Array2<f32> {
+    array![
+        [alpha, alpha, alpha],
+        [alpha, 1.0 - alpha, alpha],
+        [alpha, alpha, alpha]
+    ] / (1.0 + 7.0 * alpha)
 }
 
 #[derive(Deserialize, Serialize)]
