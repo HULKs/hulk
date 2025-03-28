@@ -1,6 +1,6 @@
 use color_eyre::eyre::{eyre, Context, Result};
 use configparser::ini::Ini;
-use hula_types::{Battery, JointsArray};
+use hula_types::robot_state::{Battery, JointsArray};
 
 use tokio::process::Command;
 use zbus::{proxy, zvariant::Optional, Connection};

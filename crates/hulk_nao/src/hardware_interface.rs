@@ -14,19 +14,20 @@ use color_eyre::{
     eyre::{eyre, Error, WrapErr},
     Result,
 };
-use hardware::{PathsInterface, RecordingInterface, SpeakerInterface};
 use parking_lot::Mutex;
 use serde::Deserialize;
-use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},
     select,
 };
 use tokio_util::sync::CancellationToken;
+
+use hardware::{PathsInterface, RecordingInterface, SpeakerInterface};
+use hula_types::hardware::{Ids, Paths};
+use spl_network::endpoint::{Endpoint, Ports};
 use types::{
     audio::SpeakerRequest,
     camera_position::CameraPosition,
-    hardware::{Ids, Paths},
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},

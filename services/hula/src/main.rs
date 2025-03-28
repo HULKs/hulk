@@ -5,7 +5,7 @@ use std::{
 
 use clap::Parser;
 use color_eyre::eyre::{Result, WrapErr};
-use hula_types::{Battery, JointsArray, RobotConfiguration};
+use hula_types::robot_state::{Battery, JointsArray, RobotConfiguration};
 use log::{debug, LevelFilter};
 use systemd::daemon::{notify, STATE_READY};
 

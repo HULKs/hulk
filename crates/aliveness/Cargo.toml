@@ -7,7 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 futures-util = { workspace = true }
-hula_types = { workspace = true }
+hula_types = { workspace = true, features = ["zbus"] }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

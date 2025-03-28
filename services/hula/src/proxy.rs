@@ -17,7 +17,7 @@ use std::{
 
 use color_eyre::eyre::{bail, Result, WrapErr};
 use epoll::{ControlOptions, Event, Events};
-use hula_types::{HulaControlFrame, RobotState};
+use hula_types::{control_frame::HulaControlFrame, robot_state::RobotState};
 use log::{debug, error, info, warn};
 use rmp_serde::{encode::write_named, from_slice};
 
