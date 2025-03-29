@@ -21,8 +21,8 @@ pub enum GameControllerCommand {
     SetSubState(Option<SubState>, Team),
     SetKickingTeam(Team),
     Goal(Team),
-    Penalize(PlayerNumber, Penalty),
-    Unpenalize(PlayerNumber),
+    Penalize(PlayerNumber, Penalty, Team),
+    Unpenalize(PlayerNumber, Team),
     BallIsFree,
 }
 
@@ -62,13 +62,16 @@ fn game_controller_controller(
                 game_controller.state.game_state = GameState::Ready;
                 state.last_state_change = time.as_generic();
             }
-            GameControllerCommand::Penalize(player_number, penalty) => {
-                game_controller.state.penalties[player_number] = Some(penalty);
+            GameControllerCommand::Penalize(player_number, penalty, team) => match team {
+                Team::Hulks => game_controller.state.penalties[player_number] = Some(penalty),
+                Team::Opponent => {
+                    game_controller.state.opponent_penalties[player_number] = Some(penalty)
             }
-            GameControllerCommand::Unpenalize(player_number) => {
-                game_controller.state.penalties[player_number] = None;
-            }
-            GameControllerCommand::SetSubState(sub_state, team) => {
+            },
+            GameControllerCommand::Unpenalize(player_number, team) => match team {
+                Team::Hulks => game_controller.state.penalties[player_number] = None,
+                Team::Opponent => game_controller.state.opponent_penalties[player_number] = None,
+            },
                 game_controller.state.sub_state = sub_state;
                 if sub_state == Some(SubState::PenaltyKick) {
                     game_controller.state.kicking_team = Some(team);
