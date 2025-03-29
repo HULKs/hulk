@@ -18,7 +18,7 @@ struct GameControllerControllerState {
 pub enum GameControllerCommand {
     SetGameState(GameState),
     SetGamePhase(GamePhase),
-    SetSubState(Option<SubState>, Team),
+    SetSubState(Option<SubState>, Team, Option<PlayerNumber>),
     SetKickingTeam(Team),
     Goal(Team),
     Penalize(PlayerNumber, Penalty, Team),
@@ -66,18 +66,42 @@ fn game_controller_controller(
                 Team::Hulks => game_controller.state.penalties[player_number] = Some(penalty),
                 Team::Opponent => {
                     game_controller.state.opponent_penalties[player_number] = Some(penalty)
-            }
+                }
             },
             GameControllerCommand::Unpenalize(player_number, team) => match team {
                 Team::Hulks => game_controller.state.penalties[player_number] = None,
                 Team::Opponent => game_controller.state.opponent_penalties[player_number] = None,
             },
+            GameControllerCommand::SetSubState(sub_state, team, penalized_player_number) => {
                 game_controller.state.sub_state = sub_state;
-                if sub_state == Some(SubState::PenaltyKick) {
-                    game_controller.state.kicking_team = Some(team);
-                    game_controller.state.game_state = GameState::Ready;
-                } else {
-                    game_controller.state.kicking_team = None;
+                match sub_state {
+                    Some(SubState::PenaltyKick) | Some(SubState::PushingFreeKick) => {
+                        if sub_state == Some(SubState::PenaltyKick) {
+                            game_controller.state.kicking_team = Some(team);
+                            game_controller.state.game_state = GameState::Ready;
+                        } else {
+                            game_controller.state.kicking_team = None;
+                        }
+                        match team {
+                            Team::Hulks => {
+                                game_controller.state.opponent_penalties[penalized_player_number
+                                    .expect("This sub state requires a penalized player number.")] =
+                                    Some(Penalty::PlayerPushing {
+                                        remaining: Duration::from_secs(45),
+                                    })
+                            }
+                            Team::Opponent => {
+                                game_controller.state.penalties[penalized_player_number
+                                    .expect("This sub state requires a penalized player number.")] =
+                                    Some(Penalty::PlayerPushing {
+                                        remaining: Duration::from_secs(45),
+                                    })
+                            }
+                        }
+                    }
+                    _ => {
+                        game_controller.state.kicking_team = None;
+                    }
                 }
                 state.last_state_change = time.as_generic();
             }
