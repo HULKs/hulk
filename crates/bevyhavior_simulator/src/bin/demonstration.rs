@@ -78,6 +78,7 @@ fn update(
             Penalty::PlayerPushing {
                 remaining: Duration::from_secs(45),
             },
+            Team::Hulks,
         ));
         // Manually move robot to some location on field
         robots
