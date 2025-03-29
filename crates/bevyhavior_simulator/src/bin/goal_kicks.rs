@@ -43,12 +43,14 @@ fn update(
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::GoalKick),
             Team::Hulks,
+            None,
         ));
     }
     if time.ticks() == 5000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::GoalKick),
             Team::Opponent,
+            None,
         ));
     }
     if game_controller.state.hulks_team.score > 0 {
