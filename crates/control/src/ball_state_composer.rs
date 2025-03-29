@@ -4,15 +4,18 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::greater_than_with_hysteresis;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
-    field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
-    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
-    world_state::BallState,
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    field_dimensions::{FieldDimensions, Side},
+    filtered_game_controller_state::FilteredGameControllerState,
+    penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState,
+    world_state::{BallState, LastBallState},
 };
 
 #[derive(Deserialize, Serialize)]
@@ -25,7 +28,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    last_ball_state: CyclerState<BallState, "last_ball_state">,
+    last_ball_state: CyclerState<LastBallState, "last_ball_state">,
+
+    additional_last_ball_state: AdditionalOutput<LastBallState, "last_ball_state">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
@@ -52,7 +57,7 @@ impl BallStateComposer {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let ball = match (
             context.ball_position,
             context.team_ball,
@@ -127,7 +132,17 @@ impl BallStateComposer {
             _ => None,
         };
 
-        *context.last_ball_state = ball.unwrap_or(BallState::default());
+        *context.last_ball_state = match ball {
+            Some(ball) => LastBallState::LastBall {
+                time: context.cycle_time.start_time,
+                ball,
+            },
+            None => LastBallState::NoLastBall,
+        };
+
+        context
+            .additional_last_ball_state
+            .fill_if_subscribed(|| *context.last_ball_state);
 
         Ok(MainOutputs {
             ball_state: ball.into(),
