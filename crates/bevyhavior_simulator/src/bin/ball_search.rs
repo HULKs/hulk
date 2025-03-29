@@ -47,6 +47,7 @@ fn update(
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::CornerKick),
             Team::Opponent,
+            None,
         ));
     }
     if time.ticks() == 5000 {

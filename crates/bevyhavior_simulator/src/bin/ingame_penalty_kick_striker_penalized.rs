@@ -45,6 +45,7 @@ fn update(
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::PenaltyKick),
             Team::Hulks,
+            Some(PlayerNumber::Four),
         ));
     }
     if time.ticks() == 3050 {
