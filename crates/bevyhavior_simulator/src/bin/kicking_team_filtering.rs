@@ -18,7 +18,8 @@ use types::{
     filtered_game_state::FilteredGameState,
 };
 
-const TICKS_PER_FREE_KICK: u32 = 83 * 30;
+const FREE_KICK_DURATION_IN_TICKS: u32 = 83 * 30;
+const PENALTY_DURATION_IN_TICKS: u32 = 83 * 45;
 
 /// Is used to generate the test functions for cargo test
 #[scenario]
@@ -65,10 +66,10 @@ fn update(
         }
     }
 
-    if time.ticks() >= 3000 && time.ticks() < 3000 + TICKS_PER_FREE_KICK {
+    if time.ticks() >= 3_000 && time.ticks() < 3_000 + FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            3000,
+            3_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -79,10 +80,10 @@ fn update(
         );
     }
 
-    if time.ticks() >= 6000 && time.ticks() < 6000 + TICKS_PER_FREE_KICK {
+    if time.ticks() >= 6_000 && time.ticks() < 6_000 + FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            6000,
+            6_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -93,10 +94,10 @@ fn update(
         );
     }
 
-    if time.ticks() >= 9000 && time.ticks() < 9000 + 2 * TICKS_PER_FREE_KICK {
+    if time.ticks() >= 9_000 && time.ticks() < 9_000 + 2 * FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            9000,
+            9_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -107,10 +108,28 @@ fn update(
         );
     }
 
-    if time.ticks() >= 15000 && time.ticks() < 15000 + TICKS_PER_FREE_KICK {
+    if time.ticks() == 9_000 + PENALTY_DURATION_IN_TICKS {
+        game_controller_commands.send(GameControllerCommand::Unpenalize(
+            PlayerNumber::Six,
+            Team::Opponent,
+        ));
+    }
+
+    if time.ticks() >= 14_000 {
+        if let Some(ball_state) = ball.state {
+            if ball_state.position.x() >= -0.5 {
+                ball.state = Some(SimulatorBallState {
+                    position: ball_state.position,
+                    velocity: vector!(-3.0, 0.0),
+                })
+            }
+        }
+    }
+
+    if time.ticks() >= 15_000 && time.ticks() < 15_000 + FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            15000,
+            15_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -121,10 +140,10 @@ fn update(
         );
     }
 
-    if time.ticks() >= 18000 && time.ticks() < 18000 + TICKS_PER_FREE_KICK {
+    if time.ticks() >= 18_000 && time.ticks() < 18_000 + FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            18000,
+            18_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -135,10 +154,10 @@ fn update(
         );
     }
 
-    if time.ticks() >= 21000 && time.ticks() < 21000 + 2 * TICKS_PER_FREE_KICK {
+    if time.ticks() >= 21_000 && time.ticks() < 21_000 + 2 * FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            21000,
+            21_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -149,10 +168,17 @@ fn update(
         );
     }
 
-    if time.ticks() >= 24000 && time.ticks() < 24000 + TICKS_PER_FREE_KICK {
+    if time.ticks() == 21_000 + PENALTY_DURATION_IN_TICKS {
+        game_controller_commands.send(GameControllerCommand::Unpenalize(
+            PlayerNumber::Six,
+            Team::Hulks,
+        ));
+    }
+
+    if time.ticks() >= 27_000 && time.ticks() < 27_000 + FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            24000,
+            27_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -163,10 +189,17 @@ fn update(
         );
     }
 
-    if time.ticks() >= 27000 && time.ticks() < 27000 + TICKS_PER_FREE_KICK {
+    if time.ticks() == 27_000 + PENALTY_DURATION_IN_TICKS {
+        game_controller_commands.send(GameControllerCommand::Unpenalize(
+            PlayerNumber::Six,
+            Team::Hulks,
+        ));
+    }
+
+    if time.ticks() >= 30_000 && time.ticks() < 30_000 + FREE_KICK_DURATION_IN_TICKS {
         check_kicking_team_inference(
             &time,
-            27000,
+            30_000,
             &mut game_controller_commands,
             &mut exit,
             &mut robots,
@@ -177,7 +210,14 @@ fn update(
         );
     }
 
-    if time.ticks() >= 30_000 {
+    if time.ticks() == 30_000 + PENALTY_DURATION_IN_TICKS {
+        game_controller_commands.send(GameControllerCommand::Unpenalize(
+            PlayerNumber::Six,
+            Team::Opponent,
+        ));
+    }
+
+    if time.ticks() >= 33_000 {
         println!("Done! Successfully and correctly inferred kicking team in all passively inferrable sub states.");
         exit.send(AppExit::Success);
     }
@@ -196,9 +236,17 @@ fn check_kicking_team_inference(
     correct_ball_is_free: bool,
 ) {
     if time.ticks() == tick_start {
+        let penalized_player_number =
+            if [SubState::PenaltyKick, SubState::PushingFreeKick].contains(&checked_sub_state) {
+                Some(PlayerNumber::Six)
+            } else {
+                None
+            };
+
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(checked_sub_state),
             correct_kicking_team,
+            penalized_player_number,
         ));
     }
     if let Some(ball_state) = ball.state {
@@ -221,9 +269,7 @@ fn check_kicking_team_inference(
                 && (ball_is_free != correct_ball_is_free
                     || kicking_team != Some(correct_kicking_team)) =>
             {
-                println!("Scenario failed. kicking_team and/or ball_is_free was not correctly inferred during {:?} with kicking team {:?}.", sub_state, correct_kicking_team);
-                dbg!(&robot.database.main_outputs.filtered_game_controller_state);
-                dbg!(&robot.database.additional_outputs.last_ball_state);
+                println!("Scenario failed. kicking_team and/or ball_is_free was not correctly inferred during {:?} with kicking team {:?}.", sub_state.unwrap(), correct_kicking_team);
                 exit.send(AppExit::from_code(1));
                 return;
             }
