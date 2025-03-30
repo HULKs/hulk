@@ -27,10 +27,8 @@ impl FootLeveling {
         // The default torso rotation represents the desired, slightly leaned forward/backward configuration
         let default_torso_rotation = context.robot_to_walk.rotation();
 
-        // The current sensed orientation of the robot
         let current_orientation = context.robot_orientation;
 
-        // This difference (leveling_error) represents the misalignment that we need to correct for foot leveling
         let leveling_error = current_orientation.inner * default_torso_rotation.inner.inverse();
         let (roll_angle, pitch_angle, _) = leveling_error.euler_angles();
 
