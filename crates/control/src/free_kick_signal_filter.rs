@@ -33,7 +33,8 @@ pub struct FreeKickSignalFilter {
 
 #[context]
 pub struct CreationContext {
-    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
+    referee_pose_queue_length:
+        Parameter<usize, "free_kick_signal_detection_filter.pose_queue_length">,
 }
 
 #[context]
@@ -50,17 +51,15 @@ pub struct CycleContext {
     remaining_amount_of_messages:
         Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
 
-    visual_referee_message_grace_period: Parameter<
-        Duration,
-        "free_kick_signal_detection_filter.visual_referee_message_grace_period",
-    >,
+    player_number: Parameter<PlayerNumber, "player_number">,
     minimum_free_kick_signal_detections:
         Parameter<usize, "free_kick_signal_detection_filter.minimum_free_kick_signal_detections">,
-    player_number: Parameter<PlayerNumber, "player_number">,
-    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
+    pose_queue_length: Parameter<usize, "free_kick_signal_detection_filter.pose_queue_length">,
     minimum_number_poses_before_message:
-        Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
-    message_interval: Parameter<Duration, "referee_pose_detection_filter.message_interval">,
+        Parameter<usize, "free_kick_signal_detection_filter.minimum_number_poses_before_message">,
+    message_grace_period:
+        Parameter<Duration, "free_kick_signal_detection_filter.message_grace_period">,
+    message_interval: Parameter<Duration, "free_kick_signal_detection_filter.message_interval">,
     spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
 
     free_kick_detection_times: AdditionalOutput<
@@ -101,7 +100,7 @@ impl FreeKickSignalFilter {
             }
         ) {
             self.detected_free_kick_signal_queue =
-                VecDeque::with_capacity(*context.referee_pose_queue_length);
+                VecDeque::with_capacity(*context.pose_queue_length);
             self.detection_times = Default::default();
             self.last_time_message_sent = None;
 
@@ -119,7 +118,7 @@ impl FreeKickSignalFilter {
         let majority_voted_kicking_team_detection = majority_vote_free_kick_signal(
             self.detection_times,
             context.cycle_time.start_time,
-            *context.visual_referee_message_grace_period,
+            *context.message_grace_period,
             *context.minimum_free_kick_signal_detections,
         );
 
@@ -161,7 +160,7 @@ impl FreeKickSignalFilter {
         }
 
         self.detected_free_kick_signal_queue
-            .truncate(*context.referee_pose_queue_length);
+            .truncate(*context.pose_queue_length);
 
         let (own_detected_kicking_team, number_of_detections) =
             most_detections(self.detected_free_kick_signal_queue.make_contiguous());
