@@ -9,8 +9,6 @@
     "minimum_shoulder_angle": 0.2,
     "free_kick_signal_angle_range": [1.2, 2.3],
     "foot_z_offset": 0.025,
-    "referee_pose_queue_length": 10,
-    "minimum_number_poses_before_message": 2,
     "override_pose_detection": false
   },
   "feet_detection": {
@@ -1379,15 +1377,30 @@
     "duration_to_keep_new_penalties": { "nanos": 0, "secs": 30 }
   },
   "ready_signal_detection_filter": {
-    "visual_referee_message_grace_period": {
+    "minimum_ready_signal_detections": 1,
+    "pose_queue_length": 10,
+    "minimum_number_poses_before_message": 2,
+    "message_grace_period": {
       "nanos": 0,
       "secs": 3
     },
     "message_interval": {
       "nanos": 0,
       "secs": 1
+    }
+  },
+  "free_kick_signal_detection_filter": {
+    "minimum_free_kick_signal_detections": 1,
+    "pose_queue_length": 10,
+    "minimum_number_poses_before_message": 2,
+    "message_grace_period": {
+      "nanos": 0,
+      "secs": 3
     },
-    "minimum_free_kick_signal_detections": 1
+    "message_interval": {
+      "nanos": 0,
+      "secs": 1
+    }
   },
   "sacrificial_lamb": {
     "wait_for_opponent_penalties_period": {
