@@ -12,6 +12,7 @@ use types::{
     filtered_whistle::FilteredWhistle,
     led::{Ear, Eye, Leds},
     messages::IncomingMessage,
+    pose_detection::{FreeKickSignalDetectionResult, ReadySignalDetectionResult},
     primary_state::PrimaryState,
     roles::Role,
     sensor_data::SensorData,
@@ -35,11 +36,12 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     role: Input<Role, "role">,
-    is_own_referee_ready_pose_detected: Input<bool, "is_own_referee_ready_pose_detected">,
-    did_detect_any_ready_signal_this_cycle: Input<bool, "did_detect_any_ready_signal_this_cycle">,
+    own_ready_signal_detection_result:
+        Input<ReadySignalDetectionResult, "own_ready_signal_detection_result">,
+    ready_signal_detected: Input<bool, "ready_signal_detected">,
+    own_free_kick_signal_detection_result:
+        Input<FreeKickSignalDetectionResult, "own_free_kick_signal_detection_result">,
     detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
-    did_detect_any_free_kick_signal_this_cycle:
-        Input<bool, "did_detect_any_free_kick_signal_this_cycle">,
 
     balls_bottom: PerceptionInput<Option<Vec<BallPercept>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<BallPercept>>, "VisionTop", "balls?">,
@@ -188,10 +190,10 @@ impl LedStatus {
             context.primary_state,
             context.role,
             ball_percepts,
-            *context.is_own_referee_ready_pose_detected,
-            *context.did_detect_any_ready_signal_this_cycle,
+            *context.own_ready_signal_detection_result,
+            *context.ready_signal_detected,
+            *context.own_free_kick_signal_detection_result,
             context.detected_free_kick_kicking_team.copied(),
-            *context.did_detect_any_free_kick_signal_this_cycle,
         );
 
         if let Some(latest_game_controller_message_time) = context
@@ -284,10 +286,10 @@ impl LedStatus {
         primary_state: &PrimaryState,
         role: &Role,
         ball_percepts: BallPercepts,
-        is_own_referee_ready_pose_detected: bool,
-        did_detect_any_referee_this_cycle: bool,
+        own_ready_signal_detection_result: ReadySignalDetectionResult,
+        ready_signal_detected: bool,
+        own_free_kick_signal_detection_result: FreeKickSignalDetectionResult,
         detected_free_kick_kicking_team: Option<Team>,
-        did_detect_any_free_kick_signal_this_cycle: bool,
     ) -> (Eye, Eye) {
         match primary_state {
             PrimaryState::Unstiff | PrimaryState::Animation { .. } => {
@@ -323,15 +325,17 @@ impl LedStatus {
                     Role::Striker => Rgb::RED,
                     Role::StrikerSupporter => Rgb::TURQUOISE,
                 };
-                let filtered_referee_ready_color = if is_own_referee_ready_pose_detected
-                    | detected_free_kick_kicking_team.is_some()
-                {
-                    Some(Rgb::YELLOW)
-                } else {
-                    None
-                };
-                let referee_ready_percept_color = if did_detect_any_referee_this_cycle
-                    | did_detect_any_free_kick_signal_this_cycle
+                let majority_voted_viusal_referee_color =
+                    if ready_signal_detected || detected_free_kick_kicking_team.is_some() {
+                        Some(Rgb::YELLOW)
+                    } else {
+                        None
+                    };
+                let visual_referee_percept_color = if own_ready_signal_detection_result
+                    .detected_own_ready_signal
+                    || own_free_kick_signal_detection_result
+                        .own_detected_kicking_team
+                        .is_some()
                 {
                     Some(Rgb::PURPLE)
                 } else {
@@ -340,41 +344,41 @@ impl LedStatus {
                 (
                     Eye {
                         color_at_0: ball_color_top
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_45: ball_color_top
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_90: ball_background_color
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_135: ball_color_bottom
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_180: ball_color_bottom
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_225: ball_color_bottom
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_270: ball_background_color
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_315: ball_color_top
-                            .or(filtered_referee_ready_color)
-                            .or(referee_ready_percept_color)
+                            .or(majority_voted_viusal_referee_color)
+                            .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                     },

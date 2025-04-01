@@ -12,7 +12,7 @@ use types::{cycle_time::CycleTime, messages::IncomingMessage, pose_detection::Re
 
 #[derive(Deserialize, Serialize)]
 pub struct SacrificialLamb {
-    last_majority_vote_verdict: bool,
+    last_ready_signal_detected: bool,
     visual_referee_state: ReadySignalState,
     motion_in_standby_count: usize,
 }
@@ -25,8 +25,7 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
-    is_majority_vote_referee_ready_pose_detected:
-        Input<bool, "is_majority_vote_referee_ready_pose_detected">,
+    ready_signal_detected: Input<bool, "ready_signal_detected">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
     wait_for_opponent_penalties_period:
@@ -47,7 +46,7 @@ pub struct MainOutputs {
 impl SacrificialLamb {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_majority_vote_verdict: false,
+            last_ready_signal_detected: false,
             visual_referee_state: ReadySignalState::WaitingForDetections,
             motion_in_standby_count: 0,
         })
@@ -81,9 +80,9 @@ impl SacrificialLamb {
             })
             .max();
 
-        let current_majority_vote_verdict = !self.last_majority_vote_verdict
-            && *context.is_majority_vote_referee_ready_pose_detected;
-        self.last_majority_vote_verdict = *context.is_majority_vote_referee_ready_pose_detected;
+        let current_majority_vote_verdict =
+            !self.last_ready_signal_detected && *context.ready_signal_detected;
+        self.last_ready_signal_detected = *context.ready_signal_detected;
 
         let motion_in_standby =
             new_motion_in_standby_count.is_some_and(|new_motion_in_standby_count| {
