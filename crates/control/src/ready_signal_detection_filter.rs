@@ -17,7 +17,7 @@ use types::{
     messages::{IncomingMessage, OutgoingMessage},
     parameters::SplNetworkParameters,
     players::Players,
-    pose_detection::{ReadySignalDetectionFeedback, ReadySignalState},
+    pose_detection::{ReadySignalDetectionResult, ReadySignalState},
     pose_kinds::PoseKind,
 };
 
@@ -43,33 +43,33 @@ pub struct CycleContext {
         PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "referee_pose_kind?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
+    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
     remaining_amount_of_messages:
         Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
-    game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
 
     initial_message_grace_period:
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
-    message_interval: Parameter<Duration, "referee_pose_detection_filter.message_interval">,
     minimum_ready_signal_detections:
         Parameter<usize, "ready_signal_detection_filter.minimum_ready_signal_detections">,
     player_number: Parameter<PlayerNumber, "player_number">,
     referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
     minimum_number_poses_before_message:
         Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
+    message_interval: Parameter<Duration, "referee_pose_detection_filter.message_interval">,
     spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
 
-    player_referee_detection_times:
+    ready_signal_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
-    referee_pose_queue: AdditionalOutput<VecDeque<bool>, "referee_pose_queue">,
+    detected_ready_signal_queue: AdditionalOutput<VecDeque<bool>, "referee_pose_queue">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub is_majority_vote_referee_ready_pose_detected: MainOutput<bool>,
-    pub is_own_referee_ready_pose_detected: MainOutput<bool>,
-    pub did_detect_any_ready_signal_this_cycle: MainOutput<bool>,
+    pub ready_signal_detected: MainOutput<bool>,
+    pub own_ready_signal_detection_result: MainOutput<ReadySignalDetectionResult>,
 }
 
 impl ReadySignalDetectionFilter {
@@ -99,74 +99,50 @@ impl ReadySignalDetectionFilter {
             self.ready_signal_state = Default::default();
 
             return Ok(MainOutputs {
-                is_majority_vote_referee_ready_pose_detected: false.into(),
-                is_own_referee_ready_pose_detected: false.into(),
-                did_detect_any_ready_signal_this_cycle: false.into(),
+                ready_signal_detected: false.into(),
+                own_ready_signal_detection_result: ReadySignalDetectionResult::default().into(),
             });
         }
 
-        let cycle_start_time = context.cycle_time.start_time;
+        let own_ready_signal_detection_result = self.update_own_detections(&context)?;
 
-        let ready_signal_detection_feedback = self.update_own_detections(&context)?;
+        self.update_other_detections(&context);
 
-        let is_majority_vote_referee_ready_pose_detected = majority_vote_ready_signal(
+        let ready_signal_detected = majority_vote_ready_signal(
             self.detection_times,
-            cycle_start_time,
+            context.cycle_time.start_time,
             *context.initial_message_grace_period,
             *context.minimum_ready_signal_detections,
         );
 
         context
-            .player_referee_detection_times
+            .ready_signal_detection_times
             .fill_if_subscribed(|| self.detection_times);
 
         context
-            .referee_pose_queue
+            .detected_ready_signal_queue
             .fill_if_subscribed(|| self.detected_ready_signal_queue.clone());
 
         Ok(MainOutputs {
-            is_majority_vote_referee_ready_pose_detected:
-                is_majority_vote_referee_ready_pose_detected.into(),
-            is_own_referee_ready_pose_detected: ready_signal_detection_feedback
-                .is_referee_ready_pose_detected
-                .into(),
-            did_detect_any_ready_signal_this_cycle: ready_signal_detection_feedback
-                .did_detect_any_ready_signal_this_cycle
-                .into(),
+            ready_signal_detected: ready_signal_detected.into(),
+            own_ready_signal_detection_result: own_ready_signal_detection_result.into(),
         })
     }
 
     fn update_own_detections(
         &mut self,
         context: &CycleContext<impl NetworkInterface>,
-    ) -> Result<ReadySignalDetectionFeedback> {
-        let time_tagged_persistent_messages =
-            unpack_message_tree(&context.network_message.persistent);
-
-        for (time, message) in time_tagged_persistent_messages {
-            self.detection_times[message.player_number] = Some(time);
-        }
+    ) -> Result<ReadySignalDetectionResult> {
         let own_detected_pose_times: BTreeMap<SystemTime, Option<PoseKind>> =
             unpack_own_detections(&context.referee_pose_kind.persistent);
 
-        let ready_signal_detection_feedback =
-            Self::own_ready_signal_detection_evaluation(self, context, own_detected_pose_times)?;
-
-        Ok(ready_signal_detection_feedback)
-    }
-
-    fn own_ready_signal_detection_evaluation(
-        &mut self,
-        context: &CycleContext<impl NetworkInterface>,
-        own_detected_pose_times: BTreeMap<SystemTime, Option<PoseKind>>,
-    ) -> Result<ReadySignalDetectionFeedback> {
-        let mut did_detect_any_ready_signal_this_cycle = false;
+        let mut did_detect_any_ready_pose_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
             let detected_visual_referee = detection == Some(PoseKind::Ready);
             self.detected_ready_signal_queue
                 .push_front(detected_visual_referee);
-            did_detect_any_ready_signal_this_cycle |= detected_visual_referee
+            did_detect_any_ready_pose_this_cycle |= detected_visual_referee
         }
 
         self.detected_ready_signal_queue
@@ -177,9 +153,14 @@ impl ReadySignalDetectionFilter {
             .iter()
             .filter(|x| **x)
             .count();
-        if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
+
+        let detected_own_ready_signal =
+            detected_referee_pose_count >= *context.minimum_number_poses_before_message;
+
+        if detected_own_ready_signal {
             let now = context.cycle_time.start_time;
             self.detection_times[*context.player_number] = Some(now);
+
             if self.last_time_message_sent.as_ref().map_or(true, |time| {
                 now.duration_since(*time).expect("Time ran backwards") >= *context.message_interval
             }) && context.remaining_amount_of_messages.is_some_and(
@@ -198,11 +179,19 @@ impl ReadySignalDetectionFilter {
             }
         }
 
-        Ok(ReadySignalDetectionFeedback {
-            is_referee_ready_pose_detected: detected_referee_pose_count
-                >= *context.minimum_number_poses_before_message,
-            did_detect_any_ready_signal_this_cycle,
+        Ok(ReadySignalDetectionResult {
+            detected_own_ready_signal,
+            did_detect_any_ready_pose_this_cycle,
         })
+    }
+
+    fn update_other_detections(&mut self, context: &CycleContext<impl NetworkInterface>) {
+        let time_tagged_persistent_messages =
+            unpack_other_detections(&context.network_message.persistent);
+
+        for (time, message) in time_tagged_persistent_messages {
+            self.detection_times[message.player_number] = Some(time);
+        }
     }
 }
 
@@ -212,7 +201,7 @@ fn majority_vote_ready_signal(
     initial_message_grace_period: Duration,
     minimum_ready_signal_detections: usize,
 ) -> bool {
-    let detected_ready_signal_detections = ready_signal_detection_times
+    let ready_signal_detections = ready_signal_detection_times
         .iter()
         .filter(|(_, detection_time)| match detection_time {
             Some(detection_time) => is_in_grace_period(
@@ -223,7 +212,7 @@ fn majority_vote_ready_signal(
             None => false,
         })
         .count();
-    detected_ready_signal_detections >= minimum_ready_signal_detections
+    ready_signal_detections >= minimum_ready_signal_detections
 }
 
 fn is_in_grace_period(
@@ -237,7 +226,7 @@ fn is_in_grace_period(
         < grace_period
 }
 
-fn unpack_message_tree(
+fn unpack_other_detections(
     message_tree: &BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
 ) -> BTreeMap<SystemTime, VisualRefereeMessage> {
     message_tree
@@ -270,6 +259,9 @@ fn send_own_detection_message<T: NetworkInterface>(
     player_number: PlayerNumber,
 ) -> Result<()> {
     hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
-        VisualRefereeMessage { player_number },
+        VisualRefereeMessage {
+            player_number,
+            kicking_team: None,
+        },
     )))
 }
