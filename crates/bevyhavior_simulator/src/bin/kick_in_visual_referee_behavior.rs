@@ -130,8 +130,6 @@ fn update(
         }
     }
 
-    todo!("Make sure this still makes sense");
-
     if (*state.number_of_detecting_robots_when_home >= 2)
         && (*state.number_of_detecting_robots_when_away >= 2)
     {
