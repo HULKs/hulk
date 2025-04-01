@@ -43,6 +43,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
+    detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -97,6 +98,7 @@ impl GameControllerStateFilter {
             &context,
             &new_own_penalties_last_cycle,
             &new_opponent_penalties_last_cycle,
+            context.detected_free_kick_kicking_team.copied(),
         );
 
         let game_states = self.filter_game_states(
@@ -236,6 +238,7 @@ impl GameControllerStateFilter {
         context: &CycleContext,
         new_own_penalties_last_cycle: &HashMap<PlayerNumber, Penalty>,
         new_opponent_penalties_last_cycle: &HashMap<PlayerNumber, Penalty>,
+        detected_free_kick_kicking_team: Option<Team>,
     ) -> Option<Team> {
         let game_controller_state = context.game_controller_state;
 
@@ -345,6 +348,10 @@ impl GameControllerStateFilter {
                 sub_state: Some(SubState::PushingFreeKick),
                 ..
             } if self.last_time_opponent_was_penalized.is_some() => Some(Team::Hulks),
+            GameControllerState {
+                sub_state: Some(SubState::KickIn),
+                ..
+            } if detected_free_kick_kicking_team.is_some() => detected_free_kick_kicking_team,
             _ => None,
         }
     }
