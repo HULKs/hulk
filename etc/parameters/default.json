@@ -1377,7 +1377,7 @@
     "duration_to_keep_new_penalties": { "nanos": 0, "secs": 30 }
   },
   "ready_signal_detection_filter": {
-    "initial_message_grace_period": {
+    "visual_referee_message_grace_period": {
       "nanos": 0,
       "secs": 3
     },
