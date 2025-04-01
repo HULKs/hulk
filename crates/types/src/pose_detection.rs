@@ -164,19 +164,35 @@ pub struct RefereePoseCandidate {
 }
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
-pub struct ReadySignalDetectionFeedback {
-    pub is_referee_ready_pose_detected: bool,
-    pub did_detect_any_ready_signal_this_cycle: bool,
+pub struct ReadySignalDetectionResult {
+    pub detected_own_ready_signal: bool,
+    pub did_detect_any_ready_pose_this_cycle: bool,
 }
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct FreeKickSignalDetectionResult {
-    pub did_detect_any_free_kick_signal_this_cycle: bool,
-    pub detected_free_kick_kicking_team: Option<Team>,
+    pub own_detected_kicking_team: Option<Team>,
+    pub did_detect_any_free_kick_pose_this_cycle: bool,
 }
 
 #[derive(
@@ -184,7 +200,7 @@ pub struct FreeKickSignalDetectionResult {
 )]
 pub struct TimeTaggedKickingTeamDetections {
     pub time: SystemTime,
-    pub detected_kicking_team: Team,
+    pub detected_kicking_team: Option<Team>,
 }
 
 #[derive(
