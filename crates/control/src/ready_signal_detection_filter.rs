@@ -32,7 +32,7 @@ pub struct ReadySignalDetectionFilter {
 
 #[context]
 pub struct CreationContext {
-    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
+    pose_queue_length: Parameter<usize, "ready_signal_detection_filter.pose_queue_length">,
 }
 
 #[context]
@@ -49,15 +49,14 @@ pub struct CycleContext {
     remaining_amount_of_messages:
         Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
 
-    initial_message_grace_period:
-        Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
+    player_number: Parameter<PlayerNumber, "player_number">,
     minimum_ready_signal_detections:
         Parameter<usize, "ready_signal_detection_filter.minimum_ready_signal_detections">,
-    player_number: Parameter<PlayerNumber, "player_number">,
-    referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
+    pose_queue_length: Parameter<usize, "ready_signal_detection_filter.pose_queue_length">,
     minimum_number_poses_before_message:
-        Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
-    message_interval: Parameter<Duration, "referee_pose_detection_filter.message_interval">,
+        Parameter<usize, "ready_signal_detection_filter.minimum_number_poses_before_message">,
+    message_grace_period: Parameter<Duration, "ready_signal_detection_filter.message_grace_period">,
+    message_interval: Parameter<Duration, "ready_signal_detection_filter.message_interval">,
     spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
 
     ready_signal_detection_times:
@@ -76,9 +75,7 @@ impl ReadySignalDetectionFilter {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             detection_times: Default::default(),
-            detected_ready_signal_queue: VecDeque::with_capacity(
-                *context.referee_pose_queue_length,
-            ),
+            detected_ready_signal_queue: VecDeque::with_capacity(*context.pose_queue_length),
             motion_in_standby_count: 0,
             last_time_message_sent: None,
             ready_signal_state: ReadySignalState::WaitingForDetections,
@@ -111,7 +108,7 @@ impl ReadySignalDetectionFilter {
         let ready_signal_detected = majority_vote_ready_signal(
             self.detection_times,
             context.cycle_time.start_time,
-            *context.initial_message_grace_period,
+            *context.message_grace_period,
             *context.minimum_ready_signal_detections,
         );
 
@@ -146,7 +143,7 @@ impl ReadySignalDetectionFilter {
         }
 
         self.detected_ready_signal_queue
-            .truncate(*context.referee_pose_queue_length);
+            .truncate(*context.pose_queue_length);
 
         let detected_referee_pose_count = self
             .detected_ready_signal_queue
