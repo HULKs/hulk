@@ -159,14 +159,7 @@ impl Behavior {
         actions.push(Action::InterceptBall);
 
         match world_state.robot.role {
-            Role::DefenderLeft
-                if world_state
-                    .filtered_game_controller_state
-                    .clone()
-                    .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state)
-                    }) =>
-            {
+            Role::DefenderLeft if should_do_kick_in_pose_detection(world_state) => {
                 actions.push(Action::LookAtReferee);
                 actions.push(Action::DefendLeft);
             }
@@ -178,14 +171,7 @@ impl Behavior {
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Left }),
                 _ => actions.push(Action::DefendLeft),
             },
-            Role::DefenderRight
-                if world_state
-                    .filtered_game_controller_state
-                    .clone()
-                    .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state)
-                    }) =>
-            {
+            Role::DefenderRight if should_do_kick_in_pose_detection(world_state) => {
                 actions.push(Action::LookAtReferee);
                 actions.push(Action::DefendRight);
             }
@@ -214,39 +200,18 @@ impl Behavior {
                 _ => actions.push(Action::DefendGoal),
             },
             Role::Loser => actions.push(Action::SearchForLostBall),
-            Role::MidfielderLeft
-                if world_state
-                    .filtered_game_controller_state
-                    .clone()
-                    .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state)
-                    }) =>
-            {
+            Role::MidfielderLeft if should_do_kick_in_pose_detection(world_state) => {
                 actions.push(Action::LookAtReferee);
                 actions.push(Action::SupportLeft);
             }
             Role::MidfielderLeft => actions.push(Action::SupportLeft),
-            Role::MidfielderRight
-                if world_state
-                    .filtered_game_controller_state
-                    .clone()
-                    .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state)
-                    }) =>
-            {
+            Role::MidfielderRight if should_do_kick_in_pose_detection(world_state) => {
                 actions.push(Action::LookAtReferee);
                 actions.push(Action::SupportRight);
             }
             Role::MidfielderRight => actions.push(Action::SupportRight),
             Role::ReplacementKeeper => actions.push(Action::DefendGoal),
-            Role::Searcher
-                if world_state
-                    .filtered_game_controller_state
-                    .clone()
-                    .is_some_and(|filtered_game_controller_state| {
-                        is_free_kick(filtered_game_controller_state, world_state)
-                    }) =>
-            {
+            Role::Searcher if should_do_kick_in_pose_detection(world_state) => {
                 actions.push(Action::LookAtReferee);
                 actions.push(Action::Search);
             }
@@ -543,46 +508,47 @@ impl Behavior {
     }
 }
 
-pub fn is_free_kick(
-    filtered_game_controller_state: FilteredGameControllerState,
-    world_state: &WorldState,
-) -> bool {
-    let is_free_kick_filtered_game_controller_state = matches!(
-        filtered_game_controller_state,
-        FilteredGameControllerState {
-            sub_state: Some(SubState::KickIn) | Some(SubState::PushingFreeKick),
-            game_state: FilteredGameState::Playing {
-                ball_is_free: false,
+pub fn should_do_kick_in_pose_detection(world_state: &WorldState) -> bool {
+    if let Some(filtered_game_controller_state) = &world_state.filtered_game_controller_state {
+        let is_kick_in_filtered_game_controller_state = matches!(
+            filtered_game_controller_state,
+            FilteredGameControllerState {
+                sub_state: Some(SubState::KickIn),
+                game_state: FilteredGameState::Playing {
+                    ball_is_free: false,
+                    ..
+                },
                 ..
-            },
-            ..
-        }
-    );
+            }
+        );
 
-    let first_two_nonpenalized_nonkeeper_player_numbers: Vec<PlayerNumber> =
-        filtered_game_controller_state
-            .penalties
-            .iter()
-            .filter_map(|(player_number, penalty)| penalty.is_none().then_some(player_number))
-            // Skip the lowest non-penalized player number since this is always the Keeper or ReplacementKeeper
-            .skip(1)
-            .take(2)
-            .collect();
+        let first_two_nonpenalized_nonkeeper_player_numbers: Vec<PlayerNumber> =
+            filtered_game_controller_state
+                .penalties
+                .iter()
+                .filter_map(|(player_number, penalty)| penalty.is_none().then_some(player_number))
+                // Skip the lowest non-penalized player number since this is always the Keeper or ReplacementKeeper
+                .skip(1)
+                .take(2)
+                .collect();
 
-    let is_correct_free_kick_role = match (
-        world_state.robot.role,
-        filtered_game_controller_state.global_field_side,
-    ) {
-        (Role::DefenderRight | Role::MidfielderRight, GlobalFieldSide::Home) => true,
-        (Role::DefenderLeft | Role::MidfielderLeft, GlobalFieldSide::Away) => true,
-        (Role::Searcher, _)
-            if first_two_nonpenalized_nonkeeper_player_numbers
-                .contains(&world_state.robot.player_number) =>
-        {
-            true
-        }
-        _ => false,
-    };
+        let is_correct_kick_in_detection_role = match (
+            world_state.robot.role,
+            filtered_game_controller_state.global_field_side,
+        ) {
+            (Role::DefenderRight | Role::MidfielderRight, GlobalFieldSide::Home) => true,
+            (Role::DefenderLeft | Role::MidfielderLeft, GlobalFieldSide::Away) => true,
+            (Role::Searcher, _)
+                if first_two_nonpenalized_nonkeeper_player_numbers
+                    .contains(&world_state.robot.player_number) =>
+            {
+                true
+            }
+            _ => false,
+        };
 
-    is_free_kick_filtered_game_controller_state && is_correct_free_kick_role
+        is_kick_in_filtered_game_controller_state && is_correct_kick_in_detection_role
+    } else {
+        false
+    }
 }
