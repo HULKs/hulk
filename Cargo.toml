@@ -160,6 +160,7 @@ nalgebra = { version = "0.33.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
 nao_camera = { path = "crates/nao_camera" }
 ndarray = { version = "0.16.1", features = ["serde"] }
+ndarray-conv = "0.4.1"
 nix = { version = "0.29", features = ["ioctl"] }
 nucleo-matcher = "0.3.1"
 num-derive = "0.4.2"
