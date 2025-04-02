@@ -9,6 +9,9 @@ branches = [
 assignments = [
   "33:1",
 ]
+substitutions = [
+  # "34:1",
+]
 with_communication = false
 
 [recording_intervals]

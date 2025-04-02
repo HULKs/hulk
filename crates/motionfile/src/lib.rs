@@ -10,7 +10,7 @@ pub mod timed_spline;
 pub use condition::{Condition, ContinuousConditionType, DiscreteConditionType, Response, TimeOut};
 pub use fallen_abort_condition::FallenAbort;
 pub use motion_file::*;
-pub use motion_interpolator::MotionInterpolator;
+pub use motion_interpolator::{InterpolatorState, MotionInterpolator};
 pub use no_ground_contact_condition::NoGroundContactAbort;
 pub use spline_interpolator::SplineInterpolator;
 pub use stabilized_condition::StabilizedCondition;

@@ -20,6 +20,8 @@ C-Right = "focus_right"
 C-w = "close_tab"
 C-d = "duplicate_tab"
 
+C-S-Backspace = "close_all"
+
 [naos]
 lowest = 21
 highest = 41

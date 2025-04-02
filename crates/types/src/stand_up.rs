@@ -21,6 +21,12 @@ pub enum RemainingStandUpDuration {
     NotRunning,
 }
 
+impl RemainingStandUpDuration {
+    pub fn is_running(&self) -> bool {
+        matches!(self, RemainingStandUpDuration::Running(_))
+    }
+}
+
 impl From<RemainingStandUpDuration> for Option<Duration> {
     fn from(val: RemainingStandUpDuration) -> Self {
         match val {

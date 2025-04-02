@@ -17,6 +17,7 @@ use types::{
 
 mod anatomic_constraints;
 mod arm;
+mod compensate_stiffness_loss;
 pub mod feet;
 mod foot_leveling;
 mod gyro_balancing;
@@ -45,7 +46,8 @@ pub struct Context<'a> {
     pub robot_orientation: &'a Orientation3<Field>,
     pub robot_to_ground: Option<&'a Isometry3<Robot, Ground>>,
     pub gyro: nalgebra::Vector3<f32>,
-    pub current_joints: BodyJoints,
+    pub last_actuated_joints: BodyJoints,
+    pub measured_joints: BodyJoints,
     pub robot_to_walk: Isometry3<Robot, Walk>,
     pub obstacle_avoiding_arms: &'a ArmCommands,
 }

@@ -103,7 +103,7 @@ where
 
 impl<T> PathDeserialize for Option<T>
 where
-    T: PathDeserialize + Default,
+    T: PathDeserialize,
 {
     fn deserialize_path<'de, D>(
         &mut self,
@@ -115,12 +115,9 @@ where
     {
         match self {
             Some(some) => some.deserialize_path(path, deserializer),
-            None => {
-                let mut value = T::default();
-                value.deserialize_path(path, deserializer)?;
-                *self = Some(value);
-                Ok(())
-            }
+            None => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_string(),
+            }),
         }
     }
 }

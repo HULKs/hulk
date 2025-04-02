@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub};
 
 use nalgebra::Vector2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -71,6 +71,12 @@ impl Add for Step {
             left: self.left + right.left,
             turn: self.turn + right.turn,
         }
+    }
+}
+
+impl AddAssign for Step {
+    fn add_assign(&mut self, right: Step) {
+        *self = *self + right;
     }
 }
 

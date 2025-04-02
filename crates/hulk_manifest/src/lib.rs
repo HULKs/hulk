@@ -1,10 +1,12 @@
+use std::{path::Path, time::Duration};
+
 use source_analyzer::{
     cyclers::{CyclerKind, Cyclers},
     error::Error,
     manifest::{CyclerManifest, FrameworkManifest},
 };
 
-pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
+pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
@@ -24,6 +26,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "vision::perspective_grid_candidates_provider",
                     "vision::segment_filter",
                 ],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 30.0)),
             },
             CyclerManifest {
                 name: "ObjectDetection",
@@ -35,6 +38,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "object_detection::pose_filter",
                     "object_detection::pose_interpretation",
                 ],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0)),
             },
             CyclerManifest {
                 name: "Control",
@@ -59,6 +63,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::ground_contact_detector",
                     "control::ground_provider",
                     "control::kick_selector",
+                    "control::kicking_team_filter",
                     "control::kinematics_provider",
                     "control::led_status",
                     "control::localization",
@@ -110,6 +115,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::world_state_composer",
                     "control::zero_moment_point_provider",
                 ],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
             },
             CyclerManifest {
                 name: "SplNetwork",
@@ -117,6 +123,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
                 nodes: vec!["spl_network::message_filter"],
+                execution_time_warning_threshold: None,
             },
             CyclerManifest {
                 name: "Audio",
@@ -124,10 +131,10 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["audio::microphone_recorder"],
                 nodes: vec!["audio::whistle_detection"],
+                execution_time_warning_threshold: None,
             },
         ],
     };
 
-    let root = "..";
     Cyclers::try_from_manifest(manifest, root)
 }

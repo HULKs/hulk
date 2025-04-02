@@ -16,9 +16,10 @@ pub struct Parameters {
     pub base: Base,
     pub catching_steps: CatchingStepsParameters,
     pub gyro_balancing: GyroBalancingParameters,
+    pub foot_leveling: FootLevelingParameters,
     pub max_forward_acceleration: f32,
-    pub max_inside_turn: f32,
-    pub max_level_delta: f32,
+    pub max_base_inside_turn: f32,
+    pub max_inside_turn_increase: f32,
     pub max_rotation_speed: f32,
     pub max_step_duration: Duration,
     pub max_support_foot_lift_speed: f32,
@@ -27,6 +28,7 @@ pub struct Parameters {
     pub starting_step: StartingStepParameters,
     pub step_midpoint: Step,
     pub stiffnesses: Stiffnesses,
+    pub stiffness_loss_compensation: StiffnessLossCompensation,
     pub swinging_arms: SwingingArmsParameters,
 }
 
@@ -42,7 +44,8 @@ pub struct Base {
     pub step_duration_increase: Step,
     pub step_midpoint: f32,
     pub torso_offset: f32,
-    pub torso_tilt: f32,
+    pub torso_tilt_base: f32,
+    pub torso_tilt: Step,
     pub walk_height: f32,
 }
 
@@ -66,10 +69,30 @@ pub struct Stiffnesses {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
+pub struct StiffnessLossCompensation {
+    pub ankle_pitch: LegJoints<f32>,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct GyroBalancingParameters {
     pub balance_factors: LegJoints<f32>,
     pub low_pass_factor: f32,
     pub max_delta: LegJoints<f32>,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct FootLevelingParameters {
+    pub leaning_backwards_factor: f32,
+    pub leaning_forward_factor: f32,
+    pub max_level_delta: f32,
+    pub pitch_scale: f32,
+    pub roll_factor: f32,
+    pub roll_scale: f32,
+    pub start_reduce_to_zero: f32,
 }
 
 #[derive(

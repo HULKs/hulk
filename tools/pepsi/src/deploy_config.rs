@@ -1,16 +1,22 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{BTreeSet, HashMap},
+    str::FromStr,
+};
 
 use chrono::Utc;
 use color_eyre::{eyre::WrapErr, Result};
 use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
+use spl_network_messages::PlayerNumber;
 use tokio::fs::read_to_string;
 use toml::from_str;
 
-use argument_parsers::{parse_network, NaoAddress, NaoAddressPlayerAssignment};
+use argument_parsers::{
+    parse_network, NaoAddress, NaoAddressPlayerAssignment, NaoNumberPlayerAssignment,
+};
 use nao::Network;
 use repository::Repository;
 
-use crate::player_number::{player_number, Arguments};
+use crate::player_number::{check_for_duplication, player_number, Arguments};
 
 #[derive(Deserialize)]
 pub struct DeployConfig {
@@ -23,6 +29,8 @@ pub struct DeployConfig {
     pub branches: Vec<Branch>,
     #[serde(deserialize_with = "deserialize_assignments")]
     pub assignments: Vec<NaoAddressPlayerAssignment>,
+    #[serde(deserialize_with = "deserialize_assignments")]
+    pub substitutions: Vec<NaoAddressPlayerAssignment>,
     pub with_communication: bool,
     pub recording_intervals: HashMap<String, usize>,
 }
@@ -57,14 +65,43 @@ impl DeployConfig {
         branch_name
     }
 
-    pub fn naos(&self) -> Vec<NaoAddress> {
+    pub fn playing_naos(&self) -> Result<Vec<NaoAddress>> {
+        Ok(self
+            .assignments_with_substitutions()?
+            .into_values()
+            .collect())
+    }
+
+    pub fn all_naos(&self) -> BTreeSet<NaoAddress> {
         self.assignments
             .iter()
+            .chain(&self.substitutions)
             .map(|assignment| assignment.nao_address)
             .collect()
     }
 
     pub async fn configure_repository(self, repository: &Repository) -> Result<()> {
+        player_number(
+            Arguments {
+                assignments: self
+                    .assignments_with_substitutions()?
+                    .into_iter()
+                    .map(|(player_number, nao_address)| {
+                        nao_address
+                            .try_into()
+                            .map(|nao_number| NaoNumberPlayerAssignment {
+                                nao_number,
+                                player_number,
+                            })
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .wrap_err("failed to convert NAO addresses to NAO numbers")?,
+            },
+            repository,
+        )
+        .await
+        .wrap_err("failed to set player numbers")?;
+
         repository
             .configure_recording_intervals(self.recording_intervals)
             .await
@@ -80,21 +117,29 @@ impl DeployConfig {
             .await
             .wrap_err("failed to set communication")?;
 
-        player_number(
-            Arguments {
-                assignments: self
-                    .assignments
-                    .iter()
-                    .copied()
-                    .map(TryFrom::try_from)
-                    .collect::<Result<Vec<_>, _>>()?,
-            },
-            repository,
-        )
-        .await
-        .wrap_err("failed to set player numbers")?;
-
         Ok(())
+    }
+
+    fn assignments_with_substitutions(&self) -> Result<HashMap<PlayerNumber, NaoAddress>> {
+        let initial_assignments = self
+            .assignments
+            .iter()
+            .copied()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, _>>()?;
+        check_for_duplication(&initial_assignments)?;
+
+        let mut assignments: HashMap<_, _> = self
+            .assignments
+            .iter()
+            .map(|assignment| (assignment.player_number, assignment.nao_address))
+            .collect();
+
+        for substitution in &self.substitutions {
+            assignments.insert(substitution.player_number, substitution.nao_address);
+        }
+
+        Ok(assignments)
     }
 }
 

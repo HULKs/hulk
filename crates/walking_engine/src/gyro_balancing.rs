@@ -53,7 +53,7 @@ impl GyroBalancingExt for LowerBodyJoints {
             Side::Left => &mut self.left_leg,
             Side::Right => &mut self.right_leg,
         };
-        *support_leg = *support_leg + state.balancing;
+        *support_leg += state.balancing;
         self
     }
 }

@@ -108,6 +108,7 @@ pub fn execute(
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            walk_and_stand.parameters.hysteresis,
         )
     } else {
         let path = walk_path_planner.plan(

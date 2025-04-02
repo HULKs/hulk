@@ -1,8 +1,9 @@
 use color_eyre::Result;
 use context_attribute::context;
+use framework::deserialize_not_implemented;
 use framework::MainOutput;
 use hardware::PathsInterface;
-use motionfile::{MotionFile, MotionInterpolator};
+use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
 use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
@@ -14,7 +15,9 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct ArmsUpstand {
+    #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<Joints<f32>>,
+    state: InterpolatorState<Joints<f32>>,
 }
 
 #[context]
@@ -41,6 +44,7 @@ impl ArmsUpstand {
         Ok(Self {
             interpolator: MotionFile::from_path(paths.motions.join("arms_up_stand.json"))?
                 .try_into()?,
+            state: InterpolatorState::INITIAL,
         })
     }
 
@@ -51,14 +55,14 @@ impl ArmsUpstand {
 
         if motion_selection.current_motion == MotionType::ArmsUpStand {
             self.interpolator
-                .advance_by(last_cycle_duration, condition_input);
+                .advance_state(&mut self.state, last_cycle_duration, condition_input);
         } else {
-            self.interpolator.reset();
+            self.state.reset();
         }
 
         Ok(MainOutputs {
             arms_up_stand_joints_command: MotorCommands {
-                positions: self.interpolator.value(),
+                positions: self.interpolator.value(self.state),
                 stiffnesses: Joints::fill(0.9),
             }
             .into(),

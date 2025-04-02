@@ -35,6 +35,12 @@ use types::{
 
 use crate::localization::generate_initial_pose;
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+enum SentState {
+    Striker,
+    Loser,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct RoleAssignment {
     last_received_striker_message: Option<SystemTime>,
@@ -42,6 +48,7 @@ pub struct RoleAssignment {
     last_transmitted_spl_message: Option<SystemTime>,
     role: Role,
     last_time_player_was_penalized: Players<Option<SystemTime>>,
+    last_sent_state: SentState,
 }
 
 #[context]
@@ -54,6 +61,8 @@ pub struct CreationContext {
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     fall_state: Input<FallState, "fall_state">,
+    remaining_amount_of_messages:
+        Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
@@ -72,12 +81,14 @@ pub struct CycleContext {
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
-    spl_network: Parameter<SplNetworkParameters, "spl_network">,
+    spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
 
     hardware: HardwareInterface,
 
     last_time_player_was_penalized:
         AdditionalOutput<Players<Option<SystemTime>>, "last_time_player_penalized">,
+    last_sent_state: AdditionalOutput<String, "last_sent_state">,
+    last_sent_message: AdditionalOutput<String, "last_sent_message">,
 }
 
 #[context]
@@ -105,6 +116,7 @@ impl RoleAssignment {
             last_transmitted_spl_message: None,
             role,
             last_time_player_was_penalized: Players::new(None),
+            last_sent_state: SentState::Loser,
         })
     }
 
@@ -116,6 +128,9 @@ impl RoleAssignment {
         let primary_state = *context.primary_state;
 
         self.try_sending_game_controller_return_message(&context)?;
+        context
+            .last_sent_message
+            .fill_if_subscribed(|| "None".to_string());
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
             for player in self
@@ -173,19 +188,23 @@ impl RoleAssignment {
             match (self.role, new_role) {
                 (Role::Striker, Role::Striker) => {
                     if self.is_striker_beacon_cooldown_elapsed(&context) {
-                        self.try_sending_striker_message(&context)?;
+                        self.try_sending_striker_message(&mut context)?;
                     }
                 }
                 (_other_role, Role::Striker) => {
-                    self.try_sending_striker_message(&context)?;
+                    self.try_sending_striker_message(&mut context)?;
                 }
 
                 (Role::Striker, Role::Loser) => {
-                    self.try_sending_loser_message(&context)?;
+                    self.try_sending_loser_message(&mut context)?;
                 }
                 _ => {}
             }
         }
+
+        context
+            .last_sent_state
+            .fill_if_subscribed(|| format!("{:?}", self.last_sent_state));
 
         self.role = new_role;
 
@@ -247,7 +266,9 @@ impl RoleAssignment {
                 if cycle_start_time
                     .duration_since(last_received_spl_striker_message)
                     .expect("time ran backwards")
-                    > context.spl_network.spl_striker_message_receive_timeout
+                    > context
+                        .spl_network_parameters
+                        .spl_striker_message_receive_timeout
                 {
                     self.last_received_striker_message = None;
                     true
@@ -314,7 +335,9 @@ impl RoleAssignment {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
             self.last_system_time_transmitted_game_controller_return_message,
-            context.spl_network.game_controller_return_message_interval,
+            context
+                .spl_network_parameters
+                .game_controller_return_message_interval,
         )
     }
 
@@ -325,7 +348,9 @@ impl RoleAssignment {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
             self.last_transmitted_spl_message,
-            context.spl_network.spl_striker_message_send_interval,
+            context
+                .spl_network_parameters
+                .spl_striker_message_send_interval,
         )
     }
 
@@ -336,7 +361,9 @@ impl RoleAssignment {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
             self.last_transmitted_spl_message,
-            context.spl_network.silence_interval_between_messages,
+            context
+                .spl_network_parameters
+                .silence_interval_between_messages,
         )
     }
 
@@ -373,12 +400,20 @@ impl RoleAssignment {
 
     fn try_sending_striker_message(
         &mut self,
-        context: &CycleContext<impl NetworkInterface>,
+        context: &mut CycleContext<impl NetworkInterface>,
     ) -> Result<()> {
         if !self.is_striker_silence_period_elapsed(context) {
             return Ok(());
         }
-        if !is_enough_message_budget_left(context) {
+        if context
+            .remaining_amount_of_messages
+            .is_some_and(|remaining_amount_of_messages| {
+                *remaining_amount_of_messages
+                    < context
+                        .spl_network_parameters
+                        .remaining_amount_of_messages_to_stop_sending
+            })
+        {
             return Ok(());
         }
 
@@ -401,6 +436,10 @@ impl RoleAssignment {
             .or(team_network_ball)
             .ok_or_eyre("we are striker without a ball, this should never happen")?;
 
+        self.last_sent_state = SentState::Striker;
+        context
+            .last_sent_message
+            .fill_if_subscribed(|| "Striker".to_string());
         context
             .hardware
             .write_to_network(OutgoingMessage::Spl(HulkMessage::Striker(StrikerMessage {
@@ -414,16 +453,32 @@ impl RoleAssignment {
 
     fn try_sending_loser_message(
         &mut self,
-        context: &CycleContext<impl NetworkInterface>,
+        context: &mut CycleContext<impl NetworkInterface>,
     ) -> Result<()> {
-        if !is_enough_message_budget_left(context) {
+        if context
+            .remaining_amount_of_messages
+            .is_some_and(|remaining_amount_of_messages| {
+                *remaining_amount_of_messages
+                    < context
+                        .spl_network_parameters
+                        .remaining_amount_of_messages_to_stop_sending
+            })
+        {
             return Ok(());
         }
+
+        if self.last_sent_state == SentState::Loser {
+            return Ok(());
+        }
+        self.last_sent_state = SentState::Loser;
 
         self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
         self.last_received_striker_message = None;
 
         let ground_to_field = ground_to_field_or_initial_pose(context);
+        context
+            .last_sent_message
+            .fill_if_subscribed(|| "Loser".to_string());
         context
             .hardware
             .write_to_network(OutgoingMessage::Spl(HulkMessage::Loser(LoserMessage {
@@ -470,17 +525,6 @@ fn is_cooldown_elapsed(now: SystemTime, last: Option<SystemTime>, cooldown: Dura
         None => true,
         Some(last_time) => now.duration_since(last_time).expect("time ran backwards") > cooldown,
     }
-}
-
-fn is_enough_message_budget_left(context: &CycleContext<impl NetworkInterface>) -> bool {
-    context
-        .filtered_game_controller_state
-        .is_some_and(|game_controller_state| {
-            game_controller_state.remaining_number_of_messages
-                > context
-                    .spl_network
-                    .remaining_amount_of_messages_to_stop_sending
-        })
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -774,6 +818,7 @@ mod test {
             striker_trusts_team_ball_duration in  Just(Duration::from_secs(5)),
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
+            let filtered_game_controller_state : Option<FilteredGameControllerState> = filtered_game_controller_state;
             let new_role = update_role_state_machine(
                 initial_role,
                 detected_own_ball,

@@ -13,7 +13,7 @@ use repository::{upload::get_hulk_binary, Repository};
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
+    cargo::{self, build, cargo, environment::EnvironmentArguments, run, CargoCommand},
     deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,
@@ -32,6 +32,9 @@ pub struct Arguments {
 
 #[derive(Args)]
 pub struct PreGameArguments {
+    /// Skip running the parameter tester
+    #[arg(long)]
+    pub skip_parameter_check: bool,
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
@@ -63,6 +66,10 @@ pub struct PreGameArguments {
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
+    if !arguments.pre_game.skip_parameter_check {
+        run_parameter_tester(arguments.environment.clone(), repository).await?;
+    }
+
     let mut config = DeployConfig::read_from_file(repository)
         .await
         .wrap_err("failed to read deploy config from file")?;
@@ -72,16 +79,16 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
     }
 
-    let config_naos = config.naos();
+    let playing_naos = config.playing_naos()?;
     let naos = if let Some(naos) = &arguments.pre_game.naos {
         for nao in naos {
-            if !config_naos.contains(nao) {
-                bail!("NAO {nao} is not present in deploy.toml");
+            if !playing_naos.contains(nao) {
+                bail!("NAO with IP {nao} is not one of the playing NAOs in the deploy.toml");
             }
         }
         naos
     } else {
-        &config_naos
+        &playing_naos
     };
     let wifi = config.wifi;
 
@@ -140,6 +147,26 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     .await;
 
     Ok(())
+}
+
+async fn run_parameter_tester(
+    environment: EnvironmentArguments,
+    repository: &Repository,
+) -> Result<()> {
+    let cargo_arguments = cargo::Arguments {
+        manifest: Some(
+            repository
+                .root
+                .join("tools/parameter_tester/Cargo.toml")
+                .into_os_string(),
+        ),
+        environment,
+        cargo: run::Arguments::default(),
+    };
+
+    cargo(cargo_arguments, repository, &[] as &[&str])
+        .await
+        .wrap_err("failed to run parameter tester")
 }
 
 async fn setup_nao(

@@ -24,6 +24,7 @@ fn main() -> Result<()> {
                     "control::filtered_game_controller_state_timer",
                     "control::game_controller_state_filter",
                     "control::kick_selector",
+                    "control::kicking_team_filter",
                     "control::motion::look_around",
                     "control::motion::motion_selector",
                     "control::penalty_shot_direction_estimation",
@@ -36,6 +37,7 @@ fn main() -> Result<()> {
                     "control::time_to_reach_kick_position",
                     "control::world_state_composer",
                 ],
+                execution_time_warning_threshold: None,
             },
             CyclerManifest {
                 name: "SplNetwork",
@@ -43,6 +45,7 @@ fn main() -> Result<()> {
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
                 nodes: vec!["spl_network::message_filter"],
+                execution_time_warning_threshold: None,
             },
         ],
     };

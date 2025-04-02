@@ -4,10 +4,11 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
+use framework::deserialize_not_implemented;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use linear_algebra::Vector3;
-use motionfile::{MotionFile, MotionInterpolator};
+use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
@@ -18,7 +19,9 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct StandUpFront {
+    #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<Joints<f32>>,
+    state: InterpolatorState<Joints<f32>>,
     filtered_gyro: LowPassFilter<nalgebra::Vector3<f32>>,
 }
 
@@ -55,6 +58,7 @@ impl StandUpFront {
         Ok(Self {
             interpolator: MotionFile::from_path(paths.motions.join("stand_up_front.json"))?
                 .try_into()?,
+            state: InterpolatorState::INITIAL,
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 nalgebra::Vector3::zeros(),
                 *context.gyro_low_pass_factor,
@@ -63,25 +67,28 @@ impl StandUpFront {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let estimated_remaining_duration =
-            if context.motion_selection.current_motion == MotionType::StandUpFront {
-                let last_cycle_duration = context.cycle_time.last_cycle_duration;
-                let condition_input = context.condition_input;
+        let estimated_remaining_duration = if context.motion_selection.current_motion
+            == MotionType::StandUpFront
+        {
+            let last_cycle_duration = context.cycle_time.last_cycle_duration;
+            let condition_input = context.condition_input;
 
-                self.interpolator
-                    .advance_by(last_cycle_duration, condition_input);
+            self.interpolator
+                .advance_state(&mut self.state, last_cycle_duration, condition_input);
 
-                RemainingStandUpDuration::Running(self.interpolator.estimated_remaining_duration())
-            } else {
-                self.interpolator.reset();
-                RemainingStandUpDuration::NotRunning
-            };
-        context.motion_safe_exits[MotionType::StandUpFront] = self.interpolator.is_finished();
+            RemainingStandUpDuration::Running(
+                self.interpolator.estimated_remaining_duration(self.state),
+            )
+        } else {
+            self.state.reset();
+            RemainingStandUpDuration::NotRunning
+        };
+        context.motion_safe_exits[MotionType::StandUpFront] = self.state.is_finished();
 
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
 
-        let mut positions = self.interpolator.value();
+        let mut positions = self.interpolator.value(self.state);
         positions.left_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.left_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
         positions.left_leg.hip_yaw_pitch += context.leg_balancing_factor.x * gyro.x;

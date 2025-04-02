@@ -290,7 +290,10 @@ fn into_reference_with_lifetime(data_type: &mut Type, mutability: Option<Mut>) {
         Type::Path(TypePath {
             path: Path { segments, .. },
             ..
-        }) if !segments.is_empty() && segments.last().unwrap().ident == "Option" => {
+        }) if mutability.is_none()
+            && !segments.is_empty()
+            && segments.last().unwrap().ident == "Option" =>
+        {
             match &mut segments.last_mut().unwrap().arguments {
                 PathArguments::AngleBracketed(arguments) if arguments.args.len() == 1 => {
                     match arguments.args.first_mut().unwrap() {

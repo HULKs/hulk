@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::Deserialize;
 
 use crate::cyclers::CyclerKind;
@@ -14,4 +16,5 @@ pub struct CyclerManifest {
     pub instances: Vec<&'static str>,
     pub setup_nodes: Vec<&'static str>,
     pub nodes: Vec<&'static str>,
+    pub execution_time_warning_threshold: Option<Duration>,
 }

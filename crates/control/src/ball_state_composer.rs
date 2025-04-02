@@ -9,10 +9,13 @@ use linear_algebra::{point, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
-    field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
-    penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
-    world_state::BallState,
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    field_dimensions::{FieldDimensions, Side},
+    filtered_game_controller_state::FilteredGameControllerState,
+    penalty_shot_direction::PenaltyShotDirection,
+    primary_state::PrimaryState,
+    world_state::{BallState, LastBallState},
 };
 
 #[derive(Deserialize, Serialize)]
@@ -25,6 +28,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    last_ball_state: CyclerState<Option<LastBallState>, "last_ball_state">,
+
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
@@ -98,8 +103,9 @@ impl BallStateComposer {
                 }),
             ) => {
                 let side_factor = match kicking_team {
-                    Team::Opponent => -1.0,
-                    Team::Hulks => 1.0,
+                    Some(Team::Opponent) => -1.0,
+                    Some(Team::Hulks) => 1.0,
+                    _ => -1.0,
                 };
                 let penalty_spot_x = context.field_dimensions.length / 2.0
                     - context.field_dimensions.penalty_marker_distance;
@@ -123,6 +129,11 @@ impl BallStateComposer {
             )),
             _ => None,
         };
+
+        *context.last_ball_state = ball.map(|ball| LastBallState {
+            time: context.cycle_time.start_time,
+            ball,
+        });
 
         Ok(MainOutputs {
             ball_state: ball.into(),

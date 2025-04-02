@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{CentralPanel, Context},
+    egui::{CentralPanel, Context, Widget},
     run_native, App, Frame,
 };
 use hulk_widgets::{CompletionEdit, SegmentedControl};
@@ -15,7 +15,8 @@ fn main() -> eframe::Result {
 #[derive(Debug, Clone)]
 struct AppState {
     searchables: Vec<String>,
-    selected: String,
+    selected: usize,
+    search_text: String,
 }
 
 impl AppState {
@@ -23,7 +24,8 @@ impl AppState {
         let searchables: Vec<_> = (1..100).map(|x| x.to_string()).collect();
         Self {
             searchables,
-            selected: String::new(),
+            selected: 0,
+            search_text: String::new(),
         }
     }
 }
@@ -35,10 +37,10 @@ impl App for AppState {
                 let response = ui.add(CompletionEdit::new(
                     "completion-edit",
                     &self.searchables,
-                    &mut self.selected,
+                    &mut self.search_text,
                 ));
                 if response.changed() {
-                    println!("Selected: {}", self.selected);
+                    println!("Selected: {}", self.search_text);
                 }
 
                 if ui.button("Focus").clicked() {
@@ -51,10 +53,10 @@ impl App for AppState {
             ui.horizontal(|ui| {
                 ui.columns(2, |columns| {
                     let selectables = ["Dies", "Das", "Ananas", "Foo", "Bar", "Baz"];
-                    let selected = SegmentedControl::new("segmented-control", &selectables)
-                        .ui(&mut columns[0])
-                        .inner;
-                    columns[1].label(*selected);
+                    SegmentedControl::new("segmented-control", &mut self.selected, &selectables)
+                        .ui(&mut columns[0]);
+
+                    columns[1].label(selectables[self.selected]);
                 })
             })
         });

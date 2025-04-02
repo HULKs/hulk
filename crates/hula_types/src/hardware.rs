@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
+
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(Clone, Debug, Serialize, PathSerialize, Deserialize, PathDeserialize, PathIntrospect)]
 pub struct Ids {

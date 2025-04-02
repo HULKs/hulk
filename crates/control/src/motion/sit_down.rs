@@ -1,8 +1,9 @@
 use color_eyre::Result;
 use context_attribute::context;
+use framework::deserialize_not_implemented;
 use framework::MainOutput;
 use hardware::PathsInterface;
-use motionfile::{MotionFile, MotionInterpolator};
+use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
 use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
@@ -14,7 +15,9 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct SitDown {
+    #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<Joints<f32>>,
+    state: InterpolatorState<Joints<f32>>,
 }
 
 #[context]
@@ -42,6 +45,7 @@ impl SitDown {
         let paths = context.hardware_interface.get_paths();
         Ok(Self {
             interpolator: MotionFile::from_path(paths.motions.join("sit_down.json"))?.try_into()?,
+            state: InterpolatorState::INITIAL,
         })
     }
 
@@ -49,17 +53,20 @@ impl SitDown {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
 
         if context.motion_selection.current_motion == MotionType::SitDown {
-            self.interpolator
-                .advance_by(last_cycle_duration, context.condition_input);
+            self.interpolator.advance_state(
+                &mut self.state,
+                last_cycle_duration,
+                context.condition_input,
+            );
         } else {
-            self.interpolator.reset();
+            self.state.reset();
         }
 
-        context.motion_safe_exits[MotionType::SitDown] = self.interpolator.is_finished();
+        context.motion_safe_exits[MotionType::SitDown] = self.state.is_finished();
 
         Ok(MainOutputs {
             sit_down_joints_command: MotorCommands {
-                positions: self.interpolator.value(),
+                positions: self.interpolator.value(self.state),
                 stiffnesses: Joints::fill(0.8),
             }
             .into(),

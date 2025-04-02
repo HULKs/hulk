@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
+    time::Duration,
 };
 
 use serde::Deserialize;
@@ -90,6 +91,7 @@ pub struct Cycler {
     pub instances: Vec<InstanceName>,
     pub setup_nodes: Vec<Node>,
     pub cycle_nodes: Vec<Node>,
+    pub execution_time_warning_threshold: Option<Duration>,
 }
 
 impl Cycler {
@@ -116,6 +118,7 @@ impl Cycler {
             instances,
             setup_nodes,
             cycle_nodes,
+            execution_time_warning_threshold: cycler_manifest.execution_time_warning_threshold,
         };
         cycler.sort_nodes()?;
 

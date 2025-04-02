@@ -156,7 +156,7 @@ pub fn plan(
         < dribbling_parameters.ignore_robot_when_near_ball_radius;
     let hulks_is_kicking_team =
         filtered_game_controller_state.is_some_and(|filtered_game_controller_state| {
-            filtered_game_controller_state.kicking_team == Team::Hulks
+            filtered_game_controller_state.kicking_team == Some(Team::Hulks)
         });
 
     let obstacles = if ball_is_near { &[] } else { obstacles };

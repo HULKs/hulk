@@ -58,7 +58,7 @@ fn generate_module(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
     let cycler_implementation = generate_implementation(cycler, cyclers, mode);
 
     quote! {
-        #[allow(dead_code, unused_mut, unused_variables, clippy::too_many_arguments, clippy::needless_question_mark, clippy::borrow_deref_ref)]
+        #[allow(dead_code, unused_mut, unused_variables,clippy::explicit_auto_deref, clippy::too_many_arguments, clippy::needless_question_mark, clippy::borrow_deref_ref)]
         pub(crate) mod #module_name {
             use color_eyre::eyre::WrapErr;
             use crate::structs::#module_name::{MainOutputs, AdditionalOutputs};
@@ -529,19 +529,25 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
                 }
             });
 
+            let duration_warning = cycler.execution_time_warning_threshold.map(|threshold| {
+                let threshold_seconds = threshold.as_secs_f32();
+                quote! {
+                    if recording_duration > std::time::Duration::from_secs_f32(#threshold_seconds) {
+                        log::warn!("Cycle took {}s!", recording_duration.as_secs_f32());
+                        self
+                            .hardware_interface
+                            .write_to_speakers(types::audio::SpeakerRequest::PlaySound {
+                                sound: types::audio::Sound::Donk,
+                            });
+                    }
+                }
+            });
+
             quote! {
                 #after_remaining_nodes
                 let recording_duration = recording_timestamp.elapsed().expect("time ran backwards");
 
-                const EXECUTION_TIME_UPPER_BOUND: f32 = 0.4;
-                if recording_duration.as_secs_f32() > EXECUTION_TIME_UPPER_BOUND {
-                    log::warn!("Cycle took {}s!", recording_duration.as_secs_f32());
-                    self
-                        .hardware_interface
-                        .write_to_speakers(types::audio::SpeakerRequest::PlaySound {
-                            sound: types::audio::Sound::Donk,
-                        });
-                }
+                #duration_warning
 
                 if enable_recording {
                     self.recording_sender.try_send(match instance {

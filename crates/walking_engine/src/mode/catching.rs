@@ -32,8 +32,11 @@ impl Catching {
         let parameters = &context.parameters;
 
         let step_duration = parameters.base.step_duration;
-        let start_feet =
-            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
+        let start_feet = Feet::from_joints(
+            context.robot_to_walk,
+            &context.last_actuated_joints,
+            support_side,
+        );
 
         let end_feet = catching_end_feet(parameters, *context.zero_moment_point, support_side);
         let max_swing_foot_lift =
@@ -98,7 +101,11 @@ fn catching_end_feet(
                 .clamp(-max_adjustment, max_adjustment),
             turn: 0.0,
         }
-        .clamp_to_anatomic_constraints(support_side, parameters.max_inside_turn),
+        .clamp_to_anatomic_constraints(
+            support_side,
+            parameters.max_base_inside_turn,
+            parameters.max_inside_turn_increase,
+        ),
         support_side,
     )
 }

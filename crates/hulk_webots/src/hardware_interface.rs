@@ -11,21 +11,23 @@ use color_eyre::{
     eyre::{bail, eyre, Error, WrapErr},
     Result,
 };
+use serde::Deserialize;
+use tokio_util::sync::CancellationToken;
+use webots::Robot;
+
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
     PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface, TimeInterface,
 };
-use serde::Deserialize;
+use hula_types::hardware::{Ids, Paths};
 use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},
     select,
 };
-use tokio_util::sync::CancellationToken;
 use types::{
     audio::SpeakerRequest,
     camera_position::CameraPosition,
-    hardware::{Ids, Paths},
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
@@ -33,7 +35,6 @@ use types::{
     sensor_data::SensorData,
     ycbcr422_image::YCbCr422Image,
 };
-use webots::Robot;
 
 use super::{
     camera::Camera, force_sensitive_resistor_devices::ForceSensitiveResistorDevices,

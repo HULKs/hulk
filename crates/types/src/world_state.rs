@@ -32,7 +32,15 @@ pub struct WorldState {
 }
 
 #[derive(
-    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
 )]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
@@ -41,6 +49,22 @@ pub struct BallState {
     pub last_seen_ball: SystemTime,
     pub penalty_shot_direction: Option<PenaltyShotDirection>,
     pub field_side: Side,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
+)]
+pub struct LastBallState {
+    pub time: SystemTime,
+    pub ball: BallState,
 }
 
 impl Default for BallState {
