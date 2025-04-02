@@ -59,7 +59,12 @@ members = [
 ]
 resolver = "2"
 # services are built independently by yocto
-exclude = ["services/aliveness", "services/breeze", "services/hula"]
+exclude = [
+  "services/aliveness",
+  "services/breeze",
+  "services/hula",
+  "services/power-panic",
+]
 
 [workspace.package]
 version = "0.1.0"
