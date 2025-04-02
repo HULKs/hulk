@@ -5,7 +5,9 @@ use bevy::prelude::*;
 use spl_network_messages::{
     GamePhase, GameState, Penalty, PlayerNumber, SubState, Team, TeamColor, TeamState,
 };
-use types::{game_controller_state::GameControllerState, players::Players};
+use types::{
+    field_dimensions::GlobalFieldSide, game_controller_state::GameControllerState, players::Players,
+};
 
 use crate::{autoref::autoref, whistle::WhistleResource};
 
@@ -18,11 +20,11 @@ struct GameControllerControllerState {
 pub enum GameControllerCommand {
     SetGameState(GameState),
     SetGamePhase(GamePhase),
-    SetSubState(Option<SubState>, Team),
+    SetSubState(Option<SubState>, Team, Option<PlayerNumber>),
     SetKickingTeam(Team),
     Goal(Team),
-    Penalize(PlayerNumber, Penalty),
-    Unpenalize(PlayerNumber),
+    Penalize(PlayerNumber, Penalty, Team),
+    Unpenalize(PlayerNumber, Team),
     BallIsFree,
 }
 
@@ -62,19 +64,46 @@ fn game_controller_controller(
                 game_controller.state.game_state = GameState::Ready;
                 state.last_state_change = time.as_generic();
             }
-            GameControllerCommand::Penalize(player_number, penalty) => {
-                game_controller.state.penalties[player_number] = Some(penalty);
-            }
-            GameControllerCommand::Unpenalize(player_number) => {
-                game_controller.state.penalties[player_number] = None;
-            }
-            GameControllerCommand::SetSubState(sub_state, team) => {
+            GameControllerCommand::Penalize(player_number, penalty, team) => match team {
+                Team::Hulks => game_controller.state.penalties[player_number] = Some(penalty),
+                Team::Opponent => {
+                    game_controller.state.opponent_penalties[player_number] = Some(penalty)
+                }
+            },
+            GameControllerCommand::Unpenalize(player_number, team) => match team {
+                Team::Hulks => game_controller.state.penalties[player_number] = None,
+                Team::Opponent => game_controller.state.opponent_penalties[player_number] = None,
+            },
+            GameControllerCommand::SetSubState(sub_state, team, penalized_player_number) => {
                 game_controller.state.sub_state = sub_state;
-                if sub_state == Some(SubState::PenaltyKick) {
-                    game_controller.state.kicking_team = Some(team);
-                    game_controller.state.game_state = GameState::Ready;
-                } else {
-                    game_controller.state.kicking_team = None;
+                match sub_state {
+                    Some(SubState::PenaltyKick) | Some(SubState::PushingFreeKick) => {
+                        if sub_state == Some(SubState::PenaltyKick) {
+                            game_controller.state.kicking_team = Some(team);
+                            game_controller.state.game_state = GameState::Ready;
+                        } else {
+                            game_controller.state.kicking_team = None;
+                        }
+                        match team {
+                            Team::Hulks => {
+                                game_controller.state.opponent_penalties[penalized_player_number
+                                    .expect("This sub state requires a penalized player number.")] =
+                                    Some(Penalty::PlayerPushing {
+                                        remaining: Duration::from_secs(45),
+                                    })
+                            }
+                            Team::Opponent => {
+                                game_controller.state.penalties[penalized_player_number
+                                    .expect("This sub state requires a penalized player number.")] =
+                                    Some(Penalty::PlayerPushing {
+                                        remaining: Duration::from_secs(45),
+                                    })
+                            }
+                        }
+                    }
+                    _ => {
+                        game_controller.state.kicking_team = None;
+                    }
                 }
                 state.last_state_change = time.as_generic();
             }
@@ -137,7 +166,7 @@ impl Default for GameController {
                 penalties: Players::new(None),
                 opponent_penalties: Players::new(None),
                 sub_state: None,
-                hulks_team_is_home_after_coin_toss: true,
+                global_field_side: GlobalFieldSide::Home,
                 hulks_team: TeamState {
                     team_number: 24,
                     field_player_color: TeamColor::Green,

@@ -139,7 +139,7 @@ pub fn auto_assistant_referee(
         match *command {
             GameControllerCommand::SetGameState(_) => {}
             GameControllerCommand::SetGamePhase(_) => {}
-            GameControllerCommand::SetSubState(Some(SubState::CornerKick), team) => {
+            GameControllerCommand::SetSubState(Some(SubState::CornerKick), team, _) => {
                 let side = if let Some(ball) = ball.state.as_mut() {
                     if ball.position.y() <= 0.0 {
                         Side::Left
@@ -158,7 +158,7 @@ pub fn auto_assistant_referee(
                     velocity: vector![0.0, 0.0],
                 });
             }
-            GameControllerCommand::SetSubState(Some(SubState::PenaltyKick), team) => {
+            GameControllerCommand::SetSubState(Some(SubState::PenaltyKick), team, _) => {
                 let half = match team {
                     Team::Hulks => Half::Opponent,
                     Team::Opponent => Half::Own,
@@ -168,7 +168,7 @@ pub fn auto_assistant_referee(
                     velocity: vector![0.0, 0.0],
                 });
             }
-            GameControllerCommand::SetSubState(Some(SubState::GoalKick), team) => {
+            GameControllerCommand::SetSubState(Some(SubState::GoalKick), team, _) => {
                 let side = if let Some(ball) = ball.state.as_mut() {
                     if ball.position.x() >= 0.0 {
                         Side::Left
@@ -187,7 +187,7 @@ pub fn auto_assistant_referee(
                     velocity: vector![0.0, 0.0],
                 });
             }
-            GameControllerCommand::SetSubState(Some(SubState::KickIn), _) => {
+            GameControllerCommand::SetSubState(Some(SubState::KickIn), _, _) => {
                 let x = if let Some(ball) = ball.state.as_mut() {
                     ball.position.x()
                 } else {
@@ -211,7 +211,7 @@ pub fn auto_assistant_referee(
             GameControllerCommand::BallIsFree => {}
             GameControllerCommand::SetKickingTeam(_) => {}
             GameControllerCommand::Goal(_) => {}
-            GameControllerCommand::Penalize(player_number, penalty) => match penalty {
+            GameControllerCommand::Penalize(player_number, penalty, team) => match penalty {
                 Penalty::IllegalMotionInStandby { .. } | Penalty::IllegalMotionInSet { .. } => {
                     // Robots are penalized in place
                 }
@@ -226,6 +226,19 @@ pub fn auto_assistant_referee(
                 | Penalty::PlayerStance { .. }
                 | Penalty::Substitute { .. }
                 | Penalty::Manual { .. } => {
+                    if team == Team::Hulks {
+                        if let Some(mut robot) = robots
+                            .iter_mut()
+                            .find(|robot| robot.parameters.player_number == player_number)
+                        {
+                            *robot.ground_to_field_mut() =
+                                Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
+                        }
+                    }
+                }
+            },
+            GameControllerCommand::Unpenalize(player_number, team) => {
+                if team == Team::Hulks {
                     if let Some(mut robot) = robots
                         .iter_mut()
                         .find(|robot| robot.parameters.player_number == player_number)
@@ -233,15 +246,6 @@ pub fn auto_assistant_referee(
                         *robot.ground_to_field_mut() =
                             Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
                     }
-                }
-            },
-            GameControllerCommand::Unpenalize(player_number) => {
-                if let Some(mut robot) = robots
-                    .iter_mut()
-                    .find(|robot| robot.parameters.player_number == player_number)
-                {
-                    *robot.ground_to_field_mut() =
-                        Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
                 }
             }
         }

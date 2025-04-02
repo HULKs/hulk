@@ -6,8 +6,17 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use linear_algebra::{point, Point2};
+use spl_network_messages::Team;
 
 use crate::bounding_box::BoundingBox;
+
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub enum DetectionRegion {
+    Narrow,
+    Full,
+}
 
 pub const OVERALL_KEYPOINT_INDEX_MASK: [usize; 15] =
     [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
@@ -158,6 +167,47 @@ pub struct RefereePoseCandidate {
     Debug,
     Clone,
     Copy,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct ReadySignalDetectionResult {
+    pub detected_own_ready_signal: bool,
+    pub did_detect_any_ready_pose_this_cycle: bool,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct FreeKickSignalDetectionResult {
+    pub own_detected_kicking_team: Option<Team>,
+    pub did_detect_any_free_kick_pose_this_cycle: bool,
+}
+
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct TimeTaggedKickingTeamDetections {
+    pub time: SystemTime,
+    pub detected_kicking_team: Option<Team>,
+}
+
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
     Serialize,
     Deserialize,
     PartialEq,
@@ -165,9 +215,14 @@ pub struct RefereePoseCandidate {
     PathDeserialize,
     PathIntrospect,
 )]
-pub enum VisualRefereeState {
+pub enum ReadySignalState {
+    #[default]
     WaitingForDetections,
-    WaitingForOpponentPenalties { active_since: SystemTime },
-    WaitingForOwnPenalties { active_since: SystemTime },
+    WaitingForOpponentPenalties {
+        active_since: SystemTime,
+    },
+    WaitingForOwnPenalties {
+        active_since: SystemTime,
+    },
     GoToReady,
 }
