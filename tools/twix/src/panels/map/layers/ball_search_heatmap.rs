@@ -47,6 +47,7 @@ impl Layer<Field> for BallSearchHeatmap {
                     (x + 1) as f32 * cell_length - offset.0,
                     (y + 1) as f32 * cell_width - offset.1,
                 ];
+                const HEATMAP_OPACITY_SCALE: f32 = 3.0;
                 painter.rect_filled(
                     first_point,
                     second_point,
@@ -54,10 +55,9 @@ impl Layer<Field> for BallSearchHeatmap {
                         0,
                         0,
                         255,
-                        (value.powf(1.2) * 255.0 * 3.0) as u8,
+                        (value.powf(1.2) * 255.0 * HEATMAP_OPACITY_SCALE) as u8,
                     ),
                 );
-                dbg!(value);
             }
         }
 
