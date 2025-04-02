@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env::current_dir,
     ffi::{OsStr, OsString},
     path::{absolute, Path, PathBuf},
@@ -10,6 +11,7 @@ use color_eyre::{
     Result,
 };
 use environment::{Environment, EnvironmentArguments};
+use lazy_static::lazy_static;
 use pathdiff::diff_paths;
 use repository::{cargo::Cargo, Repository};
 use tokio::fs::read_to_string;
@@ -30,6 +32,30 @@ mod heading {
     pub const FEATURE_SELECTION: &str = "Feature Selection";
     pub const COMPILATION_OPTIONS: &str = "Compilation Options";
     pub const MANIFEST_OPTIONS: &str = "Manifest Options";
+}
+
+lazy_static! {
+    static ref MANIFEST_PATHS: HashMap<&'static str, &'static str> = {
+        HashMap::from([
+            ("imagine", "crates/hulk_imagine"),
+            ("nao", "crates/hulk_nao"),
+            ("replayer", "crates/hulk_replayer"),
+            ("webots", "crates/hulk_webots"),
+            ("aliveness", "services/aliveness"),
+            ("breeze", "services/breeze"),
+            ("hula", "services/hula"),
+            ("power-panic", "services/power-panic"),
+            ("annotato", "tools/annotato"),
+            ("camera_matrix_extractor", "tools/camera_matrix_extractor"),
+            ("depp", "tools/depp"),
+            ("fanta", "tools/fanta"),
+            ("parameter_tester", "tools/parameter_tester"),
+            ("pepsi", "tools/pepsi"),
+            ("twix", "tools/twix"),
+            ("vista", "tools/vista"),
+            ("widget_gallery", "tools/widget_gallery"),
+        ])
+    };
 }
 
 #[derive(Args)]
@@ -168,52 +194,32 @@ async fn resolve_manifest_path(
 ) -> Result<PathBuf> {
     let manifest = manifest.as_ref();
 
-    Ok(match manifest.to_str() {
-        Some("imagine") => repository.root.join("crates/hulk_imagine/Cargo.toml"),
-        Some("nao") => repository.root.join("crates/hulk_nao/Cargo.toml"),
-        Some("replayer") => repository.root.join("crates/hulk_replayer/Cargo.toml"),
-        Some("webots") => repository.root.join("crates/hulk_webots/Cargo.toml"),
+    let manifest_path = manifest
+        .to_str()
+        .and_then(|manifest| {
+            MANIFEST_PATHS
+                .get(manifest)
+                .map(|manifest_path| repository.root.join(manifest_path))
+        })
+        .unwrap_or(manifest.into());
 
-        Some("aliveness") => repository.root.join("services/aliveness/Cargo.toml"),
-        Some("breeze") => repository.root.join("services/breeze/Cargo.toml"),
-        Some("hula") => repository.root.join("services/hula/Cargo.toml"),
-        Some("power-panic") => repository.root.join("services/power-panic/Cargo.toml"),
-
-        Some("annotato") => repository.root.join("tools/annotato/Cargo.toml"),
-        Some("camera_matrix_extractor") => repository
-            .root
-            .join("tools/camera_matrix_extractor/Cargo.toml"),
-        Some("depp") => repository.root.join("tools/depp/Cargo.toml"),
-        Some("fanta") => repository.root.join("tools/fanta/Cargo.toml"),
-        Some("parameter_tester") => repository.root.join("tools/parameter_tester/Cargo.toml"),
-        Some("pepsi") => repository.root.join("tools/pepsi/Cargo.toml"),
-        Some("twix") => repository.root.join("tools/twix/Cargo.toml"),
-        Some("vista") => repository.root.join("tools/vista/Cargo.toml"),
-        Some("widget_gallery") => repository.root.join("tools/widget_gallery/Cargo.toml"),
-
-        _ => compose_manifest_path(manifest).await.wrap_err_with(|| {
-            format!(
-                "failed to resolve manifest path for {manifest}",
-                manifest = manifest.to_string_lossy()
-            )
-        })?,
-    })
-}
-
-async fn compose_manifest_path(manifest: impl AsRef<OsStr>) -> Result<PathBuf> {
     let manifest_path =
-        absolute(manifest.as_ref()).wrap_err("failed to get absolute path of manifest")?;
-    Ok(
-        if tokio::fs::metadata(&manifest_path)
-            .await
-            .wrap_err("failed to retrieve metadata")?
-            .is_dir()
-        {
-            manifest_path.join("Cargo.toml")
-        } else {
-            manifest_path
-        },
-    )
+        absolute(manifest_path).wrap_err("failed to get absolute path of manifest")?;
+
+    let metadata = tokio::fs::metadata(&manifest_path)
+        .await
+        .wrap_err_with(|| {
+            format!(
+                "failed to retrieve metadata for {manifest_path}",
+                manifest_path = manifest_path.to_string_lossy()
+            )
+        })?;
+
+    Ok(if metadata.is_dir() {
+        manifest_path.join("Cargo.toml")
+    } else {
+        manifest_path
+    })
 }
 
 fn package_metadata(table: &Table) -> Option<&Table> {
