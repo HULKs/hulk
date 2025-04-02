@@ -19,14 +19,14 @@ use types::{camera_position::CameraPosition, jpeg::JpegImage};
 use crate::{
     nao::Nao,
     panel::Panel,
+    panels::camera_calibration::optimization::{
+        DrawnLine, SavedMeasurement, SemiAutomaticCalibrationContext,
+    },
+    panels::image::cycler_selector::{VisionCycler, VisionCyclerSelector},
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
 };
-
-use crate::panels::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
-
-use super::optimization::{DrawnLine, SavedMeasurement, SemiAutomaticCalibrationContext};
 
 const KEYPOINT_RADIUS: f32 = 5.0;
 const KEYPOINT_COLOR: Color32 = Color32::from_rgb(155, 0, 0);
@@ -54,7 +54,6 @@ pub struct SemiAutomaticCameraCalibrationPanel {
 
     user_state: UserState,
     drawn_lines: Vec<DrawnLine>,
-    line_type: LineType,
     saved_measurements: Vec<SavedMeasurement>,
     optimization: SemiAutomaticCalibrationContext,
     stroke: Stroke,
@@ -91,7 +90,6 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
             cycler,
             user_state: UserState::Idle,
             drawn_lines: Vec::new(),
-            line_type: LineType::Goal,
             saved_measurements: Vec::new(),
             optimization: SemiAutomaticCalibrationContext::new(nao.clone()),
             stroke: Stroke::new(3.0, Color32::from_rgb(55, 80, 250)),
@@ -227,7 +225,7 @@ impl SemiAutomaticCameraCalibrationPanel {
         Ok(())
     }
 
-    fn line_type_ui(&mut self, ui: &mut Ui) -> Response {
+    fn line_type_ui(&mut self, ui: &mut Ui) -> Option<LineType> {
         let line_types = [
             LineType::Goal,
             LineType::LeftPenaltyArea,
@@ -237,17 +235,15 @@ impl SemiAutomaticCameraCalibrationPanel {
             LineType::RightGoalArea,
             LineType::FrontGoalArea,
         ];
-        let mut response = ui.response();
         for line_type in &line_types {
             if ui
                 .selectable_label(false, format!("{:?}", line_type))
                 .clicked()
             {
-                self.line_type = *line_type;
-                response.mark_changed();
+                return Some(*line_type);
             }
         }
-        response
+        None
     }
 
     pub fn ui_content(&mut self, ui: &mut Ui) -> Response {
@@ -286,15 +282,17 @@ impl SemiAutomaticCameraCalibrationPanel {
             );
         }
 
-        let primary_clicked = ui.input(|reader| reader.pointer.primary_pressed());
+        let primary_clicked = ui.input(|reader| reader.pointer.primary_clicked());
         let escape_pressed = ui.input(|reader| reader.key_pressed(Key::Escape));
         let pointer_position = response
             .hover_pos()
             .map(|pos| painter.transform_pixel_to_world(pos));
 
+        let id = ui.auto_id_with("line-segment-selector");
+        let popup_id = id.with("line-segment-selector");
+
         self.user_state = match (self.user_state, pointer_position) {
             _ if escape_pressed => UserState::Idle,
-            (UserState::Idle, _) if !primary_clicked => UserState::Idle,
             (UserState::Idle, Some(pointer)) if primary_clicked => {
                 let closest_line_index = self.drawn_lines.iter().position(|line| {
                     distance(line.line_segment.0, pointer) < KEYPOINT_RADIUS
@@ -327,6 +325,9 @@ impl SemiAutomaticCameraCalibrationPanel {
                     });
                     UserState::Idle
                 } else {
+                    ui.memory_mut(|memory| {
+                        memory.open_popup(popup_id);
+                    });
                     UserState::AnnotatingLine {
                         line: LineSegment(start, end),
                     }
@@ -344,8 +345,7 @@ impl SemiAutomaticCameraCalibrationPanel {
             (UserState::AnnotatingLine { line }, _) => {
                 painter.line_segment(line.0, line.1, self.stroke);
                 let popup_position = painter.transform_world_to_pixel(line.1);
-                let id = ui.auto_id_with("popup");
-                let popup_id = id.with("line-segment-selector");
+
                 let local_response = ui.interact(
                     Rect::from_min_size(popup_position, vec2(200.0, 0.0)),
                     id,
@@ -360,20 +360,19 @@ impl SemiAutomaticCameraCalibrationPanel {
                     |ui| self.line_type_ui(ui),
                 );
 
-                if response.is_some_and(|response| response.changed()) {
-                    self.drawn_lines.push(DrawnLine {
-                        line_segment: line,
-                        line_type: self.line_type,
-                    });
-                    UserState::Idle
-                } else {
-                    ui.memory_mut(|memory| {
-                        memory.open_popup(popup_id);
-                    });
-                    UserState::AnnotatingLine { line }
+                match response {
+                    Some(Some(line_type)) => {
+                        self.drawn_lines.push(DrawnLine {
+                            line_segment: line,
+                            line_type,
+                        });
+                        UserState::Idle
+                    }
+                    Some(None) => UserState::AnnotatingLine { line },
+                    None => UserState::Idle,
                 }
             }
-            (_, _) => self.user_state,
+            (previous_state, _) => previous_state,
         };
         response
     }
