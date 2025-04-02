@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+# exit on error
+set -e
+
+# cd to repository base directory for better referencing
+BASEDIR=`cd $(dirname $0); pwd -P`
+BASEDIR=${BASEDIR%/*}
+cd "$BASEDIR"
+
+print_help() {
+    cat <<-__helpText__
+Usage: $0 [OPTIONS] <Command>
+
+Send local changes to an ssh remote and execute a command there.
+Optionally, files can be rsync'ed back after.
+
+command: Command to execute on the remote machine
+         Example: \`$0 ./pepsi build\`
+
+Options:
+
+  --remote <path>  Override remote workspace path
+  --return-file <file>  Path of file to be returned.
+                        The file path must be relative to the repository.
+                        Can be repeated to return multiple files.
+  --cd <path>      Change directory on remote before executing command
+
+If no --remote is given, the path loaded from `.REMOTE_WORKSPACE`
+The remote workspace path should follow this format:
+
+    \`user@host:path/to/remote/repo\`
+
+It is recommended to use a dedicated remote worktree for this since
+it will be cleaned and synchronized with the local changes without
+regard for possible unsaved changes on the remote.
+__helpText__
+}
+
+remoteWorkspace="${REMOTE_WORKSPACE:-$(cat .REMOTE_WORKSPACE)}"
+files=()
+path="."
+while true; do
+    case "$1" in
+        -[h?] | --help)
+            print_help
+            exit
+            ;;
+        --remote)
+            shift
+            remoteWorkspace=$1
+            ;;
+        --return-file)
+            shift
+            files+=($1)
+            ;;
+        --cd)
+            shift
+            path=$1
+            ;;
+        *)
+            break
+            ;;
+    esac
+    shift
+done
+echo Using remote $(tput setaf 6)$remoteWorkspace$(tput sgr 0)
+
+# extract login information and remote path from workspace
+# assumes workspace path of this format: `user@domain:path/to/hulk/repo`
+address="$(echo $remoteWorkspace | cut -d':' -f 1)"
+remotePath="$(echo $remoteWorkspace | cut -d':' -f 2-)"
+
+# send local state to remote
+rsync -ah --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
+
+# if stdout is a tty/pty, make ssh behave as one as well
+SSH_FLAGS=""
+if [ -t 1 ]; then
+    SSH_FLAGS="-t"
+fi
+
+# invoke command remotely
+ssh \
+    $SSH_FLAGS \
+    $address \
+    "sh -c ' \
+    cd \"$remotePath\" \
+    && cd \"$path\" \
+    && $@
+'"
+
+if [ ${#files[@]} -gt 0 ]; then
+    # fetch results
+    echo Returning files
+    printf '  %s\n' "${files[@]}"
+    printf '%s\n' "${files[@]}" | rsync -ah --info=progress --files-from=- "$remoteWorkspace" .
+fi

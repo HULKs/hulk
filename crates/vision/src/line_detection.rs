@@ -88,7 +88,7 @@ pub struct MainOutputs {
 impl LineDetection {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            random_state: ChaChaRng::from_entropy(),
+            random_state: ChaChaRng::from_os_rng(),
         })
     }
 

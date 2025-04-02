@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    PartialEq,
 )]
 pub enum PenaltyShotDirection {
     #[default]

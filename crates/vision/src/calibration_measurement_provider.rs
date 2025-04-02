@@ -118,8 +118,8 @@ fn get_fake_measurement(
         point![goal_box_line.0.x(), border_line.0.y()],
     );
 
-    let mut rng = rand::thread_rng();
-    if rng.gen_range(0..10) > 5 {
+    let mut rng = rand::rng();
+    if rng.random_range(0..10) > 5 {
         Ok(Measurement {
             matrix: matrix.clone(),
             position,

@@ -10,10 +10,10 @@ use std::{
 use eframe::{
     egui::{
         show_tooltip_at_pointer, widgets::Label, Align2, Button, ComboBox, FontId, Response,
-        RichText, Sense, TextStyle, TextWrapMode, Ui, Widget, WidgetText,
+        RichText, Sense, StrokeKind, TextStyle, TextWrapMode, Ui, Widget, WidgetText,
     },
     emath::{remap, Rangef, RectTransform},
-    epaint::{Color32, Rect, Rounding, Shape, Stroke, TextShape, Vec2},
+    epaint::{Color32, CornerRadius, Rect, Shape, Stroke, TextShape, Vec2},
 };
 use itertools::Itertools;
 use serde_json::{json, Value};
@@ -109,9 +109,10 @@ impl Segment {
 
         ui.painter().rect(
             screenspace_rect,
-            Rounding::same(4.0),
+            CornerRadius::same(4),
             fill_color,
             Stroke::new(stroke_width, stroke_color),
+            StrokeKind::Middle,
         );
 
         let text_margin = 2.0 * stroke_width;
@@ -362,7 +363,7 @@ impl EnumPlotPanel {
         ui.scope(|ui| {
             ui.set_clip_rect(frame);
             ui.painter()
-                .rect_filled(frame, Rounding::ZERO, Color32::BLACK);
+                .rect_filled(frame, CornerRadius::ZERO, Color32::BLACK);
 
             if let (Some(start), Some(end)) = (start, end) {
                 let timestamp_range = Range { start, end };

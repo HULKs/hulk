@@ -14,10 +14,11 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::{MotionCommand, WalkSpeed},
+    kick_decision::DecisionParameters,
+    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     parameters::{
-        BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, LostBallParameters,
-        WideStanceParameters,
+        BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
+        LostBallParameters,
     },
     path_obstacles::PathObstacle,
     planned_path::PathSegment,
@@ -27,11 +28,9 @@ use types::{
     world_state::WorldState,
 };
 
-use crate::dribble_path_planner;
-
 use super::{
     animation, calibrate,
-    defend::Defend,
+    defend::{Defend, DefendMode},
     dribble, fall_safely,
     head::LookAction,
     initial, intercept_ball, jump, look_around, lost_ball, no_ground_contact, penalize,
@@ -42,10 +41,10 @@ use super::{
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {
-    last_motion_command: MotionCommand,
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
+    last_defender_mode: DefendMode,
 }
 
 #[context]
@@ -53,24 +52,22 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
-    dribble_path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "dribble_path_obstacles">,
-    active_action_output: AdditionalOutput<Action, "active_action">,
-
     expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
+    dribble_path_plan: Input<Option<(OrientationMode, Vec<PathSegment>)>, "dribble_path_plan?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
+    kick_decision_parameters: Parameter<DecisionParameters, "kick_selector">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
     maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     enable_pose_detection: Parameter<bool, "pose_detection.enable">,
-    wide_stance: Parameter<WideStanceParameters, "wide_stance">,
+    keeper_motion: Parameter<KeeperMotionParameters, "keeper_motion">,
     use_stand_head_unstiff_calibration:
         Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
 
@@ -82,22 +79,26 @@ pub struct CycleContext {
     support_walk_speed: Parameter<WalkSpeed, "walk_speed.support">,
     walk_to_kickoff_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_kickoff">,
     walk_to_penalty_kick_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_penalty_kick">,
+
+    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
+    active_action_output: AdditionalOutput<Action, "active_action">,
+
+    last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub motion_command: MainOutput<MotionCommand>,
-    pub dribble_path: MainOutput<Option<Vec<PathSegment>>>,
 }
 
 impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_motion_command: MotionCommand::Unstiff,
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
+            last_defender_mode: DefendMode::Passive,
         })
     }
 
@@ -106,7 +107,6 @@ impl Behavior {
         if let Some(command) = &context.parameters.injected_motion_command {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
-                dribble_path: None.into(),
             });
         }
 
@@ -116,15 +116,11 @@ impl Behavior {
 
         let now = context.cycle_time.start_time;
         match (self.active_since, world_state.robot.primary_state) {
-            (
-                None,
-                PrimaryState::Ready { .. } | PrimaryState::Set | PrimaryState::Playing { .. },
-            ) => self.active_since = Some(now),
+            (None, PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {
+                self.active_since = Some(now)
+            }
             (None, _) => {}
-            (
-                Some(_),
-                PrimaryState::Ready { .. } | PrimaryState::Set | PrimaryState::Playing { .. },
-            ) => {}
+            (Some(_), PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {}
             (Some(_), _) => self.active_since = None,
         }
 
@@ -158,10 +154,8 @@ impl Behavior {
             }
         }
 
-        if matches!(world_state.robot.player_number, PlayerNumber::One)
-            && matches!(world_state.robot.role, Role::Keeper)
-        {
-            actions.push(Action::WideStance);
+        if matches!(world_state.robot.player_number, PlayerNumber::One) {
+            actions.push(Action::KeeperMotion);
         }
         actions.push(Action::InterceptBall);
 
@@ -169,7 +163,7 @@ impl Behavior {
             Role::DefenderLeft => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Left }),
                 _ => actions.push(Action::DefendLeft),
@@ -177,7 +171,7 @@ impl Behavior {
             Role::DefenderRight => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendOpponentCornerKick { side: Side::Right }),
                 _ => actions.push(Action::DefendRight),
@@ -189,7 +183,7 @@ impl Behavior {
                 })
                 | Some(FilteredGameControllerState {
                     game_state: FilteredGameState::Playing { .. },
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     sub_state: Some(SubState::PenaltyKick),
                     ..
                 }) => {
@@ -215,11 +209,8 @@ impl Behavior {
                     actions.push(Action::Dribble);
                 }
                 Some(FilteredGameControllerState {
-                    game_state:
-                        FilteredGameState::Ready {
-                            kicking_team_known: true,
-                        },
-                    kicking_team: Team::Hulks,
+                    game_state: FilteredGameState::Ready,
+                    kicking_team: Some(Team::Hulks),
                     sub_state,
                     ..
                 }) => match sub_state {
@@ -227,9 +218,9 @@ impl Behavior {
                     _ => actions.push(Action::WalkToKickOff),
                 },
                 Some(FilteredGameControllerState {
-                    game_state: FilteredGameState::Ready { .. } | FilteredGameState::Playing { .. },
+                    game_state: FilteredGameState::Ready | FilteredGameState::Playing { .. },
                     sub_state: Some(SubState::PenaltyKick),
-                    kicking_team: Team::Opponent,
+                    kicking_team: Some(Team::Opponent),
                     ..
                 }) => actions.push(Action::DefendPenaltyKick),
                 _ => actions.push(Action::DefendKickOff),
@@ -241,39 +232,23 @@ impl Behavior {
             context.field_dimensions,
             &world_state.obstacles,
             &context.parameters.path_planning,
-            &self.last_motion_command,
+            context.last_motion_command,
         );
         let walk_and_stand = WalkAndStand::new(
             world_state,
             &context.parameters.walk_and_stand,
             &walk_path_planner,
-            &self.last_motion_command,
+            context.last_motion_command,
         );
         let look_action = LookAction::new(world_state);
-        let defend = Defend::new(
+        let mut defend = Defend::new(
             world_state,
             context.field_dimensions,
             &context.parameters.role_positions,
             &walk_and_stand,
             &look_action,
+            &mut self.last_defender_mode,
         );
-
-        let mut dribble_path_obstacles = None;
-        let mut dribble_path_obstacles_output = AdditionalOutput::new(
-            context.path_obstacles_output.is_subscribed()
-                || context.dribble_path_obstacles_output.is_subscribed(),
-            &mut dribble_path_obstacles,
-        );
-
-        let dribble_path = dribble_path_planner::plan(
-            &walk_path_planner,
-            world_state,
-            &context.parameters.dribbling,
-            &mut dribble_path_obstacles_output,
-        );
-        context
-            .dribble_path_obstacles_output
-            .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
         let (action, motion_command) = actions
             .iter()
@@ -294,7 +269,7 @@ impl Behavior {
                     Action::StandUp => stand_up::execute(world_state),
                     Action::NoGroundContact => no_ground_contact::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-                    Action::WideStance => defend.wide_stance(context.wide_stance.clone()),
+                    Action::KeeperMotion => defend.keeper_motion(context.keeper_motion.clone()),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
@@ -374,7 +349,7 @@ impl Behavior {
                         &walk_path_planner,
                         context.in_walk_kicks,
                         &context.parameters.dribbling,
-                        dribble_path.clone(),
+                        context.dribble_path_plan.cloned(),
                         *context.dribble_walk_speed,
                     ),
                     Action::Jump => jump::execute(world_state),
@@ -475,7 +450,8 @@ impl Behavior {
                         &walk_and_stand,
                         &look_action,
                         &mut context.path_obstacles_output,
-                        context.parameters.role_positions.striker_kickoff_pose,
+                        context.parameters.role_positions.striker_kickoff_position,
+                        context.kick_decision_parameters.kick_off_angle,
                         *context.walk_to_kickoff_walk_speed,
                         context
                             .parameters
@@ -504,17 +480,10 @@ impl Behavior {
             });
         context.active_action_output.fill_if_subscribed(|| *action);
 
-        self.last_motion_command = motion_command.clone();
-
-        if matches!(action, Action::Dribble) {
-            context
-                .path_obstacles_output
-                .fill_if_subscribed(|| dribble_path_obstacles.unwrap_or_default())
-        }
+        *context.last_motion_command = motion_command.clone();
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
-            dribble_path: dribble_path.into(),
         })
     }
 }

@@ -583,7 +583,7 @@
       ],
       "exit_condition": {
         "StabilizedCondition": {
-          "tolerance": 0.5,
+          "tolerance": 0.1,
           "timeout_duration": 5.0
         }
       }

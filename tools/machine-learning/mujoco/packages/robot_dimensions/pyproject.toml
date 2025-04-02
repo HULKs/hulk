@@ -2,7 +2,7 @@
 name = "robot-dimensions"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = ["numpy>=1.2.0"]
 
 [build-system]

@@ -86,7 +86,7 @@ impl SacrificialLamb {
         self.last_majority_vote_verdict = *context.majority_vote_is_referee_ready_pose_detected;
 
         let motion_in_standby =
-            new_motion_in_standby_count.map_or(false, |new_motion_in_standby_count| {
+            new_motion_in_standby_count.is_some_and(|new_motion_in_standby_count| {
                 let motion_in_standby = new_motion_in_standby_count > self.motion_in_standby_count;
                 self.motion_in_standby_count = new_motion_in_standby_count;
                 motion_in_standby

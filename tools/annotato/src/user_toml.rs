@@ -61,9 +61,9 @@ where
     let mut modifiers = Modifiers::default();
     for modifier in string_modifiers {
         match modifier.as_str() {
-            "alt" => modifiers = modifiers | Modifiers::ALT,
-            "ctrl" => modifiers = modifiers | Modifiers::CTRL,
-            "shift" => modifiers = modifiers | Modifiers::SHIFT,
+            "alt" => modifiers |= Modifiers::ALT,
+            "ctrl" => modifiers |= Modifiers::CTRL,
+            "shift" => modifiers |= Modifiers::SHIFT,
             invalid => {
                 return Err(serde::de::Error::custom(format!(
                     "invalid modifier: {invalid}"

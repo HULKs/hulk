@@ -10,7 +10,7 @@ pub struct BoundingBox {
     pub class: Class,
 }
 
-impl From<&BoundingBox> for Polygon {
+impl From<&BoundingBox> for Polygon<'_> {
     fn from(value: &BoundingBox) -> Self {
         let x1 = value.corner.x;
         let y1 = value.corner.y;

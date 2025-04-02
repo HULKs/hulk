@@ -11,7 +11,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.81.0
+      image: ghcr.io/hulks/hulk-ci:1.84.1
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.81.0
+      image: ghcr.io/hulks/hulk-ci:1.84.1
       options: --user=1000:1000
     steps:
       - name: Download mkdocs artifact

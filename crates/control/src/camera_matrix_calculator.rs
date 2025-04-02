@@ -9,7 +9,7 @@ use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector3};
+use linear_algebra::{point, vector, IntoTransform, Isometry3, Rotation3, Vector3};
 use types::{
     field_dimensions::FieldDimensions, field_lines::ProjectedFieldLines,
     parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
@@ -34,11 +34,25 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
+
+    correction_in_robot: Parameter<
+        nalgebra::Vector3<f32>,
+        "camera_matrix_parameters.calibration.correction_in_robot",
+    >,
+    correction_in_camera_top: Parameter<
+        nalgebra::Vector3<f32>,
+        "camera_matrix_parameters.calibration.correction_in_camera_top",
+    >,
+    correction_in_camera_bottom: Parameter<
+        nalgebra::Vector3<f32>,
+        "camera_matrix_parameters.calibration.correction_in_camera_bottom",
+    >,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
+    pub uncalibrated_camera_matrices: MainOutput<Option<CameraMatrices>>,
     pub camera_matrices: MainOutput<Option<CameraMatrices>>,
 }
 
@@ -57,7 +71,7 @@ impl CameraMatrixCalculator {
                 .to_radians(),
             RobotDimensions::HEAD_TO_TOP_CAMERA,
         );
-        let top_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+        let uncalibrated_top_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             context.top_camera_matrix_parameters.focal_lengths,
             context.top_camera_matrix_parameters.cc_optical_center,
             image_size,
@@ -74,7 +88,7 @@ impl CameraMatrixCalculator {
                 .to_radians(),
             RobotDimensions::HEAD_TO_BOTTOM_CAMERA,
         );
-        let bottom_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+        let uncalibrated_bottom_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
             context.bottom_camera_matrix_parameters.focal_lengths,
             context.bottom_camera_matrix_parameters.cc_optical_center,
             image_size,
@@ -83,19 +97,52 @@ impl CameraMatrixCalculator {
             head_to_bottom_camera,
         );
 
+        let correction_in_robot = Rotation3::from_euler_angles(
+            context.correction_in_robot.x,
+            context.correction_in_robot.y,
+            context.correction_in_robot.z,
+        );
+        let correction_in_camera_top = Rotation3::from_euler_angles(
+            context.correction_in_camera_top.x,
+            context.correction_in_camera_top.y,
+            context.correction_in_camera_top.z,
+        );
+        let correction_in_camera_bottom = Rotation3::from_euler_angles(
+            context.correction_in_camera_bottom.x,
+            context.correction_in_camera_bottom.y,
+            context.correction_in_camera_bottom.z,
+        );
+
+        let calibrated_top_camera_matrix = uncalibrated_top_camera_matrix
+            .to_corrected(correction_in_robot, correction_in_camera_top);
+        let calibrated_bottom_camera_matrix = uncalibrated_bottom_camera_matrix
+            .to_corrected(correction_in_robot, correction_in_camera_bottom);
+
         let field_dimensions = context.field_dimensions;
         context
             .projected_field_lines
             .fill_if_subscribed(|| ProjectedFieldLines {
-                top: project_penalty_area_on_images(field_dimensions, &top_camera_matrix)
-                    .unwrap_or_default(),
-                bottom: project_penalty_area_on_images(field_dimensions, &bottom_camera_matrix)
-                    .unwrap_or_default(),
+                top: project_penalty_area_on_images(
+                    field_dimensions,
+                    &calibrated_top_camera_matrix,
+                )
+                .unwrap_or_default(),
+                bottom: project_penalty_area_on_images(
+                    field_dimensions,
+                    &calibrated_bottom_camera_matrix,
+                )
+                .unwrap_or_default(),
             });
+
         Ok(MainOutputs {
+            uncalibrated_camera_matrices: Some(CameraMatrices {
+                top: uncalibrated_top_camera_matrix,
+                bottom: uncalibrated_bottom_camera_matrix,
+            })
+            .into(),
             camera_matrices: Some(CameraMatrices {
-                top: top_camera_matrix,
-                bottom: bottom_camera_matrix,
+                top: calibrated_top_camera_matrix,
+                bottom: calibrated_bottom_camera_matrix,
             })
             .into(),
         })

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{
-    pos2, vec2, Color32, Key, Painter, PointerButton, Pos2, Rect, Response, Rounding, Sense,
+    pos2, vec2, Color32, CornerRadius, Key, Painter, PointerButton, Pos2, Rect, Response, Sense,
     Stroke, Ui, Vec2, Widget,
 };
 
@@ -164,7 +164,7 @@ impl<'state> Frames<'state> {
         rect.set_left(left.inner());
         rect.set_right(right.inner());
 
-        painter.rect_filled(rect, Rounding::ZERO, color);
+        painter.rect_filled(rect, CornerRadius::ZERO, color);
     }
 
     fn show_position(&self, painter: &Painter, color: Color32, screen_range: &ScreenRange) {

@@ -11,7 +11,12 @@ use eframe::{
 use nalgebra::{Rotation2, SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground, Screen};
-use geometry::{arc::Arc, circle::Circle, direction::Direction, rectangle::Rectangle};
+use geometry::{
+    arc::Arc,
+    circle::Circle,
+    direction::{Direction, Rotate90Degrees},
+    rectangle::Rectangle,
+};
 use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Transform, Vector2};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
@@ -159,8 +164,8 @@ impl<World> TwixPainter<World> {
         let start_relative = start - center;
         let end_relative = end - center;
         let angle_difference = start_relative.angle(&end_relative);
-        let end_right_of_start = Direction::Counterclockwise
-            .rotate_vector_90_degrees(start_relative)
+        let end_right_of_start = start_relative
+            .rotate_90_degrees(Direction::Counterclockwise)
             .dot(&end_relative)
             < 0.0;
         let counterclockwise_angle_difference = if end_right_of_start {

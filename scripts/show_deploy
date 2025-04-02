@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+# exit on error
+set -e
+
+print_help() {
+    cat <<-__helpText__
+Usage: $0
+
+Show the remote/branch combination required for deploying the current branch.
+
+__helpText__
+}
+
+# print help if any parameters are specified
+if [ $# -gt 0 ]; then
+    print_help
+    exit 1
+fi
+
+# get remote and branch name
+output="$(git rev-parse --abbrev-ref --symbolic-full-name @{u})"
+IFS="/" read remote_name branch <<< "$output"
+
+# the name of the remote may be different than the one of the remote URL
+remote_url="$(git remote get-url $remote_name)"
+
+if [[ $remote_url == http* ]]; then
+    remote="$(echo $remote_url | cut -d '/' -f 4)"
+else
+    remote="$(echo $remote_url | cut -d ':' -f 2 | cut -d '/' -f 1)"
+fi
+
+echo "$remote/$branch"

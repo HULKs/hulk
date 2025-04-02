@@ -1,10 +1,12 @@
+use std::{path::Path, time::Duration};
+
 use source_analyzer::{
     cyclers::{CyclerKind, Cyclers},
     error::Error,
     manifest::{CyclerManifest, FrameworkManifest},
 };
 
-pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
+pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
@@ -24,6 +26,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "vision::perspective_grid_candidates_provider",
                     "vision::segment_filter",
                 ],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 30.0)),
             },
             CyclerManifest {
                 name: "ObjectDetection",
@@ -35,6 +38,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "object_detection::pose_filter",
                     "object_detection::pose_interpretation",
                 ],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0)),
             },
             CyclerManifest {
                 name: "Control",
@@ -50,6 +54,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::calibration_controller",
                     "control::camera_matrix_calculator",
                     "control::center_of_mass_provider",
+                    "control::dribble_path_planner",
                     "control::fall_state_estimation",
                     "control::filtered_game_controller_state_timer",
                     "control::foot_bumper_filter",
@@ -58,12 +63,14 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::ground_contact_detector",
                     "control::ground_provider",
                     "control::kick_selector",
+                    "control::kicking_team_filter",
                     "control::kinematics_provider",
                     "control::led_status",
                     "control::localization",
                     "control::motion::animation",
                     "control::motion::arms_up_squat",
                     "control::motion::arms_up_stand",
+                    "control::motion::center_jump",
                     "control::motion::command_sender",
                     "control::motion::condition_input_provider",
                     "control::motion::dispatching_interpolator",
@@ -71,40 +78,44 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                     "control::motion::head_motion",
                     "control::motion::jump_left",
                     "control::motion::jump_right",
-                    "control::motion::center_jump",
+                    "control::motion::keeper_jump_left",
+                    "control::motion::keeper_jump_right",
                     "control::motion::look_around",
                     "control::motion::look_at",
                     "control::motion::motion_selector",
-                    "control::motion::obstacle_avoiding_arms",
                     "control::motion::motor_commands_collector",
                     "control::motion::motor_commands_optimizer",
+                    "control::motion::obstacle_avoiding_arms",
                     "control::motion::sit_down",
                     "control::motion::stand_up_back",
                     "control::motion::stand_up_front",
                     "control::motion::stand_up_sitting",
                     "control::motion::step_planner",
                     "control::motion::walk_manager",
-                    "control::motion::wide_stance",
                     "control::motion::walking_engine",
+                    "control::motion::wide_stance",
                     "control::obstacle_filter",
+                    "control::obstacle_receiver",
                     "control::odometry",
                     "control::orientation_filter",
                     "control::penalty_shot_direction_estimation",
                     "control::primary_state_filter",
+                    "control::referee_pose_detection_filter",
+                    "control::referee_position_provider",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
-                    "control::referee_position_provider",
-                    "control::referee_pose_detection_filter",
                     "control::sacrificial_lamb",
+                    "control::search_suggestor",
                     "control::sole_pressure_filter",
                     "control::sonar_filter",
-                    "control::search_suggestor",
                     "control::support_foot_estimation",
+                    "control::team_ball_receiver",
                     "control::time_to_reach_kick_position",
                     "control::whistle_filter",
                     "control::world_state_composer",
                     "control::zero_moment_point_provider",
                 ],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
             },
             CyclerManifest {
                 name: "SplNetwork",
@@ -112,6 +123,7 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["spl_network::message_receiver"],
                 nodes: vec!["spl_network::message_filter"],
+                execution_time_warning_threshold: None,
             },
             CyclerManifest {
                 name: "Audio",
@@ -119,10 +131,10 @@ pub fn collect_hulk_cyclers() -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["audio::microphone_recorder"],
                 nodes: vec!["audio::whistle_detection"],
+                execution_time_warning_threshold: None,
             },
         ],
     };
 
-    let root = "..";
     Cyclers::try_from_manifest(manifest, root)
 }

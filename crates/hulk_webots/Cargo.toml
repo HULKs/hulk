@@ -13,10 +13,12 @@ ctrlc = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
+hula_types = { workspace = true }
 hulk = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
 parking_lot = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }

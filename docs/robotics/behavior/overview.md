@@ -47,3 +47,26 @@ Depending on the current situation, different actions are added to the list of a
 
 Now, the list of actions is iterated until an action is found, which is executable.
 This action returns a so-called `motion_command`, which is handed over to the `motion_selector` in [motion](../motion/overview.md).
+
+## LED Eyes Documentation
+
+### Left Eye
+
+Multiple different things in the following order:
+
+1. Red: in top or bottom half of the eye, latest processed image is longer than 1 second ago of respectively top or bottom camera (vision cycler is stalled/crashed/restarting)
+2. Yellow: Referee Ready or FreeKick pose detected
+3. Purple: Referee Ready or FreeKick pose percepted this cycle
+4. Green: Ball Percept this control cycle
+5. Black
+
+### Right Eye
+
+Always based on current role:
+
+- Blue: Defender, Midfielder
+- Yellow: Keeper, ReplacementKeeper
+- Black (off): Loser
+- White: Searcher
+- Red: Striker
+- Turquoise: StrikerSupporter

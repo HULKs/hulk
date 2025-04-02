@@ -1,6 +1,5 @@
 use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
-
 use repository::Repository;
 
 #[derive(Subcommand)]
@@ -22,7 +21,7 @@ pub enum Arguments {
 
 pub async fn location(arguments: Arguments, repository: &Repository) -> Result<()> {
     match arguments {
-        Arguments::List {} => {
+        Arguments::List => {
             println!("Available Locations:");
             for location in repository
                 .list_available_locations()
@@ -38,10 +37,10 @@ pub async fn location(arguments: Arguments, repository: &Repository) -> Result<(
                 .await
                 .wrap_err_with(|| format!("failed setting location for {target}"))?;
         }
-        Arguments::Status {} => {
+        Arguments::Status => {
             println!("Configured Locations:");
             for (target, location) in repository
-                .get_configured_locations()
+                .list_configured_locations()
                 .await
                 .wrap_err("failed to get configured locations")?
             {

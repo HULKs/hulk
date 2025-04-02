@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,8 @@ use crate::players::Players;
 pub struct GameControllerState {
     pub game_state: GameState,
     pub game_phase: GamePhase,
-    pub kicking_team: Team,
+    pub remaining_time_in_half: Duration,
+    pub kicking_team: Option<Team>,
     pub last_game_state_change: SystemTime,
     pub penalties: Players<Option<Penalty>>,
     pub opponent_penalties: Players<Option<Penalty>>,

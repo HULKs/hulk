@@ -2,7 +2,7 @@ use color_eyre::Result;
 use coordinate_systems::Field;
 use eframe::epaint::Color32;
 use linear_algebra::point;
-use nalgebra::DMatrix;
+use ndarray::{Array2, Axis};
 use std::sync::Arc;
 use types::field_dimensions::FieldDimensions;
 
@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub struct BallSearchHeatmap {
-    ball_search_heatmap: BufferHandle<Option<DMatrix<f32>>>,
+    ball_search_heatmap: BufferHandle<Option<Array2<f32>>>,
 }
 
 impl Layer<Field> for BallSearchHeatmap {
@@ -37,7 +37,7 @@ impl Layer<Field> for BallSearchHeatmap {
         let offset = (field_dimensions.length / 2.0, field_dimensions.width / 2.0);
         let cell_width = field_dimensions.width / heatmap_dimensions.0 as f32;
         let cell_length = field_dimensions.length / heatmap_dimensions.1 as f32;
-        for (x, row) in heatmap.row_iter().enumerate() {
+        for (x, row) in heatmap.axis_iter(Axis(0)).enumerate() {
             for (y, value) in row.iter().enumerate() {
                 let first_point = point![
                     x as f32 * cell_length - offset.0,

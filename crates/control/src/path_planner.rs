@@ -1,5 +1,10 @@
 use color_eyre::{eyre::eyre, Result};
-use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
+use geometry::{
+    arc::Arc,
+    circle::Circle,
+    direction::{Direction, Rotate90Degrees},
+    line_segment::LineSegment,
+};
 use linear_algebra::{distance, point, vector, Isometry2, Orientation2, Point2};
 use log::warn;
 use ordered_float::NotNan;
@@ -55,9 +60,8 @@ impl PathPlanner {
             MotionCommand::Walk { path, .. } => path.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
-                    PathSegment::Arc(arc) => arc
-                        .direction
-                        .rotate_vector_90_degrees(arc.start - arc.circle.center)
+                    PathSegment::Arc(arc) => (arc.start - arc.circle.center)
+                        .rotate_90_degrees(arc.direction)
                         .normalize(),
                 };
                 if direction.norm_squared() < f32::EPSILON {

@@ -134,7 +134,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
 
 pub struct WalkAndStand<'cycle> {
     world_state: &'cycle WorldState,
-    parameters: &'cycle WalkAndStandParameters,
+    pub parameters: &'cycle WalkAndStandParameters,
     walk_path_planner: &'cycle WalkPathPlanner<'cycle>,
     last_motion_command: &'cycle MotionCommand,
 }
@@ -161,6 +161,7 @@ impl<'cycle> WalkAndStand<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
         distance_to_be_aligned: f32,
+        hysteresis: nalgebra::Vector2<f32>,
     ) -> Option<MotionCommand> {
         let ground_to_field = self.world_state.robot.ground_to_field?;
         let distance_to_walk = target_pose.position().coords().norm();
@@ -171,12 +172,12 @@ impl<'cycle> WalkAndStand<'cycle> {
             was_standing_last_cycle,
             distance_to_walk,
             self.parameters.target_reached_thresholds.x,
-            0.0..=self.parameters.hysteresis.x,
+            0.0..=hysteresis.x,
         ) && less_than_with_relative_hysteresis(
             was_standing_last_cycle,
             angle_to_walk.abs(),
             self.parameters.target_reached_thresholds.y,
-            0.0..=self.parameters.hysteresis.y,
+            0.0..=hysteresis.y,
         );
         let orientation_mode = hybrid_alignment(
             target_pose,

@@ -19,7 +19,8 @@ use buffered_watch::Receiver;
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head};
 use framework::{future_queue, Producer, RecordingTrigger};
-use geometry::line_segment::LineSegment;
+use geometry::{direction::Rotate90Degrees, line_segment::LineSegment};
+use hula_types::hardware::Ids;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
 use projection::camera_matrix::CameraMatrix;
@@ -27,7 +28,6 @@ use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
-    hardware::Ids,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     motion_selection::MotionSafeExits,
@@ -51,6 +51,7 @@ pub struct Robot {
     pub parameters: Parameters,
     pub last_kick_time: Duration,
     pub ball_last_seen: Option<SystemTime>,
+    pub simulator_parameters: SimulatedRobotParameters,
 
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
@@ -115,12 +116,18 @@ impl Robot {
             .borrow_mut()
             .insert("additional_outputs".to_string());
 
+        let simulator_parameters = SimulatedRobotParameters {
+            ball_view_range: 3.0,
+            ball_timeout_factor: 0.1,
+        };
+
         Ok(Self {
             interface,
             database,
             parameters,
             last_kick_time: Duration::default(),
             ball_last_seen: None,
+            simulator_parameters,
 
             cycler,
             control_receiver,
@@ -215,7 +222,8 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
 pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>, time: Res<Time>) {
     for mut robot in &mut robots {
         if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
-            ball.position += ball.velocity * time.delta_seconds();
+            ball.position += ball.velocity * time.delta_secs();
+            ball.velocity *= 0.98
         }
 
         let parameters = &robot.parameters;
@@ -229,14 +237,14 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 ..
             } => {
                 let steps_per_second = 1.0 / 0.35;
-                let steps_this_cycle = steps_per_second * time.delta_seconds();
+                let steps_this_cycle = steps_per_second * time.delta_secs();
                 let max_step = parameters.step_planner.max_step_size;
 
                 let target = match path[0] {
                     PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
-                    PathSegment::Arc(arc) => arc
-                        .direction
-                        .rotate_vector_90_degrees(arc.start - arc.circle.center),
+                    PathSegment::Arc(arc) => {
+                        (arc.start - arc.circle.center).rotate_90_degrees(arc.direction)
+                    }
                 };
 
                 let orientation = match orientation_mode {
@@ -284,9 +292,11 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                         Side::Right => 1.0,
                     };
 
-                    // TODO: Check if ball is even in range
-                    // let kick_location = ground_to_field * ();
-                    if (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0 {
+                    let in_range =
+                        (robot.ground_to_field().as_pose().position() - ball.position).norm() < 0.3;
+                    let previous_kick_finished =
+                        (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0;
+                    if in_range && previous_kick_finished {
                         let direction = match kick {
                             KickVariant::Forward => vector![1.0, 0.0],
                             KickVariant::Turn => vector![0.707, 0.707 * side],
@@ -320,7 +330,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         };
 
         let max_head_rotation_per_cycle =
-            robot.parameters.head_motion.maximum_velocity.yaw * time.delta_seconds();
+            robot.parameters.head_motion.maximum_velocity.yaw * time.delta_secs();
         let diff = desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
         let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
 
@@ -364,7 +374,8 @@ pub fn cycle_robots(
             let field_of_view = robot.field_of_view();
             let angle_to_ball = ball_in_head.coords().angle(&Vector2::x_axis());
 
-            angle_to_ball.abs() < field_of_view / 2.0 && ball_in_head.coords().norm() < 3.0
+            angle_to_ball.abs() < field_of_view / 2.0
+                && ball_in_head.coords().norm() < robot.simulator_parameters.ball_view_range
         });
         if ball_visible {
             robot.ball_last_seen = Some(now);
@@ -377,7 +388,11 @@ pub fn cycle_robots(
         }
         if !robot.ball_last_seen.is_some_and(|last_seen| {
             now.duration_since(last_seen).expect("time ran backwards")
-                < robot.parameters.ball_filter.hypothesis_timeout.mul_f32(0.1)
+                < robot
+                    .parameters
+                    .ball_filter
+                    .hypothesis_timeout
+                    .mul_f32(robot.simulator_parameters.ball_timeout_factor)
         }) {
             robot.database.main_outputs.ball_position = None
         };
@@ -389,6 +404,7 @@ pub fn cycle_robots(
         };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
+        robot.interface.set_time(now);
         robot.cycle(&messages_sent_last_cycle).unwrap();
 
         for message in robot.interface.take_outgoing_messages() {
@@ -404,4 +420,9 @@ pub fn cycle_robots(
             }
         }
     }
+}
+
+pub struct SimulatedRobotParameters {
+    pub ball_view_range: f32,
+    pub ball_timeout_factor: f32,
 }

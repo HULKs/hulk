@@ -100,7 +100,9 @@ impl<T: PartialEq, E> ChangeBuffer<T, E> {
                             let maybe_datum = op(maybe_datum);
                             match maybe_datum {
                                 Ok(datum) => {
-                                    self.sender.send_modify(|value| handle_update(value, datum))
+                                    if datum.timestamp != SystemTime::UNIX_EPOCH {
+                                        self.sender.send_modify(|value| handle_update(value, datum))
+                                    }
                                 }
                                 Err(error) => {
                                     let _ = self.sender.send(Err(error));

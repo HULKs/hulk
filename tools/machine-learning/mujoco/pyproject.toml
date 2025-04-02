@@ -2,21 +2,25 @@
 name = "mujoco-env"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 
 dependencies = [
   "click>=8.1.7",
   "gymnasium[mujoco]>=1.0.0",
   "mediapy>=1.2.2",
   "moviepy>=1.0.3",
-  "mujoco>=3.2.6",
+  "mujoco>=3.2.7",
   "numpy>=1.26",
+  "onnx==1.17.0",
+  "openvino==2024.1.0",
   "scipy>=1.14.1",
   "stable-baselines3[extra]==2.4.1",
   "tensorboard>=2.18.0",
   "wandb>=0.19.1",
   # Project dependencies
+  "common_types",
   "kinematics",
+  "mujoco-interactive-viewer",
   "nao-env",
   "nao-interface",
   "rewards",
@@ -27,7 +31,9 @@ dependencies = [
 ]
 
 [tool.uv.sources]
+common_types = { workspace = true }
 kinematics = { workspace = true }
+mujoco-interactive-viewer = { workspace = true }
 nao_env = { workspace = true }
 nao_interface = { workspace = true }
 rewards = { workspace = true }
@@ -40,65 +46,12 @@ walking_engine = { workspace = true }
 members = ["packages/*"]
 
 [tool.uv]
-dev-dependencies = ["neovim>=0.3.1", "pytest>=8.3.3", "ruff>=0.7.3"]
-
-[tool.ruff]
-target-version = "py310"
-line-length = 80
-fix = true
-
-[tool.ruff.lint]
-select = [
-  # flake8-2020
-  "YTT",
-  # flake8-bandit
-  "S",
-  # flake8-bugbear
-  "B",
-  # flake8-builtins
-  "A",
-  # flake8-annotations
-  "ANN",
-  # flake8-unused-arguments
-  "ARG",
-  # numpy-specific-rules
-  "NPY",
-  # flake8-comprehensions
-  "C4",
-  # flake8-return
-  "RET",
-  # flake8-commas
-  "COM",
-  # flake8-boolean-trap
-  "FBT",
-  # flake8-debugger
-  "T10",
-  # flake8-simplify
-  "SIM",
-  # isort
-  "I",
-  # mccabe
-  "C90",
-  # pycodestyle
-  "E",
-  "W",
-  # pyflakes
-  "F",
-  # pygrep-hooks
-  "PGH",
-  # pyupgrade
-  "UP",
-  # ruff
-  "RUF",
-  # tryceratops
-  "TRY",
-]
-ignore = [
-  # DoNotAssignLambda
-  "E731",
-  # any-type
-  "ANN401",
+dev-dependencies = [
+  "neovim>=0.3.1",
+  "pyright>=1.1.392.post0",
+  "pytest>=8.3.3",
+  "ruff>=0.7.3",
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S603"]
+[tool.pyright]
+stubPath = "typings/"

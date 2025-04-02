@@ -4,8 +4,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
+use itertools::Itertools;
 use linear_algebra::{point, Isometry2, Point2};
-use nalgebra::{clamp, DMatrix};
+use nalgebra::clamp;
+use ndarray::Array2;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{SubState, Team};
 use types::{
@@ -40,7 +42,7 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 
-    heatmap: AdditionalOutput<DMatrix<f32>, "ball_search_heatmap">,
+    heatmap: AdditionalOutput<Array2<f32>, "ball_search_heatmap">,
 }
 
 #[context]
@@ -60,7 +62,7 @@ impl SearchSuggestor {
                 .round() as usize,
         );
         let heatmap = Heatmap {
-            map: DMatrix::from_element(heatmap_length, heatmap_width, 0.0),
+            map: Array2::zeros((heatmap_length, heatmap_width)),
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
         };
@@ -105,15 +107,13 @@ impl SearchSuggestor {
             }
         }
 
-        self.heatmap
-            .map
-            .scale_mut(1.0 - context.search_suggestor_configuration.heatmap_decay_factor);
+        self.heatmap.map *= 1.0 - context.search_suggestor_configuration.heatmap_decay_factor;
     }
 }
 
 #[derive(Deserialize, Serialize)]
 struct Heatmap {
-    map: DMatrix<f32>,
+    map: Array2<f32>,
     field_dimensions: FieldDimensions,
     cells_per_meter: f32,
 }
@@ -126,14 +126,18 @@ impl Heatmap {
             ((field_point.y() + self.field_dimensions.width / 2.0) * self.cells_per_meter) as usize,
         );
         (
-            clamp(heatmap_point.0, 0, self.map.shape().0 - 1),
-            clamp(heatmap_point.1, 0, self.map.shape().1 - 1),
+            clamp(heatmap_point.0, 0, self.map.dim().0 - 1),
+            clamp(heatmap_point.1, 0, self.map.dim().1 - 1),
         )
     }
 
     fn get_maximum_position(&self, minimum_validity: f32) -> Option<Point2<Field>> {
-        let maximum_heat_heatmap_position = self.map.iamax_full();
-
+        let linear_maximum_heat_heatmap_position =
+            self.map.iter().position_max_by(|a, b| a.total_cmp(b))?;
+        let maximum_heat_heatmap_position = (
+            linear_maximum_heat_heatmap_position / self.map.dim().1,
+            linear_maximum_heat_heatmap_position % self.map.dim().1,
+        );
         if self.map[maximum_heat_heatmap_position] > minimum_validity {
             let search_suggestion = point![
                 ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0) / self.cells_per_meter
@@ -171,32 +175,50 @@ fn get_rule_hypotheses(
 
     match (primary_state, filtered_game_controller_state.sub_state) {
         (PrimaryState::Ready, Some(SubState::PenaltyKick)) => {
-            let kick_half = kicking_team_half.mirror();
-            vec![field_dimensions.penalty_spot(kick_half)]
+            let kicking_team_half = kicking_team_half.unwrap_or(Half::Own).mirror();
+            vec![field_dimensions.penalty_spot(kicking_team_half)]
         }
         // Kick-off
         (PrimaryState::Ready, None) => vec![field_dimensions.center()],
         (PrimaryState::Playing, Some(SubState::CornerKick)) => {
-            let kick_half = kicking_team_half.mirror();
-            vec![
-                field_dimensions.corner(kick_half, Side::Left),
-                field_dimensions.corner(kick_half, Side::Right),
-            ]
+            if let Some(kicking_team_half) = kicking_team_half {
+                let kicking_team_half = kicking_team_half.mirror();
+                vec![
+                    field_dimensions.corner(kicking_team_half, Side::Left),
+                    field_dimensions.corner(kicking_team_half, Side::Right),
+                ]
+            } else {
+                vec![
+                    field_dimensions.corner(Half::Own, Side::Left),
+                    field_dimensions.corner(Half::Opponent, Side::Left),
+                    field_dimensions.corner(Half::Own, Side::Right),
+                    field_dimensions.corner(Half::Opponent, Side::Right),
+                ]
+            }
         }
         (PrimaryState::Playing, Some(SubState::GoalKick)) => {
-            let kick_half = kicking_team_half;
-            vec![
-                field_dimensions.goal_box_corner(kick_half, Side::Left),
-                field_dimensions.goal_box_corner(kick_half, Side::Right),
-            ]
+            if let Some(kicking_team_half) = kicking_team_half {
+                vec![
+                    field_dimensions.goal_box_corner(kicking_team_half, Side::Left),
+                    field_dimensions.goal_box_corner(kicking_team_half, Side::Right),
+                ]
+            } else {
+                vec![
+                    field_dimensions.goal_box_corner(Half::Own, Side::Left),
+                    field_dimensions.goal_box_corner(Half::Opponent, Side::Left),
+                    field_dimensions.goal_box_corner(Half::Own, Side::Right),
+                    field_dimensions.goal_box_corner(Half::Opponent, Side::Right),
+                ]
+            }
         }
         (_, _) => Vec::new(),
     }
 }
 
-fn kicking_team_half(kicking_team: Team) -> Half {
+fn kicking_team_half(kicking_team: Option<Team>) -> Option<Half> {
     match kicking_team {
-        Team::Opponent => Half::Opponent,
-        Team::Hulks => Half::Own,
+        Some(Team::Opponent) => Some(Half::Opponent),
+        Some(Team::Hulks) => Some(Half::Own),
+        None => None,
     }
 }

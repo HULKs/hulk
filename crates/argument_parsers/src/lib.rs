@@ -53,7 +53,7 @@ pub fn parse_network(network: &str) -> Result<Network> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct NaoAddress {
     pub ip: Ipv4Addr,
 }
@@ -158,9 +158,12 @@ impl FromStr for NaoAddressPlayerAssignment {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
-        let (prefix, player_number) = parse_assignment(input)?;
+        let (prefix, player_number) = parse_assignment(input)
+            .wrap_err_with(|| format!("failed to parse assignment {input}"))?;
         Ok(Self {
-            nao_address: prefix.parse()?,
+            nao_address: prefix
+                .parse()
+                .wrap_err_with(|| format!("failed to parse nao address {prefix}"))?,
             player_number,
         })
     }

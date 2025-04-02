@@ -214,6 +214,8 @@ impl ViewportRange {
     }
 
     pub fn from_frame_range(frame_range: &FrameRange) -> Self {
+        const MINIMUM_WIDTH: f32 = 0.001;
+
         Self::new(
             RelativeTime::new(0.0),
             RelativeTime::new(
@@ -222,7 +224,8 @@ impl ViewportRange {
                     .inner()
                     .duration_since(frame_range.start().inner())
                     .expect("time ran backwards")
-                    .as_secs_f32(),
+                    .as_secs_f32()
+                    .max(MINIMUM_WIDTH),
             ),
         )
     }

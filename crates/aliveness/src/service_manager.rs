@@ -122,7 +122,8 @@ async fn get_service_state(
     if let Value::Str(state) = proxy
         .call_method("Get", &("org.freedesktop.systemd1.Unit", "ActiveState"))
         .await?
-        .body()?
+        .body()
+        .deserialize()?
     {
         Ok(ServiceState::from(state.as_str()))
     } else {

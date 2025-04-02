@@ -29,7 +29,9 @@ pub enum WalkSpeed {
     Fast,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum OrientationMode {
     AlignWithPath,
     Override(Orientation2<Ground>),
@@ -63,7 +65,10 @@ pub enum MotionCommand {
     StandUp {
         kind: Kind,
     },
-    WideStance,
+    KeeperMotion {
+        direction: JumpDirection,
+    },
+
     #[default]
     Unstiff,
     Animation {
@@ -103,7 +108,7 @@ impl MotionCommand {
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
             | MotionCommand::StandUp { .. } => None,
-            MotionCommand::WideStance => None,
+            MotionCommand::KeeperMotion { .. } => None,
         }
     }
 

@@ -11,13 +11,20 @@ pub struct JointOverride {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JointOverrides {
+    pub hip_pitch: Option<Vec<JointOverride>>,
+    pub knee_pitch: Option<Vec<JointOverride>>,
+    pub ankle_pitch: Option<Vec<JointOverride>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KickStep {
     pub base_step: Step,
     pub step_duration: Duration,
     pub foot_lift_apex: f32,
     pub midpoint: f32,
-    pub hip_pitch_overrides: Option<Vec<JointOverride>>,
-    pub ankle_pitch_overrides: Option<Vec<JointOverride>>,
+    pub support_overrides: JointOverrides,
+    pub swing_overrides: JointOverrides,
 }
 
 #[derive(

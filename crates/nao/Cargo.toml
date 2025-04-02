@@ -7,4 +7,5 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true }

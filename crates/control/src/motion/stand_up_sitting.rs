@@ -1,24 +1,27 @@
-use std::time::Duration;
-
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
+use framework::deserialize_not_implemented;
 use framework::MainOutput;
 use hardware::PathsInterface;
 use linear_algebra::Vector3;
-use motionfile::{MotionFile, MotionInterpolator};
-use serde::{Deserialize, Serialize};
+use motionfile::{InterpolatorState, MotionFile, MotionInterpolator};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
     joints::Joints,
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
+    stand_up::RemainingStandUpDuration,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct StandUpSitting {
+    #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<Joints<f32>>,
+    state: InterpolatorState<Joints<f32>>,
     filtered_gyro: LowPassFilter<nalgebra::Vector3<f32>>,
 }
 
@@ -40,13 +43,14 @@ pub struct CycleContext {
         Input<Vector3<Robot>, "sensor_data.inertial_measurement_unit.angular_velocity">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    stand_up_sitting_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub stand_up_sitting_positions: MainOutput<Joints<f32>>,
-    pub stand_up_sitting_estimated_remaining_duration: MainOutput<Option<Duration>>,
 }
 
 impl StandUpSitting {
@@ -55,6 +59,7 @@ impl StandUpSitting {
         Ok(Self {
             interpolator: MotionFile::from_path(paths.motions.join("stand_up_sitting.json"))?
                 .try_into()?,
+            state: InterpolatorState::INITIAL,
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 nalgebra::Vector3::zeros(),
                 *context.gyro_low_pass_factor,
@@ -63,33 +68,37 @@ impl StandUpSitting {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let estimated_remaining_duration =
-            if let MotionType::StandUpSitting = context.motion_selection.current_motion {
-                let last_cycle_duration = context.cycle_time.last_cycle_duration;
-                let condition_input = context.condition_input;
+        let estimated_remaining_duration = if context.motion_selection.current_motion
+            == MotionType::StandUpSitting
+        {
+            let last_cycle_duration = context.cycle_time.last_cycle_duration;
+            let condition_input = context.condition_input;
 
-                self.interpolator
-                    .advance_by(last_cycle_duration, condition_input);
+            self.interpolator
+                .advance_state(&mut self.state, last_cycle_duration, condition_input);
 
-                Some(self.interpolator.estimated_remaining_duration())
-            } else {
-                self.interpolator.reset();
-                None
-            };
-        context.motion_safe_exits[MotionType::StandUpSitting] = self.interpolator.is_finished();
+            RemainingStandUpDuration::Running(
+                self.interpolator.estimated_remaining_duration(self.state),
+            )
+        } else {
+            self.state.reset();
+            RemainingStandUpDuration::NotRunning
+        };
+        context.motion_safe_exits[MotionType::StandUpSitting] = self.state.is_finished();
 
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
 
-        let mut positions = self.interpolator.value();
+        let mut positions = self.interpolator.value(self.state);
         positions.left_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.left_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
         positions.right_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.right_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
 
+        *context.stand_up_sitting_estimated_remaining_duration = estimated_remaining_duration;
+
         Ok(MainOutputs {
             stand_up_sitting_positions: positions.into(),
-            stand_up_sitting_estimated_remaining_duration: estimated_remaining_duration.into(),
         })
     }
 }

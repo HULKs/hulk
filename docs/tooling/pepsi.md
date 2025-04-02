@@ -11,7 +11,7 @@ For detailed usage instructions, run `pepsi --help` or `pepsi <subcommand> --hel
 This is pretty simple. Open Webots, load the `webots/worlds/penalized_extern.wbt` world file and execute
 
 ```bash
-./pepsi run
+./pepsi run webots
 ```
 
 in your terminal. This will build (if necessary) and then run the webots binary.
@@ -42,7 +42,7 @@ Many subcommands can act on multiple robots concurrently.
 
 `upload` builds a binary for the NAO target, and then uploads it and parameter files to one or more robot.
 
-`wireless`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `playernumber` only change the local configuration parameters.
+`wifi`, `reboot`, `poweroff`, and `hulk` directly interact with the robot(s), whereas `communication`, and `playernumber` only change the local configuration parameters.
 
 `pregame` combines deactivating communication (to avoid sending illegal messages), assigning playernumbers, setting a wifi network, uploading, and restarting the HULK service.
 
@@ -80,7 +80,7 @@ The shells completions for fish, zsh and bash include dynamic suggestions for al
 Those suggestions are retrieved using the aliveness service and require a version of pepsi to be installed in the `PATH`, e.g. by using
 
 ```
-cargo install --path tools/pepsi
+./pepsi install pepsi
 ```
 
 and adding `~/.cargo/bin` to the `PATH`.

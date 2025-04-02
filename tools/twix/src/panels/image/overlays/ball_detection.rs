@@ -52,7 +52,7 @@ impl Overlay for BallDetection {
             self.ball_candidates.get_last_value()?.flatten(),
             self.ball_radius_enlargement_factor.get_last_value()?,
         ) {
-            for candidate in ball_candidates.iter() {
+            for (candidate_index, candidate) in ball_candidates.iter().enumerate() {
                 let circle = candidate.candidate_circle;
                 painter.circle_stroke(
                     circle.center,
@@ -69,7 +69,14 @@ impl Overlay for BallDetection {
                         - vector![enlarged_candidate.radius, enlarged_candidate.radius],
                     enlarged_candidate.center
                         + vector![enlarged_candidate.radius, enlarged_candidate.radius],
-                    Stroke::new(1.0, Color32::DARK_BLUE),
+                    Stroke::new(
+                        1.0,
+                        Color32::from_rgb(
+                            255 - ((candidate_index * 255) / ball_candidates.len()) as u8,
+                            0,
+                            ((candidate_index * 255) / ball_candidates.len()) as u8,
+                        ),
+                    ),
                 );
             }
             for candidate in ball_candidates.iter() {

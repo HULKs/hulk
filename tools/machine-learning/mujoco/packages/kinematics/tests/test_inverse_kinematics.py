@@ -19,18 +19,18 @@ def test_fuzz() -> None:
         left_leg = LegJoints(**frame["joints"]["left_leg"])
         right_leg = LegJoints(**frame["joints"]["right_leg"])
 
-        computed_left_leg, computed_right_leg = leg_angles(
+        lower_body_joints = leg_angles(
             left_foot,
             right_foot,
         )
 
         np.testing.assert_allclose(
-            computed_left_leg.to_numpy(),
+            lower_body_joints.left.to_numpy(),
             left_leg.to_numpy(),
             atol=1e-4,
         )
         np.testing.assert_allclose(
-            computed_right_leg.to_numpy(),
+            lower_body_joints.right.to_numpy(),
             right_leg.to_numpy(),
             atol=1e-4,
         )

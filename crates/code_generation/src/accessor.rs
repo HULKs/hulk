@@ -349,6 +349,7 @@ mod tests {
             instances: vec!["InstanceA".to_string(), "InstanceB".to_string()],
             setup_nodes: vec![],
             cycle_nodes: vec![],
+            execution_time_warning_threshold: None,
         };
 
         for (path, reference_type, expected_token_stream) in cases {

@@ -2,14 +2,16 @@
 name = "nao-env"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 dependencies = [
   "gymnasium[mujoco]>=1.0.0",
   "nao_interface",
   "numpy>=1.2.0",
   "rewards",
+  "stable-baselines3>=2.4.1",
   "throwing",
+  "wandb>=0.19.1",
 ]
 
 [build-system]

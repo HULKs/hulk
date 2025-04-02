@@ -464,7 +464,7 @@ fn generate_points(
     y_axis: Axis,
     filter_by_other_axes: bool,
     field_color: &FieldColorParameters,
-) -> Points {
+) -> Points<'static> {
     Points::new(
         image
             .pixels

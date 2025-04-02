@@ -5,18 +5,18 @@ use std::time::SystemTime;
 use color_eyre::eyre::Result;
 use mcap::records::{system_time_to_nanos, MessageHeader};
 use mcap::write::Metadata;
-use mcap::{Attachment, Channel, McapError, Writer};
+use mcap::{Attachment, McapError, Writer};
 use serde::Serialize;
 
 use crate::serializer::Serializer;
 
 type ChannelId = u16;
-pub struct McapConverter<'file, W: Write + Seek> {
-    writer: Writer<'file, W>,
+pub struct McapConverter<W: Write + Seek> {
+    writer: Writer<W>,
     channel_mapping: BTreeMap<String, ChannelId>,
 }
 
-impl<W: Write + Seek> McapConverter<'_, W> {
+impl<W: Write + Seek> McapConverter<W> {
     pub fn from_writer(writer: W) -> Result<Self, McapError> {
         Ok(Self {
             writer: Writer::new(writer)?,
@@ -25,14 +25,9 @@ impl<W: Write + Seek> McapConverter<'_, W> {
     }
 
     fn create_new_channel(&mut self, topic: String) -> Result<ChannelId, McapError> {
-        let channel = Channel {
-            topic: topic.clone(),
-            schema: None,
-            message_encoding: String::from("MessagePack"),
-            metadata: Default::default(),
-        };
-
-        let channel_id = self.writer.add_channel(&channel)?;
+        let channel_id = self
+            .writer
+            .add_channel(0, &topic, "MessagePack", &Default::default())?;
         self.channel_mapping.insert(topic, channel_id);
 
         Ok(channel_id)

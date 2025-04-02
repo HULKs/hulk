@@ -14,6 +14,7 @@ use spl_network_messages::{HulkMessage, PlayerNumber, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
     messages::{IncomingMessage, OutgoingMessage},
+    parameters::SplNetworkParameters,
     players::Players,
     pose_detection::VisualRefereeState,
     pose_kinds::PoseKind,
@@ -25,6 +26,7 @@ pub struct RefereePoseDetectionFilter {
     detected_above_arm_poses_queue: VecDeque<bool>,
     motion_in_standby_count: usize,
     visual_referee_state: VisualRefereeState,
+    last_time_message_sent: Option<SystemTime>,
 }
 
 #[context]
@@ -41,15 +43,19 @@ pub struct CycleContext {
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
+    remaining_amount_of_messages:
+        Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
 
     initial_message_grace_period:
         Parameter<Duration, "referee_pose_detection_filter.initial_message_grace_period">,
+    message_interval: Parameter<Duration, "referee_pose_detection_filter.message_interval">,
     minimum_above_head_arms_detections:
         Parameter<usize, "referee_pose_detection_filter.minimum_above_head_arms_detections">,
     player_number: Parameter<PlayerNumber, "player_number">,
     referee_pose_queue_length: Parameter<usize, "pose_detection.referee_pose_queue_length">,
     minimum_number_poses_before_message:
         Parameter<usize, "pose_detection.minimum_number_poses_before_message">,
+    spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
 
     player_referee_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
@@ -73,6 +79,7 @@ impl RefereePoseDetectionFilter {
             detected_above_arm_poses_queue: VecDeque::with_capacity(
                 *context.referee_pose_queue_length,
             ),
+            last_time_message_sent: None,
         })
     }
 
@@ -120,8 +127,7 @@ impl RefereePoseDetectionFilter {
         let mut did_detect_any_referee_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
-            let detected_visual_referee =
-                detection.map_or(false, |pose_kind| pose_kind == PoseKind::AboveHeadArms);
+            let detected_visual_referee = detection == Some(PoseKind::AboveHeadArms);
             self.detected_above_arm_poses_queue
                 .push_front(detected_visual_referee);
             did_detect_any_referee_this_cycle |= detected_visual_referee
@@ -135,11 +141,25 @@ impl RefereePoseDetectionFilter {
             .iter()
             .filter(|x| **x)
             .count();
-
         if detected_referee_pose_count >= *context.minimum_number_poses_before_message {
-            self.detection_times[*context.player_number] = Some(context.cycle_time.start_time);
-
-            send_own_detection_message(context.hardware_interface.clone(), *context.player_number)?;
+            let now = context.cycle_time.start_time;
+            self.detection_times[*context.player_number] = Some(now);
+            if self.last_time_message_sent.as_ref().map_or(true, |time| {
+                now.duration_since(*time).expect("Time ran backwards") >= *context.message_interval
+            }) && context.remaining_amount_of_messages.is_some_and(
+                |remaining_amount_of_messages| {
+                    *remaining_amount_of_messages
+                        > context
+                            .spl_network_parameters
+                            .remaining_amount_of_messages_to_stop_sending
+                },
+            ) {
+                send_own_detection_message(
+                    context.hardware_interface.clone(),
+                    *context.player_number,
+                )?;
+                self.last_time_message_sent = Some(now);
+            }
         }
 
         Ok((

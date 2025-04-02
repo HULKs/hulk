@@ -121,7 +121,7 @@ This downloads and builds all dependencies for the workspace and displays the he
     You can also install Pepsi into your local system to conveniently use it without rebuilding:
 
     ```
-    cargo install --path tools/pepsi
+    ./pepsi install pepsi
     ```
 
     Pepsi is subsequently installed at `~/.cargo/bin/pepsi`.

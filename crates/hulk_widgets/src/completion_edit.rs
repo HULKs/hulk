@@ -2,6 +2,7 @@ use std::{cmp::Reverse, fmt::Debug};
 
 use egui::{
     popup_below_widget,
+    response::Flags,
     text::{CCursor, CCursorRange},
     text_edit::{TextEditOutput, TextEditState},
     util::cache::{ComputerMut, FrameCache},
@@ -204,7 +205,8 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             set_cursor(ui.ctx(), &response, text_edit_state, 0, self.selected.len());
         }
         state.textedit_was_focused = response.has_focus();
-        response.changed = false;
+        // TODO: This is a workaround
+        response.flags.set(Flags::CHANGED, false);
 
         if is_popup_open {
             ui.ctx().memory_mut(|writer| {
@@ -212,6 +214,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                     response.id,
                     EventFilter {
                         tab: true,
+                        horizontal_arrows: true,
                         vertical_arrows: true,
                         ..Default::default()
                     },
@@ -277,8 +280,9 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             state.typed_since_focused = false;
         }
         let should_open_popup = response.has_focus() && state.typed_since_focused;
-        let user_completed_search = matches!(should_close_popup, Some(true))
-            || response.lost_focus() && ui.input(|reader| reader.key_pressed(Key::Enter));
+        let pressed_enter = ui.input(|reader| reader.key_pressed(Key::Enter));
+        let user_completed_search =
+            matches!(should_close_popup, Some(true)) || response.lost_focus() && pressed_enter;
 
         ui.memory_mut(|memory| {
             if should_open_popup {
@@ -290,6 +294,10 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         });
         if user_completed_search {
             response.mark_changed();
+            if pressed_enter && state.user_state == UserState::Typing && !matching_items.is_empty()
+            {
+                state.user_state = UserState::Selecting { index: 0 };
+            }
             if let UserState::Selecting { index } = state.user_state {
                 let (actual_index, _) = matching_items[index];
                 *self.selected = self.suggestions[actual_index].to_string();

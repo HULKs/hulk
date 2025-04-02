@@ -15,6 +15,7 @@ use types::{
     motor_commands::MotorCommands,
     obstacle_avoiding_arms::{ArmCommand, ArmCommands},
     sensor_data::SensorData,
+    step::Step,
     support_foot::Side,
     walk_command::WalkCommand,
 };
@@ -36,6 +37,7 @@ pub struct CreationContext {
 #[derive(Debug)]
 pub struct CycleContext {
     parameters: Parameter<Parameters, "walking_engine">,
+    max_step_size: Parameter<Step, "step_planner.max_step_size">,
     kick_steps: Parameter<KickSteps, "kick_steps">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
@@ -99,6 +101,19 @@ impl WalkingEngine {
             torso_tilt_compensation_factor,
         );
 
+        let step_compensation = if let WalkCommand::Walk { step } = *cycle_context.walk_command {
+            let parameters = cycle_context.parameters.base.torso_tilt;
+            let translational = nalgebra::vector![
+                step.forward.abs() * parameters.forward,
+                step.left.abs() * parameters.left,
+            ]
+            .norm();
+            let rotational = step.turn.abs() * parameters.turn;
+            translational + rotational
+        } else {
+            0.0
+        };
+
         let robot_to_walk = Isometry3::from_parts(
             vector![
                 cycle_context.parameters.base.torso_offset,
@@ -106,12 +121,16 @@ impl WalkingEngine {
                 cycle_context.parameters.base.walk_height,
             ],
             Orientation3::new(
-                Vector3::y_axis() * (cycle_context.parameters.base.torso_tilt + arm_compensation),
+                Vector3::y_axis()
+                    * (cycle_context.parameters.base.torso_tilt_base
+                        + step_compensation
+                        + arm_compensation),
             ),
         );
 
         let context = Context {
             parameters: cycle_context.parameters,
+            max_step_size: cycle_context.max_step_size,
             kick_steps: cycle_context.kick_steps,
             cycle_time: cycle_context.cycle_time,
             center_of_mass: cycle_context.center_of_mass,
@@ -119,7 +138,8 @@ impl WalkingEngine {
             robot_orientation: cycle_context.robot_orientation,
             robot_to_ground: cycle_context.robot_to_ground,
             gyro: self.filtered_gyro.state(),
-            current_joints: self.last_actuated_joints,
+            last_actuated_joints: self.last_actuated_joints,
+            measured_joints: cycle_context.sensor_data.positions.into(),
             robot_to_walk,
             obstacle_avoiding_arms: cycle_context.obstacle_avoiding_arms,
             zero_moment_point: cycle_context.zero_moment_point,

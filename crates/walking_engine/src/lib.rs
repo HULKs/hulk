@@ -17,6 +17,7 @@ use types::{
 
 mod anatomic_constraints;
 mod arm;
+mod compensate_stiffness_loss;
 pub mod feet;
 mod foot_leveling;
 mod gyro_balancing;
@@ -35,6 +36,7 @@ mod stiffness;
 /// report from 2014 (<http://cgi.cse.unsw.edu.au/~robocup/2014ChampionTeamPaperReports/20140930-Bernhard.Hengst-Walk2014Report.pdf>).
 pub struct Context<'a> {
     pub parameters: &'a Parameters,
+    pub max_step_size: &'a Step,
     pub kick_steps: &'a KickSteps,
     pub cycle_time: &'a CycleTime,
     pub center_of_mass: &'a Point3<Robot>,
@@ -44,7 +46,8 @@ pub struct Context<'a> {
     pub robot_orientation: &'a Orientation3<Field>,
     pub robot_to_ground: Option<&'a Isometry3<Robot, Ground>>,
     pub gyro: nalgebra::Vector3<f32>,
-    pub current_joints: BodyJoints,
+    pub last_actuated_joints: BodyJoints,
+    pub measured_joints: BodyJoints,
     pub robot_to_walk: Isometry3<Robot, Walk>,
     pub obstacle_avoiding_arms: &'a ArmCommands,
 }

@@ -4,7 +4,7 @@ use std::{
 };
 
 use approx::assert_relative_eq;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{eyre::Context, Result};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{distance, point, IntoTransform, Isometry2, Pose2};
 use nalgebra::{matrix, Matrix, Matrix2, Matrix3, Rotation2, Translation2, Vector2, Vector3};
@@ -18,6 +18,7 @@ use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use types::{
     cycle_time::CycleTime,
+    fall_state::FallState,
     field_dimensions::FieldDimensions,
     field_marks::{field_marks_from_field_dimensions, CorrespondencePoints, Direction, FieldMark},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -27,6 +28,7 @@ use types::{
     multivariate_normal_distribution::MultivariateNormalDistribution,
     players::Players,
     primary_state::PrimaryState,
+    stand_up::RemainingStandUpDuration,
     support_foot::Side,
 };
 
@@ -63,6 +65,7 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
+    fall_state: Input<FallState, "fall_state">,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -101,6 +104,12 @@ pub struct CycleContext {
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+    stand_up_back_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_back_estimated_remaining_duration">,
+    stand_up_front_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_front_estimated_remaining_duration">,
+    stand_up_sitting_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
     cycle_time: Input<CycleTime, "cycle_time">,
 }
 
@@ -220,25 +229,19 @@ impl Localization {
                 self.hypotheses_when_entered_playing
                     .clone_from(&self.hypotheses);
             }
-            (PrimaryState::Ready, PrimaryState::Penalized, _) => {
+            (
+                PrimaryState::Playing | PrimaryState::Ready | PrimaryState::Set,
+                PrimaryState::Penalized,
+                _,
+            ) => {
                 self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
-                match penalty {
-                    Some(Penalty::IllegalMotionInStandby { .. }) => {
-                        self.is_penalized_with_motion_in_set_or_initial = true;
-                    }
-                    Some(_) => {}
-                    None => {}
-                };
-            }
-            (PrimaryState::Playing, PrimaryState::Penalized, _) => {
-                self.time_when_penalized_clicked = Some(context.cycle_time.start_time);
-                match penalty {
-                    Some(Penalty::IllegalMotionInSet { .. }) => {
-                        self.is_penalized_with_motion_in_set_or_initial = true;
-                    }
-                    Some(_) => {}
-                    None => {}
-                };
+                if matches!(
+                    penalty,
+                    Some(Penalty::IllegalMotionInStandby { .. })
+                        | Some(Penalty::IllegalMotionInSet { .. })
+                ) {
+                    self.is_penalized_with_motion_in_set_or_initial = true;
+                }
             }
             (PrimaryState::Penalized, _, _) if primary_state != PrimaryState::Penalized => {
                 if self.is_penalized_with_motion_in_set_or_initial {
@@ -297,6 +300,16 @@ impl Localization {
     fn update_state(&mut self, context: &mut CycleContext) -> Result<()> {
         let mut fit_errors_per_measurement = vec![];
 
+        let getting_up = context
+            .stand_up_back_estimated_remaining_duration
+            .is_running()
+            || context
+                .stand_up_front_estimated_remaining_duration
+                .is_running()
+            || context
+                .stand_up_sitting_estimated_remaining_duration
+                .is_running();
+
         context.measured_lines_in_field.fill_if_subscribed(Vec::new);
         context.correspondence_lines.fill_if_subscribed(Vec::new);
         context
@@ -329,7 +342,10 @@ impl Localization {
                     .wrap_err("failed to predict pose filter")?;
                     scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
                 }
-                if *context.use_line_measurements {
+                if *context.use_line_measurements
+                    && !getting_up
+                    && *context.fall_state == FallState::Upright
+                {
                     let ground_to_field: Isometry2<Ground, Field> =
                         scored_state.state.as_isometry().framed_transform();
                     let current_measured_lines_in_field: Vec<_> = line_data_top
@@ -544,7 +560,7 @@ impl Localization {
             .and_then(|game_controller_state| game_controller_state.sub_state);
         let kicking_team = context
             .filtered_game_controller_state
-            .map(|game_controller_state| game_controller_state.kicking_team);
+            .and_then(|game_controller_state| game_controller_state.kicking_team);
 
         self.reset_state(primary_state, game_phase, &context, &penalty);
         self.modify_state(&context, sub_state, kicking_team);

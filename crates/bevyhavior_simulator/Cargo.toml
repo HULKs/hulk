@@ -22,10 +22,12 @@ fern = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
+hula_types = { workspace = true }
 ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
 path_serde = { workspace = true }

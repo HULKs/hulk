@@ -27,8 +27,11 @@ pub struct Kicking {
 
 impl Kicking {
     pub fn new(context: &Context, kick: KickState, support_side: Side) -> Self {
-        let start_feet =
-            Feet::from_joints(context.robot_to_walk, &context.current_joints, support_side);
+        let start_feet = Feet::from_joints(
+            context.robot_to_walk,
+            &context.last_actuated_joints,
+            support_side,
+        );
 
         let kick_step = kick.get_step(context.kick_steps);
         let base_step = kick_step.base_step;
@@ -58,11 +61,25 @@ impl Kicking {
 impl WalkTransition for Kicking {
     fn stand(self, context: &Context) -> Mode {
         let current_step = self.step;
-        if current_step.is_support_switched(context)
-            || current_step.is_timeouted(context.parameters)
-        {
+
+        if current_step.is_timeouted(context.parameters) {
             return Mode::Stopping(Stopping::new(
                 context,
+                current_step.plan.support_side.opposite(),
+            ));
+        }
+
+        if current_step.is_support_switched(context) {
+            let kick = self.kick.advance_to_next_step();
+            if kick.is_finished(context.kick_steps) {
+                return Mode::Stopping(Stopping::new(
+                    context,
+                    current_step.plan.support_side.opposite(),
+                ));
+            }
+            return Mode::Kicking(Kicking::new(
+                context,
+                kick,
                 current_step.plan.support_side.opposite(),
             ));
         }

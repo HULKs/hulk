@@ -1,23 +1,31 @@
 use std::ops::Range;
 
 use coordinate_systems::{Field, Ground};
+use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::AdditionalOutput;
 use geometry::{
     line::{Line, Line2},
     look_at::LookAt,
 };
 use linear_algebra::{distance, point, Point2, Pose2, Vector2};
+use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{MotionCommand, WalkSpeed},
-    parameters::{RolePositionsParameters, WideStanceParameters},
+    motion_command::{JumpDirection, MotionCommand, WalkSpeed},
+    parameters::{KeeperMotionParameters, RolePositionsParameters},
     path_obstacles::PathObstacle,
     world_state::{BallState, WorldState},
 };
 
 use super::{head::LookAction, walk_to_pose::WalkAndStand};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DefendMode {
+    Aggressive,
+    Passive,
+}
 
 pub struct Defend<'cycle> {
     world_state: &'cycle WorldState,
@@ -25,6 +33,7 @@ pub struct Defend<'cycle> {
     role_positions: &'cycle RolePositionsParameters,
     walk_and_stand: &'cycle WalkAndStand<'cycle>,
     look_action: &'cycle LookAction<'cycle>,
+    last_defender_mode: &'cycle mut DefendMode,
 }
 
 impl<'cycle> Defend<'cycle> {
@@ -34,6 +43,7 @@ impl<'cycle> Defend<'cycle> {
         role_positions: &'cycle RolePositionsParameters,
         walk_and_stand: &'cycle WalkAndStand,
         look_action: &'cycle LookAction,
+        last_defender_mode: &'cycle mut DefendMode,
     ) -> Self {
         Self {
             world_state,
@@ -41,6 +51,7 @@ impl<'cycle> Defend<'cycle> {
             role_positions,
             walk_and_stand,
             look_action,
+            last_defender_mode,
         }
     }
 
@@ -50,6 +61,7 @@ impl<'cycle> Defend<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
         distance_to_be_aligned: f32,
+        hysteresis: nalgebra::Vector2<f32>,
     ) -> Option<MotionCommand> {
         self.walk_and_stand.execute(
             pose,
@@ -57,10 +69,11 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            hysteresis,
         )
     }
 
-    pub fn wide_stance(&self, parameters: WideStanceParameters) -> Option<MotionCommand> {
+    pub fn keeper_motion(&self, parameters: KeeperMotionParameters) -> Option<MotionCommand> {
         let ball = self.world_state.ball?;
 
         let position = ball.ball_in_ground;
@@ -78,15 +91,31 @@ impl<'cycle> Defend<'cycle> {
         let horizontal_distance_to_intersection =
             position.y() - position.x() / velocity.x() * velocity.y();
 
-        if horizontal_distance_to_intersection.abs() < parameters.action_radius {
-            Some(MotionCommand::WideStance)
+        if (-parameters.action_radius_center..=parameters.action_radius_center)
+            .contains(&horizontal_distance_to_intersection)
+        {
+            Some(MotionCommand::KeeperMotion {
+                direction: JumpDirection::Center,
+            })
+        } else if (parameters.action_radius_center..parameters.action_radius_left)
+            .contains(&horizontal_distance_to_intersection)
+        {
+            Some(MotionCommand::KeeperMotion {
+                direction: JumpDirection::Left,
+            })
+        } else if (-parameters.action_radius_left..-parameters.action_radius_center)
+            .contains(&horizontal_distance_to_intersection)
+        {
+            Some(MotionCommand::KeeperMotion {
+                direction: JumpDirection::Right,
+            })
         } else {
             None
         }
     }
 
     pub fn left(
-        &self,
+        &mut self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
         distance_to_be_aligned: f32,
@@ -97,17 +126,19 @@ impl<'cycle> Defend<'cycle> {
             self.role_positions,
             -self.field_dimensions.length / 2.0,
             Side::Left,
+            self.last_defender_mode,
         )?;
         self.with_pose(
             pose,
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
     pub fn right(
-        &self,
+        &mut self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
         distance_to_be_aligned: f32,
@@ -118,17 +149,19 @@ impl<'cycle> Defend<'cycle> {
             self.role_positions,
             -self.field_dimensions.length / 2.0,
             Side::Right,
+            self.last_defender_mode,
         )?;
         self.with_pose(
             pose,
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
     pub fn opponent_corner_kick(
-        &self,
+        &mut self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
         field_side: Side,
@@ -140,12 +173,14 @@ impl<'cycle> Defend<'cycle> {
             self.role_positions,
             -self.field_dimensions.length / 2.0 + self.field_dimensions.goal_box_area_length * 2.0,
             field_side,
+            self.last_defender_mode,
         )?;
         self.with_pose(
             pose,
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
@@ -162,6 +197,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 
@@ -177,6 +213,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.hysteresis,
         )
     }
 
@@ -193,6 +230,7 @@ impl<'cycle> Defend<'cycle> {
             path_obstacles_output,
             walk_speed,
             distance_to_be_aligned,
+            self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
 }
@@ -203,6 +241,7 @@ fn defend_pose(
     role_positions: &RolePositionsParameters,
     x_offset: f32,
     field_side: Side,
+    last_defender_mode: &mut DefendMode,
 ) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
@@ -215,22 +254,23 @@ fn defend_pose(
     } else {
         role_positions.defender_y_offset
     };
-
     let position_to_defend = point![x_offset, y_offset];
 
-    let in_passive_mode =
-        ball.ball_in_ground.coords().norm() >= role_positions.defender_passive_distance;
-
-    let mut distance_to_target = match (in_passive_mode, field_side, ball.field_side) {
-        (true, _, _) => role_positions.defender_aggressive_ring_radius,
-        (_, Side::Left, Side::Left) | (_, Side::Right, Side::Right) => {
-            role_positions.defender_aggressive_ring_radius
-        }
-        _ => role_positions.defender_passive_ring_radius,
+    let mode = if greater_than_with_hysteresis(
+        *last_defender_mode == DefendMode::Passive,
+        ball.ball_in_ground.coords().norm(),
+        role_positions.defender_passive_distance,
+        role_positions.defender_passive_hysteresis,
+    ) {
+        DefendMode::Passive
+    } else {
+        DefendMode::Aggressive
     };
+    *last_defender_mode = mode;
 
-    if in_passive_mode {
-        let passive_target_position = position_to_defend + (Vector2::x_axis() * distance_to_target);
+    if mode == DefendMode::Passive {
+        let passive_target_position = position_to_defend
+            + (Vector2::x_axis() * role_positions.defender_aggressive_ring_radius);
         return Some(
             ground_to_field.inverse()
                 * Pose2::<Field>::new(
@@ -240,12 +280,19 @@ fn defend_pose(
         );
     }
 
-    distance_to_target = penalty_kick_defender_radius(
+    let distance_to_target = if field_side == ball.field_side {
+        role_positions.defender_aggressive_ring_radius
+    } else {
+        role_positions.defender_passive_ring_radius
+    };
+
+    let distance_to_target = penalty_kick_defender_radius(
         distance_to_target,
         world_state.filtered_game_controller_state.as_ref(),
         field_dimensions,
     );
     let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
+
     Some(ground_to_field.inverse() * defend_pose)
 }
 
@@ -301,7 +348,7 @@ fn defend_goal_pose(
             }
             | FilteredGameControllerState {
                 sub_state: Some(SubState::PenaltyKick),
-                kicking_team: Team::Opponent,
+                kicking_team: Some(Team::Opponent),
                 ..
             },
         ) => 0.0,
@@ -411,7 +458,7 @@ fn penalty_kick_defender_radius(
     field_dimensions: &FieldDimensions,
 ) -> f32 {
     if let Some(FilteredGameControllerState {
-        kicking_team: Team::Opponent,
+        kicking_team: Some(Team::Opponent),
         sub_state: Some(SubState::PenaltyKick),
         ..
     }) = filtered_game_controller_state

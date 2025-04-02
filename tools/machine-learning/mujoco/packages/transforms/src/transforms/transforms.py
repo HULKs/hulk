@@ -112,5 +112,5 @@ def quaternion_from_isometry(
 def project_isometry_in_z_to_pose2(transform: NDArray[np.float64]) -> Pose2:
     xy_translation = transform[:2, -1]
     xy_rotation = transform[:2, 0]
-    theta = np.atan2(xy_rotation[1], xy_rotation[0])
+    theta = np.arctan2(xy_rotation[1], xy_rotation[0])
     return Pose2(x=xy_translation[0], y=xy_translation[1], theta=theta)

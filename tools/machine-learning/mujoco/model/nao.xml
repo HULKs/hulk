@@ -69,8 +69,16 @@
     <mesh file="naoTorsoV6_4.obj" />
 
     <material name="nao-skin" rgba="0.5 0.5 0.5 1" />
-    <material name="NaoMat_SecondarySkin_pantone445C" rgba="0.31 0.34 0.35 1" shininess="0.1" />
-    <material name="NaoMat_Buton_nao_pantone445C" texture="ChestButton" shininess="0.1" />
+    <material
+      name="NaoMat_SecondarySkin_pantone445C"
+      rgba="0.31 0.34 0.35 1"
+      shininess="0.1"
+    />
+    <material
+      name="NaoMat_Buton_nao_pantone445C"
+      texture="ChestButton"
+      shininess="0.1"
+    />
     <material name="NaoMat_Structure" rgba="0.4 0.4 0.4 1" shininess="0.1" />
     <material name="NaoMat_MainSkin" rgba="0.6 0.6 0.6 1" />
     <material name="NaoMat_Sonar" rgba="0 0 0 1" shininess="0.1" />
@@ -81,16 +89,24 @@
   </asset>
 
   <worldbody>
-    <body name="Nao" pos="0 0 0.4">
+    <body name="Nao" pos="0 0 0.314">
+      <site name="root" />
       <geom type="mesh" material="NaoMat_MainSkin" mesh="naoTorsoV6_0" />
       <!-- <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoTorsoV6_1"/> -->
       <geom type="mesh" material="nao-skin" mesh="naoTorsoV6_jersey" />
       <geom type="mesh" material="NaoMat_Structure" mesh="naoTorsoV6_2" />
-      <geom type="mesh" material="NaoMat_Buton_nao_pantone445C" mesh="naoTorsoV6_3" />
+      <geom
+        type="mesh"
+        material="NaoMat_Buton_nao_pantone445C"
+        mesh="naoTorsoV6_3"
+      />
       <!-- <geom type="mesh" material="NaoMat_Sonar" mesh="naoTorsoV6_4"/> -->
 
-      <inertial pos="-0.00413 0 0.04342" mass="1.04956"
-        fullinertia="5062341.69e-9 4880133.93e-9 1610302.24e-9 14311.6e-9 155190.83e-9 -27079.3e-9" />
+      <inertial
+        pos="-0.00413 0 0.04342"
+        mass="1.04956"
+        fullinertia="5062341.69e-9 4880133.93e-9 1610302.24e-9 14311.6e-9 155190.83e-9 -27079.3e-9"
+      />
       <freejoint name="root" />
 
       <site name="inertial_measurement_unit" pos="-0.008 0.006 0.029" />
@@ -106,7 +122,11 @@
 
         <body name="head" pos="0 0 0">
           <site name="head_center" pos="0 0 0.053" />
-          <geom type="mesh" material="NaoMat_SecondarySkin_pantone445C" mesh="naoHeadPitchV6_0" />
+          <geom
+            type="mesh"
+            material="NaoMat_SecondarySkin_pantone445C"
+            mesh="naoHeadPitchV6_0"
+          />
           <geom type="mesh" material="NaoMat_Pupil" mesh="naoHeadPitchV6_1" />
           <geom type="mesh" material="NaoMat_Hear" mesh="naoHeadPitchV6_2" />
           <geom type="mesh" material="NaoMat_Reye" mesh="naoHeadPitchV6_3" />
@@ -121,7 +141,11 @@
       </body>
 
       <body name="left_hip_1" pos="0 0.05 -0.085">
-        <geom type="mesh" material="NaoMat_Structure" mesh="naoLHipYawPitch_0" />
+        <geom
+          type="mesh"
+          material="NaoMat_Structure"
+          mesh="naoLHipYawPitch_0"
+        />
         <geom type="mesh" material="NaoMat_MainSkin" mesh="naoLHipYawPitch_1" />
 
         <inertial pos="-0.00781 -0.01114 0.02661" mass="0.06981"
@@ -192,7 +216,11 @@
       </body>
 
       <body name="right_hip_1" pos="0 -0.05 -0.085">
-        <geom type="mesh" material="NaoMat_Structure" mesh="naoRHipYawPitch_0" />
+        <geom
+          type="mesh"
+          material="NaoMat_Structure"
+          mesh="naoRHipYawPitch_0"
+        />
         <geom type="mesh" material="NaoMat_MainSkin" mesh="naoRHipYawPitch_1" />
 
         <inertial pos="-0.00781 0.01114 0.02661" mass="0.06981"
@@ -411,44 +439,126 @@
   </contact>
 
   <equality>
-    <joint joint1="left_leg.hip_yaw_pitch" joint2="right_leg.hip_yaw_pitch" polycoef="0 1 0 0 0" />
+    <joint
+      joint1="hip_yaw_pitch"
+      joint2="right_hip_yaw_pitch"
+      polycoef="0 1 0 0 0"
+    />
   </equality>
 
   <actuator>
     <position name="head.yaw" joint="head.yaw" ctrlrange="-2.0857 2.0857" />
     <position name="head.pitch" joint="head.pitch" ctrlrange="-0.672 0.5149" />
-    <position name="left_leg.hip_yaw_pitch" joint="left_leg.hip_yaw_pitch"
-      ctrlrange="-1.145303 0.74081" />
-    <position name="left_leg.hip_roll" joint="left_leg.hip_roll" ctrlrange="-0.379472 0.790477" />
-    <position name="left_leg.hip_pitch" joint="left_leg.hip_pitch" ctrlrange="-1.535889 0.484090" />
-    <position name="left_leg.knee_pitch" joint="left_leg.knee_pitch" ctrlrange="-0.092346 2.112528" />
-    <position name="left_leg.ankle_pitch" joint="left_leg.ankle_pitch"
-      ctrlrange="-1.189516 0.922747" />
-    <position name="left_leg.ankle_roll" joint="left_leg.ankle_roll" ctrlrange="-0.397880  0.769001" />
-    <!-- <position name="right_leg.hip_yaw_pitch" joint="right_leg.hip_yaw_pitch"
-    ctrlrange="-1.145303 0.740810"/> -->
-    <position name="right_leg.hip_roll" joint="right_leg.hip_roll" ctrlrange="-0.790477 0.379472" />
-    <position name="right_leg.hip_pitch" joint="right_leg.hip_pitch" ctrlrange="-1.535889 0.48409" />
-    <position name="right_leg.knee_pitch" joint="right_leg.knee_pitch"
-      ctrlrange="-0.103083 2.120198" />
-    <position name="right_leg.ankle_pitch" joint="right_leg.ankle_pitch"
-      ctrlrange="-1.186448 0.932056" />
-    <position name="right_leg.ankle_roll" joint="right_leg.ankle_roll"
-      ctrlrange="-0.768992 0.397935" />
-    <position name="left_arm.shoulder_pitch" joint="left_arm.shoulder_pitch"
-      ctrlrange="-2.0857 2.0857" />
-    <position name="left_arm.shoulder_roll" joint="left_arm.shoulder_roll"
-      ctrlrange="-0.3142 1.3265" />
-    <position name="left_arm.elbow_yaw" joint="left_arm.elbow_yaw" ctrlrange="-2.0857 2.0857" />
-    <position name="left_arm.elbow_roll" joint="left_arm.elbow_roll" ctrlrange="-1.5446 -0.0349" />
-    <position name="left_arm.wrist_yaw" joint="left_arm.wrist_yaw" ctrlrange="-1.8238 1.8238" />
-    <position name="right_arm.shoulder_pitch" joint="right_arm.shoulder_pitch"
-      ctrlrange="-2.0857 2.0857" />
-    <position name="right_arm.shoulder_roll" joint="right_arm.shoulder_roll"
-      ctrlrange="-1.3265 0.3142" />
-    <position name="right_arm.elbow_yaw" joint="right_arm.elbow_yaw" ctrlrange="-2.0857 2.0857" />
-    <position name="right_arm.elbow_roll" joint="right_arm.elbow_roll" ctrlrange="0.0349 1.5446" />
-    <position name="right_arm.wrist_yaw" joint="right_arm.wrist_yaw" ctrlrange="-1.8238 1.8238" />
+    <position
+      name="left_arm.shoulder_pitch"
+      joint="left_arm.shoulder_pitch"
+      ctrlrange="-2.0857 2.0857"
+    />
+    <position
+      name="left_arm.shoulder_roll"
+      joint="left_arm.shoulder_roll"
+      ctrlrange="-0.3142 1.3265"
+    />
+    <position
+      name="left_arm.elbow_yaw"
+      joint="left_arm.elbow_yaw"
+      ctrlrange="-2.0857 2.0857"
+    />
+    <position
+      name="left_arm.elbow_roll"
+      joint="left_arm.elbow_roll"
+      ctrlrange="-1.5446 -0.0349"
+    />
+    <position
+      name="left_arm.wrist_yaw"
+      joint="left_arm.wrist_yaw"
+      ctrlrange="-1.8238 1.8238"
+    />
+    <position
+      name="right_arm.shoulder_pitch"
+      joint="right_arm.shoulder_pitch"
+      ctrlrange="-2.0857 2.0857"
+    />
+    <position
+      name="right_arm.shoulder_roll"
+      joint="right_arm.shoulder_roll"
+      ctrlrange="-1.3265 0.3142"
+    />
+    <position
+      name="right_arm.elbow_yaw"
+      joint="right_arm.elbow_yaw"
+      ctrlrange="-2.0857 2.0857"
+    />
+    <position
+      name="right_arm.elbow_roll"
+      joint="right_arm.elbow_roll"
+      ctrlrange="0.0349 1.5446"
+    />
+    <position
+      name="right_arm.wrist_yaw"
+      joint="right_arm.wrist_yaw"
+      ctrlrange="-1.8238 1.8238"
+    />
+    <position
+      name="hip_yaw_pitch"
+      joint="hip_yaw_pitch"
+      ctrlrange="-1.145303 0.74081"
+    />
+    <position
+      name="left_leg.hip_roll"
+      joint="left_leg.hip_roll"
+      ctrlrange="-0.379472 0.790477"
+    />
+    <position
+      name="left_leg.hip_pitch"
+      joint="left_leg.hip_pitch"
+      ctrlrange="-1.535889 0.484090"
+    />
+    <position
+      name="left_leg.knee_pitch"
+      joint="left_leg.knee_pitch"
+      ctrlrange="-0.092346 2.112528"
+    />
+    <position
+      name="left_leg.ankle_pitch"
+      joint="left_leg.ankle_pitch"
+      ctrlrange="-1.189516 0.922747"
+    />
+    <position
+      name="left_leg.ankle_roll"
+      joint="left_leg.ankle_roll"
+      ctrlrange="-0.397880  0.769001"
+    />
+    <!--<position-->
+    <!--  name="hip_yaw_pitch"-->
+    <!--  joint="right_leg.hip_yaw_pitch"-->
+    <!--  ctrlrange="-1.145303 0.740810"-->
+    <!--/>-->
+    <position
+      name="right_leg.hip_roll"
+      joint="right_leg.hip_roll"
+      ctrlrange="-0.790477 0.379472"
+    />
+    <position
+      name="right_leg.hip_pitch"
+      joint="right_leg.hip_pitch"
+      ctrlrange="-1.535889 0.48409"
+    />
+    <position
+      name="right_leg.knee_pitch"
+      joint="right_leg.knee_pitch"
+      ctrlrange="-0.103083 2.120198"
+    />
+    <position
+      name="right_leg.ankle_pitch"
+      joint="right_leg.ankle_pitch"
+      ctrlrange="-1.186448 0.932056"
+    />
+    <position
+      name="right_leg.ankle_roll"
+      joint="right_leg.ankle_roll"
+      ctrlrange="-0.768992 0.397935"
+    />
   </actuator>
 
   <sensor>
@@ -456,44 +566,63 @@
     <gyro name="gyroscope" site="inertial_measurement_unit" />
     <jointpos name="head.yaw" joint="head.yaw" />
     <jointpos name="head.pitch" joint="head.pitch" />
-    <jointpos name="left_leg.hip_yaw_pitch" joint="left_leg.hip_yaw_pitch" />
-    <jointpos name="left_leg.hip_roll" joint="left_leg.hip_roll" />
-    <jointpos name="left_leg.hip_pitch" joint="left_leg.hip_pitch" />
-    <jointpos name="left_leg.knee_pitch" joint="left_leg.knee_pitch" />
-    <jointpos name="left_leg.ankle_pitch" joint="left_leg.ankle_pitch" />
-    <jointpos name="left_leg.ankle_roll" joint="left_leg.ankle_roll" />
-    <!-- <jointpos name="right_leg.hip_yaw_pitch" joint="right_leg.hip_yaw_pitch"/> -->
-    <jointpos name="right_leg.hip_roll" joint="right_leg.hip_roll" />
-    <jointpos name="right_leg.hip_pitch" joint="right_leg.hip_pitch" />
-    <jointpos name="right_leg.knee_pitch" joint="right_leg.knee_pitch" />
-    <jointpos name="right_leg.ankle_pitch" joint="right_leg.ankle_pitch" />
-    <jointpos name="right_leg.ankle_roll" joint="right_leg.ankle_roll" />
     <jointpos name="left_arm.shoulder_pitch" joint="left_arm.shoulder_pitch" />
     <jointpos name="left_arm.shoulder_roll" joint="left_arm.shoulder_roll" />
     <jointpos name="left_arm.elbow_yaw" joint="left_arm.elbow_yaw" />
     <jointpos name="left_arm.elbow_roll" joint="left_arm.elbow_roll" />
     <jointpos name="left_arm.wrist_yaw" joint="left_arm.wrist_yaw" />
-    <jointpos name="right_arm.shoulder_pitch" joint="right_arm.shoulder_pitch" />
+    <jointpos
+      name="right_arm.shoulder_pitch"
+      joint="right_arm.shoulder_pitch"
+    />
     <jointpos name="right_arm.shoulder_roll" joint="right_arm.shoulder_roll" />
     <jointpos name="right_arm.elbow_yaw" joint="right_arm.elbow_yaw" />
     <jointpos name="right_arm.elbow_roll" joint="right_arm.elbow_roll" />
     <jointpos name="right_arm.wrist_yaw" joint="right_arm.wrist_yaw" />
+    <jointpos name="hip_yaw_pitch" joint="hip_yaw_pitch" />
+    <jointpos name="left_leg.hip_roll" joint="left_leg.hip_roll" />
+    <jointpos name="left_leg.hip_pitch" joint="left_leg.hip_pitch" />
+    <jointpos name="left_leg.knee_pitch" joint="left_leg.knee_pitch" />
+    <jointpos name="left_leg.ankle_pitch" joint="left_leg.ankle_pitch" />
+    <jointpos name="left_leg.ankle_roll" joint="left_leg.ankle_roll" />
+    <!-- <jointpos name="hip_yaw_pitch" joint="right_leg.hip_yaw_pitch"/> -->
+    <jointpos name="right_leg.hip_roll" joint="right_leg.hip_roll" />
+    <jointpos name="right_leg.hip_pitch" joint="right_leg.hip_pitch" />
+    <jointpos name="right_leg.knee_pitch" joint="right_leg.knee_pitch" />
+    <jointpos name="right_leg.ankle_pitch" joint="right_leg.ankle_pitch" />
+    <jointpos name="right_leg.ankle_roll" joint="right_leg.ankle_roll" />
 
-    <touch name="force_sensitive_resistors.right.rear_left"
-      site="force_sensitive_resistors.right.rear_left" />
-    <touch name="force_sensitive_resistors.right.rear_right"
-      site="force_sensitive_resistors.right.rear_right" />
-    <touch name="force_sensitive_resistors.right.front_left"
-      site="force_sensitive_resistors.right.front_left" />
-    <touch name="force_sensitive_resistors.right.front_right"
-      site="force_sensitive_resistors.right.front_right" />
-    <touch name="force_sensitive_resistors.left.rear_right"
-      site="force_sensitive_resistors.left.rear_right" />
-    <touch name="force_sensitive_resistors.left.rear_left"
-      site="force_sensitive_resistors.left.rear_left" />
-    <touch name="force_sensitive_resistors.left.front_left"
-      site="force_sensitive_resistors.left.front_left" />
-    <touch name="force_sensitive_resistors.left.front_right"
-      site="force_sensitive_resistors.left.front_right" />
+    <touch
+      name="force_sensitive_resistors.right.rear_left"
+      site="force_sensitive_resistors.right.rear_left"
+    />
+    <touch
+      name="force_sensitive_resistors.right.rear_right"
+      site="force_sensitive_resistors.right.rear_right"
+    />
+    <touch
+      name="force_sensitive_resistors.right.front_left"
+      site="force_sensitive_resistors.right.front_left"
+    />
+    <touch
+      name="force_sensitive_resistors.right.front_right"
+      site="force_sensitive_resistors.right.front_right"
+    />
+    <touch
+      name="force_sensitive_resistors.left.rear_right"
+      site="force_sensitive_resistors.left.rear_right"
+    />
+    <touch
+      name="force_sensitive_resistors.left.rear_left"
+      site="force_sensitive_resistors.left.rear_left"
+    />
+    <touch
+      name="force_sensitive_resistors.left.front_left"
+      site="force_sensitive_resistors.left.front_left"
+    />
+    <touch
+      name="force_sensitive_resistors.left.front_right"
+      site="force_sensitive_resistors.left.front_right"
+    />
   </sensor>
 </mujoco>

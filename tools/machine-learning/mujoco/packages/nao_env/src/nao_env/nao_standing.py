@@ -1,190 +1,113 @@
-from pathlib import Path
-from typing import Any, ClassVar, override
+from typing import Any, override
 
 import numpy as np
-import rewards
 from gymnasium import utils
-from gymnasium.envs.mujoco.mujoco_env import MujocoEnv
-from gymnasium.spaces import Box
-from nao_interface.nao_interface import Nao
-from nao_interface.poses import PENALIZED_POSE
+from nao_interface.poses import READY_POSE
 from numpy.typing import NDArray
-from throwing import ThrowableObject
-
-DEFAULT_CAMERA_CONFIG = {
-    "trackbodyid": 1,
-    "distance": 4.0,
-    "lookat": np.array((0.0, 0.0, 0.8925)),
-    "elevation": -20.0,
-}
-
-OFFSET_QPOS = np.array(
-    [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.09,
-        -0.06,
-        0.01,
-        -0.002,
-        0.0,
-        0.09,
-        -0.06,
-        0.01,
-        0.002,
-        1.57,
-        0.1,
-        -1.57,
-        0.0,
-        0.0,
-        1.57,
-        -0.1,
-        1.57,
-        0.0,
-        0.0,
-    ],
+from rewards import (
+    ConstantReward,
+    ControlAmplitudePenalty,
+    HeadOverTorsoPenalty,
+    RewardComposer,
+    RewardContext,
+    TorqueChangeRatePenalty,
 )
 
-HEAD_SET_HEIGHT = 0.51
+from .nao_base_env import NaoBaseEnv
 
-SENSOR_NAMES = [
-    "accelerometer",
-    "gyroscope",
-    "head.yaw",
-    "head.pitch",
-    "left_leg.hip_yaw_pitch",
-    "left_leg.hip_roll",
-    "left_leg.hip_pitch",
-    "left_leg.knee_pitch",
-    "left_leg.ankle_pitch",
-    "left_leg.ankle_roll",
-    "right_leg.hip_roll",
-    "right_leg.hip_pitch",
-    "right_leg.knee_pitch",
-    "right_leg.ankle_pitch",
-    "right_leg.ankle_roll",
-    "left_arm.shoulder_pitch",
-    "left_arm.shoulder_roll",
-    "left_arm.elbow_yaw",
-    "left_arm.elbow_roll",
-    "left_arm.wrist_yaw",
-    "right_arm.shoulder_pitch",
-    "right_arm.shoulder_roll",
-    "right_arm.elbow_yaw",
-    "right_arm.elbow_roll",
-    "right_arm.wrist_yaw",
-]
+HEAD_SET_HEIGHT = 0.493
 
 
-class NaoStanding(MujocoEnv, utils.EzPickle):
-    metadata: ClassVar = {
-        "render_modes": [
-            "human",
-            "rgb_array",
-            "depth_array",
-        ],
-        "render_fps": 83,
-    }
-
+class NaoStanding(NaoBaseEnv, utils.EzPickle):
     def __init__(
         self,
         *,
         throw_tomatoes: bool,
         **kwargs: Any,
     ) -> None:
-        observation_space = Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(31,),
-            dtype=np.float64,
-        )
-
-        MujocoEnv.__init__(
-            self,
-            str(Path.cwd() / "model/scene.xml"),
-            frame_skip=4,
-            observation_space=observation_space,
-            default_camera_config=DEFAULT_CAMERA_CONFIG,
+        super().__init__(
+            throw_tomatoes=throw_tomatoes,
+            sensor_delay=3,
             **kwargs,
         )
-        self.throw_tomatoes = throw_tomatoes
-        self.projectile = ThrowableObject(
-            model=self.model,
-            data=self.data,
-            plane_body="floor",
-            throwable_body="tomato",
-        )
+
         self.current_step = 0
-        self.termination_penalty = 10.0
+        self.next_throw_at = 500
+        self.expected_number_of_frames_between_throws = 120
+        self.rng = np.random.default_rng()
+
+        self.reward = (
+            RewardComposer()
+            .add(0.02, ConstantReward())
+            .add(-0.001, TorqueChangeRatePenalty(self.model.nu, self.dt))
+            .add(-0.001, ControlAmplitudePenalty())
+            .add(-0.5, HeadOverTorsoPenalty())
+        )
         utils.EzPickle.__init__(self, **kwargs)
 
-    @override
-    def _get_obs(self) -> NDArray[np.floating]:
-        nao = Nao(self.model, self.data)
-
-        force_sensing_resistors_right = nao.right_fsr_values().sum()
-        force_sensing_resistors_left = nao.left_fsr_values().sum()
-
-        sensors = np.concatenate(
-            [
-                self.data.sensor(sensor_name).data
-                for sensor_name in SENSOR_NAMES
-            ],
+    def _should_throw_tomato(self) -> bool:
+        allowed_to_throw = (
+            self.current_step >= self.next_throw_at
+            and self.projectile.has_ground_contact()
         )
-        frs = np.array(
-            [force_sensing_resistors_right, force_sensing_resistors_left],
-        )
+        if allowed_to_throw:
+            self.next_throw_at = self.current_step + self.rng.poisson(
+                self.expected_number_of_frames_between_throws
+            )
 
-        return np.concatenate([sensors, frs])
+        return allowed_to_throw
 
     @override
     def step(self, action: NDArray[np.floating]) -> tuple:
         self.current_step += 1
-        nao = Nao(self.model, self.data)
 
-        if self.throw_tomatoes and self.projectile.has_ground_contact():
-            robot_site_id = self.model.site("Robot").id
-            target = self.data.site_xpos[robot_site_id]
-            alpha = self.current_step / 2500
-            time_to_reach = 0.2 * (1 - alpha) + 0.1 * alpha
+        if self.throw_tomatoes and self._should_throw_tomato():
+            target = self.data.site("Robot").xpos
+            time_to_reach = 0.15
             self.projectile.random_throw(
                 target,
                 time_to_reach=time_to_reach,
                 distance=1.0,
             )
 
-        last_action = self.data.ctrl.copy()
-        self.do_simulation(action + OFFSET_QPOS, self.frame_skip)
-        head_center_z = self.data.site("head_center").xpos[2]
-
-        action_penalty = 0.1 * rewards.action_rate(nao, last_action)
-        head_over_torso_penalty = 1.0 * rewards.head_over_torso_error(nao)
+        self.do_simulation(action, self.frame_skip)
 
         if self.render_mode == "human":
             self.render()
 
-        terminated = head_center_z < 0.3
-        reward = 0.05 - action_penalty - head_over_torso_penalty
+        distinct_rewards = self.reward.rewards(RewardContext(self.nao, action))
+        reward = sum(distinct_rewards.values())
 
-        if terminated:
-            reward -= self.termination_penalty
-
+        terminated = False
+        self.current_step += 1
         return (
             self._get_obs(),
             reward,
             terminated,
             False,
-            {},
+            distinct_rewards,
         )
+
+    def do_simulation(
+        self,
+        ctrl: NDArray[np.floating],
+        n_frames: int,
+    ) -> None:
+        self.nao.actuator_control.set_from_joints(READY_POSE)
+
+        current_control = self.nao.actuator_control.to_numpy(
+            self.actuator_names
+        )
+        super().do_simulation(current_control + ctrl, n_frames)
 
     @override
     def reset_model(self) -> NDArray[np.floating]:
         self.current_step = 0
+        self.next_throw_at = 500
+        self.reward.reset()
         self.set_state(
             self.init_qpos,
             self.init_qvel,
         )
-        nao = Nao(self.model, self.data)
-        nao.reset(PENALIZED_POSE)
+        self.nao.reset(READY_POSE)
         return self._get_obs()

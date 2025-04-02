@@ -352,7 +352,7 @@ fn decide_validity_decay_for_hypothesis(
     let is_ball_in_view =
         camera_matrices
             .zip(projected_limbs)
-            .map_or(false, |(camera_matrices, projected_limbs)| {
+            .is_some_and(|(camera_matrices, projected_limbs)| {
                 let ball = hypothesis.position();
                 is_visible_to_camera(
                     &ball,

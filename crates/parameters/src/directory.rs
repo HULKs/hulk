@@ -7,7 +7,8 @@ use std::{
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{error, from_str, to_string_pretty, to_value, Value};
-use types::hardware::Ids;
+
+use hula_types::hardware::Ids;
 
 use super::json::{clone_nested_value, merge_json, prune_equal_branches};
 
@@ -122,7 +123,7 @@ pub fn serialize<Parameters>(
     parameters: &Parameters,
     scope: Scope,
     path: &str,
-    parameters_root_path: impl AsRef<Path>,
+    parameters_root: impl AsRef<Path>,
     hardware_ids: &Ids,
 ) -> Result<(), DirectoryError>
 where
@@ -131,7 +132,7 @@ where
     let mut parameters =
         to_value(parameters).map_err(DirectoryError::ParametersNotConvertedToJsonValue)?;
     let stored_parameters = to_value(
-        deserialize::<Parameters>(&parameters_root_path, hardware_ids, true).map_err(|error| {
+        deserialize::<Parameters>(&parameters_root, hardware_ids, true).map_err(|error| {
             println!("{:?}", error);
             error
         })?,
@@ -143,7 +144,7 @@ where
     let Some(sparse_parameters_from_scope_path) = clone_nested_value(&parameters, path) else {
         return Ok(());
     };
-    let serialization_file_path = file_path_from_scope(scope, parameters_root_path, hardware_ids);
+    let serialization_file_path = file_path_from_scope(scope, parameters_root, hardware_ids);
     let mut parameters = if serialization_file_path.exists() {
         read_from_file(&serialization_file_path)
             .map_err(DirectoryError::HeadParametersOfLocationNotGet)?

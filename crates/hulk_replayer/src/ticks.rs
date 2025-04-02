@@ -205,7 +205,7 @@ impl Widget for Ticks<'_> {
 }
 
 fn absolute_time_to_time_string(absolute_time: AbsoluteTime) -> String {
-    Into::<DateTime<Utc>>::into(absolute_time.inner())
+    DateTime::<Utc>::from(absolute_time.inner())
         .format("%H:%M:%S%.3f")
         .to_string()
 }

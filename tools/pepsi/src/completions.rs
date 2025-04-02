@@ -72,7 +72,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
         Shell::Fish => {
             print!("{static_completions}");
 
-            const COMPLETION_SUBCOMMANDS: [(&str, &str); 15] = [
+            const COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
                 ("aliveness", ""),
                 ("gammaray", ""),
                 ("hulk", ""),
@@ -80,37 +80,42 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 ("logs", "downloads"),
                 ("logs", "show"),
                 ("ping", ""),
-                ("postgame", ""),
+                ("postgame", "golden-goal"),
+                ("postgame", "first-half"),
+                ("postgame", "second-half"),
                 ("poweroff", ""),
+                ("pregame", ""),
                 ("reboot", ""),
                 ("shell", ""),
                 ("upload", ""),
-                ("wireless", "list"),
-                ("wireless", "set"),
-                ("wireless", "status"),
+                ("wifi", "list"),
+                ("wifi", "set"),
+                ("wifi", "status"),
             ];
-            for (first, second) in COMPLETION_SUBCOMMANDS {
-                if second.is_empty() {
+            for (subcommand, argument) in COMPLETION_SUBCOMMANDS {
+                if argument.is_empty() {
                     println!(
-                        "complete -c pepsi -n \"__fish_seen_subcommand_from {first}\" \
+                        "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}\" \
                              -f -a \"({nao_completion_command})\""
                     );
                 } else {
                     println!(
-                        "complete -c pepsi -n \"__fish_seen_subcommand_from {first}; \
-                             and __fish_seen_subcommand_from {second}\" \
+                        "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}; \
+                             and __fish_seen_subcommand_from {argument}\" \
                              -f -a \"({nao_completion_command})\""
                     );
                 }
             }
 
-            const ASSIGNEMNT_COMPLETION_SUBCOMMANDS: [&str; 2] = ["playernumber", "pregame"];
-            for subcommand in ASSIGNEMNT_COMPLETION_SUBCOMMANDS {
-                println!(
-                    "complete -c pepsi -n \"__fish_seen_subcommand_from {subcommand}\" \
-                         -f -a \"({assignement_completion_command})\""
-                );
-            }
+            println!(
+                "complete -c pepsi -n \"__fish_seen_subcommand_from playernumber\" \
+                     -f -a \"({assignement_completion_command})\""
+            );
+            println!(
+                "complete -c pepsi -n \"__fish_seen_subcommand_from postgame; \
+                     and not __fish_seen_subcommand_from golden-goal first-half second-half\" \
+                     -f -a \"golden-goal first-half second-half\""
+            );
         }
         Shell::Zsh => {
             let re = Regex::new("(:naos? -- .*):").unwrap();

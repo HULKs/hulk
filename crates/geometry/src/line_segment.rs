@@ -8,11 +8,13 @@ use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{
-    center, distance, distance_squared, vector, Point2, Rotation2, Transform, Vector2,
-};
+use linear_algebra::{center, distance, distance_squared, Point2, Rotation2, Transform, Vector2};
 
-use crate::{arc::Arc, direction::Direction, Distance};
+use crate::{
+    arc::Arc,
+    direction::{Direction, Rotate90Degrees},
+    Distance,
+};
 
 #[derive(
     Clone,
@@ -50,8 +52,8 @@ impl<Frame> LineSegment<Frame> {
 
     pub fn signed_distance_to_point(&self, point: Point2<Frame>) -> f32 {
         let line_vector = self.1 - self.0;
-        let normal_vector = Direction::Counterclockwise
-            .rotate_vector_90_degrees(line_vector)
+        let normal_vector = line_vector
+            .rotate_90_degrees(Direction::Counterclockwise)
             .normalize();
         normal_vector.dot(&point.coords()) - normal_vector.dot(&self.0.coords())
     }
@@ -69,8 +71,7 @@ impl<Frame> LineSegment<Frame> {
     pub fn signed_acute_angle_to_orthogonal(&self, other: Self) -> f32 {
         let self_direction = self.1 - self.0;
         let other_direction = other.1 - other.0;
-        let orthogonal_other_direction =
-            Direction::Clockwise.rotate_vector_90_degrees(other_direction);
+        let orthogonal_other_direction = other_direction.rotate_90_degrees(Direction::Clockwise);
         signed_acute_angle(self_direction, orthogonal_other_direction)
     }
 
@@ -128,11 +129,11 @@ impl<Frame> LineSegment<Frame> {
 
     pub fn get_direction(&self, point: Point2<Frame>) -> Direction {
         let direction_vector = self.1 - self.0;
-        let clockwise_normal_vector = vector![direction_vector.y(), -direction_vector.x()];
+        let clockwise_normal_vector = direction_vector.rotate_90_degrees(Direction::Clockwise);
         let directed_cathetus = clockwise_normal_vector.dot(&(point - self.0));
 
         match directed_cathetus {
-            f if f == 0.0 => Direction::Colinear,
+            0.0 => Direction::Colinear,
             f if f > 0.0 => Direction::Clockwise,
             f if f < 0.0 => Direction::Counterclockwise,
             f => panic!("directed cathetus was not a real number: {f}"),
@@ -144,21 +145,18 @@ impl<Frame> LineSegment<Frame> {
             return false;
         }
 
-        let projection = (arc.circle.center - self.0).dot(&(self.1 - self.0));
-        let projected_point_relative_contribution = projection / self.length_squared();
-        let base_point = self.0 + (self.1 - self.0) * projected_point_relative_contribution;
+        let direction = self.1 - self.0;
+        let normed_direction = direction.normalize();
+
+        let projection = (arc.circle.center - self.0).dot(&normed_direction);
+        let base_point = self.0 + normed_direction * projection;
 
         let center_to_base_length = (base_point - arc.circle.center).norm();
         let base_to_intersection_length =
             f32::sqrt(arc.circle.radius.powi(2) - center_to_base_length.powi(2));
 
-        let direction_vector = vector![self.1.x() - self.0.x(), self.1.y() - self.0.y()];
-        let normed_direction_vector = direction_vector.normalize();
-
-        let intersection_point1 =
-            base_point + normed_direction_vector * base_to_intersection_length;
-        let intersection_point2 =
-            base_point - normed_direction_vector * base_to_intersection_length;
+        let intersection_point1 = base_point + normed_direction * base_to_intersection_length;
+        let intersection_point2 = base_point - normed_direction * base_to_intersection_length;
 
         let mut intersection_points: Vec<_> = Vec::new();
         if (0.0..1.0).contains(&self.projection_factor(intersection_point1)) {
@@ -269,6 +267,8 @@ mod tests {
 
     use approx::assert_relative_eq;
     use linear_algebra::point;
+
+    use crate::circle::Circle;
 
     use super::*;
 
@@ -486,5 +486,41 @@ mod tests {
                 epsilon = 0.000001,
             );
         }
+    }
+
+    #[test]
+    fn arc_intersections() {
+        let arc: Arc<SomeFrame> = Arc {
+            circle: Circle {
+                center: point![1.0, 1.0],
+                radius: 1.0,
+            },
+            start: point![2.0, 1.0],
+            end: point![1.0, 2.0],
+            direction: Direction::Counterclockwise,
+        };
+
+        assert!(!LineSegment(point![0.0, 2.0], point![2.0, 0.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![2.0, 2.0], point![3.0, 3.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![0.0, 1.0], point![3.0, 0.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 1.0], point![3.0, 2.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 0.0], point![2.0, 2.0]).overlaps_arc(arc));
+
+        let arc: Arc<SomeFrame> = Arc {
+            circle: Circle {
+                center: point![1.0, 1.0],
+                radius: 1.0,
+            },
+            start: point![2.0, 1.0],
+            end: point![1.0, 2.0],
+            direction: Direction::Clockwise,
+        };
+
+        assert!(!LineSegment(point![1.0, 1.0], point![3.0, 3.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![0.5, 1.0], point![1.5, 1.0]).overlaps_arc(arc));
+        assert!(!LineSegment(point![0.0, 3.0], point![2.0, 3.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 2.0], point![2.0, 0.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![0.0, 0.0], point![2.0, 2.0]).overlaps_arc(arc));
+        assert!(LineSegment(point![-1.0, 1.0], point![2.0, 0.0]).overlaps_arc(arc));
     }
 }

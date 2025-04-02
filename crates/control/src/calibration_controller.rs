@@ -213,7 +213,7 @@ impl CalibrationController {
             &dispatch_time,
         );
 
-        let goto_next_lookat = calibration_response.map_or(false, |response| {
+        let goto_next_lookat = calibration_response.is_some_and(|response| {
             if let Some(measurement) = response.measurement {
                 self.inner_states.measurements.push(measurement);
                 true

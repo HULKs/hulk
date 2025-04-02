@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use service_manager::SystemServices;
 use tokio::{net::UdpSocket, time};
 
-pub use hula_types::{Battery, JointsArray};
+pub use hula_types::robot_state::{Battery, JointsArray};
 
 pub mod service_manager;
 
@@ -68,10 +68,7 @@ async fn send_beacons_unicast(
 
     let errors: Vec<_> = results
         .into_iter()
-        .filter_map(|result| match result {
-            Err(error) => Some(error),
-            Ok(_) => None,
-        })
+        .filter_map(|result| result.err())
         .collect();
 
     if errors.is_empty() {

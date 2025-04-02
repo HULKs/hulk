@@ -7,6 +7,7 @@ use std::{
 
 use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
 use nalgebra::{DMatrix, Rotation3, SMatrix};
+use ndarray::Array2;
 use serde::{Deserializer, Serializer};
 
 macro_rules! implement_as_not_supported {
@@ -97,6 +98,8 @@ implement_as_not_supported!(DMatrix<f32>);
 implement_as_not_supported!(Rotation3<f32>);
 implement_as_not_supported!(SMatrix<f32, 3, 3>);
 implement_as_not_supported!(SMatrix<f32, 3, 4>);
+//ndarray
+implement_as_not_supported!(Array2<f32>);
 // stdlib
 implement_as_not_supported!(HashMap<K, V>, K, V);
 implement_as_not_supported!(HashSet<T>, T);

@@ -1,19 +1,21 @@
+use std::env::current_dir;
+
 use bevy::{
     app::{App, AppExit, First, Plugin, Update},
     core::{FrameCountPlugin, TaskPoolPlugin, TypeRegistrationPlugin},
     ecs::{
-        event::{Events, ManualEventReader},
+        event::{EventCursor, Events},
         schedule::IntoSystemConfigs,
     },
     time::Time,
 };
 use color_eyre::{
-    eyre::{eyre, Context},
+    eyre::{eyre, Context, ContextCompat},
     Result,
 };
-use repository::get_repository_root;
-use tokio::runtime::Runtime;
-use types::hardware::Ids;
+
+use hula_types::hardware::Ids;
+use repository::Repository;
 
 use crate::{
     autoref::{autoref, autoref_plugin},
@@ -75,7 +77,7 @@ pub trait AppExt {
 
 impl AppExt for App {
     fn run_to_completion(&mut self) -> Result<()> {
-        let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+        let mut app_exit_event_reader = EventCursor::<AppExit>::default();
         let exit = loop {
             self.update();
             if let Some(exit) = self
@@ -103,11 +105,10 @@ fn load_parameters() -> Result<Parameters> {
         body_id: "behavior_simulator".to_string(),
         head_id: "behavior_simulator".to_string(),
     };
-    let runtime = Runtime::new().wrap_err("failed to build async runtime")?;
-    let repository_root = runtime
-        .block_on(get_repository_root())
-        .wrap_err("failed to get repository root")?;
-    let parameters_path = repository_root.join("crates/bevyhavior_simulator");
+    let current_directory = current_dir().wrap_err("failed to get current directory")?;
+    let repository =
+        Repository::find_root(current_directory).wrap_err("failed to get repository root")?;
+    let parameters_path = repository.root.join("crates/bevyhavior_simulator");
 
     parameters::directory::deserialize(parameters_path, &ids, true)
         .wrap_err("failed to parse initial parameters")

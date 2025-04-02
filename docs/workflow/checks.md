@@ -8,11 +8,11 @@ These are the most important checks:
 
 | Check                 | How to run                                               |
 |-----------------------|----------------------------------------------------------|
-| Run unit tests        | `cargo test --workspace`                                 |
-| Lint Rust code        | `./pepsi clippy --workspace`                             |
+| Run unit tests        | `./pepsi test`                                           |
+| Lint Rust code        | `./pepsi clippy`                                         |
 | Format Rust code      | `cargo fmt`                                              |
 | Format TOML files     | Install [Taplo](https://taplo.tamasfe.dev/); `taplo fmt` |
-| Check parameter files | `cargo run --bin parameter_tester`                       |
+| Check parameter files | `./pepsi run parameter_tester`                           |
 
 The checks performed in our CI workflow are defined in `.github/workflows/pull-request.yml`.
 

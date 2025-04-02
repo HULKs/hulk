@@ -4,7 +4,7 @@ use geometry::{
 };
 use linear_algebra::Point2;
 use ordered_float::NotNan;
-use rand::{seq::SliceRandom, Rng};
+use rand::{seq::IndexedRandom, Rng};
 
 #[derive(Default, Debug, PartialEq)]
 pub struct RansacResult<Frame> {
@@ -85,7 +85,7 @@ mod test {
     #[test]
     fn ransac_empty_input() {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
-        let mut rng = ChaChaRng::from_entropy();
+        let mut rng = ChaChaRng::from_os_rng();
         assert_eq!(
             ransac.next_line(&mut rng, 10, 5.0, 5.0),
             RansacResult::default()
@@ -95,7 +95,7 @@ mod test {
     #[test]
     fn ransac_single_point() {
         let mut ransac = Ransac::<SomeFrame>::new(vec![]);
-        let mut rng = ChaChaRng::from_entropy();
+        let mut rng = ChaChaRng::from_os_rng();
         assert_eq!(
             ransac.next_line(&mut rng, 10, 5.0, 5.0),
             RansacResult::default()
@@ -107,7 +107,7 @@ mod test {
         let p1 = point![15.0, 15.0];
         let p2 = point![30.0, 30.0];
         let mut ransac = Ransac::<SomeFrame>::new(vec![p1, p2]);
-        let mut rng = ChaChaRng::from_entropy();
+        let mut rng = ChaChaRng::from_os_rng();
         let RansacResult { line, used_points } = ransac.next_line(&mut rng, 10, 5.0, 5.0);
         let line = line.expect("No line found");
         println!("{line:#?}");
@@ -130,7 +130,7 @@ mod test {
             .collect();
 
         let mut ransac = Ransac::<SomeFrame>::new(points.clone());
-        let mut rng = ChaChaRng::from_entropy();
+        let mut rng = ChaChaRng::from_os_rng();
         let result = ransac.next_line(&mut rng, 15, 1.0, 1.0);
         let line = result.line.expect("No line was found");
         assert_relative_eq!(line.slope(), slope, epsilon = 0.0001);

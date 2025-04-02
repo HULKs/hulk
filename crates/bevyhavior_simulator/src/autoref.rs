@@ -141,7 +141,7 @@ pub fn auto_assistant_referee(
             GameControllerCommand::SetGamePhase(_) => {}
             GameControllerCommand::SetSubState(Some(SubState::CornerKick), team) => {
                 let side = if let Some(ball) = ball.state.as_mut() {
-                    if ball.position.x() >= 0.0 {
+                    if ball.position.y() <= 0.0 {
                         Side::Left
                     } else {
                         Side::Right

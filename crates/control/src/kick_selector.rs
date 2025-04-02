@@ -9,7 +9,8 @@ use coordinate_systems::{Field, Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, line_segment::LineSegment, look_at::LookAt};
 use linear_algebra::{
-    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Vector2,
+    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Rotation2,
+    Vector2,
 };
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
@@ -184,12 +185,12 @@ fn determine_playing_situation(
         }) => PlayingSituation::KickOff,
         Some(FilteredGameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
-            kicking_team: Team::Hulks,
+            kicking_team: Some(Team::Hulks),
             ..
         })
         | Some(FilteredGameControllerState {
             sub_state: Some(SubState::PenaltyKick),
-            kicking_team: Team::Hulks,
+            kicking_team: Some(Team::Hulks),
             ..
         }) => PlayingSituation::PenaltyShot,
         _ if is_ball_in_opponent_corner => PlayingSituation::CornerKick,
@@ -239,18 +240,13 @@ fn generate_goal_line_kick_targets(context: &CycleContext) -> Vec<Point2<Ground>
 
 fn generate_kick_off_kick_targets(context: &CycleContext) -> Vec<Point2<Ground>> {
     let field_to_ground = context.ground_to_field.inverse();
-    let field_dimensions = &context.field_dimensions;
 
     let left_kick_off_target = field_to_ground
-        * point![
-            0.0,
-            field_dimensions.width / 2.0 - field_dimensions.center_circle_diameter,
-        ];
+        * Rotation2::<Field, Field>::new(context.decision_parameters.kick_off_angle)
+        * point![2.0, 0.0];
     let right_kick_off_target = field_to_ground
-        * point![
-            0.0,
-            -(field_dimensions.width / 2.0 - field_dimensions.center_circle_diameter),
-        ];
+        * Rotation2::<Field, Field>::new(-context.decision_parameters.kick_off_angle)
+        * point![2.0, 0.0];
 
     vec![left_kick_off_target, right_kick_off_target]
 }

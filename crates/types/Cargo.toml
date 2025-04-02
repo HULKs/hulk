@@ -15,6 +15,7 @@ geometry = { workspace = true }
 image = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+num-traits = { workspace = true }
 ordered-float = { workspace = true }
 path_serde = { workspace = true }
 serde = { workspace = true }

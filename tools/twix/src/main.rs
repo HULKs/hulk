@@ -1,11 +1,27 @@
-use std::{iter::once, net::Ipv4Addr, str::FromStr, sync::Arc, time::SystemTime};
+use std::{
+    env::current_dir, iter::once, net::Ipv4Addr, path::PathBuf, str::FromStr, sync::Arc,
+    time::SystemTime,
+};
 
 use argument_parsers::NaoAddress;
 use clap::Parser;
 use color_eyre::{
-    eyre::{bail, eyre},
+    eyre::{bail, eyre, Context as _, ContextCompat},
     Result,
 };
+use eframe::{
+    egui::{
+        CentralPanel, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui, Widget,
+        WidgetText,
+    },
+    emath::Align,
+    epaint::Color32,
+    run_native, App, CreationContext, Frame, NativeOptions, Storage,
+};
+use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
+use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
+use itertools::chain;
+use serde_json::{from_str, to_string, Value};
 
 use communication::client::Status;
 use configuration::{
@@ -13,18 +29,8 @@ use configuration::{
     keys::KeybindAction,
     Configuration,
 };
-use eframe::{
-    egui::{CentralPanel, Context, Id, Layout, TopBottomPanel, Ui, Widget, WidgetText},
-    emath::Align,
-    epaint::{Color32, Rounding},
-    run_native, App, CreationContext, Frame, NativeOptions, Storage,
-};
-use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
-use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
-
 use hulk_widgets::CompletionEdit;
-use itertools::chain;
-use log::error;
+use log::{error, warn};
 use nao::Nao;
 use panel::Panel;
 use panels::{
@@ -32,11 +38,8 @@ use panels::{
     ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel,
     RemotePanel, TextPanel, VisionTunerPanel,
 };
-
 use reachable_naos::ReachableNaos;
-use repository::{get_repository_root, Repository};
-use serde_json::{from_str, to_string, Value};
-use tokio::runtime::Runtime;
+use repository::{inspect_version::check_for_update, Repository};
 use visuals::Visuals;
 
 mod change_buffer;
@@ -57,7 +60,9 @@ mod zoom_and_pan;
 struct Arguments {
     /// Nao address to connect to (overrides the address saved in the configuration file)
     pub address: Option<String>,
-
+    /// Alternative repository root
+    #[arg(long)]
+    repository_root: Option<PathBuf>,
     /// Delete the current panel setup
     #[arg(long)]
     pub clear: bool,
@@ -81,13 +86,30 @@ fn setup_logger() -> Result<(), InitError> {
 
 fn main() -> Result<(), eframe::Error> {
     setup_logger().unwrap();
-    let arguments = Arguments::parse();
 
-    let runtime = Runtime::new().unwrap();
-    if let Ok(repository_root) = runtime.block_on(get_repository_root()) {
-        Repository::new(repository_root)
-            .check_new_version_available(env!("CARGO_PKG_VERSION"), "tools/twix")
-            .unwrap();
+    let arguments = Arguments::parse();
+    let repository = arguments
+        .repository_root
+        .clone()
+        .map(Repository::new)
+        .map(Ok)
+        .unwrap_or_else(|| {
+            let current_directory = current_dir().wrap_err("failed to get current directory")?;
+            Repository::find_root(current_directory).wrap_err("failed to find repository root")
+        });
+    match &repository {
+        Ok(repository) => {
+            if let Err(error) = check_for_update(
+                env!("CARGO_PKG_VERSION"),
+                repository.root.join("tools/twix/Cargo.toml"),
+                "twix",
+            ) {
+                error!("{error:#?}");
+            }
+        }
+        Err(error) => {
+            warn!("{error:#?}");
+        }
     }
 
     let configuration = Configuration::load()
@@ -102,6 +124,7 @@ fn main() -> Result<(), eframe::Error> {
                 creation_context,
                 arguments,
                 configuration,
+                repository.ok(),
             )))
         }),
     )
@@ -141,6 +164,7 @@ impl TwixApp {
         creation_context: &CreationContext,
         arguments: Arguments,
         configuration: Configuration,
+        repository: Option<Repository>,
     ) -> Self {
         let nao_range = configuration.naos.lowest..=configuration.naos.highest;
         let possible_addresses: Vec<_> = chain!(
@@ -159,14 +183,17 @@ impl TwixApp {
             .or_else(|| creation_context.storage?.get_string("address"))
             .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
 
-        let nao = Arc::new(Nao::new(match address.split_once(":") {
-            None | Some((_, "")) => {
-                format!("ws://{address}:1337")
-            }
-            Some((ip, port)) => {
-                format!("ws://{ip}:{port}")
-            }
-        }));
+        let nao = Arc::new(Nao::new(
+            match address.split_once(":") {
+                None | Some((_, "")) => {
+                    format!("ws://{address}:1337")
+                }
+                Some((ip, port)) => {
+                    format!("ws://{ip}:{port}")
+                }
+            },
+            repository,
+        ));
 
         let connection_intent = creation_context
             .storage
@@ -419,7 +446,7 @@ impl App for TwixApp {
                     if context.keybind_pressed(KeybindAction::FocusPanel) {
                         panel_input.request_focus();
                     }
-                    if panel_input.changed() || panel_input.lost_focus() {
+                    if panel_input.changed() {
                         match SelectablePanel::try_from_name(
                             &self.panel_selection,
                             self.nao.clone(),
@@ -525,6 +552,17 @@ impl App for TwixApp {
                 }
             }
 
+            if context.keybind_pressed(KeybindAction::CloseAll) {
+                self.dock_state = DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
+                    self.nao.clone(),
+                    None,
+                ))
+                .into()]);
+                self.last_focused_tab = (0.into(), 0.into());
+                self.dock_state
+                    .set_focused_node_and_surface((0.into(), 0.into()));
+            }
+
             let mut style = egui_dock::Style::from_egui(ui.style().as_ref());
             style.buttons.add_tab_align = TabAddAlign::Left;
             let mut tab_viewer = TabViewer::default();
@@ -546,8 +584,9 @@ impl App for TwixApp {
                 let rect = node.rect().unwrap();
                 ui.painter().rect_stroke(
                     rect,
-                    Rounding::same(4.0),
+                    CornerRadius::same(4),
                     ui.visuals().widgets.active.bg_stroke,
+                    StrokeKind::Outside,
                 );
             }
         });

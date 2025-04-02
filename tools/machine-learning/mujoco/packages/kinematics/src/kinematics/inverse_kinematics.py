@@ -20,6 +20,26 @@ from transforms import (
 
 
 @dataclass
+class ArmJoints:
+    shoulder_pitch: float = 0.0
+    shoulder_roll: float = 0.0
+    elbow_yaw: float = 0.0
+    elbow_roll: float = 0.0
+    wrist_yaw: float = 0.0
+
+    def to_numpy(self) -> NDArray[np.float64]:
+        return np.array(
+            [
+                self.shoulder_pitch,
+                self.shoulder_roll,
+                self.elbow_yaw,
+                self.elbow_roll,
+                self.wrist_yaw,
+            ],
+        )
+
+
+@dataclass
 class LegJoints:
     hip_yaw_pitch: float
     hip_roll: float

@@ -22,7 +22,7 @@ pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
             addresses: Option<impl tokio::net::ToSocketAddrs + std::marker::Send + std::marker::Sync + 'static>,
             parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
             log_path: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
-            hardware_ids: types::hardware::Ids,
+            hardware_ids: hula_types::hardware::Ids,
             keep_running: tokio_util::sync::CancellationToken,
             recording_intervals: std::collections::HashMap<String, usize>,
         ) -> color_eyre::Result<()>
@@ -156,6 +156,9 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
                                     let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
                                     communication_server.expose_source("parameters", parameters_receiver, parameters_subscriptions)?;
                                     communication_server.expose_sink("parameters", parameters_sender)?;
+                                    let (_, ids_receiver) = buffered_watch::channel((std::time::SystemTime::now(), hardware_ids));
+                                    let (ids_subscriptions, _) = buffered_watch::channel(Default::default());
+                                    communication_server.expose_source("hardware_ids", ids_receiver, ids_subscriptions)?;
                                     communication_server.serve(addresses, keep_running).await?;
                                     Ok(())
                                 })
@@ -186,7 +189,7 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
             pub fn new(
                 hardware_interface: std::sync::Arc<Hardware>,
                 parameters_directory: impl std::convert::AsRef<std::path::Path> + std::marker::Send + std::marker::Sync + 'static,
-                hardware_ids: types::hardware::Ids,
+                hardware_ids: hula_types::hardware::Ids,
                 recordings_file_path: impl std::convert::AsRef<std::path::Path>,
                 #replayer_arguments
             ) -> color_eyre::Result<Self>

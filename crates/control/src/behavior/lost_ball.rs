@@ -35,8 +35,21 @@ pub fn execute(
         &world_state.rule_obstacles,
         path_obstacles_output,
     );
+    let best_hypothetical_ball_position = world_state
+        .hypothetical_ball_positions
+        .iter()
+        .max_by(|a, b| a.validity.total_cmp(&b.validity));
+
+    let head = match best_hypothetical_ball_position {
+        Some(hypothesis) => HeadMotion::LookAt {
+            target: hypothesis.position,
+            image_region_target: Default::default(),
+            camera: None,
+        },
+        None => HeadMotion::SearchForLostBall,
+    };
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
-        HeadMotion::SearchForLostBall,
+        head,
         OrientationMode::Override(orientation),
         path,
         walk_speed,

@@ -4,10 +4,9 @@ use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::NaoAddress;
-use constants::OS_VERSION;
 use nao::Nao;
 use opn::verify_image;
-use repository::{get_image_path, Repository};
+use repository::{image::download_image, Repository};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,23 +17,33 @@ pub struct Arguments {
     image_path: Option<PathBuf>,
     /// Alternative HULKs-OS version e.g. 3.3
     #[arg(long)]
-    os_version: Option<String>,
+    version: Option<String>,
     /// The NAOs to flash the image to, e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     naos: Vec<NaoAddress>,
 }
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
-    let version = arguments.os_version.as_deref().unwrap_or(OS_VERSION);
+    let version = match arguments.version {
+        Some(version) => version,
+        None => repository
+            .read_os_version()
+            .await
+            .wrap_err("failed to get OS version")?,
+    };
+    let data_home = repository
+        .resolve_data_home()
+        .await
+        .wrap_err("failed to resolve data home")?;
     let image_path = match arguments.image_path {
         Some(image_path) => image_path,
-        None => get_image_path(version).await?,
+        None => download_image(&version, data_home).await?,
     };
     let image_path = image_path.as_path();
 
     verify_image(image_path).wrap_err("image verification failed")?;
 
-    let team_toml = &repository.parameters_root().join("team.toml");
+    let team_toml = &repository.root.join("etc/parameters/team.toml");
 
     // prevent moving String into async closure
     let version = &version;
@@ -50,9 +59,9 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
             .await
             .wrap_err_with(|| format!("failed to flash image to {nao_address}"))?;
             progress_bar.set_message("Uploading team configuration...");
-            nao.rsync_with_nao(false)
-                .arg(team_toml.to_str().unwrap())
-                .arg(format!("{}:/media/internal/", nao.host))
+            nao.rsync_with_nao()?
+                .arg(team_toml)
+                .arg(format!("{}:/media/internal/", nao.address))
                 .spawn()
                 .wrap_err("failed to upload team configuration")?;
             nao.reboot()
