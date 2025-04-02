@@ -728,7 +728,7 @@
     ]
   },
   "kicking_team_filter": {
-    "duration_to_keep_non_default_last_ball_state": { "nanos": 0, "secs": 3 }
+    "duration_to_keep_observed_ball": { "nanos": 0, "secs": 8 }
   },
   "localization": {
     "circle_measurement_noise": [1000.0, 1000.0],

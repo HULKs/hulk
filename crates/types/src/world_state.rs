@@ -51,6 +51,22 @@ pub struct BallState {
     pub field_side: Side,
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
+)]
+pub struct LastBallState {
+    pub time: SystemTime,
+    pub ball: BallState,
+}
+
 impl Default for BallState {
     fn default() -> Self {
         Self {

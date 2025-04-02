@@ -1,21 +1,21 @@
 use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
+use context_attribute::context;
 use serde::{Deserialize, Serialize};
 
-use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use spl_network_messages::{GameState, SubState, Team};
 use types::{
-    filtered_whistle::FilteredWhistle, game_controller_state::GameControllerState,
-    world_state::BallState,
+    cycle_time::CycleTime,
+    filtered_whistle::FilteredWhistle,
+    game_controller_state::GameControllerState,
+    world_state::{BallState, LastBallState},
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct KickingTeamFilter {
-    time_last_ball_state_became_default: SystemTime,
-    last_ball_state: BallState,
-    last_non_default_ball_state: Option<BallState>,
+    last_observed_ball: Option<(SystemTime, BallState)>,
 }
 
 #[context]
@@ -23,14 +23,15 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    last_ball_state: CyclerState<BallState, "last_ball_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    last_ball_state: CyclerState<Option<LastBallState>, "last_ball_state">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
 
-    duration_to_keep_non_default_last_ball_state:
-        Parameter<Duration, "kicking_team_filter.duration_to_keep_non_default_last_ball_state">,
+    last_observed_ball: AdditionalOutput<Option<(SystemTime, BallState)>, "last_observed_ball">,
 
-    additonal_last_ball_state: AdditionalOutput<BallState, "last_ball_state">,
+    duration_to_keep_observed_ball:
+        Parameter<Duration, "kicking_team_filter.duration_to_keep_observed_ball">,
 }
 
 #[context]
@@ -41,91 +42,87 @@ pub struct MainOutputs {
 impl KickingTeamFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(KickingTeamFilter {
-            time_last_ball_state_became_default: SystemTime::now(),
-            last_ball_state: Default::default(),
-            last_non_default_ball_state: Default::default(),
+            last_observed_ball: None,
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let filtered_kicking_team = self.find_kicking_team(&context);
         context
-            .additonal_last_ball_state
-            .fill_if_subscribed(|| *context.last_ball_state);
+            .last_observed_ball
+            .fill_if_subscribed(|| self.last_observed_ball);
 
-        let game_controller_state = context.game_controller_state;
-
-        let duration_since_last_non_default_ball_state =
-            SystemTime::now().duration_since(self.time_last_ball_state_became_default)?;
-
-        if *context.last_ball_state == BallState::default()
-            && self.last_ball_state != BallState::default()
-        {
-            self.time_last_ball_state_became_default = SystemTime::now();
-        }
-
-        self.last_ball_state = *context.last_ball_state;
-
-        if *context.last_ball_state != BallState::default() {
-            self.last_non_default_ball_state = Some(*context.last_ball_state);
-        }
-
-        if duration_since_last_non_default_ball_state
-            >= *context.duration_to_keep_non_default_last_ball_state
-        {
-            self.last_non_default_ball_state = None;
-        }
-
-        let filtered_kicking_team = if game_controller_state.kicking_team.is_some() {
-            game_controller_state.kicking_team
-        } else if let Some(last_non_default_ball_state) = self.last_non_default_ball_state {
-            let ball_is_in_opponent_half = !last_non_default_ball_state
-                .ball_in_field
-                .x()
-                .is_sign_negative();
-            match game_controller_state {
-                GameControllerState {
-                    sub_state: Some(SubState::CornerKick),
-                    ..
-                } if ball_is_in_opponent_half => Some(Team::Hulks),
-                GameControllerState {
-                    sub_state: Some(SubState::CornerKick),
-                    ..
-                } if !ball_is_in_opponent_half => Some(Team::Opponent),
-                GameControllerState {
-                    sub_state: Some(SubState::GoalKick),
-                    ..
-                } if ball_is_in_opponent_half => Some(Team::Opponent),
-                GameControllerState {
-                    sub_state: Some(SubState::GoalKick),
-                    ..
-                } if !ball_is_in_opponent_half => Some(Team::Hulks),
-                GameControllerState {
-                    sub_state: Some(SubState::PenaltyKick),
-                    ..
-                } if !ball_is_in_opponent_half => Some(Team::Opponent),
-                GameControllerState {
-                    sub_state: Some(SubState::PenaltyKick),
-                    ..
-                } if ball_is_in_opponent_half => Some(Team::Hulks),
-                GameControllerState {
-                    game_state: GameState::Playing,
-                    sub_state: None,
-                    ..
-                } => match (
-                    context.filtered_whistle.is_detected,
-                    ball_is_in_opponent_half,
-                ) {
-                    (true, false) => Some(Team::Opponent),
-                    (true, true) => Some(Team::Hulks),
-                    _ => None,
-                },
-                _ => None,
-            }
-        } else {
-            None
-        };
         Ok(MainOutputs {
             filtered_kicking_team: filtered_kicking_team.into(),
         })
+    }
+
+    fn find_kicking_team(&mut self, context: &CycleContext) -> Option<Team> {
+        let game_controller_state = context.game_controller_state;
+
+        if let Some(kicking_team) = game_controller_state.kicking_team {
+            return Some(kicking_team);
+        }
+
+        if let Some(LastBallState { time, ball }) = *context.last_ball_state {
+            self.last_observed_ball = Some((time, ball));
+        }
+
+        let (last_observed_ball_time, last_observed_ball) = self.last_observed_ball?;
+        let is_not_in_penalty_kick = game_controller_state.sub_state != Some(SubState::PenaltyKick);
+
+        if is_not_in_penalty_kick
+            && context
+                .cycle_time
+                .start_time
+                .duration_since(last_observed_ball_time)
+                .expect("time ran backwards")
+                > *context.duration_to_keep_observed_ball
+        {
+            self.last_observed_ball = None;
+            return None;
+        }
+
+        let ball_is_in_opponent_half = last_observed_ball.ball_in_field.x().is_sign_positive();
+
+        match game_controller_state {
+            GameControllerState {
+                sub_state: Some(SubState::CornerKick),
+                ..
+            } if ball_is_in_opponent_half => Some(Team::Hulks),
+            GameControllerState {
+                sub_state: Some(SubState::CornerKick),
+                ..
+            } if !ball_is_in_opponent_half => Some(Team::Opponent),
+            GameControllerState {
+                sub_state: Some(SubState::GoalKick),
+                ..
+            } if ball_is_in_opponent_half => Some(Team::Opponent),
+            GameControllerState {
+                sub_state: Some(SubState::GoalKick),
+                ..
+            } if !ball_is_in_opponent_half => Some(Team::Hulks),
+            GameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                ..
+            } if ball_is_in_opponent_half => Some(Team::Hulks),
+            GameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                ..
+            } if !ball_is_in_opponent_half => Some(Team::Opponent),
+            GameControllerState {
+                game_state: GameState::Playing,
+                sub_state: None,
+                ..
+            } => match (
+                context.filtered_whistle.is_detected,
+                ball_is_in_opponent_half,
+            ) {
+                (true, false) => Some(Team::Opponent),
+                (true, true) => Some(Team::Hulks),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 }
