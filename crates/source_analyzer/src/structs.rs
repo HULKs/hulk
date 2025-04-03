@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, iter::once};
 
-use quote::format_ident;
+use convert_case::{Case, Casing};
+use quote::{format_ident, quote};
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, PathArguments, Type,
     TypePath,
@@ -39,7 +40,38 @@ impl Structs {
         for cycler in cyclers.cyclers.iter() {
             let cycler_structs = structs.cyclers.entry(cycler.name.clone()).or_default();
 
+            cycler_structs
+                .cycle_times
+                .insert([
+                    InsertionRule::InsertField {
+                        name: "total".to_string(),
+                    },
+                    InsertionRule::AppendDataType {
+                        data_type: Type::Verbatim(quote! { std::time::Duration }),
+                    },
+                ])
+                .map_err(|source| Error::Hierarchy {
+                    node: "total_cycle_node_timings".to_string(),
+                    cycler: cycler.name.clone(),
+                    source,
+                })?;
             for node in cycler.iter_nodes() {
+                cycler_structs
+                    .cycle_times
+                    .insert([
+                        InsertionRule::InsertField {
+                            name: node.name.to_case(Case::Snake),
+                        },
+                        InsertionRule::AppendDataType {
+                            data_type: Type::Verbatim(quote! { std::time::Duration }),
+                        },
+                    ])
+                    .map_err(|source| Error::Hierarchy {
+                        node: node.name.clone(),
+                        cycler: cycler.name.clone(),
+                        source,
+                    })?;
+
                 for field in node.contexts.main_outputs.iter() {
                     add_main_outputs(field, cycler_structs);
                 }
@@ -158,6 +190,7 @@ pub struct CyclerStructs {
     pub main_outputs: StructHierarchy,
     pub additional_outputs: StructHierarchy,
     pub cycler_state: StructHierarchy,
+    pub cycle_times: StructHierarchy,
 }
 
 fn path_to_insertion_rules<'path>(
