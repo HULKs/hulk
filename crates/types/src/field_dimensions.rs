@@ -26,6 +26,7 @@ pub struct FieldDimensions {
     pub goal_depth: f32,
 }
 
+#[cfg(test)]
 impl Default for FieldDimensions {
     fn default() -> Self {
         Self {

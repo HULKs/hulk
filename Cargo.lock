@@ -8779,7 +8779,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.9.4"
+version = "0.10.3"
 dependencies = [
  "aliveness",
  "argument_parsers",
