@@ -141,44 +141,13 @@ impl SemiAutomaticCalibrationContext {
         Ok(())
     }
 
-    fn optimize(
-        &self,
-        initial_corrections: Corrections,
-        measurements: Vec<SavedMeasurement>,
-    ) -> Result<(Corrections, MinimizationReport<f32>)> {
-        let measurements = measurements
-            .into_iter()
-            .flat_map(|measurement| {
-                measurement
-                    .drawn_lines
-                    .into_iter()
-                    .map(move |line| Measurement {
-                        camera_matrix: measurement.camera_matrix.clone(),
-                        line_type: line.line_type,
-                        line_segment: line.line_segment,
-                        position: measurement.camera_position,
-                        field_to_ground: Isometry2::identity(),
-                    })
-            })
-            .collect();
-
+    pub fn run_optimization(&mut self, measurements: Vec<SavedMeasurement>) -> Result<()> {
+        let initial_corrections = self.corrections()?;
         let field_dimensions = self
             .field_dimensions
             .get_last_value()?
             .wrap_err("failed to get field dimensions")?;
 
-        let problem = CalibrationProblem::<Residuals>::new(
-            initial_corrections,
-            measurements,
-            field_dimensions,
-        );
-        let (result, report) = LevenbergMarquardt::new().minimize(problem);
-        let optimized_corrections = result.get_corrections();
-        Ok((optimized_corrections, report))
-    }
-
-    pub fn run_optimization(&mut self, measurements: Vec<SavedMeasurement>) -> Result<()> {
-        let initial_corrections = self.corrections()?;
         let (corrections, report) = self
             .optimize(initial_corrections, measurements)
             .wrap_err("failed to optimize")?;
@@ -205,11 +174,43 @@ impl SemiAutomaticCalibrationContext {
     pub fn save_to_head(&self) -> Result<()> {
         if let OptimizationState::Optimized { corrections, .. } = &self.state {
             return self.apply_corrections(*corrections, |path, value| {
-                let parameter_path = path.split_once('.').wrap_err("invalid path")?.1;
+                let parameter_path = path.strip_prefix("parameters.").wrap_err("invalid path")?.1;
                 self.nao
                     .store_parameters(parameter_path, value, Scope::default_head())
             });
         }
         bail!("optimization is not done yet")
     }
+}
+
+fn optimize(
+    &self,
+    initial_corrections: Corrections,
+    field_dimensions: FieldDimensions,
+    measurements: Vec<SavedMeasurement>,
+) -> Result<(Corrections, MinimizationReport<f32>)> {
+    let measurements = measurements
+        .into_iter()
+        .flat_map(|measurement| {
+            measurement
+                .drawn_lines
+                .into_iter()
+                .map(move |line| Measurement {
+                    camera_matrix: measurement.camera_matrix.clone(),
+                    line_type: line.line_type,
+                    line_segment: line.line_segment,
+                    position: measurement.camera_position,
+                    field_to_ground: Isometry2::identity(),
+                })
+        })
+        .collect();
+
+    let problem = CalibrationProblem::<Residuals>::new(
+        initial_corrections,
+        measurements,
+        field_dimensions,
+    );
+    let (result, report) = LevenbergMarquardt::new().minimize(problem);
+    let optimized_corrections = result.get_corrections();
+    Ok((optimized_corrections, report))
 }
