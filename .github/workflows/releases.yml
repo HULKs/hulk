@@ -26,3 +26,29 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           cargo: tools/pepsi/Cargo.toml
           dry_run: false
+
+  pepsi_release:
+    name: "pepsi release"
+    if: startsWith(github.ref, 'refs/tags/pepsi-')
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu]
+    runs-on:
+      ubuntu-latest
+      # - self-hosted
+      # - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.84.1
+      # options: --user=1000:1000
+      options: --user root
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Pepsi
+        run: |
+          cargo build --target ${{ matrix.target }} --manifest-path tools/pepsi/Cargo.toml --release
+          gzip -c target/${{ matrix.target }}/release/pepsi > pepsi-${{ matrix.target }}.gz
+      - name: Upload compiled artifact to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: pepsi-*.gz
