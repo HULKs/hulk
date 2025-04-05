@@ -30,6 +30,10 @@ use crate::{
 
 const KEYPOINT_RADIUS: f32 = 5.0;
 const KEYPOINT_COLOR: Color32 = Color32::from_rgb(155, 0, 0);
+const LINE_STROKE: Stroke = Stroke {
+    width: 3.0,
+    color: Color32::from_rgb(55, 80, 250),
+};
 
 #[derive(Clone, Copy)]
 enum UserState {
@@ -56,7 +60,6 @@ pub struct SemiAutomaticCameraCalibrationPanel {
     drawn_lines: Vec<DrawnLine>,
     saved_measurements: Vec<SavedMeasurement>,
     optimization: SemiAutomaticCalibrationContext,
-    stroke: Stroke,
 }
 
 impl Panel for SemiAutomaticCameraCalibrationPanel {
@@ -92,7 +95,6 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
             drawn_lines: Vec::new(),
             saved_measurements: Vec::new(),
             optimization: SemiAutomaticCalibrationContext::new(nao.clone()),
-            stroke: Stroke::new(3.0, Color32::from_rgb(55, 80, 250)),
         }
     }
 }
@@ -261,7 +263,7 @@ impl SemiAutomaticCameraCalibrationPanel {
         };
 
         for line in &self.drawn_lines {
-            painter.line_segment(line.line_segment.0, line.line_segment.1, self.stroke);
+            painter.line_segment(line.line_segment.0, line.line_segment.1, LINE_STROKE);
             painter.add(Shape::circle_filled(
                 painter.transform_world_to_pixel(line.line_segment.0),
                 KEYPOINT_RADIUS,
@@ -333,7 +335,7 @@ impl SemiAutomaticCameraCalibrationPanel {
                 }
             }
             (UserState::DrawingLine { start, line_type }, Some(end)) if !primary_clicked => {
-                painter.line_segment(start, end, self.stroke);
+                painter.line_segment(start, end, LINE_STROKE);
                 painter.add(Shape::circle_filled(
                     painter.transform_world_to_pixel(start),
                     KEYPOINT_RADIUS,
@@ -342,7 +344,7 @@ impl SemiAutomaticCameraCalibrationPanel {
                 UserState::DrawingLine { start, line_type }
             }
             (UserState::AnnotatingLine { line }, _) => {
-                painter.line_segment(line.0, line.1, self.stroke);
+                painter.line_segment(line.0, line.1, LINE_STROKE);
                 let popup_position = painter.transform_world_to_pixel(line.1);
 
                 let local_response = ui.interact(
