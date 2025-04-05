@@ -19,15 +19,12 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@v4
-      - name: Debug
-        run: |
-          echo $(ls)
       - name: Check for pepsi release
         uses: hulks/rust-release@v1.1
         with:
           title: pepsi
           token: ${{ secrets.GITHUB_TOKEN }}
-          cargo: tools/pepsi/Cargo.toml"
+          cargo: tools/pepsi/Cargo.toml
           dry_run: false
 
   # append_pepsi_artifacts:
