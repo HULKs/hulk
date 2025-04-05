@@ -9,9 +9,6 @@ on: push
 jobs:
   releases:
     name: Check for releases
-    strategy:
-      matrix:
-        target: [pepsi]
     runs-on:
       ubuntu-latest
       # - self-hosted
@@ -21,13 +18,13 @@ jobs:
       # options: --user=1000:1000
       options: --user root
     steps:
-      - uses: actions/checkout@v3
-      - name: Check for ${{ matrix.target }} release
+      - uses: actions/checkout@v4
+      - name: Check for pepsi release
         uses: hulks/rust-release@v1.1
         with:
-          title: ${{ matrix.target }}
+          title: pepsi
           token: ${{ secrets.GITHUB_TOKEN }}
-          cargo: tools/${{ matrix.target }}/Cargo.toml"
+          cargo: tools/pepsi/Cargo.toml"
           dry_run: false
 
   # append_pepsi_artifacts:
