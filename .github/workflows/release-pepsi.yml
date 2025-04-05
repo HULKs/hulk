@@ -4,6 +4,9 @@ on:
     tags:
       - "pepsi-v*"
   workflow_dispatch:
+  repository_dispatch:
+    types:
+      - release-pepsi
 
 jobs:
   pepsi_release:

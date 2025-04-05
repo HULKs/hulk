@@ -34,3 +34,8 @@ jobs:
         uses: rickstaa/action-create-tag@v1
         with:
           tag: pepsi-v${{ steps.pepsi_version.outputs.version }}
+      - name: Trigger Release
+        if: ${{ steps.pepsi_version.outputs.is_new_version == 'true' }}
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: release-pepsi
