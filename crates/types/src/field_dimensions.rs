@@ -26,7 +26,8 @@ pub struct FieldDimensions {
     pub goal_depth: f32,
 }
 
-#[cfg(test)]
+// TODO: How do we want to handle the default for FieldDimensions?
+// #[cfg(test)]
 impl Default for FieldDimensions {
     fn default() -> Self {
         Self {
