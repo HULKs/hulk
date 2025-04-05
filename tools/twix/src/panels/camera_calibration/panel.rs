@@ -163,7 +163,6 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
 }
 
 impl SemiAutomaticCameraCalibrationPanel {
-    // TODO: implement this only once
     fn resubscribe(&mut self) {
         let cycler_path = self.cycler.as_path();
         self.image_buffer = self
