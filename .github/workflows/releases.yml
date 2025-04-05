@@ -19,6 +19,9 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@v4
+      - name: Debug
+        run: |
+          echo $(ls)
       - name: Check for pepsi release
         uses: hulks/rust-release@v1.1
         with:
