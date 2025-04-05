@@ -1,5 +1,7 @@
 name: Check Releases
-on: push
+on:
+  push:
+  workflow_dispatch:
 
 permissions:
   actions: write
