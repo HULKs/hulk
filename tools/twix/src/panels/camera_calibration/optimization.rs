@@ -148,8 +148,7 @@ impl SemiAutomaticCalibrationContext {
             .get_last_value()?
             .wrap_err("failed to get field dimensions")?;
 
-        let (corrections, report) = self
-            .optimize(initial_corrections, measurements)
+        let (corrections, report) = optimize(initial_corrections, field_dimensions, measurements)
             .wrap_err("failed to optimize")?;
 
         self.apply_corrections(corrections, |path, value| {
@@ -174,7 +173,7 @@ impl SemiAutomaticCalibrationContext {
     pub fn save_to_head(&self) -> Result<()> {
         if let OptimizationState::Optimized { corrections, .. } = &self.state {
             return self.apply_corrections(*corrections, |path, value| {
-                let parameter_path = path.strip_prefix("parameters.").wrap_err("invalid path")?.1;
+                let parameter_path = path.strip_prefix("parameters.").wrap_err("invalid path")?;
                 self.nao
                     .store_parameters(parameter_path, value, Scope::default_head())
             });
@@ -184,7 +183,6 @@ impl SemiAutomaticCalibrationContext {
 }
 
 fn optimize(
-    &self,
     initial_corrections: Corrections,
     field_dimensions: FieldDimensions,
     measurements: Vec<SavedMeasurement>,
@@ -205,11 +203,8 @@ fn optimize(
         })
         .collect();
 
-    let problem = CalibrationProblem::<Residuals>::new(
-        initial_corrections,
-        measurements,
-        field_dimensions,
-    );
+    let problem =
+        CalibrationProblem::<Residuals>::new(initial_corrections, measurements, field_dimensions);
     let (result, report) = LevenbergMarquardt::new().minimize(problem);
     let optimized_corrections = result.get_corrections();
     Ok((optimized_corrections, report))
