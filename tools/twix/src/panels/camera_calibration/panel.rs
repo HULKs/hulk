@@ -117,14 +117,14 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 if let Err(error) = result {
                     println!("Error: {}", error);
                 }
-                self.drawn_lines = Vec::new();
+                self.drawn_lines.clear();
             }
 
             if ui.button("Clear Drawings").clicked() {
-                self.drawn_lines = Vec::new();
+                self.drawn_lines.clear();
             }
             if ui.button("Reset Calibration").clicked() {
-                self.saved_measurements = Vec::new();
+                self.saved_measurements.clear();
                 let result = self.optimization.reset();
                 if let Err(error) = result {
                     println!("Error: {}", error);
@@ -135,7 +135,7 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 if let Err(error) = result {
                     println!("Error: {}", error);
                 }
-                self.saved_measurements = Vec::new();
+                self.saved_measurements.clear();
                 let result = self.optimization.reset();
                 if let Err(error) = result {
                     println!("Error: {}", error);
