@@ -34,7 +34,7 @@ jobs:
           dry_run: false
       - name: Push Tag
         if: ${{ steps.pepsi_version.outputs.is_new_version }}
-        uses: EndBug/latest-tag@1.6
+        uses: EndBug/latest-tag@1.6.2
         with:
           ref: pepsi-v${{ steps.pepsi_version.outputs.version }}
 
