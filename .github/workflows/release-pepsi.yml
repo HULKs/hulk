@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - "pepsi-v*"
+  workflow_dispatch:
 
 jobs:
   pepsi_release:
