@@ -1,5 +1,9 @@
-name: Check for releases
-on: push
+name: Releases
+on:
+  push:
+    branches: []
+    tags:
+      - "pepsi-v*"
 # on:
 #   push:
 #     branches:
@@ -9,6 +13,7 @@ on: push
 jobs:
   releases:
     name: Check for releases
+    if: startsWith(github.ref, 'refs/heads/')
     runs-on:
       ubuntu-latest
       # - self-hosted
@@ -20,12 +25,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for pepsi release
+        id: pepsi_version
         uses: hulks/rust-release@v1.1
         with:
           title: pepsi
           token: ${{ secrets.GITHUB_TOKEN }}
           cargo: tools/pepsi/Cargo.toml
           dry_run: false
+      - name: Push Tag
+        if: ${{ steps.pepsi_version.outputs.is_new_version }}
+        uses: EndBug/latest-tag@1.6
+        with:
+          ref: pepsi-v${{ steps.pepsi_version.outputs.version }}
 
   pepsi_release:
     name: "pepsi release"
