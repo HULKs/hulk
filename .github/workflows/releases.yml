@@ -23,10 +23,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           cargo: tools/pepsi/Cargo.toml
           dry_run: false
-      - name: Debug
-        run: |
-          echo ${{ steps.pepsi_version.outputs.is_new_version }}
-          echo ${{ steps.pepsi_version.outputs.version }}
       - name: Push Tag
         if: ${{ steps.pepsi_version.outputs.is_new_version == 'true' }}
         uses: rickstaa/action-create-tag@v1
