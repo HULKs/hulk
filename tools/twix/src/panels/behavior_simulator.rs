@@ -118,7 +118,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         if response.changed() {
                             self.nao.write(
                                 "parameters.selected_robot",
-                                TextOrBinary::Text(self.selected_robot.into()),
+                                TextOrBinary::Text(robots[self.selected_robot].into()),
                             );
                         };
                     });
