@@ -442,16 +442,16 @@
         "ankle_roll": 0.0
       },
       "roll_pid": {
-        "kp": 0.0,
+        "kp": 0.01,
         "ki": 0.0,
         "kd": 0.0,
-        "max_integral": 0.0
+        "max_integral": 100.0
       },
       "pitch_pid": {
-        "kp": 0.0,
-        "ki": 0.0,
+        "kp": 1.0,
+        "ki": 0.3,
         "kd": 0.0,
-        "max_integral": 0.0
+        "max_integral": 100.0
       },
       "max_delta": {
         "hip_yaw_pitch": 0.05,
