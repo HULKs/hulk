@@ -2,7 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use types::{joints::Joints, motor_commands::MotorCommands};
+use types::{joints::Joints, motor_commands::MotorCommands, primary_state::PrimaryState};
 
 #[derive(Deserialize, Serialize)]
 pub struct MotorCommandsOptimizer {}
@@ -13,6 +13,8 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     motor_commands: Input<MotorCommands<Joints<f32>>, "motor_commands">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
+    primary_state: Input<PrimaryState, "world_state.robot.primary_state">,
 }
 
 #[context]
@@ -29,6 +31,10 @@ impl MotorCommandsOptimizer {
         let mut motor_commands = *context.motor_commands;
         motor_commands.stiffnesses.left_arm.hand = 0.0;
         motor_commands.stiffnesses.right_arm.hand = 0.0;
+
+        if *context.has_ground_contact && *context.primary_state == PrimaryState::Initial  {
+            motor_commands.stiffnesses = Joints::fill(0.3);
+        }
 
         Ok(MainOutputs {
             optimized_motor_commands: motor_commands.into(),
