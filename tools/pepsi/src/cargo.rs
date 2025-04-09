@@ -35,7 +35,7 @@ mod heading {
 }
 
 lazy_static! {
-    static ref MANIFEST_PATHS: HashMap<&'static str, &'static str> = {
+    pub static ref MANIFEST_PATHS: HashMap<&'static str, &'static str> = {
         HashMap::from([
             ("imagine", "crates/hulk_imagine"),
             ("nao", "crates/hulk_nao"),
