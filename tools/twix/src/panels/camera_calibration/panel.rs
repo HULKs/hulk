@@ -319,6 +319,12 @@ impl SemiAutomaticCameraCalibrationPanel {
                 }
             }
             (UserState::DrawingLine { start, line_type }, Some(end)) if primary_clicked => {
+                painter.line_segment(start, end, LINE_STROKE);
+                painter.add(Shape::circle_filled(
+                    painter.transform_world_to_pixel(start),
+                    KEYPOINT_RADIUS,
+                    KEYPOINT_COLOR,
+                ));
                 if let Some(line_type) = line_type {
                     self.drawn_lines.push(DrawnLine {
                         line_segment: LineSegment(start, end),
