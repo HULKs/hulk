@@ -697,11 +697,7 @@ fn role_for_penalty_kick(
             _ => {
                 if game_controller_state.penalties[striker_number].is_some() {
                     if let Some(FilteredGameControllerState {
-                        game_state:
-                            FilteredGameState::Ready {
-                                kicking_team_known: true,
-                            },
-                        kicking_team: Team::Hulks,
+                        kicking_team: Some(Team::Hulks),
                         sub_state: Some(SubState::PenaltyKick),
                         ..
                     }) = filtered_game_controller_state
