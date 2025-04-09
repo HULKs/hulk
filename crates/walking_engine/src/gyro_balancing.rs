@@ -70,9 +70,9 @@ impl UprightBalancing {
             .pitch_pid
             .calculate(pitch_error, dt, &parameters.pitch_pid);
         let pid_correction = LegJoints {
-            ankle_pitch: pitch_pid_correction,
+            ankle_pitch: 0.0,
             ankle_roll: roll_pid_correction,
-            hip_pitch: 0.0,
+            hip_pitch: pitch_pid_correction,
             hip_roll: 0.0,
             hip_yaw_pitch: 0.0,
             knee_pitch: 0.0,
