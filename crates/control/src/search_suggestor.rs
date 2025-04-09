@@ -35,6 +35,7 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+    team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
     hypothetical_ball_positions:
         Input<Vec<HypotheticalBallPosition<Ground>>, "hypothetical_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
@@ -105,6 +106,9 @@ impl SearchSuggestor {
             ) {
                 self.heatmap[rule_ball_hypothesis] = 1.0;
             }
+        }
+        if let Some(team_ball) = context.team_ball {
+            self.heatmap[team_ball.position] = 1.0;
         }
 
         self.heatmap.map *= 1.0 - context.search_suggestor_configuration.heatmap_decay_factor;
