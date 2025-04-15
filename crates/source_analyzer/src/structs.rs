@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, iter::once};
+use std::{
+    collections::BTreeMap,
+    iter::{self, once},
+};
 
 use convert_case::{Case, Casing};
 use quote::{format_ident, quote};
@@ -40,38 +43,27 @@ impl Structs {
         for cycler in cyclers.cyclers.iter() {
             let cycler_structs = structs.cyclers.entry(cycler.name.clone()).or_default();
 
-            cycler_structs
-                .cycle_times
-                .insert([
-                    InsertionRule::InsertField {
-                        name: "total".to_string(),
-                    },
-                    InsertionRule::AppendDataType {
-                        data_type: Type::Verbatim(quote! { std::time::Duration }),
-                    },
-                ])
-                .map_err(|source| Error::Hierarchy {
-                    node: "total_cycle_node_timings".to_string(),
-                    cycler: cycler.name.clone(),
-                    source,
-                })?;
-            for node in cycler.iter_nodes() {
+            for node_name in iter::once("total".to_string()).chain(
+                cycler
+                    .iter_nodes()
+                    .map(|node| node.name.to_case(Case::Snake)),
+            ) {
                 cycler_structs
                     .cycle_times
                     .insert([
-                        InsertionRule::InsertField {
-                            name: node.name.to_case(Case::Snake),
-                        },
+                        InsertionRule::InsertField { name: node_name },
                         InsertionRule::AppendDataType {
                             data_type: Type::Verbatim(quote! { std::time::Duration }),
                         },
                     ])
                     .map_err(|source| Error::Hierarchy {
-                        node: node.name.clone(),
+                        node: "total_cycle_node_timings".to_string(),
                         cycler: cycler.name.clone(),
                         source,
                     })?;
+            }
 
+            for node in cycler.iter_nodes() {
                 for field in node.contexts.main_outputs.iter() {
                     add_main_outputs(field, cycler_structs);
                 }
