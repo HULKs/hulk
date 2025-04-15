@@ -916,7 +916,7 @@ fn generate_execute_node_and_write_main_outputs(
         {
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
-                let cycle_start = std::time::SystemTime::now();
+                let node_cycle_start = std::time::SystemTime::now();
                 let main_outputs = {
                     let _task = ittapi::Task::begin(&itt_domain, #node_name);
                     self.#node_member.cycle(
@@ -926,8 +926,8 @@ fn generate_execute_node_and_write_main_outputs(
                     )
                     .wrap_err(#cycle_error_message)?
                 };
-                let cycle_duration = cycle_start.elapsed().expect("time ran backwards");
-                own_database.cycle_timings.#node_member = cycle_duration;
+                let node_cycle_duration = node_cycle_start.elapsed().expect("time ran backwards");
+                own_database.cycle_timings.#node_member = node_cycle_duration;
                 #write_main_outputs
             }
             else {
