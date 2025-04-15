@@ -6,7 +6,7 @@ use repository::{sdk::download_and_install, Repository};
 #[derive(Subcommand)]
 pub enum Arguments {
     Install {
-        /// SDK version e.g. `3.3.1`. If not provided, version specified by `hulk.toml` is be used.
+        /// SDK version e.g. `3.3.1`. If not provided, version specified by `hulk.toml` is used.
         #[arg(long)]
         version: Option<String>,
     },
