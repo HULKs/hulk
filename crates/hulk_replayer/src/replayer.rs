@@ -30,12 +30,6 @@ pub fn replayer() -> Result<()> {
         .nth(2)
         .unwrap_or("etc/parameters/framework.json".to_string());
     let keep_running = CancellationToken::new();
-    set_handler({
-        let keep_running = keep_running.clone();
-        move || {
-            keep_running.cancel();
-        }
-    })?;
 
     let file =
         File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
@@ -62,7 +56,7 @@ pub fn replayer() -> Result<()> {
         ids,
         replay_path,
         framework_parameters.communication_addresses,
-        keep_running,
+        keep_running.clone(),
     )
     .wrap_err("failed to create replayer")?;
 
@@ -78,10 +72,25 @@ pub fn replayer() -> Result<()> {
         Box::new(move |creation_context| {
             let (time_sender, _) = watch::channel(PlayerState::default());
             let context = creation_context.egui_ctx.clone();
-            spawn_workers(replayer, time_sender.clone(), move || {
-                context.request_repaint();
-            });
-            Ok(Box::new(Window::new(indices, time_sender)))
+
+            set_handler({
+                let keep_running = keep_running.clone();
+                let context = context.clone();
+                move || {
+                    keep_running.cancel();
+                    context.request_repaint();
+                }
+            })?;
+
+            spawn_workers(
+                replayer,
+                time_sender.clone(),
+                keep_running.clone(),
+                move || {
+                    context.request_repaint();
+                },
+            );
+            Ok(Box::new(Window::new(indices, time_sender, keep_running)))
         }),
     )
     .map_err(|error| Report::msg(error.to_string()))

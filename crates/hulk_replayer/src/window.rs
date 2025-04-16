@@ -1,12 +1,13 @@
 use std::{collections::BTreeMap, time::SystemTime};
 
 use eframe::{
-    egui::{CentralPanel, Context, Event, Key, Modifiers},
+    egui::{CentralPanel, Context, Event, Key, Modifiers, ViewportCommand},
     App, Frame,
 };
 use tokio::sync::watch;
 
 use framework::Timing;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     coordinate_systems::{AbsoluteTime, FrameRange, RelativeTime, ViewportRange},
@@ -20,12 +21,14 @@ pub struct Window {
     frame_range: FrameRange,
     viewport_range: ViewportRange,
     indices: BTreeMap<String, Vec<Timing>>,
+    cancellation_token: CancellationToken,
 }
 
 impl Window {
     pub fn new(
         indices: BTreeMap<String, Vec<Timing>>,
         time_sender: watch::Sender<PlayerState>,
+        cancellation_token: CancellationToken,
     ) -> Self {
         let frame_range = join_timing(&indices);
         let viewport_range = ViewportRange::from_frame_range(&frame_range);
@@ -36,6 +39,7 @@ impl Window {
             frame_range,
             viewport_range,
             indices,
+            cancellation_token,
         }
     }
 
@@ -48,6 +52,10 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
+        if self.cancellation_token.is_cancelled() {
+            log::info!("shutdown ui");
+            context.send_viewport_cmd(ViewportCommand::Close);
+        }
         context.input_mut(|input| {
             if input.consume_key(Modifiers::NONE, Key::Space) {
                 self.time_sender
