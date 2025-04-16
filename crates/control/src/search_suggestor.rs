@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
@@ -72,7 +72,7 @@ impl SearchSuggestor {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        self.update_heatmap(&context);
+        self.update_heatmap(&context)?;
         let suggested_search_position = self
             .heatmap
             .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
@@ -86,7 +86,7 @@ impl SearchSuggestor {
         })
     }
 
-    fn update_heatmap(&mut self, context: &CycleContext) {
+    fn update_heatmap(&mut self, context: &CycleContext) -> Result<()> {
         if let Some(ball_position) = context.ball_position {
             if let Some(ground_to_field) = context.ground_to_field {
                 self.heatmap[ground_to_field * ball_position.position] = 1.0;
@@ -113,14 +113,12 @@ impl SearchSuggestor {
                 .search_suggestor_configuration
                 .heatmap_convolution_kernel_weight,
         );
-        if let Ok(convolved_heatmap) =
-            self.heatmap
-                .map
-                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
-        {
-            self.heatmap.map = convolved_heatmap;
-            self.heatmap.map /= self.heatmap.map.sum();
-        }
+        self.heatmap.map = self.heatmap
+        .map
+        .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
+        .wrap_err("heatmap convolution failed")?;
+        self.heatmap.map /= self.heatmap.map.sum();
+        Ok(())
     }
 }
 
