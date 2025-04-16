@@ -113,10 +113,11 @@ impl SearchSuggestor {
                 .search_suggestor_configuration
                 .heatmap_convolution_kernel_weight,
         );
-        self.heatmap.map = self.heatmap
-        .map
-        .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
-        .wrap_err("heatmap convolution failed")?;
+        self.heatmap.map = self
+            .heatmap
+            .map
+            .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
+            .wrap_err("heatmap convolution failed")?;
         self.heatmap.map /= self.heatmap.map.sum();
         Ok(())
     }
