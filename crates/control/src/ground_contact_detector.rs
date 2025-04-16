@@ -32,7 +32,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub has_ground_contact: MainOutput<bool>,
-    pub one_foot_has_ground_contact: MainOutput<bool>,
+    pub only_one_foot_has_ground_contact: MainOutput<bool>,
 }
 
 impl GroundContactDetector {
@@ -81,7 +81,7 @@ impl GroundContactDetector {
 
         Ok(MainOutputs {
             has_ground_contact: self.has_ground_contact.into(),
-            one_foot_has_ground_contact: self.one_foot_has_ground_contact.into(),
+            only_one_foot_has_ground_contact: self.one_foot_has_ground_contact.into(),
         })
     }
 }
