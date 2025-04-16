@@ -127,6 +127,7 @@ egui_plot = "0.31.0"
 energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
+env_logger = "0.11.8"
 fast_image_resize = "5.1.2"
 fern = { version = "0.7.1", features = ["colored"] }
 filtering = { path = "crates/filtering" }

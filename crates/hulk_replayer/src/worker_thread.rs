@@ -3,7 +3,8 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use tokio::{runtime::Builder, select, sync::watch, time::sleep};
+use tokio::{join, runtime::Builder, select, sync::watch, time::sleep};
+use tokio_util::sync::CancellationToken;
 
 use crate::{execution::Replayer, ReplayerHardwareInterface};
 
@@ -24,16 +25,35 @@ impl Default for PlayerState {
     }
 }
 
-pub fn spawn_workers(
+async fn setup_workers(
     replayer: Replayer<ReplayerHardwareInterface>,
     sender: watch::Sender<PlayerState>,
     update_callback: impl Fn() + Send + Sync + 'static,
 ) {
+    join! {
+        playback_worker(sender.clone()),
+        replay_worker(
+            replayer,
+            sender.subscribe(),
+            update_callback
+        )
+    };
+}
+
+pub fn spawn_workers(
+    replayer: Replayer<ReplayerHardwareInterface>,
+    sender: watch::Sender<PlayerState>,
+    keep_running: CancellationToken,
+    update_callback: impl Fn() + Send + Sync + 'static,
+) {
     spawn(move || {
         let runtime = Builder::new_current_thread().enable_all().build().unwrap();
-
-        runtime.spawn(playback_worker(sender.clone()));
-        runtime.block_on(replay_worker(replayer, sender.subscribe(), update_callback));
+        runtime.block_on(keep_running.run_until_cancelled(setup_workers(
+            replayer,
+            sender,
+            update_callback,
+        )));
+        log::info!("replay workers stopped");
     });
 }
 
