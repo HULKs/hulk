@@ -13,7 +13,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     motor_commands: Input<MotorCommands<Joints<f32>>, "motor_commands">,
-    only_one_foot_has_ground_contact: Input<bool, "one_foot_has_ground_contact">,
+    only_one_foot_has_ground_contact: Input<bool, "only_one_foot_has_ground_contact">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "world_state.robot.primary_state">,
 }
@@ -34,7 +34,8 @@ impl MotorCommandsOptimizer {
         motor_commands.stiffnesses.right_arm.hand = 0.0;
 
         if (*context.only_one_foot_has_ground_contact || !*context.has_ground_contact)
-            && *context.primary_state == PrimaryState::Initial
+            && (*context.primary_state == PrimaryState::Initial
+                || *context.primary_state == PrimaryState::Penalized)
         {
             motor_commands.stiffnesses = Joints::fill(0.3);
         }
