@@ -1,6 +1,9 @@
 #![allow(unexpected_cfgs)]
 
-use hardware::{NetworkInterface, RecordingInterface, SpeakerInterface, TimeInterface};
+use hardware::{
+    CameraInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
+    TimeInterface,
+};
 use interfake::FakeDataInterface;
 
 pub mod autoref;
@@ -15,11 +18,18 @@ pub mod scenario;
 pub mod server;
 pub mod simulator;
 pub mod time;
+pub mod visual_referee;
 pub mod whistle;
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
 pub trait HardwareInterface:
-    TimeInterface + NetworkInterface + RecordingInterface + FakeDataInterface + SpeakerInterface
+    TimeInterface
+    + NetworkInterface
+    + RecordingInterface
+    + FakeDataInterface
+    + SpeakerInterface
+    + PathsInterface
+    + CameraInterface
 {
 }

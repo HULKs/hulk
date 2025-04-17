@@ -1837,6 +1837,7 @@ dependencies = [
  "log",
  "nalgebra",
  "ndarray",
+ "object_detection",
  "parameters",
  "parking_lot",
  "path_serde",
@@ -1853,6 +1854,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "types",
+ "vision",
  "walking_engine",
 ]
 
