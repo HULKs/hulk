@@ -12,7 +12,6 @@ use linear_algebra::{center, distance, Isometry2, Point2, Rotation2};
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use spl_network_messages::PlayerNumber;
 use types::{
-    fall_state::FallState,
     field_dimensions::GlobalFieldSide,
     pose_detection::{HumanPose, Keypoints, RefereePoseCandidate},
     pose_kinds::{PoseKind, PoseKindPosition},
@@ -37,7 +36,6 @@ pub struct CycleContext {
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position:
         Input<Option<Point2<Field>>, "Control", "expected_referee_position?">,
-    fall_state: Input<FallState, "Control", "fall_state">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
     maximum_distance_to_referee_position:
