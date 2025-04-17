@@ -66,7 +66,8 @@ pub struct CycleContext {
         Players<Option<TimeTaggedKickingTeamDetections>>,
         "free_kick_detection_times",
     >,
-    detected_free_kick_signal_queue: AdditionalOutput<VecDeque<Team>, "free_kick_detections_queue">,
+    detected_free_kick_signal_queue:
+        AdditionalOutput<VecDeque<Team>, "detected_free_kick_signal_queue">,
 }
 
 #[context]
@@ -146,13 +147,13 @@ impl FreeKickSignalFilter {
         let mut did_detect_any_free_kick_pose_this_cycle = false;
 
         for (_, detection) in own_detected_pose_times {
-            let detected_kicking_team = kicking_team_from_free_kick_pose(
+            let own_kicking_team_percept = kicking_team_from_free_kick_pose(
                 detection,
                 context.game_controller_state.global_field_side,
             );
-            if let Some(detected_kicking_team) = detected_kicking_team {
+            if let Some(own_kicking_team_percept) = own_kicking_team_percept {
                 self.detected_free_kick_signal_queue
-                    .push_front(detected_kicking_team);
+                    .push_front(own_kicking_team_percept);
                 did_detect_any_free_kick_pose_this_cycle = true
             } else {
                 continue;
@@ -169,7 +170,7 @@ impl FreeKickSignalFilter {
             let now = context.cycle_time.start_time;
             self.detection_times[*context.player_number] = Some(TimeTaggedKickingTeamDetections {
                 time: context.cycle_time.start_time,
-                detected_kicking_team: Some(own_detected_kicking_team),
+                detected_kicking_team: own_detected_kicking_team,
             });
             if self.last_time_message_sent.as_ref().map_or(true, |time| {
                 now.duration_since(*time).expect("Time ran backwards") >= *context.message_interval
@@ -184,7 +185,7 @@ impl FreeKickSignalFilter {
                 send_own_detection_message(
                     context.hardware_interface.clone(),
                     *context.player_number,
-                    Some(own_detected_kicking_team),
+                    own_detected_kicking_team,
                 )?;
                 self.last_time_message_sent = Some(now);
             }
@@ -192,7 +193,7 @@ impl FreeKickSignalFilter {
 
         Ok(FreeKickSignalDetectionResult {
             did_detect_any_free_kick_pose_this_cycle,
-            own_detected_kicking_team: Some(own_detected_kicking_team),
+            own_detected_kicking_team,
         })
     }
 
@@ -209,7 +210,11 @@ impl FreeKickSignalFilter {
     }
 }
 
-fn most_detections(detections: &[Team]) -> (Team, usize) {
+fn most_detections(detections: &[Team]) -> (Option<Team>, usize) {
+    if detections.is_empty() {
+        return (None, 0);
+    }
+
     let number_of_own_detections_hulks = detections
         .iter()
         .copied()
@@ -222,9 +227,9 @@ fn most_detections(detections: &[Team]) -> (Team, usize) {
         .count();
 
     if number_of_own_detections_hulks > number_of_own_detections_opponent {
-        (Team::Hulks, number_of_own_detections_hulks)
+        (Some(Team::Hulks), number_of_own_detections_hulks)
     } else {
-        (Team::Opponent, number_of_own_detections_opponent)
+        (Some(Team::Opponent), number_of_own_detections_opponent)
     }
 }
 
@@ -235,7 +240,7 @@ fn kicking_team_from_free_kick_pose(
     free_kick_signal_pose.map(|pose_kind| {
         if pose_kind == (PoseKind::FreeKick { global_field_side }) {
             Team::Opponent
-        } else {
+            } else {
             Team::Hulks
         }
     })
@@ -268,7 +273,7 @@ fn majority_vote_free_kick_signal(
     let (majority_voted_kicking_team, number_of_detections) =
         most_detections(&still_valid_detections);
     if number_of_detections >= minimum_free_kick_signal_detections {
-        Some(majority_voted_kicking_team)
+        majority_voted_kicking_team
     } else {
         None
     }
