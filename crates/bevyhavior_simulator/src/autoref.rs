@@ -24,6 +24,7 @@ use crate::{
     field_dimensions::SimulatorFieldDimensions,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
+    visual_referee::VisualRefereeResource,
     whistle::WhistleResource,
 };
 
@@ -60,6 +61,7 @@ pub fn autoref(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     robots: Query<&Robot>,
     time: ResMut<Time>,
+    mut visual_referee: ResMut<VisualRefereeResource>,
 ) {
     match game_controller.state.game_state {
         GameState::Ready => {
@@ -113,6 +115,12 @@ pub fn autoref(
                     GoalMode::Ignore => {}
                 }
             }
+
+            if game_controller.state.sub_state.is_some() {
+                visual_referee.update_visual_referee(*time);
+            } else {
+                visual_referee.reset();
+            }
         }
         _ => {}
     }
@@ -134,80 +142,95 @@ pub fn auto_assistant_referee(
     field_dimensions: Res<SimulatorFieldDimensions>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
+    game_controller: ResMut<GameController>,
+    time: Res<Time>,
+    mut visual_referee: ResMut<VisualRefereeResource>,
 ) {
     for command in game_controller_commands.read() {
         match *command {
             GameControllerCommand::SetGameState(_) => {}
             GameControllerCommand::SetGamePhase(_) => {}
-            GameControllerCommand::SetSubState(Some(SubState::CornerKick), team, _) => {
-                let side = if let Some(ball) = ball.state.as_mut() {
-                    if ball.position.y() <= 0.0 {
-                        Side::Left
-                    } else {
-                        Side::Right
+            GameControllerCommand::SetSubState(sub_state, kicking_team, _) => {
+                if sub_state.is_some() {
+                    visual_referee.start_free_kick_pose(
+                        *time,
+                        kicking_team,
+                        game_controller.state.global_field_side,
+                    )
+                };
+
+                match sub_state {
+                    Some(SubState::CornerKick) => {
+                        let side = if let Some(ball) = ball.state.as_mut() {
+                            if ball.position.y() <= 0.0 {
+                                Side::Left
+                            } else {
+                                Side::Right
+                            }
+                        } else {
+                            Side::Right
+                        };
+                        let half = match kicking_team {
+                            Team::Hulks => Half::Opponent,
+                            Team::Opponent => Half::Own,
+                        };
+                        ball.state = Some(SimulatorBallState {
+                            position: field_dimensions.corner(half, side),
+                            velocity: vector![0.0, 0.0],
+                        });
                     }
-                } else {
-                    Side::Right
-                };
-                let half = match team {
-                    Team::Hulks => Half::Opponent,
-                    Team::Opponent => Half::Own,
-                };
-                ball.state = Some(SimulatorBallState {
-                    position: field_dimensions.corner(half, side),
-                    velocity: vector![0.0, 0.0],
-                });
-            }
-            GameControllerCommand::SetSubState(Some(SubState::PenaltyKick), team, _) => {
-                let half = match team {
-                    Team::Hulks => Half::Opponent,
-                    Team::Opponent => Half::Own,
-                };
-                ball.state = Some(SimulatorBallState {
-                    position: field_dimensions.penalty_spot(half),
-                    velocity: vector![0.0, 0.0],
-                });
-            }
-            GameControllerCommand::SetSubState(Some(SubState::GoalKick), team, _) => {
-                let side = if let Some(ball) = ball.state.as_mut() {
-                    if ball.position.x() >= 0.0 {
-                        Side::Left
-                    } else {
-                        Side::Right
+                    Some(SubState::PenaltyKick) => {
+                        let half = match kicking_team {
+                            Team::Hulks => Half::Opponent,
+                            Team::Opponent => Half::Own,
+                        };
+                        ball.state = Some(SimulatorBallState {
+                            position: field_dimensions.penalty_spot(half),
+                            velocity: vector![0.0, 0.0],
+                        });
                     }
-                } else {
-                    Side::Left
-                };
-                let half = match team {
-                    Team::Hulks => Half::Own,
-                    Team::Opponent => Half::Opponent,
-                };
-                ball.state = Some(SimulatorBallState {
-                    position: field_dimensions.goal_box_corner(half, side),
-                    velocity: vector![0.0, 0.0],
-                });
-            }
-            GameControllerCommand::SetSubState(Some(SubState::KickIn), _, _) => {
-                let x = if let Some(ball) = ball.state.as_mut() {
-                    ball.position.x()
-                } else {
-                    0.0
-                };
-                let side = if let Some(ball) = ball.state.as_mut() {
-                    if ball.position.x() >= 0.0 {
-                        field_dimensions.width / 2.0
-                    } else {
-                        -field_dimensions.width / 2.0
+                    Some(SubState::GoalKick) => {
+                        let side = if let Some(ball) = ball.state.as_mut() {
+                            if ball.position.x() >= 0.0 {
+                                Side::Left
+                            } else {
+                                Side::Right
+                            }
+                        } else {
+                            Side::Left
+                        };
+                        let half = match kicking_team {
+                            Team::Hulks => Half::Own,
+                            Team::Opponent => Half::Opponent,
+                        };
+                        ball.state = Some(SimulatorBallState {
+                            position: field_dimensions.goal_box_corner(half, side),
+                            velocity: vector![0.0, 0.0],
+                        });
                     }
-                } else {
-                    field_dimensions.width / 2.0
-                };
-                ball.state = Some(SimulatorBallState {
-                    position: point!(x, side),
-                    velocity: vector![0.0, 0.0],
-                });
+                    Some(SubState::KickIn) => {
+                        let x = if let Some(ball) = ball.state.as_mut() {
+                            ball.position.x()
+                        } else {
+                            0.0
+                        };
+                        let side = if let Some(ball) = ball.state.as_mut() {
+                            if ball.position.x() >= 0.0 {
+                                field_dimensions.width / 2.0
+                            } else {
+                                -field_dimensions.width / 2.0
+                            }
+                        } else {
+                            field_dimensions.width / 2.0
+                        };
+                        ball.state = Some(SimulatorBallState {
+                            position: point!(x, side),
+                            velocity: vector![0.0, 0.0],
+                        });
+                    }
+                    Some(SubState::PushingFreeKick) | None => {}
+                }
             }
-            GameControllerCommand::SetSubState(..) => {}
             GameControllerCommand::BallIsFree => {}
             GameControllerCommand::SetKickingTeam(_) => {}
             GameControllerCommand::Goal(_) => {}
