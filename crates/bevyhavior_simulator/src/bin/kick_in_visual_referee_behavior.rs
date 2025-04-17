@@ -114,7 +114,7 @@ fn update(
         for relevant_robot in robots.iter().filter(|robot| {
             matches!(
                 robot.database.main_outputs.role,
-                Role::DefenderLeft | Role::MidfielderLeft
+                Role::DefenderLeft | Role::MidfielderLeft | Role::Searcher
             )
         }) {
             if matches!(
