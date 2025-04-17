@@ -235,15 +235,18 @@ fn most_detections(detections: &[Team]) -> (Option<Team>, usize) {
 
 fn kicking_team_from_free_kick_pose(
     free_kick_signal_pose: Option<PoseKind>,
-    global_field_side: GlobalFieldSide,
+    hulks_global_field_side: GlobalFieldSide,
 ) -> Option<Team> {
-    free_kick_signal_pose.map(|pose_kind| {
-        if pose_kind == (PoseKind::FreeKick { global_field_side }) {
-            Team::Opponent
+    match free_kick_signal_pose {
+        Some(PoseKind::FreeKick { global_field_side }) => {
+            if global_field_side == hulks_global_field_side {
+                Some(Team::Opponent)
             } else {
-            Team::Hulks
+                Some(Team::Hulks)
+            }
         }
-    })
+        _ => None,
+    }
 }
 
 fn majority_vote_free_kick_signal(
