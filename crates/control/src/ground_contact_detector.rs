@@ -12,6 +12,7 @@ pub struct GroundContactDetector {
     last_has_pressure: bool,
     last_time_switched: SystemTime,
     has_ground_contact: bool,
+    one_foot_has_ground_contact: bool,
 }
 
 #[context]
@@ -31,6 +32,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub has_ground_contact: MainOutput<bool>,
+    pub only_one_foot_has_ground_contact: MainOutput<bool>,
 }
 
 impl GroundContactDetector {
@@ -39,6 +41,7 @@ impl GroundContactDetector {
             last_has_pressure: false,
             last_time_switched: UNIX_EPOCH,
             has_ground_contact: false,
+            one_foot_has_ground_contact: false,
         })
     }
 
@@ -49,6 +52,18 @@ impl GroundContactDetector {
             *context.pressure_threshold,
             *context.hysteresis,
         );
+        let one_foot_has_pressure = greater_than_with_hysteresis(
+            self.last_has_pressure,
+            context.sole_pressure.left,
+            *context.pressure_threshold,
+            *context.hysteresis,
+        ) ^ greater_than_with_hysteresis(
+            self.last_has_pressure,
+            context.sole_pressure.right,
+            *context.pressure_threshold,
+            *context.hysteresis,
+        );
+
         if self.last_has_pressure != has_pressure {
             self.last_time_switched = context.cycle_time.start_time;
         }
@@ -60,11 +75,13 @@ impl GroundContactDetector {
             > *context.timeout
         {
             self.has_ground_contact = has_pressure;
+            self.one_foot_has_ground_contact = one_foot_has_pressure
         }
         self.last_has_pressure = has_pressure;
 
         Ok(MainOutputs {
             has_ground_contact: self.has_ground_contact.into(),
+            only_one_foot_has_ground_contact: self.one_foot_has_ground_contact.into(),
         })
     }
 }
