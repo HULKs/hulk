@@ -9,6 +9,8 @@ use bevyhavior_simulator::{
     time::{Ticks, TicksTime},
 };
 
+const FREE_KICK_DURATION_IN_TICKS: u32 = 83 * 30;
+
 #[scenario]
 fn kick_in(app: &mut App) {
     app.add_systems(Startup, startup);
@@ -37,6 +39,7 @@ fn update(
     game_controller: ResMut<GameController>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
+    robots: Query<&mut Robot>,
     mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 3000 {
@@ -46,18 +49,56 @@ fn update(
             None,
         ));
     }
-    if time.ticks() == 4800 {
+    if time.ticks() >= 3005 && time.ticks() < 3000 + FREE_KICK_DURATION_IN_TICKS {
+        for robot in robots.iter() {
+            if robot
+                .database
+                .main_outputs
+                .filtered_game_controller_state
+                .as_ref()
+                .is_some_and(|state| state.kicking_team != Some(Team::Hulks))
+            {
+                println!(
+                    "Robot {} did not correctly detect kicking team during kick in.",
+                    robot.parameters.player_number
+                );
+                exit.send(AppExit::from_code(1));
+            }
+        }
+    }
+
+    if time.ticks() == 6000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Opponent,
             None,
         ));
     }
+    if time.ticks() >= 6005 && time.ticks() < 6000 + FREE_KICK_DURATION_IN_TICKS {
+        for robot in robots.iter() {
+            if robot
+                .database
+                .main_outputs
+                .filtered_game_controller_state
+                .as_ref()
+                .is_some_and(|state| state.kicking_team != Some(Team::Opponent))
+            {
+                println!(
+                    "Robot {} did not correctly detect kicking team during kick in.",
+                    robot.parameters.player_number
+                );
+                exit.send(AppExit::from_code(1));
+            }
+        }
+    }
+
     if game_controller.state.hulks_team.score > 0 {
-        println!("Done");
+        println!(
+            "Done. Successfully detected the kicking team during kick ins and then scored a goal."
+        );
         exit.send(AppExit::Success);
     }
-    if time.ticks() >= 10_000 {
+    if time.ticks() >= 12_000 {
         println!("No goal was scored :(");
         exit.send(AppExit::from_code(1));
     }
