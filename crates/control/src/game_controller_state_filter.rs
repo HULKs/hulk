@@ -250,22 +250,24 @@ impl GameControllerStateFilter {
             self.last_observed_ball = Some((time, ball));
         };
 
-        let (last_observed_ball_time, last_observed_ball) = self.last_observed_ball?;
-        let is_not_in_penalty_kick = game_controller_state.sub_state != Some(SubState::PenaltyKick);
+        let ball_is_in_opponent_half =
+            self.last_observed_ball
+                .map(|(last_observed_ball_time, last_observed_ball)| {
+                    let is_not_in_penalty_kick =
+                        game_controller_state.sub_state != Some(SubState::PenaltyKick);
 
-        if is_not_in_penalty_kick
-            && context
-                .cycle_time
-                .start_time
-                .duration_since(last_observed_ball_time)
-                .expect("time ran backwards")
-                > context.config.duration_to_keep_observed_ball
-        {
-            self.last_observed_ball = None;
-            return None;
-        }
-
-        let ball_is_in_opponent_half = last_observed_ball.ball_in_field.x().is_sign_positive();
+                    if is_not_in_penalty_kick
+                        && context
+                            .cycle_time
+                            .start_time
+                            .duration_since(last_observed_ball_time)
+                            .expect("time ran backwards")
+                            > context.config.duration_to_keep_observed_ball
+                    {
+                        self.last_observed_ball = None;
+                    }
+                    last_observed_ball.ball_in_field.x().is_sign_positive()
+                });
 
         if !new_own_penalties_last_cycle.is_empty() {
             self.last_time_hulk_was_penalized = Some(context.cycle_time.start_time);
@@ -307,39 +309,27 @@ impl GameControllerStateFilter {
             GameControllerState {
                 sub_state: Some(SubState::CornerKick),
                 ..
-            } if ball_is_in_opponent_half => Some(Team::Hulks),
+            } if ball_is_in_opponent_half? => Some(Team::Hulks),
             GameControllerState {
                 sub_state: Some(SubState::CornerKick),
                 ..
-            } if !ball_is_in_opponent_half => Some(Team::Opponent),
+            } if !ball_is_in_opponent_half? => Some(Team::Opponent),
             GameControllerState {
                 sub_state: Some(SubState::GoalKick),
                 ..
-            } if ball_is_in_opponent_half => Some(Team::Opponent),
+            } if ball_is_in_opponent_half? => Some(Team::Opponent),
             GameControllerState {
                 sub_state: Some(SubState::GoalKick),
                 ..
-            } if !ball_is_in_opponent_half => Some(Team::Hulks),
+            } if !ball_is_in_opponent_half? => Some(Team::Hulks),
             GameControllerState {
                 sub_state: Some(SubState::PenaltyKick),
                 ..
-            } if ball_is_in_opponent_half => Some(Team::Hulks),
+            } if ball_is_in_opponent_half? => Some(Team::Hulks),
             GameControllerState {
                 sub_state: Some(SubState::PenaltyKick),
                 ..
-            } if !ball_is_in_opponent_half => Some(Team::Opponent),
-            GameControllerState {
-                game_state: GameState::Playing,
-                sub_state: None,
-                ..
-            } => match (
-                context.filtered_whistle.is_detected,
-                ball_is_in_opponent_half,
-            ) {
-                (true, false) => Some(Team::Opponent),
-                (true, true) => Some(Team::Hulks),
-                _ => None,
-            },
+            } if !ball_is_in_opponent_half? => Some(Team::Opponent),
             GameControllerState {
                 sub_state: Some(SubState::PushingFreeKick),
                 ..
@@ -352,6 +342,18 @@ impl GameControllerStateFilter {
                 sub_state: Some(SubState::KickIn),
                 ..
             } if detected_free_kick_kicking_team.is_some() => detected_free_kick_kicking_team,
+            GameControllerState {
+                game_state: GameState::Playing,
+                sub_state: None,
+                ..
+            } => match (
+                context.filtered_whistle.is_detected,
+                ball_is_in_opponent_half?,
+            ) {
+                (true, false) => Some(Team::Opponent),
+                (true, true) => Some(Team::Hulks),
+                _ => None,
+            },
             _ => None,
         }
     }
