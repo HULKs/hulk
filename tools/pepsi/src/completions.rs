@@ -3,7 +3,7 @@ use clap_complete::{generate, Shell};
 use color_eyre::Result;
 use regex::Regex;
 
-use crate::aliveness::completions as complete_naos;
+use crate::{aliveness::completions as complete_naos, cargo::MANIFEST_PATHS};
 
 #[derive(Args)]
 pub struct Arguments {
@@ -72,7 +72,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
         Shell::Fish => {
             print!("{static_completions}");
 
-            const COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
+            const ALIVENESS_COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
                 ("aliveness", ""),
                 ("gammaray", ""),
                 ("hulk", ""),
@@ -92,7 +92,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 ("wifi", "set"),
                 ("wifi", "status"),
             ];
-            for (subcommand, argument) in COMPLETION_SUBCOMMANDS {
+            for (subcommand, argument) in ALIVENESS_COMPLETION_SUBCOMMANDS {
                 if argument.is_empty() {
                     println!(
                         "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}\" \
@@ -116,6 +116,17 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                      and not __fish_seen_subcommand_from golden-goal first-half second-half\" \
                      -f -a \"golden-goal first-half second-half\""
             );
+
+            const MANIFEST_COMPLETION_SUBCOMMANDS: [&str; 6] =
+                ["build", "check", "clippy", "install", "run", "test"];
+            let manifest_paths: Vec<_> = MANIFEST_PATHS.keys().copied().collect();
+            for subcommand in MANIFEST_COMPLETION_SUBCOMMANDS {
+                println!(
+                    "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}\" \
+                         -f -a \"{manifest_paths}\"",
+                    manifest_paths = manifest_paths.join(" ")
+                );
+            }
         }
         Shell::Zsh => {
             let re = Regex::new("(:naos? -- .*):").unwrap();
