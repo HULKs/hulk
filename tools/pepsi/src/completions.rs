@@ -72,7 +72,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
         Shell::Fish => {
             print!("{static_completions}");
 
-            const ALIVENESS_COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
+            const NAO_COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
                 ("aliveness", ""),
                 ("gammaray", ""),
                 ("hulk", ""),
@@ -92,7 +92,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 ("wifi", "set"),
                 ("wifi", "status"),
             ];
-            for (subcommand, argument) in ALIVENESS_COMPLETION_SUBCOMMANDS {
+            for (subcommand, argument) in NAO_COMPLETION_SUBCOMMANDS {
                 if argument.is_empty() {
                     println!(
                         "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}\" \
