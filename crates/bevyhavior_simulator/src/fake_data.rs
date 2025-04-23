@@ -2,6 +2,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::Result;
 use linear_algebra::Isometry2;
+use projection::camera_matrices::CameraMatrices;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -56,7 +57,7 @@ pub struct MainOutputs {
     pub ground_to_field: MainOutput<Option<Isometry2<Ground, Field>>>,
     pub has_ground_contact: MainOutput<bool>,
     pub hulk_messages: MainOutput<Vec<HulkMessage>>,
-    pub majority_vote_is_referee_ready_pose_detected: MainOutput<bool>,
+    pub is_majority_vote_referee_ready_pose_detected: MainOutput<bool>,
     pub visual_referee_proceed_to_ready: MainOutput<bool>,
     pub hypothetical_ball_positions: MainOutput<Vec<HypotheticalBallPosition<Ground>>>,
     pub is_localization_converged: MainOutput<bool>,
@@ -65,6 +66,7 @@ pub struct MainOutputs {
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
+    pub camera_matrices: MainOutput<Option<CameraMatrices>>,
 }
 
 impl FakeData {
@@ -88,8 +90,8 @@ impl FakeData {
             game_controller_address: last_database.game_controller_address.into(),
             has_ground_contact: last_database.has_ground_contact.into(),
             hulk_messages: last_database.hulk_messages.clone().into(),
-            majority_vote_is_referee_ready_pose_detected: last_database
-                .majority_vote_is_referee_ready_pose_detected
+            is_majority_vote_referee_ready_pose_detected: last_database
+                .is_majority_vote_referee_ready_pose_detected
                 .into(),
             visual_referee_proceed_to_ready: last_database.visual_referee_proceed_to_ready.into(),
             hypothetical_ball_positions: last_database.hypothetical_ball_positions.clone().into(),
@@ -104,6 +106,7 @@ impl FakeData {
                 .stand_up_back_estimated_remaining_duration
                 .into(),
             calibration_command: last_database.calibration_command.into(),
+            camera_matrices: last_database.camera_matrices.clone().into(),
         })
     }
 }

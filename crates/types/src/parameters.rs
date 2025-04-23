@@ -239,6 +239,8 @@ pub struct GameStateFilterParameters {
     pub tentative_finish_duration: Duration,
     pub distance_to_consider_ball_moved_in_kick_off: f32,
     pub whistle_acceptance_goal_distance: Vector2<Field>,
+    pub duration_to_keep_observed_ball: Duration,
+    pub duration_to_keep_new_penalties: Duration,
 }
 
 #[derive(
