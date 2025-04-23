@@ -18,7 +18,7 @@ use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::{FieldDimensions, Half, Side},
     filtered_game_controller_state::FilteredGameControllerState,
-    messages::{self, IncomingMessage},
+    messages::IncomingMessage,
     parameters::SearchSuggestorParameters,
     primary_state::PrimaryState,
 };
@@ -42,7 +42,6 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
-    team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
     hypothetical_ball_positions:
         Input<Vec<HypotheticalBallPosition<Ground>>, "hypothetical_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
