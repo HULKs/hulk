@@ -74,7 +74,7 @@ impl WalkingEngine {
             last_actuated_joints: Default::default(),
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 nalgebra::Vector3::zeros(),
-                context.parameters.gyro_balancing.low_pass_factor,
+                context.parameters.upright_balancing.gyro_low_pass_factor,
             ),
         })
     }
