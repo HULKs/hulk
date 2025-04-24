@@ -1,8 +1,8 @@
 use eframe::{
-    egui::{CentralPanel, Context, Widget},
+    egui::{CentralPanel, Context, Key, KeyboardShortcut, Modifiers},
     run_native, App, Frame,
 };
-use hulk_widgets::{CompletionEdit, SegmentedControl};
+use hulk_widgets::{CompletionEdit, KeybindPreview, SegmentedControl};
 
 fn main() -> eframe::Result {
     run_native(
@@ -53,12 +53,22 @@ impl App for AppState {
             ui.horizontal(|ui| {
                 ui.columns(2, |columns| {
                     let selectables = ["Dies", "Das", "Ananas", "Foo", "Bar", "Baz"];
-                    SegmentedControl::new("segmented-control", &mut self.selected, &selectables)
-                        .ui(&mut columns[0]);
+                    columns[0].add(SegmentedControl::new(
+                        "segmented-control",
+                        &mut self.selected,
+                        &selectables,
+                    ));
 
                     columns[1].label(selectables[self.selected]);
                 })
-            })
+            });
+
+            ui.group(|ui| {
+                ui.add(KeybindPreview(KeyboardShortcut::new(
+                    Modifiers::ALT.plus(Modifiers::SHIFT),
+                    Key::ArrowDown,
+                )));
+            });
         });
     }
 }

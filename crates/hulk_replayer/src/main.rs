@@ -1,4 +1,6 @@
 #![recursion_limit = "256"]
+mod bookmarks;
+pub mod controls;
 mod coordinate_systems;
 mod frames;
 mod labels;

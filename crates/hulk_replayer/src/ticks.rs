@@ -1,14 +1,17 @@
 use chrono::{DateTime, Utc};
 use eframe::{
     egui::{
-        pos2, vec2, Color32, FontId, Painter, Rect, Response, Sense, Shape, Stroke, TextStyle, Ui,
-        Widget,
+        pos2, vec2, Align2, Color32, FontId, Painter, Rect, Response, Sense, Shape, Stroke,
+        TextStyle, Ui, Widget,
     },
     epaint::PathShape,
 };
 
-use crate::coordinate_systems::{
-    AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
+use crate::{
+    bookmarks::{Bookmark, Bookmarks},
+    coordinate_systems::{
+        AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
+    },
 };
 
 pub fn ticks_height(ui: &Ui) -> f32 {
@@ -19,6 +22,7 @@ pub struct Ticks<'state> {
     frame_range: &'state FrameRange,
     viewport_range: &'state ViewportRange,
     position: &'state mut RelativeTime,
+    bookmarks: &'state Bookmarks,
 }
 
 impl<'state> Ticks<'state> {
@@ -26,11 +30,66 @@ impl<'state> Ticks<'state> {
         frame_range: &'state FrameRange,
         viewport_range: &'state ViewportRange,
         position: &'state mut RelativeTime,
+        bookmarks: &'state Bookmarks,
     ) -> Self {
         Self {
             frame_range,
             viewport_range,
             position,
+            bookmarks,
+        }
+    }
+
+    fn show_bookmark(
+        &self,
+        painter: &Painter,
+        screen_range: &ScreenRange,
+        font_id: &FontId,
+        at: &AbsoluteTime,
+        bookmark: &Bookmark,
+        background_color: Color32,
+    ) {
+        let clip_rect = painter.clip_rect();
+        let position = at
+            .map_to_relative_time(self.frame_range)
+            .map_to_relative_screen(self.viewport_range)
+            .map_to_absolute_screen(screen_range);
+        let line_center = pos2(
+            position.inner(),
+            (clip_rect.center().y + clip_rect.height() * 0.125 + clip_rect.bottom()) / 2.,
+        );
+        let half_height = vec2(
+            0.0,
+            (clip_rect.center().y + clip_rect.height() * 0.125 - clip_rect.bottom()) / 2.,
+        );
+
+        painter.line_segment(
+            [line_center + half_height, line_center - half_height],
+            Stroke::new(2.0, Color32::RED),
+        );
+        let position = line_center - half_height.rot90() / 2.;
+        let galley = painter.layout_no_wrap(bookmark.name.clone(), font_id.clone(), Color32::WHITE);
+        let background = Align2::LEFT_CENTER.anchor_size(position, galley.size());
+        painter.rect_filled(background, 0.0, background_color);
+        painter.galley(background.min, galley, Color32::PLACEHOLDER);
+    }
+
+    fn show_bookmarks(
+        &self,
+        painter: &Painter,
+        screen_range: &ScreenRange,
+        font_id: FontId,
+        background_color: Color32,
+    ) {
+        for (at, bookmark) in &self.bookmarks.bookmarks {
+            self.show_bookmark(
+                painter,
+                screen_range,
+                &font_id,
+                at,
+                bookmark,
+                background_color,
+            );
         }
     }
 
@@ -189,12 +248,14 @@ impl Widget for Ticks<'_> {
 
         self.show_ticks(
             &painter,
-            font,
+            font.clone(),
             ui.visuals().strong_text_color(),
             ui.visuals().weak_text_color(),
             position_text_rect,
             &screen_range,
         );
+        let background_color = ui.visuals().widgets.noninteractive.bg_fill;
+        self.show_bookmarks(&painter, &screen_range, font, background_color);
 
         if position_visible {
             self.show_position_tick(&painter, position);
