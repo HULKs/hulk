@@ -102,8 +102,10 @@ impl SearchSuggestor {
         for ball_hypothesis in context.hypothetical_ball_positions {
             if let Some(ground_to_field) = context.ground_to_field {
                 let ball_hypothesis_position = ground_to_field * ball_hypothesis.position;
-                self.heatmap[ball_hypothesis_position] =
-                    (self.heatmap[ball_hypothesis_position] + ball_hypothesis.validity) / 2.0;
+                self.heatmap[ball_hypothesis_position] = (self.heatmap[ball_hypothesis_position]
+                    + ball_hypothesis.validity
+                        * context.search_suggestor_configuration.own_ball_weight)
+                    / 2.0;
             }
         }
         if let Some(filtered_game_controller_state) = context.filtered_game_controller_state {
@@ -112,13 +114,18 @@ impl SearchSuggestor {
                 filtered_game_controller_state,
                 *context.field_dimensions,
             ) {
-                self.heatmap[rule_ball_hypothesis] = 1.0;
+                self.heatmap[rule_ball_hypothesis] =
+                    context.search_suggestor_configuration.rule_ball_weight;
             }
         }
 
         let messages = get_spl_messages(&context.network_message.persistent);
         for (time, message) in messages {
-            self.heatmap.get_teamballs(time, message);
+            self.heatmap.add_teamballs(
+                time,
+                message,
+                context.search_suggestor_configuration.team_ball_weight,
+            );
         }
 
         let kernel = create_kernel(
@@ -182,8 +189,8 @@ impl Heatmap {
         }
         None
     }
-    
-    fn get_teamballs(&mut self, time: SystemTime, message: HulkMessage) {
+
+    fn add_teamballs(&mut self, time: SystemTime, message: HulkMessage, team_ball_weight: f32) {
         let (_, ball) = match message {
             HulkMessage::Striker(striker_message) => (
                 striker_message.player_number,
@@ -196,7 +203,7 @@ impl Heatmap {
             HulkMessage::Loser(_) | HulkMessage::VisualReferee(_) => return,
         };
         if let Some(ball_position) = ball {
-            self[ball_position.position] = 1.0;
+            self[ball_position.position] = team_ball_weight;
         }
     }
 }
