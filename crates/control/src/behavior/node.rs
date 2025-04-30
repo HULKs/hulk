@@ -57,6 +57,7 @@ pub struct CycleContext {
     dribble_path_plan: Input<Option<(OrientationMode, Vec<PathSegment>)>, "dribble_path_plan?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
+    expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
     kick_decision_parameters: Parameter<DecisionParameters, "kick_selector">,
@@ -280,9 +281,18 @@ impl Behavior {
                     Action::Initial => {
                         initial::execute(world_state, *context.enable_pose_detection)
                     }
-                    Action::LookAtReferee => {
-                        look_at_referee::execute(*context.enable_pose_detection)
-                    }
+                    Action::LookAtReferee => look_at_referee::execute(
+                        *context.enable_pose_detection,
+                        &walk_and_stand,
+                        context.expected_referee_position,
+                        context.world_state,
+                        &mut context.path_obstacles_output,
+                        *context.support_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
+                    ),
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)
                     }
