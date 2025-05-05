@@ -43,6 +43,7 @@ fn update(
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::PenaltyKick),
             Team::Hulks,
+            Some(PlayerNumber::Four),
         ));
     }
     if game_controller.state.hulks_team.score > 0 {
