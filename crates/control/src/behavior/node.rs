@@ -528,7 +528,7 @@ pub fn should_do_kick_in_pose_detection(world_state: &WorldState) -> bool {
                     ball_is_free: false,
                     ..
                 },
-                kicking_team: Some(..),
+                kicking_team: None,
                 ..
             }
         );
