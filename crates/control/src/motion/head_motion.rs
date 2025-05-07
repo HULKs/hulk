@@ -27,8 +27,10 @@ pub struct CreationContext {}
 pub struct CycleContext {
     center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
     inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
+    inner_minimum_pitch: Parameter<f32, "head_motion.inner_minimum_pitch">,
     maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
     outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
+    outer_minimum_pitch: Parameter<f32, "head_motion.outer_minimum_pitch">,
     outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
     injected_head_joints: Parameter<Option<HeadJoints<f32>>, "head_motion.injected_head_joints?">,
 
@@ -110,7 +112,19 @@ impl HeadMotion {
                     * (*context.inner_maximum_pitch - *context.outer_maximum_pitch)
         };
 
-        let clamped_pitch = controlled_positions.pitch.clamp(0.0, maximum_pitch);
+        let minimum_pitch = if controlled_positions.yaw.abs() >= *context.outer_yaw {
+            *context.outer_minimum_pitch
+        } else {
+            let interpolation_factor =
+                0.5 * (PI / *context.outer_yaw * controlled_positions.yaw).cos();
+            *context.outer_minimum_pitch
+                + interpolation_factor
+                    * (*context.inner_minimum_pitch - *context.outer_minimum_pitch)
+        };
+
+        let clamped_pitch = controlled_positions
+            .pitch
+            .clamp(minimum_pitch, maximum_pitch);
         let clamped_positions = HeadJoints {
             pitch: clamped_pitch,
             yaw: controlled_positions.yaw,
