@@ -14,7 +14,7 @@ use types::{field_dimensions::GlobalFieldSide, motion_command::HeadMotion, roles
 
 /// Is used to generate the test functions for cargo test
 #[scenario]
-fn visual_referee_free_kick_behavior(app: &mut App) {
+fn kick_in_visual_referee_behavior(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
@@ -67,7 +67,7 @@ fn update(
         ));
     }
 
-    if time.ticks() == 3005 {
+    if time.ticks() == 3002 {
         for relevant_robot in robots.iter().filter(|robot| {
             matches!(
                 robot.database.main_outputs.role,
@@ -87,16 +87,7 @@ fn update(
         }
     }
 
-    if time.ticks() == 3500 {
-        // Set substate
-        game_controller_commands.send(GameControllerCommand::SetSubState(
-            None,
-            Team::Opponent,
-            None,
-        ));
-    }
-
-    if time.ticks() == 4000 {
+    if time.ticks() == 7000 {
         // Set substate
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
@@ -110,7 +101,7 @@ fn update(
             ball.position = point!(2.0, 4.5);
         }
     }
-    if time.ticks() == 4002 {
+    if time.ticks() == 7002 {
         for relevant_robot in robots.iter().filter(|robot| {
             matches!(
                 robot.database.main_outputs.role,
