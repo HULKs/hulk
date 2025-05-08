@@ -115,6 +115,24 @@ impl FieldDimensions {
         point![unsigned_x * half.sign(), unsigned_y * side.sign()]
     }
 
+    pub fn penalty_box_corner(&self, half: Half, side: Side) -> Point2<Field> {
+        let unsigned_x = self.length / 2.0 - self.penalty_area_length;
+        let unsigned_y = self.penalty_area_width / 2.0;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
+    }
+
+    pub fn goal_box_goal_line_intersection(&self, half: Half, side: Side) -> Point2<Field> {
+        let unsigned_x = self.length / 2.0;
+        let unsigned_y = self.goal_box_area_width / 2.0;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
+    }
+
+    pub fn penalty_box_goal_line_intersection(&self, half: Half, side: Side) -> Point2<Field> {
+        let unsigned_x = self.length / 2.0;
+        let unsigned_y = self.penalty_area_width / 2.0;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
+    }
+
     pub fn center(&self) -> Point2<Field> {
         Point2::origin()
     }

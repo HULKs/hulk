@@ -2170,6 +2170,8 @@ checksum = "2d2c12f985c78475a6b8d629afd0c360260ef34cfef52efccdcfd31972f81c2e"
 name = "calibration"
 version = "0.1.0"
 dependencies = [
+ "approx",
+ "approx_derive",
  "coordinate_systems",
  "geometry",
  "levenberg-marquardt",
@@ -8777,13 +8779,14 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.9.4"
+version = "0.10.3"
 dependencies = [
  "aliveness",
  "argument_parsers",
  "ball_filter",
  "bincode",
  "buffered_watch",
+ "calibration",
  "chrono",
  "clap 4.5.31",
  "color-eyre",
@@ -8804,6 +8807,7 @@ dependencies = [
  "image",
  "itertools 0.14.0",
  "kinematics",
+ "levenberg-marquardt",
  "linear_algebra",
  "log",
  "mlua",
