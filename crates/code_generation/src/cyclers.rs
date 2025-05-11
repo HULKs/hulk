@@ -53,7 +53,7 @@ pub fn generate_cyclers(cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
 fn generate_module(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     let module_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
     let cycler_instance = generate_cycler_instance(cycler);
-    let database_struct = generate_database_struct();
+    let database_struct = generate_database_struct(cycler);
     let cycler_struct = generate_struct(cycler, cyclers, mode);
     let cycler_implementation = generate_implementation(cycler, cyclers, mode);
 
@@ -84,7 +84,9 @@ fn generate_cycler_instance(cycler: &Cycler) -> TokenStream {
     }
 }
 
-fn generate_database_struct() -> TokenStream {
+fn generate_database_struct(cycler: &Cycler) -> TokenStream {
+    let cycler_name = format_ident!("{}", cycler.name.to_case(Case::Snake));
+
     quote! {
         #[derive(
             Default,
@@ -97,6 +99,7 @@ fn generate_database_struct() -> TokenStream {
         pub struct Database {
             pub main_outputs: MainOutputs,
             pub additional_outputs: AdditionalOutputs,
+            pub cycle_timings: crate::structs::#cycler_name::CycleTimings,
         }
     }
 }
@@ -546,6 +549,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
             quote! {
                 #after_remaining_nodes
                 let recording_duration = recording_timestamp.elapsed().expect("time ran backwards");
+                own_database.cycle_timings.total = recording_duration;
 
                 #duration_warning
 
@@ -590,6 +594,8 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
             }
 
             #after_remaining_nodes
+
+
             Ok(())
         }
     }
@@ -910,6 +916,7 @@ fn generate_execute_node_and_write_main_outputs(
         {
             #[allow(clippy::needless_else)]
             if #are_required_inputs_some {
+                let node_cycle_start = std::time::SystemTime::now();
                 let main_outputs = {
                     let _task = ittapi::Task::begin(&itt_domain, #node_name);
                     self.#node_member.cycle(
@@ -919,6 +926,8 @@ fn generate_execute_node_and_write_main_outputs(
                     )
                     .wrap_err(#cycle_error_message)?
                 };
+                let node_cycle_duration = node_cycle_start.elapsed().expect("time ran backwards");
+                own_database.cycle_timings.#node_member = node_cycle_duration;
                 #write_main_outputs
             }
             else {
