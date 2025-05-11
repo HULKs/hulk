@@ -124,7 +124,7 @@ impl TeamBallReceiver {
     }
 }
 
-fn get_spl_messages<'a>(
+pub fn get_spl_messages<'a>(
     persistent_messages: &'a BTreeMap<SystemTime, Vec<Option<&'_ IncomingMessage>>>,
 ) -> impl Iterator<Item = (SystemTime, HulkMessage)> + 'a {
     persistent_messages

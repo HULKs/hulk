@@ -1,6 +1,10 @@
-use std::{collections::BTreeMap, iter::once};
+use std::{
+    collections::BTreeMap,
+    iter::{self, once},
+};
 
-use quote::format_ident;
+use convert_case::{Case, Casing};
+use quote::{format_ident, quote};
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, PathArguments, Type,
     TypePath,
@@ -38,6 +42,26 @@ impl Structs {
 
         for cycler in cyclers.cyclers.iter() {
             let cycler_structs = structs.cyclers.entry(cycler.name.clone()).or_default();
+
+            for node_name in iter::once("total".to_string()).chain(
+                cycler
+                    .iter_nodes()
+                    .map(|node| node.name.to_case(Case::Snake)),
+            ) {
+                cycler_structs
+                    .cycle_times
+                    .insert([
+                        InsertionRule::InsertField { name: node_name },
+                        InsertionRule::AppendDataType {
+                            data_type: Type::Verbatim(quote! { std::time::Duration }),
+                        },
+                    ])
+                    .map_err(|source| Error::Hierarchy {
+                        node: "total_cycle_node_timings".to_string(),
+                        cycler: cycler.name.clone(),
+                        source,
+                    })?;
+            }
 
             for node in cycler.iter_nodes() {
                 for field in node.contexts.main_outputs.iter() {
@@ -158,6 +182,7 @@ pub struct CyclerStructs {
     pub main_outputs: StructHierarchy,
     pub additional_outputs: StructHierarchy,
     pub cycler_state: StructHierarchy,
+    pub cycle_times: StructHierarchy,
 }
 
 fn path_to_insertion_rules<'path>(
