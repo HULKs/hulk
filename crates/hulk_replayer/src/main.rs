@@ -115,6 +115,7 @@ impl SpeakerInterface for ReplayerHardwareInterface {
 impl HardwareInterface for ReplayerHardwareInterface {}
 
 fn main() -> Result<()> {
+    env_logger::init();
     install()?;
     replayer()
 }
