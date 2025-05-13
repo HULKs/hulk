@@ -48,7 +48,7 @@ Use your distribution's package manager to install the following dependencies:
 === "Fedora"
 
     ```sh
-    sudo dnf install git git-lfs clang cmake python3 which zstd xz file rsync alsa-lib-devel opusfile-devel hdf5-devel systemd-devel luajit-devel
+    sudo dnf install git git-lfs clang cmake python3 awk which zstd xz file rsync alsa-lib-devel opusfile-devel hdf5-devel systemd-devel luajit-devel
     ```
 
 === "Ubuntu"
