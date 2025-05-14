@@ -45,6 +45,7 @@ fn update(
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::PenaltyKick),
             Team::Hulks,
+            Some(PlayerNumber::Three),
         ));
     }
     if time.ticks() == 3050 {
@@ -53,6 +54,7 @@ fn update(
             Penalty::Manual {
                 remaining: Duration::from_secs(10),
             },
+            Team::Hulks,
         ));
     }
     if time.ticks() == 3100 {
@@ -61,6 +63,7 @@ fn update(
             Penalty::Manual {
                 remaining: Duration::from_secs(10),
             },
+            Team::Hulks,
         ));
     }
     if time.ticks() == 3150 {
@@ -69,6 +72,7 @@ fn update(
             Penalty::Manual {
                 remaining: Duration::from_secs(10),
             },
+            Team::Hulks,
         ));
     }
     if game_controller.state.hulks_team.score > 0 {
