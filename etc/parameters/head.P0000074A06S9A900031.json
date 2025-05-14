@@ -2,8 +2,8 @@
   "camera_matrix_parameters": {
     "calibration": {
       "correction_in_camera_bottom": [
-        -0.09633956849575043,
-        0.24045395851135254,
+        -0.09633956849575044,
+        0.24045395851135257,
         0.0049249534495174885
       ],
       "correction_in_camera_top": [
@@ -17,5 +17,6 @@
         0.11971292644739152
       ]
     }
-  }
+  },
+  "player_number": "Five"
 }

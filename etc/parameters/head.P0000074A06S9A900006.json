@@ -3,7 +3,7 @@
     "calibration": {
       "correction_in_camera_bottom": [
         0.022883262485265732,
-        0.12201879173517227,
+        0.12201879173517229,
         0.05248818174004555
       ],
       "correction_in_camera_top": [
@@ -31,5 +31,6 @@
         -0.8275419473648071
       ]
     }
-  }
+  },
+  "player_number": "One"
 }
