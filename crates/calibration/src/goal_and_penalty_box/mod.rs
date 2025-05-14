@@ -12,9 +12,7 @@ mod tests {
     use projection::camera_matrix::CameraMatrix;
     use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
 
-    use crate::{
-        corrections::Corrections, problem::CalibrationProblem, residuals::CalculateResiduals,
-    };
+    use crate::{corrections::Corrections, problem::CalibrationProblem};
 
     use super::{LineType, Measurement, Residuals};
 
