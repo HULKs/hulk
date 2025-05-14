@@ -1,5 +1,4 @@
 use approx::{AbsDiffEq, RelativeEq};
-use num_traits::Num;
 use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -194,7 +193,6 @@ where
 impl<Frame, Inner, T> Mul<T> for Framed<Frame, Inner>
 where
     Inner: Mul<T, Output = Inner>,
-    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -206,7 +204,6 @@ where
 impl<Frame, Inner, T> MulAssign<T> for Framed<Frame, Inner>
 where
     Inner: MulAssign<T>,
-    T: Num,
 {
     fn mul_assign(&mut self, rhs: T) {
         self.inner *= rhs;
@@ -216,7 +213,6 @@ where
 impl<Frame, Inner, T> Div<T> for Framed<Frame, Inner>
 where
     Inner: Div<T, Output = Inner>,
-    T: Num,
 {
     type Output = Framed<Frame, Inner::Output>;
 
@@ -228,7 +224,6 @@ where
 impl<Frame, Inner, T> DivAssign<T> for Framed<Frame, Inner>
 where
     Inner: DivAssign<T>,
-    T: Num,
 {
     fn div_assign(&mut self, rhs: T) {
         self.inner /= rhs;
@@ -363,17 +358,3 @@ where
         Self::wrap(iter.map(|framed| framed.inner).sum())
     }
 }
-
-// TODO: Fix and reduce trait bounds and remove Point::cast
-// impl<T, R: Dim, C: Dim, S: RawStorage<T, R, C>, Frame> Framed<Frame, Matrix<T, R, C, S>> {
-//     pub fn cast<T2>(&self) -> Framed<Frame, Matrix<T2, R, C, S>>
-//     where
-//         T: Scalar,
-//         T2: Scalar + SupersetOf<T>,
-//         Matrix<T, R, C, S>: SubsetOf<Matrix<T2, R, C, S>>,
-//         Matrix<T2, R, C, S>: SupersetOf<Matrix<T, R, C, S>>,
-//         DefaultAllocator: Allocator<T2, R, C>,
-//     {
-//         Framed::wrap(self.inner.cast::<T2>())
-//     }
-// }
