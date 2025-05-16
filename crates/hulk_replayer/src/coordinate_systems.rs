@@ -5,6 +5,7 @@ use std::{
 
 use derive_more::{Add, AddAssign, Mul, Neg, Rem, Sub, SubAssign};
 use eframe::egui::remap;
+use serde::{Deserialize, Serialize};
 
 /// # Absolute Time Coordinate
 ///
@@ -12,9 +13,35 @@ use eframe::egui::remap;
 ///
 /// - Origin: `std::time::UNIX_EPOCH``
 /// - Scale: `SystemTime`/`Duration`, i.e., Seconds
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct AbsoluteTime {
     inner: SystemTime,
+}
+
+impl Serialize for AbsoluteTime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let nanos_since_epoch = self
+            .inner
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("time ran backwards")
+            .as_nanos() as u64;
+        serializer.serialize_u64(nanos_since_epoch)
+    }
+}
+
+impl<'de> Deserialize<'de> for AbsoluteTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let nanos_since_epoch = u64::deserialize(deserializer)?;
+        Ok(Self {
+            inner: SystemTime::UNIX_EPOCH + Duration::from_nanos(nanos_since_epoch),
+        })
+    }
 }
 
 /// # Relative Time Coordinate
@@ -137,10 +164,6 @@ impl RelativeTime {
 impl RelativeScreen {
     pub fn new(inner: f32) -> Self {
         Self { inner }
-    }
-
-    pub fn inner(&self) -> f32 {
-        self.inner
     }
 
     pub fn map_to_relative_time(&self, viewport_range: &ViewportRange) -> RelativeTime {
