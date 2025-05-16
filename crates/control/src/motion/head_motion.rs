@@ -122,9 +122,12 @@ impl HeadMotion {
                     * (*context.inner_minimum_pitch - *context.outer_minimum_pitch)
         };
 
+        let clamped_maximum_pitch = maximum_pitch.max(0.0);
+        let clamped_minimum_pitch = minimum_pitch.min(0.0);
+
         let clamped_pitch = controlled_positions
             .pitch
-            .clamp(minimum_pitch, maximum_pitch);
+            .clamp(clamped_minimum_pitch, clamped_maximum_pitch);
         let clamped_positions = HeadJoints {
             pitch: clamped_pitch,
             yaw: controlled_positions.yaw,
