@@ -59,9 +59,9 @@ impl<'a> Widget for KeyPreview<'a> {
             TextStyle::Monospace,
         );
 
-        let button_box = galley.rect.clone().expand(button_padding);
+        let button_box = galley.rect.expand(button_padding);
         let bounding_box = {
-            let mut rect = button_box.clone();
+            let mut rect = button_box;
             rect.set_height(rect.height() + animation_shift_amount);
             rect
         };
