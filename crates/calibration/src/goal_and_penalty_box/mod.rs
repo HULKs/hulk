@@ -10,7 +10,7 @@ mod tests {
     use levenberg_marquardt::LevenbergMarquardt;
     use linear_algebra::{point, vector, Isometry2, Isometry3, Vector2};
     use projection::camera_matrix::CameraMatrix;
-    use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
+    use types::{camera_position::CameraPosition, field_dimensions::SPL_FIELD_2025};
 
     use crate::{corrections::Corrections, problem::CalibrationProblem};
 
@@ -50,7 +50,7 @@ mod tests {
             field_to_ground,
         };
 
-        let field_dimensions = FieldDimensions::get_2025_spl_field();
+        let field_dimensions = SPL_FIELD_2025;
         let problem =
             CalibrationProblem::<Residuals>::new(corrections, vec![measurement], field_dimensions);
         let (result, _report) = LevenbergMarquardt::new().minimize(problem);
