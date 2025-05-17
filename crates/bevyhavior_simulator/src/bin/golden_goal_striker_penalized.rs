@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use scenario::scenario;
-use spl_network_messages::{GameState, Penalty, PlayerNumber};
+use spl_network_messages::{GameState, Penalty, PlayerNumber, Team};
 
 use bevyhavior_simulator::{
     game_controller::{GameController, GameControllerCommand},
@@ -38,6 +38,7 @@ fn startup(
         Penalty::Manual {
             remaining: Duration::from_secs(80),
         },
+        Team::Hulks,
     ));
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }

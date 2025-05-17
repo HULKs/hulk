@@ -239,6 +239,8 @@ pub struct GameStateFilterParameters {
     pub tentative_finish_duration: Duration,
     pub distance_to_consider_ball_moved_in_kick_off: f32,
     pub whistle_acceptance_goal_distance: Vector2<Field>,
+    pub duration_to_keep_observed_ball: Duration,
+    pub duration_to_keep_new_penalties: Duration,
 }
 
 #[derive(
@@ -270,6 +272,19 @@ pub struct LookAroundParameters {
     pub halfway_right_positions: HeadJoints<f32>,
     pub initial_left_positions: HeadJoints<f32>,
     pub initial_right_positions: HeadJoints<f32>,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct HeadMotionParameters {
+    pub inner_maximum_pitch: f32,
+    pub inner_minimum_pitch: f32,
+    pub maximum_velocity: HeadJoints<f32>,
+    pub outer_maximum_pitch: f32,
+    pub outer_minimum_pitch: f32,
+    pub outer_yaw: f32,
+    pub injected_head_joints: Option<HeadJoints<f32>>,
 }
 
 #[derive(
