@@ -11,6 +11,7 @@ use types::{
     motion_command::{HeadMotion as HeadMotionCommand, MotionCommand},
     motion_selection::MotionSelection,
     motor_commands::MotorCommands,
+    parameters::HeadMotionParameters,
     sensor_data::SensorData,
 };
 
@@ -26,13 +27,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     center_head_position: Parameter<HeadJoints<f32>, "center_head_position">,
-    inner_maximum_pitch: Parameter<f32, "head_motion.inner_maximum_pitch">,
-    inner_minimum_pitch: Parameter<f32, "head_motion.inner_minimum_pitch">,
-    maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
-    outer_maximum_pitch: Parameter<f32, "head_motion.outer_maximum_pitch">,
-    outer_minimum_pitch: Parameter<f32, "head_motion.outer_minimum_pitch">,
-    outer_yaw: Parameter<f32, "head_motion.outer_yaw">,
-    injected_head_joints: Parameter<Option<HeadJoints<f32>>, "head_motion.injected_head_joints?">,
+    head_motion_parameters: Parameter<HeadMotionParameters, "head_motion">,
 
     look_around: Input<HeadJoints<f32>, "look_around">,
     look_at: Input<HeadJoints<f32>, "look_at">,
@@ -58,7 +53,7 @@ impl HeadMotion {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if let Some(injected_head_joints) = context.injected_head_joints.copied() {
+        if let Some(injected_head_joints) = context.head_motion_parameters.injected_head_joints {
             self.lowpass_filter.update(injected_head_joints);
 
             return Ok(MainOutputs {
@@ -90,8 +85,8 @@ impl HeadMotion {
                 stiffnesses: HeadJoints::fill(0.8),
             });
 
-        let maximum_movement =
-            *context.maximum_velocity * context.cycle_time.last_cycle_duration.as_secs_f32();
+        let maximum_movement = context.head_motion_parameters.maximum_velocity
+            * context.cycle_time.last_cycle_duration.as_secs_f32();
 
         let controlled_positions = HeadJoints {
             yaw: self.last_positions.yaw
@@ -102,32 +97,9 @@ impl HeadMotion {
                     .clamp(-maximum_movement.pitch, maximum_movement.pitch),
         };
 
-        let maximum_pitch = if controlled_positions.yaw.abs() >= *context.outer_yaw {
-            *context.outer_maximum_pitch
-        } else {
-            let interpolation_factor =
-                0.5 * (1.0 + (PI / *context.outer_yaw * controlled_positions.yaw).cos());
-            *context.outer_maximum_pitch
-                + interpolation_factor
-                    * (*context.inner_maximum_pitch - *context.outer_maximum_pitch)
-        };
+        let clamped_pitch =
+            compute_clamped_pitch(controlled_positions, context.head_motion_parameters);
 
-        let minimum_pitch = if controlled_positions.yaw.abs() >= *context.outer_yaw {
-            *context.outer_minimum_pitch
-        } else {
-            let interpolation_factor =
-                0.5 * (PI / *context.outer_yaw * controlled_positions.yaw).cos();
-            *context.outer_minimum_pitch
-                + interpolation_factor
-                    * (*context.inner_minimum_pitch - *context.outer_minimum_pitch)
-        };
-
-        let clamped_maximum_pitch = maximum_pitch.max(0.0);
-        let clamped_minimum_pitch = minimum_pitch.min(0.0);
-
-        let clamped_pitch = controlled_positions
-            .pitch
-            .clamp(clamped_minimum_pitch, clamped_maximum_pitch);
         let clamped_positions = HeadJoints {
             pitch: clamped_pitch,
             yaw: controlled_positions.yaw,
@@ -178,6 +150,68 @@ impl HeadMotion {
                 positions: Default::default(),
                 stiffnesses,
             },
+        }
+    }
+}
+
+fn compute_clamped_pitch(
+    controlled_positions: HeadJoints<f32>,
+    head_motion_parameters: &HeadMotionParameters,
+) -> f32 {
+    let maximum_pitch = if controlled_positions.yaw.abs() >= head_motion_parameters.outer_yaw {
+        head_motion_parameters.outer_maximum_pitch
+    } else {
+        let interpolation_factor =
+            0.5 * (1.0 + (PI * controlled_positions.yaw / head_motion_parameters.outer_yaw).cos());
+        head_motion_parameters.outer_maximum_pitch
+            + interpolation_factor
+                * (head_motion_parameters.inner_maximum_pitch
+                    - head_motion_parameters.outer_maximum_pitch)
+    };
+
+    let minimum_pitch = if controlled_positions.yaw.abs() >= head_motion_parameters.outer_yaw {
+        head_motion_parameters.outer_minimum_pitch
+    } else {
+        let interpolation_factor =
+            0.5 * (PI * controlled_positions.yaw / head_motion_parameters.outer_yaw).cos();
+        head_motion_parameters.outer_minimum_pitch
+            + interpolation_factor
+                * (head_motion_parameters.inner_minimum_pitch
+                    - head_motion_parameters.outer_minimum_pitch)
+    };
+
+    let clamped_maximum_pitch = maximum_pitch.max(0.0);
+    let clamped_minimum_pitch = minimum_pitch.min(0.0);
+
+    controlled_positions
+        .pitch
+        .clamp(clamped_minimum_pitch, clamped_maximum_pitch)
+}
+
+#[cfg(test)]
+mod test {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    proptest! {
+        #[test]
+        fn clamp_clamping_should_not_panic(yaw in -PI..PI) {
+            let head_motion_parameters = HeadMotionParameters {
+                inner_maximum_pitch: 0.61,
+                inner_minimum_pitch: -0.61,
+                outer_maximum_pitch: 0.0,
+                outer_minimum_pitch: 0.0,
+                outer_yaw: 1.3,
+                ..Default::default()
+            };
+
+            let controlled_positions = HeadJoints { yaw, ..Default::default() };
+
+            let clamped_pitch = compute_clamped_pitch(controlled_positions, &head_motion_parameters);
+
+            assert!(clamped_pitch <= head_motion_parameters.inner_maximum_pitch);
+            assert!(clamped_pitch >= head_motion_parameters.inner_minimum_pitch);
         }
     }
 }
