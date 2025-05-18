@@ -64,11 +64,13 @@ impl StepPlan {
                     .div_or_zero(context.max_step_size),
             ));
 
-        let midpoint = interpolate_midpoint(
+        let base_midpoint = interpolate_midpoint(
             swing_foot_travel,
             parameters.step_midpoint,
             parameters.base.step_midpoint,
         );
+        let midpoint_time = parameters.base.step_duration.mul_f32(base_midpoint);
+        let midpoint = midpoint_time.as_secs_f32() / step_duration.as_secs_f32();
 
         StepPlan {
             step_duration,
