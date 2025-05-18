@@ -45,6 +45,15 @@ impl StepState {
         }
     }
 
+    pub fn update_plan(self, plan: StepPlan) -> Self {
+        Self {
+            plan,
+            time_since_start: self.time_since_start,
+            gyro_balancing: self.gyro_balancing,
+            foot_leveling: self.foot_leveling,
+        }
+    }
+
     pub fn tick(&mut self, context: &Context) {
         self.time_since_start += context.cycle_time.last_cycle_duration;
         self.gyro_balancing.tick(context);
@@ -71,8 +80,8 @@ impl StepState {
         self.time_since_start > parameters.max_step_duration
     }
 
-    pub fn compute_joints(&self, context: &Context) -> BodyJoints {
-        let feet = self.compute_feet(context.parameters);
+    pub fn compute_joints(&self, context: &Context, limit_movement: bool) -> BodyJoints {
+        let feet = self.compute_feet(context, limit_movement);
 
         let (left_sole, right_sole) = match self.plan.support_side {
             Side::Left => (feet.support_sole, feet.swing_sole),
@@ -128,12 +137,42 @@ impl StepState {
             .clamp(0.0, 1.0)
     }
 
-    fn compute_feet(&self, parameters: &Parameters) -> Feet {
-        let support_sole = self.support_sole_position(parameters);
+    fn compute_feet(&self, context: &Context, limit_movement: bool) -> Feet {
+        let parameters = context.parameters;
+        let mut support_sole = self.support_sole_position(parameters);
         let support_turn = self.support_orientation(parameters);
-        let swing_sole = self.swing_sole_position();
+        let mut swing_sole = self.swing_sole_position();
         let swing_turn = self.swing_orientation(parameters);
 
+        if limit_movement {
+            let robot_to_walk = context.robot_to_walk;
+            let current_feet = Feet::from_joints(
+                robot_to_walk,
+                &context.last_actuated_joints,
+                self.plan.support_side,
+            );
+
+            let max_speed = context.parameters.max_foot_speed;
+            let max_movement = max_speed * context.cycle_time.last_cycle_duration.as_secs_f32();
+            let support_sole_movement =
+                support_sole.xy() - current_feet.support_sole.position().xy();
+            let clamped_support_movement = if support_sole_movement.norm() > max_movement {
+                support_sole_movement.normalize() * max_movement
+            } else {
+                support_sole_movement
+            };
+            support_sole = (current_feet.support_sole.position().xy() + clamped_support_movement)
+                .extend(support_sole.z());
+
+            let swing_sole_movement = swing_sole.xy() - current_feet.swing_sole.position().xy();
+            let clamped_swing_movement = if swing_sole_movement.norm() > max_movement {
+                swing_sole_movement.normalize() * max_movement
+            } else {
+                swing_sole_movement
+            };
+            swing_sole = (current_feet.swing_sole.position().xy() + clamped_swing_movement)
+                .extend(swing_sole.z());
+        }
         let support_sole = Pose3::from_parts(support_sole, support_turn);
         let swing_sole = Pose3::from_parts(swing_sole, swing_turn);
 

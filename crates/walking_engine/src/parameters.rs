@@ -22,6 +22,7 @@ pub struct Parameters {
     pub max_base_inside_turn: f32,
     pub max_forward_acceleration: f32,
     pub max_inside_turn_increase: f32,
+    pub max_foot_speed: f32,
     pub max_rotation_speed: f32,
     pub max_step_duration: Duration,
     pub max_support_foot_lift_speed: f32,
@@ -110,12 +111,6 @@ pub struct FootLevelingParameters {
 )]
 pub struct CatchingStepsParameters {
     pub enabled: bool,
-    pub catching_step_zero_moment_point_frame_count_threshold: i32,
-    pub max_adjustment: f32,
-    pub midpoint: f32,
-    pub target_overestimation_factor: f32,
-    pub longitudinal_offset: f32,
-    pub additional_foot_lift: f32,
 }
 
 #[derive(

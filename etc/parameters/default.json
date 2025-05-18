@@ -391,7 +391,7 @@
     }
   },
   "zero_moment_point": {
-    "linear_acceleration_low_pass_factor": 0.05
+    "linear_acceleration_low_pass_factor": 0.005
   },
   "whistle_filter": {
     "buffer_length": 20,
@@ -415,7 +415,7 @@
       },
       "step_midpoint": 0.5,
       "torso_offset": 0.0,
-      "torso_tilt_base": 0.0575,
+      "torso_tilt_base": 0.0,
       "torso_tilt": {
         "forward": 0.0,
         "left": 0.0,
@@ -424,13 +424,7 @@
       "walk_height": 0.23
     },
     "catching_steps": {
-      "enabled": false,
-      "catching_step_zero_moment_point_frame_count_threshold": 5,
-      "max_adjustment": 0.0,
-      "midpoint": 0.5,
-      "target_overestimation_factor": 1.05,
-      "longitudinal_offset": -0.05,
-      "additional_foot_lift": 0.0
+      "enabled": true
     },
     "gyro_balancing": {
       "balance_factors": {
@@ -466,6 +460,7 @@
     "max_forward_acceleration": 0.01,
     "max_inside_turn_increase": 4,
     "max_rotation_speed": 50000.0,
+    "max_foot_speed": 0.2,
     "max_step_duration": { "nanos": 0, "secs": 2 },
     "max_support_foot_lift_speed": 0.025,
     "max_turn_acceleration": 0.7,
@@ -803,8 +798,7 @@
     "roll_pitch_low_pass_factor": 0.9,
     "gravitational_acceleration_threshold": 7.0,
     "gravitational_force_sitting": [3.6, 0.0, 8.8],
-    "falling_angle_threshold_forward": [-0.4, 0.6],
-    "falling_angle_threshold_forward_with_catching_steps": [-0.45, 0.6],
+    "falling_angle_threshold_forward": [-1.4, 1.6],
     "falling_timeout": {
       "nanos": 0,
       "secs": 1
@@ -1533,7 +1527,13 @@
     "goal_depth": 0.5
   },
   "player_number": "Seven",
-  "recorded_primary_states": ["Standby", "Ready", "Set", "Playing"],
+  "recorded_primary_states": [
+    "Standby",
+    "Ready",
+    "Set",
+    "Playing",
+    "Penalized"
+  ],
   "spl_network": {
     "game_controller_return_message_interval": {
       "nanos": 0,

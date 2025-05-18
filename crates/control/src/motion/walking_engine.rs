@@ -10,7 +10,7 @@ use linear_algebra::{vector, Isometry2, Isometry3, Orientation3, Point2, Point3,
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::body::BodyJoints,
+    joints::{body::BodyJoints, Joints},
     motion_selection::{MotionSafeExits, MotionType},
     motor_commands::MotorCommands,
     obstacle_avoiding_arms::{ArmCommand, ArmCommands},
@@ -24,7 +24,6 @@ use walking_engine::{kick_steps::KickSteps, mode::Mode, parameters::Parameters, 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalkingEngine {
     engine: Engine,
-    last_actuated_joints: BodyJoints,
     filtered_gyro: LowPassFilter<nalgebra::Vector3<f32>>,
 }
 
@@ -43,6 +42,8 @@ pub struct CycleContext {
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
+    last_actuated_motor_commands:
+        CyclerState<MotorCommands<Joints<f32>>, "last_actuated_motor_commands">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
     center_of_mass: Input<Point3<Robot>, "center_of_mass">,
@@ -52,11 +53,10 @@ pub struct CycleContext {
     robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     obstacle_avoiding_arms: Input<ArmCommands, "obstacle_avoiding_arms">,
     zero_moment_point: Input<Point2<Ground>, "zero_moment_point">,
+    //TODO
     number_of_consecutive_cycles_zero_moment_point_outside_support_polygon:
         Input<i32, "number_of_consecutive_cycles_zero_moment_point_outside_support_polygon">,
-
     debug_output: AdditionalOutput<Engine, "walking.engine">,
-    last_actuated_joints: AdditionalOutput<BodyJoints, "walking.last_actuated_joints">,
     robot_to_walk: AdditionalOutput<Isometry3<Robot, Walk>, "walking.robot_to_walk">,
     walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
 }
@@ -71,7 +71,6 @@ impl WalkingEngine {
     pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             engine: Engine::default(),
-            last_actuated_joints: Default::default(),
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 nalgebra::Vector3::zeros(),
                 context.parameters.gyro_balancing.low_pass_factor,
@@ -138,7 +137,7 @@ impl WalkingEngine {
             robot_orientation: cycle_context.robot_orientation,
             robot_to_ground: cycle_context.robot_to_ground,
             gyro: self.filtered_gyro.state(),
-            last_actuated_joints: self.last_actuated_joints,
+            last_actuated_joints: cycle_context.last_actuated_motor_commands.positions.into(),
             measured_joints: cycle_context.sensor_data.positions.into(),
             robot_to_walk,
             obstacle_avoiding_arms: cycle_context.obstacle_avoiding_arms,
@@ -161,19 +160,18 @@ impl WalkingEngine {
 
         let motor_commands = self.engine.compute_commands(&context);
 
-        self.last_actuated_joints = motor_commands.positions;
-
         *cycle_context.ground_to_upcoming_support = self
-            .calculate_return_offset(cycle_context.parameters, robot_to_walk)
+            .calculate_return_offset(
+                cycle_context.parameters,
+                &cycle_context.last_actuated_motor_commands.positions,
+                robot_to_walk,
+            )
             .unwrap_or_default();
         cycle_context.motion_safe_exits[MotionType::Walk] = self.engine.is_standing();
 
         cycle_context
             .debug_output
             .fill_if_subscribed(|| self.engine.clone());
-        cycle_context
-            .last_actuated_joints
-            .fill_if_subscribed(|| self.last_actuated_joints);
         cycle_context
             .robot_to_walk
             .fill_if_subscribed(|| robot_to_walk);
@@ -187,6 +185,7 @@ impl WalkingEngine {
     fn calculate_return_offset(
         &self,
         parameters: &Parameters,
+        last_actuated_joints: &Joints,
         robot_to_walk: Isometry3<Robot, Walk>,
     ) -> Option<Isometry2<Ground, UpcomingSupport>> {
         let left_sole = robot_to_walk

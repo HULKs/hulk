@@ -6,13 +6,11 @@ use eframe::epaint::{Color32, Stroke};
 use coordinate_systems::{Ground, Robot, UpcomingSupport, Walk};
 use linear_algebra::{point, Isometry2, Isometry3, Point2, Point3, Pose2, Pose3};
 use types::{
-    field_dimensions::FieldDimensions, joints::body::BodyJoints, robot_kinematics::RobotKinematics,
-    step::Step, support_foot::Side,
+    field_dimensions::FieldDimensions, joints::Joints, motor_commands::MotorCommands,
+    robot_kinematics::RobotKinematics, step::Step, support_foot::Side,
 };
 use walking_engine::{
-    mode::{
-        catching::Catching, kicking::Kicking, starting::Starting, stopping::Stopping, walking, Mode,
-    },
+    mode::{kicking::Kicking, starting::Starting, stopping::Stopping, walking, Mode},
     Engine,
 };
 
@@ -25,7 +23,7 @@ pub struct Walking {
     ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
     robot_kinematics: BufferHandle<RobotKinematics>,
     walking_engine: BufferHandle<Option<Engine>>,
-    last_actuated_joints: BufferHandle<Option<BodyJoints>>,
+    actuated_motor_commands: BufferHandle<Option<MotorCommands<Joints>>>,
     planned_step: BufferHandle<Step>,
     center_of_mass: BufferHandle<Point3<Robot>>,
     robot_to_walk: BufferHandle<Option<Isometry3<Robot, Walk>>>,
@@ -41,8 +39,8 @@ impl Layer<Ground> for Walking {
             nao.subscribe_value("Control.additional_outputs.ground_to_upcoming_support");
         let robot_kinematics = nao.subscribe_value("Control.main_outputs.robot_kinematics");
         let walking_engine = nao.subscribe_value("Control.additional_outputs.walking.engine");
-        let last_actuated_joints =
-            nao.subscribe_value("Control.additional_outputs.walking.last_actuated_joints");
+        let actuated_motor_commands =
+            nao.subscribe_value("Control.additional_outputs.actuated_motor_commands");
         let planned_step = nao.subscribe_value("Control.main_outputs.planned_step");
         let center_of_mass = nao.subscribe_value("Control.main_outputs.center_of_mass");
         let robot_to_walk = nao.subscribe_value("Control.additional_outputs.walking.robot_to_walk");
@@ -53,7 +51,7 @@ impl Layer<Ground> for Walking {
             ground_to_upcoming_support,
             robot_kinematics,
             walking_engine,
-            last_actuated_joints,
+            actuated_motor_commands,
             planned_step,
             center_of_mass,
             robot_to_walk,
@@ -80,7 +78,8 @@ impl Layer<Ground> for Walking {
         let Some(engine) = self.walking_engine.get_last_value()?.flatten() else {
             return Ok(());
         };
-        let Some(last_actuated_joints) = self.last_actuated_joints.get_last_value()?.flatten()
+        let Some(actuated_motor_commands) =
+            self.actuated_motor_commands.get_last_value()?.flatten()
         else {
             return Ok(());
         };
@@ -119,15 +118,14 @@ impl Layer<Ground> for Walking {
                 Mode::Starting(Starting { step })
                 | Mode::Walking(walking::Walking { step, .. })
                 | Mode::Kicking(Kicking { step, .. })
-                | Mode::Stopping(Stopping { step, .. })
-                | Mode::Catching(Catching { step, .. }),
+                | Mode::Stopping(Stopping { step, .. }),
             ..
         } = engine
         {
             paint_target_feet(
                 painter,
                 robot_to_ground,
-                last_actuated_joints,
+                actuated_motor_commands.positions,
                 robot_to_walk,
                 step.plan.end_feet.support_sole,
                 step.plan.end_feet.swing_sole,
@@ -187,7 +185,7 @@ fn paint_measured_feet(
 fn paint_actuated_feet(
     painter: &TwixPainter<Ground>,
     robot_to_ground: Isometry3<Robot, Ground>,
-    last_actuated_joints: BodyJoints,
+    last_actuated_joints: Joints,
     support_side: Option<Side>,
     support_stroke: Stroke,
     swing_stroke: Stroke,
@@ -219,7 +217,7 @@ fn paint_actuated_feet(
 fn paint_target_feet(
     painter: &TwixPainter<Ground>,
     robot_to_ground: Isometry3<Robot, Ground>,
-    last_actuated_joints: BodyJoints,
+    last_actuated_joints: Joints,
     robot_to_walk: Isometry3<Robot, Walk>,
     end_support_sole: Pose3<Walk>,
     end_swing_sole: Pose3<Walk>,

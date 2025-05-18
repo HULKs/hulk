@@ -8,11 +8,9 @@ use types::{
 use crate::{Context, WalkTransition};
 
 use self::{
-    catching::Catching, kicking::Kicking, standing::Standing, starting::Starting,
-    stopping::Stopping, walking::Walking,
+    kicking::Kicking, standing::Standing, starting::Starting, stopping::Stopping, walking::Walking,
 };
 
-pub mod catching;
 pub mod kicking;
 pub mod standing;
 pub mod starting;
@@ -28,7 +26,6 @@ pub enum Mode {
     Walking(Walking),
     Kicking(Kicking),
     Stopping(Stopping),
-    Catching(Catching),
 }
 
 impl Default for Mode {
@@ -45,7 +42,6 @@ impl WalkTransition for Mode {
             Self::Walking(walking) => walking.stand(context),
             Self::Kicking(kicking) => kicking.stand(context),
             Self::Stopping(stopping) => stopping.stand(context),
-            Self::Catching(catching) => catching.stand(context),
         }
     }
 
@@ -56,7 +52,6 @@ impl WalkTransition for Mode {
             Self::Walking(walking) => walking.walk(context, step),
             Self::Kicking(kicking) => kicking.walk(context, step),
             Self::Stopping(stopping) => stopping.walk(context, step),
-            Self::Catching(catching) => catching.walk(context, step),
         }
     }
 
@@ -67,7 +62,6 @@ impl WalkTransition for Mode {
             Self::Walking(walking) => walking.kick(context, variant, side, strength),
             Self::Kicking(kicking) => kicking.kick(context, variant, side, strength),
             Self::Stopping(stopping) => stopping.kick(context, variant, side, strength),
-            Self::Catching(catching) => catching.kick(context, variant, side, strength),
         }
     }
 }
@@ -80,7 +74,6 @@ impl Mode {
             Self::Walking(walking) => walking.compute_commands(context),
             Self::Kicking(kicking) => kicking.compute_commands(context),
             Self::Stopping(stopping) => stopping.compute_commands(context),
-            Self::Catching(catching) => catching.compute_commands(context),
         }
     }
 
@@ -91,7 +84,6 @@ impl Mode {
             Mode::Walking(walking) => walking.tick(context),
             Mode::Kicking(kicking) => kicking.tick(context),
             Mode::Stopping(stopping) => stopping.tick(context),
-            Mode::Catching(catching) => catching.tick(context),
         }
     }
 
