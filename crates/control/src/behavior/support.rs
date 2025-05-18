@@ -92,10 +92,10 @@ fn support_pose(
         .as_ref()
         .map(|filtered_game_controller_state| filtered_game_controller_state.sub_state);
     let mut clamped_x = match (filtered_game_state, sub_state) {
-        (Some(FilteredGameState::Ready { .. }), Some(Some(SubState::PenaltyKick))) => {
+        (Some(FilteredGameState::Ready), Some(Some(SubState::PenaltyKick))) => {
             supporting_position.x().max(field_dimensions.length / 4.0)
         }
-        (Some(FilteredGameState::Ready { .. }), _)
+        (Some(FilteredGameState::Ready), _)
         | (
             Some(FilteredGameState::Playing {
                 ball_is_free: false,

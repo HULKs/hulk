@@ -153,7 +153,7 @@ impl PrimaryStateFilter {
         }
 
         match game_state {
-            FilteredGameState::Ready { .. } => PrimaryState::Ready,
+            FilteredGameState::Ready => PrimaryState::Ready,
             FilteredGameState::Initial => PrimaryState::Initial,
             FilteredGameState::Set => PrimaryState::Set,
             FilteredGameState::Playing { .. } => PrimaryState::Playing,

@@ -4,6 +4,7 @@ use quote::ToTokens;
 use syn::Type;
 use thiserror::Error;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 pub enum StructHierarchy {
     Struct {
@@ -25,6 +26,7 @@ impl Default for StructHierarchy {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum InsertionRule {
     InsertField { name: String },
