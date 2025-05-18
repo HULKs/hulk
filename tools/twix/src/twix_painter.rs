@@ -157,16 +157,17 @@ impl<World> TwixPainter<World> {
             direction,
         } = arc;
 
-        let signed_angle_difference = start.angle_to(end, direction);
+        let angle_difference = start.angle_to(end, direction);
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
-        let samples = 1.max(
-            (signed_angle_difference.0.abs() * radius * self.scaling() / PIXELS_PER_SAMPLE)
-                as usize,
-        );
+
+        let samples = ((angle_difference.0.abs() * radius * self.scaling() / PIXELS_PER_SAMPLE)
+            as usize)
+            .max(1);
+        let delta = angle_difference * direction.angle_sign::<f32>() / samples as f32;
         let points = (0..=samples)
             .map(|index| {
-                let angle = signed_angle_difference / samples as f32 * index as f32;
+                let angle = start + delta * index as f32;
                 let point = center + angle.as_direction() * radius;
                 self.transform_world_to_pixel(point)
             })
