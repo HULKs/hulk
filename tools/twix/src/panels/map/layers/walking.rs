@@ -10,6 +10,7 @@ use types::{
     robot_kinematics::RobotKinematics, step::Step, support_foot::Side,
 };
 use walking_engine::{
+    feet::Feet,
     mode::{kicking::Kicking, starting::Starting, stopping::Stopping, walking, Mode},
     Engine,
 };
@@ -224,24 +225,18 @@ fn paint_target_feet(
     support_side: Side,
     stroke: Stroke,
 ) {
-    struct SupportSole;
     let walk_to_robot = robot_to_walk.inverse();
-    let support_sole = walk_to_robot * end_support_sole;
-    let swing_sole = walk_to_robot * end_swing_sole;
-    let robot_to_support_sole = support_sole.as_transform::<SupportSole>().inverse();
-    let swing_as_seen_from_support = robot_to_support_sole * swing_sole;
-    let actuated_support_sole_to_robot = match support_side {
-        Side::Left => {
-            kinematics::forward::left_sole_to_robot(&last_actuated_joints.left_leg).as_pose()
-        }
-        Side::Right => {
-            kinematics::forward::right_sole_to_robot(&last_actuated_joints.right_leg).as_pose()
-        }
-    }
-    .as_transform::<SupportSole>();
+    let current_feet = Feet::from_joints(robot_to_walk, &last_actuated_joints.body(), support_side);
+
+    struct SupportSole;
+    let upcoming_walk_to_support_sole = end_support_sole.as_transform::<SupportSole>().inverse();
+    // the red swing foot
+    let target_swing_sole =
+        current_feet.support_sole.as_transform() * upcoming_walk_to_support_sole * end_swing_sole;
+
     paint_sole_polygon(
         painter,
-        robot_to_ground * actuated_support_sole_to_robot * swing_as_seen_from_support,
+        robot_to_ground * walk_to_robot * target_swing_sole,
         stroke,
         support_side.opposite(),
     );
