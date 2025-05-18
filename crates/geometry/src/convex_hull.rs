@@ -6,10 +6,7 @@ pub enum Range {
     OnlyBottomHalf,
 }
 
-pub fn reduce_to_convex_hull<Frame>(points: &[Point2<Frame>], range: Range) -> Vec<Point2<Frame>>
-where
-    Frame: Copy,
-{
+pub fn reduce_to_convex_hull<Frame>(points: &[Point2<Frame>], range: Range) -> Vec<Point2<Frame>> {
     // https://en.wikipedia.org/wiki/Gift_wrapping_algorithm
     // Modification: This implementation iterates from left to right until a smaller x value is found
     if points.is_empty() {
