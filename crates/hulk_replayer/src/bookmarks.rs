@@ -48,7 +48,7 @@ impl Bookmarks {
                     None
                 }
             })
-            .last()
+            .next_back()
     }
 }
 

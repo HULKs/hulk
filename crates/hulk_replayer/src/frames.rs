@@ -57,7 +57,8 @@ impl<'state> Frames<'state> {
         keys: Keys,
         screen_range: &ScreenRange,
     ) -> bool {
-        let original_position = self.position.clone();
+        let original_position = *self.position;
+
         if double_clicked {
             *self.viewport_range = ViewportRange::from_frame_range(self.frame_range);
             return false;
@@ -130,8 +131,7 @@ impl<'state> Frames<'state> {
             }
         };
 
-        let did_change_position = original_position != *self.position;
-        did_change_position
+        original_position != *self.position
     }
 
     fn show_cyclers(&self, painter: &Painter, color: Color32, screen_range: &ScreenRange) {

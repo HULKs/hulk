@@ -46,7 +46,7 @@ struct KeyPreview<'a> {
     highlighted: bool,
 }
 
-impl<'a> Widget for KeyPreview<'a> {
+impl Widget for KeyPreview<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let text = WidgetText::from(RichText::new(self.text));
         let button_padding = 4.0;
