@@ -45,7 +45,7 @@ pub struct Behavior {
     last_known_ball_position: Point2<Field>,
     active_since: Option<SystemTime>,
     previous_role: Role,
-    real_previous_role: Role,
+    previous_cycle_role: Role,
     last_defender_mode: DefendMode,
     last_time_role_changed: SystemTime,
 }
@@ -101,7 +101,7 @@ impl Behavior {
             last_known_ball_position: point![0.0, 0.0],
             active_since: None,
             previous_role: Role::Searcher,
-            real_previous_role: Role::Searcher,
+            previous_cycle_role: Role::Searcher,
             last_time_role_changed: UNIX_EPOCH,
             last_defender_mode: DefendMode::Passive,
         })
@@ -129,22 +129,15 @@ impl Behavior {
             (Some(_), _) => self.active_since = None,
         }
 
-        if self.previous_role != context.world_state.robot.role
-            && context.world_state.robot.role != Role::Searcher
-            && context.world_state.robot.role != Role::Loser
-            && self.previous_role != Role::Keeper
-        {
-            self.previous_role = context.world_state.robot.role;
-        }
-
-        if self.real_previous_role != context.world_state.robot.role {
-            match self.real_previous_role {
+        if self.previous_cycle_role != context.world_state.robot.role {
+            match self.previous_cycle_role {
                 Role::DefenderLeft | Role::DefenderRight => {
                     self.last_time_role_changed = now;
                 }
                 _ => {}
             }
-            self.real_previous_role = context.world_state.robot.role;
+            self.previous_role = self.previous_cycle_role;
+            self.previous_cycle_role = context.world_state.robot.role;
         }
 
         let mut actions = vec![
