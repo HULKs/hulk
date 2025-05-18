@@ -80,14 +80,14 @@ impl<Frame> LineSegment<Frame> {
         self.signed_acute_angle_to_orthogonal(other).abs() < epsilon
     }
 
-    pub fn projection_factor(&self, point: &Point2<Frame>) -> f32 {
+    pub fn projection_factor(&self, point: Point2<Frame>) -> f32 {
         let projection = (point - self.0).dot(&(self.1 - self.0));
 
         projection / self.length_squared()
     }
 
     pub fn closest_point(&self, point: Point2<Frame>) -> Point2<Frame> {
-        let projected_factor = self.projection_factor(&point).clamp(0.0, 1.0);
+        let projected_factor = self.projection_factor(point).clamp(0.0, 1.0);
         self.0 + (self.1 - self.0) * projected_factor
     }
 
@@ -164,7 +164,7 @@ impl<Frame> LineSegment<Frame> {
         [intersection_point1, intersection_point2]
             .into_iter()
             .filter(|intersection_point| {
-                (0.0..1.0).contains(&self.projection_factor(intersection_point))
+                (0.0..1.0).contains(&self.projection_factor(*intersection_point))
             })
             .any(|intersection_point| {
                 let angle_to_intersection_point =
