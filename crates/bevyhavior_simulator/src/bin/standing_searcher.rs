@@ -35,17 +35,34 @@ fn startup(
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
-fn update(time: Res<Time<Ticks>>, mut ball: ResMut<BallResource>, mut exit: EventWriter<AppExit>) {
+fn update(
+    time: Res<Time<Ticks>>,
+    mut commands: Commands,
+    mut ball: ResMut<BallResource>,
+    mut exit: EventWriter<AppExit>,
+) {
+    if time.ticks() == 4150 {
+        commands.spawn(Robot::new(PlayerNumber::Two));
+    }
     if time.ticks() == 4200 {
         ball.state = None;
     }
-    if time.ticks() == 5000 {
+    if time.ticks() == 5500 {
         ball.state = Some(SimulatorBallState {
             position: point![-2.7, -0.2],
             velocity: vector![0.0, 0.0],
         });
     }
-    if time.ticks() == 5500 {
+    if time.ticks() == 6000 {
+        ball.state = None;
+    }
+    if time.ticks() == 6750 {
+        ball.state = Some(SimulatorBallState {
+            position: point![4.0, -0.2],
+            velocity: vector![0.0, 0.0],
+        });
+    }
+    if time.ticks() == 7200 {
         ball.state = None;
     }
     if time.ticks() >= 10_000 {
