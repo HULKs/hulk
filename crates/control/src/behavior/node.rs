@@ -135,7 +135,9 @@ impl Behavior {
                 }
                 _ => {}
             }
-            self.previous_role = self.previous_cycle_role;
+            if self.previous_role != Role::Keeper {
+                self.previous_role = self.previous_cycle_role;
+            }
             self.previous_cycle_role = context.world_state.robot.role;
         }
 
