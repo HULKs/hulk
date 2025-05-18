@@ -92,7 +92,8 @@ impl WalkTransition for Starting {
 
 impl Starting {
     pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
-        self.step.compute_joints(context, true).apply_stiffness(
+        let feet = self.step.compute_feet(context);
+        self.step.compute_joints(context, feet).apply_stiffness(
             context.parameters.stiffnesses.leg_stiffness_walk,
             context.parameters.stiffnesses.arm_stiffness,
         )

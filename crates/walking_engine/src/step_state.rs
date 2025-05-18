@@ -1,6 +1,7 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
-use coordinate_systems::{LeftSole, RightSole, Walk};
+use coordinate_systems::{Ground, LeftSole, RightSole, Robot, Walk};
+use geometry::is_inside_polygon::is_inside_convex_hull;
 use kinematics::inverse::leg_angles;
 use linear_algebra::{point, Isometry3, Orientation3, Point3, Pose3, Rotation3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -8,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use splines::Interpolate;
 use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, mirror::Mirror},
-    robot_dimensions::RobotDimensions,
+    robot_dimensions::{
+        transform_left_sole_outline, transform_right_sole_outline, RobotDimensions,
+    },
+    step::Step,
     support_foot::Side,
 };
 
@@ -45,20 +49,63 @@ impl StepState {
         }
     }
 
-    pub fn update_plan(self, plan: StepPlan) -> Self {
-        Self {
-            plan,
-            time_since_start: self.time_since_start,
-            gyro_balancing: self.gyro_balancing,
-            foot_leveling: self.foot_leveling,
-        }
-    }
-
     pub fn tick(&mut self, context: &Context) {
         self.time_since_start += context.cycle_time.last_cycle_duration;
         self.gyro_balancing.tick(context);
         self.foot_leveling
             .tick(context, self.normalized_time_since_start());
+
+        if context.parameters.catching_steps.enabled {
+            let Some(robot_to_ground) = context.robot_to_ground else {
+                return;
+            };
+
+            // let center_of_mass = robot_to_ground * *context.center_of_mass;
+            let zero_moment_point: Point3<Ground> = point![
+                context.zero_moment_point.x(),
+                context.zero_moment_point.y(),
+                0.0
+            ];
+            let robot_to_walk = context.robot_to_walk;
+            let ground_to_robot = robot_to_ground.inverse();
+
+            // the blue feet
+            let current_feet = Feet::from_joints(
+                robot_to_walk,
+                &context.last_actuated_joints,
+                self.plan.support_side,
+            );
+
+            if is_outside_support_polygon(
+                &self.plan,
+                zero_moment_point,
+                robot_to_walk,
+                ground_to_robot,
+                current_feet,
+            ) {
+                let target = robot_to_walk * ground_to_robot * zero_moment_point;
+                let support_to_target = target - current_feet.support_sole.position();
+
+                let adjust_distance = support_to_target.x().clamp(-0.1, 0.1);
+                let adjusted_adjust_distance = if adjust_distance < 0.0 {
+                    adjust_distance + 0.02
+                } else {
+                    adjust_distance - 0.08
+                };
+
+                let request = Step {
+                    forward: adjusted_adjust_distance,
+                    left: 0.0,
+                    turn: 0.0,
+                };
+
+                let support_side = self.plan.support_side;
+                let start_feet = self.plan.start_feet;
+                let plan =
+                    StepPlan::new_with_start_feet(context, request, support_side, start_feet);
+                self.plan = plan;
+            };
+        }
     }
 
     pub fn is_support_switched(&self, context: &Context) -> bool {
@@ -80,9 +127,7 @@ impl StepState {
         self.time_since_start > parameters.max_step_duration
     }
 
-    pub fn compute_joints(&self, context: &Context, limit_movement: bool) -> BodyJoints {
-        let feet = self.compute_feet(context, limit_movement);
-
+    pub fn compute_joints(&self, context: &Context, feet: Feet) -> BodyJoints {
         let (left_sole, right_sole) = match self.plan.support_side {
             Side::Left => (feet.support_sole, feet.swing_sole),
             Side::Right => (feet.swing_sole, feet.support_sole),
@@ -137,44 +182,42 @@ impl StepState {
             .clamp(0.0, 1.0)
     }
 
-    fn compute_feet(&self, context: &Context, limit_movement: bool) -> Feet {
+    pub fn compute_feet(&self, context: &Context) -> Feet {
         let parameters = context.parameters;
-        let mut support_sole = self.support_sole_position(parameters);
+        let mut support_position = self.support_sole_position(parameters);
         let support_turn = self.support_orientation(parameters);
-        let mut swing_sole = self.swing_sole_position();
+        let mut swing_position = self.swing_sole_position();
         let swing_turn = self.swing_orientation(parameters);
 
-        if limit_movement {
-            let robot_to_walk = context.robot_to_walk;
-            let current_feet = Feet::from_joints(
-                robot_to_walk,
-                &context.last_actuated_joints,
-                self.plan.support_side,
-            );
+        let current_feet = Feet::from_joints(
+            context.robot_to_walk,
+            &context.last_actuated_joints,
+            self.plan.support_side,
+        );
 
-            let max_speed = context.parameters.max_foot_speed;
-            let max_movement = max_speed * context.cycle_time.last_cycle_duration.as_secs_f32();
-            let support_sole_movement =
-                support_sole.xy() - current_feet.support_sole.position().xy();
-            let clamped_support_movement = if support_sole_movement.norm() > max_movement {
-                support_sole_movement.normalize() * max_movement
-            } else {
-                support_sole_movement
-            };
-            support_sole = (current_feet.support_sole.position().xy() + clamped_support_movement)
-                .extend(support_sole.z());
+        let max_speed = context.parameters.max_foot_speed;
+        let max_movement = max_speed * context.cycle_time.last_cycle_duration.as_secs_f32();
+        let support_sole_movement =
+            support_position.xy() - current_feet.support_sole.position().xy();
+        let clamped_support_movement = if support_sole_movement.norm() > max_movement {
+            support_sole_movement.normalize() * max_movement
+        } else {
+            support_sole_movement
+        };
+        support_position = (current_feet.support_sole.position().xy() + clamped_support_movement)
+            .extend(support_position.z());
 
-            let swing_sole_movement = swing_sole.xy() - current_feet.swing_sole.position().xy();
-            let clamped_swing_movement = if swing_sole_movement.norm() > max_movement {
-                swing_sole_movement.normalize() * max_movement
-            } else {
-                swing_sole_movement
-            };
-            swing_sole = (current_feet.swing_sole.position().xy() + clamped_swing_movement)
-                .extend(swing_sole.z());
-        }
-        let support_sole = Pose3::from_parts(support_sole, support_turn);
-        let swing_sole = Pose3::from_parts(swing_sole, swing_turn);
+        let swing_sole_movement = swing_position.xy() - current_feet.swing_sole.position().xy();
+        let clamped_swing_movement = if swing_sole_movement.norm() > max_movement {
+            swing_sole_movement.normalize() * max_movement
+        } else {
+            swing_sole_movement
+        };
+        swing_position = (current_feet.swing_sole.position().xy() + clamped_swing_movement)
+            .extend(swing_position.z());
+
+        let support_sole = Pose3::from_parts(support_position, support_turn);
+        let swing_sole = Pose3::from_parts(swing_position, swing_turn);
 
         Feet {
             support_sole,
@@ -265,6 +308,51 @@ impl StepState {
 
         interpolated * start
     }
+}
+
+fn is_outside_support_polygon(
+    plan: &StepPlan,
+    zero_moment_point: Point3<Ground>,
+    robot_to_walk: Isometry3<Robot, Walk>,
+    ground_to_robot: Isometry3<Ground, Robot>,
+    current_feet: Feet,
+) -> bool {
+    #[derive(Copy, Clone, Debug)]
+    struct SupportSole;
+    let upcoming_walk_to_support_sole = plan
+        .end_feet
+        .support_sole
+        .as_transform::<SupportSole>()
+        .inverse();
+    // the red swing foot
+    let target_swing_sole = current_feet.support_sole.as_transform()
+        * upcoming_walk_to_support_sole
+        * plan.end_feet.swing_sole;
+
+    let (support_sole_outline, swing_sole_outline, target_swing_sole_outline) =
+        if plan.support_side == Side::Left {
+            (
+                transform_left_sole_outline(current_feet.support_sole.as_transform()),
+                transform_right_sole_outline(current_feet.swing_sole.as_transform()),
+                transform_right_sole_outline(target_swing_sole.as_transform()),
+            )
+        } else {
+            (
+                transform_right_sole_outline(current_feet.support_sole.as_transform()),
+                transform_left_sole_outline(current_feet.swing_sole.as_transform()),
+                transform_left_sole_outline(target_swing_sole.as_transform()),
+            )
+        };
+
+    let feet_outlines = [
+        swing_sole_outline,
+        support_sole_outline,
+        target_swing_sole_outline,
+    ]
+    .concat();
+    let zero_moment_point_in_walk = robot_to_walk * ground_to_robot * zero_moment_point;
+
+    !is_inside_convex_hull(&feet_outlines, &zero_moment_point_in_walk.xy())
 }
 
 fn swinging_arm(

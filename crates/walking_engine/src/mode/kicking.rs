@@ -165,8 +165,9 @@ impl WalkTransition for Kicking {
 
 impl Kicking {
     pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+        let feet = self.step.compute_feet(context);
         self.step
-            .compute_joints(context, true)
+            .compute_joints(context, feet)
             .override_with_kick(context.kick_steps, &self.kick, &self.step)
             .apply_stiffness(
                 context.parameters.stiffnesses.leg_stiffness_walk,

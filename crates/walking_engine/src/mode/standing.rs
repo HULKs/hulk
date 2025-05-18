@@ -76,7 +76,7 @@ impl Standing {
             foot_leveling: Default::default(),
         };
         zero_step_state
-            .compute_joints(context, false)
+            .compute_joints(context, feet)
             .apply_stiffness(
                 context.parameters.stiffnesses.leg_stiffness_stand,
                 context.parameters.stiffnesses.arm_stiffness,

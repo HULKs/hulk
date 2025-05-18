@@ -1,21 +1,14 @@
 use super::{kicking::Kicking, stopping::Stopping, Mode, WalkTransition};
-use coordinate_systems::{Ground, Robot, Walk};
-use geometry::is_inside_polygon::is_inside_convex_hull;
-use linear_algebra::{point, Isometry3, Point3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
-    joints::body::BodyJoints,
-    motion_command::KickVariant,
-    motor_commands::MotorCommands,
-    robot_dimensions::{transform_left_sole_outline, transform_right_sole_outline},
-    step::Step,
-    support_foot::Side,
+    joints::body::BodyJoints, motion_command::KickVariant, motor_commands::MotorCommands,
+    step::Step, support_foot::Side,
 };
 
 use crate::{
-    feet::Feet, kick_state::KickState, step_plan::StepPlan, step_state::StepState,
-    stiffness::Stiffness as _, Context,
+    kick_state::KickState, step_plan::StepPlan, step_state::StepState, stiffness::Stiffness as _,
+    Context,
 };
 
 #[derive(
@@ -73,17 +66,6 @@ impl Walking {
             requested_step,
         }
     }
-
-    pub fn new_in_flight(self, context: &Context, requested_step: Step) -> Self {
-        let support_side = self.step.plan.support_side;
-        let start_feet = self.step.plan.start_feet;
-        let plan = StepPlan::new_with_start_feet(context, requested_step, support_side, start_feet);
-        let step = self.step.update_plan(plan);
-        Self {
-            step,
-            requested_step,
-        }
-    }
 }
 
 impl WalkTransition for Walking {
@@ -104,52 +86,6 @@ impl WalkTransition for Walking {
     fn walk(self, context: &Context, requested_step: Step) -> Mode {
         let current_step = self.step;
 
-        if context.parameters.catching_steps.enabled {
-            let Some(robot_to_ground) = context.robot_to_ground else {
-                return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
-            };
-
-            // let center_of_mass = robot_to_ground * *context.center_of_mass;
-            let zero_moment_point: Point3<Ground> = point![
-                context.zero_moment_point.x(),
-                context.zero_moment_point.y(),
-                0.0
-            ];
-            let robot_to_walk = context.robot_to_walk;
-            let ground_to_robot = robot_to_ground.inverse();
-
-            // the blue feet
-            let current_feet = Feet::from_joints(
-                robot_to_walk,
-                &context.last_actuated_joints,
-                self.step.plan.support_side,
-            );
-
-            if is_outside_support_polygon(
-                &self.step.plan,
-                zero_moment_point,
-                robot_to_walk,
-                ground_to_robot,
-                current_feet,
-            ) {
-                let target = robot_to_walk * ground_to_robot * zero_moment_point;
-                let support_to_target = target - current_feet.support_sole.position();
-
-                let adjust_distance = support_to_target.x().clamp(-0.1, 0.1);
-                let adjusted_adjust_distance = if adjust_distance < 0.0 {
-                    adjust_distance + 0.02
-                } else {
-                    adjust_distance - 0.08
-                };
-
-                let request = Step {
-                    forward: adjusted_adjust_distance,
-                    left: 0.0,
-                    turn: 0.0,
-                };
-                return Mode::Walking(self.new_in_flight(context, request));
-            };
-        }
         if current_step.is_timeouted(context.parameters) {
             return Mode::Walking(Walking::new(
                 context,
@@ -214,7 +150,8 @@ impl WalkTransition for Walking {
 
 impl Walking {
     pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
-        self.step.compute_joints(context, true).apply_stiffness(
+        let feet = self.step.compute_feet(context);
+        self.step.compute_joints(context, feet).apply_stiffness(
             context.parameters.stiffnesses.leg_stiffness_walk,
             context.parameters.stiffnesses.arm_stiffness,
         )
@@ -223,49 +160,4 @@ impl Walking {
     pub fn tick(&mut self, context: &Context) {
         self.step.tick(context);
     }
-}
-
-fn is_outside_support_polygon(
-    plan: &StepPlan,
-    zero_moment_point: Point3<Ground>,
-    robot_to_walk: Isometry3<Robot, Walk>,
-    ground_to_robot: Isometry3<Ground, Robot>,
-    current_feet: Feet,
-) -> bool {
-    #[derive(Copy, Clone, Debug)]
-    struct SupportSole;
-    let upcoming_walk_to_support_sole = plan
-        .end_feet
-        .support_sole
-        .as_transform::<SupportSole>()
-        .inverse();
-    // the red swing foot
-    let target_swing_sole = current_feet.support_sole.as_transform()
-        * upcoming_walk_to_support_sole
-        * plan.end_feet.swing_sole;
-
-    let (support_sole_outline, swing_sole_outline, target_swing_sole_outline) =
-        if plan.support_side == Side::Left {
-            (
-                transform_left_sole_outline(current_feet.support_sole.as_transform()),
-                transform_right_sole_outline(current_feet.swing_sole.as_transform()),
-                transform_right_sole_outline(target_swing_sole.as_transform()),
-            )
-        } else {
-            (
-                transform_right_sole_outline(current_feet.support_sole.as_transform()),
-                transform_left_sole_outline(current_feet.swing_sole.as_transform()),
-                transform_left_sole_outline(target_swing_sole.as_transform()),
-            )
-        };
-
-    let feet_outlines = [
-        swing_sole_outline,
-        support_sole_outline,
-        target_swing_sole_outline,
-    ]
-    .concat();
-    let zero_moment_point_in_walk = robot_to_walk * ground_to_robot * zero_moment_point;
-
-    !is_inside_convex_hull(&feet_outlines, &zero_moment_point_in_walk.xy())
 }
