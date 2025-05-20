@@ -8,7 +8,7 @@ use eframe::{
     egui::{Button, CollapsingHeader, DragValue, Response, TextEdit, TextStyle, Ui, Widget},
     epaint::Color32,
 };
-use egui_plot::{Line, Plot as EguiPlot, PlotPoints};
+use egui_plot::{Line, MarkerShape, Plot as EguiPlot, PlotPoints, Points};
 use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
@@ -46,6 +46,8 @@ struct LineData {
     is_highlighted: bool,
     #[serde(skip)]
     is_hidden: bool,
+    #[serde(skip)]
+    show_scatter: bool,
 }
 
 impl LineData {
@@ -76,6 +78,7 @@ impl LineData {
             lua_error: None,
             is_highlighted: false,
             is_hidden: false,
+            show_scatter: false,
         };
 
         line_data.set_lua();
@@ -86,10 +89,9 @@ impl LineData {
         self.is_highlighted = is_highlighted
     }
 
-    fn plot(&self, latest_timestamp: Option<SystemTime>) -> Line {
+    fn plot(&self, latest_timestamp: Option<SystemTime>) -> PlotPoints<'_> {
         let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
-        let values = self
-            .buffer
+        self.buffer
             .as_ref()
             .map(|buffer| {
                 buffer
@@ -111,10 +113,7 @@ impl LineData {
                     })
                     .unwrap_or_default()
             })
-            .unwrap_or_default();
-        Line::new(values)
-            .color(self.color)
-            .highlight(self.is_highlighted)
+            .unwrap_or_default()
     }
 
     fn show_settings(&mut self, ui: &mut Ui, id: usize, nao: &Nao, buffer_history: Duration) {
@@ -137,7 +136,7 @@ impl LineData {
             CollapsingHeader::new("Conversion Function")
                 .id_salt(id_salt)
                 .show(ui, |ui| {
-                    ui.horizontal(|ui| {
+                    ui.horizontal_top(|ui| {
                         let latest_value = self
                             .buffer
                             .as_ref()
@@ -248,15 +247,36 @@ impl PlotPanel {
             })
             .max();
 
+        let plot_points = self
+            .lines
+            .iter()
+            .filter(|line_data| !line_data.is_hidden)
+            .map(|line_data| {
+                (
+                    line_data.plot(latest_timestamp),
+                    line_data.show_scatter,
+                    line_data.is_highlighted,
+                    line_data.color,
+                )
+            })
+            .collect::<Vec<_>>();
+
         EguiPlot::new(ui.id().with("value_plot"))
             .view_aspect(2.0)
             .show(ui, |plot_ui| {
-                for line in self
-                    .lines
-                    .iter()
-                    .filter(|line_data| !line_data.is_hidden)
-                    .map(|entry| entry.plot(latest_timestamp))
-                {
+                for (plot_points, show_scatter, is_highlighted, color) in &plot_points {
+                    if *show_scatter {
+                        let points = Points::new(plot_points.points())
+                            .color(*color)
+                            .radius(3.0)
+                            .shape(MarkerShape::Diamond)
+                            .highlight(*is_highlighted);
+                        plot_ui.points(points);
+                    }
+
+                    let line = Line::new(plot_points.points())
+                        .color(*color)
+                        .highlight(*is_highlighted);
                     plot_ui.line(line);
                 }
             })
@@ -299,6 +319,8 @@ impl Widget for &mut PlotPanel {
                 if ui.button(hide_button_face).clicked() {
                     line_data.is_hidden = !line_data.is_hidden;
                 }
+
+                ui.checkbox(&mut line_data.show_scatter, "Scatter");
 
                 line_data.show_settings(ui, id, &self.nao, self.buffer_history);
                 id += 1;
