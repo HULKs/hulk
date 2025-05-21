@@ -72,7 +72,7 @@ address="$(echo $remoteWorkspace | cut -d':' -f 1)"
 remotePath="$(echo $remoteWorkspace | cut -d':' -f 2-)"
 
 # send local state to remote
-rsync -ah --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
+rsync -rlpgoDhc --info progress2 --exclude='.git' --filter="dir-merge,- .gitignore" --delete . "$remoteWorkspace"
 
 # if stdout is a tty/pty, make ssh behave as one as well
 SSH_FLAGS=""
