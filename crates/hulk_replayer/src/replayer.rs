@@ -1,4 +1,11 @@
-use std::{env::args, fs::File, path::PathBuf, sync::Arc};
+use std::{
+    env::args,
+    fs::{self, File},
+    hash::{DefaultHasher, Hash, Hasher},
+    io,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use color_eyre::{
     eyre::{Report, WrapErr},
@@ -19,6 +26,17 @@ use crate::{
     worker_thread::{spawn_workers, PlayerState},
     ReplayerHardwareInterface,
 };
+
+pub fn replay_identifier(replay_path: impl AsRef<Path>) -> io::Result<u64> {
+    let mut hasher = DefaultHasher::new();
+    replay_path.as_ref().hash(&mut hasher);
+
+    let metadata = fs::metadata(replay_path)?;
+    if let Ok(creation_time) = metadata.created() {
+        creation_time.hash(&mut hasher);
+    }
+    Ok(hasher.finish())
+}
 
 pub fn replayer() -> Result<()> {
     let replay_path = PathBuf::from(
@@ -49,6 +67,9 @@ pub fn replayer() -> Result<()> {
     };
 
     let ids = hardware_interface.get_ids();
+
+    let replay_identifier =
+        replay_identifier(&replay_path).wrap_err("failed to compute replay identifier")?;
 
     let replayer = Replayer::new(
         Arc::new(hardware_interface),
@@ -90,7 +111,13 @@ pub fn replayer() -> Result<()> {
                     context.request_repaint();
                 },
             );
-            Ok(Box::new(Window::new(indices, time_sender, keep_running)))
+            Ok(Box::new(Window::new(
+                creation_context,
+                replay_identifier,
+                indices,
+                time_sender,
+                keep_running,
+            )?))
         }),
     )
     .map_err(|error| Report::msg(error.to_string()))
