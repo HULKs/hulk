@@ -2,7 +2,11 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use types::{joints::Joints, motion_command::{HeadMotion, MotionCommand}, motor_commands::MotorCommands};
+use types::{
+    joints::Joints,
+    motion_command::{HeadMotion, MotionCommand},
+    motor_commands::MotorCommands,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct MotorCommandsOptimizer {}
@@ -34,7 +38,11 @@ impl MotorCommandsOptimizer {
         motor_commands.stiffnesses.right_arm.hand = 0.0;
 
         if (*context.only_one_foot_has_ground_contact || !*context.has_ground_contact)
-            && (*context.motion_command ==  MotionCommand::Initial { head: HeadMotion::Center, should_look_for_referee: false }
+            && (*context.motion_command
+                == MotionCommand::Initial {
+                    head: HeadMotion::Center,
+                    should_look_for_referee: false,
+                }
                 || *context.motion_command == MotionCommand::Penalized)
         {
             motor_commands.stiffnesses = Joints::fill(0.3);
