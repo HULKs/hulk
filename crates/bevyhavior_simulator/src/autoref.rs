@@ -10,6 +10,7 @@ use bevy::{
     prelude::Res,
     time::{Time, Timer, TimerMode},
 };
+use coordinate_systems::{Field, Ground};
 use linear_algebra::{point, vector, Isometry2};
 use spl_network_messages::{GameState, Penalty, SubState, Team};
 use types::{
@@ -135,6 +136,9 @@ pub fn auto_assistant_referee(
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
 ) {
+    let penalized_walk_in_position: Isometry2<Ground, Field> =
+        Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
+
     for command in game_controller_commands.read() {
         match *command {
             GameControllerCommand::SetGameState(_) => {}
@@ -231,8 +235,7 @@ pub fn auto_assistant_referee(
                             .iter_mut()
                             .find(|robot| robot.parameters.player_number == player_number)
                         {
-                            *robot.ground_to_field_mut() =
-                                Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
+                            *robot.ground_to_field_mut() = penalized_walk_in_position;
                         }
                     }
                 }
@@ -243,8 +246,7 @@ pub fn auto_assistant_referee(
                         .iter_mut()
                         .find(|robot| robot.parameters.player_number == player_number)
                     {
-                        *robot.ground_to_field_mut() =
-                            Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
+                        *robot.ground_to_field_mut() = penalized_walk_in_position;
                     }
                 }
             }

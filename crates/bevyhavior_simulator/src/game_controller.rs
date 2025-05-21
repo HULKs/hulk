@@ -9,6 +9,8 @@ use types::{game_controller_state::GameControllerState, players::Players};
 
 use crate::{autoref::autoref, whistle::WhistleResource};
 
+const STARTING_PENALTY_DURATION: Duration = Duration::from_secs(45);
+
 #[derive(Resource, Default)]
 struct GameControllerControllerState {
     last_state_change: Time,
@@ -85,16 +87,16 @@ fn game_controller_controller(
                         match team {
                             Team::Hulks => {
                                 game_controller.state.opponent_penalties[penalized_player_number
-                                    .expect("This sub state requires a penalized player number.")] =
+                                    .expect("this sub state requires a penalized player number.")] =
                                     Some(Penalty::PlayerPushing {
-                                        remaining: Duration::from_secs(45),
+                                        remaining: STARTING_PENALTY_DURATION,
                                     })
                             }
                             Team::Opponent => {
                                 game_controller.state.penalties[penalized_player_number
-                                    .expect("This sub state requires a penalized player number.")] =
+                                    .expect("this sub state requires a penalized player number.")] =
                                     Some(Penalty::PlayerPushing {
-                                        remaining: Duration::from_secs(45),
+                                        remaining: STARTING_PENALTY_DURATION,
                                     })
                             }
                         }

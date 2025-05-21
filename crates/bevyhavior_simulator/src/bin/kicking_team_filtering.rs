@@ -67,10 +67,15 @@ fn update(
     }
 
     if time.ticks() >= 3_000 && time.ticks() < 3_000 + FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             3_000,
             &mut game_controller_commands,
+            SubState::CornerKick,
+            Team::Hulks,
+        );
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -81,10 +86,15 @@ fn update(
     }
 
     if time.ticks() >= 6_000 && time.ticks() < 6_000 + FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             6_000,
             &mut game_controller_commands,
+            SubState::GoalKick,
+            Team::Opponent,
+        );
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -95,10 +105,15 @@ fn update(
     }
 
     if time.ticks() >= 9_000 && time.ticks() < 9_000 + 2 * FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             9_000,
             &mut game_controller_commands,
+            SubState::PenaltyKick,
+            Team::Hulks,
+        );
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -127,10 +142,15 @@ fn update(
     }
 
     if time.ticks() >= 15_000 && time.ticks() < 15_000 + FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             15_000,
             &mut game_controller_commands,
+            SubState::GoalKick,
+            Team::Hulks,
+        );
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -141,10 +161,15 @@ fn update(
     }
 
     if time.ticks() >= 18_000 && time.ticks() < 18_000 + FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             18_000,
             &mut game_controller_commands,
+            SubState::CornerKick,
+            Team::Opponent,
+        );
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -155,10 +180,15 @@ fn update(
     }
 
     if time.ticks() >= 21_000 && time.ticks() < 21_000 + 2 * FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             21_000,
             &mut game_controller_commands,
+            SubState::PenaltyKick,
+            Team::Opponent,
+        );
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -176,10 +206,15 @@ fn update(
     }
 
     if time.ticks() >= 27_000 && time.ticks() < 27_000 + FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             27_000,
             &mut game_controller_commands,
+            SubState::PushingFreeKick,
+            Team::Opponent,
+        );
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -197,10 +232,16 @@ fn update(
     }
 
     if time.ticks() >= 30_000 && time.ticks() < 30_000 + FREE_KICK_DURATION_IN_TICKS {
-        check_kicking_team_inference(
+        set_substate_at_tick_start(
             &time,
             30_000,
             &mut game_controller_commands,
+            SubState::PushingFreeKick,
+            Team::Hulks,
+        );
+
+        check_kicking_team_inference(
+            &time,
             &mut exit,
             &mut robots,
             &ball,
@@ -226,8 +267,6 @@ fn update(
 #[allow(clippy::too_many_arguments)]
 fn check_kicking_team_inference(
     time: &Res<Time<Ticks>>,
-    tick_start: u32,
-    game_controller_commands: &mut EventWriter<GameControllerCommand>,
     exit: &mut EventWriter<AppExit>,
     robots: &mut Query<&mut Robot>,
     ball: &ResMut<BallResource>,
@@ -235,20 +274,6 @@ fn check_kicking_team_inference(
     correct_kicking_team: Team,
     correct_ball_is_free: bool,
 ) {
-    if time.ticks() == tick_start {
-        let penalized_player_number =
-            if [SubState::PenaltyKick, SubState::PushingFreeKick].contains(&checked_sub_state) {
-                Some(PlayerNumber::Six)
-            } else {
-                None
-            };
-
-        game_controller_commands.send(GameControllerCommand::SetSubState(
-            Some(checked_sub_state),
-            correct_kicking_team,
-            penalized_player_number,
-        ));
-    }
     if let Some(ball_state) = ball.state {
         for mut robot in &mut *robots {
             robot.database.main_outputs.ball_position = Some(BallPosition {
@@ -275,5 +300,28 @@ fn check_kicking_team_inference(
             }
             _ => (),
         }
+    }
+}
+
+fn set_substate_at_tick_start(
+    time: &Res<Time<Ticks>>,
+    tick_start: u32,
+    game_controller_commands: &mut EventWriter<GameControllerCommand>,
+    checked_sub_state: SubState,
+    correct_kicking_team: Team,
+) {
+    if time.ticks() == tick_start {
+        let penalized_player_number =
+            if [SubState::PenaltyKick, SubState::PushingFreeKick].contains(&checked_sub_state) {
+                Some(PlayerNumber::Six)
+            } else {
+                None
+            };
+
+        game_controller_commands.send(GameControllerCommand::SetSubState(
+            Some(checked_sub_state),
+            correct_kicking_team,
+            penalized_player_number,
+        ));
     }
 }
