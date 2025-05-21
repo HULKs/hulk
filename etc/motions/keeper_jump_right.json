@@ -120,7 +120,7 @@
     {
       "keyframes": [
         {
-          "duration": 0.1,
+          "duration": 1.0,
           "positions": {
             "positions": {
               "head": {
@@ -201,7 +201,7 @@
           }
         },
         {
-          "duration": 0.2,
+          "duration": 2.0,
           "positions": {
             "positions": {
               "head": {
@@ -282,7 +282,7 @@
           }
         },
         {
-          "duration": 0.1,
+          "duration": 1.0,
           "positions": {
             "positions": {
               "head": {
