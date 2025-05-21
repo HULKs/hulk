@@ -8,6 +8,7 @@ use residuals::CalculateResiduals;
 
 pub mod center_circle;
 pub mod corrections;
+pub mod goal_and_penalty_box;
 pub mod goal_box;
 pub mod jacobian;
 pub mod problem;
