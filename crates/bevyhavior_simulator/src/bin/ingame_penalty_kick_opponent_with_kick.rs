@@ -46,6 +46,7 @@ fn update(
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::PenaltyKick),
             Team::Opponent,
+            Some(PlayerNumber::Four),
         ));
     }
     if time.ticks() == 6000 {
