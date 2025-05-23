@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::{
     feet::Feet,
     kick_state::{KickOverride as _, KickState},
@@ -41,19 +39,15 @@ impl Kicking {
         };
         let end_feet = Feet::end_from_request(context.parameters, request, support_side);
 
-        let step = StepState {
-            plan: StepPlan {
-                step_duration: kick_step.step_duration,
-                start_feet,
-                end_feet,
-                support_side,
-                foot_lift_apex: kick_step.foot_lift_apex,
-                midpoint: kick_step.midpoint,
-            },
-            time_since_start: Duration::ZERO,
-            gyro_balancing: Default::default(),
-            foot_leveling: Default::default(),
+        let plan = StepPlan {
+            step_duration: kick_step.step_duration,
+            start_feet,
+            end_feet,
+            support_side,
+            foot_lift_apex: kick_step.foot_lift_apex,
+            midpoint: kick_step.midpoint,
         };
+        let step = StepState::new(plan);
         Self { kick, step }
     }
 }
