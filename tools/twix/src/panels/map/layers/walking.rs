@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::{Ground, Robot, UpcomingSupport, Walk};
-use linear_algebra::{point, Isometry2, Isometry3, Point2, Point3, Pose2, Pose3};
+use linear_algebra::{point, Isometry2, Isometry3, Point2, Point3, Pose2, Pose3, Vector2};
 use types::{
     field_dimensions::FieldDimensions, joints::Joints, motor_commands::MotorCommands,
     robot_kinematics::RobotKinematics, step::Step, support_foot::Side,
@@ -98,6 +98,8 @@ impl Layer<Ground> for Walking {
             return Ok(());
         };
 
+        paint_walk_frame(painter, robot_to_ground, robot_to_walk);
+
         paint_actuated_feet(
             painter,
             robot_to_ground,
@@ -152,6 +154,27 @@ impl Layer<Ground> for Walking {
         paint_planned_step(painter, planned_step, ground_to_upcoming_support);
         Ok(())
     }
+}
+
+fn paint_walk_frame(
+    painter: &TwixPainter<Ground>,
+    robot_to_ground: Isometry3<Robot, Ground>,
+    robot_to_walk: Isometry3<Robot, Walk>,
+) {
+    let walk_to_robot = robot_to_walk.inverse();
+    let walk_to_ground = robot_to_ground * walk_to_robot;
+
+    let origin = (walk_to_ground * Point3::origin()).xy();
+    painter.line_segment(
+        origin - Vector2::x_axis() * 0.5,
+        origin + Vector2::x_axis() * 0.5,
+        Stroke::new(0.005, Color32::BLACK),
+    );
+    painter.line_segment(
+        origin - Vector2::y_axis() * 0.5,
+        origin + Vector2::y_axis() * 0.5,
+        Stroke::new(0.005, Color32::BLACK),
+    );
 }
 
 fn paint_measured_feet(
