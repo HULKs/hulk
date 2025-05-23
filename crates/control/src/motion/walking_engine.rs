@@ -7,7 +7,7 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use kinematics::forward;
 use linear_algebra::{
-    vector, IntoFramed, Isometry2, Isometry3, Orientation3, Point2, Point3, Vector3,
+    vector, Isometry2, Isometry3, Orientation3, Point2, Point3, Pose3, Vector2, Vector3,
 };
 use serde::{Deserialize, Serialize};
 use types::{
@@ -187,35 +187,48 @@ impl WalkingEngine {
     fn calculate_return_offset(
         &self,
         parameters: &Parameters,
-        last_actuated_joints: &Joints,
+        last_actuated: &Joints,
         robot_to_ground: Option<&Isometry3<Robot, Ground>>,
     ) -> Option<Isometry2<Ground, UpcomingSupport>> {
-        let robot_to_ground = robot_to_ground?;
-
-        let left_sole =
-            robot_to_ground * forward::left_sole_to_robot(&last_actuated_joints.left_leg).as_pose();
-        let ground_to_left_upcoming_ground = Isometry2::from_parts(
-            vector![left_sole.position().x(), left_sole.position().y()]
-                - parameters.base.foot_offset_left.xy().inner.framed(),
-            -left_sole.orientation().inner.inverse().euler_angles().2,
-        )
-        .inverse();
-
-        let right_sole = robot_to_ground
-            * forward::right_sole_to_robot(&last_actuated_joints.right_leg).as_pose();
-        let ground_to_right_upcoming_ground = Isometry2::from_parts(
-            vector![right_sole.position().x(), right_sole.position().y()]
-                - parameters.base.foot_offset_right.xy().inner.framed(),
-            -right_sole.orientation().inner.inverse().euler_angles().2,
-        )
-        .inverse();
-
+        let robot_to_ground = *robot_to_ground?;
         let support_side = self.engine.mode.support_side()?;
+
+        let left_upcoming = ground_to_upcoming_support(
+            forward::left_sole_to_robot(&last_actuated.left_leg).as_pose(),
+            parameters.base.foot_offset_left.xy(),
+            robot_to_ground,
+        );
+        let right_upcoming = ground_to_upcoming_support(
+            forward::right_sole_to_robot(&last_actuated.right_leg).as_pose(),
+            parameters.base.foot_offset_right.xy(),
+            robot_to_ground,
+        );
+
         Some(match support_side {
-            Side::Left => ground_to_right_upcoming_ground,
-            Side::Right => ground_to_left_upcoming_ground,
+            Side::Left => right_upcoming,
+            Side::Right => left_upcoming,
         })
     }
+}
+
+fn ground_to_upcoming_support(
+    sole: Pose3<Robot>,
+    foot_offset: Vector2<Walk>,
+    robot_to_ground: Isometry3<Robot, Ground>,
+) -> Isometry2<Ground, UpcomingSupport> {
+    let sole_in_ground = robot_to_ground * sole;
+
+    let translation = vector![
+        sole_in_ground.position().x() - foot_offset.x(),
+        sole_in_ground.position().y() - foot_offset.y(),
+    ];
+    let yaw = -sole_in_ground
+        .orientation()
+        .inner
+        .inverse()
+        .euler_angles()
+        .2;
+    Isometry2::from_parts(translation, yaw).inverse()
 }
 
 fn compensate_arm_motion_with_torso_tilt(
