@@ -158,7 +158,7 @@ impl WalkTransition for Kicking {
 }
 
 impl Kicking {
-    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&mut self, context: &Context) -> MotorCommands<BodyJoints> {
         let feet = self.step.compute_feet(context);
         self.step
             .compute_joints(context, feet)

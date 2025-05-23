@@ -37,6 +37,7 @@ pub struct StepState {
     pub time_since_start: Duration,
     pub gyro_balancing: GyroBalancing,
     pub foot_leveling: FootLeveling,
+    pub last_engine_feet: Feet,
 }
 
 impl StepState {
@@ -46,6 +47,7 @@ impl StepState {
             time_since_start: Duration::ZERO,
             gyro_balancing: Default::default(),
             foot_leveling: Default::default(),
+            last_engine_feet: plan.start_feet,
         }
     }
 
@@ -182,47 +184,36 @@ impl StepState {
             .clamp(0.0, 1.0)
     }
 
-    pub fn compute_feet(&self, context: &Context) -> Feet {
-        let parameters = context.parameters;
-        let mut support_position = self.support_sole_position(parameters);
+    pub fn compute_feet(&mut self, context: &Context) -> Feet {
+        let parameters = &context.parameters;
+        let dt = context.cycle_time.last_cycle_duration.as_secs_f32();
+        let max_movement = parameters.max_foot_speed * dt;
+
+        let support_position = self.support_sole_position(parameters);
         let support_turn = self.support_orientation(parameters);
-        let mut swing_position = self.swing_sole_position();
+        let swing_position = self.swing_sole_position();
         let swing_turn = self.swing_orientation(parameters);
 
-        let current_feet = Feet::from_joints(
-            context.robot_to_walk,
-            &context.last_actuated_joints,
-            self.plan.support_side,
+        let limited_support_position = clamp_xy_movement(
+            self.last_engine_feet.support_sole.position(),
+            support_position,
+            max_movement,
+        );
+        let limited_swing_position = clamp_xy_movement(
+            self.last_engine_feet.swing_sole.position(),
+            swing_position,
+            max_movement,
         );
 
-        let max_speed = context.parameters.max_foot_speed;
-        let max_movement = max_speed * context.cycle_time.last_cycle_duration.as_secs_f32();
-        let support_sole_movement =
-            support_position.xy() - current_feet.support_sole.position().xy();
-        let clamped_support_movement = if support_sole_movement.norm() > max_movement {
-            support_sole_movement.normalize() * max_movement
-        } else {
-            support_sole_movement
-        };
-        support_position = (current_feet.support_sole.position().xy() + clamped_support_movement)
-            .extend(support_position.z());
+        let support_sole = Pose3::from_parts(limited_support_position, support_turn);
+        let swing_sole = Pose3::from_parts(limited_swing_position, swing_turn);
 
-        let swing_sole_movement = swing_position.xy() - current_feet.swing_sole.position().xy();
-        let clamped_swing_movement = if swing_sole_movement.norm() > max_movement {
-            swing_sole_movement.normalize() * max_movement
-        } else {
-            swing_sole_movement
-        };
-        swing_position = (current_feet.swing_sole.position().xy() + clamped_swing_movement)
-            .extend(swing_position.z());
-
-        let support_sole = Pose3::from_parts(support_position, support_turn);
-        let swing_sole = Pose3::from_parts(swing_position, swing_turn);
-
-        Feet {
+        let feet = Feet {
             support_sole,
             swing_sole,
-        }
+        };
+        self.last_engine_feet = feet;
+        feet
     }
 
     fn support_sole_position(&self, parameters: &Parameters) -> Point3<Walk> {
@@ -308,6 +299,16 @@ impl StepState {
 
         interpolated * start
     }
+}
+
+fn clamp_xy_movement<Frame>(
+    from: Point3<Frame>,
+    to: Point3<Frame>,
+    max_movement: f32,
+) -> Point3<Frame> {
+    let delta_xy = to.xy() - from.xy();
+    let clamped_xy = delta_xy.cap_magnitude(max_movement);
+    (from.xy() + clamped_xy).extend(to.z())
 }
 
 fn is_outside_support_polygon(

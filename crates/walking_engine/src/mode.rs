@@ -67,7 +67,7 @@ impl WalkTransition for Mode {
 }
 
 impl Mode {
-    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&mut self, context: &Context) -> MotorCommands<BodyJoints> {
         match self {
             Self::Standing(standing) => standing.compute_commands(context),
             Self::Starting(starting) => starting.compute_commands(context),

@@ -85,7 +85,7 @@ impl Engine {
         self.mode.tick(context);
     }
 
-    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&mut self, context: &Context) -> MotorCommands<BodyJoints> {
         self.mode
             .compute_commands(context)
             .override_with_arms(context)

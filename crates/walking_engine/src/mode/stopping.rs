@@ -91,7 +91,7 @@ impl WalkTransition for Stopping {
 }
 
 impl Stopping {
-    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&mut self, context: &Context) -> MotorCommands<BodyJoints> {
         let feet = self.step.compute_feet(context);
         self.step.compute_joints(context, feet).apply_stiffness(
             context.parameters.stiffnesses.leg_stiffness_walk,

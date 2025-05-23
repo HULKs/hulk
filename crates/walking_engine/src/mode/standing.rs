@@ -74,6 +74,7 @@ impl Standing {
             time_since_start: Duration::ZERO,
             gyro_balancing: Default::default(),
             foot_leveling: Default::default(),
+            last_engine_feet: feet,
         };
         zero_step_state
             .compute_joints(context, feet)
