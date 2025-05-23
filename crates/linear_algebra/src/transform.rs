@@ -103,6 +103,18 @@ where
     }
 }
 
+impl<From, Intermediate, To, Transformer, Inner, Output> Mul<Transform<From, Intermediate, Inner>>
+    for &Transform<Intermediate, To, Transformer>
+where
+    Transformer: Mul<Inner, Output = Output> + Copy,
+{
+    type Output = Transform<From, To, Output>;
+
+    fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
+        Self::Output::wrap(self.inner * rhs.inner)
+    }
+}
+
 impl<From, To, Transformer, Entity> Mul<&Framed<From, Entity>> for Transform<From, To, Transformer>
 where
     Transformer: Mul<Entity, Output = Entity>,
