@@ -15,7 +15,7 @@ use types::{
 pub struct Parameters {
     pub base: Base,
     pub catching_steps: CatchingStepsParameters,
-    pub gyro_balancing: GyroBalancingParameters,
+    pub upright_balancing: UprightBalancingParameters,
     pub foot_leveling: FootLevelingParameters,
     pub max_forward_acceleration: f32,
     pub max_base_inside_turn: f32,
@@ -70,16 +70,28 @@ pub struct Stiffnesses {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct StiffnessLossCompensation {
-    pub ankle_pitch: LegJoints<f32>,
+    pub ankle_pitch: LegJoints,
 }
 
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct GyroBalancingParameters {
-    pub balance_factors: LegJoints<f32>,
-    pub low_pass_factor: f32,
-    pub max_delta: LegJoints<f32>,
+pub struct UprightBalancingParameters {
+    pub gyro_low_pass_factor: f32,
+    pub gyro_gains: LegJoints,
+    pub roll_pid: PidControl,
+    pub pitch_pid: PidControl,
+    pub max_delta: LegJoints,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct PidControl {
+    pub kp: f32,
+    pub ki: f32,
+    pub kd: f32,
+    pub max_integral: f32,
 }
 
 #[derive(
