@@ -247,7 +247,6 @@ impl MotorCommandCollector {
             .current_minimizer
             .fill_if_subscribed(|| self.current_minimizer);
 
-        // Logic from former MotorCommandsOptimizer
         let mut motor_commands = motor_commands; // motor_commands is the variable already existing in the collector
 
         motor_commands.stiffnesses.left_arm.hand = 0.0;
