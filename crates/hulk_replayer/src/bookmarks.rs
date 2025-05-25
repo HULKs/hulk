@@ -6,7 +6,6 @@ use crate::coordinate_systems::AbsoluteTime;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bookmarks {
-    pub replay_identifier: u64,
     pub latest: AbsoluteTime,
     pub bookmarks: BTreeMap<AbsoluteTime, Bookmark>,
 }

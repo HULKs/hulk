@@ -1,12 +1,11 @@
 use std::{
     env::args,
-    fs::{self, File},
-    hash::{DefaultHasher, Hash, Hasher},
-    io,
+    fs::File,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+use blake3::Hash;
 use color_eyre::{
     eyre::{Report, WrapErr},
     Result,
@@ -27,15 +26,21 @@ use crate::{
     ReplayerHardwareInterface,
 };
 
-pub fn replay_identifier(replay_path: impl AsRef<Path>) -> io::Result<u64> {
-    let mut hasher = DefaultHasher::new();
-    replay_path.as_ref().hash(&mut hasher);
+pub fn replay_identifier(replay_path: impl AsRef<Path>) -> Result<Hash> {
+    let mut hasher = blake3::Hasher::new();
 
-    let metadata = fs::metadata(replay_path)?;
-    if let Ok(creation_time) = metadata.created() {
-        creation_time.hash(&mut hasher);
+    for child in replay_path.as_ref().read_dir()? {
+        let path = child?.path();
+        let Some(extension) = path.extension() else {
+            continue;
+        };
+        if extension != ".bincode" {
+            continue;
+        }
+        hasher.update_mmap(path)?;
     }
-    Ok(hasher.finish())
+
+    Ok(hasher.finalize())
 }
 
 pub fn replayer() -> Result<()> {

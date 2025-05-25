@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, time::SystemTime};
 
+use blake3::Hash;
 use color_eyre::{eyre::ContextCompat, Result};
 use eframe::{
     egui::{Align, CentralPanel, Context, Event, Layout, ViewportCommand},
@@ -20,7 +21,7 @@ use crate::{
 };
 
 pub struct Window {
-    replay_identifier: u64,
+    replay_identifier: Hash,
     bookmarks: Bookmarks,
     controls: Controls,
     time_sender: watch::Sender<PlayerState>,
@@ -33,7 +34,7 @@ pub struct Window {
 impl Window {
     pub fn new(
         context: &CreationContext,
-        replay_identifier: u64,
+        replay_identifier: Hash,
         indices: BTreeMap<String, Vec<Timing>>,
         time_sender: watch::Sender<PlayerState>,
         cancellation_token: CancellationToken,
@@ -46,10 +47,9 @@ impl Window {
             .wrap_err("failed to access persistent storage")?;
 
         let bookmarks = storage
-            .get_string(&format!("bookmarks_{replay_identifier}"))
+            .get_string(&format!("replay_{}", replay_identifier.to_hex()))
             .and_then(|content| serde_json::from_str(&content).ok())
             .unwrap_or_else(|| Bookmarks {
-                replay_identifier,
                 latest: frame_range.start(),
                 bookmarks: BTreeMap::new(),
             });
@@ -79,7 +79,10 @@ impl App for Window {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         let bookmarks =
             serde_json::to_string(&self.bookmarks).expect("failed to serialize bookmarks");
-        storage.set_string(&format!("bookmarks_{}", self.replay_identifier), bookmarks);
+        storage.set_string(
+            &format!("replay_{}", self.replay_identifier.to_hex()),
+            bookmarks,
+        );
     }
 
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
@@ -87,10 +90,18 @@ impl App for Window {
             log::info!("shutdown ui");
             context.send_viewport_cmd(ViewportCommand::Close);
         }
+        let absolute_position = AbsoluteTime::new(self.time_sender.borrow().time);
+
         context.input_mut(|input| {
             if input.consume_shortcut(&self.controls.play_pause) {
                 self.time_sender
                     .send_modify(|state| state.playing = !state.playing);
+            }
+            if input.consume_shortcut(&self.controls.create_bookmark) {
+                self.bookmarks.add(absolute_position)
+            }
+            if input.consume_shortcut(&self.controls.delete_bookmark) {
+                self.bookmarks.remove_if_exists(&absolute_position);
             }
             if input
                 .events
@@ -111,19 +122,13 @@ impl App for Window {
                     .send_modify(|state| state.playback_rate += 0.25);
             }
         });
+
         CentralPanel::default().show(context, |ui| {
-            let absolute_position = AbsoluteTime::new(self.time_sender.borrow().time);
             ui.horizontal_top(|ui| {
                 ui.label(format!(
                     "Speed: {}",
                     self.time_sender.borrow().playback_rate
                 ));
-                if ui.input_mut(|input| input.consume_shortcut(&self.controls.create_bookmark)) {
-                    self.bookmarks.add(absolute_position)
-                }
-                if ui.input_mut(|input| input.consume_shortcut(&self.controls.delete_bookmark)) {
-                    self.bookmarks.remove_if_exists(&absolute_position);
-                }
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     ui.menu_button("?", |ui| {
                         ui.add(&self.controls);
