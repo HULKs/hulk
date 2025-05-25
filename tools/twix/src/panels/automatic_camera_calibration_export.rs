@@ -17,6 +17,7 @@ pub const TOP_CAMERA_EXTRINSICS_PATH: &str =
 pub const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
     "camera_matrix_parameters.vision_bottom.extrinsic_rotations";
 pub const ROBOT_BODY_ROTATION_PATH: &str = "camera_matrix_parameters.robot_rotation";
+
 pub struct AutomaticCameraCalibrationExportPanel {
     nao: Arc<Nao>,
     top_camera: BufferHandle<Vector3<f32>>,
@@ -64,9 +65,9 @@ impl Widget for &mut AutomaticCameraCalibrationExportPanel {
                 .flatten()
                 .and_then(|value| serde_json::from_value::<Corrections>(value).ok())
             {
-                let top_angles = value.correction_in_camera_top.inner.euler_angles();
-                let bottom_angles = value.correction_in_camera_bottom.inner.euler_angles();
-                let body_angles = value.correction_in_robot.inner.euler_angles();
+                let top_angles = value.correction_in_camera_top.euler_angles();
+                let bottom_angles = value.correction_in_camera_bottom.euler_angles();
+                let body_angles = value.correction_in_robot.euler_angles();
 
                 draw_group(ui, "Top", top_angles, &self.nao, TOP_CAMERA_EXTRINSICS_PATH);
                 draw_angles_from_buffer(ui, &self.top_camera);
