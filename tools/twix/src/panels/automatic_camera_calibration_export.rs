@@ -16,7 +16,8 @@ pub const TOP_CAMERA_EXTRINSICS_PATH: &str =
     "camera_matrix_parameters.vision_top.extrinsic_rotations";
 pub const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
     "camera_matrix_parameters.vision_bottom.extrinsic_rotations";
-pub const ROBOT_BODY_ROTATION_PATH: &str = "camera_matrix_parameters.robot_rotation";
+pub const ROBOT_BODY_ROTATION_PATH: &str =
+    "camera_matrix_parameters.calibration.correction_in_robot";
 
 pub struct AutomaticCameraCalibrationExportPanel {
     nao: Arc<Nao>,
