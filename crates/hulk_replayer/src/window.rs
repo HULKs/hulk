@@ -12,17 +12,17 @@ use framework::Timing;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    bookmarks::Bookmarks,
     controls::Controls,
     coordinate_systems::{AbsoluteTime, FrameRange, RelativeTime, ViewportRange},
     labels::Labels,
     timeline::Timeline,
+    user_data::{BookmarkCollection, ReplayUserData},
     worker_thread::PlayerState,
 };
 
 pub struct Window {
     replay_identifier: Hash,
-    bookmarks: Bookmarks,
+    user_data: ReplayUserData,
     controls: Controls,
     time_sender: watch::Sender<PlayerState>,
     frame_range: FrameRange,
@@ -46,19 +46,19 @@ impl Window {
             .storage
             .wrap_err("failed to access persistent storage")?;
 
-        let bookmarks = storage
+        let user_data = storage
             .get_string(&format!("replay_{}", replay_identifier.to_hex()))
             .and_then(|content| serde_json::from_str(&content).ok())
-            .unwrap_or_else(|| Bookmarks {
+            .unwrap_or_else(|| ReplayUserData {
                 latest: frame_range.start(),
-                bookmarks: BTreeMap::new(),
+                bookmarks: BookmarkCollection::default(),
             });
 
-        time_sender.send_modify(|state| state.time = bookmarks.latest.inner());
+        time_sender.send_modify(|state| state.time = user_data.latest.inner());
 
         Ok(Self {
             replay_identifier,
-            bookmarks,
+            user_data,
             controls: Controls::default(),
             time_sender,
             frame_range,
@@ -77,11 +77,11 @@ impl Window {
 
 impl App for Window {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        let bookmarks =
-            serde_json::to_string(&self.bookmarks).expect("failed to serialize bookmarks");
+        let user_data =
+            serde_json::to_string(&self.user_data).expect("failed to serialize user_data");
         storage.set_string(
             &format!("replay_{}", self.replay_identifier.to_hex()),
-            bookmarks,
+            user_data,
         );
     }
 
@@ -98,10 +98,12 @@ impl App for Window {
                     .send_modify(|state| state.playing = !state.playing);
             }
             if input.consume_shortcut(&self.controls.create_bookmark) {
-                self.bookmarks.add(absolute_position)
+                self.user_data.bookmarks.add(absolute_position)
             }
             if input.consume_shortcut(&self.controls.delete_bookmark) {
-                self.bookmarks.remove_if_exists(&absolute_position);
+                self.user_data
+                    .bookmarks
+                    .remove_if_exists(&absolute_position);
             }
             if input
                 .events
@@ -146,11 +148,11 @@ impl App for Window {
                         &self.frame_range,
                         &mut self.viewport_range,
                         &mut relative_position,
-                        &mut self.bookmarks,
+                        &mut self.user_data.bookmarks,
                     ))
                     .changed()
                 {
-                    self.bookmarks.latest =
+                    self.user_data.latest =
                         relative_position.map_to_absolute_time(&self.frame_range);
                     self.replay_at_position(relative_position);
                 }

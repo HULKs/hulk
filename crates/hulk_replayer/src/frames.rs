@@ -8,11 +8,11 @@ use eframe::egui::{
 use framework::Timing;
 
 use crate::{
-    bookmarks::Bookmarks,
     controls::Controls,
     coordinate_systems::{
         AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
     },
+    user_data::BookmarkCollection,
 };
 
 pub struct Frames<'state> {
@@ -22,7 +22,7 @@ pub struct Frames<'state> {
     viewport_range: &'state mut ViewportRange,
     position: &'state mut RelativeTime,
     item_spacing: Vec2,
-    bookmarks: &'state mut Bookmarks,
+    bookmarks: &'state mut BookmarkCollection,
 }
 
 impl<'state> Frames<'state> {
@@ -33,7 +33,7 @@ impl<'state> Frames<'state> {
         viewport_range: &'state mut ViewportRange,
         position: &'state mut RelativeTime,
         item_spacing: Vec2,
-        bookmarks: &'state mut Bookmarks,
+        bookmarks: &'state mut BookmarkCollection,
     ) -> Self {
         Self {
             controls,

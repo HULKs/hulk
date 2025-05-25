@@ -5,11 +5,11 @@ use eframe::egui::{vec2, Align, Layout, Rect, Response, Ui, UiBuilder, Vec2, Wid
 use framework::Timing;
 
 use crate::{
-    bookmarks::Bookmarks,
     controls::Controls,
     coordinate_systems::{FrameRange, RelativeTime, ViewportRange},
     frames::Frames,
     ticks::{ticks_height, Ticks},
+    user_data::BookmarkCollection,
 };
 
 pub struct Timeline<'state> {
@@ -18,7 +18,7 @@ pub struct Timeline<'state> {
     frame_range: &'state FrameRange,
     viewport_range: &'state mut ViewportRange,
     position: &'state mut RelativeTime,
-    bookmarks: &'state mut Bookmarks,
+    bookmarks: &'state mut BookmarkCollection,
 }
 
 impl<'state> Timeline<'state> {
@@ -28,7 +28,7 @@ impl<'state> Timeline<'state> {
         frame_range: &'state FrameRange,
         viewport_range: &'state mut ViewportRange,
         position: &'state mut RelativeTime,
-        bookmarks: &'state mut Bookmarks,
+        bookmarks: &'state mut BookmarkCollection,
     ) -> Self {
         Self {
             controls,

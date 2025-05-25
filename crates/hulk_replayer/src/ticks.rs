@@ -8,10 +8,10 @@ use eframe::{
 };
 
 use crate::{
-    bookmarks::{Bookmark, Bookmarks},
     coordinate_systems::{
         AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
     },
+    user_data::{Bookmark, BookmarkCollection},
 };
 
 pub fn ticks_height(ui: &Ui) -> f32 {
@@ -22,7 +22,7 @@ pub struct Ticks<'state> {
     frame_range: &'state FrameRange,
     viewport_range: &'state ViewportRange,
     position: &'state mut RelativeTime,
-    bookmarks: &'state Bookmarks,
+    bookmarks: &'state BookmarkCollection,
 }
 
 impl<'state> Ticks<'state> {
@@ -30,7 +30,7 @@ impl<'state> Ticks<'state> {
         frame_range: &'state FrameRange,
         viewport_range: &'state ViewportRange,
         position: &'state mut RelativeTime,
-        bookmarks: &'state Bookmarks,
+        bookmarks: &'state BookmarkCollection,
     ) -> Self {
         Self {
             frame_range,
@@ -81,7 +81,7 @@ impl<'state> Ticks<'state> {
         font_id: FontId,
         background_color: Color32,
     ) {
-        for (at, bookmark) in &self.bookmarks.bookmarks {
+        for (at, bookmark) in &self.bookmarks.0 {
             self.show_bookmark(
                 painter,
                 screen_range,

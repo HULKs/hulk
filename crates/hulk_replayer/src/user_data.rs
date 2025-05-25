@@ -5,27 +5,30 @@ use serde::{Deserialize, Serialize};
 use crate::coordinate_systems::AbsoluteTime;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Bookmarks {
+pub struct ReplayUserData {
     pub latest: AbsoluteTime,
-    pub bookmarks: BTreeMap<AbsoluteTime, Bookmark>,
+    pub bookmarks: BookmarkCollection,
 }
 
-impl Bookmarks {
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct BookmarkCollection(pub BTreeMap<AbsoluteTime, Bookmark>);
+
+impl BookmarkCollection {
     pub fn add(&mut self, at: AbsoluteTime) {
-        self.bookmarks.insert(
+        self.0.insert(
             at,
             Bookmark {
-                name: format!("#{}", self.bookmarks.len() + 1),
+                name: format!("#{}", self.0.len() + 1),
             },
         );
     }
 
     pub fn remove_if_exists(&mut self, position: &AbsoluteTime) -> Option<Bookmark> {
-        self.bookmarks.remove(position)
+        self.0.remove(position)
     }
 
     pub fn next_after(&self, position: &AbsoluteTime) -> Option<(AbsoluteTime, &Bookmark)> {
-        self.bookmarks
+        self.0
             .iter()
             .filter_map(|(at, bookmark)| {
                 if at > position {
@@ -38,7 +41,7 @@ impl Bookmarks {
     }
 
     pub fn previous_before(&self, position: &AbsoluteTime) -> Option<(AbsoluteTime, &Bookmark)> {
-        self.bookmarks
+        self.0
             .iter()
             .filter_map(|(at, bookmark)| {
                 if at < position {

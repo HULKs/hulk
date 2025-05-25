@@ -1,5 +1,4 @@
 #![recursion_limit = "256"]
-mod bookmarks;
 mod controls;
 mod coordinate_systems;
 mod frames;
@@ -7,6 +6,7 @@ mod labels;
 mod replayer;
 mod ticks;
 mod timeline;
+mod user_data;
 mod window;
 mod worker_thread;
 
