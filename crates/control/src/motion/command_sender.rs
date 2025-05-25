@@ -15,7 +15,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    optimized_motor_commands: Input<MotorCommands<Joints<f32>>, "optimized_motor_commands">,
+    optimized_motor_commands: Input<MotorCommands<Joints<f32>>, "motor_commands">,
     leds: Input<Leds, "leds">,
     joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
