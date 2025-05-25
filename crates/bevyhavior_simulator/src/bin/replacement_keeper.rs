@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use scenario::scenario;
-use spl_network_messages::{GameState, Penalty, PlayerNumber};
+use spl_network_messages::{GameState, Penalty, PlayerNumber, Team};
 
 use bevyhavior_simulator::{
     autoref::{AutorefState, GoalMode},
@@ -60,6 +60,7 @@ fn update(
             Penalty::Manual {
                 remaining: Duration::from_secs(5),
             },
+            Team::Hulks,
         ));
     }
 
@@ -68,7 +69,10 @@ fn update(
             println!("No robot became replacement keeper");
             exit.send(AppExit::from_code(1));
         }
-        game_controller_commands.send(GameControllerCommand::Unpenalize(PlayerNumber::One));
+        game_controller_commands.send(GameControllerCommand::Unpenalize(
+            PlayerNumber::One,
+            Team::Hulks,
+        ));
     }
 
     if time.ticks() >= 10_000 {

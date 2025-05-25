@@ -9,13 +9,18 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, Team};
+use spl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
 use types::{
-    ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::FieldDimensions,
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
-    game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
+    filtered_game_state::FilteredGameState,
+    filtered_whistle::FilteredWhistle,
+    game_controller_state::GameControllerState,
+    parameters::GameStateFilterParameters,
     players::Players,
+    world_state::{BallState, LastBallState},
 };
 
 #[derive(Deserialize, Serialize)]
@@ -24,6 +29,9 @@ pub struct GameControllerStateFilter {
     opponent_state: State,
     last_game_controller_state: Option<GameControllerState>,
     whistle_in_set_ball_position: Option<Point2<Field>>,
+    last_observed_ball: Option<(SystemTime, BallState)>,
+    last_time_hulk_was_penalized: Option<SystemTime>,
+    last_time_opponent_was_penalized: Option<SystemTime>,
 }
 
 #[context]
@@ -35,13 +43,13 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
-    filtered_kicking_team: Input<Option<Team>, "filtered_kicking_team?">,
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     player_number: Parameter<PlayerNumber, "player_number">,
 
     ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+    last_ball_state: CyclerState<Option<LastBallState>, "last_ball_state">,
 
     whistle_in_set_ball_position:
         AdditionalOutput<Option<Point2<Field>>, "whistle_in_set_ball_position">,
@@ -59,6 +67,9 @@ impl GameControllerStateFilter {
             state: State::Initial,
             opponent_state: State::Initial,
             whistle_in_set_ball_position: None,
+            last_observed_ball: Default::default(),
+            last_time_hulk_was_penalized: Default::default(),
+            last_time_opponent_was_penalized: Default::default(),
         })
     }
 
@@ -82,6 +93,12 @@ impl GameControllerStateFilter {
             .chain(new_opponent_penalties_last_cycle.iter())
             .any(|(_, penalty)| matches!(penalty, Penalty::IllegalMotionInSet { .. }));
 
+        let kicking_team = self.find_kicking_team(
+            &context,
+            &new_own_penalties_last_cycle,
+            &new_opponent_penalties_last_cycle,
+        );
+
         let game_states = self.filter_game_states(
             *context.ground_to_field,
             context.ball_position,
@@ -93,7 +110,7 @@ impl GameControllerStateFilter {
             *context.visual_referee_proceed_to_ready,
             *context.player_number,
             did_receive_motion_in_set_penalty,
-            context.filtered_kicking_team.copied(),
+            kicking_team,
         );
 
         let filtered_game_controller_state = FilteredGameControllerState {
@@ -101,7 +118,7 @@ impl GameControllerStateFilter {
             opponent_game_state: game_states.opponent,
             remaining_time_in_half: context.game_controller_state.remaining_time_in_half,
             game_phase: context.game_controller_state.game_phase,
-            kicking_team: context.filtered_kicking_team.copied(),
+            kicking_team,
             penalties: context.game_controller_state.penalties,
             remaining_number_of_messages: context
                 .game_controller_state
@@ -213,6 +230,124 @@ impl GameControllerStateFilter {
         FilteredGameStates {
             own: filtered_game_state,
             opponent: filtered_opponent_game_state,
+        }
+    }
+
+    fn find_kicking_team(
+        &mut self,
+        context: &CycleContext,
+        new_own_penalties_last_cycle: &HashMap<PlayerNumber, Penalty>,
+        new_opponent_penalties_last_cycle: &HashMap<PlayerNumber, Penalty>,
+    ) -> Option<Team> {
+        let game_controller_state = context.game_controller_state;
+
+        if let Some(kicking_team) = game_controller_state.kicking_team {
+            return Some(kicking_team);
+        }
+
+        if let Some(LastBallState { time, ball }) = *context.last_ball_state {
+            self.last_observed_ball = Some((time, ball));
+        };
+
+        let (last_observed_ball_time, last_observed_ball) = self.last_observed_ball?;
+        let is_not_in_penalty_kick = game_controller_state.sub_state != Some(SubState::PenaltyKick);
+
+        if is_not_in_penalty_kick
+            && context
+                .cycle_time
+                .start_time
+                .duration_since(last_observed_ball_time)
+                .expect("time ran backwards")
+                > context.config.duration_to_keep_observed_ball
+        {
+            self.last_observed_ball = None;
+            return None;
+        }
+
+        let ball_is_in_opponent_half = last_observed_ball.ball_in_field.x().is_sign_positive();
+
+        if !new_own_penalties_last_cycle.is_empty() {
+            self.last_time_hulk_was_penalized = Some(context.cycle_time.start_time);
+        }
+
+        if self
+            .last_time_hulk_was_penalized
+            .is_some_and(|last_time_hulk_was_penalized| {
+                context
+                    .cycle_time
+                    .start_time
+                    .duration_since(last_time_hulk_was_penalized)
+                    .expect("time ran backwards")
+                    > context.config.duration_to_keep_new_penalties
+            })
+        {
+            self.last_time_hulk_was_penalized = None;
+        }
+
+        if !new_opponent_penalties_last_cycle.is_empty() {
+            self.last_time_opponent_was_penalized = Some(context.cycle_time.start_time);
+        }
+
+        if self
+            .last_time_opponent_was_penalized
+            .is_some_and(|last_time_opponent_was_penalized| {
+                context
+                    .cycle_time
+                    .start_time
+                    .duration_since(last_time_opponent_was_penalized)
+                    .expect("time ran backwards")
+                    > context.config.duration_to_keep_new_penalties
+            })
+        {
+            self.last_time_opponent_was_penalized = None;
+        }
+
+        match game_controller_state {
+            GameControllerState {
+                sub_state: Some(SubState::CornerKick),
+                ..
+            } if ball_is_in_opponent_half => Some(Team::Hulks),
+            GameControllerState {
+                sub_state: Some(SubState::CornerKick),
+                ..
+            } if !ball_is_in_opponent_half => Some(Team::Opponent),
+            GameControllerState {
+                sub_state: Some(SubState::GoalKick),
+                ..
+            } if ball_is_in_opponent_half => Some(Team::Opponent),
+            GameControllerState {
+                sub_state: Some(SubState::GoalKick),
+                ..
+            } if !ball_is_in_opponent_half => Some(Team::Hulks),
+            GameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                ..
+            } if ball_is_in_opponent_half => Some(Team::Hulks),
+            GameControllerState {
+                sub_state: Some(SubState::PenaltyKick),
+                ..
+            } if !ball_is_in_opponent_half => Some(Team::Opponent),
+            GameControllerState {
+                game_state: GameState::Playing,
+                sub_state: None,
+                ..
+            } => match (
+                context.filtered_whistle.is_detected,
+                ball_is_in_opponent_half,
+            ) {
+                (true, false) => Some(Team::Opponent),
+                (true, true) => Some(Team::Hulks),
+                _ => None,
+            },
+            GameControllerState {
+                sub_state: Some(SubState::PushingFreeKick),
+                ..
+            } if self.last_time_hulk_was_penalized.is_some() => Some(Team::Opponent),
+            GameControllerState {
+                sub_state: Some(SubState::PushingFreeKick),
+                ..
+            } if self.last_time_opponent_was_penalized.is_some() => Some(Team::Hulks),
+            _ => None,
         }
     }
 }

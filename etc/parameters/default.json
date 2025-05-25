@@ -727,9 +727,6 @@
       }
     ]
   },
-  "kicking_team_filter": {
-    "duration_to_keep_observed_ball": { "nanos": 0, "secs": 8 }
-  },
   "localization": {
     "circle_measurement_noise": [1000.0, 1000.0],
     "gradient_convergence_threshold": 1e-2,
@@ -1374,7 +1371,9 @@
       "secs": 4
     },
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
-    "whistle_acceptance_goal_distance": [0.5, 0.5]
+    "whistle_acceptance_goal_distance": [0.5, 0.5],
+    "duration_to_keep_observed_ball": { "nanos": 0, "secs": 14 },
+    "duration_to_keep_new_penalties": { "nanos": 0, "secs": 30 }
   },
   "referee_pose_detection_filter": {
     "initial_message_grace_period": {

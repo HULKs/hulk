@@ -63,7 +63,6 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "control::ground_contact_detector",
                     "control::ground_provider",
                     "control::kick_selector",
-                    "control::kicking_team_filter",
                     "control::kinematics_provider",
                     "control::led_status",
                     "control::localization",

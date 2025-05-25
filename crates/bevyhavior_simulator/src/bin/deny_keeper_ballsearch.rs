@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use spl_network_messages::{GameState, PlayerNumber, Team};
 use types::action::Action;
 
 use bevyhavior_simulator::{
@@ -54,7 +54,11 @@ fn update(
             PlayerNumber::Six,
             PlayerNumber::Seven,
         ] {
-            game_controller_commands.send(GameControllerCommand::Penalize(player_numer, penalty));
+            game_controller_commands.send(GameControllerCommand::Penalize(
+                player_numer,
+                penalty,
+                Team::Hulks,
+            ));
         }
         robots
             .iter_mut()

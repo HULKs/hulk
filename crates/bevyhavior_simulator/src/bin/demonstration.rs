@@ -1,10 +1,8 @@
-use std::time::Duration;
-
 use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
-use spl_network_messages::{GameState, Penalty, PlayerNumber, SubState, Team};
+use spl_network_messages::{GameState, PlayerNumber, SubState, Team};
 
 use bevyhavior_simulator::{
     ball::BallResource,
@@ -71,13 +69,7 @@ fn update(
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::PushingFreeKick),
             Team::Opponent,
-        ));
-        // Penalize robot
-        game_controller_commands.send(GameControllerCommand::Penalize(
-            PlayerNumber::Four,
-            Penalty::PlayerPushing {
-                remaining: Duration::from_secs(45),
-            },
+            Some(PlayerNumber::Four),
         ));
         // Manually move robot to some location on field
         robots
