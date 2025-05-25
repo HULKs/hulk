@@ -9,6 +9,7 @@ homepage.workspace = true
 audio = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }
+blake3 = { workspace = true }
 buffered_watch = { workspace = true }
 calibration = { workspace = true }
 chrono = { workspace = true }
@@ -25,6 +26,7 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 hula_types = { workspace = true }
+hulk_widgets = { workspace = true }
 ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }

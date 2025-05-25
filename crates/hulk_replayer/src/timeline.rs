@@ -5,30 +5,38 @@ use eframe::egui::{vec2, Align, Layout, Rect, Response, Ui, UiBuilder, Vec2, Wid
 use framework::Timing;
 
 use crate::{
+    controls::Controls,
     coordinate_systems::{FrameRange, RelativeTime, ViewportRange},
     frames::Frames,
     ticks::{ticks_height, Ticks},
+    user_data::BookmarkCollection,
 };
 
 pub struct Timeline<'state> {
+    controls: &'state Controls,
     indices: &'state BTreeMap<String, Vec<Timing>>,
     frame_range: &'state FrameRange,
     viewport_range: &'state mut ViewportRange,
     position: &'state mut RelativeTime,
+    bookmarks: &'state mut BookmarkCollection,
 }
 
 impl<'state> Timeline<'state> {
     pub fn new(
+        controls: &'state Controls,
         indices: &'state BTreeMap<String, Vec<Timing>>,
         frame_range: &'state FrameRange,
         viewport_range: &'state mut ViewportRange,
         position: &'state mut RelativeTime,
+        bookmarks: &'state mut BookmarkCollection,
     ) -> Self {
         Self {
+            controls,
             indices,
             frame_range,
             viewport_range,
             position,
+            bookmarks,
         }
     }
 }
@@ -46,11 +54,13 @@ impl Widget for Timeline<'_> {
             ui.advance_cursor_after_rect(ticks_rect);
 
             let response = ui.add(Frames::new(
+                self.controls,
                 self.indices,
                 self.frame_range,
                 self.viewport_range,
                 self.position,
                 original_item_spacing,
+                self.bookmarks,
             ));
 
             ui.scope_builder(
@@ -58,7 +68,13 @@ impl Widget for Timeline<'_> {
                     .max_rect(ticks_rect)
                     .layout(Layout::top_down_justified(Align::Min)),
                 |ui| {
-                    Ticks::new(self.frame_range, self.viewport_range, self.position).ui(ui);
+                    Ticks::new(
+                        self.frame_range,
+                        self.viewport_range,
+                        self.position,
+                        self.bookmarks,
+                    )
+                    .ui(ui);
                 },
             );
 

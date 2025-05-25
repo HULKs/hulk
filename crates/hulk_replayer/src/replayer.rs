@@ -1,5 +1,11 @@
-use std::{env::args, fs::File, path::PathBuf, sync::Arc};
+use std::{
+    env::args,
+    fs::File,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
+use blake3::Hash;
 use color_eyre::{
     eyre::{Report, WrapErr},
     Result,
@@ -19,6 +25,23 @@ use crate::{
     worker_thread::{spawn_workers, PlayerState},
     ReplayerHardwareInterface,
 };
+
+pub fn replay_identifier(replay_path: impl AsRef<Path>) -> Result<Hash> {
+    let mut hasher = blake3::Hasher::new();
+
+    for child in replay_path.as_ref().read_dir()? {
+        let path = child?.path();
+        let Some(extension) = path.extension() else {
+            continue;
+        };
+        if extension != ".bincode" {
+            continue;
+        }
+        hasher.update_mmap(path)?;
+    }
+
+    Ok(hasher.finalize())
+}
 
 pub fn replayer() -> Result<()> {
     let replay_path = PathBuf::from(
@@ -49,6 +72,9 @@ pub fn replayer() -> Result<()> {
     };
 
     let ids = hardware_interface.get_ids();
+
+    let replay_identifier =
+        replay_identifier(&replay_path).wrap_err("failed to compute replay identifier")?;
 
     let replayer = Replayer::new(
         Arc::new(hardware_interface),
@@ -90,7 +116,13 @@ pub fn replayer() -> Result<()> {
                     context.request_repaint();
                 },
             );
-            Ok(Box::new(Window::new(indices, time_sender, keep_running)))
+            Ok(Box::new(Window::new(
+                creation_context,
+                replay_identifier,
+                indices,
+                time_sender,
+                keep_running,
+            )?))
         }),
     )
     .map_err(|error| Report::msg(error.to_string()))

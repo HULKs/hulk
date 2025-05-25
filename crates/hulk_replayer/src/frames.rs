@@ -1,38 +1,48 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{
-    pos2, vec2, Color32, CornerRadius, Key, Painter, PointerButton, Pos2, Rect, Response, Sense,
-    Stroke, Ui, Vec2, Widget,
+    pos2, vec2, Color32, CornerRadius, Painter, PointerButton, Pos2, Rect, Response, Sense, Stroke,
+    Ui, Vec2, Widget,
 };
 
 use framework::Timing;
 
-use crate::coordinate_systems::{
-    AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
+use crate::{
+    controls::Controls,
+    coordinate_systems::{
+        AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
+    },
+    user_data::BookmarkCollection,
 };
 
 pub struct Frames<'state> {
+    controls: &'state Controls,
     indices: &'state BTreeMap<String, Vec<Timing>>,
     frame_range: &'state FrameRange,
     viewport_range: &'state mut ViewportRange,
     position: &'state mut RelativeTime,
     item_spacing: Vec2,
+    bookmarks: &'state mut BookmarkCollection,
 }
 
 impl<'state> Frames<'state> {
     pub fn new(
+        controls: &'state Controls,
         indices: &'state BTreeMap<String, Vec<Timing>>,
         frame_range: &'state FrameRange,
         viewport_range: &'state mut ViewportRange,
         position: &'state mut RelativeTime,
         item_spacing: Vec2,
+        bookmarks: &'state mut BookmarkCollection,
     ) -> Self {
         Self {
+            controls,
             indices,
             frame_range,
             viewport_range,
             position,
             item_spacing,
+            bookmarks,
         }
     }
 
@@ -47,6 +57,8 @@ impl<'state> Frames<'state> {
         keys: Keys,
         screen_range: &ScreenRange,
     ) -> bool {
+        let original_position = *self.position;
+
         if double_clicked {
             *self.viewport_range = ViewportRange::from_frame_range(self.frame_range);
             return false;
@@ -56,14 +68,11 @@ impl<'state> Frames<'state> {
             AbsoluteScreen::new(cursor_position.map_or(0.0, |position| position.x))
                 .map_to_relative_screen(screen_range);
 
-        let position_changed_by_click = {
-            let cursor_position = cursor_position.map_to_relative_time(self.viewport_range);
-            let position_changed = cursor_down && cursor_position != *self.position;
-            if position_changed {
-                *self.position = cursor_position;
-            }
-            position_changed
-        };
+        let cursor_position = cursor_position.map_to_relative_time(self.viewport_range);
+        let position_changed = cursor_down && cursor_position != *self.position;
+        if position_changed {
+            *self.position = cursor_position;
+        }
 
         let (zoom_offset, viewport_length) = if shift_down {
             (
@@ -105,14 +114,24 @@ impl<'state> Frames<'state> {
         if keys.step_forward {
             *self.position += RelativeTime::new(0.01);
         }
+        if keys.jump_to_next_bookmark {
+            if let Some((next_bookmark_time, _)) = self
+                .bookmarks
+                .next_after(&self.position.map_to_absolute_time(self.frame_range))
+            {
+                *self.position = next_bookmark_time.map_to_relative_time(self.frame_range);
+            }
+        };
+        if keys.jump_to_previous_bookmark {
+            if let Some((previous_bookmark_time, _)) = self
+                .bookmarks
+                .previous_before(&self.position.map_to_absolute_time(self.frame_range))
+            {
+                *self.position = previous_bookmark_time.map_to_relative_time(self.frame_range);
+            }
+        };
 
-        position_changed_by_click
-            || keys.jump_backward_large
-            || keys.jump_forward_large
-            || keys.jump_backward_small
-            || keys.jump_forward_small
-            || keys.step_backward
-            || keys.step_forward
+        original_position != *self.position
     }
 
     fn show_cyclers(&self, painter: &Painter, color: Color32, screen_range: &ScreenRange) {
@@ -195,7 +214,7 @@ impl Widget for Frames<'_> {
         );
 
         let (double_clicked, cursor_position, cursor_down, scroll_delta, shift_down, keys) = ui
-            .input(|input| {
+            .input_mut(|input| {
                 (
                     input.pointer.button_double_clicked(PointerButton::Primary),
                     input.pointer.interact_pos(),
@@ -203,14 +222,20 @@ impl Widget for Frames<'_> {
                     input.smooth_scroll_delta,
                     input.modifiers.shift,
                     Keys {
-                        jump_backward_large: input.key_pressed(Key::J)
-                            || input.key_pressed(Key::ArrowDown),
-                        jump_forward_large: input.key_pressed(Key::L)
-                            || input.key_pressed(Key::ArrowUp),
-                        jump_backward_small: input.key_pressed(Key::ArrowLeft),
-                        jump_forward_small: input.key_pressed(Key::ArrowRight),
-                        step_backward: input.key_pressed(Key::Comma),
-                        step_forward: input.key_pressed(Key::Period),
+                        jump_backward_large: input
+                            .consume_shortcut(&self.controls.jump_large.backward),
+                        jump_forward_large: input
+                            .consume_shortcut(&self.controls.jump_large.forward),
+                        jump_backward_small: input
+                            .consume_shortcut(&self.controls.jump_small.backward),
+                        jump_forward_small: input
+                            .consume_shortcut(&self.controls.jump_small.forward),
+                        step_backward: input.consume_shortcut(&self.controls.step.backward),
+                        step_forward: input.consume_shortcut(&self.controls.step.forward),
+                        jump_to_previous_bookmark: input
+                            .consume_shortcut(&self.controls.bookmark.backward),
+                        jump_to_next_bookmark: input
+                            .consume_shortcut(&self.controls.bookmark.forward),
                     },
                 )
             });
@@ -218,7 +243,7 @@ impl Widget for Frames<'_> {
         if self.interact(
             double_clicked,
             cursor_position,
-            cursor_down,
+            cursor_down && response.hovered(),
             scroll_delta,
             shift_down,
             keys,
@@ -241,4 +266,6 @@ struct Keys {
     jump_forward_small: bool,
     step_backward: bool,
     step_forward: bool,
+    jump_to_next_bookmark: bool,
+    jump_to_previous_bookmark: bool,
 }
