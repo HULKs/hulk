@@ -14,6 +14,7 @@ use types::{
     },
     motion_selection::{MotionSelection, MotionType},
     motor_commands::MotorCommands,
+    primary_state::PrimaryState,
     sensor_data::SensorData,
 };
 
@@ -54,6 +55,9 @@ pub struct CycleContext {
     current_minimizer_parameters:
         Parameter<CurrentMinimizerParameters, "current_minimizer_parameters">,
     stand_up_stiffness_upper_body: Parameter<f32, "stand_up_stiffness_upper_body">,
+    only_one_foot_has_ground_contact: Input<bool, "only_one_foot_has_ground_contact">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
+    primary_state: Input<PrimaryState, "world_state.robot.primary_state">,
 
     motor_position_difference: AdditionalOutput<Joints<f32>, "motor_positions_difference">,
     current_minimizer: AdditionalOutput<CurrentMinimizer, "current_minimizer">,
@@ -242,6 +246,19 @@ impl MotorCommandCollector {
         context
             .current_minimizer
             .fill_if_subscribed(|| self.current_minimizer);
+
+        // Logic from former MotorCommandsOptimizer
+        let mut motor_commands = motor_commands; // motor_commands is the variable already existing in the collector
+
+        motor_commands.stiffnesses.left_arm.hand = 0.0;
+        motor_commands.stiffnesses.right_arm.hand = 0.0;
+
+        if (*context.only_one_foot_has_ground_contact || !*context.has_ground_contact)
+            && (*context.primary_state == PrimaryState::Initial
+                || *context.primary_state == PrimaryState::Penalized)
+        {
+            motor_commands.stiffnesses = Joints::fill(0.3);
+        }
 
         Ok(MainOutputs {
             motor_commands: motor_commands.into(),
