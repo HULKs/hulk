@@ -66,7 +66,7 @@ async fn replay_worker(
     loop {
         select! {
             _ = parameters_receiver.wait_for_change() => {}
-            _ = sleep(Duration::from_secs(1)) => {}
+            // _ = sleep(Duration::from_secs(1)) => {}
             result = receiver.changed() => {
                 if result.is_err() {
                     // channel closed, quit
