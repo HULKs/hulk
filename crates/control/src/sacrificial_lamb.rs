@@ -7,8 +7,11 @@ use std::{
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GameControllerStateMessage, Penalty, PlayerNumber};
-use types::{cycle_time::CycleTime, messages::IncomingMessage, pose_detection::VisualRefereeState};
+use spl_network_messages::{GameControllerStateMessage, GameState, Penalty, PlayerNumber};
+use types::{
+    cycle_time::CycleTime, game_controller_state::GameControllerState, messages::IncomingMessage,
+    pose_detection::VisualRefereeState,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct SacrificialLamb {
@@ -22,6 +25,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    game_controller_state: Input<Option<GameControllerState>, "game_controller_state?">,
+
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
@@ -92,12 +97,21 @@ impl SacrificialLamb {
                 motion_in_standby
             });
 
+        let is_standby = matches!(
+            context.game_controller_state,
+            Some(GameControllerState {
+                game_state: GameState::Standby,
+                ..
+            })
+        );
+
         self.visual_referee_state = match (
             self.visual_referee_state,
             current_majority_vote_verdict,
             motion_in_standby,
+            is_standby,
         ) {
-            (VisualRefereeState::WaitingForDetections, true, motion_in_standby) => {
+            (VisualRefereeState::WaitingForDetections, true, motion_in_standby, _) => {
                 if motion_in_standby {
                     VisualRefereeState::WaitingForDetections
                 } else {
@@ -106,10 +120,10 @@ impl SacrificialLamb {
                     }
                 }
             }
-            (VisualRefereeState::WaitingForOpponentPenalties { .. }, _, true) => {
+            (VisualRefereeState::WaitingForOpponentPenalties { .. }, _, true, _) => {
                 VisualRefereeState::WaitingForDetections
             }
-            (VisualRefereeState::WaitingForOpponentPenalties { active_since }, _, false) => {
+            (VisualRefereeState::WaitingForOpponentPenalties { active_since }, _, false, _) => {
                 if cycle_start_time
                     .duration_since(active_since)
                     .expect("time ran backwards")
@@ -126,10 +140,10 @@ impl SacrificialLamb {
                     VisualRefereeState::WaitingForOpponentPenalties { active_since }
                 }
             }
-            (VisualRefereeState::WaitingForOwnPenalties { .. }, _, true) => {
+            (VisualRefereeState::WaitingForOwnPenalties { .. }, _, true, _) => {
                 VisualRefereeState::WaitingForDetections
             }
-            (VisualRefereeState::WaitingForOwnPenalties { active_since }, _, false) => {
+            (VisualRefereeState::WaitingForOwnPenalties { active_since }, _, false, _) => {
                 if cycle_start_time
                     .duration_since(active_since)
                     .expect("time ran backwards")
@@ -140,7 +154,10 @@ impl SacrificialLamb {
                     VisualRefereeState::WaitingForOwnPenalties { active_since }
                 }
             }
-            (current_state, _, _) => current_state,
+            (VisualRefereeState::GoToReady, _, _, false) => {
+                VisualRefereeState::WaitingForDetections
+            }
+            (current_state, _, _, _) => current_state,
         };
 
         context
