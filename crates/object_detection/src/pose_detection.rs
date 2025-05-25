@@ -7,7 +7,8 @@ use color_eyre::{
 use itertools::Itertools;
 use ndarray::{s, ArrayView};
 use openvino::{
-    CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, Tensor,
+    CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, RwPropertyKey,
+    Tensor,
 };
 use serde::{Deserialize, Serialize};
 
@@ -81,6 +82,12 @@ impl PoseDetection {
             .with_extension("bin");
 
         let mut core = Core::new()?;
+        core.set_properties(
+            &DeviceType::CPU,
+            [(RwPropertyKey::InferenceNumThreads, "1")],
+        )
+        .wrap_err("failed to set InferenceNumThreads")?;
+
         let network = core
             .read_model_from_file(
                 model_path
