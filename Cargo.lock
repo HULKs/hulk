@@ -3184,7 +3184,7 @@ dependencies = [
  "thiserror 1.0.69",
  "type-map",
  "web-time",
- "wgpu 24.0.3",
+ "wgpu 24.0.5",
  "winit",
 ]
 
@@ -5530,20 +5530,20 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2886843bf800fba2e3377cff24abf6379b4c4d5c6681eaf9ea5b0d15090450bd"
+checksum = "78bed444cc8a2160f01cbcf811ef18cac863ad68ae8ca62092e8db51d51c761c"
 dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "mlua"
-version = "0.10.3"
+version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3f763c1041eff92ffb5d7169968a327e1ed2ebfe425dac0ee5a35f29082534b"
+checksum = "c1f5f8fbebc7db5f671671134b9321c4b9aa9adeafccfd9a8c020ae45c6a35d0"
 dependencies = [
  "bstr",
  "either",
@@ -5552,15 +5552,16 @@ dependencies = [
  "num-traits",
  "parking_lot",
  "rustc-hash 2.1.1",
+ "rustversion",
  "serde",
  "serde-value",
 ]
 
 [[package]]
 name = "mlua-sys"
-version = "0.6.7"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1901c1a635a22fe9250ffcc4fcc937c16b47c2e9e71adba8784af8bca1f69594"
+checksum = "380c1f7e2099cafcf40e51d3a9f20a346977587aa4d012eae1f043149a728a93"
 dependencies = [
  "cc",
  "cfg-if",
@@ -8443,7 +8444,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "memchr",
- "mio 1.0.3",
+ "mio 1.0.4",
  "terminal-trx",
  "windows-sys 0.59.0",
  "xterm-color",
@@ -8638,14 +8639,14 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.45.0"
+version = "1.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2513ca694ef9ede0fb23fe71a4ee4107cb102b9dc1930f6d0fd77aae068ae165"
+checksum = "75ef51a33ef1da925cea3e4eb122833cb377c61439ca401b770f54902b806779"
 dependencies = [
  "backtrace",
  "bytes",
  "libc",
- "mio 1.0.3",
+ "mio 1.0.4",
  "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
@@ -9608,9 +9609,9 @@ dependencies = [
 
 [[package]]
 name = "wgpu"
-version = "24.0.3"
+version = "24.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35904fb00ba2d2e0a4d002fcbbb6e1b89b574d272a50e5fc95f6e81cf281c245"
+checksum = "6b0b3436f0729f6cdf2e6e9201f3d39dc95813fad61d826c1ed07918b4539353"
 dependencies = [
  "arrayvec",
  "bitflags 2.9.1",
@@ -9626,7 +9627,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "wgpu-core 24.0.2",
+ "wgpu-core 24.0.5",
  "wgpu-hal 24.0.4",
  "wgpu-types 24.0.0",
 ]
@@ -9658,9 +9659,9 @@ dependencies = [
 
 [[package]]
 name = "wgpu-core"
-version = "24.0.2"
+version = "24.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "671c25545d479b47d3f0a8e373aceb2060b67c6eb841b24ac8c32348151c7a0c"
+checksum = "7f0aa306497a238d169b9dc70659105b4a096859a34894544ca81719242e1499"
 dependencies = [
  "arrayvec",
  "bit-vec 0.8.0",
