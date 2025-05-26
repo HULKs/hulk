@@ -325,7 +325,7 @@ impl LedStatus {
                     Role::Striker => Rgb::RED,
                     Role::StrikerSupporter => Rgb::TURQUOISE,
                 };
-                let majority_voted_viusal_referee_color =
+                let majority_voted_visual_referee_color =
                     if ready_signal_detected || detected_free_kick_kicking_team.is_some() {
                         Some(Rgb::YELLOW)
                     } else {
@@ -344,40 +344,40 @@ impl LedStatus {
                 (
                     Eye {
                         color_at_0: ball_color_top
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_45: ball_color_top
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_90: ball_background_color
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_135: ball_color_bottom
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_180: ball_color_bottom
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_225: ball_color_bottom
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_270: ball_background_color
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .unwrap_or(Rgb::BLACK),
                         color_at_315: ball_color_top
-                            .or(majority_voted_viusal_referee_color)
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
