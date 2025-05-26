@@ -90,10 +90,10 @@ impl ReadySignalDetectionFilter {
             context.game_controller_state.game_state,
             GameState::Standby { .. }
         ) {
-            self.detected_ready_signal_queue = Default::default();
-            self.motion_in_standby_count = Default::default();
-            self.detection_times = Default::default();
-            self.ready_signal_state = Default::default();
+            self.detected_ready_signal_queue = VecDeque::default();
+            self.motion_in_standby_count = 0;
+            self.detection_times = Players::default();
+            self.ready_signal_state = ReadySignalState::default();
 
             return Ok(MainOutputs {
                 ready_signal_detected: false.into(),
