@@ -21,7 +21,7 @@ use crate::{
 use super::{
     feet::Feet,
     foot_leveling::{FootLeveling, FootLevelingExt},
-    gyro_balancing::{GyroBalancing, GyroBalancingExt},
+    gyro_balancing::{UprightBalancing, UprightBalancingExt},
     step_plan::StepPlan,
 };
 
@@ -31,7 +31,7 @@ use super::{
 pub struct StepState {
     pub plan: StepPlan,
     pub time_since_start: Duration,
-    pub gyro_balancing: GyroBalancing,
+    pub gyro_balancing: UprightBalancing,
     pub foot_leveling: FootLeveling,
 }
 
@@ -94,7 +94,7 @@ impl StepState {
             left_sole_to_robot * left_foot,
             right_sole_to_robot * right_foot,
         )
-        .balance_using_gyro(&self.gyro_balancing, self.plan.support_side)
+        .balance_using_imu(&self.gyro_balancing, self.plan.support_side)
         .level_swing_foot(&self.foot_leveling, self.plan.support_side)
         .compensate_stiffness_loss(
             &context.parameters.stiffness_loss_compensation,
