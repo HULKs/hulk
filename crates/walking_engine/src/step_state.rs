@@ -17,6 +17,7 @@ use types::{
 };
 
 use crate::{
+    anatomic_constraints::AnatomicConstraints,
     compensate_stiffness_loss::CompensateStiffnessLossExt,
     parameters::{Parameters, SwingingArmsParameters},
     Context,
@@ -88,20 +89,32 @@ impl StepState {
                 let target = robot_to_walk * ground_to_robot * zero_moment_point;
                 let support_to_target = target - current_feet.support_sole.position();
 
-                let adjust_distance = support_to_target.x().clamp(-0.1, 0.1);
-                let adjusted_adjust_distance = if adjust_distance < 0.0 {
-                    adjust_distance + 0.02
+                let adjust_distance_x = support_to_target.x().clamp(-0.1, 0.1);
+                let adjusted_adjust_distance_x = if adjust_distance_x < 0.0 {
+                    adjust_distance_x + 0.02
                 } else {
-                    adjust_distance - 0.08
+                    adjust_distance_x - 0.08
                 };
 
-                let request = Step {
-                    forward: adjusted_adjust_distance,
-                    left: 0.0,
-                    turn: 0.0,
+                let adjust_distance_y = support_to_target.y().clamp(-0.15, 0.15);
+                let adjusted_adjust_distance_y = if adjust_distance_y < 0.0 {
+                    adjust_distance_y + 0.02
+                } else {
+                    adjust_distance_y - 0.02
                 };
 
                 let support_side = self.plan.support_side;
+                let request = Step {
+                    forward: adjusted_adjust_distance_x,
+                    left: adjusted_adjust_distance_y,
+                    turn: 0.0,
+                }
+                .clamp_to_anatomic_constraints(
+                    support_side,
+                    context.parameters.max_base_inside_turn,
+                    context.parameters.max_inside_turn_increase,
+                );
+
                 let start_feet = self.plan.start_feet;
                 let plan =
                     StepPlan::new_with_start_feet(context, request, support_side, start_feet);
