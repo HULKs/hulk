@@ -11,8 +11,10 @@ use eframe::{
 use nalgebra::{SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground, Screen};
-use geometry::{arc::Arc, circle::Circle, rectangle::Rectangle};
-use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Transform, Vector2};
+use geometry::{arc::Arc, circle::Circle, direction::AngleTo, rectangle::Rectangle};
+use linear_algebra::{
+    point, vector, IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2,
+};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
 type ScreenTransform<Frame> = Transform<Frame, Screen, Similarity2<f32>>;
@@ -158,17 +160,18 @@ impl<World> TwixPainter<World> {
         } = arc;
 
         let angle_difference = start.angle_to(end, direction);
+        let start = start.angle();
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
 
-        let samples = ((angle_difference.0.abs() * radius * self.scaling() / PIXELS_PER_SAMPLE)
+        let samples = ((angle_difference.abs() * radius * self.scaling() / PIXELS_PER_SAMPLE)
             as usize)
             .max(1);
         let delta = angle_difference * direction.angle_sign::<f32>() / samples as f32;
         let points = (0..=samples)
             .map(|index| {
                 let angle = start + delta * index as f32;
-                let point = center + angle.as_direction() * radius;
+                let point = center + Orientation2::new(angle).as_unit_vector() * radius;
                 self.transform_world_to_pixel(point)
             })
             .collect();

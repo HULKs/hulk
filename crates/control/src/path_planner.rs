@@ -1,6 +1,5 @@
 use color_eyre::{eyre::eyre, Result};
 use geometry::{
-    angle::Angle,
     arc::Arc,
     circle::Circle,
     direction::{Direction, Rotate90Degrees},
@@ -61,7 +60,7 @@ impl PathPlanner {
             MotionCommand::Walk { path, .. } => path.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
-                    PathSegment::Arc(arc) => (arc.start.as_direction())
+                    PathSegment::Arc(arc) => (arc.start.as_unit_vector())
                         .rotate_90_degrees(arc.direction)
                         .normalize(),
                 };
@@ -341,8 +340,8 @@ impl PathPlanner {
 
                         Ok(PathSegment::Arc(Arc {
                             circle,
-                            start: Angle::from_direction(current_node.position - circle.center),
-                            end: Angle::from_direction(next_node.position - circle.center),
+                            start: Orientation2::from_vector(current_node.position - circle.center),
+                            end: Orientation2::from_vector(next_node.position - circle.center),
                             direction: LineSegment(previous_node.position, current_node.position)
                                 .get_direction(circle.center),
                         }))
@@ -520,8 +519,8 @@ impl DynamicMap for PathPlanner {
                         let end_direction = self.nodes[*other_node].position - circle.center;
                         let arc = Arc::new(
                             circle,
-                            Angle::from_direction(start_direction),
-                            Angle::from_direction(end_direction),
+                            Orientation2::from_vector(start_direction),
+                            Orientation2::from_vector(end_direction),
                             direction,
                         );
                         if self
@@ -622,8 +621,8 @@ mod tests {
                         center: point![0.0, 0.0],
                         radius: 1.0,
                     },
-                    start: Angle(2.0 * FRAC_PI_3),
-                    end: Angle(FRAC_PI_3),
+                    start: Orientation2::new(2.0 * FRAC_PI_3),
+                    end: Orientation2::new(FRAC_PI_3),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(point![0.5, 0.866], point![2.0, 0.0])),
@@ -657,8 +656,8 @@ mod tests {
                         center: point![-1.0, 0.0],
                         radius: 0.9770229,
                     },
-                    start: Angle(1.5169508),
-                    end: Angle(1.4865868),
+                    start: Orientation2::new(1.5169508),
+                    end: Orientation2::new(1.4865868),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -670,8 +669,8 @@ mod tests {
                         center: point![0.0, 2.0],
                         radius: 1.1,
                     },
-                    start: Angle(-1.6550058),
-                    end: Angle(-1.4865868),
+                    start: Orientation2::new(-1.6550058),
+                    end: Orientation2::new(-1.4865868),
                     direction: Direction::Counterclockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -683,8 +682,8 @@ mod tests {
                         center: point![1.0, 0.0],
                         radius: 0.9770229,
                     },
-                    start: Angle(1.6550058),
-                    end: Angle(1.6246419),
+                    start: Orientation2::new(1.6550058),
+                    end: Orientation2::new(1.6246419),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -714,8 +713,8 @@ mod tests {
                         center: point![-0.76, 0.56],
                         radius: 0.22579876,
                     },
-                    start: Angle(-1.9642965),
-                    end: Angle(-3.1014242),
+                    start: Orientation2::new(-1.9642965),
+                    end: Orientation2::new(-3.1014242),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -752,8 +751,8 @@ mod tests {
                         center: point![2.2906392, 0.022267818],
                         radius: 0.35000002,
                     },
-                    start: Angle(1.7339069),
-                    end: Angle(0.0035397257),
+                    start: Orientation2::new(1.7339069),
+                    end: Orientation2::new(0.0035397257),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(
@@ -792,8 +791,8 @@ mod tests {
                         center: point![3.9259436, 0.8854635],
                         radius: 0.35,
                     },
-                    start: Angle(1.8797021),
-                    end: Angle(1.874643),
+                    start: Orientation2::new(1.8797021),
+                    end: Orientation2::new(1.874643),
                     direction: Direction::Clockwise,
                 }),
                 PathSegment::LineSegment(LineSegment(

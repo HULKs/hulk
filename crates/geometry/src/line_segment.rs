@@ -7,13 +7,14 @@ use std::{
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{center, distance, distance_squared, Point2, Rotation2, Transform, Vector2};
+use linear_algebra::{
+    center, distance, distance_squared, Orientation2, Point2, Rotation2, Transform, Vector2,
+};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    angle::Angle,
     arc::Arc,
-    direction::{Direction, Rotate90Degrees},
+    direction::{AngleTo, Direction, Rotate90Degrees},
     Distance,
 };
 
@@ -168,12 +169,12 @@ impl<Frame> LineSegment<Frame> {
             })
             .any(|intersection_point| {
                 let angle_to_intersection_point =
-                    Angle::from_direction(intersection_point - arc.circle.center);
+                    Orientation2::from_vector(intersection_point - arc.circle.center);
                 let angle_start_to_intersection_point = arc
                     .start
                     .angle_to(angle_to_intersection_point, arc.direction);
 
-                angle_start_to_intersection_point.0 < angle_start_to_end.0
+                angle_start_to_intersection_point < angle_start_to_end
             })
     }
 
@@ -250,7 +251,7 @@ mod tests {
     use std::f32::consts::FRAC_PI_4;
 
     use approx::assert_relative_eq;
-    use linear_algebra::point;
+    use linear_algebra::{point, Orientation2};
 
     use crate::circle::Circle;
 
@@ -479,8 +480,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 1.0,
             },
-            start: Angle(0.0),
-            end: Angle(FRAC_PI_2),
+            start: Orientation2::new(0.0),
+            end: Orientation2::new(FRAC_PI_2),
             direction: Direction::Counterclockwise,
         };
 
@@ -495,8 +496,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 1.0,
             },
-            start: Angle(0.0),
-            end: Angle(FRAC_PI_2),
+            start: Orientation2::new(0.0),
+            end: Orientation2::new(FRAC_PI_2),
             direction: Direction::Clockwise,
         };
 

@@ -2,10 +2,10 @@ use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{distance, vector, Point2};
+use linear_algebra::{distance, vector, Orientation2, Point2};
 
 use crate::{
-    angle::Angle, arc::Arc, circle_tangents::CircleTangents, line_segment::LineSegment,
+    arc::Arc, circle_tangents::CircleTangents, direction::AngleTo, line_segment::LineSegment,
     rectangle::Rectangle, two_line_segments::TwoLineSegments, Distance,
 };
 
@@ -96,11 +96,11 @@ where
         }
 
         let vector_to_obstacle = self.center - arc.circle.center;
-        let angle_to_obstacle = Angle::from_direction(vector_to_obstacle);
+        let angle_to_obstacle = Orientation2::from_vector(vector_to_obstacle);
         let angle_start_to_obstacle = arc.start.angle_to(angle_to_obstacle, arc.direction);
         let angle_start_to_end = arc.start.angle_to(arc.end, arc.direction);
 
-        angle_start_to_obstacle.0 < angle_start_to_end.0
+        angle_start_to_obstacle < angle_start_to_end
     }
 
     pub fn tangents_with_point(&self, other: Point2<Frame>) -> Option<TwoLineSegments<Frame>> {
@@ -211,8 +211,8 @@ where
         Some(CircleTangents { inner, outer })
     }
 
-    pub fn point_at_angle(&self, angle: Angle<f32>) -> Point2<Frame> {
-        self.center + angle.as_direction() * self.radius
+    pub fn point_at_angle(&self, angle: Orientation2<Frame>) -> Point2<Frame> {
+        self.center + angle.as_unit_vector() * self.radius
     }
 }
 

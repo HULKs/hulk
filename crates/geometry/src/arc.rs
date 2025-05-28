@@ -1,10 +1,13 @@
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::Point2;
+use linear_algebra::{Orientation2, Point2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{angle::Angle, circle::Circle, direction::Direction};
+use crate::{
+    circle::Circle,
+    direction::{AngleTo, Direction},
+};
 
 #[derive(
     Clone,
@@ -19,8 +22,8 @@ use crate::{angle::Angle, circle::Circle, direction::Direction};
 )]
 pub struct Arc<Frame> {
     pub circle: Circle<Frame>,
-    pub start: Angle<f32>,
-    pub end: Angle<f32>,
+    pub start: Orientation2<Frame>,
+    pub end: Orientation2<Frame>,
     pub direction: Direction,
 }
 
@@ -68,8 +71,8 @@ where
 impl<Frame: Copy> Arc<Frame> {
     pub fn new(
         circle: Circle<Frame>,
-        start: Angle<f32>,
-        end: Angle<f32>,
+        start: Orientation2<Frame>,
+        end: Orientation2<Frame>,
         direction: Direction,
     ) -> Self {
         Self {
@@ -83,7 +86,7 @@ impl<Frame: Copy> Arc<Frame> {
     pub fn length(&self) -> f32 {
         let angle = self.start.angle_to(self.end, self.direction);
 
-        angle.0 * self.circle.radius
+        angle * self.circle.radius
     }
 
     pub fn start_point(&self) -> Point2<Frame> {
@@ -115,8 +118,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: Angle::new(FRAC_PI_2),
-            end: Angle::new(0.0),
+            start: Orientation2::new(FRAC_PI_2),
+            end: Orientation2::new(0.0),
             direction: Direction::Clockwise,
         };
         assert_relative_eq!(arc.length(), PI);
@@ -126,8 +129,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: Angle::new(FRAC_PI_2),
-            end: Angle::new(0.0),
+            start: Orientation2::new(FRAC_PI_2),
+            end: Orientation2::new(0.0),
             direction: Direction::Counterclockwise,
         };
         assert_relative_eq!(arc.length(), 3.0 * PI);
@@ -137,8 +140,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: Angle::new(0.0),
-            end: Angle::new(FRAC_PI_2),
+            start: Orientation2::new(0.0),
+            end: Orientation2::new(FRAC_PI_2),
             direction: Direction::Clockwise,
         };
         assert_relative_eq!(arc.length(), 3.0 * PI);
@@ -148,8 +151,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 2.0,
             },
-            start: Angle::new(0.0),
-            end: Angle::new(FRAC_PI_2),
+            start: Orientation2::new(0.0),
+            end: Orientation2::new(FRAC_PI_2),
             direction: Direction::Counterclockwise,
         };
         assert_relative_eq!(arc.length(), PI);
@@ -168,16 +171,16 @@ mod tests {
 
                 let arc = Arc::<SomeFrame> {
                     circle: Circle { center, radius },
-                    start: Angle(angle),
-                    end: Angle(angle + angle_distance),
+                    start: Orientation2::new(angle),
+                    end: Orientation2::new(angle + angle_distance),
                     direction: Direction::Counterclockwise,
                 };
                 assert_relative_eq!(arc.length(), radius * angle_distance, epsilon = 0.001);
 
                 let arc = Arc::<SomeFrame> {
                     circle: Circle { center, radius },
-                    start: Angle(angle),
-                    end: Angle(angle + angle_distance),
+                    start: Orientation2::new(angle),
+                    end: Orientation2::new(angle + angle_distance),
                     direction: Direction::Clockwise,
                 };
                 assert_relative_eq!(

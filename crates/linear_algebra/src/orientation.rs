@@ -1,6 +1,6 @@
-use nalgebra::{RealField, SimdRealField};
+use nalgebra::{Complex, RealField, SimdRealField};
 
-use crate::{Framed, Rotation2, Rotation3, Vector2, Vector3};
+use crate::{vector, Framed, Rotation2, Rotation3, Vector2, Vector3};
 
 pub type Orientation2<Frame, T = f32> = Framed<Frame, nalgebra::UnitComplex<T>>;
 pub type Orientation3<Frame, T = f32> = Framed<Frame, nalgebra::UnitQuaternion<T>>;
@@ -50,6 +50,12 @@ where
 
     pub fn slerp(&self, other: Self, t: T) -> Self {
         Self::wrap(self.inner.slerp(&other.inner, t))
+    }
+
+    pub fn as_unit_vector(&self) -> Vector2<Frame, T> {
+        let Complex { re, im } = self.inner.as_ref();
+
+        vector![*re, *im]
     }
 }
 

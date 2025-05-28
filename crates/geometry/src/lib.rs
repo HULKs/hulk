@@ -1,4 +1,3 @@
-pub mod angle;
 pub mod arc;
 pub mod circle;
 pub mod circle_tangents;
