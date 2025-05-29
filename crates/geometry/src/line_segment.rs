@@ -1,18 +1,20 @@
 use std::{
     cmp::PartialEq,
-    f32::consts::{FRAC_PI_2, PI, TAU},
+    f32::consts::{FRAC_PI_2, PI},
     ops::Mul,
 };
 
 use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{center, distance, distance_squared, Point2, Rotation2, Transform, Vector2};
+use linear_algebra::{
+    center, distance, distance_squared, Orientation2, Point2, Rotation2, Transform, Vector2,
+};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     arc::Arc,
-    direction::{Direction, Rotate90Degrees},
+    direction::{AngleTo, Direction, Rotate90Degrees},
     Distance,
 };
 
@@ -158,39 +160,22 @@ impl<Frame> LineSegment<Frame> {
         let intersection_point1 = base_point + normed_direction * base_to_intersection_length;
         let intersection_point2 = base_point - normed_direction * base_to_intersection_length;
 
-        let mut intersection_points: Vec<_> = Vec::new();
-        if (0.0..1.0).contains(&self.projection_factor(intersection_point1)) {
-            intersection_points.push(intersection_point1)
-        }
-        if (0.0..1.0).contains(&self.projection_factor(intersection_point2)) {
-            intersection_points.push(intersection_point2)
-        }
-        let vector_start = arc.start - arc.circle.center;
-        let vector_end = arc.end - arc.circle.center;
+        let angle_start_to_end = arc.start.angle_to(arc.end, arc.direction);
 
-        let angle_x_axis_to_start = vector_start.y().atan2(vector_start.x());
-        let mut angle_start_to_end = vector_end.y().atan2(vector_end.x()) - angle_x_axis_to_start;
+        [intersection_point1, intersection_point2]
+            .into_iter()
+            .filter(|intersection_point| {
+                (0.0..1.0).contains(&self.projection_factor(*intersection_point))
+            })
+            .any(|intersection_point| {
+                let angle_to_intersection_point =
+                    Orientation2::from_vector(intersection_point - arc.circle.center);
+                let angle_start_to_intersection_point = arc
+                    .start
+                    .angle_to(angle_to_intersection_point, arc.direction);
 
-        for intersection_point in &intersection_points {
-            let vector_obstacle = *intersection_point - arc.circle.center;
-            let mut angle_start_to_obstacle =
-                vector_obstacle.y().atan2(vector_obstacle.x()) - angle_x_axis_to_start;
-
-            if angle_start_to_obstacle < 0.0 {
-                angle_start_to_obstacle += TAU;
-            }
-
-            if angle_start_to_end < 0.0 {
-                angle_start_to_end += TAU;
-            }
-
-            if (angle_start_to_obstacle < angle_start_to_end)
-                ^ (arc.direction == Direction::Clockwise)
-            {
-                return true;
-            }
-        }
-        false
+                angle_start_to_intersection_point < angle_start_to_end
+            })
     }
 
     pub fn translate(&self, translation: Vector2<Frame>) -> Self {
@@ -266,7 +251,7 @@ mod tests {
     use std::f32::consts::FRAC_PI_4;
 
     use approx::assert_relative_eq;
-    use linear_algebra::point;
+    use linear_algebra::{point, Orientation2};
 
     use crate::circle::Circle;
 
@@ -495,8 +480,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 1.0,
             },
-            start: point![2.0, 1.0],
-            end: point![1.0, 2.0],
+            start: Orientation2::new(0.0),
+            end: Orientation2::new(FRAC_PI_2),
             direction: Direction::Counterclockwise,
         };
 
@@ -511,8 +496,8 @@ mod tests {
                 center: point![1.0, 1.0],
                 radius: 1.0,
             },
-            start: point![2.0, 1.0],
-            end: point![1.0, 2.0],
+            start: Orientation2::new(0.0),
+            end: Orientation2::new(FRAC_PI_2),
             direction: Direction::Clockwise,
         };
 

@@ -1,13 +1,11 @@
-use std::f32::consts::TAU;
-
 use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{distance, vector, Point2};
+use linear_algebra::{distance, vector, Orientation2, Point2};
 
 use crate::{
-    arc::Arc, circle_tangents::CircleTangents, direction::Direction, line_segment::LineSegment,
+    arc::Arc, circle_tangents::CircleTangents, direction::AngleTo, line_segment::LineSegment,
     rectangle::Rectangle, two_line_segments::TwoLineSegments, Distance,
 };
 
@@ -92,30 +90,20 @@ where
     }
 
     pub fn overlaps_arc(&self, arc: Arc<Frame>) -> bool {
-        let distance = (arc.circle.center - self.center).norm_squared();
-        if distance > (self.radius + arc.circle.radius).powi(2) {
+        let vector_arc_center_to_circle_center = self.center - arc.circle.center;
+
+        let squared_distance_to_arc_center = vector_arc_center_to_circle_center.norm_squared();
+        if squared_distance_to_arc_center > (self.radius + arc.circle.radius).powi(2) {
             return false;
         }
 
-        let vector_start = arc.start - arc.circle.center;
-        let vector_obstacle = self.center - arc.circle.center;
-        let vector_end = arc.end - arc.circle.center;
+        let angle_arc_start_to_circle_center = arc.start.angle_to(
+            Orientation2::from_vector(vector_arc_center_to_circle_center),
+            arc.direction,
+        );
+        let angle_arc_start_to_end = arc.start.angle_to(arc.end, arc.direction);
 
-        let angle_x_axis_to_start = vector_start.y().atan2(vector_start.x());
-        let mut angle_start_to_obstacle =
-            vector_obstacle.y().atan2(vector_obstacle.x()) - angle_x_axis_to_start;
-
-        let mut angle_start_to_end = vector_end.y().atan2(vector_end.x()) - angle_x_axis_to_start;
-
-        if angle_start_to_obstacle < 0.0 {
-            angle_start_to_obstacle += TAU;
-        }
-
-        if angle_start_to_end < 0.0 {
-            angle_start_to_end += TAU;
-        }
-
-        (angle_start_to_obstacle < angle_start_to_end) ^ (arc.direction == Direction::Clockwise)
+        angle_arc_start_to_circle_center < angle_arc_start_to_end
     }
 
     pub fn tangents_with_point(&self, other: Point2<Frame>) -> Option<TwoLineSegments<Frame>> {
@@ -224,6 +212,10 @@ where
         let outer = self.exterior_tangents_with_circle(other)?;
 
         Some(CircleTangents { inner, outer })
+    }
+
+    pub fn point_at_angle(&self, angle: Orientation2<Frame>) -> Point2<Frame> {
+        self.center + angle.as_unit_vector() * self.radius
     }
 }
 

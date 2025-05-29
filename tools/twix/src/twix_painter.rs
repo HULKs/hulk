@@ -8,16 +8,13 @@ use eframe::{
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
-use nalgebra::{Rotation2, SMatrix, Similarity2};
+use nalgebra::{SMatrix, Similarity2};
 
 use coordinate_systems::{Field, Ground, Screen};
-use geometry::{
-    arc::Arc,
-    circle::Circle,
-    direction::{Direction, Rotate90Degrees},
-    rectangle::Rectangle,
+use geometry::{arc::Arc, circle::Circle, direction::AngleTo, rectangle::Rectangle};
+use linear_algebra::{
+    point, vector, IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2,
 };
-use linear_algebra::{point, vector, IntoTransform, Isometry2, Point2, Pose2, Transform, Vector2};
 use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
 
 type ScreenTransform<Frame> = Transform<Frame, Screen, Similarity2<f32>>;
@@ -161,33 +158,20 @@ impl<World> TwixPainter<World> {
             end,
             direction,
         } = arc;
-        let start_relative = start - center;
-        let end_relative = end - center;
-        let angle_difference = start_relative.angle(&end_relative);
-        let end_right_of_start = start_relative
-            .rotate_90_degrees(Direction::Counterclockwise)
-            .dot(&end_relative)
-            < 0.0;
-        let counterclockwise_angle_difference = if end_right_of_start {
-            TAU - angle_difference
-        } else {
-            angle_difference
-        };
 
-        let signed_angle_difference = match direction {
-            Direction::Clockwise => -TAU + counterclockwise_angle_difference,
-            Direction::Counterclockwise => counterclockwise_angle_difference,
-            Direction::Colinear => 0.0,
-        };
+        let angle_difference = start.angle_to(end, direction);
+        let start = start.angle();
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
-        let samples = 1.max(
-            (signed_angle_difference.abs() * radius * self.scaling() / PIXELS_PER_SAMPLE) as usize,
-        );
-        let points = (0..samples + 1)
+
+        let samples = ((angle_difference.abs() * radius * self.scaling() / PIXELS_PER_SAMPLE)
+            as usize)
+            .max(1);
+        let delta = angle_difference * direction.angle_sign::<f32>() / samples as f32;
+        let points = (0..=samples)
             .map(|index| {
-                let angle = signed_angle_difference / samples as f32 * index as f32;
-                let point = center + Rotation2::new(angle).framed_transform() * start_relative;
+                let angle = start + delta * index as f32;
+                let point = center + Orientation2::new(angle).as_unit_vector() * radius;
                 self.transform_world_to_pixel(point)
             })
             .collect();
