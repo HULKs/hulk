@@ -11,7 +11,7 @@ pub trait Project<Frame> {
     fn project(&self, point: Point2<Frame>) -> Point2<Frame>;
 }
 
-impl Project<Ground> for Path {
+impl Project<Ground> for Path<'_> {
     fn project(&self, point: Point2<Ground>) -> Point2<Ground> {
         let (projected_point, _distance) = self
             .segments

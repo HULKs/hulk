@@ -9,7 +9,7 @@ use crate::{
 
 pub struct TargetOrientationField<'a> {
     pub target_orientation: Angle<f32>,
-    pub path: &'a Path,
+    pub path: Path<'a>,
     pub alignment_start_distance: f32,
     pub ramp_width: f32,
 }
