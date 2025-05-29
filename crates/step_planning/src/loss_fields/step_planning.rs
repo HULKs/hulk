@@ -7,11 +7,10 @@ use crate::{
     loss_fields::{
         path_distance::PathDistanceField, path_progress::PathProgressField,
         step_size::StepSizeField, target_orientation::TargetOrientationField,
+        walk_orientation::WalkOrientationField,
     },
     step_plan::PlannedStep,
 };
-
-use super::walk_orientation::WalkOrientationField;
 
 pub struct StepPlanningLossField<'a> {
     pub path_distance_field: PathDistanceField<'a>,
