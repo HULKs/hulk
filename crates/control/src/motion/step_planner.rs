@@ -23,7 +23,7 @@ const VARIABLES_PER_STEP: usize = 3;
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
     last_planned_step: Step,
-    last_step_plan: DVector<f32>,
+    last_step_plan: DVector<f32>, // TODO not used at the moment
     last_support_foot: Side,
 }
 
