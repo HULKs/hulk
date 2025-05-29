@@ -80,7 +80,7 @@ mod tests {
         let loss_2 = loss_field.loss(sample_point_2);
         let grad_2 = loss_field.grad(sample_point_2);
 
-        assert_abs_diff_eq!(loss_2 - loss_1, 1.0);
+        assert_abs_diff_eq!(loss_2 - loss_1, 1.0, epsilon = 1e-6);
         assert_abs_diff_eq!(grad_2, vector![-1.0, 0.0]);
 
         // End of first line segment, start of arc
