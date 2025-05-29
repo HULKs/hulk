@@ -193,10 +193,7 @@ impl StepPlanner {
         let initial_guess = DVector::zeros(num_variables);
 
         let (step_plan, gradient) = step_planning_solver::plan_steps(
-            Path {
-                // TODO skip this allocation
-                segments: path.to_vec(),
-            },
+            Path { segments: path },
             orientation_mode,
             target_orientation,
             upcoming_support_pose_in_ground(context),

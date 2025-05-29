@@ -5,7 +5,7 @@ use types::planned_path::Path;
 use crate::traits::Project;
 
 pub struct PathDistanceField<'a> {
-    pub path: &'a Path,
+    pub path: Path<'a>,
 }
 
 impl PathDistanceField<'_> {
@@ -38,27 +38,29 @@ mod tests {
 
     use crate::loss_fields::path_distance::PathDistanceField;
 
-    fn test_path() -> Path {
-        Path {
-            segments: vec![
-                PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
-                PathSegment::Arc(Arc {
-                    circle: Circle {
-                        center: point![3.0, 1.0],
-                        radius: 1.0,
-                    },
-                    start: Orientation2::new(3.0 * FRAC_PI_2),
-                    end: Orientation2::new(0.0),
-                    direction: Direction::Counterclockwise,
-                }),
-                PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
-            ],
-        }
+    fn test_path() -> Vec<PathSegment> {
+        vec![
+            PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
+            PathSegment::Arc(Arc {
+                circle: Circle {
+                    center: point![3.0, 1.0],
+                    radius: 1.0,
+                },
+                start: Orientation2::new(3.0 * FRAC_PI_2),
+                end: Orientation2::new(0.0),
+                direction: Direction::Counterclockwise,
+            }),
+            PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
+        ]
     }
 
     #[test]
     fn test_path_distance() {
-        let loss_field = PathDistanceField { path: &test_path() };
+        let loss_field = PathDistanceField {
+            path: Path {
+                segments: &test_path(),
+            },
+        };
 
         // Start
         let sample_point_1 = point![0.0, 0.0];
