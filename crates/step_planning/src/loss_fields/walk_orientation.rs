@@ -14,7 +14,7 @@ pub struct WalkOrientationField {
 impl WalkOrientationField {
     pub fn loss(&self, pose: Pose<f32>) -> f32 {
         match self.orientation_mode {
-            OrientationMode::AlignWithPath => 0.0,
+            OrientationMode::Unspecified => 0.0,
             OrientationMode::LookTowards(orientation) => {
                 angle_penalty(Angle(pose.orientation), Angle(orientation.angle()))
             }
@@ -28,7 +28,7 @@ impl WalkOrientationField {
 
     pub fn grad(&self, pose: Pose<f32>) -> Pose<f32> {
         match self.orientation_mode {
-            OrientationMode::AlignWithPath => Pose {
+            OrientationMode::Unspecified => Pose {
                 position: Point2::origin(),
                 orientation: 0.0,
             },
