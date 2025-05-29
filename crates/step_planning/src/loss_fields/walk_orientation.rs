@@ -4,7 +4,6 @@ use types::motion_command::OrientationMode;
 
 use crate::{
     geometry::{angle::Angle, Pose},
-    traits::LossField,
     utils::{angle_penalty, angle_penalty_derivative},
 };
 
@@ -12,12 +11,8 @@ pub struct WalkOrientationField {
     pub orientation_mode: OrientationMode,
 }
 
-impl LossField for WalkOrientationField {
-    type Parameter = Pose<f32>;
-    type Gradient = Pose<f32>;
-    type Loss = f32;
-
-    fn loss(&self, pose: Self::Parameter) -> Self::Loss {
+impl WalkOrientationField {
+    pub fn loss(&self, pose: Pose<f32>) -> f32 {
         match self.orientation_mode {
             OrientationMode::AlignWithPath => 0.0,
             OrientationMode::LookTowards(orientation) => {
@@ -31,7 +26,7 @@ impl LossField for WalkOrientationField {
         }
     }
 
-    fn grad(&self, pose: Self::Parameter) -> Self::Gradient {
+    pub fn grad(&self, pose: Pose<f32>) -> Pose<f32> {
         match self.orientation_mode {
             OrientationMode::AlignWithPath => Pose {
                 position: Point2::origin(),
