@@ -2,18 +2,14 @@ use coordinate_systems::Ground;
 use linear_algebra::{Point2, Vector2};
 use types::planned_path::Path;
 
-use crate::traits::{LossField, Project};
+use crate::traits::Project;
 
 pub struct PathDistanceField<'a> {
     pub path: &'a Path,
 }
 
-impl LossField for PathDistanceField<'_> {
-    type Parameter = Point2<Ground>;
-    type Gradient = Vector2<Ground>;
-    type Loss = f32;
-
-    fn loss(&self, point: Self::Parameter) -> Self::Loss {
+impl PathDistanceField<'_> {
+    pub fn loss(&self, point: Point2<Ground>) -> f32 {
         let projection = self.path.project(point);
 
         let projection_to_point = point - projection;
@@ -21,7 +17,7 @@ impl LossField for PathDistanceField<'_> {
         projection_to_point.norm_squared()
     }
 
-    fn grad(&self, point: Self::Parameter) -> Self::Gradient {
+    pub fn grad(&self, point: Point2<Ground>) -> Vector2<Ground> {
         let projection = self.path.project(point);
 
         let projection_to_point = point - projection;
@@ -40,7 +36,7 @@ mod tests {
     use linear_algebra::{point, vector, Orientation2, Vector2};
     use types::planned_path::{Path, PathSegment};
 
-    use crate::{loss_fields::path_distance::PathDistanceField, traits::LossField};
+    use crate::loss_fields::path_distance::PathDistanceField;
 
     fn test_path() -> Path {
         Path {

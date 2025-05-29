@@ -3,7 +3,7 @@ use linear_algebra::{Point2, Vector2};
 use types::planned_path::Path;
 
 use crate::{
-    traits::{Length, LossField, PathProgress},
+    traits::{Length, PathProgress},
     utils::{smoothmin, smoothmin_derivative},
 };
 
@@ -12,12 +12,8 @@ pub struct PathProgressField<'a> {
     pub smoothness: f32,
 }
 
-impl LossField for PathProgressField<'_> {
-    type Parameter = Point2<Ground>;
-    type Gradient = Vector2<Ground>;
-    type Loss = f32;
-
-    fn loss(&self, point: Self::Parameter) -> Self::Loss {
+impl PathProgressField<'_> {
+    pub fn loss(&self, point: Point2<Ground>) -> f32 {
         let progress = self.path.progress(point);
 
         let clamped_progress = smoothmin(progress, self.path.length(), self.smoothness);
@@ -25,7 +21,7 @@ impl LossField for PathProgressField<'_> {
         self.path.length() - clamped_progress
     }
 
-    fn grad(&self, point: Self::Parameter) -> Self::Gradient {
+    pub fn grad(&self, point: Point2<Ground>) -> Vector2<Ground> {
         let progress = self.path.progress(point);
         let forward = self.path.forward(point);
 
@@ -45,7 +41,7 @@ mod tests {
     use linear_algebra::{point, vector, Orientation2};
     use types::planned_path::{Path, PathSegment};
 
-    use crate::{loss_fields::path_progress::PathProgressField, traits::LossField};
+    use crate::loss_fields::path_progress::PathProgressField;
 
     fn test_path() -> Path {
         Path {

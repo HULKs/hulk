@@ -9,7 +9,7 @@ use step_planning::{
     geometry::Pose,
     loss_fields::step_size::{WalkVolumeCoefficients, WalkVolumeExtents},
     step_plan::{StepPlan, StepPlanning},
-    traits::{LossField, ScaledGradient, UnwrapDual, WrapDual},
+    traits::{ScaledGradient, UnwrapDual, WrapDual},
 };
 use types::{motion_command::OrientationMode, planned_path::Path, support_foot::Side};
 
