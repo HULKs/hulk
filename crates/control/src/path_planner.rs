@@ -60,9 +60,9 @@ impl PathPlanner {
             MotionCommand::Walk { path, .. } => path.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
-                    PathSegment::Arc(arc) => (arc.start.as_unit_vector())
-                        .rotate_90_degrees(arc.direction)
-                        .normalize(),
+                    PathSegment::Arc(arc) => {
+                        arc.start.as_unit_vector().rotate_90_degrees(arc.direction)
+                    }
                 };
                 if direction.norm_squared() < f32::EPSILON {
                     Orientation2::identity()
