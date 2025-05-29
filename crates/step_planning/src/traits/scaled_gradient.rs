@@ -7,8 +7,7 @@ use types::step::Step;
 
 use crate::{
     geometry::{angle::Angle, Pose},
-    loss_fields::step_planning::PlannedStepGradient,
-    step_plan::PlannedStep,
+    step_plan::{PlannedStep, PlannedStepGradient},
 };
 
 pub trait ScaledGradient<T: DualNum<F>, F, D: Dim, S>
