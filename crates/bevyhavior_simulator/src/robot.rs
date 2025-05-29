@@ -15,7 +15,7 @@ use bevy::{
 };
 use color_eyre::{eyre::WrapErr, Result};
 
-use buffered_watch::Receiver;
+use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head};
 use framework::{future_queue, Producer, RecordingTrigger};
@@ -55,6 +55,7 @@ pub struct Robot {
 
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
+    parameters_sender: Sender<(SystemTime, Parameters)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
 }
 
@@ -131,6 +132,7 @@ impl Robot {
 
             cycler,
             control_receiver,
+            parameters_sender,
             spl_network_sender,
         })
     }
@@ -150,6 +152,7 @@ impl Robot {
             &mut self.interface.get_last_database_sender().lock(),
         )
         .main_outputs = self.database.main_outputs.clone();
+        *self.parameters_sender.borrow_mut() = (SystemTime::now(), self.parameters.clone());
 
         self.cycler.cycle()?;
 
