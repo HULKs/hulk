@@ -104,12 +104,7 @@ impl StepPlanner {
         let step = if let Some(injected_step) = context.injected_step {
             *injected_step
         } else {
-            self.plan_step(
-                path.clone(),
-                &mut context,
-                *orientation_mode,
-                *target_orientation,
-            )?
+            self.plan_step(path, &mut context, *orientation_mode, *target_orientation)?
         };
 
         let elapsed = SystemTime::now().duration_since(earlier).unwrap();
@@ -183,7 +178,7 @@ impl StepPlanner {
 
     fn plan_step(
         &mut self,
-        path: Path,
+        path: &Path,
         context: &mut CycleContext,
         orientation_mode: OrientationMode,
         target_orientation: Orientation2<Ground>,
