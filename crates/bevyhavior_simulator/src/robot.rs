@@ -268,7 +268,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 };
 
                 let orientation = match orientation_mode {
-                    OrientationMode::AlignWithPath => {
+                    OrientationMode::Unspecified => {
                         if target.norm_squared() < f32::EPSILON {
                             Orientation2::identity()
                         } else {
