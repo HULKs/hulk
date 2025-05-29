@@ -107,28 +107,6 @@ where
     }
 }
 
-// impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, PlannedStep<T>>
-//     for PlannedStep<Derivative<T, F, D, U1>>
-// where
-//     DefaultAllocator: Allocator<D>,
-// {
-//     fn scaled_gradient(self, scale: PlannedStep<T>) -> Derivative<T, F, D, U1> {
-//         let PlannedStep {
-//             pose: pose_gradient,
-//             step: step_gradient,
-//             support_foot: _,
-//         } = self;
-//         let PlannedStep {
-//             pose: pose_derivative,
-//             step: step_derivative,
-//             support_foot: _,
-//         } = scale;
-
-//         pose_gradient.scaled_gradient(pose_derivative)
-//             + step_gradient.scaled_gradient(step_derivative)
-//     }
-// }
-
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, PlannedStepGradient<T>>
     for PlannedStep<Derivative<T, F, D, U1>>
 where
