@@ -249,45 +249,6 @@ where
     }
 }
 
-// impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim>
-//     WrapDual<StepAndSupportFoot<DualVec<T, F, D>>> for StepAndSupportFoot<T>
-// where
-//     DefaultAllocator: Allocator<D>,
-// {
-//     fn wrap_dual(self) -> StepAndSupportFoot<DualVec<T, F, D>> {
-//         StepAndSupportFoot {
-//             step: self.step.wrap_dual(),
-//             support_foot: self.support_foot,
-//         }
-//     }
-// }
-
-// impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-//     UnwrapDual<StepAndSupportFoot<T>, StepAndSupportFoot<Derivative<T, F, D, U1>>>
-//     for StepAndSupportFoot<DualVec<T, F, D>>
-// where
-//     DefaultAllocator: Allocator<D>,
-// {
-//     fn unwrap_dual(
-//         self,
-//     ) -> (
-//         StepAndSupportFoot<T>,
-//         StepAndSupportFoot<Derivative<T, F, D, U1>>,
-//     ) {
-//         let Self { step, support_foot } = self;
-
-//         let (step, d_step) = step.unwrap_dual();
-
-//         (
-//             StepAndSupportFoot { step, support_foot },
-//             StepAndSupportFoot {
-//                 step: d_step,
-//                 support_foot,
-//             },
-//         )
-//     }
-// }
-
 impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim>
     WrapDual<PoseAndSupportFoot<DualVec<T, F, D>>> for PoseAndSupportFoot<T>
 where
