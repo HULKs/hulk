@@ -37,7 +37,6 @@ impl<'a, T: RealField> StepPlan<'a, T> {
     }
 }
 
-// TODO borrow parameters, initial_pose,...
 #[derive(Clone, Debug)]
 pub struct StepPlanning<'a> {
     pub path: &'a Path,
@@ -45,7 +44,7 @@ pub struct StepPlanning<'a> {
     pub initial_pose: Pose<f32>,
     pub initial_support_foot: Side,
     pub orientation_mode: OrientationMode,
-    pub parameters: StepPlanningOptimizationParameters,
+    pub parameters: &'a StepPlanningOptimizationParameters,
 }
 
 impl StepPlanning<'_> {
@@ -81,7 +80,7 @@ impl StepPlanning<'_> {
             target_orientation_penalty,
             walk_orientation_penalty,
             ..
-        } = self.parameters;
+        } = *self.parameters;
         let PlannedStep { pose, step } = planned_step;
 
         let path_progress_cost = self.path_progress().loss(pose.position) * path_progress_reward;
@@ -107,7 +106,7 @@ impl StepPlanning<'_> {
             target_orientation_penalty,
             walk_orientation_penalty,
             ..
-        } = self.parameters;
+        } = *self.parameters;
         let PlannedStep { pose, step } = planned_step;
 
         let path_progress_gradient =
