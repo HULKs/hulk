@@ -11,6 +11,7 @@ use linear_algebra::{Isometry2, Orientation2};
 use step_planning::geometry::Pose;
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    parameters::StepPlanningOptimizationParameters,
     planned_path::Path,
     step::Step,
     support_foot::Side,
@@ -45,8 +46,8 @@ pub struct CycleContext {
     translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
     initial_side_bonus: Parameter<f32, "step_planner.initial_side_bonus">,
     request_scale: Parameter<Step, "step_planner.request_scale">,
-    planned_steps: Parameter<usize, "step_planner.planned_steps">,
-    optimizer_steps: Parameter<usize, "step_planner.optimizer_steps">,
+    optimization_parameters:
+        Parameter<StepPlanningOptimizationParameters, "step_planner.optimization_parameters">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -187,7 +188,7 @@ impl StepPlanner {
         orientation_mode: OrientationMode,
         target_orientation: Orientation2<Ground>,
     ) -> Result<Step> {
-        let num_variables = context.planned_steps * VARIABLES_PER_STEP;
+        let num_variables = context.optimization_parameters.num_steps * VARIABLES_PER_STEP;
 
         let current_support_foot = context
             .walking_engine_mode
@@ -203,7 +204,7 @@ impl StepPlanner {
             upcoming_support_pose_in_ground(context),
             current_support_foot.opposite(),
             initial_guess,
-            *context.optimizer_steps,
+            context.optimization_parameters,
         )?;
 
         context

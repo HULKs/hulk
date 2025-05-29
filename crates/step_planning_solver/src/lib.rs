@@ -7,11 +7,13 @@ use num_dual::{Derivative, DualNum, DualNumFloat, DualVec};
 
 use step_planning::{
     geometry::Pose,
-    loss_fields::step_size::{WalkVolumeCoefficients, WalkVolumeExtents},
     step_plan::{StepPlan, StepPlanning},
     traits::{ScaledGradient, UnwrapDual, WrapDual},
 };
-use types::{motion_command::OrientationMode, planned_path::Path, support_foot::Side};
+use types::{
+    motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
+    planned_path::Path, support_foot::Side,
+};
 
 fn duals<F: DualNumFloat + DualNum<F>>(reals: &DVector<F>) -> DVector<DualVec<F, F, Dyn>> {
     let num_variables = reals.nrows();
@@ -133,37 +135,21 @@ pub fn plan_steps(
     initial_pose: Pose<f32>,
     initial_support_foot: Side,
     initial_parameter_guess: DVector<f32>,
-    optimizer_steps: usize,
+    parameters: &StepPlanningOptimizationParameters,
 ) -> Result<(DVector<f32>, DVector<f32>)> {
     let mut problem = StepPlanningProblem {
         step_planning: StepPlanning {
             path,
             initial_pose: initial_pose.clone(),
             initial_support_foot,
-            path_progress_reward: 5.0,
-            path_distance_penalty: 50.0,
-            path_progress_smoothness: 0.05,
-            step_size_penalty: 0.5,
-            walk_volume_coefficients: WalkVolumeCoefficients::from_extents(&WalkVolumeExtents {
-                forward: 0.045,
-                backward: 0.04,
-                outward: 0.1,
-                inward: 0.01,
-                outward_rotation: 1.0,
-                inward_rotation: 1.0,
-            }),
+            parameters: parameters.clone(),
             orientation_mode,
-            target_orientation_penalty: 1.0,
-            walk_orientation_penalty: 1.0,
-            num_steps: initial_parameter_guess.len(),
             target_orientation,
-            alignment_start_distance: 0.1,
-            alignment_start_smoothness: 0.05,
         },
         variables: initial_parameter_guess,
     };
 
-    gradient_decent(&mut problem, optimizer_steps);
+    gradient_decent(&mut problem, parameters.optimizer_steps);
 
     // TODO remove/refactor
     let gradient = problem.jacobian().unwrap().transpose();
@@ -258,13 +244,13 @@ mod tests {
     use linear_algebra::{point, Orientation2};
     use nalgebra::DVector;
 
-    use step_planning::{
-        geometry::Pose, loss_fields::step_size::WalkVolumeCoefficients, step_plan::StepPlanning,
-    };
+    use step_planning::{geometry::Pose, step_plan::StepPlanning};
     use types::{
         motion_command::OrientationMode,
+        parameters::StepPlanningOptimizationParameters,
         planned_path::{Path, PathSegment},
         support_foot::Side,
+        walk_volume_extents::WalkVolumeExtents,
     };
 
     use crate::StepPlanningProblem;
@@ -280,29 +266,32 @@ mod tests {
                     ))],
                 },
                 target_orientation: Orientation2::from_cos_sin_unchecked(1.0, -8.893846e-21),
-                alignment_start_distance: 0.1,
-                alignment_start_smoothness: 0.05,
+                parameters: StepPlanningOptimizationParameters {
+                    alignment_start_distance: 0.1,
+                    alignment_start_smoothness: 0.05,
+                    path_progress_smoothness: 0.05,
+                    path_progress_reward: 5.0,
+                    path_distance_penalty: 50.0,
+                    step_size_penalty: 0.5,
+                    walk_volume_extents: WalkVolumeExtents {
+                        forward: 0.045,
+                        backward: 0.04,
+                        outward: 0.1,
+                        inward: 0.01,
+                        outward_rotation: 1.0,
+                        inward_rotation: 1.0,
+                    },
+                    target_orientation_penalty: 1.0,
+                    walk_orientation_penalty: 1.0,
+                    num_steps: 15,
+                    optimizer_steps: 50,
+                },
                 initial_pose: Pose {
                     position: point![-0.0, 0.0,],
                     orientation: -0.0,
                 },
                 initial_support_foot: Side::Right,
-                path_progress_smoothness: 0.05,
-                path_progress_reward: 5.0,
-                path_distance_penalty: 50.0,
-                step_size_penalty: 0.5,
-                walk_volume_coefficients: WalkVolumeCoefficients {
-                    forward_cost: 22.222221,
-                    backward_cost: 25.0,
-                    outward_cost: 10.0,
-                    inward_cost: 100.0,
-                    outward_rotation_cost: 1.0,
-                    inward_rotation_cost: 1.0,
-                },
                 orientation_mode: OrientationMode::LookAt(point![0.99999857, -8.893833e-21,]),
-                target_orientation_penalty: 1.0,
-                walk_orientation_penalty: 1.0,
-                num_steps: 15,
             },
             variables: DVector::zeros(15),
         };

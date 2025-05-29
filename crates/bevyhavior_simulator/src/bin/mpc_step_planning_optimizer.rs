@@ -39,7 +39,12 @@ fn update(
         vector![-0.612_85, -1.191_053_4],
         1.359_945_5,
     ));
-    robots.single_mut().parameters.step_planner.optimizer_steps = time.ticks() as usize / 20;
+    robots
+        .single_mut()
+        .parameters
+        .step_planner
+        .optimization_parameters
+        .optimizer_steps = time.ticks() as usize / 20;
     println!("{}", time.ticks());
     if time.ticks() >= 3000 {
         exit.send(AppExit::Success);
