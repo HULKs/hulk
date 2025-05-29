@@ -1,6 +1,7 @@
 use types::{
     step::{Step, StepAndSupportFoot},
     support_foot::Side,
+    walk_volume_extents::WalkVolumeExtents,
 };
 
 pub struct StepSizeField {
@@ -15,15 +16,6 @@ pub struct WalkVolumeCoefficients {
     pub inward_cost: f32,
     pub outward_rotation_cost: f32,
     pub inward_rotation_cost: f32,
-}
-
-pub struct WalkVolumeExtents {
-    pub forward: f32,
-    pub backward: f32,
-    pub outward: f32,
-    pub inward: f32,
-    pub outward_rotation: f32,
-    pub inward_rotation: f32,
 }
 
 impl WalkVolumeCoefficients {
