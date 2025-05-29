@@ -4,6 +4,7 @@ use nalgebra::{RealField, Scalar};
 
 use types::{
     motion_command::OrientationMode,
+    parameters::StepPlanningOptimizationParameters,
     planned_path::Path,
     step::{Step, StepAndSupportFoot},
     support_foot::Side,
@@ -37,23 +38,15 @@ impl<'a, T: RealField> StepPlan<'a, T> {
     }
 }
 
+// TODO borrow parameters, path, initial_pose,...
 #[derive(Clone, Debug)]
 pub struct StepPlanning {
     pub path: Path,
     pub target_orientation: Orientation2<Ground>,
-    pub alignment_start_distance: f32,
-    pub alignment_start_smoothness: f32,
     pub initial_pose: Pose<f32>,
     pub initial_support_foot: Side,
-    pub path_progress_smoothness: f32,
-    pub path_progress_reward: f32,
-    pub path_distance_penalty: f32,
-    pub step_size_penalty: f32,
-    pub walk_volume_coefficients: WalkVolumeCoefficients,
     pub orientation_mode: OrientationMode,
-    pub target_orientation_penalty: f32,
-    pub walk_orientation_penalty: f32,
-    pub num_steps: usize,
+    pub parameters: StepPlanningOptimizationParameters,
 }
 
 impl StepPlanning {
@@ -81,30 +74,33 @@ impl StepPlanning {
         })
     }
 
+    // TODO remove
     pub fn loss_field(&self) -> StepPlanningLossField {
         StepPlanningLossField {
             path_distance_field: PathDistanceField { path: &self.path },
-            path_distance_penalty: self.path_distance_penalty,
+            path_distance_penalty: self.parameters.path_distance_penalty,
             path_progress_field: PathProgressField {
                 path: &self.path,
-                smoothness: self.path_progress_smoothness,
+                smoothness: self.parameters.path_progress_smoothness,
             },
-            path_progress_reward: self.path_progress_reward,
+            path_progress_reward: self.parameters.path_progress_reward,
             step_size_field: StepSizeField {
-                walk_volume_coefficients: self.walk_volume_coefficients.clone(),
+                walk_volume_coefficients: WalkVolumeCoefficients::from_extents(
+                    &self.parameters.walk_volume_extents,
+                ),
             },
-            step_size_penalty: self.step_size_penalty,
+            step_size_penalty: self.parameters.step_size_penalty,
             target_orientation_field: TargetOrientationField {
                 target_orientation: Angle(self.target_orientation.angle()),
                 path: &self.path,
-                alignment_start_distance: self.alignment_start_distance,
-                ramp_width: self.alignment_start_smoothness,
+                alignment_start_distance: self.parameters.alignment_start_distance,
+                ramp_width: self.parameters.alignment_start_smoothness,
             },
-            target_orientation_penalty: self.target_orientation_penalty,
+            target_orientation_penalty: self.parameters.target_orientation_penalty,
             walk_orientation_field: WalkOrientationField {
                 orientation_mode: self.orientation_mode,
             },
-            walk_orientation_penalty: self.walk_orientation_penalty,
+            walk_orientation_penalty: self.parameters.walk_orientation_penalty,
         }
     }
 }
