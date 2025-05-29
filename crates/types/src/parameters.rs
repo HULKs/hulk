@@ -6,6 +6,7 @@ use linear_algebra::{Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
+use crate::walk_volume_extents::WalkVolumeExtents;
 use crate::{
     joints::head::HeadJoints,
     motion_command::{KickVariant, MotionCommand},
@@ -454,4 +455,21 @@ pub struct PenaltyShotDirectionParameters {
     pub moving_distance_threshold: f32,
     pub minimum_velocity: f32,
     pub center_jump_trigger_radius: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct StepPlanningOptimizationParameters {
+    pub optimizer_steps: usize,
+    pub num_steps: usize,
+    pub walk_volume_extents: WalkVolumeExtents,
+    pub path_progress_reward: f32,
+    pub path_distance_penalty: f32,
+    pub path_progress_smoothness: f32,
+    pub step_size_penalty: f32,
+    pub target_orientation_penalty: f32,
+    pub walk_orientation_penalty: f32,
+    pub alignment_start_distance: f32,
+    pub alignment_start_smoothness: f32,
 }
