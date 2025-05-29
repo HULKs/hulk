@@ -15,7 +15,6 @@ use crate::{
     loss_fields::{
         path_distance::PathDistanceField,
         path_progress::PathProgressField,
-        step_planning::StepPlanningLossField,
         step_size::{StepSizeField, WalkVolumeCoefficients},
         target_orientation::TargetOrientationField,
         walk_orientation::WalkOrientationField,
@@ -74,33 +73,95 @@ impl StepPlanning {
         })
     }
 
-    // TODO remove
-    pub fn loss_field(&self) -> StepPlanningLossField {
-        StepPlanningLossField {
-            path_distance_field: PathDistanceField { path: &self.path },
-            path_distance_penalty: self.parameters.path_distance_penalty,
-            path_progress_field: PathProgressField {
-                path: &self.path,
-                smoothness: self.parameters.path_progress_smoothness,
-            },
-            path_progress_reward: self.parameters.path_progress_reward,
-            step_size_field: StepSizeField {
-                walk_volume_coefficients: WalkVolumeCoefficients::from_extents(
-                    &self.parameters.walk_volume_extents,
-                ),
-            },
-            step_size_penalty: self.parameters.step_size_penalty,
-            target_orientation_field: TargetOrientationField {
-                target_orientation: Angle(self.target_orientation.angle()),
-                path: &self.path,
-                alignment_start_distance: self.parameters.alignment_start_distance,
-                ramp_width: self.parameters.alignment_start_smoothness,
-            },
-            target_orientation_penalty: self.parameters.target_orientation_penalty,
-            walk_orientation_field: WalkOrientationField {
-                orientation_mode: self.orientation_mode,
-            },
-            walk_orientation_penalty: self.parameters.walk_orientation_penalty,
+    pub fn cost(&self, planned_step: PlannedStep<f32>) -> f32 {
+        let StepPlanningOptimizationParameters {
+            path_progress_reward,
+            path_distance_penalty,
+            step_size_penalty,
+            target_orientation_penalty,
+            walk_orientation_penalty,
+            ..
+        } = self.parameters;
+        let PlannedStep { pose, step } = planned_step;
+
+        let path_progress_cost = self.path_progress().loss(pose.position) * path_progress_reward;
+        let path_distance_cost = self.path_distance().loss(pose.position) * path_distance_penalty;
+        let walk_orientation_cost =
+            self.walk_orientation().loss(pose.clone()) * walk_orientation_penalty;
+        let target_orientation_cost =
+            self.target_orientation().loss(pose) * target_orientation_penalty;
+        let step_size_cost = self.step_size().loss(step) * step_size_penalty;
+
+        path_progress_cost
+            + path_distance_cost
+            + walk_orientation_cost
+            + target_orientation_cost
+            + step_size_cost
+    }
+
+    pub fn grad(&self, planned_step: PlannedStep<f32>) -> PlannedStepGradient<f32> {
+        let StepPlanningOptimizationParameters {
+            path_progress_reward,
+            path_distance_penalty,
+            step_size_penalty,
+            target_orientation_penalty,
+            walk_orientation_penalty,
+            ..
+        } = self.parameters;
+        let PlannedStep { pose, step } = planned_step;
+
+        let path_progress_gradient =
+            self.path_progress().grad(pose.position) * path_progress_reward;
+        let path_distance_gradient =
+            self.path_distance().grad(pose.position) * path_distance_penalty;
+        let walk_orientation_gradient =
+            self.walk_orientation().grad(pose.clone()) * walk_orientation_penalty;
+        let target_orientation_gradient =
+            self.target_orientation().grad(pose) * target_orientation_penalty;
+        let step_size_gradient = self.step_size().grad(step) * step_size_penalty;
+
+        PlannedStepGradient {
+            pose: walk_orientation_gradient
+                + target_orientation_gradient
+                + Pose {
+                    position: (path_distance_gradient + path_progress_gradient).as_point(),
+                    orientation: 0.0,
+                },
+            step: step_size_gradient,
+        }
+    }
+
+    fn path_distance(&self) -> PathDistanceField<'_> {
+        PathDistanceField { path: &self.path }
+    }
+
+    fn path_progress(&self) -> PathProgressField<'_> {
+        PathProgressField {
+            path: &self.path,
+            smoothness: self.parameters.path_progress_smoothness,
+        }
+    }
+
+    fn walk_orientation(&self) -> WalkOrientationField {
+        WalkOrientationField {
+            orientation_mode: self.orientation_mode,
+        }
+    }
+
+    fn target_orientation(&self) -> TargetOrientationField {
+        TargetOrientationField {
+            target_orientation: Angle(self.target_orientation.angle()),
+            path: &self.path,
+            alignment_start_distance: self.parameters.alignment_start_distance,
+            ramp_width: self.parameters.alignment_start_smoothness,
+        }
+    }
+
+    fn step_size(&self) -> StepSizeField {
+        StepSizeField {
+            walk_volume_coefficients: WalkVolumeCoefficients::from_extents(
+                &self.parameters.walk_volume_extents,
+            ),
         }
     }
 }
@@ -110,4 +171,9 @@ pub struct PlannedStep<T: Scalar> {
     /// Pose reached after this step
     pub pose: Pose<T>,
     pub step: StepAndSupportFoot<T>,
+}
+
+pub struct PlannedStepGradient<T: Scalar> {
+    pub pose: Pose<T>,
+    pub step: Step<T>,
 }
