@@ -97,3 +97,32 @@ impl<T: RealField> Mul<T> for Pose<T> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use linear_algebra::{point, Point2};
+    use types::step::Step;
+
+    use crate::geometry::Pose;
+
+    #[test]
+    fn test_pose_step_addition() {
+        let pose = Pose {
+            position: Point2::origin(),
+            orientation: 0.0,
+        };
+        let step = Step {
+            forward: 2.0,
+            left: 1.0,
+            turn: 3.0,
+        };
+        let new_pose = pose + step;
+        assert_eq!(
+            new_pose,
+            Pose {
+                position: point![2.0, 1.0],
+                orientation: 3.0
+            }
+        );
+    }
+}
