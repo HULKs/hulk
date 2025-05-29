@@ -1,14 +1,13 @@
 use bevy::prelude::*;
 
-use linear_algebra::{vector, Isometry2};
-use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
-
 use bevyhavior_simulator::{
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
     time::{Ticks, TicksTime},
 };
+use linear_algebra::{vector, Isometry2};
+use scenario::scenario;
+use spl_network_messages::{GameState, PlayerNumber};
 
 #[scenario]
 fn mpc_step_planner_optimizer(app: &mut App) {

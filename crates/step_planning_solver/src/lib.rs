@@ -1,10 +1,10 @@
 use color_eyre::Result;
-use coordinate_systems::Ground;
 use levenberg_marquardt::LeastSquaresProblem;
-use linear_algebra::Orientation2;
 use nalgebra::{vector, DVector, Dyn, Owned, U1};
 use num_dual::{Derivative, DualNum, DualNumFloat, DualVec};
 
+use coordinate_systems::Ground;
+use linear_algebra::Orientation2;
 use step_planning::{
     geometry::Pose,
     step_plan::{StepPlan, StepPlanning},

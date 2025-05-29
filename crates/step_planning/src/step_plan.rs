@@ -1,7 +1,7 @@
-use coordinate_systems::Ground;
-use linear_algebra::Orientation2;
 use nalgebra::{RealField, Scalar};
 
+use coordinate_systems::Ground;
+use linear_algebra::Orientation2;
 use types::{
     motion_command::OrientationMode,
     parameters::StepPlanningOptimizationParameters,
