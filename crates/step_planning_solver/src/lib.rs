@@ -52,8 +52,6 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem {
     }
 
     fn residuals(&self) -> Option<nalgebra::Vector<f32, U1, Self::ResidualStorage>> {
-        let step_planning_loss = self.step_planning.loss_field();
-
         let step_plan = StepPlan::from(self.variables.as_slice());
 
         let loss = self
@@ -65,7 +63,7 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem {
                     .with_support_foot(self.step_planning.initial_support_foot),
                 &step_plan,
             )
-            .map(|planned_step| step_planning_loss.loss(planned_step))
+            .map(|planned_step| self.step_planning.cost(planned_step))
             .sum();
 
         // eprintln!("loss: {loss}\n\t({:.4?})", self.variables.as_slice());
@@ -76,8 +74,6 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem {
     fn jacobian(&self) -> Option<nalgebra::Matrix<f32, U1, Dyn, Self::JacobianStorage>> {
         let num_variables = self.variables.nrows();
         let dual_param = duals(&self.variables);
-
-        let step_planning_loss = self.step_planning.loss_field();
 
         let step_plan = StepPlan::from(dual_param.as_slice());
 
@@ -94,7 +90,7 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem {
             .map(|dual_planned_step| {
                 let (planned_step, planned_step_gradients) = dual_planned_step.unwrap_dual();
 
-                let derivatives = step_planning_loss.grad(planned_step);
+                let derivatives = self.step_planning.grad(planned_step);
 
                 planned_step_gradients
                     .scaled_gradient(derivatives)
