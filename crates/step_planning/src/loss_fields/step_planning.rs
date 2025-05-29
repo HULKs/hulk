@@ -9,7 +9,6 @@ use crate::{
         step_size::StepSizeField, target_orientation::TargetOrientationField,
     },
     step_plan::PlannedStep,
-    traits::LossField,
 };
 
 use super::walk_orientation::WalkOrientationField;
@@ -32,12 +31,8 @@ pub struct PlannedStepGradient<T: Scalar> {
     pub step: Step<T>,
 }
 
-impl LossField for StepPlanningLossField<'_> {
-    type Parameter = PlannedStep<f32>;
-    type Gradient = PlannedStepGradient<f32>;
-    type Loss = f32;
-
-    fn loss(&self, parameter: Self::Parameter) -> Self::Loss {
+impl StepPlanningLossField<'_> {
+    pub fn loss(&self, parameter: PlannedStep<f32>) -> f32 {
         let PlannedStep { pose, step } = parameter;
 
         let distance_loss = self.path_distance_field.loss(pose.position);
@@ -53,7 +48,7 @@ impl LossField for StepPlanningLossField<'_> {
             + walk_orientation_loss * self.walk_orientation_penalty
     }
 
-    fn grad(&self, parameter: Self::Parameter) -> Self::Gradient {
+    pub fn grad(&self, parameter: PlannedStep<f32>) -> PlannedStepGradient<f32> {
         let PlannedStep { pose, step } = parameter;
 
         let distance_loss_gradient =

@@ -3,7 +3,7 @@ use types::planned_path::Path;
 
 use crate::{
     geometry::{angle::Angle, Pose},
-    traits::{Length, LossField, PathProgress},
+    traits::{Length, PathProgress},
     utils::{angle_penalty, angle_penalty_derivative},
 };
 
@@ -14,12 +14,8 @@ pub struct TargetOrientationField<'a> {
     pub ramp_width: f32,
 }
 
-impl LossField for TargetOrientationField<'_> {
-    type Parameter = Pose<f32>;
-    type Gradient = Pose<f32>;
-    type Loss = f32;
-
-    fn loss(&self, pose: Self::Parameter) -> Self::Loss {
+impl TargetOrientationField<'_> {
+    pub fn loss(&self, pose: Pose<f32>) -> f32 {
         let progress = self.path.progress(pose.position);
         let path_length = self.path.length();
 
@@ -29,7 +25,7 @@ impl LossField for TargetOrientationField<'_> {
             * self.importance(distance_to_target)
     }
 
-    fn grad(&self, pose: Self::Parameter) -> Self::Gradient {
+    pub fn grad(&self, pose: Pose<f32>) -> Pose<f32> {
         let progress = self.path.progress(pose.position);
         let path_length = self.path.length();
 

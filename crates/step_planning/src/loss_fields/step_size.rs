@@ -3,8 +3,6 @@ use types::{
     support_foot::Side,
 };
 
-use crate::traits::LossField;
-
 pub struct StepSizeField {
     pub walk_volume_coefficients: WalkVolumeCoefficients,
 }
@@ -150,18 +148,14 @@ fn penalty_function_derivative(walk_volume_value: f32) -> f32 {
     walk_volume_value.powi(5) * 6.0
 }
 
-impl LossField for StepSizeField {
-    type Parameter = StepAndSupportFoot<f32>;
-    type Gradient = Step<f32>;
-    type Loss = f32;
-
-    fn loss(&self, step: Self::Parameter) -> Self::Loss {
+impl StepSizeField {
+    pub fn loss(&self, step: StepAndSupportFoot<f32>) -> f32 {
         let value = walk_volume(&step, &self.walk_volume_coefficients);
 
         penalty_function(value)
     }
 
-    fn grad(&self, step: Self::Parameter) -> Self::Gradient {
+    pub fn grad(&self, step: StepAndSupportFoot<f32>) -> Step<f32> {
         let value = walk_volume(&step, &self.walk_volume_coefficients);
         let grad = walk_volume_gradient(&step, &self.walk_volume_coefficients);
 
