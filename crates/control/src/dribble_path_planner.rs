@@ -111,7 +111,7 @@ impl DribblePathPlanner {
         );
         let ball_position = &context.ball.ball_in_ground;
         let orientation_mode = match hybrid_orientation_mode {
-            types::motion_command::OrientationMode::AlignWithPath
+            types::motion_command::OrientationMode::Unspecified
                 if ball_position.coords().norm() > 0.0 =>
             {
                 OrientationMode::LookAt(context.ball.ball_in_ground)
