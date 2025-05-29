@@ -90,17 +90,20 @@ where
     }
 
     pub fn overlaps_arc(&self, arc: Arc<Frame>) -> bool {
-        let squared_distance = (arc.circle.center - self.center).norm_squared();
-        if squared_distance > (self.radius + arc.circle.radius).powi(2) {
+        let vector_arc_center_to_circle_center = self.center - arc.circle.center;
+
+        let squared_distance_to_arc_center = vector_arc_center_to_circle_center.norm_squared();
+        if squared_distance_to_arc_center > (self.radius + arc.circle.radius).powi(2) {
             return false;
         }
 
-        let vector_to_obstacle = self.center - arc.circle.center;
-        let angle_to_obstacle = Orientation2::from_vector(vector_to_obstacle);
-        let angle_start_to_obstacle = arc.start.angle_to(angle_to_obstacle, arc.direction);
-        let angle_start_to_end = arc.start.angle_to(arc.end, arc.direction);
+        let angle_arc_start_to_circle_center = arc.start.angle_to(
+            Orientation2::from_vector(vector_arc_center_to_circle_center),
+            arc.direction,
+        );
+        let angle_arc_start_to_end = arc.start.angle_to(arc.end, arc.direction);
 
-        angle_start_to_obstacle < angle_start_to_end
+        angle_arc_start_to_circle_center < angle_arc_start_to_end
     }
 
     pub fn tangents_with_point(&self, other: Point2<Frame>) -> Option<TwoLineSegments<Frame>> {
