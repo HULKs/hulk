@@ -37,10 +37,10 @@ impl<'a, T: RealField> StepPlan<'a, T> {
     }
 }
 
-// TODO borrow parameters, path, initial_pose,...
+// TODO borrow parameters, initial_pose,...
 #[derive(Clone, Debug)]
-pub struct StepPlanning {
-    pub path: Path,
+pub struct StepPlanning<'a> {
+    pub path: &'a Path,
     pub target_orientation: Orientation2<Ground>,
     pub initial_pose: Pose<f32>,
     pub initial_support_foot: Side,
@@ -48,7 +48,7 @@ pub struct StepPlanning {
     pub parameters: StepPlanningOptimizationParameters,
 }
 
-impl StepPlanning {
+impl StepPlanning<'_> {
     pub fn planned_steps<'a, T: RealField>(
         &self,
         initial_pose: PoseAndSupportFoot<T>,
@@ -132,12 +132,12 @@ impl StepPlanning {
     }
 
     fn path_distance(&self) -> PathDistanceField<'_> {
-        PathDistanceField { path: &self.path }
+        PathDistanceField { path: self.path }
     }
 
     fn path_progress(&self) -> PathProgressField<'_> {
         PathProgressField {
-            path: &self.path,
+            path: self.path,
             smoothness: self.parameters.path_progress_smoothness,
         }
     }
@@ -151,7 +151,7 @@ impl StepPlanning {
     fn target_orientation(&self) -> TargetOrientationField {
         TargetOrientationField {
             target_orientation: Angle(self.target_orientation.angle()),
-            path: &self.path,
+            path: self.path,
             alignment_start_distance: self.parameters.alignment_start_distance,
             ramp_width: self.parameters.alignment_start_smoothness,
         }

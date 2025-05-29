@@ -33,12 +33,12 @@ fn duals<F: DualNumFloat + DualNum<F>>(reals: &DVector<F>) -> DVector<DualVec<F,
 }
 
 #[derive(Clone, Debug)]
-struct StepPlanningProblem {
-    step_planning: StepPlanning,
+struct StepPlanningProblem<'a> {
+    step_planning: StepPlanning<'a>,
     variables: DVector<f32>,
 }
 
-impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem {
+impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
     type ResidualStorage = Owned<f32, U1, U1>;
     type JacobianStorage = Owned<f32, U1, Dyn>;
     type ParameterStorage = Owned<f32, Dyn, U1>;
@@ -125,7 +125,7 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem {
 }
 
 pub fn plan_steps(
-    path: Path,
+    path: &Path,
     orientation_mode: OrientationMode,
     target_orientation: Orientation2<Ground>,
     initial_pose: Pose<f32>,
@@ -255,7 +255,7 @@ mod tests {
     fn foo() {
         let problem = StepPlanningProblem {
             step_planning: StepPlanning {
-                path: Path {
+                path: &Path {
                     segments: vec![PathSegment::LineSegment(LineSegment(
                         point![0.0, 0.0,],
                         point![0.0, 1.2924697e-26,],
