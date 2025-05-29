@@ -33,7 +33,7 @@ pub enum WalkSpeed {
     Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub enum OrientationMode {
-    AlignWithPath,
+    Unspecified,
     LookTowards(Orientation2<Ground>),
     LookAt(Point2<Ground>),
 }
