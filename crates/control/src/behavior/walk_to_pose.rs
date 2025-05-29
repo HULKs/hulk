@@ -220,7 +220,7 @@ pub fn hybrid_alignment(
 
     let distance_to_target = target_pose.position().coords().norm();
     if distance_to_target > distance_to_be_aligned + hybrid_align_distance {
-        return OrientationMode::AlignWithPath;
+        return OrientationMode::Unspecified;
     }
 
     let angle_limit = ((distance_to_target - distance_to_be_aligned) / hybrid_align_distance)
