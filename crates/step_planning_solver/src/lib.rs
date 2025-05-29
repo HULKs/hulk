@@ -138,7 +138,7 @@ pub fn plan_steps(
             path,
             initial_pose: initial_pose.clone(),
             initial_support_foot,
-            parameters: parameters.clone(),
+            parameters,
             orientation_mode,
             target_orientation,
         },
@@ -262,7 +262,7 @@ mod tests {
                     ))],
                 },
                 target_orientation: Orientation2::from_cos_sin_unchecked(1.0, -8.893846e-21),
-                parameters: StepPlanningOptimizationParameters {
+                parameters: &StepPlanningOptimizationParameters {
                     alignment_start_distance: 0.1,
                     alignment_start_smoothness: 0.05,
                     path_progress_smoothness: 0.05,
