@@ -102,7 +102,7 @@ impl Layer<Ground> for Walking {
             painter,
             robot_to_ground,
             last_actuated_joints,
-            engine.support_side(),
+            engine.mode.support_side(),
             Stroke::new(0.01, Color32::BLUE),
             Stroke::new(0.003, Color32::BLUE),
         );
@@ -110,7 +110,7 @@ impl Layer<Ground> for Walking {
             painter,
             robot_to_ground,
             robot_kinematics,
-            engine.support_side(),
+            engine.mode.support_side(),
             Stroke::new(0.01, Color32::GREEN),
             Stroke::new(0.003, Color32::GREEN),
         );
