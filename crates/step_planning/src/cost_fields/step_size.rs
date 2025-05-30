@@ -141,7 +141,7 @@ fn penalty_function_derivative(walk_volume_value: f32) -> f32 {
 }
 
 impl StepSizeField {
-    pub fn loss(&self, step: StepAndSupportFoot<f32>) -> f32 {
+    pub fn cost(&self, step: StepAndSupportFoot<f32>) -> f32 {
         let value = walk_volume(&step, &self.walk_volume_coefficients);
 
         penalty_function(value)
