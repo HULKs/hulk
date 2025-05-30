@@ -1,12 +1,13 @@
 use std::{f32::consts::PI, time::Duration};
 
 use color_eyre::{eyre::Ok, Result};
+use serde::{Deserialize, Serialize};
+
 use framework::MainOutput;
 use linear_algebra::Vector2;
-use serde::{Deserialize, Serialize};
 use types::{
-    motion_command::OrientationMode, parameters::BehaviorParameters, planned_path::PathSegment,
-    stand_up::RemainingStandUpDuration,
+    dribble_path_plan::DribblePathPlan, motion_command::OrientationMode,
+    parameters::BehaviorParameters, planned_path::PathSegment, stand_up::RemainingStandUpDuration,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -15,7 +16,7 @@ pub struct TimeToReachKickPosition {}
 use context_attribute::context;
 #[context]
 pub struct CycleContext {
-    dribble_path_plan: Input<Option<(OrientationMode, Vec<PathSegment>)>, "dribble_path_plan?">,
+    dribble_path_plan: Input<Option<DribblePathPlan>, "dribble_path_plan?">,
 
     configuration: Parameter<BehaviorParameters, "behavior">,
 
@@ -41,7 +42,11 @@ impl TimeToReachKickPosition {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let Some((orientation_mode, dribble_path)) = context.dribble_path_plan else {
+        let Some(DribblePathPlan {
+            orientation_mode,
+            path: dribble_path,
+        }) = context.dribble_path_plan
+        else {
             return Ok(MainOutputs {
                 time_to_reach_kick_position: None.into(),
             });

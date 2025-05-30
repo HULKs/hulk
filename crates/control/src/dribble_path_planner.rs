@@ -10,6 +10,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use spl_network_messages::Team;
 use types::{
+    dribble_path_plan::DribblePathPlan,
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
@@ -52,7 +53,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub dribble_path_plan: MainOutput<Option<(OrientationMode, Vec<PathSegment>)>>,
+    pub dribble_path_plan: MainOutput<Option<DribblePathPlan>>,
 }
 
 impl DribblePathPlanner {
@@ -120,7 +121,11 @@ impl DribblePathPlanner {
         };
 
         Ok(MainOutputs {
-            dribble_path_plan: Some((orientation_mode, dribble_path)).into(),
+            dribble_path_plan: Some(DribblePathPlan {
+                orientation_mode,
+                path: dribble_path,
+            })
+            .into(),
         })
     }
 }

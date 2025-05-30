@@ -11,6 +11,7 @@ pub mod color;
 pub mod condition_input;
 pub mod cycle_time;
 pub mod detected_feet;
+pub mod dribble_path_plan;
 pub mod fall_state;
 pub mod field_border;
 pub mod field_color;

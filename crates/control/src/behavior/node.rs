@@ -11,17 +11,17 @@ use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
+    dribble_path_plan::DribblePathPlan,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     kick_decision::DecisionParameters,
-    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{MotionCommand, WalkSpeed},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
         LostBallParameters,
     },
     path_obstacles::PathObstacle,
-    planned_path::PathSegment,
     primary_state::PrimaryState,
     roles::Role,
     step::Step,
@@ -55,7 +55,7 @@ pub struct CycleContext {
     expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
-    dribble_path_plan: Input<Option<(OrientationMode, Vec<PathSegment>)>, "dribble_path_plan?">,
+    dribble_path_plan: Input<Option<DribblePathPlan>, "dribble_path_plan?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
 
