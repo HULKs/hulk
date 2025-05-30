@@ -193,7 +193,7 @@ impl WalkingEngine {
             * forward::left_sole_to_robot(&self.last_actuated_joints.left_leg).as_pose();
         let right_sole = robot_to_walk
             * forward::right_sole_to_robot(&self.last_actuated_joints.right_leg).as_pose();
-        let support_side = self.engine.support_side()?;
+        let support_side = self.engine.mode.support_side()?;
         let swing_sole = match support_side {
             Side::Left => right_sole,
             Side::Right => left_sole,

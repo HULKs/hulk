@@ -2,10 +2,7 @@ use arm::ArmOverrides as _;
 use coordinate_systems::{Field, Ground, Robot, Walk};
 use kick_steps::KickSteps;
 use linear_algebra::{Isometry3, Orientation3, Point2, Point3};
-use mode::{
-    catching::Catching, kicking::Kicking, standing::Standing, starting::Starting,
-    stopping::Stopping, walking::Walking, Mode,
-};
+use mode::{standing::Standing, Mode};
 use parameters::Parameters;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -96,16 +93,5 @@ impl Engine {
 
     pub fn is_standing(&self) -> bool {
         matches!(self.mode, Mode::Standing(_))
-    }
-
-    pub fn support_side(&self) -> Option<Side> {
-        match self.mode {
-            Mode::Standing(_) => None,
-            Mode::Starting(Starting { step })
-            | Mode::Walking(Walking { step, .. })
-            | Mode::Kicking(Kicking { step, .. })
-            | Mode::Stopping(Stopping { step, .. })
-            | Mode::Catching(Catching { step, .. }) => Some(step.plan.support_side),
-        }
     }
 }
