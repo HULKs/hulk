@@ -36,6 +36,7 @@ impl<Frame> LineSegment<Frame> {
     pub fn new(start: Point2<Frame>, end: Point2<Frame>) -> Self {
         Self(start, end)
     }
+
     pub fn flip(self) -> Self {
         Self(self.1, self.0)
     }
@@ -180,6 +181,13 @@ impl<Frame> LineSegment<Frame> {
 
     pub fn translate(&self, translation: Vector2<Frame>) -> Self {
         Self::new(self.0 + translation, self.1 + translation)
+    }
+
+    pub fn try_map<NewFrame, Error>(
+        self,
+        mapper: impl Fn(Point2<Frame>) -> Result<Point2<NewFrame>, Error>,
+    ) -> Result<LineSegment<NewFrame>, Error> {
+        Ok(LineSegment::new(mapper(self.0)?, mapper(self.1)?))
     }
 }
 
