@@ -9,7 +9,7 @@ pub struct PathDistanceField<'a> {
 }
 
 impl PathDistanceField<'_> {
-    pub fn loss(&self, point: Point2<Ground>) -> f32 {
+    pub fn cost(&self, point: Point2<Ground>) -> f32 {
         let projection = self.path.project(point);
 
         let projection_to_point = point - projection;
@@ -36,7 +36,7 @@ mod tests {
     use linear_algebra::{point, vector, Orientation2, Vector2};
     use types::planned_path::{Path, PathSegment};
 
-    use crate::loss_fields::path_distance::PathDistanceField;
+    use crate::cost_fields::path_distance::PathDistanceField;
 
     fn test_path() -> Path {
         Path {
@@ -58,62 +58,62 @@ mod tests {
 
     #[test]
     fn test_path_distance() {
-        let loss_field = PathDistanceField { path: &test_path() };
+        let cost_field = PathDistanceField { path: &test_path() };
 
         // Start
         let sample_point_1 = point![0.0, 0.0];
-        let loss_1 = loss_field.loss(sample_point_1);
-        let grad_1 = loss_field.grad(sample_point_1);
+        let cost_1 = cost_field.cost(sample_point_1);
+        let grad_1 = cost_field.grad(sample_point_1);
 
-        assert_abs_diff_eq!(loss_1, 0.0);
+        assert_abs_diff_eq!(cost_1, 0.0);
         assert_abs_diff_eq!(grad_1, Vector2::zeros());
 
         // Before start
         let sample_point_2 = point![-1.0, 0.0];
-        let loss_2 = loss_field.loss(sample_point_2);
-        let grad_2 = loss_field.grad(sample_point_2);
+        let cost_2 = cost_field.cost(sample_point_2);
+        let grad_2 = cost_field.grad(sample_point_2);
 
-        assert_abs_diff_eq!(loss_2, 1.0);
+        assert_abs_diff_eq!(cost_2, 1.0);
         assert_abs_diff_eq!(grad_2, vector![-2.0, 0.0]);
 
         // End of first line segment, start of arc
         let sample_point_3 = point![3.0, 0.0];
-        let loss_3 = loss_field.loss(sample_point_3);
-        let grad_3 = loss_field.grad(sample_point_3);
+        let cost_3 = cost_field.cost(sample_point_3);
+        let grad_3 = cost_field.grad(sample_point_3);
 
-        assert_abs_diff_eq!(loss_3, 0.0);
+        assert_abs_diff_eq!(cost_3, 0.0);
         assert_abs_diff_eq!(grad_3, Vector2::zeros());
 
         // Below start of arc
         let sample_point_4 = point![3.0, -1.0];
-        let loss_4 = loss_field.loss(sample_point_4);
-        let grad_4 = loss_field.grad(sample_point_4);
+        let cost_4 = cost_field.cost(sample_point_4);
+        let grad_4 = cost_field.grad(sample_point_4);
 
-        assert_abs_diff_eq!(loss_4, 1.0);
+        assert_abs_diff_eq!(cost_4, 1.0);
         assert_abs_diff_eq!(grad_4, vector![0.0, -2.0]);
 
         // End of arc
         let sample_point_5 = point![4.0, 1.0];
-        let loss_5 = loss_field.loss(sample_point_5);
-        let grad_5 = loss_field.grad(sample_point_5);
+        let cost_5 = cost_field.cost(sample_point_5);
+        let grad_5 = cost_field.grad(sample_point_5);
 
-        assert_abs_diff_eq!(loss_5, 0.0);
+        assert_abs_diff_eq!(cost_5, 0.0);
         assert_abs_diff_eq!(grad_5, Vector2::zeros());
 
         // End
         let sample_point_6 = point![4.0, 4.0];
-        let loss_6 = loss_field.loss(sample_point_6);
-        let grad_6 = loss_field.grad(sample_point_6);
+        let cost_6 = cost_field.cost(sample_point_6);
+        let grad_6 = cost_field.grad(sample_point_6);
 
-        assert_abs_diff_eq!(loss_6, 0.0);
+        assert_abs_diff_eq!(cost_6, 0.0);
         assert_abs_diff_eq!(grad_6, Vector2::zeros());
 
         // Outside of arc
         let sample_point_7 = point![4.0, 0.0];
-        let loss_7 = loss_field.loss(sample_point_7);
-        let grad_7 = loss_field.grad(sample_point_7);
+        let cost_7 = cost_field.cost(sample_point_7);
+        let grad_7 = cost_field.grad(sample_point_7);
 
-        assert_abs_diff_eq!(loss_7, (SQRT_2 - 1.0).powi(2));
+        assert_abs_diff_eq!(cost_7, (SQRT_2 - 1.0).powi(2));
         assert_abs_diff_eq!(grad_7, vector![2.0 - SQRT_2, -(2.0 - SQRT_2)]);
     }
 }

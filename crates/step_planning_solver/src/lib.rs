@@ -54,7 +54,7 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
     fn residuals(&self) -> Option<nalgebra::Vector<f32, U1, Self::ResidualStorage>> {
         let step_plan = StepPlan::from(self.variables.as_slice());
 
-        let loss = self
+        let cost = self
             .step_planning
             .planned_steps(
                 self.step_planning
@@ -66,9 +66,9 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
             .map(|planned_step| self.step_planning.cost(planned_step))
             .sum();
 
-        // eprintln!("loss: {loss}\n\t({:.4?})", self.variables.as_slice());
+        // eprintln!("cost: {cost}\n\t({:.4?})", self.variables.as_slice());
 
-        Some(vector![loss])
+        Some(vector![cost])
     }
 
     fn jacobian(&self) -> Option<nalgebra::Matrix<f32, U1, Dyn, Self::JacobianStorage>> {
@@ -98,11 +98,9 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
             })
             .sum();
 
-        // let step_planning_loss = self.step_planning.loss_field();
-
         // let step_plan = StepPlan::from(self.variables.as_slice());
 
-        // let loss: f32 = self
+        // let cost: f32 = self
         //     .step_planning
         //     .planned_steps(
         //         self.step_planning
@@ -111,11 +109,11 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
         //             .with_support_foot(self.step_planning.initial_support_foot),
         //         &step_plan,
         //     )
-        //     .map(|planned_step| step_planning_loss.loss(planned_step))
+        //     .map(|planned_step| self.step_planning.cost(planned_step))
         //     .sum();
 
         // eprintln!(
-        //     "grad: {loss}\n\t({:.4?})\n\t[{:.4?}]",
+        //     "grad: {cost}\n\t({:.4?})\n\t[{:.4?}]",
         //     self.variables.as_slice(),
         //     &gradient.as_slice()
         // );
