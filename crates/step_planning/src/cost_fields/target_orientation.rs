@@ -15,7 +15,7 @@ pub struct TargetOrientationField<'a> {
 }
 
 impl TargetOrientationField<'_> {
-    pub fn loss(&self, pose: Pose<f32>) -> f32 {
+    pub fn cost(&self, pose: Pose<f32>) -> f32 {
         let progress = self.path.progress(pose.position);
         let path_length = self.path.length();
 

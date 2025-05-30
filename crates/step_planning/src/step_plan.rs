@@ -11,14 +11,14 @@ use types::{
 };
 
 use crate::{
-    geometry::{angle::Angle, pose::PoseAndSupportFoot, Pose},
-    loss_fields::{
+    cost_fields::{
         path_distance::PathDistanceField,
         path_progress::PathProgressField,
         step_size::{StepSizeField, WalkVolumeCoefficients},
         target_orientation::TargetOrientationField,
         walk_orientation::WalkOrientationField,
     },
+    geometry::{angle::Angle, pose::PoseAndSupportFoot, Pose},
 };
 
 pub struct StepPlan<'a, T>(&'a [T]);
@@ -83,13 +83,13 @@ impl StepPlanning<'_> {
         } = *self.parameters;
         let PlannedStep { pose, step } = planned_step;
 
-        let path_progress_cost = self.path_progress().loss(pose.position) * path_progress_reward;
-        let path_distance_cost = self.path_distance().loss(pose.position) * path_distance_penalty;
+        let path_progress_cost = self.path_progress().cost(pose.position) * path_progress_reward;
+        let path_distance_cost = self.path_distance().cost(pose.position) * path_distance_penalty;
         let walk_orientation_cost =
-            self.walk_orientation().loss(pose.clone()) * walk_orientation_penalty;
+            self.walk_orientation().cost(pose.clone()) * walk_orientation_penalty;
         let target_orientation_cost =
-            self.target_orientation().loss(pose) * target_orientation_penalty;
-        let step_size_cost = self.step_size().loss(step) * step_size_penalty;
+            self.target_orientation().cost(pose) * target_orientation_penalty;
+        let step_size_cost = self.step_size().cost(step) * step_size_penalty;
 
         path_progress_cost
             + path_distance_cost
