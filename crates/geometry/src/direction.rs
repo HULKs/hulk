@@ -21,7 +21,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 pub enum Direction {
     Clockwise,
     Counterclockwise,
-    Colinear,
+    Collinear,
 }
 
 impl Direction {
@@ -29,7 +29,7 @@ impl Direction {
         match self {
             Direction::Clockwise => -T::one(),
             Direction::Counterclockwise => T::one(),
-            Direction::Colinear => T::zero(),
+            Direction::Collinear => T::zero(),
         }
     }
 }
@@ -43,7 +43,7 @@ impl<Frame> Rotate90Degrees for Vector2<Frame> {
         match direction {
             Direction::Clockwise => vector![self.y(), -self.x()],
             Direction::Counterclockwise => vector![-self.y(), self.x()],
-            Direction::Colinear => *self,
+            Direction::Collinear => *self,
         }
     }
 }

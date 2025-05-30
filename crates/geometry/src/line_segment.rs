@@ -101,7 +101,7 @@ impl<Frame> LineSegment<Frame> {
             (Direction::Counterclockwise, Direction::Counterclockwise)
             | (Direction::Clockwise, Direction::Clockwise) => false,
 
-            (Direction::Colinear, Direction::Colinear) => {
+            (Direction::Collinear, Direction::Collinear) => {
                 self.overlaps_collinear_line_segment(other)
             }
 
@@ -110,7 +110,7 @@ impl<Frame> LineSegment<Frame> {
                     (other.get_direction(self.0), other.get_direction(self.1));
 
                 orientation_self_points_to_other.0 != orientation_self_points_to_other.1
-                    || orientation_self_points_to_other.0 == Direction::Colinear
+                    || orientation_self_points_to_other.0 == Direction::Collinear
             }
         }
     }
@@ -135,7 +135,7 @@ impl<Frame> LineSegment<Frame> {
         let directed_cathetus = clockwise_normal_vector.dot(&(point - self.0));
 
         match directed_cathetus {
-            0.0 => Direction::Colinear,
+            0.0 => Direction::Collinear,
             f if f > 0.0 => Direction::Clockwise,
             f if f < 0.0 => Direction::Counterclockwise,
             f => panic!("directed cathetus was not a real number: {f}"),
