@@ -3,12 +3,10 @@ use linear_algebra::{Isometry2, Pose2};
 use spl_network_messages::GamePhase;
 use types::{
     camera_position::CameraPosition,
+    dribble_path_plan::DribblePathPlan,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{
-        ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed,
-    },
+    motion_command::{ArmMotion, HeadMotion, ImageRegion, MotionCommand, WalkSpeed},
     parameters::{DribblingParameters, InWalkKickInfoParameters, InWalkKicksParameters},
-    planned_path::PathSegment,
     world_state::WorldState,
 };
 
@@ -20,7 +18,7 @@ pub fn execute(
     walk_path_planner: &WalkPathPlanner,
     in_walk_kicks: &InWalkKicksParameters,
     parameters: &DribblingParameters,
-    dribble_path_plan: Option<(OrientationMode, Vec<PathSegment>)>,
+    dribble_path_plan: Option<DribblePathPlan>,
     mut walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
@@ -70,7 +68,10 @@ pub fn execute(
     }
 
     match dribble_path_plan {
-        Some((orientation_mode, path)) => Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
+        Some(DribblePathPlan {
+            orientation_mode,
+            path,
+        }) => Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
             orientation_mode,
             path,
