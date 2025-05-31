@@ -3,10 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use color_eyre::{
-    eyre::{Context, Error},
-    Result,
-};
+use color_eyre::{eyre::Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio::{net::ToSocketAddrs, select, sync::mpsc::UnboundedReceiver};
 use tokio_util::sync::CancellationToken;
@@ -111,23 +108,20 @@ pub async fn run(
     let (subscribed_control_writer, _subscribed_control_reader) =
         buffered_watch::channel(Default::default());
 
-    let communication_server = {
-        let mut communication_server = communication::server::Server::default();
-        let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
-        communication_server.expose_source(
-            "BehaviorSimulator",
-            outputs_receiver,
-            subscribed_outputs_sender,
-        )?;
-        communication_server.expose_source("Control", control_reader, subscribed_control_writer)?;
-        communication_server.expose_source(
-            "parameters",
-            parameters_receiver.clone(),
-            parameters_subscriptions,
-        )?;
-        communication_server.expose_sink("parameters", parameters_sender)?;
-        Ok::<_, Error>(communication_server)
-    }?;
+    let mut communication_server = communication::server::Server::default();
+    let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
+    communication_server.expose_source(
+        "BehaviorSimulator",
+        outputs_receiver,
+        subscribed_outputs_sender,
+    )?;
+    communication_server.expose_source("Control", control_reader, subscribed_control_writer)?;
+    communication_server.expose_source(
+        "parameters",
+        parameters_receiver.clone(),
+        parameters_subscriptions,
+    )?;
+    communication_server.expose_sink("parameters", parameters_sender)?;
 
     {
         let keep_running = keep_running.clone();
