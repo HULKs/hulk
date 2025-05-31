@@ -1,6 +1,6 @@
 use std::{
     io::Write,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use color_eyre::{
@@ -8,7 +8,7 @@ use color_eyre::{
     Result,
 };
 use serde::{Deserialize, Serialize};
-use tokio::{net::ToSocketAddrs, select, sync::mpsc::UnboundedReceiver, time::interval};
+use tokio::{net::ToSocketAddrs, select, sync::mpsc::UnboundedReceiver};
 use tokio_util::sync::CancellationToken;
 
 use hula_types::hardware::Ids;

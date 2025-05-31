@@ -39,7 +39,6 @@ impl Default for Recording {
             .unwrap();
         let join_handle = runtime.spawn(server::run(
             frame_receiver,
-            // std::mem::take(&mut self.frames),
             "[::]:1337",
             CancellationToken::new(),
         ));
