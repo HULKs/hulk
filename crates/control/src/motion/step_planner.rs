@@ -23,14 +23,11 @@ const VARIABLES_PER_STEP: usize = 3;
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
     last_planned_step: Step,
-    last_step_plan: DVector<f32>, // TODO not used at the moment
     last_support_foot: Side,
 }
 
 #[context]
-pub struct CreationContext {
-    planned_steps: Parameter<usize, "step_planner.planned_steps">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -68,10 +65,9 @@ pub struct MainOutputs {
 }
 
 impl StepPlanner {
-    pub fn new(context: CreationContext) -> Result<Self> {
+    pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_planned_step: Step::default(),
-            last_step_plan: DVector::zeros(*context.planned_steps * VARIABLES_PER_STEP),
             last_support_foot: Side::Left,
         })
     }
@@ -212,7 +208,6 @@ impl StepPlanner {
 
         let step = Step::from_slice(&step_plan.as_slice()[0..VARIABLES_PER_STEP]);
 
-        self.last_step_plan = step_plan;
         self.last_support_foot = current_support_foot;
 
         Ok(step)
