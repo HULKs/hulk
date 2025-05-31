@@ -88,9 +88,8 @@ impl AppExt for App {
                 break exit;
             }
         };
-        if let Some(mut recording) = self.world_mut().get_resource_mut::<Recording>() {
-            println!("serving {} frames", recording.frames.len());
-            recording.serve()?
+        if let Some(recording) = self.world_mut().remove_resource::<Recording>() {
+            recording.join()?
         }
 
         match exit {
