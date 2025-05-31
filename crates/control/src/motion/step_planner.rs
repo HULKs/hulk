@@ -23,7 +23,6 @@ const VARIABLES_PER_STEP: usize = 3;
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
     last_planned_step: Step,
-    last_support_foot: Side,
 }
 
 #[context]
@@ -68,7 +67,6 @@ impl StepPlanner {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_planned_step: Step::default(),
-            last_support_foot: Side::Left,
         })
     }
 
@@ -207,8 +205,6 @@ impl StepPlanner {
             .fill_if_subscribed(|| gradient.as_slice().to_vec());
 
         let step = Step::from_slice(&step_plan.as_slice()[0..VARIABLES_PER_STEP]);
-
-        self.last_support_foot = current_support_foot;
 
         Ok(step)
     }
