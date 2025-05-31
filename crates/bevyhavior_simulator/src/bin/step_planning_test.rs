@@ -44,7 +44,6 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
         )],
     };
 
-    // FIXME this is broken atm and does nothing
     robot.parameters.behavior.injected_motion_command = Some(MotionCommand::Walk {
         path,
         orientation_mode: OrientationMode::Unspecified,
