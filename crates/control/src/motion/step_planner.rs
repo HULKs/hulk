@@ -38,8 +38,10 @@ pub struct CycleContext {
     step_size_delta_fast: Parameter<Step, "step_planner.step_size_delta_fast">,
     max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
     max_inside_turn: Parameter<f32, "step_planner.max_inside_turn">,
-    rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
-    translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
+    rotation_exponent:
+        Parameter<f32, "step_planner.optimization_parameters.walk_volume_rotation_exponent">,
+    translation_exponent:
+        Parameter<f32, "step_planner.optimization_parameters.walk_volume_translation_exponent">,
     initial_side_bonus: Parameter<f32, "step_planner.initial_side_bonus">,
     request_scale: Parameter<Step, "step_planner.request_scale">,
     optimization_parameters:

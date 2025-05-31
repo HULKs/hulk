@@ -158,8 +158,10 @@ impl StepPlanning<'_> {
 
     fn step_size(&self) -> StepSizeField {
         StepSizeField {
-            walk_volume_coefficients: WalkVolumeCoefficients::from_extents(
+            walk_volume_coefficients: WalkVolumeCoefficients::from_extents_and_exponents(
                 &self.parameters.walk_volume_extents,
+                self.parameters.walk_volume_translation_exponent,
+                self.parameters.walk_volume_rotation_exponent,
             ),
         }
     }

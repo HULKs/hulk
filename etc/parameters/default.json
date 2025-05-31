@@ -322,8 +322,6 @@
       "turn": 0.2
     },
     "max_step_size_backwards": 0.02,
-    "translation_exponent": 1.5,
-    "rotation_exponent": 2.0,
     "request_scale": {
       "forward": 1.0,
       "left": 1.4,
@@ -347,7 +345,9 @@
       "target_orientation_penalty": 1.0,
       "walk_orientation_penalty": 1.0,
       "alignment_start_distance": 0.1,
-      "alignment_start_smoothness": 0.05
+      "alignment_start_smoothness": 0.05,
+      "translation_exponent": 1.5,
+      "rotation_exponent": 2.0
     }
   },
   "zero_moment_point": {
