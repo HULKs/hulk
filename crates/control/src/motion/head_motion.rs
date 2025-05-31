@@ -171,7 +171,7 @@ fn compute_clamped_pitch(
         head_motion_parameters.outer_minimum_pitch
     } else {
         let interpolation_factor =
-            0.5 * (PI * controlled_positions.yaw / head_motion_parameters.outer_yaw).cos();
+            0.5 * (1.0 + (PI * controlled_positions.yaw / head_motion_parameters.outer_yaw).cos());
         head_motion_parameters.outer_minimum_pitch
             + interpolation_factor
                 * (head_motion_parameters.inner_minimum_pitch

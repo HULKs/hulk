@@ -1109,7 +1109,7 @@
     "outer_maximum_pitch": 0.0,
     "inner_maximum_pitch": 0.61,
     "outer_minimum_pitch": 0.0,
-    "inner_minimum_pitch": -0.61,
+    "inner_minimum_pitch": -0.41,
     "outer_yaw": 1.3,
     "injected_head_joints": null
   },
