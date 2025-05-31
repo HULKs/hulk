@@ -42,7 +42,6 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
         geometry::line_segment::LineSegment(Point2::origin(), target_point),
     )];
 
-    // FIXME this is broken atm and does nothing
     robot.parameters.behavior.injected_motion_command = Some(MotionCommand::Walk {
         path,
         orientation_mode: OrientationMode::Unspecified,
