@@ -279,6 +279,8 @@ mod tests {
                     walk_orientation_penalty: 1.0,
                     num_steps: 15,
                     optimizer_steps: 50,
+                    walk_volume_translation_exponent: 2.0,
+                    walk_volume_rotation_exponent: 2.0,
                 },
                 initial_pose: Pose {
                     position: point![-0.0, 0.0,],
