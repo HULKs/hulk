@@ -33,8 +33,9 @@ pub enum WalkSpeed {
     Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub enum OrientationMode {
-    AlignWithPath,
-    Override(Orientation2<Ground>),
+    Unspecified,
+    LookTowards(Orientation2<Ground>),
+    LookAt(Point2<Ground>),
 }
 
 #[derive(
@@ -80,6 +81,7 @@ pub enum MotionCommand {
         left_arm: ArmMotion,
         right_arm: ArmMotion,
         orientation_mode: OrientationMode,
+        target_orientation: Orientation2<Ground>,
         speed: WalkSpeed,
     },
     InWalkKick {

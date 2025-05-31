@@ -35,6 +35,7 @@ fn main() -> Result<()> {
                     "control::team_ball_receiver",
                     "control::time_to_reach_kick_position",
                     "control::world_state_composer",
+                    "control::motion::step_planner",
                 ],
                 execution_time_warning_threshold: None,
             },
