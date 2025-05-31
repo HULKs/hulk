@@ -46,10 +46,6 @@ async fn timeline_server(
     mut frame_receiver: UnboundedReceiver<Frame>,
 ) {
     let mut frames = Vec::<Frame>::new();
-    // Hack to provide frame count to clients initially.
-    // Can be removed if communication sends data for
-    // subscribed outputs immediately after subscribing
-    let mut interval = interval(Duration::from_secs(1));
 
     loop {
         select! {
@@ -61,7 +57,6 @@ async fn timeline_server(
                 }
             }
             _ = parameters_reader.wait_for_change() => { }
-            _ = interval.tick() => { }
             _ = keep_running.cancelled() => {
                 break
             }
