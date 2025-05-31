@@ -47,6 +47,17 @@ impl StepPlan {
         );
         let end_feet = Feet::end_from_request(parameters, step, support_side);
 
+        Self::new_with_start_and_end_feet(context, support_side, start_feet, end_feet)
+    }
+
+    pub fn new_with_start_and_end_feet(
+        context: &Context,
+        support_side: Side,
+        start_feet: Feet,
+        end_feet: Feet,
+    ) -> Self {
+        let parameters = &context.parameters;
+
         let swing_foot_travel = start_feet.swing_travel_over_ground(&end_feet).abs();
         let turn_travel = end_feet
             .swing_sole

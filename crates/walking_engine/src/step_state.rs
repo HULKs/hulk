@@ -3,7 +3,7 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 use coordinate_systems::{Ground, LeftSole, RightSole, Robot, Walk};
 use geometry::is_inside_polygon::is_inside_convex_hull;
 use kinematics::inverse::leg_angles;
-use linear_algebra::{point, Isometry3, Orientation3, Point3, Pose3, Rotation3};
+use linear_algebra::{point, Isometry3, Orientation3, Point2, Point3, Pose3, Rotation3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use splines::Interpolate;
@@ -12,12 +12,10 @@ use types::{
     robot_dimensions::{
         transform_left_sole_outline, transform_right_sole_outline, RobotDimensions,
     },
-    step::Step,
     support_foot::Side,
 };
 
 use crate::{
-    anatomic_constraints::AnatomicConstraints,
     compensate_stiffness_loss::CompensateStiffnessLossExt,
     parameters::{Parameters, SwingingArmsParameters},
     Context,
@@ -64,11 +62,11 @@ impl StepState {
             };
 
             // let center_of_mass = robot_to_ground * *context.center_of_mass;
-            let zero_moment_point: Point3<Ground> = point![
-                context.zero_moment_point.x(),
-                context.zero_moment_point.y(),
-                0.0
-            ];
+            // let zero_moment_point: Point3<Ground> = point![
+            //     context.zero_moment_point.x(),
+            //     context.zero_moment_point.y(),
+            //     0.0
+            // ];
             let robot_to_walk = context.robot_to_walk;
             let ground_to_robot = robot_to_ground.inverse();
 
@@ -78,46 +76,48 @@ impl StepState {
                 &context.last_actuated_joints,
                 self.plan.support_side,
             );
+            let target = robot_to_walk * ground_to_robot * context.zero_moment_point.extend(0.0);
+            let support_side = self.plan.support_side;
+            let (min, max) = match support_side {
+                Side::Left => (-0.075, context.parameters.base.foot_offset_right.y()),
+                Side::Right => (context.parameters.base.foot_offset_left.y(), 0.075),
+            };
+            let diff_x = if target.x() < 0.0 { 0.02 } else { -0.08 };
+            let diff_y = if target.y() < 0.0 { 0.02 } else { -0.02 };
 
-            if is_outside_support_polygon(
-                &self.plan,
-                zero_moment_point,
-                robot_to_walk,
-                ground_to_robot,
-                current_feet,
-            ) {
-                let target = robot_to_walk * ground_to_robot * zero_moment_point;
-                let support_to_target = target - current_feet.support_sole.position();
+            let clamped_target = point![target.x().clamp(-0.05, 0.05), target.y().clamp(min, max),];
 
-                let adjust_distance_x = support_to_target.x().clamp(-0.1, 0.1);
-                let adjusted_adjust_distance_x = if adjust_distance_x < 0.0 {
-                    adjust_distance_x + 0.02
-                } else {
-                    adjust_distance_x - 0.08
+            if is_outside_support_polygon(&self.plan, clamped_target, current_feet) {
+                let adjusted_clamped_target = point![
+                    clamped_target.x() + diff_x,
+                    clamped_target.y() + diff_y,
+                    0.0
+                ];
+                // TODO: base offset after target movement (since its reduced for support sole by 0.5)
+                let support_sole_base_offset = match self.plan.support_side {
+                    Side::Left => context.parameters.base.foot_offset_left,
+                    Side::Right => context.parameters.base.foot_offset_right,
                 };
 
-                let adjust_distance_y = support_to_target.y().clamp(-0.15, 0.15);
-                let adjusted_adjust_distance_y = if adjust_distance_y < 0.0 {
-                    adjust_distance_y + 0.02
-                } else {
-                    adjust_distance_y - 0.02
+                let end_feet = Feet {
+                    support_sole: Pose3::from_parts(
+                        -(adjusted_clamped_target - support_sole_base_offset) / 2.0
+                            + support_sole_base_offset,
+                        Orientation3::from_euler_angles(0.0, 0.0, 0.0),
+                    ),
+                    swing_sole: Pose3::from_parts(
+                        adjusted_clamped_target,
+                        Orientation3::from_euler_angles(0.0, 0.0, 0.0),
+                    ),
                 };
-
-                let support_side = self.plan.support_side;
-                let request = Step {
-                    forward: adjusted_adjust_distance_x,
-                    left: adjusted_adjust_distance_y,
-                    turn: 0.0,
-                }
-                .clamp_to_anatomic_constraints(
-                    support_side,
-                    context.parameters.max_base_inside_turn,
-                    context.parameters.max_inside_turn_increase,
-                );
 
                 let start_feet = self.plan.start_feet;
-                let plan =
-                    StepPlan::new_with_start_feet(context, request, support_side, start_feet);
+                let plan = StepPlan::new_with_start_and_end_feet(
+                    context,
+                    support_side,
+                    start_feet,
+                    end_feet,
+                );
                 self.plan = plan;
             };
         }
@@ -324,24 +324,9 @@ fn clamp_xy_movement<Frame>(
     (from.xy() + clamped_xy).extend(to.z())
 }
 
-fn is_outside_support_polygon(
-    plan: &StepPlan,
-    zero_moment_point: Point3<Ground>,
-    robot_to_walk: Isometry3<Robot, Walk>,
-    ground_to_robot: Isometry3<Ground, Robot>,
-    current_feet: Feet,
-) -> bool {
-    #[derive(Copy, Clone, Debug)]
-    struct SupportSole;
-    let upcoming_walk_to_support_sole = plan
-        .end_feet
-        .support_sole
-        .as_transform::<SupportSole>()
-        .inverse();
+fn is_outside_support_polygon(plan: &StepPlan, target: Point2<Walk>, current_feet: Feet) -> bool {
     // the red swing foot
-    let target_swing_sole = current_feet.support_sole.as_transform()
-        * upcoming_walk_to_support_sole
-        * plan.end_feet.swing_sole;
+    let target_swing_sole = plan.end_feet.swing_sole;
 
     let (support_sole_outline, swing_sole_outline, target_swing_sole_outline) =
         if plan.support_side == Side::Left {
@@ -364,9 +349,8 @@ fn is_outside_support_polygon(
         target_swing_sole_outline,
     ]
     .concat();
-    let zero_moment_point_in_walk = robot_to_walk * ground_to_robot * zero_moment_point;
 
-    !is_inside_convex_hull(&feet_outlines, &zero_moment_point_in_walk.xy())
+    !is_inside_convex_hull(&feet_outlines, &target)
 }
 
 fn swinging_arm(
