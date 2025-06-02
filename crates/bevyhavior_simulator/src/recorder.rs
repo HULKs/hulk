@@ -7,6 +7,7 @@ use bevy::{
 };
 use color_eyre::Result;
 use tokio::{
+    net::ToSocketAddrs,
     runtime::Runtime,
     sync::mpsc::{self, UnboundedSender},
     task::JoinHandle,
@@ -30,26 +31,6 @@ pub struct Recording {
     runtime: Runtime,
 }
 
-impl Default for Recording {
-    fn default() -> Self {
-        let (frame_sender, frame_receiver) = mpsc::unbounded_channel();
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let join_handle = runtime.spawn(server::run(
-            frame_receiver,
-            "[::]:1337",
-            CancellationToken::new(),
-        ));
-        Self {
-            frame_sender,
-            join_handle,
-            runtime,
-        }
-    }
-}
-
 pub fn frame_recorder(
     robots: Query<&Robot>,
     ball: Res<BallResource>,
@@ -71,6 +52,23 @@ pub fn frame_recorder(
 }
 
 impl Recording {
+    pub fn new(addresses: impl ToSocketAddrs + Send + Sync + 'static) -> Self {
+        let (frame_sender, frame_receiver) = mpsc::unbounded_channel();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let join_handle = runtime.spawn(server::run(
+            frame_receiver,
+            addresses,
+            CancellationToken::new(),
+        ));
+        Self {
+            frame_sender,
+            join_handle,
+            runtime,
+        }
+    }
     pub fn join(self) -> Result<()> {
         let Self {
             frame_sender,
@@ -83,6 +81,6 @@ impl Recording {
 }
 
 pub fn recording_plugin(app: &mut App) {
-    app.insert_resource(Recording::default())
+    app.insert_resource(Recording::new("[::]:1337"))
         .add_systems(PostUpdate, frame_recorder);
 }
