@@ -26,7 +26,7 @@ pub struct Frame {
 #[derive(Resource)]
 pub struct Recording {
     frame_sender: UnboundedSender<Frame>,
-    join_handle: Option<JoinHandle<Result<()>>>,
+    join_handle: JoinHandle<Result<()>>,
     runtime: Runtime,
 }
 
@@ -44,7 +44,7 @@ impl Default for Recording {
         ));
         Self {
             frame_sender,
-            join_handle: Some(join_handle),
+            join_handle,
             runtime,
         }
     }
@@ -74,11 +74,11 @@ impl Recording {
     pub fn join(self) -> Result<()> {
         let Self {
             frame_sender,
-            mut join_handle,
+            join_handle,
             runtime,
         } = self;
         drop(frame_sender);
-        runtime.block_on(join_handle.take().unwrap())?
+        runtime.block_on(join_handle)?
     }
 }
 
