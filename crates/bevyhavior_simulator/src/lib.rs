@@ -14,6 +14,8 @@ pub mod robot;
 pub mod scenario;
 pub mod server;
 pub mod simulator;
+pub mod soft_error;
+pub mod test_rules;
 pub mod time;
 pub mod whistle;
 

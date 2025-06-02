@@ -10,7 +10,7 @@ use bevy::{
     time::Time,
 };
 use color_eyre::{
-    eyre::{eyre, Context, ContextCompat},
+    eyre::{bail, eyre, Context, ContextCompat},
     Result,
 };
 
@@ -25,6 +25,8 @@ use crate::{
     recorder::Recording,
     robot::{cycle_robots, move_robots, Messages},
     server::Parameters,
+    soft_error::{soft_error_plugin, SoftErrorResource},
+    test_rules::check_robots_dont_walk_into_rule_obstacles,
     time::{update_time, Ticks},
     whistle::WhistleResource,
 };
@@ -53,6 +55,7 @@ impl Plugin for SimulatorPlugin {
         ))
         .add_plugins(autoref_plugin)
         .add_plugins(game_controller_plugin)
+        .add_plugins(soft_error_plugin)
         .insert_resource(SimulatorFieldDimensions::from(parameters.field_dimensions))
         .insert_resource(GameController::default())
         .insert_resource(BallResource::default())
@@ -62,6 +65,12 @@ impl Plugin for SimulatorPlugin {
         .insert_resource(Time::<Ticks>::default())
         .add_systems(First, update_time)
         .add_systems(Update, cycle_robots.before(move_robots).after(autoref))
+        .add_systems(
+            Update,
+            check_robots_dont_walk_into_rule_obstacles
+                .before(move_robots)
+                .after(cycle_robots),
+        )
         .add_systems(Update, move_robots)
         .add_systems(Update, move_ball.after(move_robots));
 
@@ -92,10 +101,19 @@ impl AppExt for App {
             recording.join()?
         }
 
-        match exit {
-            AppExit::Success => Ok(()),
-            AppExit::Error(code) => Err(eyre!("Scenario exited with error code {code}")),
+        if let AppExit::Error(code) = exit {
+            return Err(eyre!("Scenario exited with error code {code}"));
         }
+
+        let soft_errors = self
+            .world_mut()
+            .get_resource_mut::<SoftErrorResource>()
+            .expect("soft error storage should exist");
+        if !soft_errors.errors.is_empty() {
+            bail!("{} soft error(s) found", soft_errors.errors.len())
+        }
+
+        Ok(())
     }
 }
 
