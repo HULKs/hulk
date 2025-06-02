@@ -1,11 +1,9 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use color_eyre::{
-    eyre::{Context, Error},
-    Result,
-};
+use color_eyre::{eyre::Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
-use tokio::{net::ToSocketAddrs, select, time::interval};
+use tokio::{net::ToSocketAddrs, select, sync::mpsc::UnboundedReceiver};
 use tokio_util::sync::CancellationToken;
 
 use hula_types::hardware::Ids;
@@ -40,47 +38,57 @@ async fn timeline_server(
     mut parameters_reader: buffered_watch::Receiver<(SystemTime, Parameters)>,
     mut outputs_writer: buffered_watch::Sender<(SystemTime, BehaviorSimulatorDatabase)>,
     mut control_writer: buffered_watch::Sender<(SystemTime, Database)>,
-    frames: Vec<Frame>,
+    mut frame_receiver: UnboundedReceiver<Frame>,
 ) {
-    // Hack to provide frame count to clients initially.
-    // Can be removed if communication sends data for
-    // subscribed outputs immediately after subscribing
-    let mut interval = interval(Duration::from_secs(1));
+    let mut frames = Vec::<Frame>::new();
 
+    let progress = ProgressBar::new_spinner();
+    progress.set_style(ProgressStyle::with_template("[{elapsed}] {pos} {msg}").unwrap());
     loop {
         select! {
+            frame = frame_receiver.recv() => {
+                match frame {
+                    Some(frame) => {
+                        frames.push(frame);
+                        progress.inc(1);
+                        progress.set_message(format!("{:.0}/s", progress.per_sec()));
+                    }
+                    None => {
+                        if !progress.is_finished() {
+                            progress.finish();
+                        }
+                    }
+                }
+            }
             _ = parameters_reader.wait_for_change() => { }
-            _ = interval.tick() => { }
             _ = keep_running.cancelled() => {
                 break
             }
         }
 
         let (_, parameters) = &*parameters_reader.borrow_and_mark_as_seen();
-
-        {
-            let (time, outputs) = &mut *outputs_writer.borrow_mut();
-            outputs.main_outputs.frame_count = frames.len();
-            let frame = &frames[parameters.selected_frame];
-            outputs.main_outputs.ball.clone_from(&frame.ball);
-            outputs.main_outputs.databases = frame.robots.clone();
-            *time = frame.timestamp;
-        }
-
-        {
-            let (time, control) = &mut *control_writer.borrow_mut();
-            let frame = &frames[parameters.selected_frame];
-            *control = to_player_number(parameters.selected_robot)
-                .ok()
-                .and_then(|player_number| frame.robots[player_number].clone())
-                .unwrap_or_default();
-            *time = frame.timestamp;
+        if let Some(frame) = &frames.get(parameters.selected_frame) {
+            {
+                let (time, outputs) = &mut *outputs_writer.borrow_mut();
+                outputs.main_outputs.frame_count = frames.len();
+                outputs.main_outputs.ball.clone_from(&frame.ball);
+                outputs.main_outputs.databases = frame.robots.clone();
+                *time = frame.timestamp;
+            }
+            {
+                let (time, control) = &mut *control_writer.borrow_mut();
+                *control = to_player_number(parameters.selected_robot)
+                    .ok()
+                    .and_then(|player_number| frame.robots[player_number].clone())
+                    .unwrap_or_default();
+                *time = frame.timestamp;
+            }
         }
     }
 }
 
-pub fn run(
-    frames: Vec<Frame>,
+pub async fn run(
+    frame_receiver: UnboundedReceiver<Frame>,
     addresses: impl ToSocketAddrs + Send + Sync + 'static,
     keep_running: CancellationToken,
 ) -> Result<()> {
@@ -107,48 +115,37 @@ pub fn run(
     let (subscribed_control_writer, _subscribed_control_reader) =
         buffered_watch::channel(Default::default());
 
-    let runtime = tokio::runtime::Runtime::new()?;
-    let communication_server = {
-        let parameters_receiver = parameters_receiver.clone();
-        runtime.block_on(async {
-            let mut communication_server = communication::server::Server::default();
-            let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
-            communication_server.expose_source(
-                "BehaviorSimulator",
-                outputs_receiver,
-                subscribed_outputs_sender,
-            )?;
-            communication_server.expose_source(
-                "Control",
-                control_reader,
-                subscribed_control_writer,
-            )?;
-            communication_server.expose_source(
-                "parameters",
-                parameters_receiver,
-                parameters_subscriptions,
-            )?;
-            communication_server.expose_sink("parameters", parameters_sender)?;
-            Ok::<_, Error>(communication_server)
-        })?
-    };
-    let communication_task = {
-        let keep_running = keep_running.clone();
-        runtime.spawn(async { communication_server.serve(addresses, keep_running).await })
-    };
+    let mut communication_server = communication::server::Server::default();
+    let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
+    communication_server.expose_source(
+        "BehaviorSimulator",
+        outputs_receiver,
+        subscribed_outputs_sender,
+    )?;
+    communication_server.expose_source("Control", control_reader, subscribed_control_writer)?;
+    communication_server.expose_source(
+        "parameters",
+        parameters_receiver.clone(),
+        parameters_subscriptions,
+    )?;
+    communication_server.expose_sink("parameters", parameters_sender)?;
+
     {
-        runtime.spawn(async {
+        let keep_running = keep_running.clone();
+        tokio::spawn(async {
             timeline_server(
                 keep_running,
                 parameters_receiver,
                 outputs_sender,
                 control_writer,
-                frames,
+                frame_receiver,
             )
             .await
         });
     }
 
-    runtime.block_on(communication_task)??;
-    Ok(())
+    communication_server
+        .serve(addresses, keep_running)
+        .await
+        .context("failed to serve")
 }

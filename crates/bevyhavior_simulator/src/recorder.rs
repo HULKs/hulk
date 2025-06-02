@@ -6,6 +6,12 @@ use bevy::{
     time::Time,
 };
 use color_eyre::Result;
+use tokio::{
+    net::ToSocketAddrs,
+    runtime::Runtime,
+    sync::mpsc::{self, UnboundedSender},
+    task::JoinHandle,
+};
 use tokio_util::sync::CancellationToken;
 
 use types::{ball_position::SimulatorBallState, players::Players};
@@ -18,39 +24,63 @@ pub struct Frame {
     pub robots: Players<Option<Database>>,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct Recording {
-    pub frames: Vec<Frame>,
+    frame_sender: UnboundedSender<Frame>,
+    join_handle: JoinHandle<Result<()>>,
+    runtime: Runtime,
 }
 
 pub fn frame_recorder(
     robots: Query<&Robot>,
     ball: Res<BallResource>,
-    mut recording: ResMut<Recording>,
+    recording: ResMut<Recording>,
     time: Res<Time>,
 ) {
     let mut players = Players::<Option<Database>>::default();
     for robot in &robots {
         players[robot.parameters.player_number] = Some(robot.database.clone())
     }
-    recording.frames.push(Frame {
-        timestamp: UNIX_EPOCH + time.elapsed(),
-        robots: players,
-        ball: ball.state,
-    });
+    recording
+        .frame_sender
+        .send(Frame {
+            timestamp: UNIX_EPOCH + time.elapsed(),
+            robots: players,
+            ball: ball.state,
+        })
+        .expect("failed to send frame to server");
 }
 
 impl Recording {
-    pub fn serve(&mut self) -> Result<()> {
-        server::run(
-            std::mem::take(&mut self.frames),
-            "[::]:1337",
+    pub fn new(addresses: impl ToSocketAddrs + Send + Sync + 'static) -> Self {
+        let (frame_sender, frame_receiver) = mpsc::unbounded_channel();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let join_handle = runtime.spawn(server::run(
+            frame_receiver,
+            addresses,
             CancellationToken::new(),
-        )
+        ));
+        Self {
+            frame_sender,
+            join_handle,
+            runtime,
+        }
+    }
+    pub fn join(self) -> Result<()> {
+        let Self {
+            frame_sender,
+            join_handle,
+            runtime,
+        } = self;
+        drop(frame_sender);
+        runtime.block_on(join_handle)?
     }
 }
 
 pub fn recording_plugin(app: &mut App) {
-    app.insert_resource(Recording::default())
+    app.insert_resource(Recording::new("[::]:1337"))
         .add_systems(PostUpdate, frame_recorder);
 }
