@@ -1,6 +1,6 @@
 use coordinate_systems::{Robot, Walk};
 use kinematics::forward::{left_sole_to_robot, right_sole_to_robot};
-use linear_algebra::{point, Isometry3, Orientation3, Pose3, Vector2, Vector3};
+use linear_algebra::{point, Isometry3, Orientation3, Pose2, Pose3, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{joints::body::BodyJoints, step::Step, support_foot::Side};
@@ -10,9 +10,26 @@ use crate::parameters::Parameters;
 #[derive(
     Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct Feet {
-    pub support_sole: Pose3<Walk>,
-    pub swing_sole: Pose3<Walk>,
+pub struct Feet<T = Pose3<Walk>> {
+    pub support_sole: T,
+    pub swing_sole: T,
+}
+
+impl Feet<Pose2<Walk>> {
+    pub fn at_ground(self) -> Feet<Pose3<Walk>> {
+        let support_sole = Pose3::from_parts(
+            self.support_sole.position().extend(0.0),
+            Orientation3::from_euler_angles(0.0, 0.0, self.support_sole.orientation().angle()),
+        );
+        let swing_sole = Pose3::from_parts(
+            self.swing_sole.position().extend(0.0),
+            Orientation3::from_euler_angles(0.0, 0.0, self.swing_sole.orientation().angle()),
+        );
+        Feet {
+            support_sole,
+            swing_sole,
+        }
+    }
 }
 
 impl Feet {

@@ -128,7 +128,6 @@ impl WalkingEngine {
                         + arm_compensation),
             ),
         );
-
         let context = Context {
             parameters: cycle_context.parameters,
             max_step_size: cycle_context.max_step_size,

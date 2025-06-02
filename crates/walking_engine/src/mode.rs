@@ -1,3 +1,4 @@
+use catching::Catching;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -11,6 +12,7 @@ use self::{
     kicking::Kicking, standing::Standing, starting::Starting, stopping::Stopping, walking::Walking,
 };
 
+pub mod catching;
 pub mod kicking;
 pub mod standing;
 pub mod starting;
@@ -25,6 +27,7 @@ pub enum Mode {
     Starting(Starting),
     Walking(Walking),
     Kicking(Kicking),
+    Catching(Catching),
     Stopping(Stopping),
 }
 
@@ -41,6 +44,7 @@ impl WalkTransition for Mode {
             Self::Starting(starting) => starting.stand(context),
             Self::Walking(walking) => walking.stand(context),
             Self::Kicking(kicking) => kicking.stand(context),
+            Self::Catching(catching) => catching.stand(context),
             Self::Stopping(stopping) => stopping.stand(context),
         }
     }
@@ -51,6 +55,7 @@ impl WalkTransition for Mode {
             Self::Starting(starting) => starting.walk(context, step),
             Self::Walking(walking) => walking.walk(context, step),
             Self::Kicking(kicking) => kicking.walk(context, step),
+            Self::Catching(catching) => catching.walk(context, step),
             Self::Stopping(stopping) => stopping.walk(context, step),
         }
     }
@@ -61,6 +66,7 @@ impl WalkTransition for Mode {
             Self::Starting(starting) => starting.kick(context, variant, side, strength),
             Self::Walking(walking) => walking.kick(context, variant, side, strength),
             Self::Kicking(kicking) => kicking.kick(context, variant, side, strength),
+            Self::Catching(catching) => catching.kick(context, variant, side, strength),
             Self::Stopping(stopping) => stopping.kick(context, variant, side, strength),
         }
     }
@@ -73,6 +79,7 @@ impl Mode {
             Self::Starting(starting) => starting.compute_commands(context),
             Self::Walking(walking) => walking.compute_commands(context),
             Self::Kicking(kicking) => kicking.compute_commands(context),
+            Self::Catching(catching) => catching.compute_commands(context),
             Self::Stopping(stopping) => stopping.compute_commands(context),
         }
     }
@@ -83,6 +90,7 @@ impl Mode {
             Mode::Starting(starting) => starting.tick(context),
             Mode::Walking(walking) => walking.tick(context),
             Mode::Kicking(kicking) => kicking.tick(context),
+            Mode::Catching(catching) => catching.tick(context),
             Mode::Stopping(stopping) => stopping.tick(context),
         }
     }

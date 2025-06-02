@@ -7,7 +7,12 @@ use crate::{
     Context,
 };
 
-use super::{stopping::Stopping, walking::Walking, Mode, WalkTransition};
+use super::{
+    catching::{self, Catching},
+    stopping::Stopping,
+    walking::Walking,
+    Mode, WalkTransition,
+};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -78,20 +83,19 @@ impl WalkTransition for Kicking {
             ));
         }
 
+        if catching::should_catch(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(context, self.step));
+        }
+
         Mode::Kicking(self)
     }
 
     fn walk(self, context: &Context, step: Step) -> Mode {
         let current_step = self.step;
-        if current_step.is_timeouted(context.parameters) {
-            return Mode::Walking(Walking::new(
-                context,
-                Step::ZERO,
-                current_step.plan.support_side.opposite(),
-                Step::ZERO,
-            ));
-        }
-
         if current_step.is_support_switched(context) {
             let kick = self.kick.advance_to_next_step();
             if kick.is_finished(context.kick_steps) {
@@ -110,6 +114,23 @@ impl WalkTransition for Kicking {
             ));
         }
 
+        if catching::should_catch(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(context, self.step));
+        }
+
+        if current_step.is_timeouted(context.parameters) {
+            return Mode::Walking(Walking::new(
+                context,
+                Step::ZERO,
+                current_step.plan.support_side.opposite(),
+                Step::ZERO,
+            ));
+        }
+
         Mode::Kicking(self)
     }
 
@@ -121,15 +142,6 @@ impl WalkTransition for Kicking {
         strength: f32,
     ) -> Mode {
         let current_step = self.step;
-        if current_step.is_timeouted(context.parameters) {
-            return Mode::Walking(Walking::new(
-                context,
-                Step::ZERO,
-                current_step.plan.support_side.opposite(),
-                Step::ZERO,
-            ));
-        }
-
         if current_step.is_support_switched(context) {
             let next_support_side = current_step.plan.support_side.opposite();
             let current_kick = self.kick.advance_to_next_step();
@@ -150,6 +162,23 @@ impl WalkTransition for Kicking {
                 context,
                 KickState::new(variant, kicking_side, strength),
                 next_support_side,
+            ));
+        }
+
+        if catching::should_catch(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(context, self.step));
+        }
+
+        if current_step.is_timeouted(context.parameters) {
+            return Mode::Walking(Walking::new(
+                context,
+                Step::ZERO,
+                current_step.plan.support_side.opposite(),
+                Step::ZERO,
             ));
         }
 
