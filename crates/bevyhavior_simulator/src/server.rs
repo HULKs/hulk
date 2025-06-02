@@ -1,9 +1,7 @@
-use std::{
-    io::Write,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use color_eyre::{eyre::Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use tokio::{net::ToSocketAddrs, select, sync::mpsc::UnboundedReceiver};
 use tokio_util::sync::CancellationToken;
@@ -44,13 +42,22 @@ async fn timeline_server(
 ) {
     let mut frames = Vec::<Frame>::new();
 
+    let progress = ProgressBar::new_spinner();
+    progress.set_style(ProgressStyle::with_template("[{elapsed}] {pos} {msg}").unwrap());
     loop {
         select! {
             frame = frame_receiver.recv() => {
-                if let Some(frame) = frame {
-                    frames.push(frame);
-                    print!("serving {} frames\r", frames.len());
-                    std::io::stdout().flush().unwrap();
+                match frame {
+                    Some(frame) => {
+                        frames.push(frame);
+                        progress.inc(1);
+                        progress.set_message(format!("{:.0}/s", progress.per_sec()));
+                    }
+                    None => {
+                        if !progress.is_finished() {
+                            progress.finish();
+                        }
+                    }
                 }
             }
             _ = parameters_reader.wait_for_change() => { }
