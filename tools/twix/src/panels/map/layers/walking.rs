@@ -11,7 +11,9 @@ use types::{
 };
 use walking_engine::{
     feet::Feet,
-    mode::{kicking::Kicking, starting::Starting, stopping::Stopping, walking, Mode},
+    mode::{
+        catching::Catching, kicking::Kicking, starting::Starting, stopping::Stopping, walking, Mode,
+    },
     Engine,
 };
 
@@ -121,6 +123,7 @@ impl Layer<Ground> for Walking {
                 Mode::Starting(Starting { step })
                 | Mode::Walking(walking::Walking { step, .. })
                 | Mode::Kicking(Kicking { step, .. })
+                | Mode::Catching(Catching { step })
                 | Mode::Stopping(Stopping { step, .. }),
             ..
         } = engine
