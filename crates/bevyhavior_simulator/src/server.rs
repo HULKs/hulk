@@ -46,7 +46,7 @@ async fn timeline_server(
     progress.set_style(ProgressStyle::with_template("[{elapsed}] {pos} {msg}").unwrap());
     loop {
         select! {
-            frame = frame_receiver.recv() => {
+            frame = frame_receiver.recv(), if !frame_receiver.is_closed() => {
                 match frame {
                     Some(frame) => {
                         frames.push(frame);
