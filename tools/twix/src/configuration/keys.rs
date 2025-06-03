@@ -60,18 +60,18 @@ fn is_supported_keybind(shortcut: &KeyboardShortcut) -> bool {
     }
 }
 
-pub fn parse_shortcut(v: &str) -> Result<KeyboardShortcut, Error> {
-    let parts = v.split('-').collect::<Vec<_>>();
+pub fn parse_shortcut(raw_shortcut: &str) -> Result<KeyboardShortcut, Error> {
+    let parts = raw_shortcut.split('-').collect::<Vec<_>>();
 
     let Some((raw_key, raw_modifiers)) = parts.split_last() else {
-        return Err(Error::InvalidKey(v.into()));
+        return Err(Error::InvalidKey(raw_shortcut.into()));
     };
 
     let is_single_ascii_uppercase_letter =
         matches!(raw_key.as_bytes(), [letter] if letter.is_ascii_uppercase());
 
     let Some(logical_key) = Key::from_name(raw_key) else {
-        return Err(Error::InvalidKey(v.into()));
+        return Err(Error::InvalidKey(raw_shortcut.into()));
     };
 
     let mut modifiers = Modifiers {
@@ -97,7 +97,7 @@ pub fn parse_shortcut(v: &str) -> Result<KeyboardShortcut, Error> {
     if is_supported_keybind(&result) {
         Ok(result)
     } else {
-        Err(Error::UnsupportedKeybind(v.into()))
+        Err(Error::UnsupportedKeybind(raw_shortcut.into()))
     }
 }
 
