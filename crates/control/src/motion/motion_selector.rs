@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     fall_state::Kind,
@@ -11,6 +11,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     current_motion: MotionType,
+    stand_up_count: i32,
 }
 
 #[context]
@@ -22,6 +23,7 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    stand_up_count: AdditionalOutput<i32, "stand_up_count">,
 }
 
 #[context]
@@ -34,12 +36,30 @@ impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             current_motion: MotionType::Unstiff,
+            stand_up_count: 0,
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
+
+        if self.current_motion == MotionType::StandUpBack
+            || self.current_motion == MotionType::StandUpFront
+            || self.current_motion == MotionType::StandUpSitting
+        {
+            self.stand_up_count = self.stand_up_count;
+        } else if self.current_motion == MotionType::Dispatching
+            && (requested_motion == MotionType::StandUpFront
+                || requested_motion == MotionType::StandUpBack
+                || requested_motion == MotionType::StandUpSitting)
+        {
+            self.stand_up_count += 1;
+        } else {
+            self.stand_up_count = 0;
+        }
+
+        context.stand_up_count.fill_if_subscribed(|| self.stand_up_count);
 
         self.current_motion = transition_motion(
             self.current_motion,
