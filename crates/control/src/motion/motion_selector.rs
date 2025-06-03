@@ -44,22 +44,24 @@ impl MotionSelector {
         let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
 
-        if self.current_motion == MotionType::StandUpBack
+        self.stand_up_count = if self.current_motion == MotionType::StandUpBack
             || self.current_motion == MotionType::StandUpFront
             || self.current_motion == MotionType::StandUpSitting
         {
-            self.stand_up_count = self.stand_up_count;
+            self.stand_up_count
         } else if self.current_motion == MotionType::Dispatching
             && (requested_motion == MotionType::StandUpFront
                 || requested_motion == MotionType::StandUpBack
                 || requested_motion == MotionType::StandUpSitting)
         {
-            self.stand_up_count += 1;
+            self.stand_up_count + 1
         } else {
-            self.stand_up_count = 0;
-        }
+            0
+        };
 
-        context.stand_up_count.fill_if_subscribed(|| self.stand_up_count);
+        context
+            .stand_up_count
+            .fill_if_subscribed(|| self.stand_up_count);
 
         self.current_motion = transition_motion(
             self.current_motion,
