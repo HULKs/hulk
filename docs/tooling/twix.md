@@ -56,9 +56,11 @@ Possible actions are:
 |`focus_left`    | Move focus left                                  |
 |`focus_panel`   | Focus the panel selector                         |
 |`focus_right`   | Move focus right                                 |
+|`no_op`         | Do nothing (used to unbind a key)                |
 |`open_split`    | Split the current surface along the longest axis |
 |`open_tab`      | Open a new tab in the current surface            |
 |`reconnect`     | Reestablish the connection to the NAO            |
+|`close_all`     | Close all tabs and windows                       |
 
 !!! example "Example configuration"
 
