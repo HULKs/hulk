@@ -30,7 +30,7 @@ fn consume_actions(keybinds: Arc<Keybinds>, input: &mut InputState) -> Vec<Keybi
         } = event
         {
             for (trigger, action) in keybinds.iter() {
-                if trigger.key == *key && modifiers.matches_exact(trigger.modifiers) {
+                if trigger.logical_key == *key && modifiers.matches_exact(trigger.modifiers) {
                     actions.push(*action);
                     return false;
                 }
