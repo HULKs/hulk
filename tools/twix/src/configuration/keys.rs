@@ -39,12 +39,12 @@ pub enum KeybindAction {
     CloseAll,
 }
 
-pub fn parse_modifier(value: &&str) -> Result<Modifiers, Error> {
-    match *value {
+pub fn parse_modifier(value: &str) -> Result<Modifiers, Error> {
+    match value {
         "A" => Ok(Modifiers::ALT),
         "C" => Ok(Modifiers::COMMAND),
         "S" => Ok(Modifiers::SHIFT),
-        _ => Err(Error::InvalidModifier(String::from(*value))),
+        _ => Err(Error::InvalidModifier(String::from(value))),
     }
 }
 
