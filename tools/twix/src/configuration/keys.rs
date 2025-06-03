@@ -146,8 +146,8 @@ impl<'de> Deserialize<'de> for Keybinds {
             {
                 let mut keybinds = HashMap::new();
 
-                while let Some((raw_trigger, action)) = visitor.next_entry()? {
-                    let trigger = parse_shortcut(raw_trigger).map_err(de::Error::custom)?;
+                while let Some((raw_trigger, action)) = visitor.next_entry::<String, _>()? {
+                    let trigger = parse_shortcut(&raw_trigger).map_err(de::Error::custom)?;
                     keybinds.insert(trigger, action);
                 }
 
