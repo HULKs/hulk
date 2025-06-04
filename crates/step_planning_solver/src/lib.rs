@@ -2,6 +2,7 @@ use color_eyre::Result;
 use levenberg_marquardt::LeastSquaresProblem;
 use nalgebra::{vector, DVector, Dyn, Owned, U1};
 use num_dual::{Derivative, DualNum, DualNumFloat, DualVec};
+use optimization_engine::constraints::Constraint;
 
 use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
@@ -14,6 +15,25 @@ use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
     planned_path::Path, step::Step, support_foot::Side,
 };
+
+struct WalkVolumeConstraint {}
+
+impl Constraint for WalkVolumeConstraint {
+    fn project(&self, x: &mut [f64]) {
+        for step in x.chunks_exact_mut(3) {
+            let [forward, left, turn] = step.try_into().unwrap();
+            let step = Step {
+                forward,
+                left,
+                turn,
+            };
+        }
+    }
+
+    fn is_convex(&self) -> bool {
+        true
+    }
+}
 
 fn duals<F: DualNumFloat + DualNum<F>>(reals: &DVector<F>) -> DVector<DualVec<F, F, Dyn>> {
     let num_variables = reals.nrows();
