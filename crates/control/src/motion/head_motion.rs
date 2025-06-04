@@ -53,67 +53,72 @@ impl HeadMotion {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if let Some(injected_head_joints) = context.parameters.injected_head_joints {
-            self.lowpass_filter.update(injected_head_joints);
-
-            return Ok(MainOutputs {
-                head_joints_command: MotorCommands {
-                    positions: self.lowpass_filter.state(),
-                    stiffnesses: HeadJoints::fill(0.8),
-                }
-                .into(),
-            });
-        }
-        if context.motion_selection.dispatching_motion.is_some() {
-            return Ok(MainOutputs {
-                head_joints_command: MotorCommands {
-                    positions: self.last_positions,
-                    stiffnesses: HeadJoints::fill(0.8),
-                }
-                .into(),
-            });
-        }
-
-        let MotorCommands {
-            positions: raw_positions,
-            stiffnesses,
-        } = context
-            .has_ground_contact
-            .then(|| Self::joints_from_motion(&context))
-            .unwrap_or_else(|| MotorCommands {
-                positions: Default::default(),
-                stiffnesses: HeadJoints::fill(0.8),
-            });
-
-        let maximum_movement = context.parameters.maximum_velocity
-            * context.cycle_time.last_cycle_duration.as_secs_f32();
-
-        let controlled_positions = HeadJoints {
-            yaw: self.last_positions.yaw
-                + (raw_positions.yaw - self.last_positions.yaw)
-                    .clamp(-maximum_movement.yaw, maximum_movement.yaw),
-            pitch: self.last_positions.pitch
-                + (raw_positions.pitch - self.last_positions.pitch)
-                    .clamp(-maximum_movement.pitch, maximum_movement.pitch),
-        };
-
-        let clamped_pitch = compute_clamped_pitch(controlled_positions, context.parameters);
-
-        let clamped_positions = HeadJoints {
-            pitch: clamped_pitch,
-            yaw: controlled_positions.yaw,
-        };
-
-        self.last_positions = clamped_positions;
+        let head_positions = self.compute_positions(&context);
+        let stiffnesses = Self::compute_stiffnesses(&context);
         Ok(MainOutputs {
             head_joints_command: MotorCommands {
-                positions: clamped_positions,
+                positions: head_positions,
                 stiffnesses,
             }
             .into(),
         })
     }
 
+    fn compute_positions(&mut self, context: &CycleContext) -> HeadJoints<f32> {
+        let raw_positions =
+            if let Some(injected_head_joints) = context.parameters.injected_head_joints {
+                let clamped_pitch = compute_clamped_pitch(injected_head_joints, context.parameters);
+
+                HeadJoints {
+                    pitch: clamped_pitch,
+                    yaw: injected_head_joints.yaw,
+                }
+            } else if context.motion_selection.dispatching_motion.is_some() {
+                self.last_positions
+            } else {
+                let MotorCommands {
+                    positions: raw_positions,
+                    ..
+                } = context
+                    .has_ground_contact
+                    .then(|| Self::joints_from_motion(context))
+                    .unwrap_or_else(|| MotorCommands {
+                        positions: Default::default(),
+                        stiffnesses: Default::default(),
+                    });
+
+                let maximum_movement = context.parameters.maximum_velocity
+                    * context.cycle_time.last_cycle_duration.as_secs_f32();
+
+                let controlled_positions = HeadJoints {
+                    yaw: self.last_positions.yaw
+                        + (raw_positions.yaw - self.last_positions.yaw)
+                            .clamp(-maximum_movement.yaw, maximum_movement.yaw),
+                    pitch: self.last_positions.pitch
+                        + (raw_positions.pitch - self.last_positions.pitch)
+                            .clamp(-maximum_movement.pitch, maximum_movement.pitch),
+                };
+                let clamped_pitch = compute_clamped_pitch(raw_positions, context.parameters);
+
+                HeadJoints {
+                    pitch: clamped_pitch,
+                    yaw: controlled_positions.yaw,
+                }
+            };
+
+        self.lowpass_filter.update(raw_positions);
+        self.last_positions = self.lowpass_filter.state();
+
+        self.lowpass_filter.state()
+    }
+
+    fn compute_stiffnesses(context: &CycleContext) -> HeadJoints<f32> {
+        if *context.has_ground_contact {
+            Self::joints_from_motion(context).stiffnesses
+        } else {
+            HeadJoints::fill(0.8)
+        }
+    }
     pub fn joints_from_motion(context: &CycleContext) -> MotorCommands<HeadJoints<f32>> {
         let stiffnesses = HeadJoints::fill(0.8);
         match context.motion_command.head_motion() {
