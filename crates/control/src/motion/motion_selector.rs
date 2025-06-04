@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     fall_state::Kind,
@@ -11,6 +11,8 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     current_motion: MotionType,
+    last_motion: MotionType,
+    stand_up_count: i32,
 }
 
 #[context]
@@ -22,6 +24,7 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    stand_up_count: AdditionalOutput<i32, "stand_up_count">,
 }
 
 #[context]
@@ -34,10 +37,12 @@ impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             current_motion: MotionType::Unstiff,
+            last_motion: MotionType::Unstiff,
+            stand_up_count: 0,
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
 
@@ -47,6 +52,19 @@ impl MotionSelector {
             motion_safe_to_exit,
             *context.has_ground_contact,
         );
+
+        self.stand_up_count = match (
+            self.last_motion.is_standup_motion(),
+            self.current_motion.is_standup_motion(),
+        ) {
+            (false, true) => self.stand_up_count + 1,
+            (true, _) => self.stand_up_count,
+            (_, _) => 0,
+        };
+
+        context
+            .stand_up_count
+            .fill_if_subscribed(|| self.stand_up_count);
 
         let dispatching_motion = if self.current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
@@ -58,6 +76,7 @@ impl MotionSelector {
             None
         };
 
+        self.last_motion = self.current_motion;
         Ok(MainOutputs {
             motion_selection: MotionSelection {
                 current_motion: self.current_motion,
