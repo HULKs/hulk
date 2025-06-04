@@ -911,6 +911,7 @@ dependencies = [
  "num-traits",
  "path_serde_derive",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

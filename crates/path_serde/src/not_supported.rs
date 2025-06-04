@@ -9,6 +9,7 @@ use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSeriali
 use nalgebra::{DMatrix, Rotation3, SMatrix};
 use ndarray::Array2;
 use serde::{Deserializer, Serializer};
+use serde_json::Value;
 
 macro_rules! implement_as_not_supported {
     ($type:ty) => {
@@ -98,8 +99,10 @@ implement_as_not_supported!(DMatrix<f32>);
 implement_as_not_supported!(Rotation3<f32>);
 implement_as_not_supported!(SMatrix<f32, 3, 3>);
 implement_as_not_supported!(SMatrix<f32, 3, 4>);
-//ndarray
+// ndarray
 implement_as_not_supported!(Array2<f32>);
+// serde_json
+implement_as_not_supported!(Value);
 // stdlib
 implement_as_not_supported!(HashMap<K, V>, K, V);
 implement_as_not_supported!(HashSet<T>, T);
