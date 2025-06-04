@@ -1,7 +1,10 @@
 use bevy::{
     app::App,
-    ecs::system::{ResMut, Resource, SystemParam},
+    ecs::system::{Res, ResMut, Resource, SystemParam},
+    time::Time,
 };
+
+use crate::time::{Ticks, TicksTime};
 
 #[derive(Clone)]
 pub struct SoftError;
@@ -13,13 +16,15 @@ pub struct SoftErrorResource {
 
 #[derive(SystemParam)]
 pub struct SoftErrorSender<'w> {
+    time: Res<'w, Time<Ticks>>,
     resource: ResMut<'w, SoftErrorResource>,
 }
 
 impl SoftErrorSender<'_> {
     pub fn send(&mut self, message: impl Into<String>) {
         let message = message.into();
-        println!("{message}");
+        let tick = self.time.ticks();
+        println!("{tick} {message}");
         if self.resource.errors.is_empty() {
             self.resource.errors.push(SoftError);
         }
