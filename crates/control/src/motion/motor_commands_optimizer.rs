@@ -41,7 +41,6 @@ impl MotorCommandsOptimizer {
             && (*context.motion_command
                 == MotionCommand::Initial {
                     head: HeadMotion::Center,
-                    should_look_for_referee: false,
                 }
                 || *context.motion_command == MotionCommand::Penalized)
         {
