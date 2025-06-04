@@ -125,7 +125,11 @@ impl StepPlanner {
 
     fn clamp_step_size(&self, context: &mut CycleContext, speed: &WalkSpeed, step: Step) -> Step {
         // TODO rethink this with new step planning (maybe scale with exp(-last_planned_step.left) instead)
-        let initial_side_bonus = if self.last_planned_step.left == 0.0 {
+        let initial_side_bonus = if self.last_planned_step.forward.abs()
+            + self.last_planned_step.left.abs()
+            + self.last_planned_step.turn.abs()
+            <= f32::EPSILON
+        {
             Step {
                 forward: 0.0,
                 left: *context.initial_side_bonus,
