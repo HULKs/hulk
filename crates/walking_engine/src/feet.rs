@@ -53,6 +53,33 @@ impl Feet {
         }
     }
 
+    pub fn to_step(&self, parameters: &Parameters, support_side: Side) -> Step {
+        let swing_base_offset = match support_side {
+            Side::Left => parameters.base.foot_offset_right,
+            Side::Right => parameters.base.foot_offset_left,
+        };
+
+        let swing_sole_x = self.swing_sole.position().x() - swing_base_offset.x();
+        let swing_sole_y = self.swing_sole.position().y() - swing_base_offset.y();
+        // let swing_sole_angle = self
+        //     .swing_sole
+        //     .orientation()
+        //     .rotation()
+        //     .inner
+        //     .euler_angles()
+        //     .2;
+
+        let forward = 2. * swing_sole_x;
+        let left = 2. * swing_sole_y;
+        // let turn = 2. * swing_sole_angle;
+
+        Step {
+            forward,
+            left,
+            turn: 0.0,
+        }
+    }
+
     pub fn end_from_request(parameters: &Parameters, request: Step, support_side: Side) -> Self {
         let (support_base_offset, swing_base_offset) = match support_side {
             Side::Left => (

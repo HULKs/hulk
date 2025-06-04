@@ -105,11 +105,21 @@ impl WalkTransition for Catching {
         }
 
         if current_step.is_support_switched(context) {
+            let executed_step = self
+                .step
+                .plan
+                .end_feet
+                .to_step(context.parameters, self.step.plan.support_side);
+
             return Mode::Walking(Walking::new(
                 context,
-                Step::ZERO,
+                Step {
+                    forward: executed_step.forward / 2.,
+                    left: executed_step.left / 2.,
+                    turn: 0.0,
+                },
                 current_step.plan.support_side.opposite(),
-                Step::ZERO,
+                executed_step,
             ));
         }
 
