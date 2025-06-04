@@ -53,6 +53,14 @@ impl Default for MotionType {
     }
 }
 
+impl MotionType {
+    pub fn is_standup_motion(self) -> bool {
+        self == MotionType::StandUpBack
+            || self == MotionType::StandUpFront
+            || self == MotionType::StandUpSitting
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct MotionSafeExits {
     animation: bool,
