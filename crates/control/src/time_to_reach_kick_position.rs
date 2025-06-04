@@ -71,7 +71,6 @@ impl TimeToReachKickPosition {
             .sum();
         let walk_duration = Duration::from_secs_f32(walk_time);
 
-        // TODO todo
         let turn_angle = match orientation_mode {
             OrientationMode::LookTowards(orientation) => orientation.angle().abs(),
             OrientationMode::LookAt(point) => point.coords().angle(&Vector2::x_axis()).abs(),
