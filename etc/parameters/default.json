@@ -344,8 +344,8 @@
       "walk_orientation_penalty": 1.0,
       "alignment_start_distance": 0.1,
       "alignment_start_smoothness": 0.05,
-      "translation_exponent": 1.5,
-      "rotation_exponent": 2.0
+      "walk_volume_translation_exponent": 1.5,
+      "walk_volume_rotation_exponent": 2.0
     }
   },
   "zero_moment_point": {
