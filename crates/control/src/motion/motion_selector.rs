@@ -11,6 +11,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     current_motion: MotionType,
+    last_motion: MotionType,
     stand_up_count: i32,
 }
 
@@ -36,6 +37,7 @@ impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             current_motion: MotionType::Unstiff,
+            last_motion: MotionType::Unstiff,
             stand_up_count: 0,
         })
     }
@@ -44,31 +46,25 @@ impl MotionSelector {
         let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
 
-        self.stand_up_count = if self.current_motion == MotionType::StandUpBack
-            || self.current_motion == MotionType::StandUpFront
-            || self.current_motion == MotionType::StandUpSitting
-        {
-            self.stand_up_count
-        } else if self.current_motion == MotionType::Dispatching
-            && (requested_motion == MotionType::StandUpFront
-                || requested_motion == MotionType::StandUpBack
-                || requested_motion == MotionType::StandUpSitting)
-        {
-            self.stand_up_count + 1
-        } else {
-            0
-        };
-
-        context
-            .stand_up_count
-            .fill_if_subscribed(|| self.stand_up_count);
-
         self.current_motion = transition_motion(
             self.current_motion,
             requested_motion,
             motion_safe_to_exit,
             *context.has_ground_contact,
         );
+
+        self.stand_up_count = match (
+            self.last_motion.is_standup_motion(),
+            self.current_motion.is_standup_motion(),
+        ) {
+            (false, true) => self.stand_up_count + 1,
+            (true, _) => self.stand_up_count,
+            (_, _) => 0,
+        };
+
+        context
+            .stand_up_count
+            .fill_if_subscribed(|| self.stand_up_count);
 
         let dispatching_motion = if self.current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
@@ -80,6 +76,7 @@ impl MotionSelector {
             None
         };
 
+        self.last_motion = self.current_motion;
         Ok(MainOutputs {
             motion_selection: MotionSelection {
                 current_motion: self.current_motion,
