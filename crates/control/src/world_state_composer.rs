@@ -9,6 +9,7 @@ use spl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,
     calibration::CalibrationCommand,
+    cycle_time::CycleTime,
     fall_state::FallState,
     filtered_game_controller_state::FilteredGameControllerState,
     kick_decision::KickDecision,
@@ -50,6 +51,7 @@ pub struct CycleContext {
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
     calibration_command: Input<Option<CalibrationCommand>, "calibration_command?">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 }
 
 #[context]
@@ -87,6 +89,7 @@ impl WorldStateComposer {
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
             calibration_command: context.calibration_command.copied(),
+            now: context.cycle_time.start_time,
         };
 
         Ok(MainOutputs {
