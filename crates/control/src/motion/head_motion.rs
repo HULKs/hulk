@@ -48,7 +48,7 @@ impl HeadMotion {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_positions: Default::default(),
-            lowpass_filter: LowPassFilter::with_smoothing_factor(Default::default(), 0.075),
+            lowpass_filter: LowPassFilter::with_smoothing_factor(Default::default(), 0.0075),
         })
     }
 
