@@ -145,7 +145,7 @@ pub fn plan_steps(
 
     gradient_decent(&mut problem, parameters.optimizer_steps);
 
-    // TODO remove/refactor
+    // TODO(rmburg) remove/refactor
     let gradient = problem.jacobian().unwrap().transpose();
 
     Ok((problem.variables, gradient))
