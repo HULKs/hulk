@@ -277,6 +277,19 @@ pub struct LookAroundParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
+pub struct HeadMotionParameters {
+    pub inner_maximum_pitch: f32,
+    pub inner_minimum_pitch: f32,
+    pub maximum_velocity: HeadJoints<f32>,
+    pub outer_maximum_pitch: f32,
+    pub outer_minimum_pitch: f32,
+    pub outer_yaw: f32,
+    pub injected_head_joints: Option<HeadJoints<f32>>,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct SplNetworkParameters {
     pub game_controller_return_message_interval: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
