@@ -32,6 +32,7 @@ use types::{
     motion_command::{HeadMotion, KickVariant, MotionCommand, OrientationMode},
     motion_selection::MotionSafeExits,
     planned_path::PathSegment,
+    pose_kinds::PoseKind,
     support_foot::Side,
 };
 
@@ -41,6 +42,7 @@ use crate::{
     game_controller::GameController,
     interfake::{FakeDataInterface, Interfake},
     structs::Parameters,
+    visual_referee::VisualRefereeResource,
     whistle::WhistleResource,
 };
 
@@ -57,6 +59,7 @@ pub struct Robot {
     control_receiver: Receiver<(SystemTime, Database)>,
     parameters_sender: Sender<(SystemTime, Parameters)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
+    object_detection_top_sender: Producer<crate::structs::object_detection::MainOutputs>,
 }
 
 impl Robot {
@@ -86,6 +89,8 @@ impl Robot {
             buffered_watch::channel((UNIX_EPOCH, Default::default()));
         let (spl_network_sender, spl_network_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
+        let (object_detection_top_sender, object_detection_top_consumer) = future_queue();
+
         *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
 
         let mut cycler = Cycler::new(
@@ -95,6 +100,7 @@ impl Robot {
             subscriptions_receiver,
             parameters_receiver,
             spl_network_consumer,
+            object_detection_top_consumer,
             recording_sender,
             RecordingTrigger::new(0),
         )?;
@@ -129,15 +135,19 @@ impl Robot {
             last_kick_time: Duration::default(),
             ball_last_seen: None,
             simulator_parameters,
-
             cycler,
             control_receiver,
             parameters_sender,
             spl_network_sender,
+            object_detection_top_sender,
         })
     }
 
-    pub fn cycle(&mut self, messages: &[Message]) -> Result<()> {
+    pub fn cycle(
+        &mut self,
+        messages: &[Message],
+        referee_pose_kind: &Option<PoseKind>,
+    ) -> Result<()> {
         for Message { sender, payload } in messages {
             let source_is_other = *sender != self.parameters.player_number;
             let message = IncomingMessage::Spl(*payload);
@@ -148,6 +158,14 @@ impl Robot {
                     message,
                 });
         }
+
+        self.object_detection_top_sender.announce();
+        self.object_detection_top_sender
+            .finalize(crate::structs::object_detection::MainOutputs {
+                referee_pose_kind: referee_pose_kind.clone(),
+                ..Default::default()
+            });
+
         buffered_watch::Sender::<_>::borrow_mut(
             &mut self.interface.get_last_database_sender().lock(),
         )
@@ -311,7 +329,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 head
             }
             MotionCommand::SitDown { head } => head,
-            MotionCommand::Stand { head } => head,
+            MotionCommand::Stand { head, .. } => head,
             _ => HeadMotion::Center,
         };
 
@@ -322,6 +340,19 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 robot.database.main_outputs.look_around.yaw
             }
             HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
+            HeadMotion::LookAtReferee { .. } => {
+                if let Some(ground_to_field) = robot.database.main_outputs.ground_to_field {
+                    let expected_referee_position = ground_to_field.inverse()
+                        * robot
+                            .database
+                            .main_outputs
+                            .expected_referee_position
+                            .unwrap_or_default();
+                    Orientation2::from_vector(expected_referee_position.coords()).angle()
+                } else {
+                    0.0
+                }
+            }
             HeadMotion::LookLeftAndRightOf { target } => {
                 let glance_factor = 0.0; //self.time_elapsed.as_secs_f32().sin();
                 target.coords().angle(&Vector2::x_axis())
@@ -354,10 +385,12 @@ pub struct Messages {
     pub messages: Vec<Message>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn cycle_robots(
     mut robots: Query<&mut Robot>,
     ball: Res<BallResource>,
     whistle: Res<WhistleResource>,
+    visual_referee: Res<VisualRefereeResource>,
     mut game_controller: ResMut<GameController>,
     time: Res<Time>,
     mut messages: ResMut<Messages>,
@@ -404,10 +437,20 @@ pub fn cycle_robots(
                 .last_whistle
                 .map(|last_whistle| SystemTime::UNIX_EPOCH + last_whistle),
         };
+        let visual_referee_pose_kind = if matches!(
+            robot.database.main_outputs.motion_command.head_motion(),
+            Some(HeadMotion::LookAtReferee { .. })
+        ) {
+            visual_referee.pose_kind.clone()
+        } else {
+            None
+        };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
         robot.interface.set_time(now);
-        robot.cycle(&messages_sent_last_cycle).unwrap();
+        robot
+            .cycle(&messages_sent_last_cycle, &visual_referee_pose_kind)
+            .unwrap();
 
         for message in robot.interface.take_outgoing_messages() {
             if let OutgoingMessage::Spl(message) = message {

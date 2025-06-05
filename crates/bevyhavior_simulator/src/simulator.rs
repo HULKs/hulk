@@ -26,6 +26,7 @@ use crate::{
     robot::{cycle_robots, move_robots, Messages},
     server::Parameters,
     time::{update_time, Ticks},
+    visual_referee::VisualRefereeResource,
     whistle::WhistleResource,
 };
 
@@ -57,6 +58,7 @@ impl Plugin for SimulatorPlugin {
         .insert_resource(GameController::default())
         .insert_resource(BallResource::default())
         .insert_resource(WhistleResource::default())
+        .insert_resource(VisualRefereeResource::default())
         .insert_resource(Messages::default())
         .insert_resource(Time::<()>::default())
         .insert_resource(Time::<Ticks>::default())
