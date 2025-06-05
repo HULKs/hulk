@@ -391,7 +391,7 @@ fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
     let scheduler_tokens = match cycler_kind {
         CyclerKind::Perception => TokenStream::new(),
         CyclerKind::RealTime => quote! {
-            #[cfg(feature = "realtime")]
+            #[cfg(all(feature = "realtime", not(feature = "is_webots")))]
             unsafe {
                 let priority = libc::sched_param {
                     sched_priority: 5,
