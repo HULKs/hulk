@@ -278,6 +278,54 @@ impl ScreenRange {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct PanAndZoom {
+    scaling: f32,
+    shift: RelativeTime,
+}
+
+impl PanAndZoom {
+    pub fn new(scaling: f32, shift: RelativeTime) -> Self {
+        Self { scaling, shift }
+    }
+
+    pub fn from_shift(shift: RelativeTime) -> Self {
+        Self {
+            scaling: 1.0,
+            shift,
+        }
+    }
+}
+
+impl std::ops::Mul for PanAndZoom {
+    type Output = PanAndZoom;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            scaling: self.scaling * rhs.scaling,
+            shift: self.shift + rhs.shift * self.scaling,
+        }
+    }
+}
+
+impl std::ops::Mul<RelativeTime> for PanAndZoom {
+    type Output = RelativeTime;
+
+    fn mul(self, rhs: RelativeTime) -> Self::Output {
+        rhs * self.scaling + self.shift
+    }
+}
+
+impl std::ops::Mul<ViewportRange> for PanAndZoom {
+    type Output = ViewportRange;
+
+    fn mul(self, rhs: ViewportRange) -> Self::Output {
+        let start = self * rhs.start();
+        let end = self * rhs.end();
+        ViewportRange::new(start, end)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
