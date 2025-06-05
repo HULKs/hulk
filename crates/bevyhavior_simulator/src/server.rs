@@ -57,6 +57,7 @@ async fn timeline_server(
                         if !progress.is_finished() {
                             progress.finish();
                         }
+                        continue;
                     }
                 }
             }
