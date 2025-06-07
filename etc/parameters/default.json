@@ -330,7 +330,7 @@
       "num_steps": 5,
       "walk_volume_extents": {
         "forward": 0.045,
-        "backward": 0.04,
+        "backward": 0.03,
         "outward": 0.1,
         "inward": 0.01,
         "outward_rotation": 1.0,
