@@ -10,7 +10,8 @@ use framework::Timing;
 use crate::{
     controls::Controls,
     coordinate_systems::{
-        AbsoluteScreen, AbsoluteTime, FrameRange, RelativeTime, ScreenRange, ViewportRange,
+        AbsoluteScreen, AbsoluteTime, FrameRange, PanAndZoom, RelativeTime, ScreenRange,
+        ViewportRange,
     },
     user_data::BookmarkCollection,
 };
@@ -74,27 +75,16 @@ impl<'state> Frames<'state> {
             *self.position = cursor_position;
         }
 
-        let (zoom_offset, viewport_length) = if shift_down {
-            (
-                RelativeTime::new(0.0),
-                self.viewport_range.end() - self.viewport_range.start(),
-            )
-        } else {
-            let zoom_factor = 0.99_f32.powf(scroll_delta.y);
-            let previous_viewport_length = self.viewport_range.end() - self.viewport_range.start();
-            let viewport_length = previous_viewport_length * zoom_factor;
-            let viewport_length_difference = viewport_length - previous_viewport_length;
-            let zoom_offset = -viewport_length_difference * cursor_position.inner();
-            (zoom_offset, viewport_length)
-        };
-
+        let zoom_factor = 0.99_f32.powf(scroll_delta.y);
         let pan_offset =
             AbsoluteScreen::new(scroll_delta.x + if shift_down { scroll_delta.y } else { 0.0 })
                 .scale_to_relative_screen(screen_range)
                 .scale_to_relative_time(self.viewport_range);
 
-        let viewport_start = self.viewport_range.start() + pan_offset + zoom_offset;
-        *self.viewport_range = ViewportRange::new(viewport_start, viewport_start + viewport_length);
+        let transform = PanAndZoom::from_shift(cursor_position)
+            * PanAndZoom::new(zoom_factor, pan_offset)
+            * PanAndZoom::from_shift(-cursor_position);
+        *self.viewport_range = transform * self.viewport_range.clone();
 
         if keys.jump_backward_large {
             *self.position -= RelativeTime::new(10.0);
