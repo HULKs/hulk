@@ -8074,6 +8074,7 @@ dependencies = [
  "nalgebra",
  "num-dual",
  "num-traits",
+ "proptest",
  "types",
 ]
 
