@@ -23,7 +23,7 @@ pub struct CameraCalibrationExportPanel {
     nao: Arc<Nao>,
     top_camera: BufferHandle<Vector3<f32>>,
     bottom_camera: BufferHandle<Vector3<f32>>,
-    robot_body_rotations: BufferHandle<Vector3<f32>>,
+    body_rotations: BufferHandle<Vector3<f32>>,
     calibration_corrections: BufferHandle<Value>,
     calibration_measurements: BufferHandle<Value>,
     primary_state: BufferHandle<PrimaryState>,
@@ -37,17 +37,17 @@ impl Panel for CameraCalibrationExportPanel {
         let bottom_camera =
             nao.subscribe_value(format!("parameters.{BOTTOM_CAMERA_EXTRINSICS_PATH}"));
         let body_rotations = nao.subscribe_value(format!("parameters.{ROBOT_BODY_ROTATION_PATH}"));
-        let calibration_corrections = nao
-            .subscribe_json("Control.additional_outputs.calibration_controller.last_corrections");
-        let calibration_measurements = nao
-            .subscribe_json("Control.additional_outputs.calibration_controller.last_measurements");
+        let calibration_corrections =
+            nao.subscribe_json("Control.additional_outputs.last_corrections");
+        let calibration_measurements =
+            nao.subscribe_json("Control.additional_outputs.last_measurements");
         let primary_state = nao.subscribe_value("Control.main_outputs.primary_state");
 
         Self {
             nao,
             top_camera,
             bottom_camera,
-            robot_body_rotations: body_rotations,
+            body_rotations: body_rotations,
             calibration_corrections,
             calibration_measurements,
             primary_state,
@@ -85,7 +85,7 @@ impl Widget for &mut CameraCalibrationExportPanel {
                 ui.separator();
 
                 draw_group(ui, "Body", body_angles, &self.nao, ROBOT_BODY_ROTATION_PATH);
-                draw_angles_from_buffer(ui, &self.robot_body_rotations);
+                draw_angles_from_buffer(ui, &self.body_rotations);
 
                 if let Some(measurements_value) = self
                     .calibration_measurements
@@ -159,6 +159,7 @@ fn draw_angles_from_buffer(ui: &mut Ui, current_values: &BufferHandle<Vector3<f3
         draw_angles(ui, &[value.x, value.y, value.z], "Current");
     }
 }
+
 fn draw_angles(ui: &mut Ui, rotations_degrees: &[f32; 3], sublabel: &str) {
     ui.label(format!(
         "{sublabel}: [{0:.2}°, {1:.2}°, {2:.2}°]",
