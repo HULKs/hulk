@@ -34,7 +34,7 @@ use log::{error, warn};
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    AutomaticCameraCalibrationExportPanel, BallCandidatePanel, BehaviorSimulatorPanel,
+    CameraCalibrationExportPanel, BallCandidatePanel, BehaviorSimulatorPanel,
     EnumPlotPanel, ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel,
     ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel,
     VisionTunerPanel,
@@ -138,7 +138,7 @@ impl_selectable_panel!(
     ImageSegmentsPanel,
     LookAtPanel,
     ManualCalibrationPanel,
-    AutomaticCameraCalibrationExportPanel,
+    CameraCalibrationExportPanel,
     MapPanel,
     ParameterPanel,
     PlotPanel,

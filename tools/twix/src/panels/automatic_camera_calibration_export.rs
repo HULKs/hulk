@@ -19,7 +19,7 @@ pub const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
 pub const ROBOT_BODY_ROTATION_PATH: &str =
     "camera_matrix_parameters.calibration.correction_in_robot";
 
-pub struct AutomaticCameraCalibrationExportPanel {
+pub struct CameraCalibrationExportPanel {
     nao: Arc<Nao>,
     top_camera: BufferHandle<Vector3<f32>>,
     bottom_camera: BufferHandle<Vector3<f32>>,
@@ -29,7 +29,7 @@ pub struct AutomaticCameraCalibrationExportPanel {
     primary_state: BufferHandle<PrimaryState>,
 }
 
-impl Panel for AutomaticCameraCalibrationExportPanel {
+impl Panel for CameraCalibrationExportPanel {
     const NAME: &'static str = "Automatic Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
@@ -55,7 +55,7 @@ impl Panel for AutomaticCameraCalibrationExportPanel {
     }
 }
 
-impl Widget for &mut AutomaticCameraCalibrationExportPanel {
+impl Widget for &mut CameraCalibrationExportPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.style_mut().spacing.slider_width = ui.available_size().x - 250.0;
         ui.vertical(|ui| {
