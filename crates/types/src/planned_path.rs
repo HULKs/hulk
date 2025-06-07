@@ -14,6 +14,11 @@ pub enum PathSegment {
     Arc(Arc<Ground>),
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Path<'a> {
+    pub segments: &'a [PathSegment],
+}
+
 pub fn direct_path(start: Point2<Ground>, destination: Point2<Ground>) -> Vec<PathSegment> {
     vec![PathSegment::LineSegment(LineSegment(start, destination))]
 }
