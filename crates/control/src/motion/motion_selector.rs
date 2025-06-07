@@ -142,7 +142,8 @@ fn transition_motion(
         (_, true, MotionType::KeeperJumpRight, _) => MotionType::KeeperJumpRight,
         (_, true, MotionType::KeeperJumpLeft, _) => MotionType::KeeperJumpLeft,
         (_, _, MotionType::CenterJump, _) => MotionType::CenterJump,
-
+        (MotionType::ArmsUpSquat, _, MotionType::JumpRight, _) => MotionType::JumpRight,
+        (MotionType::ArmsUpSquat, _, MotionType::JumpLeft, _) => MotionType::JumpLeft,
         (MotionType::ArmsUpStand, _, _, false) => MotionType::ArmsUpStand,
         (MotionType::Dispatching, true, _, _) => to,
         (MotionType::Stand, _, MotionType::Walk, _) => MotionType::Walk,
