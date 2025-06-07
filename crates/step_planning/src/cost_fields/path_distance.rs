@@ -116,4 +116,22 @@ mod tests {
         assert_abs_diff_eq!(cost_7, (SQRT_2 - 1.0).powi(2));
         assert_abs_diff_eq!(grad_7, vector![2.0 - SQRT_2, -(2.0 - SQRT_2)]);
     }
+
+    proptest::proptest! {
+        #[test]
+        fn verify_gradient(x in -2.0f32..2.0, y in -2.0f32..2.0) {
+            let cost_field = PathDistanceField {
+                path: &test_path(),
+            };
+
+            let point = point![x, y];
+
+            crate::verify_gradient::verify_gradient(
+                &|p| cost_field.cost(p),
+                &|p| cost_field.grad(p),
+                0.1,
+                point,
+            )
+        }
+    }
 }
