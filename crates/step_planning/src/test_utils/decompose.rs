@@ -136,7 +136,7 @@ where
 mod tests {
     use nalgebra::{matrix, OMatrix, U2};
 
-    use crate::traits::decompose::Decompose;
+    use crate::test_utils::decompose::Decompose;
 
     #[test]
     fn decompose_matrix() {
