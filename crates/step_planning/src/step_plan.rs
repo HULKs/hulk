@@ -18,7 +18,11 @@ use crate::{
         target_orientation::TargetOrientationField,
         walk_orientation::WalkOrientationField,
     },
-    geometry::{angle::Angle, pose::PoseAndSupportFoot, Pose},
+    geometry::{
+        angle::Angle,
+        pose::{PoseAndSupportFoot, PoseGradient},
+        Pose,
+    },
 };
 
 pub struct StepPlan<'a, T>(&'a [T]);
@@ -122,8 +126,8 @@ impl StepPlanning<'_> {
         PlannedStepGradient {
             pose: walk_orientation_gradient
                 + target_orientation_gradient
-                + Pose {
-                    position: (path_distance_gradient + path_progress_gradient).as_point(),
+                + PoseGradient {
+                    position: path_distance_gradient + path_progress_gradient,
                     orientation: 0.0,
                 },
             step: step_size_gradient,
@@ -175,6 +179,6 @@ pub struct PlannedStep<T: Scalar> {
 }
 
 pub struct PlannedStepGradient<T: Scalar> {
-    pub pose: Pose<T>,
+    pub pose: PoseGradient<T>,
     pub step: Step<T>,
 }
