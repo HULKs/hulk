@@ -86,10 +86,7 @@ impl ReadySignalDetectionFilter {
         &mut self,
         mut context: CycleContext<impl NetworkInterface>,
     ) -> Result<MainOutputs> {
-        if !matches!(
-            context.game_controller_state.game_state,
-            GameState::Standby { .. }
-        ) {
+        if !matches!(context.game_controller_state.game_state, GameState::Standby) {
             self.detected_ready_signal_queue = VecDeque::default();
             self.motion_in_standby_count = 0;
             self.detection_times = Players::default();
