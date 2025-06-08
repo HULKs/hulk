@@ -28,34 +28,14 @@ impl PathDistanceField<'_> {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::{FRAC_PI_2, SQRT_2};
+    use std::f32::consts::SQRT_2;
 
     use approx::assert_abs_diff_eq;
-
-    use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
-    use linear_algebra::{point, vector, Orientation2, Vector2};
     use proptest::proptest;
-    use types::planned_path::{Path, PathSegment};
 
-    use crate::cost_fields::path_distance::PathDistanceField;
+    use linear_algebra::{point, vector, Vector2};
 
-    fn test_path() -> Path {
-        Path {
-            segments: vec![
-                PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
-                PathSegment::Arc(Arc {
-                    circle: Circle {
-                        center: point![3.0, 1.0],
-                        radius: 1.0,
-                    },
-                    start: Orientation2::new(3.0 * FRAC_PI_2),
-                    end: Orientation2::new(0.0),
-                    direction: Direction::Counterclockwise,
-                }),
-                PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
-            ],
-        }
-    }
+    use crate::{cost_fields::path_distance::PathDistanceField, test_utils::test_path};
 
     #[test]
     fn test_path_distance() {
