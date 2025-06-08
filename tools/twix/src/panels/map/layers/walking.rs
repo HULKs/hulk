@@ -105,7 +105,7 @@ impl Layer<Ground> for Walking {
         paint_actuated_feet(
             painter,
             robot_to_ground,
-            last_actuated_joints,
+            actuated_motor_commands.positions,
             engine.mode.support_side(),
             Stroke::new(0.01, Color32::BLUE),
             Stroke::new(0.003, Color32::BLUE),
@@ -275,7 +275,6 @@ fn paint_sole_polygon(
     side: Side,
 ) {
     struct Sole;
-
     let left_outline = [
         point![-0.05457, -0.015151, 0.0],
         point![-0.050723, -0.021379, 0.0],

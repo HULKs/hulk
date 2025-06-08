@@ -44,7 +44,7 @@ impl Catching {
         let displacement = Point2::origin() + (target - target_projection_into_foot_support);
 
         let desired_end_feet = Feet {
-            support_sole: Pose2::from_parts(-displacement / 2., Orientation2::default()),
+            support_sole: Pose2::from_parts(-displacement * 0.5, Orientation2::default()),
             swing_sole: Pose2::from_parts(displacement, Orientation2::default()),
         };
 
@@ -73,14 +73,6 @@ impl WalkTransition for Catching {
     fn stand(self, context: &Context) -> Mode {
         let current_step = self.step;
 
-        if should_catch(
-            context,
-            current_step.plan.end_feet,
-            current_step.plan.support_side,
-        ) {
-            return Mode::Catching(Catching::new(context, self.step));
-        }
-
         if current_step.is_support_switched(context) {
             return Mode::Walking(Walking::new(
                 context,
@@ -88,6 +80,14 @@ impl WalkTransition for Catching {
                 current_step.plan.support_side.opposite(),
                 Step::ZERO,
             ));
+        }
+
+        if should_catch(
+            context,
+            current_step.plan.end_feet,
+            current_step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(context, self.step));
         }
 
         Mode::Catching(self)
@@ -96,14 +96,6 @@ impl WalkTransition for Catching {
     fn walk(self, context: &Context, _requested_step: Step) -> Mode {
         let current_step = self.step;
 
-        if should_catch(
-            context,
-            current_step.plan.end_feet,
-            current_step.plan.support_side,
-        ) {
-            return Mode::Catching(Catching::new(context, self.step));
-        }
-
         if current_step.is_support_switched(context) {
             let executed_step = self
                 .step
@@ -111,16 +103,40 @@ impl WalkTransition for Catching {
                 .end_feet
                 .to_step(context.parameters, self.step.plan.support_side);
 
+            // let support_side = self.step.plan.support_side.opposite();
+            // let start_feet = Feet::from_joints(
+            //     context.robot_to_walk,
+            //     &context.last_actuated_joints,
+            //     support_side,
+            // );
+            // let plan = StepPlan::new_with_start_and_end_feet(
+            //     context,
+            //     support_side,
+            //     start_feet,
+            //     self.step.plan.end_feet.switch(),
+            // );
+            // let step = StepState::new(plan);
+
             return Mode::Walking(Walking::new(
                 context,
-                Step {
-                    forward: executed_step.forward / 2.,
-                    left: executed_step.left / 2.,
-                    turn: 0.0,
-                },
-                current_step.plan.support_side.opposite(),
+                // Step {
+                //     forward: executed_step.forward / 2.,
+                //     left: executed_step.left / 2.,
+                //     turn: 0.0,
+                // },
+                Step::ZERO,
+                self.step.plan.support_side.opposite(),
                 executed_step,
             ));
+            // return Mode::Walking(Walking::new_with_step(step, Step::ZERO));
+        }
+
+        if should_catch(
+            context,
+            current_step.plan.end_feet,
+            current_step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(context, self.step));
         }
 
         Mode::Catching(self)
@@ -135,14 +151,6 @@ impl WalkTransition for Catching {
     ) -> Mode {
         let current_step = self.step;
 
-        if should_catch(
-            context,
-            current_step.plan.end_feet,
-            current_step.plan.support_side,
-        ) {
-            return Mode::Catching(Catching::new(context, self.step));
-        }
-
         if current_step.is_support_switched(context) {
             return Mode::Walking(Walking::new(
                 context,
@@ -150,6 +158,14 @@ impl WalkTransition for Catching {
                 current_step.plan.support_side.opposite(),
                 Step::ZERO,
             ));
+        }
+
+        if should_catch(
+            context,
+            current_step.plan.end_feet,
+            current_step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(context, self.step));
         }
 
         Mode::Catching(self)
@@ -221,4 +237,15 @@ fn is_outside_support_polygon(
     .concat();
 
     !is_inside_convex_hull(&feet_outlines, &target)
+}
+
+fn should_change_support_side(context: &Context) -> bool {
+    let Some(robot_to_ground) = context.robot_to_ground else {
+        return true;
+    };
+    let ground_to_robot = robot_to_ground.inverse();
+    let robot_to_walk = context.robot_to_walk;
+    let target = robot_to_walk * ground_to_robot * context.zero_moment_point.extend(0.0);
+
+    target.x() < 0.0
 }

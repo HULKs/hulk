@@ -32,6 +32,15 @@ impl Feet<Pose2<Walk>> {
     }
 }
 
+impl<T> Feet<T> {
+    pub fn switch(self) -> Feet<T> {
+        Feet {
+            support_sole: self.swing_sole,
+            swing_sole: self.support_sole,
+        }
+    }
+}
+
 impl Feet {
     pub fn from_joints(
         robot_to_walk: Isometry3<Robot, Walk>,

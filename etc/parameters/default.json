@@ -363,7 +363,11 @@
     "sensor_angle": 0.35
   },
   "step_planner": {
-    "injected_step": null,
+    "injected_step": {
+      "forward": 0.0,
+      "left": 0.0,
+      "turn": 0.0
+    },
     "max_step_size": {
       "forward": 0.045,
       "left": 0.1,
@@ -464,7 +468,7 @@
     "max_step_duration": { "nanos": 0, "secs": 2 },
     "max_support_foot_lift_speed": 0.025,
     "max_turn_acceleration": 0.7,
-    "min_step_duration": { "nanos": 100000000, "secs": 0 },
+    "min_step_duration": { "nanos": 50000000, "secs": 0 },
     "sole_pressure_threshold": 0.4,
     "step_midpoint": {
       "forward": 0.45,
@@ -1338,7 +1342,7 @@
     },
     "maximum_lookaround_duration": {
       "nanos": 0,
-      "secs": 6
+      "secs": 1
     },
     "maximum_standup_attempts": 3
   },

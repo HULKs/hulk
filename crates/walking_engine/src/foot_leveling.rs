@@ -1,3 +1,5 @@
+use coordinate_systems::Robot;
+use kinematics::forward;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{joints::body::LowerBodyJoints, support_foot::Side};
@@ -21,16 +23,27 @@ pub struct FootLeveling {
 }
 
 impl FootLeveling {
-    pub fn tick(&mut self, context: &Context, normalized_time_since_start: f32) {
+    pub fn tick(
+        &mut self,
+        context: &Context,
+        support_side: Side,
+        normalized_time_since_start: f32,
+    ) {
         let parameters = &context.parameters.foot_leveling;
+        let current_orientation = context.robot_orientation.rotation::<Robot>();
 
-        // The default torso rotation represents the desired, slightly leaned forward/backward configuration
-        let default_torso_rotation = context.robot_to_walk.rotation();
-
-        let current_orientation = context.robot_orientation;
-
-        let leveling_error = current_orientation.inner * default_torso_rotation.inner.inverse();
-        let (roll_angle, pitch_angle, _) = leveling_error.euler_angles();
+        let (roll_angle, pitch_angle, _) = match support_side {
+            Side::Left => {
+                let left_sole_to_field = current_orientation
+                    * forward::left_sole_to_robot(&context.measured_joints.left_leg);
+                left_sole_to_field.as_pose().orientation().euler_angles()
+            }
+            Side::Right => {
+                let right_sole_to_field = current_orientation
+                    * forward::right_sole_to_robot(&context.measured_joints.right_leg);
+                right_sole_to_field.as_pose().orientation().euler_angles()
+            }
+        };
 
         // Use a full effect early in the step, then reduce the leveling effect gradually over the step progress
         let leveling_factor = if normalized_time_since_start < parameters.start_reduce_to_zero {

@@ -93,4 +93,8 @@ where
     pub fn slerp(&self, other: Self, t: T) -> Self {
         Self::wrap(self.inner.slerp(&other.inner, t))
     }
+
+    pub fn euler_angles(&self) -> (T, T, T) {
+        self.inner.euler_angles()
+    }
 }

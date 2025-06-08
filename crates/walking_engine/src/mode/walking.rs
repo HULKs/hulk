@@ -71,6 +71,13 @@ impl Walking {
             requested_step,
         }
     }
+
+    pub fn new_with_step(step: StepState, requested_step: Step) -> Self {
+        Self {
+            step,
+            requested_step,
+        }
+    }
 }
 
 impl WalkTransition for Walking {
