@@ -1,8 +1,8 @@
-use linear_algebra::Point2;
+use linear_algebra::Vector2;
 use types::planned_path::Path;
 
 use crate::{
-    geometry::{angle::Angle, Pose},
+    geometry::{angle::Angle, pose::PoseGradient, Pose},
     traits::{Length, PathProgress},
     utils::{angle_penalty, angle_penalty_derivative},
 };
@@ -25,14 +25,14 @@ impl TargetOrientationField<'_> {
             * self.importance(distance_to_target)
     }
 
-    pub fn grad(&self, pose: Pose<f32>) -> Pose<f32> {
+    pub fn grad(&self, pose: Pose<f32>) -> PoseGradient<f32> {
         let progress = self.path.progress(pose.position);
         let path_length = self.path.length();
 
         let distance_to_target = path_length - progress;
 
-        Pose {
-            position: Point2::origin(),
+        PoseGradient {
+            position: Vector2::zeros(),
             orientation: angle_penalty_derivative(Angle(pose.orientation), self.target_orientation)
                 .into_inner(),
         } * self.importance_derivative(distance_to_target)

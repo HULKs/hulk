@@ -8,8 +8,12 @@ use linear_algebra::{Framed, IntoFramed};
 use types::step::{Step, StepAndSupportFoot};
 
 use crate::{
-    geometry::{angle::Angle, pose::PoseAndSupportFoot, Pose},
-    step_plan::PlannedStep,
+    geometry::{
+        angle::Angle,
+        pose::{PoseAndSupportFoot, PoseGradient},
+        Pose,
+    },
+    step_plan::{PlannedStep, PlannedStepGradient},
 };
 
 pub trait WrapDual<Dual> {
@@ -88,17 +92,17 @@ where
 }
 
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<Point2<T>, Point2<Derivative<T, F, D, U1>>> for Point2<DualVec<T, F, D>>
+    UnwrapDual<Point2<T>, Vector2<Derivative<T, F, D, U1>>> for Point2<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn unwrap_dual(self) -> (Point2<T>, Point2<Derivative<T, F, D, U1>>) {
+    fn unwrap_dual(self) -> (Point2<T>, Vector2<Derivative<T, F, D, U1>>) {
         let [[x, y]] = self.coords.data.0;
 
         let (x, d_x) = x.unwrap_dual();
         let (y, d_y) = y.unwrap_dual();
 
-        (point![x, y], point![d_x, d_y])
+        (point![x, y], vector![d_x, d_y])
     }
 }
 
@@ -139,12 +143,12 @@ where
     }
 }
 
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim> UnwrapDual<Pose<T>, Pose<Derivative<T, F, D, U1>>>
-    for Pose<DualVec<T, F, D>>
+impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
+    UnwrapDual<Pose<T>, PoseGradient<Derivative<T, F, D, U1>>> for Pose<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn unwrap_dual(self) -> (Pose<T>, Pose<Derivative<T, F, D, U1>>) {
+    fn unwrap_dual(self) -> (Pose<T>, PoseGradient<Derivative<T, F, D, U1>>) {
         let Pose {
             position,
             orientation,
@@ -158,7 +162,7 @@ where
                 position,
                 orientation,
             },
-            Pose {
+            PoseGradient {
                 position: d_position,
                 orientation: d_orientation,
             },
@@ -224,28 +228,17 @@ where
 }
 
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<StepAndSupportFoot<T>, StepAndSupportFoot<Derivative<T, F, D, U1>>>
+    UnwrapDual<StepAndSupportFoot<T>, Step<Derivative<T, F, D, U1>>>
     for StepAndSupportFoot<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn unwrap_dual(
-        self,
-    ) -> (
-        StepAndSupportFoot<T>,
-        StepAndSupportFoot<Derivative<T, F, D, U1>>,
-    ) {
+    fn unwrap_dual(self) -> (StepAndSupportFoot<T>, Step<Derivative<T, F, D, U1>>) {
         let Self { step, support_foot } = self;
 
         let (step, d_step) = step.unwrap_dual();
 
-        (
-            StepAndSupportFoot { step, support_foot },
-            StepAndSupportFoot {
-                step: d_step,
-                support_foot,
-            },
-        )
+        (StepAndSupportFoot { step, support_foot }, d_step)
     }
 }
 
@@ -263,28 +256,17 @@ where
 }
 
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<PoseAndSupportFoot<T>, PoseAndSupportFoot<Derivative<T, F, D, U1>>>
+    UnwrapDual<PoseAndSupportFoot<T>, PoseGradient<Derivative<T, F, D, U1>>>
     for PoseAndSupportFoot<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn unwrap_dual(
-        self,
-    ) -> (
-        PoseAndSupportFoot<T>,
-        PoseAndSupportFoot<Derivative<T, F, D, U1>>,
-    ) {
+    fn unwrap_dual(self) -> (PoseAndSupportFoot<T>, PoseGradient<Derivative<T, F, D, U1>>) {
         let Self { pose, support_foot } = self;
 
         let (pose, d_pose) = pose.unwrap_dual();
 
-        (
-            PoseAndSupportFoot { pose, support_foot },
-            PoseAndSupportFoot {
-                pose: d_pose,
-                support_foot,
-            },
-        )
+        (PoseAndSupportFoot { pose, support_foot }, d_pose)
     }
 }
 
@@ -302,12 +284,12 @@ where
 }
 
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<PlannedStep<T>, PlannedStep<Derivative<T, F, D, U1>>>
+    UnwrapDual<PlannedStep<T>, PlannedStepGradient<Derivative<T, F, D, U1>>>
     for PlannedStep<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn unwrap_dual(self) -> (PlannedStep<T>, PlannedStep<Derivative<T, F, D, U1>>) {
+    fn unwrap_dual(self) -> (PlannedStep<T>, PlannedStepGradient<Derivative<T, F, D, U1>>) {
         let Self { pose, step } = self;
 
         let (pose, d_pose) = pose.unwrap_dual();
@@ -315,7 +297,7 @@ where
 
         (
             PlannedStep { pose, step },
-            PlannedStep {
+            PlannedStepGradient {
                 pose: d_pose,
                 step: d_step,
             },
