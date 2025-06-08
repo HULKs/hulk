@@ -6,8 +6,8 @@ use linear_algebra::Framed;
 use types::step::Step;
 
 use crate::{
-    geometry::{angle::Angle, Pose},
-    step_plan::{PlannedStep, PlannedStepGradient},
+    geometry::{angle::Angle, pose::PoseGradient},
+    step_plan::PlannedStepGradient,
 };
 
 pub trait ScaledGradient<T: DualNum<F>, F, D: Dim, S>
@@ -64,17 +64,17 @@ where
     }
 }
 
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, Pose<T>>
-    for Pose<Derivative<T, F, D, U1>>
+impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, PoseGradient<T>>
+    for PoseGradient<Derivative<T, F, D, U1>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn scaled_gradient(self, scale: Pose<T>) -> Derivative<T, F, D, U1> {
-        let Pose {
+    fn scaled_gradient(self, scale: PoseGradient<T>) -> Derivative<T, F, D, U1> {
+        let PoseGradient {
             position: position_gradient,
             orientation: orientation_gradient,
         } = self;
-        let Pose {
+        let PoseGradient {
             position: position_derivative,
             orientation: orientation_derivative,
         } = scale;
@@ -108,15 +108,14 @@ where
 }
 
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, PlannedStepGradient<T>>
-    for PlannedStep<Derivative<T, F, D, U1>>
+    for PlannedStepGradient<Derivative<T, F, D, U1>>
 where
     DefaultAllocator: Allocator<D>,
 {
     fn scaled_gradient(self, scale: PlannedStepGradient<T>) -> Derivative<T, F, D, U1> {
-        let PlannedStep {
+        let PlannedStepGradient {
             pose: pose_gradient,
             step: step_gradient,
-            ..
         } = self;
         let PlannedStepGradient {
             pose: pose_derivative,
@@ -124,6 +123,6 @@ where
         } = scale;
 
         pose_gradient.scaled_gradient(pose_derivative)
-            + step_gradient.step.scaled_gradient(step_derivative)
+            + step_gradient.scaled_gradient(step_derivative)
     }
 }
