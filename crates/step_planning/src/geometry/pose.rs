@@ -16,6 +16,12 @@ pub struct Pose<T: Scalar> {
     pub orientation: T,
 }
 
+#[derive(Clone, Debug)]
+pub struct PoseGradient<T: Scalar> {
+    pub position: Vector2<Ground, T>,
+    pub orientation: T,
+}
+
 impl<T: RealField + Euclid> PartialEq for Pose<T> {
     fn eq(&self, other: &Self) -> bool {
         self.position == other.position && self.orientation == other.orientation
@@ -66,7 +72,7 @@ impl<T: RealField> AddAssign<Step<T>> for Pose<T> {
     }
 }
 
-impl<T: RealField + Copy> Add for Pose<T> {
+impl<T: RealField + Copy> Add for PoseGradient<T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self::Output {
@@ -76,13 +82,13 @@ impl<T: RealField + Copy> Add for Pose<T> {
         } = self;
 
         Self {
-            position: position + other.position.coords(),
+            position: position + other.position,
             orientation: orientation + other.orientation,
         }
     }
 }
 
-impl<T: RealField> Mul<T> for Pose<T> {
+impl<T: RealField> Mul<T> for PoseGradient<T> {
     type Output = Self;
 
     fn mul(self, scale: T) -> Self::Output {
