@@ -3,6 +3,7 @@ use std::{
     ops::{Add, AddAssign, Mul},
 };
 
+use approx::{AbsDiffEq, RelativeEq};
 use nalgebra::{RealField, Scalar};
 use num_traits::Euclid;
 
@@ -18,7 +19,7 @@ pub struct Pose<T: Scalar> {
     pub orientation: Angle<T>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PoseGradient<T: Scalar> {
     pub position: Vector2<Ground, T>,
     pub orientation: T,
@@ -27,6 +28,38 @@ pub struct PoseGradient<T: Scalar> {
 impl<T: RealField + Euclid> PartialEq for Pose<T> {
     fn eq(&self, other: &Self) -> bool {
         self.position == other.position && self.orientation == other.orientation
+    }
+}
+
+impl<T: AbsDiffEq + Euclid + RealField> AbsDiffEq for PoseGradient<T> {
+    type Epsilon = T::Epsilon;
+
+    fn default_epsilon() -> Self::Epsilon {
+        T::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.position.abs_diff_eq(&other.position, epsilon.clone())
+            && self.orientation.abs_diff_eq(&other.orientation, epsilon)
+    }
+}
+
+impl<T: RelativeEq + Euclid + RealField> RelativeEq for PoseGradient<T> {
+    fn default_max_relative() -> Self::Epsilon {
+        T::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.position
+            .relative_eq(&other.position, epsilon.clone(), max_relative.clone())
+            && self
+                .orientation
+                .relative_eq(&other.orientation, epsilon, max_relative)
     }
 }
 

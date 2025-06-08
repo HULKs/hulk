@@ -34,6 +34,7 @@ mod tests {
 
     use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
     use linear_algebra::{point, vector, Orientation2, Vector2};
+    use proptest::proptest;
     use types::planned_path::{Path, PathSegment};
 
     use crate::cost_fields::path_distance::PathDistanceField;
@@ -117,19 +118,19 @@ mod tests {
         assert_abs_diff_eq!(grad_7, vector![2.0 - SQRT_2, -(2.0 - SQRT_2)]);
     }
 
-    proptest::proptest! {
+    proptest! {
         #[test]
-        fn verify_gradient(x in -2.0f32..2.0, y in -2.0f32..2.0) {
+        fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
             let cost_field = PathDistanceField {
                 path: &test_path(),
             };
 
             let point = point![x, y];
 
-            crate::verify_gradient::verify_gradient(
+            crate::test_utils::verify_gradient::verify_gradient(
                 &|p| cost_field.cost(p),
                 &|p| cost_field.grad(p),
-                0.1,
+                0.05,
                 point,
             )
         }
