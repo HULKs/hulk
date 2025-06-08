@@ -36,30 +36,11 @@ mod tests {
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
     use approx::assert_abs_diff_eq;
+    use proptest::proptest;
 
-    use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
-    use linear_algebra::{point, vector, Orientation2};
-    use types::planned_path::{Path, PathSegment};
+    use linear_algebra::{point, vector};
 
-    use crate::cost_fields::path_progress::PathProgressField;
-
-    fn test_path() -> Path {
-        Path {
-            segments: vec![
-                PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
-                PathSegment::Arc(Arc {
-                    circle: Circle {
-                        center: point![3.0, 1.0],
-                        radius: 1.0,
-                    },
-                    start: Orientation2::new(3.0 * FRAC_PI_2),
-                    end: Orientation2::new(0.0),
-                    direction: Direction::Counterclockwise,
-                }),
-                PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
-            ],
-        }
-    }
+    use crate::{cost_fields::path_progress::PathProgressField, test_utils::test_path};
 
     #[test]
     fn test_path_progress() {
@@ -123,4 +104,23 @@ mod tests {
         assert_abs_diff_eq!(cost_7, cost_3 - FRAC_PI_4, epsilon = 1e-6);
         assert_abs_diff_eq!(grad_7, vector![-0.5, -0.5]);
     }
+
+    proptest!(
+        #[test]
+        fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
+            let cost_field = PathProgressField {
+                path: &test_path(),
+                smoothness: 0.5,
+            };
+
+            let point = point![x, y];
+
+            crate::test_utils::verify_gradient::verify_gradient(
+                &|p| cost_field.cost(p),
+                &|p| cost_field.grad(p),
+                0.05,
+                point,
+            )
+        }
+    );
 }
