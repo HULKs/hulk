@@ -1,9 +1,9 @@
 use geometry::look_at::LookAt;
-use linear_algebra::Point2;
+use linear_algebra::Vector2;
 use types::motion_command::OrientationMode;
 
 use crate::{
-    geometry::{angle::Angle, Pose},
+    geometry::{angle::Angle, pose::PoseGradient, Pose},
     utils::{angle_penalty, angle_penalty_derivative},
 };
 
@@ -26,14 +26,14 @@ impl WalkOrientationField {
         }
     }
 
-    pub fn grad(&self, pose: Pose<f32>) -> Pose<f32> {
+    pub fn grad(&self, pose: Pose<f32>) -> PoseGradient<f32> {
         match self.orientation_mode {
-            OrientationMode::Unspecified => Pose {
-                position: Point2::origin(),
+            OrientationMode::Unspecified => PoseGradient {
+                position: Vector2::zeros(),
                 orientation: 0.0,
             },
-            OrientationMode::LookTowards(orientation) => Pose {
-                position: Point2::origin(),
+            OrientationMode::LookTowards(orientation) => PoseGradient {
+                position: Vector2::zeros(),
                 orientation: angle_penalty_derivative(
                     Angle(pose.orientation),
                     Angle(orientation.angle()),
@@ -43,8 +43,8 @@ impl WalkOrientationField {
             OrientationMode::LookAt(point) => {
                 let orientation = pose.position.look_at(&point);
 
-                Pose {
-                    position: Point2::origin(),
+                PoseGradient {
+                    position: Vector2::zeros(),
                     orientation: angle_penalty_derivative(
                         Angle(pose.orientation),
                         Angle(orientation.angle()),
