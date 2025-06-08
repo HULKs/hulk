@@ -78,6 +78,3 @@ pub mod gradient_type {
         Framed<Frame, Inner>, Framed<Frame, Gradient<Inner>>
     );
 }
-
-#[cfg(test)]
-pub mod decompose;
