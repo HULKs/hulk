@@ -10,10 +10,12 @@ use coordinate_systems::Ground;
 use linear_algebra::{Point2, Rotation2, Vector2};
 use types::{step::Step, support_foot::Side};
 
+use crate::geometry::angle::Angle;
+
 #[derive(Clone, Debug)]
 pub struct Pose<T: Scalar> {
     pub position: Point2<Ground, T>,
-    pub orientation: T,
+    pub orientation: Angle<T>,
 }
 
 #[derive(Clone, Debug)]
@@ -59,9 +61,9 @@ impl<T: RealField> Add<Step<T>> for Pose<T> {
 
         Self {
             position: position
-                + (Rotation2::new(orientation.clone())
+                + (Rotation2::new(orientation.clone().into_inner())
                     * Vector2::<Ground, T>::wrap(nalgebra::vector![forward, left])),
-            orientation: orientation + turn,
+            orientation: orientation + Angle(turn),
         }
     }
 }
@@ -109,13 +111,13 @@ mod tests {
     use linear_algebra::{point, Point2};
     use types::step::Step;
 
-    use crate::geometry::Pose;
+    use crate::geometry::{angle::Angle, Pose};
 
     #[test]
     fn test_pose_step_addition() {
         let pose = Pose {
             position: Point2::origin(),
-            orientation: 0.0,
+            orientation: Angle(0.0),
         };
         let step = Step {
             forward: 2.0,
@@ -127,7 +129,7 @@ mod tests {
             new_pose,
             Pose {
                 position: point![2.0, 1.0],
-                orientation: 3.0
+                orientation: Angle(3.0)
             }
         );
     }

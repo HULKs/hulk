@@ -69,15 +69,15 @@ where
     }
 }
 
-impl<T: DualNum<F>, F, D: Dim> UnwrapDual<Angle<T>, Angle<Derivative<T, F, D, U1>>>
+impl<T: DualNum<F>, F, D: Dim> UnwrapDual<Angle<T>, Derivative<T, F, D, U1>>
     for Angle<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn unwrap_dual(self) -> (Angle<T>, Angle<Derivative<T, F, D, U1>>) {
+    fn unwrap_dual(self) -> (Angle<T>, Derivative<T, F, D, U1>) {
         let (re, eps) = self.0.unwrap_dual();
 
-        (Angle::new(re), Angle::new(eps))
+        (Angle::new(re), eps)
     }
 }
 

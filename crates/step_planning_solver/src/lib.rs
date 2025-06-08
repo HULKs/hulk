@@ -170,7 +170,10 @@ mod tests {
     use linear_algebra::{point, Orientation2};
     use nalgebra::DVector;
 
-    use step_planning::{geometry::Pose, step_plan::StepPlanning};
+    use step_planning::{
+        geometry::{angle::Angle, Pose},
+        step_plan::StepPlanning,
+    };
     use types::{
         motion_command::OrientationMode,
         parameters::StepPlanningOptimizationParameters,
@@ -216,7 +219,7 @@ mod tests {
                 },
                 initial_pose: Pose {
                     position: point![-0.0, 0.0,],
-                    orientation: -0.0,
+                    orientation: Angle(0.0),
                 },
                 initial_support_foot: Side::Right,
                 orientation_mode: OrientationMode::LookAt(point![0.99999857, -8.893833e-21,]),

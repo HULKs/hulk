@@ -21,7 +21,7 @@ impl TargetOrientationField<'_> {
 
         let distance_to_target = path_length - progress;
 
-        angle_penalty(Angle(pose.orientation), self.target_orientation)
+        angle_penalty(pose.orientation, self.target_orientation)
             * self.importance(distance_to_target)
     }
 
@@ -33,8 +33,7 @@ impl TargetOrientationField<'_> {
 
         PoseGradient {
             position: Vector2::zeros(),
-            orientation: angle_penalty_derivative(Angle(pose.orientation), self.target_orientation)
-                .into_inner(),
+            orientation: angle_penalty_derivative(pose.orientation, self.target_orientation),
         } * self.importance_derivative(distance_to_target)
     }
 }

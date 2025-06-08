@@ -16,12 +16,12 @@ impl WalkOrientationField {
         match self.orientation_mode {
             OrientationMode::Unspecified => 0.0,
             OrientationMode::LookTowards(orientation) => {
-                angle_penalty(Angle(pose.orientation), Angle(orientation.angle()))
+                angle_penalty(pose.orientation, Angle(orientation.angle()))
             }
             OrientationMode::LookAt(point) => {
                 let orientation = pose.position.look_at(&point);
 
-                angle_penalty(Angle(pose.orientation), Angle(orientation.angle()))
+                angle_penalty(pose.orientation, Angle(orientation.angle()))
             }
         }
     }
@@ -34,11 +34,7 @@ impl WalkOrientationField {
             },
             OrientationMode::LookTowards(orientation) => PoseGradient {
                 position: Vector2::zeros(),
-                orientation: angle_penalty_derivative(
-                    Angle(pose.orientation),
-                    Angle(orientation.angle()),
-                )
-                .into_inner(),
+                orientation: angle_penalty_derivative(pose.orientation, Angle(orientation.angle())),
             },
             OrientationMode::LookAt(point) => {
                 let orientation = pose.position.look_at(&point);
@@ -46,10 +42,9 @@ impl WalkOrientationField {
                 PoseGradient {
                     position: Vector2::zeros(),
                     orientation: angle_penalty_derivative(
-                        Angle(pose.orientation),
+                        pose.orientation,
                         Angle(orientation.angle()),
-                    )
-                    .into_inner(),
+                    ),
                 }
             }
         }

@@ -8,7 +8,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{Isometry2, Orientation2};
-use step_planning::geometry::Pose;
+use step_planning::geometry::{angle::Angle, Pose};
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     parameters::StepPlanningOptimizationParameters,
@@ -222,7 +222,7 @@ fn upcoming_support_pose_in_ground(context: &CycleContext) -> Pose<f32> {
 
     Pose {
         position: pose.position(),
-        orientation: pose.orientation().angle(),
+        orientation: Angle(pose.orientation().angle()),
     }
 }
 
