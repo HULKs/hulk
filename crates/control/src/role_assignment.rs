@@ -72,6 +72,7 @@ pub struct CycleContext {
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     time_to_reach_kick_position: Input<Option<Duration>, "time_to_reach_kick_position?">,
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
+    own_ball_contact_count: CyclerState<usize, "own_ball_contact_count">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
@@ -452,6 +453,7 @@ impl RoleAssignment {
                 pose,
                 ball_position,
                 time_to_reach_kick_position: *context.time_to_reach_kick_position.unwrap(),
+                number_of_ball_contacts: *context.own_ball_contact_count,
             })))
             .wrap_err("failed to write StrikerMessage to hardware")
     }

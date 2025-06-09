@@ -112,3 +112,4 @@ implement_as_not_supported!(String);
 implement_as_not_supported!(SystemTime);
 implement_as_not_supported!(Vec<T>, T);
 implement_as_not_supported!(VecDeque<T>, T);
+implement_as_not_supported!(Value);

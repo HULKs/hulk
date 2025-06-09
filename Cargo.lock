@@ -2667,6 +2667,7 @@ dependencies = [
  "rand 0.9.0",
  "rand_chacha 0.9.0",
  "serde",
+ "serde_json",
  "smallvec",
  "spl_network_messages",
  "splines",

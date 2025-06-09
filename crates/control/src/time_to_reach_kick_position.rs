@@ -26,6 +26,7 @@ pub struct CycleContext {
         CyclerState<RemainingStandUpDuration, "stand_up_front_estimated_remaining_duration">,
     stand_up_sitting_estimated_remaining_duration:
         CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
+    own_ball_contact_count: CyclerState<usize, "own_ball_contact_count">,
 }
 
 #[context]
@@ -51,6 +52,8 @@ impl TimeToReachKickPosition {
                 time_to_reach_kick_position: None.into(),
             });
         };
+
+        let ball_contacts_penalty = Duration::from_secs_f32(*context.own_ball_contact_count as f32);
 
         let walk_time = dribble_path
             .iter()
@@ -89,6 +92,7 @@ impl TimeToReachKickPosition {
             (*context.stand_up_front_estimated_remaining_duration).into(),
             (*context.stand_up_sitting_estimated_remaining_duration).into(),
             Some(turn_duration),
+            Some(ball_contacts_penalty),
         ]
         .into_iter()
         .flatten()
