@@ -30,7 +30,7 @@ pub struct CameraCalibrationExportPanel {
 }
 
 impl Panel for CameraCalibrationExportPanel {
-    const NAME: &'static str = "Automatic Calibration";
+    const NAME: &'static str = "Camera Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let top_camera = nao.subscribe_value(format!("parameters.{TOP_CAMERA_EXTRINSICS_PATH}"));
