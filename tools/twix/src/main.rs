@@ -34,9 +34,9 @@ use log::{error, warn};
 use nao::Nao;
 use panel::Panel;
 use panels::{
-    BallCandidatePanel, BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel,
-    ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel, MapPanel, ParameterPanel, PlotPanel,
-    RemotePanel, TextPanel, VisionTunerPanel,
+    BallCandidatePanel, BehaviorSimulatorPanel, CameraCalibrationExportPanel, EnumPlotPanel,
+    ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
+    MapPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
 };
 use reachable_naos::ReachableNaos;
 use repository::{inspect_version::check_for_update, Repository};
@@ -137,6 +137,7 @@ impl_selectable_panel!(
     ImageSegmentsPanel,
     LookAtPanel,
     ManualCalibrationPanel,
+    CameraCalibrationExportPanel,
     MapPanel,
     ParameterPanel,
     PlotPanel,
