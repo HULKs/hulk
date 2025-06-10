@@ -47,7 +47,7 @@ impl Panel for CameraCalibrationExportPanel {
             nao,
             top_camera,
             bottom_camera,
-            body_rotations: body_rotations,
+            body_rotations,
             calibration_corrections,
             calibration_measurements,
             primary_state,
