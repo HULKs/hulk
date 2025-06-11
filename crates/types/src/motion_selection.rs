@@ -59,6 +59,17 @@ impl MotionType {
             || self == MotionType::StandUpFront
             || self == MotionType::StandUpSitting
     }
+
+    pub fn is_dispatching(self) -> bool {
+        self == MotionType::Dispatching
+    }
+
+    pub fn is_stable(self) -> bool {
+        self == MotionType::Stand
+            || self == MotionType::Walk
+            || self == MotionType::Initial
+            || self == MotionType::Unstiff
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
