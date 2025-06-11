@@ -1,3 +1,5 @@
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::prelude::*;
 
 use bevyhavior_simulator::{
@@ -21,7 +23,7 @@ fn startup(
 ) {
     commands.spawn(Robot::new(PlayerNumber::Seven));
 
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
 }
 
 fn update(
@@ -34,22 +36,20 @@ fn update(
         println!("Done");
         exit.send(AppExit::Success);
     }
-    robots.single_mut().database.main_outputs.ground_to_field = Some(Isometry2::from_parts(
-        vector![-0.612_85, -1.191_053_4],
-        1.359_945_5,
-    ));
+    robots.single_mut().database.main_outputs.ground_to_field =
+        Some(Isometry2::from_parts(vector![-1.0, -1.0], FRAC_PI_2));
+
+    let optimizer_steps = time.ticks() as usize;
     robots
         .single_mut()
         .parameters
         .step_planner
         .optimization_parameters
-        .optimizer_steps = time.ticks() as usize / 20;
-    println!("{}", time.ticks());
-    if time.ticks() >= 3000 {
+        .optimizer_steps = optimizer_steps;
+
+    println!("tick {}: {optimizer_steps} steps", time.ticks());
+
+    if time.ticks() >= 500 {
         exit.send(AppExit::Success);
-    }
-    if time.ticks() >= 10_000 {
-        println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
     }
 }
