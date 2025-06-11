@@ -130,7 +130,7 @@ pub fn plan_steps(
     initial_support_foot: Side,
     initial_parameter_guess: DVector<f32>,
     parameters: &StepPlanningOptimizationParameters,
-) -> Result<(DVector<f32>, DVector<f32>)> {
+) -> Result<(DVector<f32>, DVector<f32>, f32)> {
     let mut problem = StepPlanningProblem {
         step_planning: StepPlanning {
             path,
