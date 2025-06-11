@@ -4,7 +4,7 @@ use linear_algebra::{point, vector, Framed};
 use nalgebra::{allocator::Allocator, DefaultAllocator, DimName, Matrix, OPoint, Owned, Scalar};
 use types::step::Step;
 
-use crate::geometry::{angle::Angle, pose::PoseGradient, Pose};
+use crate::geometry::{angle::Angle, pose::Pose, pose::PoseGradient};
 
 pub trait Decompose<F> {
     const N: usize;

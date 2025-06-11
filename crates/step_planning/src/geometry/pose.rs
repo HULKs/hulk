@@ -144,7 +144,7 @@ mod tests {
     use linear_algebra::{point, Point2};
     use types::step::Step;
 
-    use crate::geometry::{angle::Angle, Pose};
+    use crate::geometry::{angle::Angle, pose::Pose};
 
     #[test]
     fn test_pose_step_addition() {
