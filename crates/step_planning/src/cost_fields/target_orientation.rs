@@ -33,35 +33,21 @@ impl TargetOrientationField<'_> {
 
         PoseGradient {
             position: Vector2::zeros(),
-            orientation: angle_penalty_derivative(pose.orientation, self.target_orientation),
-        } * self.importance_derivative(distance_to_target)
+            orientation: angle_penalty_derivative(pose.orientation, self.target_orientation)
+                * self.importance(distance_to_target),
+        }
     }
 }
 
 impl TargetOrientationField<'_> {
     fn importance(&self, distance_to_target: f32) -> f32 {
-        // if distance_to_target < self.alignment_start_distance {
-        //     0.0
-        // } else {
-        //     1.0
-        // }
-        if distance_to_target < self.alignment_start_distance - self.ramp_width {
+        if distance_to_target > self.alignment_start_distance - self.ramp_width {
             0.0
         } else if distance_to_target < self.alignment_start_distance + self.ramp_width {
+            1.0
+        } else {
             (distance_to_target - (self.alignment_start_distance - self.ramp_width))
                 / (2.0 * self.ramp_width)
-        } else {
-            1.0
-        }
-    }
-
-    fn importance_derivative(&self, distance_to_target: f32) -> f32 {
-        if distance_to_target < self.alignment_start_distance - self.ramp_width {
-            0.0
-        } else if distance_to_target < self.alignment_start_distance + self.ramp_width {
-            1.0 / (2.0 * self.ramp_width)
-        } else {
-            0.0
         }
     }
 }
