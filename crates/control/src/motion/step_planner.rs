@@ -56,6 +56,7 @@ pub struct CycleContext {
     max_step_size_output: AdditionalOutput<Step, "max_step_size">,
     step_plan: AdditionalOutput<Vec<f32>, "step_plan">,
     step_plan_gradient: AdditionalOutput<Vec<f32>, "step_plan_gradient">,
+    step_plan_cost: AdditionalOutput<f32, "step_plan_cost">,
     step_planning_duration: AdditionalOutput<Duration, "step_planning_duration">,
 }
 
@@ -193,7 +194,7 @@ impl StepPlanner {
 
         let initial_guess = DVector::zeros(num_variables);
 
-        let (step_plan, gradient) = step_planning_solver::plan_steps(
+        let (step_plan, gradient, cost) = step_planning_solver::plan_steps(
             path,
             orientation_mode,
             target_orientation,
@@ -210,6 +211,8 @@ impl StepPlanner {
         context
             .step_plan_gradient
             .fill_if_subscribed(|| gradient.as_slice().to_vec());
+
+        context.step_plan_cost.fill_if_subscribed(|| cost);
 
         let step = Step::from_slice(&step_plan.as_slice()[0..VARIABLES_PER_STEP]);
 

@@ -130,7 +130,7 @@ pub fn plan_steps(
     initial_support_foot: Side,
     initial_parameter_guess: DVector<f32>,
     parameters: &StepPlanningOptimizationParameters,
-) -> Result<(DVector<f32>, DVector<f32>)> {
+) -> Result<(DVector<f32>, DVector<f32>, f32)> {
     let mut problem = StepPlanningProblem {
         step_planning: StepPlanning {
             path,
@@ -143,23 +143,48 @@ pub fn plan_steps(
         variables: initial_parameter_guess,
     };
 
-    gradient_decent(&mut problem, parameters.optimizer_steps);
+    gradient_decent(
+        &mut problem,
+        parameters.optimizer_steps,
+        parameters.learning_rate,
+    );
 
     // TODO(rmburg) remove/refactor
     let gradient = problem.jacobian().unwrap().transpose();
+    let cost = problem.residuals().unwrap().to_scalar();
 
-    Ok((problem.variables, gradient))
+    Ok((problem.variables, gradient, cost))
 }
 
-fn gradient_decent(problem: &mut StepPlanningProblem, optimizer_steps: usize) {
+fn normalize_gradient(mut gradient: DVector<f32>, max_magnitude: f32) -> DVector<f32> {
+    for chunk in gradient.as_mut_slice().chunks_exact_mut(3) {
+        let magnitude = chunk
+            .iter()
+            .map(|x| x.abs().powi(3))
+            .sum::<f32>()
+            .powf(3.0.recip());
+
+        if magnitude > max_magnitude {
+            let factor = magnitude.recip();
+            for variable in chunk.iter_mut() {
+                *variable *= factor;
+            }
+        }
+    }
+
+    gradient
+}
+
+fn gradient_decent(problem: &mut StepPlanningProblem, optimizer_steps: usize, learning_rate: f32) {
     for _ in 0..optimizer_steps {
-        let gradient = problem.jacobian().unwrap().transpose().cap_magnitude(1.0);
+        let gradient = problem.jacobian().unwrap().transpose();
+        let gradient = normalize_gradient(gradient, 0.1);
 
         if gradient[0].is_nan() {
             dbg!(problem, gradient);
             panic!();
         }
-        problem.variables -= gradient * 0.003;
+        problem.variables -= gradient * learning_rate;
     }
 }
 
@@ -216,6 +241,7 @@ mod tests {
                     optimizer_steps: 50,
                     walk_volume_translation_exponent: 2.0,
                     walk_volume_rotation_exponent: 2.0,
+                    learning_rate: 0.0001,
                 },
                 initial_pose: Pose {
                     position: point![-0.0, 0.0,],
