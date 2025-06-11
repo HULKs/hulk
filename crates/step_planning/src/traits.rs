@@ -19,7 +19,7 @@ pub mod gradient_type {
     use nalgebra::{allocator::Allocator, DefaultAllocator, DimName, OPoint, OVector, Scalar};
     use types::step::Step;
 
-    use crate::geometry::{pose::PoseGradient, Pose};
+    use crate::geometry::{pose::Pose, pose::PoseGradient};
 
     pub trait GradientType {
         type Gradient;

@@ -3,7 +3,7 @@ use linear_algebra::Vector2;
 use types::motion_command::OrientationMode;
 
 use crate::{
-    geometry::{angle::Angle, pose::PoseGradient, Pose},
+    geometry::{angle::Angle, pose::Pose, pose::PoseGradient},
     utils::{angle_penalty, angle_penalty_derivative},
 };
 

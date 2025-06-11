@@ -20,8 +20,7 @@ use crate::{
     },
     geometry::{
         angle::Angle,
-        pose::{PoseAndSupportFoot, PoseGradient},
-        Pose,
+        pose::{Pose, PoseAndSupportFoot, PoseGradient},
     },
 };
 

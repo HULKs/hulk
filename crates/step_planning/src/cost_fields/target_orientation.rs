@@ -2,7 +2,7 @@ use linear_algebra::Vector2;
 use types::planned_path::Path;
 
 use crate::{
-    geometry::{angle::Angle, pose::PoseGradient, Pose},
+    geometry::{angle::Angle, pose::Pose, pose::PoseGradient},
     traits::{Length, PathProgress},
     utils::{angle_penalty, angle_penalty_derivative},
 };
@@ -61,7 +61,7 @@ mod tests {
 
     use crate::{
         cost_fields::target_orientation::TargetOrientationField,
-        geometry::{angle::Angle, Pose},
+        geometry::{angle::Angle, pose::Pose},
         test_utils::test_path,
     };
 
