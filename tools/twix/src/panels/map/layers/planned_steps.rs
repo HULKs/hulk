@@ -4,18 +4,23 @@ use color_eyre::Result;
 use eframe::{egui::Color32, epaint::Stroke};
 
 use coordinate_systems::{Ground, UpcomingSupport};
-use linear_algebra::{point, vector, Isometry, Isometry2};
+use linear_algebra::{point, vector, Isometry2, Orientation3, Pose2, Pose3};
 use step_planning::step_plan::StepPlan;
-use types::field_dimensions::FieldDimensions;
+use types::{field_dimensions::FieldDimensions, support_foot::Side};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
+use super::walking::paint_sole_polygon;
+
 pub struct PlannedSteps {
     step_plan: BufferHandle<Option<Vec<f32>>>,
     step_plan_gradient: BufferHandle<Option<Vec<f32>>>,
     ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
+    // foot_offset_left: BufferHandle<Option<Vector3<Ground>>>,
+    // foot_offset_right: BufferHandle<Option<Vector3<Ground>>>,
+    current_support_side: BufferHandle<Option<Option<Side>>>,
 }
 
 impl Layer<Ground> for PlannedSteps {
@@ -27,11 +32,20 @@ impl Layer<Ground> for PlannedSteps {
             nao.subscribe_value("Control.additional_outputs.step_plan_gradient");
         let ground_to_upcoming_support =
             nao.subscribe_value("Control.additional_outputs.ground_to_upcoming_support");
+        // let foot_offset_left =
+        //     nao.subscribe_value("parameters.walking_engine.base.foot_offset_left");
+        // let foot_offset_right =
+        //     nao.subscribe_value("parameters.walking_engine.base.foot_offset_right");
+        let current_support_side =
+            nao.subscribe_value("Control.additional_outputs.current_support_side");
 
         Self {
             step_plan,
             step_plan_gradient,
             ground_to_upcoming_support,
+            // foot_offset_left,
+            // foot_offset_right,
+            current_support_side,
         }
     }
 
@@ -51,16 +65,34 @@ impl Layer<Ground> for PlannedSteps {
         else {
             return Ok(());
         };
+        // let Some(foot_offset_left) = self.foot_offset_left.get_last_value()?.flatten() else {
+        //     return Ok(());
+        // };
+        // let Some(foot_offset_right) = self.foot_offset_right.get_last_value()?.flatten() else {
+        //     return Ok(());
+        // };
+        let Some(current_support_side) = self.current_support_side.get_last_value()?.flatten()
+        else {
+            return Ok(());
+        };
 
         paint_step_plan(
             painter,
             ground_to_upcoming_support,
             step_plan,
             step_plan_gradient,
+            current_support_side.unwrap_or(Side::Left).opposite(),
+            // foot_offset_left,
+            // foot_offset_right,
         );
 
         Ok(())
     }
+}
+
+struct PlannedStep {
+    pose: Pose2<Ground>,
+    support_side: Side,
 }
 
 fn paint_step_plan(
@@ -68,44 +100,73 @@ fn paint_step_plan(
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
     step_plan: Vec<f32>,
     step_plan_gradient: Vec<f32>,
+    next_support_side: Side,
+    // foot_offset_left: Vector3<Ground>,
+    // foot_offset_right: Vector3<Ground>,
 ) {
     let step_plan = StepPlan::from(step_plan.as_slice());
     let upcoming_support_to_ground = ground_to_upcoming_support.inverse();
 
-    let step_end_poses =
-        step_plan
-            .steps()
-            .scan(upcoming_support_to_ground.as_pose(), |pose, step| {
-                let step_isometry = Isometry::<Ground, Ground, 2, _, _>::from_parts(
-                    vector![step.forward, step.left],
-                    step.turn,
-                );
+    let planned_steps = step_plan.steps().scan(
+        (upcoming_support_to_ground.as_pose(), next_support_side),
+        |(pose, support_side), step| {
+            let step_isometry = Isometry2::<Ground, Ground>::from_parts(
+                vector![-step.forward, -step.left],
+                -step.turn,
+            )
+            .inverse();
 
-                *pose = step_isometry * *pose;
+            *pose = step_isometry * *pose;
 
-                Some(*pose)
-            });
+            let planned_step = PlannedStep {
+                pose: *pose,
+                support_side: *support_side,
+            };
+
+            *support_side = support_side.opposite();
+
+            Some(planned_step)
+        },
+    );
 
     let gradients = step_plan_gradient.chunks_exact(3);
-    for (pose, gradient) in step_end_poses.zip(gradients) {
-        let [df, dl, da] = gradient.try_into().unwrap();
+    for (PlannedStep { pose, support_side }, _gradient) in planned_steps.zip(gradients) {
+        // let [df, dl, da] = gradient.try_into().unwrap();
+        let offset = match support_side {
+            // Side::Left => foot_offset_left,
+            // Side::Right => foot_offset_right,
+            Side::Left => vector!(0.0, 0.052, 0.0),
+            Side::Right => vector!(0.0, -0.052, 0.0),
+        };
 
-        painter.pose(
-            pose,
-            0.02,
-            0.03,
-            Color32::RED,
-            Stroke::new(0.005, Color32::BLACK),
+        // painter.pose(
+        //     pose,
+        //     0.02,
+        //     0.03,
+        //     Color32::RED,
+        //     Stroke::new(0.005, Color32::BLACK),
+        // );
+
+        let sole = Pose3::from_parts(
+            point![pose.position().x(), pose.position().y(), 0.0] + offset,
+            Orientation3::from_euler_angles(0.0, 0.0, pose.orientation().angle()),
         );
-        painter.line_segment(
-            pose.position(),
-            pose.as_transform::<Ground>() * (point![df, dl] * -0.001),
-            Stroke::new(0.002, Color32::GREEN),
+
+        paint_sole_polygon(
+            painter,
+            sole,
+            Stroke::new(0.005, Color32::GRAY),
+            support_side,
         );
-        painter.line_segment(
-            pose.position(),
-            pose.as_transform::<Ground>() * point![0.0, da * -0.001],
-            Stroke::new(0.002, Color32::RED),
-        );
+        // painter.line_segment(
+        //     pose.position,
+        //     pose.as_transform::<Ground>() * (point![df, dl] * -0.001),
+        //     Stroke::new(0.002, Color32::GREEN),
+        // );
+        // painter.line_segment(
+        //     pose.position,
+        //     pose.as_transform::<Ground>() * point![0.0, da * -0.001],
+        //     Stroke::new(0.002, Color32::RED),
+        // );
     }
 }

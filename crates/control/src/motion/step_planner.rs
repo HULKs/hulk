@@ -57,6 +57,7 @@ pub struct CycleContext {
     step_plan: AdditionalOutput<Vec<f32>, "step_plan">,
     step_plan_gradient: AdditionalOutput<Vec<f32>, "step_plan_gradient">,
     step_plan_cost: AdditionalOutput<f32, "step_plan_cost">,
+    current_support_side: AdditionalOutput<Option<Side>, "current_support_side">,
     step_planning_duration: AdditionalOutput<Duration, "step_planning_duration">,
 }
 
@@ -187,10 +188,13 @@ impl StepPlanner {
     ) -> Result<Step> {
         let num_variables = context.optimization_parameters.num_steps * VARIABLES_PER_STEP;
 
-        let current_support_foot = context
-            .walking_engine_mode
-            .support_side()
-            .unwrap_or(Side::Left);
+        let current_support_foot = context.walking_engine_mode.support_side();
+
+        context
+            .current_support_side
+            .fill_if_subscribed(|| current_support_foot);
+
+        let next_support_foot = current_support_foot.unwrap_or(Side::Left).opposite();
 
         let initial_guess = DVector::zeros(num_variables);
 
@@ -199,7 +203,7 @@ impl StepPlanner {
             orientation_mode,
             target_orientation,
             upcoming_support_pose_in_ground(context),
-            current_support_foot.opposite(),
+            next_support_foot,
             initial_guess,
             context.optimization_parameters,
         )?;
