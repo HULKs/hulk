@@ -6,7 +6,7 @@ use num_dual::{Derivative, DualNum, DualNumFloat, DualVec};
 use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use step_planning::{
-    geometry::Pose,
+    geometry::pose::Pose,
     step_plan::{StepPlan, StepPlanning},
     traits::{ScaledGradient, UnwrapDual, WrapDual},
 };
@@ -196,7 +196,7 @@ mod tests {
     use nalgebra::DVector;
 
     use step_planning::{
-        geometry::{angle::Angle, Pose},
+        geometry::{angle::Angle, pose::Pose},
         step_plan::StepPlanning,
     };
     use types::{

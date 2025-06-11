@@ -10,8 +10,7 @@ use types::step::{Step, StepAndSupportFoot};
 use crate::{
     geometry::{
         angle::Angle,
-        pose::{PoseAndSupportFoot, PoseGradient},
-        Pose,
+        pose::{Pose, PoseAndSupportFoot, PoseGradient},
     },
     step_plan::{PlannedStep, PlannedStepGradient},
 };

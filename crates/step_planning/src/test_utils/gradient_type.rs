@@ -3,7 +3,7 @@ use nalgebra::{allocator::Allocator, DefaultAllocator, DimName, OPoint, OVector,
 use linear_algebra::Framed;
 use types::step::Step;
 
-use crate::geometry::{pose::PoseGradient, Pose};
+use crate::geometry::{pose::Pose, pose::PoseGradient};
 
 pub trait GradientType {
     type Gradient;

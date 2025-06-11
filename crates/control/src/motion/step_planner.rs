@@ -11,7 +11,7 @@ use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{vector, Isometry2, Orientation2, Pose2};
 use step_planning::{
-    geometry::{angle::Angle, Pose},
+    geometry::{angle::Angle, pose::Pose},
     traits::Project,
 };
 use types::{
