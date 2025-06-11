@@ -31,7 +31,7 @@ But around this, there's a lot of state handling and transitions.
 
 ## Return Offset and Ground Frame Compensation
 
-In the RoboCup SPL walking engine, steps are planned relative to a dynamic coordinate system called Ground, which lies between the robot's feet.
+In the HULKs walking engine, steps are planned relative to a dynamic coordinate system called Ground, which lies between the robot's feet.
 This frame represents the robot's effective position on the field and is used by high-level behavior to request movement.
 
 ### Step Planning and Execution
@@ -42,7 +42,7 @@ The walking engine interpolates the robot's foot positions over time during each
 
 After a non-zero movement step, the robot's feet are no longer side-by-side. To halt walking cleanly, the robot must place the swing foot next to the support foot, bringing the feet back to a resting position. This final adjustment moving the feet together inevitably shifts the Ground frame. The return offset is this shift: the isometric transformation (rotation and translation in 2D) of the Ground frame that occurs even when planning a nominal zero step.
 
-For example, if the last step was 4 cm forward, the feet end 4 cm apart. To come to rest, the swing foot (now behind 2 cm) must move forward 4 cm to align with the support foot. This results in a 2 cm forward movement of the Ground frame, even though the walking engine executes a 0 cm step. This movement must be compensated in planning.
+For example, if the last step was 4 cm forward, the feet end 4 cm apart. To come to rest, the swing foot (now 2 cm behind the torso) must move forward 4 cm to align with the support foot. This results in a 2 cm forward movement of the Ground frame, even though the walking engine executes a 0 cm step. This movement must be compensated in planning.
 
 ### Why Compensation Is Necessary
 
