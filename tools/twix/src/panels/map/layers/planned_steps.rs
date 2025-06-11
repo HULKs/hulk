@@ -16,6 +16,7 @@ use super::walking::paint_sole_polygon;
 
 pub struct PlannedSteps {
     step_plan: BufferHandle<Option<Vec<f32>>>,
+    step_plan_greedy: BufferHandle<Option<Vec<f32>>>,
     step_plan_gradient: BufferHandle<Option<Vec<f32>>>,
     ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
     // foot_offset_left: BufferHandle<Option<Vector3<Ground>>>,
@@ -28,6 +29,7 @@ impl Layer<Ground> for PlannedSteps {
 
     fn new(nao: Arc<Nao>) -> Self {
         let step_plan = nao.subscribe_value("Control.additional_outputs.step_plan");
+        let step_plan_greedy = nao.subscribe_value("Control.additional_outputs.step_plan_greedy");
         let step_plan_gradient =
             nao.subscribe_value("Control.additional_outputs.step_plan_gradient");
         let ground_to_upcoming_support =
@@ -41,6 +43,7 @@ impl Layer<Ground> for PlannedSteps {
 
         Self {
             step_plan,
+            step_plan_greedy,
             step_plan_gradient,
             ground_to_upcoming_support,
             // foot_offset_left,
@@ -55,6 +58,9 @@ impl Layer<Ground> for PlannedSteps {
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
         let Some(step_plan) = self.step_plan.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        let Some(step_plan_greedy) = self.step_plan_greedy.get_last_value()?.flatten() else {
             return Ok(());
         };
         let Some(step_plan_gradient) = self.step_plan_gradient.get_last_value()?.flatten() else {
@@ -78,12 +84,23 @@ impl Layer<Ground> for PlannedSteps {
 
         paint_step_plan(
             painter,
+            Color32::RED,
             ground_to_upcoming_support,
             step_plan,
             step_plan_gradient,
             current_support_side.unwrap_or(Side::Left).opposite(),
             // foot_offset_left,
             // foot_offset_right,
+        );
+
+        let dummy_gradient = vec![0.0; step_plan_greedy.len()];
+        paint_step_plan(
+            painter,
+            Color32::BLUE,
+            ground_to_upcoming_support,
+            step_plan_greedy,
+            dummy_gradient,
+            current_support_side.unwrap_or(Side::Left).opposite(),
         );
 
         Ok(())
@@ -97,6 +114,7 @@ struct PlannedStep {
 
 fn paint_step_plan(
     painter: &TwixPainter<Ground>,
+    color: Color32,
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
     step_plan: Vec<f32>,
     step_plan_gradient: Vec<f32>,
@@ -110,13 +128,12 @@ fn paint_step_plan(
     let planned_steps = step_plan.steps().scan(
         (upcoming_support_to_ground.as_pose(), next_support_side),
         |(pose, support_side), step| {
-            let step_isometry = Isometry2::<Ground, Ground>::from_parts(
-                vector![-step.forward, -step.left],
-                -step.turn,
-            )
-            .inverse();
+            let step_translation =
+                Isometry2::<Ground, Ground>::from_parts(vector![step.forward, step.left], 0.0);
+            let step_rotation =
+                Isometry2::<Ground, Ground>::from_parts(vector![0.0, 0.0], step.turn);
 
-            *pose = step_isometry * *pose;
+            *pose = pose.as_transform() * step_rotation * step_translation.as_pose();
 
             let planned_step = PlannedStep {
                 pose: *pose,
@@ -152,12 +169,7 @@ fn paint_step_plan(
             Orientation3::from_euler_angles(0.0, 0.0, pose.orientation().angle()),
         );
 
-        paint_sole_polygon(
-            painter,
-            sole,
-            Stroke::new(0.005, Color32::GRAY),
-            support_side,
-        );
+        paint_sole_polygon(painter, sole, Stroke::new(0.005, color), support_side);
         // painter.line_segment(
         //     pose.position,
         //     pose.as_transform::<Ground>() * (point![df, dl] * -0.001),
