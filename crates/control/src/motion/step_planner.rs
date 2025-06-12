@@ -11,7 +11,7 @@ use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
 use step_planning::{
-    geometry::{angle::Angle, normalized_step::NormalizedStep, pose::Pose},
+    geometry::{angle::Angle, pose::Pose},
     traits::Project,
 };
 use types::{
@@ -59,8 +59,8 @@ pub struct CycleContext {
     ground_to_upcoming_support_out:
         AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
     max_step_size_output: AdditionalOutput<Step, "max_step_size">,
-    step_plan: AdditionalOutput<Vec<f32>, "step_plan">,
-    step_plan_greedy: AdditionalOutput<Vec<f32>, "step_plan_greedy">,
+    step_plan: AdditionalOutput<Vec<Step>, "step_plan">,
+    step_plan_greedy: AdditionalOutput<Vec<Step>, "step_plan_greedy">,
     step_plan_gradient: AdditionalOutput<Vec<f32>, "step_plan_gradient">,
     step_plan_cost: AdditionalOutput<f32, "step_plan_cost">,
     current_support_side: AdditionalOutput<Option<Side>, "current_support_side">,
@@ -236,9 +236,9 @@ fn plan_step(
         context.optimization_parameters,
     )?;
 
-    context
-        .step_plan
-        .fill_if_subscribed(|| step_plan.as_slice().to_vec());
+    let next_step = *step_plan.first().unwrap();
+
+    context.step_plan.fill_if_subscribed(|| step_plan);
 
     context
         .step_plan_gradient
@@ -246,12 +246,7 @@ fn plan_step(
 
     context.step_plan_cost.fill_if_subscribed(|| cost);
 
-    let step = NormalizedStep::from_slice(&step_plan.as_slice()[0..VARIABLES_PER_STEP]);
-
-    Ok(step.unnormalize(
-        &context.optimization_parameters.walk_volume_extents,
-        next_support_side,
-    ))
+    Ok(next_step)
 }
 
 fn step_plan_greedy(
@@ -260,7 +255,7 @@ fn step_plan_greedy(
     orientation_mode: OrientationMode,
     _target_orientation: Orientation2<Ground>,
     speed: WalkSpeed,
-) -> Result<Vec<f32>> {
+) -> Result<Vec<Step>> {
     let mut pose = context.ground_to_upcoming_support.inverse().as_pose();
     let mut steps = Vec::new();
     let mut last_planned_step = Step::default();
@@ -334,10 +329,7 @@ fn step_plan_greedy(
         steps.push(step);
     }
 
-    Ok(steps
-        .into_iter()
-        .flat_map(|step| [step.forward, step.left, step.turn])
-        .collect())
+    Ok(steps)
 }
 
 fn upcoming_support_pose_in_ground(context: &CycleContext) -> Pose<f32> {

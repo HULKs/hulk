@@ -7,9 +7,14 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
-use linear_algebra::{vector, Isometry2};
+use geometry::line_segment::LineSegment;
+use linear_algebra::{point, vector, Isometry2, Orientation2, Point2};
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
+use types::{
+    motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
+    planned_path::{Path, PathSegment},
+};
 
 #[scenario]
 fn mpc_step_planner_optimizer(app: &mut App) {
@@ -27,17 +32,29 @@ fn startup(
 }
 
 fn update(
-    game_controller: ResMut<GameController>,
+    _game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
 ) {
-    if game_controller.state.hulks_team.score > 0 {
-        println!("Done");
-        exit.send(AppExit::Success);
-    }
-    robots.single_mut().database.main_outputs.ground_to_field =
+    let mut robot = robots.single_mut();
+
+    robot.database.main_outputs.ground_to_field =
         Some(Isometry2::from_parts(vector![-1.0, -1.0], FRAC_PI_2));
+    robot.database.main_outputs.motion_command = MotionCommand::Walk {
+        head: HeadMotion::ZeroAngles,
+        left_arm: ArmMotion::Swing,
+        right_arm: ArmMotion::Swing,
+        speed: WalkSpeed::Normal,
+        path: Path {
+            segments: vec![PathSegment::LineSegment(LineSegment(
+                Point2::origin(),
+                point![1.0, 0.0],
+            ))],
+        },
+        orientation_mode: OrientationMode::Unspecified,
+        target_orientation: Orientation2::identity(),
+    };
 
     let optimizer_steps = time.ticks() as usize;
     robots
