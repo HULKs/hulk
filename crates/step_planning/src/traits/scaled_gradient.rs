@@ -3,10 +3,9 @@ use num_dual::{Derivative, DualNum};
 use num_traits::Float;
 
 use linear_algebra::Framed;
-use types::step::Step;
 
 use crate::{
-    geometry::{angle::Angle, pose::PoseGradient},
+    geometry::{angle::Angle, normalized_step::NormalizedStep, pose::PoseGradient},
     step_plan::PlannedStepGradient,
 };
 
@@ -84,18 +83,18 @@ where
     }
 }
 
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, Step<T>>
-    for Step<Derivative<T, F, D, U1>>
+impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, NormalizedStep<T>>
+    for NormalizedStep<Derivative<T, F, D, U1>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn scaled_gradient(self, scale: Step<T>) -> Derivative<T, F, D, U1> {
-        let Step {
+    fn scaled_gradient(self, scale: NormalizedStep<T>) -> Derivative<T, F, D, U1> {
+        let NormalizedStep {
             forward: forward_gradient,
             left: left_gradient,
             turn: turn_gradient,
         } = self;
-        let Step {
+        let NormalizedStep {
             forward: forward_derivative,
             left: left_derivative,
             turn: turn_derivative,
