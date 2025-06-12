@@ -6,7 +6,14 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
-    cycle_time::CycleTime, joints::head::HeadJoints, motion_command::{HeadMotion as HeadMotionCommand, MotionCommand}, motion_selection::MotionSelection, motor_commands::MotorCommands, parameters::HeadMotionParameters, sensor_data::SensorData, world_state::WorldState
+    cycle_time::CycleTime,
+    joints::head::HeadJoints,
+    motion_command::{HeadMotion as HeadMotionCommand, MotionCommand},
+    motion_selection::MotionSelection,
+    motor_commands::MotorCommands,
+    parameters::HeadMotionParameters,
+    sensor_data::SensorData,
+    world_state::WorldState,
 };
 
 #[derive(Default, Deserialize, Serialize)]
@@ -81,10 +88,14 @@ impl HeadMotion {
             });
 
         let maximum_movement = match context.world_state.robot.role {
-            types::roles::Role::DefenderLeft | types::roles::Role::DefenderRight => context.parameters.maximum_defender_velocity
-             * context.cycle_time.last_cycle_duration.as_secs_f32(),
-            _ => context.parameters.maximum_velocity
-             * context.cycle_time.last_cycle_duration.as_secs_f32(),
+            types::roles::Role::DefenderLeft | types::roles::Role::DefenderRight => {
+                context.parameters.maximum_defender_velocity
+                    * context.cycle_time.last_cycle_duration.as_secs_f32()
+            }
+            _ => {
+                context.parameters.maximum_velocity
+                    * context.cycle_time.last_cycle_duration.as_secs_f32()
+            }
         };
 
         let controlled_positions = HeadJoints {
