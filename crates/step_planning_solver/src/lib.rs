@@ -57,10 +57,8 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
         let cost = self
             .step_planning
             .planned_steps(
-                self.step_planning
-                    .initial_pose
-                    .clone()
-                    .with_support_foot(self.step_planning.initial_support_foot),
+                self.step_planning.initial_pose.clone(),
+                self.step_planning.initial_support_foot,
                 &step_plan,
             )
             .map(|planned_step| self.step_planning.cost(planned_step))
@@ -80,11 +78,8 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
         let gradient: DVector<f32> = self
             .step_planning
             .planned_steps(
-                self.step_planning
-                    .initial_pose
-                    .clone()
-                    .with_support_foot(self.step_planning.initial_support_foot)
-                    .wrap_dual(),
+                self.step_planning.initial_pose.clone().wrap_dual(),
+                self.step_planning.initial_support_foot,
                 &step_plan,
             )
             .map(|dual_planned_step| {

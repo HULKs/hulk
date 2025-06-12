@@ -10,7 +10,7 @@ use types::step::{Step, StepAndSupportFoot};
 use crate::{
     geometry::{
         angle::Angle,
-        pose::{Pose, PoseAndSupportFoot, PoseGradient},
+        pose::{Pose, PoseGradient},
     },
     step_plan::{PlannedStep, PlannedStepGradient},
 };
@@ -238,34 +238,6 @@ where
         let (step, d_step) = step.unwrap_dual();
 
         (StepAndSupportFoot { step, support_foot }, d_step)
-    }
-}
-
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim>
-    WrapDual<PoseAndSupportFoot<DualVec<T, F, D>>> for PoseAndSupportFoot<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> PoseAndSupportFoot<DualVec<T, F, D>> {
-        PoseAndSupportFoot {
-            pose: self.pose.wrap_dual(),
-            support_foot: self.support_foot,
-        }
-    }
-}
-
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<PoseAndSupportFoot<T>, PoseGradient<Derivative<T, F, D, U1>>>
-    for PoseAndSupportFoot<DualVec<T, F, D>>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn unwrap_dual(self) -> (PoseAndSupportFoot<T>, PoseGradient<Derivative<T, F, D, U1>>) {
-        let Self { pose, support_foot } = self;
-
-        let (pose, d_pose) = pose.unwrap_dual();
-
-        (PoseAndSupportFoot { pose, support_foot }, d_pose)
     }
 }
 
