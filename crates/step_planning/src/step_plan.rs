@@ -11,8 +11,7 @@ use types::{
 use crate::{
     cost_fields::{
         path_distance::PathDistanceField, path_progress::PathProgressField,
-        step_size::StepSizeField, target_orientation::TargetOrientationField,
-        walk_orientation::WalkOrientationField,
+        target_orientation::TargetOrientationField, walk_orientation::WalkOrientationField,
     },
     geometry::{
         angle::Angle,
@@ -76,12 +75,11 @@ impl StepPlanning<'_> {
         let StepPlanningOptimizationParameters {
             path_progress_reward,
             path_distance_penalty,
-            step_size_penalty,
             target_orientation_penalty,
             walk_orientation_penalty,
             ..
         } = *self.parameters;
-        let PlannedStep { pose, step } = planned_step;
+        let PlannedStep { pose, .. } = planned_step;
 
         let path_progress_cost = self.path_progress().cost(pose.position) * path_progress_reward;
         let path_distance_cost = self.path_distance().cost(pose.position) * path_distance_penalty;
@@ -89,25 +87,19 @@ impl StepPlanning<'_> {
             self.walk_orientation().cost(pose.clone()) * walk_orientation_penalty;
         let target_orientation_cost =
             self.target_orientation().cost(pose) * target_orientation_penalty;
-        let step_size_cost = self.step_size().cost(step) * step_size_penalty;
 
-        path_progress_cost
-            + path_distance_cost
-            + walk_orientation_cost
-            + target_orientation_cost
-            + step_size_cost
+        path_progress_cost + path_distance_cost + walk_orientation_cost + target_orientation_cost
     }
 
     pub fn grad(&self, planned_step: PlannedStep<f32>) -> PlannedStepGradient<f32> {
         let StepPlanningOptimizationParameters {
             path_progress_reward,
             path_distance_penalty,
-            step_size_penalty,
             target_orientation_penalty,
             walk_orientation_penalty,
             ..
         } = *self.parameters;
-        let PlannedStep { pose, step } = planned_step;
+        let PlannedStep { pose, .. } = planned_step;
 
         let path_progress_gradient =
             self.path_progress().grad(pose.position) * path_progress_reward;
@@ -117,7 +109,6 @@ impl StepPlanning<'_> {
             self.walk_orientation().grad(pose.clone()) * walk_orientation_penalty;
         let target_orientation_gradient =
             self.target_orientation().grad(pose) * target_orientation_penalty;
-        let step_size_gradient = self.step_size().grad(step) * step_size_penalty;
 
         PlannedStepGradient {
             pose: walk_orientation_gradient
@@ -126,7 +117,12 @@ impl StepPlanning<'_> {
                     position: path_distance_gradient + path_progress_gradient,
                     orientation: 0.0,
                 },
-            step: step_size_gradient,
+            step: NormalizedStep {
+                // TODO
+                forward: 0.0,
+                left: 0.0,
+                turn: 0.0,
+            },
         }
     }
 
@@ -153,12 +149,6 @@ impl StepPlanning<'_> {
             path: self.path,
             alignment_start_distance: self.parameters.alignment_start_distance,
             ramp_width: self.parameters.alignment_start_smoothness,
-        }
-    }
-
-    fn step_size(&self) -> StepSizeField {
-        StepSizeField {
-            walk_volume_extents: self.parameters.walk_volume_extents.clone(),
         }
     }
 }
