@@ -31,7 +31,7 @@ impl Layer<Field> for LineCorrespondences {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
