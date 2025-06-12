@@ -8384,7 +8384,6 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "geometry",
- "levenberg-marquardt",
  "linear_algebra",
  "nalgebra",
  "num-dual",

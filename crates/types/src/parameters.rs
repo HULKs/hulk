@@ -474,7 +474,6 @@ pub struct StepPlanningOptimizationParameters {
     pub path_progress_reward: f32,
     pub path_distance_penalty: f32,
     pub path_progress_smoothness: f32,
-    pub step_size_penalty: f32,
     pub target_orientation_penalty: f32,
     pub walk_orientation_penalty: f32,
     pub alignment_start_distance: f32,
