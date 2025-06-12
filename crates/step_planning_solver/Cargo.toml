@@ -9,7 +9,6 @@ homepage.workspace = true
 color-eyre.workspace = true
 coordinate_systems.workspace = true
 geometry.workspace = true
-levenberg-marquardt.workspace = true
 linear_algebra.workspace = true
 nalgebra.workspace = true
 num-dual.workspace = true

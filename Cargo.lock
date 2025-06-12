@@ -1821,7 +1821,7 @@ dependencies = [
 name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "ball_filter",
  "bevy",
  "bincode",
@@ -1845,7 +1845,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "parking_lot",
@@ -8170,7 +8170,6 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "geometry",
- "levenberg-marquardt",
  "linear_algebra",
  "nalgebra",
  "num-dual",
