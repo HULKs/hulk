@@ -20,7 +20,7 @@ use crate::{
     },
     geometry::{
         angle::Angle,
-        pose::{Pose, PoseAndSupportFoot, PoseGradient},
+        pose::{Pose, PoseGradient},
     },
 };
 
@@ -53,26 +53,30 @@ pub struct StepPlanning<'a> {
 impl StepPlanning<'_> {
     pub fn planned_steps<'a, T: RealField>(
         &self,
-        initial_pose: PoseAndSupportFoot<T>,
+        initial_pose: Pose<T>,
+        initial_support_side: Side,
         step_plan: &StepPlan<'a, T>,
     ) -> impl Iterator<Item = PlannedStep<T>> + 'a {
-        step_plan.steps().scan(initial_pose, |pose, step| {
-            pose.pose += step.clone();
+        step_plan.steps().scan(
+            (initial_pose, initial_support_side),
+            |(pose, support_side), step| {
+                *pose += step.clone();
 
-            let planned_step = PlannedStep {
-                pose: pose.pose.clone(),
-                step: {
-                    StepAndSupportFoot {
-                        step,
-                        support_foot: pose.support_foot,
-                    }
-                },
-            };
+                let planned_step = PlannedStep {
+                    pose: pose.clone(),
+                    step: {
+                        StepAndSupportFoot {
+                            step,
+                            support_foot: *support_side,
+                        }
+                    },
+                };
 
-            pose.support_foot = pose.support_foot.opposite();
+                *support_side = support_side.opposite();
 
-            Some(planned_step)
-        })
+                Some(planned_step)
+            },
+        )
     }
 
     pub fn cost(&self, planned_step: PlannedStep<f32>) -> f32 {

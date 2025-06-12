@@ -9,7 +9,7 @@ use num_traits::Euclid;
 
 use coordinate_systems::Ground;
 use linear_algebra::{Point2, Rotation2, Vector2};
-use types::{step::Step, support_foot::Side};
+use types::step::Step;
 
 use crate::geometry::angle::Angle;
 
@@ -61,21 +61,6 @@ impl<T: RelativeEq + Euclid + RealField> RelativeEq for PoseGradient<T> {
                 .orientation
                 .relative_eq(&other.orientation, epsilon, max_relative)
     }
-}
-
-impl<T: Scalar> Pose<T> {
-    pub fn with_support_foot(self, support_foot: Side) -> PoseAndSupportFoot<T> {
-        PoseAndSupportFoot {
-            pose: self,
-            support_foot,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct PoseAndSupportFoot<T: Scalar> {
-    pub pose: Pose<T>,
-    pub support_foot: Side,
 }
 
 impl<T: RealField> Add<Step<T>> for Pose<T> {
