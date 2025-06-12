@@ -1825,7 +1825,7 @@ dependencies = [
 name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "ball_filter",
  "bevy",
  "bincode",
@@ -1850,7 +1850,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "parking_lot",
@@ -2191,7 +2191,7 @@ checksum = "2e93abca9e28e0a1b9877922aacb20576e05d4679ffa78c3d6dc22a26a216659"
 name = "calibration"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "coordinate_systems",
  "geometry",
@@ -5668,7 +5668,7 @@ dependencies = [
  "ndarray-rand 0.14.0",
  "num",
  "rand 0.8.5",
- "rand_xorshift",
+ "rand_xorshift 0.3.0",
 ]
 
 [[package]]
@@ -6706,7 +6706,7 @@ dependencies = [
  "linear_algebra",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parameters",
  "path_serde",
  "projection",
@@ -6765,7 +6765,7 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fcc75102c1fac2294401262c78e5a42abe7168244c9436df2fec8fe0c27395c7"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "arrayvec",
  "bitflags 2.9.1",
  "downcast-rs 2.0.1",
@@ -7209,7 +7209,7 @@ dependencies = [
  "num-traits",
  "rand 0.9.1",
  "rand_chacha 0.9.0",
- "rand_xorshift",
+ "rand_xorshift 0.4.0",
  "regex-syntax 0.8.5",
  "rusty-fork",
  "tempfile",
@@ -7365,6 +7365,15 @@ checksum = "6a8615d50dcf34fa31f7ab52692afec947c4dd0ab803cc87cb3b0b4570ff7463"
 dependencies = [
  "num-traits",
  "rand 0.9.1",
+]
+
+[[package]]
+name = "rand_xorshift"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
+dependencies = [
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -8407,7 +8416,6 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "geometry",
- "levenberg-marquardt",
  "linear_algebra",
  "nalgebra",
  "num-dual",
