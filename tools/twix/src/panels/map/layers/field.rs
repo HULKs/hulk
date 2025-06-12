@@ -15,7 +15,7 @@ impl Layer<coordinate_systems::Field> for Field {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<coordinate_systems::Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {

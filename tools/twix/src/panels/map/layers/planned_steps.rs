@@ -53,7 +53,7 @@ impl Layer<Ground> for PlannedSteps {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {

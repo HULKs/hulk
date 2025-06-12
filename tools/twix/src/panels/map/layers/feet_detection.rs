@@ -41,7 +41,7 @@ impl Layer<Ground> for FeetDetection {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
