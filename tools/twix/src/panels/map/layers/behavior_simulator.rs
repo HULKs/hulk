@@ -68,7 +68,7 @@ impl Layer<Field> for BehaviorSimulator {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
