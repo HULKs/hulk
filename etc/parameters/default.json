@@ -430,8 +430,9 @@
       "longitudinal_offset": -0.05,
       "additional_foot_lift": 0.0
     },
-    "gyro_balancing": {
-      "balance_factors": {
+    "upright_balancing": {
+      "gyro_low_pass_factor": 0.4,
+      "gyro_gains": {
         "hip_yaw_pitch": 0.0,
         "hip_roll": 0.0,
         "hip_pitch": 0.0,
@@ -439,7 +440,18 @@
         "ankle_pitch": 0.05,
         "ankle_roll": 0.0
       },
-      "low_pass_factor": 0.4,
+      "roll_pid": {
+        "kp": 0.01,
+        "ki": 0.0,
+        "kd": 0.0,
+        "max_integral": 100.0
+      },
+      "pitch_pid": {
+        "kp": 1.0,
+        "ki": 0.3,
+        "kd": 0.0,
+        "max_integral": 100.0
+      },
       "max_delta": {
         "hip_yaw_pitch": 0.05,
         "hip_roll": 0.05,
