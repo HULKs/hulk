@@ -158,11 +158,7 @@ pub fn plan_steps(
 
 fn normalize_gradient(mut gradient: DVector<f32>, max_magnitude: f32) -> DVector<f32> {
     for chunk in gradient.as_mut_slice().chunks_exact_mut(3) {
-        let magnitude = chunk
-            .iter()
-            .map(|x| x.abs().powi(3))
-            .sum::<f32>()
-            .powf(3.0.recip());
+        let magnitude = chunk.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
 
         if magnitude > max_magnitude {
             let factor = magnitude.recip();
