@@ -5,8 +5,7 @@ use eframe::{egui::Color32, epaint::Stroke};
 
 use coordinate_systems::{Ground, UpcomingSupport};
 use linear_algebra::{point, vector, Isometry2, Orientation3, Pose2, Pose3};
-use step_planning::step_plan::StepPlan;
-use types::{field_dimensions::FieldDimensions, support_foot::Side};
+use types::{field_dimensions::FieldDimensions, step::Step, support_foot::Side};
 
 use crate::{
     nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
@@ -15,8 +14,8 @@ use crate::{
 use super::walking::paint_sole_polygon;
 
 pub struct PlannedSteps {
-    step_plan: BufferHandle<Option<Vec<f32>>>,
-    step_plan_greedy: BufferHandle<Option<Vec<f32>>>,
+    step_plan: BufferHandle<Option<Vec<Step>>>,
+    step_plan_greedy: BufferHandle<Option<Vec<Step>>>,
     step_plan_gradient: BufferHandle<Option<Vec<f32>>>,
     ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
     // foot_offset_left: BufferHandle<Option<Vector3<Ground>>>,
@@ -116,16 +115,15 @@ fn paint_step_plan(
     painter: &TwixPainter<Ground>,
     color: Color32,
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
-    step_plan: Vec<f32>,
+    step_plan: Vec<Step>,
     step_plan_gradient: Vec<f32>,
     next_support_side: Side,
     // foot_offset_left: Vector3<Ground>,
     // foot_offset_right: Vector3<Ground>,
 ) {
-    let step_plan = StepPlan::from(step_plan.as_slice());
     let upcoming_support_to_ground = ground_to_upcoming_support.inverse();
 
-    let planned_steps = step_plan.steps().scan(
+    let planned_steps = step_plan.iter().scan(
         (upcoming_support_to_ground.as_pose(), next_support_side),
         |(pose, support_side), step| {
             let step_translation =
