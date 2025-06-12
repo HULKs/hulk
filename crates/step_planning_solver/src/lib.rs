@@ -12,7 +12,7 @@ use step_planning::{
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
-    planned_path::Path, support_foot::Side,
+    planned_path::Path, step::Step, support_foot::Side,
 };
 
 fn duals<F: DualNumFloat + DualNum<F>>(reals: &DVector<F>) -> DVector<DualVec<F, F, Dyn>> {
@@ -127,7 +127,7 @@ pub fn plan_steps(
     initial_support_foot: Side,
     initial_parameter_guess: DVector<f32>,
     parameters: &StepPlanningOptimizationParameters,
-) -> Result<(DVector<f32>, DVector<f32>, f32)> {
+) -> Result<(Vec<Step>, DVector<f32>, f32)> {
     let mut problem = StepPlanningProblem {
         step_planning: StepPlanning {
             path,
@@ -150,7 +150,17 @@ pub fn plan_steps(
     let gradient = problem.jacobian().unwrap().transpose();
     let cost = problem.residuals().unwrap().to_scalar();
 
-    Ok((problem.variables, gradient, cost))
+    let step_plan = StepPlan::from(problem.variables.as_slice())
+        .steps()
+        .scan(initial_support_foot, move |support_side, step| {
+            let result = step.unnormalize(&parameters.walk_volume_extents, *support_side);
+            *support_side = support_side.opposite();
+
+            Some(result)
+        })
+        .collect();
+
+    Ok((step_plan, gradient, cost))
 }
 
 fn normalize_gradient(mut gradient: DVector<f32>, max_magnitude: f32) -> DVector<f32> {
