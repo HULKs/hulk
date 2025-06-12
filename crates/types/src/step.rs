@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::support_foot::Side;
-
 #[derive(
     Clone,
     Copy,
@@ -59,18 +57,6 @@ impl Step {
             } else {
                 self.turn / rhs.turn
             },
-        }
-    }
-}
-
-impl<T: Clone> Step<T> {
-    pub fn from_slice(slice: &[T]) -> Self {
-        let [forward, left, turn]: &[T; 3] = slice.try_into().unwrap();
-
-        Self {
-            forward: forward.clone(),
-            left: left.clone(),
-            turn: turn.clone(),
         }
     }
 }
@@ -145,10 +131,4 @@ impl Sub<Step> for Step {
             turn: self.turn - right.turn,
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct StepAndSupportFoot<T> {
-    pub step: Step<T>,
-    pub support_foot: Side,
 }

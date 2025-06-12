@@ -59,6 +59,7 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
             .planned_steps(
                 self.step_planning.initial_pose.clone(),
                 self.step_planning.initial_support_foot,
+                self.step_planning.parameters.walk_volume_extents.clone(),
                 &step_plan,
             )
             .map(|planned_step| self.step_planning.cost(planned_step))
@@ -80,6 +81,7 @@ impl LeastSquaresProblem<f32, U1, Dyn> for StepPlanningProblem<'_> {
             .planned_steps(
                 self.step_planning.initial_pose.clone().wrap_dual(),
                 self.step_planning.initial_support_foot,
+                self.step_planning.parameters.walk_volume_extents.clone(),
                 &step_plan,
             )
             .map(|dual_planned_step| {

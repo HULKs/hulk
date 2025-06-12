@@ -1,25 +1,22 @@
 use nalgebra::{RealField, Scalar};
+use num_dual::DualNum;
 
 use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use types::{
-    motion_command::OrientationMode,
-    parameters::StepPlanningOptimizationParameters,
-    planned_path::Path,
-    step::{Step, StepAndSupportFoot},
-    support_foot::Side,
+    motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
+    planned_path::Path, support_foot::Side, walk_volume_extents::WalkVolumeExtents,
 };
 
 use crate::{
     cost_fields::{
-        path_distance::PathDistanceField,
-        path_progress::PathProgressField,
-        step_size::{StepSizeField, WalkVolumeCoefficients},
-        target_orientation::TargetOrientationField,
+        path_distance::PathDistanceField, path_progress::PathProgressField,
+        step_size::StepSizeField, target_orientation::TargetOrientationField,
         walk_orientation::WalkOrientationField,
     },
     geometry::{
         angle::Angle,
+        normalized_step::NormalizedStep,
         pose::{Pose, PoseGradient},
     },
 };
@@ -35,8 +32,8 @@ impl<'a, T> From<&'a [T]> for StepPlan<'a, T> {
 }
 
 impl<'a, T: RealField> StepPlan<'a, T> {
-    pub fn steps(&self) -> impl Iterator<Item = Step<T>> + 'a {
-        self.0.chunks_exact(3).map(Step::from_slice)
+    pub fn steps(&self) -> impl Iterator<Item = NormalizedStep<T>> + 'a {
+        self.0.chunks_exact(3).map(NormalizedStep::from_slice)
     }
 }
 
@@ -51,25 +48,21 @@ pub struct StepPlanning<'a> {
 }
 
 impl StepPlanning<'_> {
-    pub fn planned_steps<'a, T: RealField>(
+    pub fn planned_steps<'a, T: RealField + DualNum<f32>>(
         &self,
         initial_pose: Pose<T>,
         initial_support_side: Side,
+        walk_volume_extents: WalkVolumeExtents,
         step_plan: &StepPlan<'a, T>,
     ) -> impl Iterator<Item = PlannedStep<T>> + 'a {
         step_plan.steps().scan(
             (initial_pose, initial_support_side),
-            |(pose, support_side), step| {
-                *pose += step.clone();
+            move |(pose, support_side), step| {
+                *pose += step.unnormalize(&walk_volume_extents, *support_side);
 
                 let planned_step = PlannedStep {
                     pose: pose.clone(),
-                    step: {
-                        StepAndSupportFoot {
-                            step,
-                            support_foot: *support_side,
-                        }
-                    },
+                    step,
                 };
 
                 *support_side = support_side.opposite();
@@ -165,11 +158,7 @@ impl StepPlanning<'_> {
 
     fn step_size(&self) -> StepSizeField {
         StepSizeField {
-            walk_volume_coefficients: WalkVolumeCoefficients::from_extents_and_exponents(
-                &self.parameters.walk_volume_extents,
-                self.parameters.walk_volume_translation_exponent,
-                self.parameters.walk_volume_rotation_exponent,
-            ),
+            walk_volume_extents: self.parameters.walk_volume_extents.clone(),
         }
     }
 }
@@ -178,10 +167,10 @@ impl StepPlanning<'_> {
 pub struct PlannedStep<T: Scalar> {
     /// Pose reached after this step
     pub pose: Pose<T>,
-    pub step: StepAndSupportFoot<T>,
+    pub step: NormalizedStep<T>,
 }
 
 pub struct PlannedStepGradient<T: Scalar> {
     pub pose: PoseGradient<T>,
-    pub step: Step<T>,
+    pub step: NormalizedStep<T>,
 }

@@ -11,7 +11,7 @@ use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
 use step_planning::{
-    geometry::{angle::Angle, pose::Pose},
+    geometry::{angle::Angle, normalized_step::NormalizedStep, pose::Pose},
     traits::Project,
 };
 use types::{
@@ -246,9 +246,12 @@ fn plan_step(
 
     context.step_plan_cost.fill_if_subscribed(|| cost);
 
-    let step = Step::from_slice(&step_plan.as_slice()[0..VARIABLES_PER_STEP]);
+    let step = NormalizedStep::from_slice(&step_plan.as_slice()[0..VARIABLES_PER_STEP]);
 
-    Ok(step)
+    Ok(step.unnormalize(
+        &context.optimization_parameters.walk_volume_extents,
+        next_support_side,
+    ))
 }
 
 fn step_plan_greedy(
