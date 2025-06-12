@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{vector, Isometry2, Orientation2, Pose2};
+use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
 use step_planning::{
     geometry::{angle::Angle, pose::Pose},
     traits::Project,
@@ -299,11 +299,10 @@ fn step_plan_greedy(
             turn: match orientation_mode {
                 OrientationMode::Unspecified => step_target.orientation().angle(),
                 OrientationMode::LookTowards(orientation) => {
-                    (pose.orientation().as_transform() * orientation).angle()
+                    (pose.orientation().as_transform::<Ground>().inverse() * orientation).angle()
                 }
-                OrientationMode::LookAt(target) => pose
-                    .position()
-                    .look_at(&(pose.as_transform().inverse() * target))
+                OrientationMode::LookAt(target) => Point2::origin()
+                    .look_at(&dbg!(pose.as_transform::<Ground>().inverse() * target))
                     .angle(),
             },
         };
