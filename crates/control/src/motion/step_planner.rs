@@ -250,7 +250,7 @@ fn step_plan_greedy(
     path: &[PathSegment],
     context: &mut CycleContext,
     orientation_mode: OrientationMode,
-    target_orientation: Orientation2<Ground>,
+    _target_orientation: Orientation2<Ground>,
     speed: WalkSpeed,
 ) -> Result<Vec<f32>> {
     let mut pose = context.ground_to_upcoming_support.inverse().as_pose();
