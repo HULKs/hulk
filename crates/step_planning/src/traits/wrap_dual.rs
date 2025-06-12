@@ -5,11 +5,12 @@ use num_dual::{Derivative, DualNum, DualVec};
 use num_traits::Float;
 
 use linear_algebra::{Framed, IntoFramed};
-use types::step::{Step, StepAndSupportFoot};
+use types::step::Step;
 
 use crate::{
     geometry::{
         angle::Angle,
+        normalized_step::NormalizedStep,
         pose::{Pose, PoseGradient},
     },
     step_plan::{PlannedStep, PlannedStepGradient},
@@ -213,34 +214,6 @@ where
     }
 }
 
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim>
-    WrapDual<StepAndSupportFoot<DualVec<T, F, D>>> for StepAndSupportFoot<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> StepAndSupportFoot<DualVec<T, F, D>> {
-        StepAndSupportFoot {
-            step: self.step.wrap_dual(),
-            support_foot: self.support_foot,
-        }
-    }
-}
-
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<StepAndSupportFoot<T>, Step<Derivative<T, F, D, U1>>>
-    for StepAndSupportFoot<DualVec<T, F, D>>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn unwrap_dual(self) -> (StepAndSupportFoot<T>, Step<Derivative<T, F, D, U1>>) {
-        let Self { step, support_foot } = self;
-
-        let (step, d_step) = step.unwrap_dual();
-
-        (StepAndSupportFoot { step, support_foot }, d_step)
-    }
-}
-
 impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<PlannedStep<DualVec<T, F, D>>>
     for PlannedStep<T>
 where
@@ -251,6 +224,52 @@ where
             pose: self.pose.wrap_dual(),
             step: self.step.wrap_dual(),
         }
+    }
+}
+
+impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<NormalizedStep<DualVec<T, F, D>>>
+    for NormalizedStep<T>
+where
+    DefaultAllocator: Allocator<D>,
+{
+    fn wrap_dual(self) -> NormalizedStep<DualVec<T, F, D>> {
+        NormalizedStep {
+            forward: self.forward.wrap_dual(),
+            left: self.left.wrap_dual(),
+            turn: self.turn.wrap_dual(),
+        }
+    }
+}
+
+impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
+    UnwrapDual<NormalizedStep<T>, NormalizedStep<Derivative<T, F, D, U1>>>
+    for NormalizedStep<DualVec<T, F, D>>
+where
+    DefaultAllocator: Allocator<D>,
+{
+    fn unwrap_dual(self) -> (NormalizedStep<T>, NormalizedStep<Derivative<T, F, D, U1>>) {
+        let Self {
+            forward,
+            left,
+            turn,
+        } = self;
+
+        let (forward, d_forward) = forward.unwrap_dual();
+        let (left, d_left) = left.unwrap_dual();
+        let (turn, d_turn) = turn.unwrap_dual();
+
+        (
+            NormalizedStep {
+                forward,
+                left,
+                turn,
+            },
+            NormalizedStep {
+                forward: d_forward,
+                left: d_left,
+                turn: d_turn,
+            },
+        )
     }
 }
 
