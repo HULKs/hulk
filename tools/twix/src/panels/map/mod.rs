@@ -115,13 +115,17 @@ impl Panel for MapPanel {
         let field_dimensions = nao.subscribe_value("parameters.field_dimensions");
         let ground_to_field = nao.subscribe_value("Control.main_outputs.ground_to_field");
 
+        let current_plot_type = value
+            .and_then(|value| value.get("current_plot_type"))
+            .and_then(|value| serde_json::from_value::<PlotType>(value.clone()).ok())
+            .unwrap_or(PlotType::Ground);
         let zoom_and_pan = value
             .and_then(|value| value.get("zoom_and_pan"))
             .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
             .unwrap_or_default();
 
         Self {
-            current_plot_type: PlotType::Field,
+            current_plot_type,
             field_dimensions,
             ground_to_field,
             zoom_and_pan,
