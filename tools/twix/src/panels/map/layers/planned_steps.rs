@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::{egui::Color32, epaint::Stroke};
 
 use coordinate_systems::{Ground, UpcomingSupport};
-use linear_algebra::{point, vector, Isometry2, Orientation3, Pose2, Pose3};
+use linear_algebra::{point, vector, Isometry2, Orientation2, Orientation3, Pose2, Pose3};
 use types::{field_dimensions::FieldDimensions, step::Step, support_foot::Side};
 
 use crate::{
@@ -150,8 +150,8 @@ fn paint_step_plan(
         let offset = match support_side {
             // Side::Left => foot_offset_left,
             // Side::Right => foot_offset_right,
-            Side::Left => vector!(0.0, 0.052, 0.0),
-            Side::Right => vector!(0.0, -0.052, 0.0),
+            Side::Left => point!(0.0, 0.052),
+            Side::Right => point!(0.0, -0.052),
         };
 
         // painter.pose(
@@ -162,8 +162,15 @@ fn paint_step_plan(
         //     Stroke::new(0.005, Color32::BLACK),
         // );
 
+        let pose_with_offset: Pose2<Ground> =
+            pose.as_transform::<Ground>() * Pose2::from_parts(offset, Orientation2::identity());
+
         let sole = Pose3::from_parts(
-            point![pose.position().x(), pose.position().y(), 0.0] + offset,
+            point![
+                pose_with_offset.position().x(),
+                pose_with_offset.position().y(),
+                0.0
+            ],
             Orientation3::from_euler_angles(0.0, 0.0, pose.orientation().angle()),
         );
 
