@@ -1,5 +1,6 @@
 use coordinate_systems::Robot;
 use kinematics::forward;
+use linear_algebra::IntoTransform;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{joints::body::LowerBodyJoints, support_foot::Side};
@@ -34,14 +35,14 @@ impl FootLeveling {
 
         let (roll_angle, pitch_angle, _) = match support_side {
             Side::Left => {
-                let left_sole_to_field = current_orientation
-                    * forward::left_sole_to_robot(&context.measured_joints.left_leg);
-                left_sole_to_field.as_pose().orientation().euler_angles()
-            }
-            Side::Right => {
                 let right_sole_to_field = current_orientation
                     * forward::right_sole_to_robot(&context.measured_joints.right_leg);
                 right_sole_to_field.as_pose().orientation().euler_angles()
+            }
+            Side::Right => {
+                let left_sole_to_field = current_orientation
+                    * forward::left_sole_to_robot(&context.measured_joints.left_leg);
+                left_sole_to_field.as_pose().orientation().euler_angles()
             }
         };
 
