@@ -115,7 +115,7 @@ fn gradient(variables: &[f32], step_planning: &StepPlanning) -> DVector<f32> {
         })
         .sum::<DVector<f32>>();
 
-    gradient
+    normalize_gradient(gradient, 1.0)
 }
 
 fn open_gradient(
@@ -191,4 +191,19 @@ pub fn plan_steps(
         .collect();
 
     Ok((step_plan, gradient, cost))
+}
+
+fn normalize_gradient(mut gradient: DVector<f32>, max_squared_magnitude: f32) -> DVector<f32> {
+    for chunk in gradient.as_mut_slice().chunks_exact_mut(3) {
+        let squared_magnitude = chunk.iter().map(|x| x.powi(2)).sum::<f32>();
+
+        if squared_magnitude > max_squared_magnitude {
+            let factor = squared_magnitude.sqrt().recip();
+            for variable in chunk.iter_mut() {
+                *variable *= factor;
+            }
+        }
+    }
+
+    gradient
 }
