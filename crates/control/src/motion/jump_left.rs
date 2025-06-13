@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     condition_input::ConditionInput,
     cycle_time::CycleTime,
-    joints::Joints,
+    joints::{mirror::Mirror, Joints},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
     motor_commands::MotorCommands,
 };
@@ -44,7 +44,7 @@ impl JumpLeft {
     pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
         let paths = context.hardware_interface.get_paths();
         Ok(Self {
-            interpolator: MotionFile::from_path(paths.motions.join("jump_left.json"))?
+            interpolator: MotionFile::from_path(paths.motions.join("jump_right.json"))?
                 .try_into()?,
             state: InterpolatorState::INITIAL,
         })
@@ -63,7 +63,7 @@ impl JumpLeft {
         context.motion_safe_exits[MotionType::JumpLeft] = self.state.is_finished();
 
         Ok(MainOutputs {
-            jump_left_joints_command: self.interpolator.value(self.state).into(),
+            jump_left_joints_command: self.interpolator.value(self.state).mirrored().into(),
         })
     }
 }

@@ -16,4 +16,4 @@ The nodes, whose motion is not selected, may exit early.
 
 ## Command Sending
 
-Motion finishes by collecting all motor commands in the `motor_commands_collector`, sends them to the `motor_commands_optimizer`, and then writes them to the hardware interface in the `commands_sender`.
+Motion finishes by collecting and optimizing all motor commands in the `motor_commands_collector`, then writes them to the hardware interface in the `commands_sender`.
