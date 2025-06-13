@@ -57,7 +57,7 @@ impl Panel for ImagePanel {
         let is_jpeg = value
             .and_then(|value| value.get("is_jpeg"))
             .and_then(|value| value.as_bool())
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         let image_buffer = if is_jpeg {
             let path = format!("{cycler_path}.main_outputs.image.jpeg");
