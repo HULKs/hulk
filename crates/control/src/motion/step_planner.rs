@@ -129,12 +129,25 @@ impl StepPlanner {
             .step_planning_duration
             .fill_if_subscribed(|| elapsed);
 
+        let next_support_side = context
+            .walking_engine_mode
+            .support_side()
+            .unwrap_or(Side::Left)
+            .opposite();
+
         let step = Step {
             forward: step.forward * context.request_scale.forward,
             left: step.left * context.request_scale.left,
             turn: step.turn * context.request_scale.turn,
         };
-        let step = clamp_step_size(self.last_planned_step, &mut context, *speed, step);
+
+        let step = clamp_step_size(
+            self.last_planned_step,
+            &mut context,
+            next_support_side,
+            *speed,
+            step,
+        );
 
         self.last_planned_step = step;
 
@@ -147,6 +160,7 @@ impl StepPlanner {
 fn clamp_step_size(
     last_planned_step: Step,
     context: &mut CycleContext,
+    support_side: Side,
     speed: WalkSpeed,
     step: Step,
 ) -> Step {
@@ -177,19 +191,10 @@ fn clamp_step_size(
         .max_step_size_output
         .fill_if_subscribed(|| max_step_size);
 
-    let support_side = if let Mode::Walking(walking) = *context.walking_engine_mode {
-        Some(walking.step.plan.support_side)
+    let (max_turn_left, max_turn_right) = if support_side == Side::Left {
+        (-*context.max_inside_turn, context.max_step_size.turn)
     } else {
-        None
-    };
-    let (max_turn_left, max_turn_right) = if let Some(support_side) = support_side {
-        if support_side == Side::Left {
-            (-*context.max_inside_turn, context.max_step_size.turn)
-        } else {
-            (-context.max_step_size.turn, *context.max_inside_turn)
-        }
-    } else {
-        (-context.max_step_size.turn, context.max_step_size.turn)
+        (-context.max_step_size.turn, *context.max_inside_turn)
     };
 
     clamp_step_to_walk_volume(
@@ -256,7 +261,13 @@ fn step_plan_greedy(
     let mut pose = context.ground_to_upcoming_support.inverse().as_pose();
     let mut steps = Vec::new();
     let mut last_planned_step = Step::default();
-    for _ in 0..context.optimization_parameters.optimizer_steps {
+    let mut support_side = context
+        .walking_engine_mode
+        .support_side()
+        .unwrap_or(Side::Left)
+        .opposite();
+
+    for _ in 0..context.optimization_parameters.num_steps {
         let segment = path
             .segments
             .iter()
@@ -307,7 +318,7 @@ fn step_plan_greedy(
             },
         };
 
-        let step = clamp_step_size(last_planned_step, context, speed, step);
+        let step = clamp_step_size(last_planned_step, context, support_side, speed, step);
 
         let step_translation =
             Isometry2::<Ground, Ground>::from_parts(vector![step.forward, step.left], 0.0);
@@ -315,6 +326,7 @@ fn step_plan_greedy(
 
         pose = pose.as_transform() * step_rotation * step_translation.as_pose();
         last_planned_step = step;
+        support_side = support_side.opposite();
 
         steps.push(step);
     }
