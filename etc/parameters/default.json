@@ -1021,7 +1021,7 @@
   "stand_up_stiffness_upper_body": 0.5,
   "initial_pose": {
     "head": {
-      "pitch": 0.0,
+      "pitch": 0.4,
       "yaw": 0.0
     },
     "left_arm": {
@@ -1059,7 +1059,7 @@
   },
   "penalized_pose": {
     "head": {
-      "pitch": 0.0,
+      "pitch": 0.4,
       "yaw": 0.0
     },
     "left_arm": {
