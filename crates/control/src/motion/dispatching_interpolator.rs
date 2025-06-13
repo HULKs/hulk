@@ -116,7 +116,10 @@ impl DispatchingInterpolator {
                 MotionType::Animation => context.animation_commands.positions,
                 MotionType::AnimationStiff => context.animation_commands.positions,
                 MotionType::Walk => Joints::from_head_and_body(
-                    HeadJoints::fill(0.0),
+                    HeadJoints {
+                        yaw: 0.0,
+                        pitch: 0.4,
+                    },
                     context.walk_motor_commands.positions,
                 ),
             };
