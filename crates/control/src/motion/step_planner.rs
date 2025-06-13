@@ -313,7 +313,7 @@ fn step_plan_greedy(
                     (pose.orientation().as_transform::<Ground>().inverse() * orientation).angle()
                 }
                 OrientationMode::LookAt(target) => Point2::origin()
-                    .look_at(&dbg!(pose.as_transform::<Ground>().inverse() * target))
+                    .look_at(&(pose.as_transform::<Ground>().inverse() * target))
                     .angle(),
             },
         };
