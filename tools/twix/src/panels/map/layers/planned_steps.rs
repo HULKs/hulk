@@ -150,8 +150,8 @@ fn paint_step_plan(
         let offset = match support_side {
             // Side::Left => foot_offset_left,
             // Side::Right => foot_offset_right,
-            Side::Left => point!(0.0, 0.052),
-            Side::Right => point!(0.0, -0.052),
+            Side::Left => point!(0.0, -0.052),
+            Side::Right => point!(0.0, 0.052),
         };
 
         painter.pose(pose, 0.01, 0.015, color, Stroke::new(0.005, Color32::BLACK));
@@ -168,7 +168,12 @@ fn paint_step_plan(
             Orientation3::from_euler_angles(0.0, 0.0, pose.orientation().angle()),
         );
 
-        paint_sole_polygon(painter, sole, Stroke::new(0.005, color), support_side);
+        paint_sole_polygon(
+            painter,
+            sole,
+            Stroke::new(0.005, color),
+            support_side.opposite(),
+        );
         // painter.line_segment(
         //     pose.position,
         //     pose.as_transform::<Ground>() * (point![df, dl] * -0.001),
