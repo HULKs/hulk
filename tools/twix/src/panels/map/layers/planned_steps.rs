@@ -93,7 +93,7 @@ impl Layer<Ground> for PlannedSteps {
             // foot_offset_right,
         );
 
-        let dummy_gradient = vec![0.0; step_plan_greedy.len()];
+        let dummy_gradient = vec![0.0; step_plan_greedy.len() * 3];
         paint_step_plan(
             painter,
             Color32::BLUE,
