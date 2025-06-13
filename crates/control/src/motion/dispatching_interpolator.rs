@@ -102,7 +102,10 @@ impl DispatchingInterpolator {
                 MotionType::Penalized => *context.penalized_pose,
                 MotionType::SitDown => context.sit_down_joints_command.positions,
                 MotionType::Stand => Joints::from_head_and_body(
-                    HeadJoints::fill(0.0),
+                    HeadJoints {
+                        yaw: 0.0,
+                        pitch: 0.4,
+                    },
                     context.walk_motor_commands.positions,
                 ),
                 MotionType::StandUpBack => *context.stand_up_back_positions,
