@@ -58,7 +58,7 @@ fn update(
                     end: Orientation2::new(0.0),
                     direction: Direction::Counterclockwise,
                 }),
-                PathSegment::LineSegment(LineSegment(point![0.6, 0.3], point![0.6, 0.6])),
+                PathSegment::LineSegment(LineSegment(point![0.6, 0.3], point![0.6, 0.8])),
             ],
         },
         orientation_mode: OrientationMode::Unspecified,
