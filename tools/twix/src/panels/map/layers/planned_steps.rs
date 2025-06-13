@@ -83,7 +83,7 @@ impl Layer<Ground> for PlannedSteps {
 
         paint_step_plan(
             painter,
-            Color32::RED,
+            Color32::RED.gamma_multiply(0.5),
             ground_to_upcoming_support,
             step_plan,
             step_plan_gradient,
@@ -95,7 +95,7 @@ impl Layer<Ground> for PlannedSteps {
         let dummy_gradient = vec![0.0; step_plan_greedy.len() * 3];
         paint_step_plan(
             painter,
-            Color32::BLUE,
+            Color32::BLUE.gamma_multiply(0.5),
             ground_to_upcoming_support,
             step_plan_greedy,
             dummy_gradient,
@@ -154,13 +154,7 @@ fn paint_step_plan(
             Side::Right => point!(0.0, -0.052),
         };
 
-        // painter.pose(
-        //     pose,
-        //     0.02,
-        //     0.03,
-        //     Color32::RED,
-        //     Stroke::new(0.005, Color32::BLACK),
-        // );
+        painter.pose(pose, 0.01, 0.015, color, Stroke::new(0.005, Color32::BLACK));
 
         let pose_with_offset: Pose2<Ground> =
             pose.as_transform::<Ground>() * Pose2::from_parts(offset, Orientation2::identity());
