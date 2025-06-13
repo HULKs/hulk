@@ -452,10 +452,10 @@
     "foot_leveling": {
       "leaning_backwards_factor": 1.0,
       "leaning_forward_factor": 1.0,
-      "max_level_delta": 0.122173,
-      "pitch_scale": 0.00872665,
+      "max_level_delta": 0.05,
+      "pitch_scale": 0.087,
       "roll_factor": 0.5,
-      "roll_scale": 0.0872665,
+      "roll_scale": 0.087,
       "start_reduce_to_zero": 10.75
     },
     "forward_turn_reduction": 0.7,
@@ -469,7 +469,7 @@
     "max_support_foot_lift_speed": 0.025,
     "max_turn_acceleration": 0.7,
     "min_step_duration": { "nanos": 50000000, "secs": 0 },
-    "sole_pressure_threshold": 0.4,
+    "sole_pressure_threshold": 0.2,
     "step_midpoint": {
       "forward": 0.45,
       "left": 0.75,
