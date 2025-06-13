@@ -211,13 +211,13 @@ fn plan_step(
 ) -> Result<Step> {
     let num_variables = context.optimization_parameters.num_steps * VARIABLES_PER_STEP;
 
-    let current_support_foot = context.walking_engine_mode.support_side();
+    let current_support_side = context.walking_engine_mode.support_side();
 
     context
         .current_support_side
-        .fill_if_subscribed(|| current_support_foot);
+        .fill_if_subscribed(|| current_support_side);
 
-    let next_support_foot = current_support_foot.unwrap_or(Side::Left).opposite();
+    let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
 
     let initial_guess = DVector::zeros(num_variables);
 
@@ -226,7 +226,7 @@ fn plan_step(
         orientation_mode,
         target_orientation,
         upcoming_support_pose_in_ground(context),
-        next_support_foot,
+        next_support_side,
         initial_guess,
         context.optimization_parameters,
     )?;
