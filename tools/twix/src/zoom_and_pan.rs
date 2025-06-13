@@ -2,10 +2,11 @@ use coordinate_systems::Screen;
 use eframe::egui::{pos2, Response, Ui};
 use linear_algebra::{point, IntoTransform, Transform};
 use nalgebra::{vector, Similarity2, Translation2};
+use serde::{Deserialize, Serialize};
 
 use crate::twix_painter::TwixPainter;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct ZoomAndPanTransform {
     transformation: Transform<Screen, Screen, Similarity2<f32>>,
 }
