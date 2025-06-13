@@ -7,7 +7,7 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
-use geometry::line_segment::LineSegment;
+use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use linear_algebra::{point, vector, Isometry2, Orientation2, Point2};
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
@@ -41,20 +41,29 @@ fn update(
 
     robot.database.main_outputs.ground_to_field =
         Some(Isometry2::from_parts(vector![-1.0, -1.0], FRAC_PI_2));
-    robot.database.main_outputs.motion_command = MotionCommand::Walk {
+    robot.parameters.behavior.injected_motion_command = Some(MotionCommand::Walk {
         head: HeadMotion::ZeroAngles,
         left_arm: ArmMotion::Swing,
         right_arm: ArmMotion::Swing,
         speed: WalkSpeed::Normal,
         path: Path {
-            segments: vec![PathSegment::LineSegment(LineSegment(
-                Point2::origin(),
-                point![1.0, 0.0],
-            ))],
+            segments: vec![
+                PathSegment::LineSegment(LineSegment(Point2::origin(), point![0.3, 0.0])),
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![0.3, 0.3],
+                        radius: 0.3,
+                    },
+                    start: Orientation2::new(3.0 * FRAC_PI_2),
+                    end: Orientation2::new(0.0),
+                    direction: Direction::Counterclockwise,
+                }),
+                PathSegment::LineSegment(LineSegment(point![0.6, 0.3], point![0.6, 0.6])),
+            ],
         },
         orientation_mode: OrientationMode::Unspecified,
         target_orientation: Orientation2::identity(),
-    };
+    });
 
     let optimizer_steps = time.ticks() as usize;
     robots
