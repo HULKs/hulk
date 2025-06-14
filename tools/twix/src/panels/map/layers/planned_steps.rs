@@ -83,19 +83,17 @@ impl Layer<Ground> for PlannedSteps {
 
         paint_step_plan(
             painter,
-            Color32::RED.gamma_multiply(0.5),
+            Color32::RED,
             ground_to_upcoming_support,
             step_plan,
             step_plan_gradient,
             current_support_side.unwrap_or(Side::Left).opposite(),
-            // foot_offset_left,
-            // foot_offset_right,
         );
 
         let dummy_gradient = vec![0.0; step_plan_greedy.len() * 3];
         paint_step_plan(
             painter,
-            Color32::BLUE.gamma_multiply(0.5),
+            Color32::BLUE,
             ground_to_upcoming_support,
             step_plan_greedy,
             dummy_gradient,
