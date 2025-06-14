@@ -52,7 +52,7 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     walk_command: Input<WalkCommand, "walk_command">,
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
-    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
+    // robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     obstacle_avoiding_arms: Input<ArmCommands, "obstacle_avoiding_arms">,
     zero_moment_point: Input<Point2<Ground>, "zero_moment_point">,
     //TODO
@@ -128,6 +128,10 @@ impl WalkingEngine {
                         + arm_compensation),
             ),
         );
+        let imu = cycle_context.sensor_data.inertial_measurement_unit;
+        let orientation =
+            Orientation3::from_euler_angles(imu.roll_pitch.x(), imu.roll_pitch.y(), 0.0);
+
         let context = Context {
             parameters: cycle_context.parameters,
             max_step_size: cycle_context.max_step_size,
@@ -135,7 +139,7 @@ impl WalkingEngine {
             cycle_time: cycle_context.cycle_time,
             center_of_mass: cycle_context.center_of_mass,
             force_sensitive_resistors: &cycle_context.sensor_data.force_sensitive_resistors,
-            robot_orientation: cycle_context.robot_orientation,
+            robot_orientation: &orientation,
             robot_to_ground: cycle_context.robot_to_ground,
             gyro: self.filtered_gyro.state(),
             last_actuated_joints: cycle_context.last_actuated_motor_commands.positions.into(),

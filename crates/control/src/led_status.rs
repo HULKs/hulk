@@ -10,13 +10,17 @@ use types::{
     color::Rgb,
     cycle_time::CycleTime,
     filtered_whistle::FilteredWhistle,
+    joints::body::BodyJoints,
     led::{Ear, Eye, Leds},
     messages::IncomingMessage,
+    motor_commands::MotorCommands,
     pose_detection::{FreeKickSignalDetectionResult, ReadySignalDetectionResult},
     primary_state::PrimaryState,
     roles::Role,
     sensor_data::SensorData,
+    support_foot::Side,
 };
+use walking_engine::mode::Mode;
 
 #[derive(Deserialize, Serialize)]
 pub struct LedStatus {
@@ -47,6 +51,9 @@ pub struct CycleContext {
     balls_top: PerceptionInput<Option<Vec<BallPercept>>, "VisionTop", "balls?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     sensor_data: Input<SensorData, "sensor_data">,
+
+    walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
+    walk_motor_commands: Input<MotorCommands<BodyJoints<f32>>, "walk_motor_commands">,
 }
 
 #[context]
@@ -222,6 +229,7 @@ impl LedStatus {
                 .temperature_sensors
                 .into_iter()
                 .fold(0.0, f32::max),
+            context.walking_engine_mode.support_side(),
         );
 
         let leds = Leds {
@@ -243,7 +251,14 @@ impl LedStatus {
         last_game_controller_message: Option<SystemTime>,
         blink_state: bool,
         current_maximum_temperature: f32,
+        support_side: Option<Side>,
     ) -> Ear {
+        return match support_side {
+            Some(Side::Left) => Ear::full_ears(1.0),
+            Some(Side::Right) => Ear::full_ears(0.0),
+            None => Ear::full_ears(0.0),
+        };
+
         let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
             cycle_start_time
                 .duration_since(timestamp)

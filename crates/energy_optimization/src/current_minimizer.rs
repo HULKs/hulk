@@ -58,7 +58,7 @@ impl CurrentMinimizer {
                 .clamp(-max_adjustment, max_adjustment)
         }
 
-        positions + self.position_offset
+        positions // + self.position_offset
     }
 
     pub fn reset(&mut self) {
