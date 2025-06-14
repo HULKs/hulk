@@ -65,7 +65,7 @@ fn cost(variables: &[f32], step_planning: &StepPlanning) -> f32 {
     let step_plan = StepPlan::from(variables);
 
     let cost = step_planning
-        .planned_steps(
+        .step_end_poses(
             step_planning.initial_pose.clone(),
             step_planning.initial_support_foot,
             step_planning.parameters.walk_volume_extents.clone(),
@@ -98,7 +98,7 @@ fn gradient(variables: &[f32], step_planning: &StepPlanning) -> DVector<f32> {
     let step_plan = StepPlan::from(dual_variables.as_slice());
 
     let gradient = step_planning
-        .planned_steps(
+        .step_end_poses(
             step_planning.initial_pose.clone().wrap_dual(),
             step_planning.initial_support_foot,
             step_planning.parameters.walk_volume_extents.clone(),

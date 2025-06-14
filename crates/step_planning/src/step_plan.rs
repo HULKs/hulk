@@ -1,4 +1,4 @@
-use nalgebra::{RealField, Scalar};
+use nalgebra::RealField;
 use num_dual::DualNum;
 
 use coordinate_systems::Ground;
@@ -47,31 +47,25 @@ pub struct StepPlanning<'a> {
 }
 
 impl StepPlanning<'_> {
-    pub fn planned_steps<'a, T: RealField + DualNum<f32>>(
+    pub fn step_end_poses<'a, T: RealField + DualNum<f32>>(
         &self,
         initial_pose: Pose<T>,
         initial_support_side: Side,
         walk_volume_extents: WalkVolumeExtents,
         step_plan: &StepPlan<'a, T>,
-    ) -> impl Iterator<Item = PlannedStep<T>> + 'a {
+    ) -> impl Iterator<Item = Pose<T>> + 'a {
         step_plan.steps().scan(
             (initial_pose, initial_support_side),
             move |(pose, support_side), step| {
                 *pose += step.unnormalize(&walk_volume_extents, *support_side);
-
-                let planned_step = PlannedStep {
-                    pose: pose.clone(),
-                    step,
-                };
-
                 *support_side = support_side.opposite();
 
-                Some(planned_step)
+                Some(pose.clone())
             },
         )
     }
 
-    pub fn cost(&self, planned_step: PlannedStep<f32>) -> f32 {
+    pub fn cost(&self, pose: Pose<f32>) -> f32 {
         let StepPlanningOptimizationParameters {
             path_progress_reward,
             path_distance_penalty,
@@ -79,7 +73,6 @@ impl StepPlanning<'_> {
             walk_orientation_penalty,
             ..
         } = *self.parameters;
-        let PlannedStep { pose, .. } = planned_step;
 
         let path_progress_cost = self.path_progress().cost(pose.position) * path_progress_reward;
         let path_distance_cost = self.path_distance().cost(pose.position) * path_distance_penalty;
@@ -91,7 +84,7 @@ impl StepPlanning<'_> {
         path_progress_cost + path_distance_cost + walk_orientation_cost + target_orientation_cost
     }
 
-    pub fn grad(&self, planned_step: PlannedStep<f32>) -> PlannedStepGradient<f32> {
+    pub fn grad(&self, pose: Pose<f32>) -> PoseGradient<f32> {
         let StepPlanningOptimizationParameters {
             path_progress_reward,
             path_distance_penalty,
@@ -99,7 +92,6 @@ impl StepPlanning<'_> {
             walk_orientation_penalty,
             ..
         } = *self.parameters;
-        let PlannedStep { pose, .. } = planned_step;
 
         let path_progress_gradient =
             self.path_progress().grad(pose.position) * path_progress_reward;
@@ -110,20 +102,12 @@ impl StepPlanning<'_> {
         let target_orientation_gradient =
             self.target_orientation().grad(pose) * target_orientation_penalty;
 
-        PlannedStepGradient {
-            pose: walk_orientation_gradient
-                + target_orientation_gradient
-                + PoseGradient {
-                    position: path_distance_gradient + path_progress_gradient,
-                    orientation: 0.0,
-                },
-            step: NormalizedStep {
-                // TODO
-                forward: 0.0,
-                left: 0.0,
-                turn: 0.0,
-            },
-        }
+        walk_orientation_gradient
+            + target_orientation_gradient
+            + PoseGradient {
+                position: path_distance_gradient + path_progress_gradient,
+                orientation: 0.0,
+            }
     }
 
     fn path_distance(&self) -> PathDistanceField<'_> {
@@ -151,16 +135,4 @@ impl StepPlanning<'_> {
             ramp_width: self.parameters.alignment_start_smoothness,
         }
     }
-}
-
-#[derive(Debug)]
-pub struct PlannedStep<T: Scalar> {
-    /// Pose reached after this step
-    pub pose: Pose<T>,
-    pub step: NormalizedStep<T>,
-}
-
-pub struct PlannedStepGradient<T: Scalar> {
-    pub pose: PoseGradient<T>,
-    pub step: NormalizedStep<T>,
 }
