@@ -467,7 +467,6 @@ pub struct PenaltyShotDirectionParameters {
 pub struct StepPlanningOptimizationParameters {
     pub optimizer_steps: usize,
     pub num_steps: usize,
-    pub learning_rate: f32,
     pub walk_volume_extents: WalkVolumeExtents,
     pub walk_volume_translation_exponent: f32,
     pub walk_volume_rotation_exponent: f32,
