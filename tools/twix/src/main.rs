@@ -429,7 +429,11 @@ impl App for TwixApp {
                     if self.active_tab_index() != Some(self.last_focused_tab) {
                         self.last_focused_tab =
                             self.active_tab_index().unwrap_or((0.into(), 0.into()));
-                        if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
+                        if let Some(name) = self
+                            .active_tab()
+                            .and_then(|tab| tab.panel.as_ref().ok())
+                            .map(|panel| format!("{panel}"))
+                        {
                             self.panel_selection = name
                         }
                     }
@@ -450,8 +454,8 @@ impl App for TwixApp {
                             None,
                         ) {
                             Ok(panel) => {
-                                if let Some(active_panel) = self.active_panel() {
-                                    *active_panel = panel;
+                                if let Some(active_tab) = self.active_tab() {
+                                    active_tab.panel = Ok(panel);
                                 }
                             }
                             Err(err) => error!("{err:?}"),
@@ -608,9 +612,9 @@ impl App for TwixApp {
 }
 
 impl TwixApp {
-    fn active_panel(&mut self) -> Option<&mut SelectablePanel> {
+    fn active_tab(&mut self) -> Option<&mut Tab> {
         let (_viewport, tab) = self.dock_state.find_active_focused()?;
-        tab.panel.as_mut().ok()
+        Some(tab)
     }
 
     fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
