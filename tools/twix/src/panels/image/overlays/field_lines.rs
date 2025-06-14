@@ -11,13 +11,13 @@ use crate::{
     value_buffer::BufferHandle,
 };
 
-pub struct PenaltyBoxes {
+pub struct FieldLines {
     penalty_boxes: BufferHandle<Option<ProjectedFieldLines>>,
     cycler: VisionCycler,
 }
 
-impl Overlay for PenaltyBoxes {
-    const NAME: &'static str = "Penalty Boxes";
+impl Overlay for FieldLines {
+    const NAME: &'static str = "Field Lines";
 
     fn new(nao: Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
         Self {
@@ -36,7 +36,7 @@ impl Overlay for PenaltyBoxes {
             VisionCycler::Bottom => &penalty_boxes_lines_in_image.bottom,
         };
         for line in lines {
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLACK));
+            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::GRAY));
         }
         Ok(())
     }

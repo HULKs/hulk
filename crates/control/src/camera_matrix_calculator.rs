@@ -6,13 +6,15 @@ use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, P
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
+use coordinate_systems::{Camera, Field, Ground, Head, Pixel, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{point, vector, IntoTransform, Isometry3, Rotation3, Vector3};
+use linear_algebra::{point, vector, IntoTransform, Isometry2, Isometry3, Rotation3, Vector3};
 use types::{
-    field_dimensions::FieldDimensions, field_lines::ProjectedFieldLines,
-    parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
+    field_dimensions::{FieldDimensions, Half, Side},
+    field_lines::ProjectedFieldLines,
+    parameters::CameraMatrixParameters,
+    robot_dimensions::RobotDimensions,
     robot_kinematics::RobotKinematics,
 };
 
@@ -28,6 +30,7 @@ pub struct CycleContext {
 
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
+    ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
 
     bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
@@ -122,16 +125,16 @@ impl CameraMatrixCalculator {
         context
             .projected_field_lines
             .fill_if_subscribed(|| ProjectedFieldLines {
-                top: project_penalty_area_on_images(
+                top: project_lines_onto_image(
                     field_dimensions,
                     &calibrated_top_camera_matrix,
-                )
-                .unwrap_or_default(),
-                bottom: project_penalty_area_on_images(
+                    *context.ground_to_field,
+                ),
+                bottom: project_lines_onto_image(
                     field_dimensions,
                     &calibrated_bottom_camera_matrix,
-                )
-                .unwrap_or_default(),
+                    *context.ground_to_field,
+                ),
             });
 
         Ok(MainOutputs {
@@ -149,47 +152,65 @@ impl CameraMatrixCalculator {
     }
 }
 
-fn project_penalty_area_on_images(
+fn project_lines_onto_image(
     field_dimensions: &FieldDimensions,
     camera_matrix: &CameraMatrix,
-) -> Option<Vec<LineSegment<Pixel>>> {
-    let field_length = &field_dimensions.length;
-    let field_width = &field_dimensions.width;
-    let penalty_area_length = &field_dimensions.penalty_area_length;
-    let penalty_area_width = &field_dimensions.penalty_area_width;
+    ground_to_field: Isometry2<Ground, Field>,
+) -> Vec<LineSegment<Pixel>> {
+    let field_to_pixel = |line: LineSegment<Field>| -> Option<LineSegment<Pixel>> {
+        let field_to_ground = ground_to_field.inverse();
+        Some(LineSegment(
+            camera_matrix
+                .ground_to_pixel(field_to_ground * line.0)
+                .ok()?,
+            camera_matrix
+                .ground_to_pixel(field_to_ground * line.1)
+                .ok()?,
+        ))
+    };
+    let field_length = field_dimensions.length;
+    let penalty_area_length = field_dimensions.penalty_area_length;
+    let penalty_area_width = field_dimensions.penalty_area_width;
 
-    let penalty_top_left = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, penalty_area_width / 2.0])
-        .ok()?;
-    let penalty_top_right = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, -penalty_area_width / 2.0])
-        .ok()?;
-    let penalty_bottom_left = camera_matrix
-        .ground_to_pixel(point![
-            field_length / 2.0 - penalty_area_length,
-            penalty_area_width / 2.0
-        ])
-        .ok()?;
-    let penalty_bottom_right = camera_matrix
-        .ground_to_pixel(point![
-            field_length / 2.0 - penalty_area_length,
-            -penalty_area_width / 2.0
-        ])
-        .ok()?;
-    let corner_left = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, field_width / 2.0])
-        .ok()?;
-    let corner_right = camera_matrix
-        .ground_to_pixel(point![field_length / 2.0, -field_width / 2.0])
-        .ok()?;
+    let penalty_top_left = point![field_length / 2.0, penalty_area_width / 2.0];
+    let penalty_top_right = point![field_length / 2.0, -penalty_area_width / 2.0];
+    let penalty_bottom_left = point![
+        field_length / 2.0 - penalty_area_length,
+        penalty_area_width / 2.0
+    ];
+    let penalty_bottom_right = point![
+        field_length / 2.0 - penalty_area_length,
+        -penalty_area_width / 2.0
+    ];
 
-    Some(vec![
-        LineSegment(penalty_top_left, penalty_top_right),
+    [
         LineSegment(penalty_bottom_left, penalty_bottom_right),
         LineSegment(penalty_bottom_left, penalty_top_left),
         LineSegment(penalty_bottom_right, penalty_top_right),
-        LineSegment(corner_left, corner_right),
-    ])
+        LineSegment(
+            field_dimensions.corner(Half::Own, Side::Left),
+            field_dimensions.corner(Half::Own, Side::Right),
+        ),
+        LineSegment(
+            field_dimensions.corner(Half::Own, Side::Right),
+            field_dimensions.corner(Half::Opponent, Side::Right),
+        ),
+        LineSegment(
+            field_dimensions.corner(Half::Opponent, Side::Right),
+            field_dimensions.corner(Half::Opponent, Side::Left),
+        ),
+        LineSegment(
+            field_dimensions.corner(Half::Opponent, Side::Left),
+            field_dimensions.corner(Half::Own, Side::Left),
+        ),
+        LineSegment(
+            field_dimensions.t_crossing(Side::Left),
+            field_dimensions.t_crossing(Side::Right),
+        ),
+    ]
+    .into_iter()
+    .filter_map(field_to_pixel)
+    .collect::<Vec<_>>()
 }
 
 fn head_to_camera(

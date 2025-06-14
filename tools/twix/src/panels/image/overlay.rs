@@ -13,8 +13,8 @@ use crate::{nao::Nao, twix_painter::TwixPainter};
 use super::{
     cycler_selector::VisionCycler,
     overlays::{
-        BallDetection, FeetDetection, FieldBorder, Horizon, LimbProjector, LineDetection,
-        PenaltyBoxes, PerspectiveGrid, PoseDetection,
+        BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector,
+        LineDetection, PerspectiveGrid, PoseDetection,
     },
 };
 
@@ -90,7 +90,7 @@ pub struct Overlays {
     pub ball_detection: EnabledOverlay<BallDetection>,
     pub perspective_grid: EnabledOverlay<PerspectiveGrid>,
     pub horizon: EnabledOverlay<Horizon>,
-    pub penalty_boxes: EnabledOverlay<PenaltyBoxes>,
+    pub penalty_boxes: EnabledOverlay<FieldLines>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
     pub field_border: EnabledOverlay<FieldBorder>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
