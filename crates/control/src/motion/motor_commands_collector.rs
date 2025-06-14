@@ -121,6 +121,7 @@ impl MotorCommandCollector {
                     context.sensor_data.positions,
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
+                    *context.has_ground_contact,
                 ),
                 Joints::from_head_and_body(
                     HeadJoints::fill(0.6),
@@ -152,6 +153,7 @@ impl MotorCommandCollector {
                     context.sensor_data.positions,
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
+                    *context.has_ground_contact,
                 ),
                 Joints::from_head_and_body(
                     HeadJoints::fill(0.6),
@@ -169,6 +171,7 @@ impl MotorCommandCollector {
                     context.sensor_data.positions,
                     *context.cycle_time,
                     *context.current_minimizer_parameters,
+                    *context.has_ground_contact,
                 ),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),

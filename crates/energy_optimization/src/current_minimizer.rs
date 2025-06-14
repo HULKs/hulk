@@ -30,7 +30,13 @@ impl CurrentMinimizer {
         measured_positions: Joints<f32>,
         cycle_time: CycleTime,
         parameters: CurrentMinimizerParameters,
+        has_ground_contact: bool,
     ) -> Joints<f32> {
+        if !has_ground_contact {
+            self.reset();
+            return positions;
+        }
+
         self.parameters = parameters;
 
         // this optimization is inspired by the approach of Berlin United in their team research report 2019.
