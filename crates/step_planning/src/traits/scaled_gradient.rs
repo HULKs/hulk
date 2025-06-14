@@ -4,10 +4,7 @@ use num_traits::Float;
 
 use linear_algebra::Framed;
 
-use crate::{
-    geometry::{angle::Angle, normalized_step::NormalizedStep, pose::PoseGradient},
-    step_plan::PlannedStepGradient,
-};
+use crate::geometry::{angle::Angle, normalized_step::NormalizedStep, pose::PoseGradient};
 
 pub trait ScaledGradient<T: DualNum<F>, F, D: Dim, S>
 where
@@ -103,25 +100,5 @@ where
         forward_gradient * forward_derivative
             + left_gradient * left_derivative
             + turn_gradient * turn_derivative
-    }
-}
-
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim> ScaledGradient<T, F, D, PlannedStepGradient<T>>
-    for PlannedStepGradient<Derivative<T, F, D, U1>>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn scaled_gradient(self, scale: PlannedStepGradient<T>) -> Derivative<T, F, D, U1> {
-        let PlannedStepGradient {
-            pose: pose_gradient,
-            step: step_gradient,
-        } = self;
-        let PlannedStepGradient {
-            pose: pose_derivative,
-            step: step_derivative,
-        } = scale;
-
-        pose_gradient.scaled_gradient(pose_derivative)
-            + step_gradient.scaled_gradient(step_derivative)
     }
 }
