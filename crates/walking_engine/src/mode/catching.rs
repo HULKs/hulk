@@ -26,7 +26,7 @@ pub struct Catching {
 }
 
 impl Catching {
-    pub fn new(context: &Context, last_step_state: StepState) -> Self {
+    pub fn new(context: &Context, last_step_state: StepState, support_side: Side) -> Self {
         let Some(robot_to_ground) = context.robot_to_ground else {
             todo!();
         };
@@ -48,7 +48,7 @@ impl Catching {
             swing_sole: Pose2::from_parts(displacement, Orientation2::default()),
         };
 
-        let support_side = last_step_state.plan.support_side;
+        // let support_side = last_step_state.plan.support_side;
         let clamped_feet =
             clamp_feet_to_anatomic_constraints(desired_end_feet, support_side, context.parameters);
 
@@ -65,6 +65,40 @@ impl Catching {
                 plan,
                 ..last_step_state
             },
+        }
+    }
+
+    pub fn new_from_catching(
+        self,
+        context: &Context,
+        last_step_state: StepState,
+        support_side: Side,
+    ) -> Self {
+        let new_catching = Catching::new(context, last_step_state, support_side);
+
+        let old_norm = self
+            .step
+            .plan
+            .end_feet
+            .swing_sole
+            .position()
+            .xy()
+            .coords()
+            .norm();
+        let new_norm = new_catching
+            .step
+            .plan
+            .end_feet
+            .swing_sole
+            .position()
+            .xy()
+            .coords()
+            .norm();
+
+        if new_norm > old_norm {
+            new_catching
+        } else {
+            self
         }
     }
 }
@@ -87,7 +121,12 @@ impl WalkTransition for Catching {
             current_step.plan.end_feet,
             current_step.plan.support_side,
         ) {
-            return Mode::Catching(Catching::new(context, self.step));
+            return Mode::Catching(Catching::new_from_catching(
+                self,
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
         }
 
         Mode::Catching(self)
@@ -95,6 +134,11 @@ impl WalkTransition for Catching {
 
     fn walk(self, context: &Context, _requested_step: Step) -> Mode {
         let current_step = self.step;
+        let should_catch_now = should_catch(
+            context,
+            current_step.plan.end_feet,
+            current_step.plan.support_side,
+        );
 
         if current_step.is_support_switched(context) {
             let executed_step = self
@@ -116,6 +160,15 @@ impl WalkTransition for Catching {
             //     self.step.plan.end_feet.switch(),
             // );
             // let step = StepState::new(plan);
+            //
+            // if should_catch_now {
+            //     return Mode::Catching(Catching::new_from_catching(
+            //         self,
+            //         context,
+            //         self.step,
+            //         self.step.plan.support_side.opposite(),
+            //     ));
+            // }
 
             return Mode::Walking(Walking::new(
                 context,
@@ -131,12 +184,13 @@ impl WalkTransition for Catching {
             // return Mode::Walking(Walking::new_with_step(step, Step::ZERO));
         }
 
-        if should_catch(
-            context,
-            current_step.plan.end_feet,
-            current_step.plan.support_side,
-        ) {
-            return Mode::Catching(Catching::new(context, self.step));
+        if should_catch_now {
+            return Mode::Catching(Catching::new_from_catching(
+                self,
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
         }
 
         Mode::Catching(self)
@@ -165,7 +219,12 @@ impl WalkTransition for Catching {
             current_step.plan.end_feet,
             current_step.plan.support_side,
         ) {
-            return Mode::Catching(Catching::new(context, self.step));
+            return Mode::Catching(Catching::new_from_catching(
+                self,
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
         }
 
         Mode::Catching(self)

@@ -97,7 +97,11 @@ impl WalkTransition for Walking {
             self.step.plan.end_feet,
             self.step.plan.support_side,
         ) {
-            return Mode::Catching(Catching::new(context, self.step));
+            return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
         }
 
         Mode::Walking(self)
@@ -120,7 +124,11 @@ impl WalkTransition for Walking {
             self.step.plan.end_feet,
             self.step.plan.support_side,
         ) {
-            return Mode::Catching(Catching::new(context, self.step));
+            return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
         }
 
         if current_step.is_timeouted(context.parameters) {
@@ -168,7 +176,11 @@ impl WalkTransition for Walking {
             self.step.plan.end_feet,
             self.step.plan.support_side,
         ) {
-            return Mode::Catching(Catching::new(context, self.step));
+            return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
         }
 
         if current_step.is_timeouted(context.parameters) {
