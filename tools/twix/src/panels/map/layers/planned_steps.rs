@@ -121,8 +121,17 @@ fn paint_step_plan(
 ) {
     let upcoming_support_to_ground = ground_to_upcoming_support.inverse();
 
+    let upcoming_support_pose = upcoming_support_to_ground.as_pose();
+
+    paint_planned_step(
+        painter,
+        color,
+        upcoming_support_pose,
+        next_support_side.opposite(),
+    );
+
     let planned_steps = step_plan.iter().scan(
-        (upcoming_support_to_ground.as_pose(), next_support_side),
+        (upcoming_support_pose, next_support_side),
         |(pose, support_side), step| {
             let step_translation =
                 Isometry2::<Ground, Ground>::from_parts(vector![step.forward, step.left], 0.0);
@@ -143,44 +152,60 @@ fn paint_step_plan(
     );
 
     let gradients = step_plan_gradient.chunks_exact(3);
-    for (PlannedStep { pose, support_side }, _gradient) in planned_steps.zip(gradients) {
-        // let [df, dl, da] = gradient.try_into().unwrap();
-        let offset = match support_side {
-            // Side::Left => foot_offset_left,
-            // Side::Right => foot_offset_right,
-            Side::Left => point!(0.0, -0.052),
-            Side::Right => point!(0.0, 0.052),
-        };
+    for (PlannedStep { pose, support_side }, gradient) in planned_steps.zip(gradients) {
+        paint_planned_step(painter, color, pose, support_side);
 
-        painter.pose(pose, 0.01, 0.015, color, Stroke::new(0.005, Color32::BLACK));
-
-        let pose_with_offset: Pose2<Ground> =
-            pose.as_transform::<Ground>() * Pose2::from_parts(offset, Orientation2::identity());
-
-        let sole = Pose3::from_parts(
-            point![
-                pose_with_offset.position().x(),
-                pose_with_offset.position().y(),
-                0.0
-            ],
-            Orientation3::from_euler_angles(0.0, 0.0, pose.orientation().angle()),
+        let [df, dl, da] = gradient.try_into().unwrap();
+        painter.line_segment(
+            pose.position(),
+            pose.as_transform::<Ground>() * (point![df, dl] * -1.0),
+            Stroke::new(0.002, Color32::GREEN),
         );
-
-        paint_sole_polygon(
-            painter,
-            sole,
-            Stroke::new(0.005, color),
-            support_side.opposite(),
+        painter.line_segment(
+            pose.position(),
+            pose.as_transform::<Ground>() * point![0.0, da * -1.0],
+            Stroke::new(0.002, Color32::RED),
         );
-        // painter.line_segment(
-        //     pose.position,
-        //     pose.as_transform::<Ground>() * (point![df, dl] * -0.001),
-        //     Stroke::new(0.002, Color32::GREEN),
-        // );
-        // painter.line_segment(
-        //     pose.position,
-        //     pose.as_transform::<Ground>() * point![0.0, da * -0.001],
-        //     Stroke::new(0.002, Color32::RED),
-        // );
     }
+}
+
+fn paint_planned_step(
+    painter: &TwixPainter<Ground>,
+    color: Color32,
+    pose: Pose2<Ground>,
+    support_side: Side,
+) {
+    let offset = match support_side {
+        // Side::Left => foot_offset_left,
+        // Side::Right => foot_offset_right,
+        Side::Left => point!(0.0, -0.052),
+        Side::Right => point!(0.0, 0.052),
+    };
+
+    let pose_with_offset: Pose2<Ground> =
+        pose.as_transform::<Ground>() * Pose2::from_parts(offset, Orientation2::identity());
+
+    let sole = Pose3::from_parts(
+        point![
+            pose_with_offset.position().x(),
+            pose_with_offset.position().y(),
+            0.0
+        ],
+        Orientation3::from_euler_angles(0.0, 0.0, pose.orientation().angle()),
+    );
+
+    painter.pose(
+        pose,
+        0.01,
+        0.015,
+        color,
+        Stroke::new(0.0025, Color32::BLACK),
+    );
+
+    paint_sole_polygon(
+        painter,
+        sole,
+        Stroke::new(0.005, color),
+        support_side.opposite(),
+    );
 }
