@@ -133,11 +133,12 @@ impl Cargo {
                 // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
                 let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
                 let root = repository.current_dir_to_root()?;
-                let mut command = OsString::from(format!("\
+                let mut command = OsString::from(format!(
+                    "\
                     mkdir -p {cargo_home} && \
                     docker run \
                         --volume={root}:/hulk:z \
-                        --volume={cargo_home}:/naosdk/sysroots/corei7-64-aldebaran-linux/home/cargo:z \
+                        --volume={cargo_home}:/root/.cargo:z \
                         --rm \
                         --interactive \
                         --tty {image} \
@@ -147,8 +148,8 @@ impl Cargo {
                             echo $PATH && \
                             cargo \
                     ",
-                    root=root.display(),
-                    pwd=pwd.display(),
+                    root = root.display(),
+                    pwd = pwd.display(),
                 ));
                 command.push(arguments);
                 command.push(OsStr::new("'"));
