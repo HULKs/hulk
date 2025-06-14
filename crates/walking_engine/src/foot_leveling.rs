@@ -33,20 +33,46 @@ impl FootLeveling {
         let parameters = &context.parameters.foot_leveling;
         let current_orientation = context.robot_orientation.rotation::<Robot>();
 
-        let (roll_angle, pitch_angle, _) = match support_side {
+        let rotation = match support_side {
             Side::Left => {
-                let right_sole_to_field = current_orientation
-                    * forward::right_sole_to_robot(&context.last_actuated_joints.right_leg);
+                // let angles = &context.measured_joints.right_leg;
+                let angles = &context.last_actuated_joints.right_leg;
 
-                right_sole_to_field.as_pose().orientation().euler_angles()
+                let leg_orientation = forward::right_pelvis_to_robot(angles)
+                    * forward::right_hip_to_right_pelvis(angles)
+                    * forward::right_thigh_to_right_hip(angles)
+                    * forward::right_tibia_to_right_thigh(angles);
+
+                let right_sole_to_field = current_orientation * leg_orientation;
+
+                right_sole_to_field.inner.rotation
             }
             Side::Right => {
-                let left_sole_to_field = current_orientation
-                    * forward::left_sole_to_robot(&context.last_actuated_joints.left_leg);
+                // let angles = &context.measured_joints.left_leg;
+                let angles = &context.last_actuated_joints.left_leg;
 
-                left_sole_to_field.as_pose().orientation().euler_angles()
+                let leg_orientation = forward::left_pelvis_to_robot(angles)
+                    * forward::left_hip_to_left_pelvis(angles)
+                    * forward::left_thigh_to_left_hip(angles)
+                    * forward::left_tibia_to_left_thigh(angles);
+
+                let left_sole_to_field = current_orientation * leg_orientation;
+
+                left_sole_to_field.inner.rotation
             }
         };
+
+        let ([desired_pitch, desired_roll, _], _) = rotation
+            .inverse()
+            .to_rotation_matrix()
+            .euler_angles_ordered(
+                [
+                    nalgebra::Vector3::y_axis(),
+                    nalgebra::Vector3::x_axis(),
+                    nalgebra::Vector3::z_axis(),
+                ],
+                false,
+            );
 
         // Use a full effect early in the step, then reduce the leveling effect gradually over the step progress
         let leveling_factor = if normalized_time_since_start < parameters.start_reduce_to_zero {
@@ -55,24 +81,24 @@ impl FootLeveling {
             1.0 - normalized_time_since_start
         };
 
-        // Choose the base pitch factor depending on whether the robot is leaning forward or backward
-        let base_pitch_factor = if pitch_angle > 0.0 {
+        let base_pitch_factor = if desired_pitch < 0.0 {
             parameters.leaning_forward_factor
         } else {
             parameters.leaning_backwards_factor
         };
 
-        let pitch_scaling = (pitch_angle.abs() / parameters.pitch_scale).min(1.0);
-        let desired_pitch = -pitch_angle * leveling_factor * base_pitch_factor * pitch_scaling;
+        // let pitch_scaling = (desired_pitch.abs() / parameters.pitch_scale).min(1.0);
+        // let desired_pitch = (desired_pitch + desired_pitch * base_pitch_factor) * leveling_factor;
+        //
+        // let base_roll_factor = parameters.roll_factor;
+        // let roll_scaling = (desired_roll.abs() / parameters.roll_scale).min(1.0);
+        // let desired_roll = desired_roll * leveling_factor * base_roll_factor * roll_scaling;
 
-        let base_roll_factor = parameters.roll_factor;
-        let roll_scaling = (roll_angle.abs() / parameters.roll_scale).min(1.0);
-        let desired_roll = -roll_angle * leveling_factor * base_roll_factor * roll_scaling;
-
-        // Smoothly update the corrections with a maximum allowed delta.
         let max_delta = parameters.max_level_delta;
-        self.roll += (desired_roll - self.roll).clamp(-max_delta, max_delta);
-        self.pitch += (desired_pitch - self.pitch).clamp(-max_delta, max_delta);
+        // self.pitch += (desired_pitch - self.pitch).clamp(-max_delta, max_delta);
+        // self.roll += (desired_roll - self.roll).clamp(-max_delta, max_delta);
+        self.pitch = desired_pitch;
+        self.roll = desired_roll;
     }
 }
 
@@ -86,8 +112,8 @@ impl FootLevelingExt for LowerBodyJoints {
             Side::Left => &mut self.right_leg,
             Side::Right => &mut self.left_leg,
         };
-        swing_leg.ankle_roll += state.roll;
-        swing_leg.ankle_pitch += state.pitch;
+        swing_leg.ankle_roll = state.roll;
+        swing_leg.ankle_pitch = state.pitch;
         self
     }
 }

@@ -10,14 +10,13 @@ use types::{
     joints::Joints,
     motion_command::{HeadMotion, MotionCommand},
     motor_commands::MotorCommands,
+    sensor_data::SensorData,
     support_foot::Side,
 };
 use walking_engine::parameters::FootLevelingParameters;
 
 #[derive(Deserialize, Serialize)]
-pub struct MotorCommandsOptimizer {
-    pitch_low_pass_filter: LowPassFilter<f32>,
-}
+pub struct MotorCommandsOptimizer {}
 
 #[context]
 pub struct CreationContext {}
@@ -28,6 +27,7 @@ pub struct CycleContext {
     only_one_foot_has_ground_contact: Input<bool, "only_one_foot_has_ground_contact">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     motion_command: Input<MotionCommand, "motion_command">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
     last_actuated_joints: CyclerState<Joints<f32>, "last_actuated_motor_commands.positions">,
     robot_orientation: Input<Option<Orientation3<Field>>, "robot_orientation?">,
@@ -45,9 +45,7 @@ pub struct MainOutputs {
 
 impl MotorCommandsOptimizer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            pitch_low_pass_filter: LowPassFilter::with_smoothing_factor(0.0, 0.1),
-        })
+        Ok(Self {})
     }
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let mut motor_commands = *context.motor_commands;
@@ -64,92 +62,93 @@ impl MotorCommandsOptimizer {
             motor_commands.stiffnesses = Joints::fill(0.3);
         }
 
-        if let Some(current_orientation) = context.robot_orientation {
-            // let parameters = &context.parameters;
-            let current_orientation = current_orientation.rotation::<Robot>();
-
-            // manual support side for testing purposes
-            let support_side = Side::Left;
-
-            // let current_orientation = context.robot_orientation;
-            //
-            // let leveling_error = current_orientation.inner;
-            // let (roll_angle, pitch_angle, _) = leveling_error.euler_angles();
-
-            // * forward::right_sole_to_robot(&context.last_actuated_joints.right_leg);
-
-            let rotation = match support_side {
-                Side::Left => {
-                    let right_sole_to_field = current_orientation
-                        * forward::right_sole_to_robot(&context.last_actuated_joints.right_leg);
-
-                    right_sole_to_field.inner.rotation
-                }
-                Side::Right => {
-                    let left_sole_to_field = current_orientation
-                        * forward::left_sole_to_robot(&context.last_actuated_joints.left_leg);
-
-                    left_sole_to_field.inner.rotation
-                }
-            };
-
-            let ([desired_pitch, desired_roll, _], _) = rotation
-                .inverse()
-                .to_rotation_matrix()
-                .euler_angles_ordered(
-                    [
-                        nalgebra::Vector3::y_axis(),
-                        nalgebra::Vector3::x_axis(),
-                        nalgebra::Vector3::z_axis(),
-                    ],
-                    false,
-                );
-
-            // Choose the base pitch factor depending on whether the robot is leaning forward or backward
-            // let base_pitch_factor = if pitch_angle > 0.0 {
-            //     parameters.leaning_forward_factor
-            // } else {
-            //     parameters.leaning_backwards_factor
-            // };
-
-            // let pitch_scaling = (pitch_angle.abs() / parameters.pitch_scale).min(1.0);
-            // let desired_pitch = -pitch_angle; // * base_pitch_factor * pitch_scaling;
-
-            // let base_roll_factor = parameters.roll_factor;
-            // let roll_scaling = (roll_angle.abs() / parameters.roll_scale).min(1.0);
-            // let desired_roll = -roll_angle; // * base_roll_factor * roll_scaling;
-
-            match support_side {
-                Side::Right => {
-                    self.pitch_low_pass_filter.update(desired_pitch);
-
-                    motor_commands.positions.left_leg.ankle_roll = desired_roll;
-                    motor_commands.positions.left_leg.ankle_pitch =
-                        self.pitch_low_pass_filter.state();
-
-                    motor_commands.stiffnesses.right_leg.ankle_pitch = 0.0;
-                    motor_commands.stiffnesses.right_leg.ankle_roll = 0.0;
-
-                    motor_commands.stiffnesses.left_leg.knee_pitch = 0.0;
-                }
-
-                Side::Left => {
-                    self.pitch_low_pass_filter.update(desired_pitch);
-                    motor_commands.positions.right_leg.ankle_roll = desired_roll;
-                    motor_commands.positions.right_leg.ankle_pitch =
-                        self.pitch_low_pass_filter.state();
-
-                    motor_commands.stiffnesses.left_leg.ankle_pitch = 0.0;
-                    motor_commands.stiffnesses.left_leg.ankle_roll = 0.0;
-
-                    motor_commands.stiffnesses.right_leg.knee_pitch = 0.0;
-                }
-            }
-
-            context
-                .desired_pitch
-                .fill_if_subscribed(|| self.pitch_low_pass_filter.state());
-        }
+        // if let Some(current_orientation) = context.robot_orientation {
+        //     // let parameters = &context.parameters;
+        //     let current_orientation = current_orientation.rotation::<Robot>();
+        //
+        //     // manual support side for testing purposes
+        //     let support_side = Side::Left;
+        //
+        //     // let current_orientation = context.robot_orientation;
+        //     //
+        //     // let leveling_error = current_orientation.inner;
+        //
+        //     // * forward::right_sole_to_robot(&context.last_actuated_joints.right_leg);
+        //     let rotation = match support_side {
+        //         Side::Left => {
+        //             let angles = &context.sensor_data.positions.right_leg;
+        //
+        //             let leg_orientation = forward::right_pelvis_to_robot(angles)
+        //                 * forward::right_hip_to_right_pelvis(angles)
+        //                 * forward::right_thigh_to_right_hip(angles)
+        //                 * forward::right_tibia_to_right_thigh(angles);
+        //
+        //             let right_sole_to_field = current_orientation * leg_orientation;
+        //
+        //             right_sole_to_field.inner.rotation
+        //         }
+        //         Side::Right => {
+        //             let left_sole_to_field = current_orientation
+        //                 * forward::left_sole_to_robot(&context.sensor_data.positions.left_leg);
+        //
+        //             left_sole_to_field.inner.rotation
+        //         }
+        //     };
+        //
+        //     let ([desired_pitch, desired_roll, _], _) = rotation
+        //         .inverse()
+        //         .to_rotation_matrix()
+        //         .euler_angles_ordered(
+        //             [
+        //                 nalgebra::Vector3::y_axis(),
+        //                 nalgebra::Vector3::x_axis(),
+        //                 nalgebra::Vector3::z_axis(),
+        //             ],
+        //             false,
+        //         );
+        //
+        //     // let (roll_angle, pitch_angle, _) = rotation.euler_angles();
+        //     // let desired_pitch = -pitch_angle;
+        //     // let desired_roll = -roll_angle;
+        //
+        //     // Choose the base pitch factor depending on whether the robot is leaning forward or backward
+        //     // let base_pitch_factor = if pitch_angle > 0.0 {
+        //     //     parameters.leaning_forward_factor
+        //     // } else {
+        //     //     parameters.leaning_backwards_factor
+        //     // };
+        //
+        //     // let pitch_scaling = (pitch_angle.abs() / parameters.pitch_scale).min(1.0);
+        //     // let desired_pitch = -pitch_angle; // * base_pitch_factor * pitch_scaling;
+        //
+        //     // let base_roll_factor = parameters.roll_factor;
+        //     // let roll_scaling = (roll_angle.abs() / parameters.roll_scale).min(1.0);
+        //     // let desired_roll = -roll_angle; // * base_roll_factor * roll_scaling;
+        //
+        //     match support_side {
+        //         Side::Right => {
+        //             motor_commands.positions.left_leg.ankle_roll = desired_roll;
+        //             motor_commands.positions.left_leg.ankle_pitch = desired_pitch;
+        //
+        //             motor_commands.stiffnesses.right_leg.ankle_pitch = 0.0;
+        //             motor_commands.stiffnesses.right_leg.ankle_roll = 0.0;
+        //
+        //             motor_commands.stiffnesses.left_leg.knee_pitch = 0.0;
+        //         }
+        //
+        //         Side::Left => {
+        //             motor_commands.positions.right_leg.ankle_roll = desired_roll;
+        //             motor_commands.positions.right_leg.ankle_pitch = desired_pitch;
+        //
+        //             motor_commands.stiffnesses.left_leg.ankle_pitch = 0.0;
+        //             motor_commands.stiffnesses.left_leg.ankle_roll = 0.0;
+        //
+        //             motor_commands.stiffnesses.right_leg.knee_pitch = 0.0;
+        //             motor_commands.stiffnesses.right_leg.hip_pitch = 0.0;
+        //             motor_commands.stiffnesses.right_leg.hip_roll = 0.0;
+        //         }
+        //     }
+        // }
 
         Ok(MainOutputs {
             optimized_motor_commands: motor_commands.into(),
