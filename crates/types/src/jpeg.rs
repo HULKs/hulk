@@ -18,7 +18,7 @@ impl TryFrom<&GrayscaleImage> for JpegImage {
             ImageBuffer::<Luma<u8>, &[u8]>::from_raw(image.width(), image.height(), image.buffer())
                 .unwrap();
         let mut jpeg_buffer = vec![];
-        let quality = 40;
+        let quality = 15;
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
         encoder.encode_image(&gray_image)?;
 
@@ -32,7 +32,7 @@ impl TryFrom<&YCbCr422Image> for JpegImage {
     fn try_from(image: &YCbCr422Image) -> Result<Self, Self::Error> {
         let rgb_image = RgbImage::from(image);
         let mut jpeg_buffer = vec![];
-        let quality = 40;
+        let quality = 15;
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
         encoder.encode_image(&rgb_image)?;
         Ok(Self { data: jpeg_buffer })
