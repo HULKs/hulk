@@ -50,11 +50,8 @@ impl StepState {
     pub fn tick(&mut self, context: &Context) {
         self.time_since_start += context.cycle_time.last_cycle_duration;
         self.gyro_balancing.tick(context);
-        self.foot_leveling.tick(
-            context,
-            self.plan.support_side,
-            self.normalized_time_since_start(),
-        );
+        self.foot_leveling
+            .tick(context, self.normalized_time_since_start());
     }
 
     pub fn is_support_switched(&self, context: &Context) -> bool {
