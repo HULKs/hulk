@@ -148,6 +148,11 @@ impl FieldDimensions {
         point![unsigned_x * half.sign(), unsigned_y * side.sign()]
     }
 
+    pub fn t_crossing(&self, side: Side) -> Point2<Field> {
+        let unsigned_y = self.width / 2.0;
+        point![0.0, unsigned_y * side.sign()]
+    }
+
     pub fn center(&self) -> Point2<Field> {
         Point2::origin()
     }
