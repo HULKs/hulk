@@ -328,7 +328,6 @@
     "optimization_parameters": {
       "optimizer_steps": 50,
       "num_steps": 5,
-      "learning_rate": 0.01,
       "walk_volume_extents": {
         "forward": 0.045,
         "backward": 0.03,
