@@ -1,18 +1,18 @@
 use std::{
-    env::current_dir, iter::once, net::Ipv4Addr, path::PathBuf, str::FromStr, sync::Arc,
-    time::SystemTime,
+    convert::Into, env::current_dir, iter::once, net::Ipv4Addr, path::PathBuf, str::FromStr,
+    sync::Arc, time::SystemTime,
 };
 
 use argument_parsers::NaoAddress;
 use clap::Parser;
 use color_eyre::{
     eyre::{bail, eyre, Context as _, ContextCompat},
-    Result,
+    Report, Result,
 };
 use eframe::{
     egui::{
-        CentralPanel, Context, CornerRadius, Id, Layout, StrokeKind, TopBottomPanel, Ui, Widget,
-        WidgetText,
+        CentralPanel, Context, CornerRadius, Id, Label, Layout, Sense, StrokeKind, TopBottomPanel,
+        Ui, Widget, WidgetText,
     },
     emath::Align,
     epaint::Color32,
@@ -216,11 +216,7 @@ impl TwixApp {
         };
 
         let dock_state = match dock_state {
-            Some(dock_state) => dock_state.map_tabs(|value| {
-                SelectablePanel::new(nao.clone(), Some(value))
-                    .unwrap()
-                    .into()
-            }),
+            Some(dock_state) => dock_state.map_tabs(|value| Tab::new(nao.clone(), value)),
             None => DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
                 nao.clone(),
                 None,
@@ -433,7 +429,11 @@ impl App for TwixApp {
                     if self.active_tab_index() != Some(self.last_focused_tab) {
                         self.last_focused_tab =
                             self.active_tab_index().unwrap_or((0.into(), 0.into()));
-                        if let Some(name) = self.active_panel().map(|panel| format!("{panel}")) {
+                        if let Some(name) = self
+                            .active_tab()
+                            .and_then(|tab| tab.panel.as_ref().ok())
+                            .map(|panel| format!("{panel}"))
+                        {
                             self.panel_selection = name
                         }
                     }
@@ -454,8 +454,8 @@ impl App for TwixApp {
                             None,
                         ) {
                             Ok(panel) => {
-                                if let Some(active_panel) = self.active_panel() {
-                                    *active_panel = panel;
+                                if let Some(active_tab) = self.active_tab() {
+                                    active_tab.panel = Ok(panel);
                                 }
                             }
                             Err(err) => error!("{err:?}"),
@@ -529,9 +529,9 @@ impl App for TwixApp {
 
             if context.keybind_pressed(KeybindAction::DuplicateTab) {
                 if let Some((_, tab)) = self.dock_state.find_active_focused() {
-                    let new_tab = &tab.panel.save();
+                    let new_tab = tab.save();
                     self.dock_state.push_to_focused_leaf(Tab::from(
-                        SelectablePanel::new(self.nao.clone(), Some(new_tab)).unwrap(),
+                        SelectablePanel::new(self.nao.clone(), Some(&new_tab)).unwrap(),
                     ));
                 }
             }
@@ -594,7 +594,7 @@ impl App for TwixApp {
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {
-        let dock_state = self.dock_state.map_tabs(|tab| tab.panel.save());
+        let dock_state = self.dock_state.map_tabs(|tab| tab.save());
 
         storage.set_string("dock_state", to_string(&dock_state).unwrap());
         storage.set_string("address", self.address.to_string());
@@ -612,9 +612,9 @@ impl App for TwixApp {
 }
 
 impl TwixApp {
-    fn active_panel(&mut self) -> Option<&mut SelectablePanel> {
+    fn active_tab(&mut self) -> Option<&mut Tab> {
         let (_viewport, tab) = self.dock_state.find_active_focused()?;
-        Some(&mut tab.panel)
+        Some(tab)
     }
 
     fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
@@ -629,14 +629,30 @@ impl TwixApp {
 
 struct Tab {
     id: Id,
-    panel: SelectablePanel,
+    panel: Result<SelectablePanel, (Report, Value)>,
 }
 
 impl From<SelectablePanel> for Tab {
     fn from(panel: SelectablePanel) -> Self {
         Self {
             id: Id::new(SystemTime::now()),
-            panel,
+            panel: Ok(panel),
+        }
+    }
+}
+
+impl Tab {
+    fn new(nao: Arc<Nao>, value: &Value) -> Self {
+        Self {
+            id: Id::new(SystemTime::now()),
+            panel: SelectablePanel::new(nao, Some(value)).map_err(|error| (error, value.clone())),
+        }
+    }
+
+    fn save(&self) -> Value {
+        match &self.panel {
+            Ok(panel) => panel.save(),
+            Err((_report, value)) => value.clone(),
         }
     }
 }
@@ -650,11 +666,36 @@ impl egui_dock::TabViewer for TabViewer {
     type Tab = Tab;
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        tab.panel.ui(ui);
+        match &mut tab.panel {
+            Ok(panel) => panel.ui(ui),
+
+            Err((error, value)) => {
+                ui.label(format!("Error loading panel: {}", error));
+                ui.collapsing("JSON", |ui| {
+                    let content = match serde_json::to_string_pretty(value) {
+                        Ok(pretty_string) => pretty_string,
+                        Err(error) => error.to_string(),
+                    };
+                    let label = ui.add(Label::new(&content).sense(Sense::click()));
+                    if label.clicked() {
+                        ui.ctx().copy_text(content);
+                    }
+                    label.on_hover_ui_at_pointer(|ui| {
+                        ui.label("Click to copy");
+                    });
+                })
+                .header_response
+            }
+        };
     }
 
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
-        format!("{}", tab.panel).into()
+        match &mut tab.panel {
+            Ok(panel) => format!("{}", panel).into(),
+            Err((error, _value)) => {
+                WidgetText::from(format!("{}", error)).color(Color32::LIGHT_RED)
+            }
+        }
     }
 
     fn id(&mut self, tab: &mut Self::Tab) -> Id {
