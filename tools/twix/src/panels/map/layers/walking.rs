@@ -62,7 +62,7 @@ impl Layer<Ground> for Walking {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
@@ -249,7 +249,7 @@ fn paint_target_feet(
     );
 }
 
-fn paint_sole_polygon(
+pub fn paint_sole_polygon(
     painter: &TwixPainter<Ground>,
     sole: Pose3<Ground>,
     stroke: Stroke,

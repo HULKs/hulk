@@ -355,6 +355,15 @@ checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
 
 [[package]]
 name = "approx"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
@@ -1783,7 +1792,7 @@ checksum = "e158a73d6d896b1600a61bc115017707ecb467d1a5ad49231c5e58294f6f6e13"
 dependencies = [
  "accesskit",
  "accesskit_winit",
- "approx",
+ "approx 0.5.1",
  "bevy_a11y",
  "bevy_app",
  "bevy_asset",
@@ -1812,7 +1821,7 @@ dependencies = [
 name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "ball_filter",
  "bevy",
  "bincode",
@@ -1836,7 +1845,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "parking_lot",
@@ -1851,6 +1860,7 @@ dependencies = [
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
+ "step_planning",
  "tokio",
  "tokio-util",
  "types",
@@ -2638,7 +2648,7 @@ dependencies = [
 name = "control"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "ball_filter",
  "bincode",
  "calibration",
@@ -2657,7 +2667,7 @@ dependencies = [
  "log",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "ndarray-conv",
  "num-traits",
  "ordered-float 4.6.0",
@@ -2670,6 +2680,8 @@ dependencies = [
  "smallvec",
  "spl_network_messages",
  "splines",
+ "step_planning",
+ "step_planning_solver",
  "types",
  "walking_engine",
 ]
@@ -2687,7 +2699,7 @@ dependencies = [
 name = "coordinate_systems"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "path_serde",
  "serde",
@@ -3682,7 +3694,7 @@ dependencies = [
 name = "filtering"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
@@ -3920,7 +3932,7 @@ dependencies = [
 name = "geometry"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "coordinate_systems",
  "linear_algebra",
@@ -4427,7 +4439,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "path_serde",
@@ -4470,7 +4482,7 @@ dependencies = [
  "linear_algebra",
  "mcap",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parameters",
  "path_serde",
  "projection",
@@ -4557,7 +4569,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "path_serde",
@@ -4590,7 +4602,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parking_lot",
  "rand 0.9.0",
  "serde",
@@ -4616,7 +4628,7 @@ dependencies = [
 name = "hungarian_algorithm"
 version = "0.1.0"
 dependencies = [
- "ndarray",
+ "ndarray 0.16.1",
  "ordered-float 4.6.0",
  "pathfinding",
 ]
@@ -4972,6 +4984,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "instant"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "integer-sqrt"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5186,6 +5207,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
+name = "lbfgs"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44bf19986e8fbf7566eab563e23d68549797cc9d4d63d1a9d63b2e9dfbc15772"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "lebe"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5271,7 +5301,7 @@ dependencies = [
 name = "linear_algebra"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "nalgebra",
  "num-traits",
  "path_serde",
@@ -5596,6 +5626,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "modcholesky"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccccfee0ebe2798f7dac9beaa505dd9a627d3ce3919f25117c79f89de8880955"
+dependencies = [
+ "ndarray 0.15.6",
+ "ndarray-rand 0.14.0",
+ "num",
+ "rand 0.8.5",
+ "rand_xorshift",
+]
+
+[[package]]
 name = "motionfile"
 version = "0.1.0"
 dependencies = [
@@ -5679,7 +5722,7 @@ version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26aecdf64b707efd1310e3544d709c5c0ac61c13756046aaaba41be5c4f66a3b"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "matrixmultiply",
  "nalgebra-macros",
  "num-complex",
@@ -5742,6 +5785,20 @@ dependencies = [
 
 [[package]]
 name = "ndarray"
+version = "0.15.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
+dependencies = [
+ "approx 0.4.0",
+ "matrixmultiply",
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "rawpointer",
+]
+
+[[package]]
+name = "ndarray"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "882ed72dce9365842bf196bdeedf5055305f11fc8c03dee7bb0194a6cad34841"
@@ -5763,8 +5820,8 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caa5e9138c2d8e688952ae4151fec5632b7a00860685d89de8f5e42dadaf0ce7"
 dependencies = [
- "ndarray",
- "ndarray-rand",
+ "ndarray 0.16.1",
+ "ndarray-rand 0.15.0",
  "num",
  "realfft",
  "rustfft",
@@ -5773,11 +5830,22 @@ dependencies = [
 
 [[package]]
 name = "ndarray-rand"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65608f937acc725f5b164dcf40f4f0bc5d67dc268ab8a649d3002606718c4588"
+dependencies = [
+ "ndarray 0.15.6",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+]
+
+[[package]]
+name = "ndarray-rand"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f093b3db6fd194718dcdeea6bd8c829417deae904e3fcc7732dabcd4416d25d8"
 dependencies = [
- "ndarray",
+ "ndarray 0.16.1",
  "rand 0.8.5",
  "rand_distr 0.4.3",
 ]
@@ -5957,6 +6025,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.99",
+]
+
+[[package]]
+name = "num-dual"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8af2c4f45e74b48064e1023c1dabe753b8ca1d398b1bd80956bc36fb79442d0"
+dependencies = [
+ "approx 0.5.1",
+ "nalgebra",
+ "num-traits",
+ "simba",
 ]
 
 [[package]]
@@ -6272,7 +6352,7 @@ dependencies = [
  "itertools 0.14.0",
  "linear_algebra",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "openvino",
  "ordered-float 4.6.0",
  "projection",
@@ -6380,6 +6460,20 @@ dependencies = [
  "byteorder",
  "color-eyre",
  "sha2",
+]
+
+[[package]]
+name = "optimization_engine"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce13a62c069832c867ae2b0bf95506f7678d371b9d83d37f5e0da989f6b763f0"
+dependencies = [
+ "instant",
+ "lbfgs",
+ "modcholesky",
+ "ndarray 0.15.6",
+ "num",
+ "roots",
 ]
 
 [[package]]
@@ -6538,7 +6632,7 @@ name = "path_serde"
 version = "0.1.0"
 dependencies = [
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "num-traits",
  "path_serde_derive",
  "serde",
@@ -6862,7 +6956,7 @@ dependencies = [
 name = "projection"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
@@ -7072,7 +7166,7 @@ checksum = "f60fcc7d6849342eff22c4350c8b9a989ee8ceabc4b481253e8946b9fe83d684"
 name = "ransac"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "geometry",
  "linear_algebra",
  "nalgebra",
@@ -7391,6 +7485,12 @@ dependencies = [
  "serde",
  "serde_derive",
 ]
+
+[[package]]
+name = "roots"
+version = "0.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "082f11ffa03bbef6c2c6ea6bea1acafaade2fd9050ae0234ab44a2153742b058"
 
 [[package]]
 name = "roxmltree"
@@ -7845,7 +7945,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a386a501cd104797982c15ae17aafe8b9261315b5d07e3ec803f2ea26be0fa"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "num-complex",
  "num-traits",
  "paste",
@@ -8000,7 +8100,7 @@ dependencies = [
 name = "spl_network_messages"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "bincode",
  "bindgen 0.71.1",
  "color-eyre",
@@ -8045,6 +8145,38 @@ name = "std_prelude"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8207e78455ffdf55661170876f88daf85356e4edd54e0a3dbc79586ca1e50cbe"
+
+[[package]]
+name = "step_planning"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "nalgebra",
+ "num-dual",
+ "num-traits",
+ "proptest",
+ "types",
+]
+
+[[package]]
+name = "step_planning_solver"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "linear_algebra",
+ "nalgebra",
+ "num-dual",
+ "optimization_engine",
+ "step_planning",
+ "types",
+]
 
 [[package]]
 name = "strength_reduce"
@@ -8826,12 +8958,13 @@ dependencies = [
  "log",
  "mlua",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parameters",
  "projection",
  "repository",
  "serde",
  "serde_json",
+ "step_planning",
  "thiserror 2.0.12",
  "tokio",
  "toml",
@@ -8874,7 +9007,7 @@ checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
 name = "types"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "color-eyre",
  "coordinate_systems",
@@ -9102,7 +9235,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "vision"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "calibration",
  "color-eyre",
  "compiled-nn",

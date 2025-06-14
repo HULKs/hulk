@@ -50,7 +50,8 @@ pub fn execute(
     };
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
         head,
-        OrientationMode::Override(orientation),
+        OrientationMode::LookAt(relative_last_known_ball_position),
+        orientation,
         path,
         walk_speed,
     ))

@@ -1,7 +1,3 @@
-use approx::{AbsDiffEq, RelativeEq};
-use num_traits::Num;
-use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
-use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
     hash::{Hash, Hasher},
@@ -9,6 +5,12 @@ use std::{
     marker::PhantomData,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
+
+use approx::{AbsDiffEq, RelativeEq};
+use num_traits::Num;
+use serde::{Deserialize, Serialize};
+
+use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(Debug)]
 pub struct Framed<Frame, Inner> {

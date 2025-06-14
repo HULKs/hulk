@@ -1,18 +1,29 @@
+use std::time::{Duration, SystemTime};
+
 use color_eyre::{eyre::eyre, Result};
-use coordinate_systems::{Ground, UpcomingSupport};
-use geometry::direction::Rotate90Degrees;
+use geometry::{direction::Rotate90Degrees, look_at::LookAt};
+use nalgebra::DVector;
+use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
+use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{Isometry2, Orientation2, Pose2};
+use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
+use step_planning::{
+    geometry::{angle::Angle, pose::Pose},
+    traits::Project,
+};
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
-    planned_path::PathSegment,
+    parameters::StepPlanningOptimizationParameters,
+    planned_path::{Path, PathSegment},
     step::Step,
     support_foot::Side,
 };
 use walking_engine::mode::Mode;
+
+const VARIABLES_PER_STEP: usize = 3;
 
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
@@ -32,10 +43,14 @@ pub struct CycleContext {
     step_size_delta_fast: Parameter<Step, "step_planner.step_size_delta_fast">,
     max_step_size_backwards: Parameter<f32, "step_planner.max_step_size_backwards">,
     max_inside_turn: Parameter<f32, "step_planner.max_inside_turn">,
-    rotation_exponent: Parameter<f32, "step_planner.rotation_exponent">,
-    translation_exponent: Parameter<f32, "step_planner.translation_exponent">,
+    rotation_exponent:
+        Parameter<f32, "step_planner.optimization_parameters.walk_volume_rotation_exponent">,
+    translation_exponent:
+        Parameter<f32, "step_planner.optimization_parameters.walk_volume_translation_exponent">,
     initial_side_bonus: Parameter<f32, "step_planner.initial_side_bonus">,
     request_scale: Parameter<Step, "step_planner.request_scale">,
+    optimization_parameters:
+        Parameter<StepPlanningOptimizationParameters, "step_planner.optimization_parameters">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -44,6 +59,12 @@ pub struct CycleContext {
     ground_to_upcoming_support_out:
         AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
     max_step_size_output: AdditionalOutput<Step, "max_step_size">,
+    step_plan: AdditionalOutput<Vec<Step>, "step_plan">,
+    step_plan_greedy: AdditionalOutput<Vec<Step>, "step_plan_greedy">,
+    step_plan_gradient: AdditionalOutput<Vec<f32>, "step_plan_gradient">,
+    step_plan_cost: AdditionalOutput<f32, "step_plan_cost">,
+    current_support_side: AdditionalOutput<Option<Side>, "current_support_side">,
+    step_planning_duration: AdditionalOutput<Duration, "step_planning_duration">,
 }
 
 #[context]
@@ -60,87 +81,206 @@ impl StepPlanner {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let support_side = if let Mode::Walking(walking) = *context.walking_engine_mode {
-            Some(walking.step.plan.support_side)
-        } else {
-            None
-        };
-
-        let (max_turn_left, max_turn_right) = if let Some(support_side) = support_side {
-            if support_side == Side::Left {
-                (-*context.max_inside_turn, context.max_step_size.turn)
-            } else {
-                (-context.max_step_size.turn, *context.max_inside_turn)
-            }
-        } else {
-            (-context.max_step_size.turn, context.max_step_size.turn)
-        };
-
         context
             .ground_to_upcoming_support_out
             .fill_if_subscribed(|| *context.ground_to_upcoming_support);
 
-        let (path, orientation_mode, speed) = match context.motion_command {
-            MotionCommand::Walk {
-                path,
-                orientation_mode,
-                speed,
-                ..
-            } => (path, orientation_mode, speed),
-            _ => {
-                return Ok(MainOutputs {
-                    planned_step: Step::default().into(),
-                })
-            }
+        let MotionCommand::Walk {
+            path,
+            orientation_mode,
+            speed,
+            target_orientation,
+            ..
+        } = context.motion_command
+        else {
+            return Ok(MainOutputs {
+                planned_step: Step {
+                    forward: 0.0,
+                    left: 0.0,
+                    turn: 0.0,
+                }
+                .into(),
+            });
         };
 
-        let initial_side_bonus = if self.last_planned_step.forward.abs()
-            + self.last_planned_step.left.abs()
-            + self.last_planned_step.turn.abs()
-            <= f32::EPSILON
-        {
-            Step {
-                forward: 0.0,
-                left: *context.initial_side_bonus,
-                turn: 0.0,
-            }
+        let earlier = SystemTime::now();
+
+        let step = if let Some(injected_step) = context.injected_step {
+            *injected_step
         } else {
-            Step::default()
+            let step_plan_greedy = step_plan_greedy(
+                path,
+                &mut context,
+                *orientation_mode,
+                *target_orientation,
+                *speed,
+            )
+            .expect("greedy step planning failed");
+            context
+                .step_plan_greedy
+                .fill_if_subscribed(|| step_plan_greedy);
+
+            plan_step(path, &mut context, *orientation_mode, *target_orientation)?
         };
 
-        let max_step_size = match speed {
-            WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
-            WalkSpeed::Normal => *context.max_step_size + initial_side_bonus,
-            WalkSpeed::Fast => {
-                *context.max_step_size + *context.step_size_delta_fast + initial_side_bonus
-            }
-        };
+        let elapsed = SystemTime::now().duration_since(earlier).unwrap();
 
         context
-            .max_step_size_output
-            .fill_if_subscribed(|| max_step_size);
+            .step_planning_duration
+            .fill_if_subscribed(|| elapsed);
 
+        let next_support_side = context
+            .walking_engine_mode
+            .support_side()
+            .unwrap_or(Side::Left)
+            .opposite();
+
+        let step = Step {
+            forward: step.forward * context.request_scale.forward,
+            left: step.left * context.request_scale.left,
+            turn: step.turn * context.request_scale.turn,
+        };
+
+        let step = clamp_step_size(
+            self.last_planned_step,
+            &mut context,
+            next_support_side,
+            *speed,
+            step,
+        );
+
+        self.last_planned_step = step;
+
+        Ok(MainOutputs {
+            planned_step: step.into(),
+        })
+    }
+}
+
+fn clamp_step_size(
+    last_planned_step: Step,
+    context: &mut CycleContext,
+    support_side: Side,
+    speed: WalkSpeed,
+    step: Step,
+) -> Step {
+    // TODO rethink this with new step planning (maybe scale with exp(-last_planned_step.left) instead)
+    let initial_side_bonus = if last_planned_step.forward.abs()
+        + last_planned_step.left.abs()
+        + last_planned_step.turn.abs()
+        <= f32::EPSILON
+    {
+        Step {
+            forward: 0.0,
+            left: *context.initial_side_bonus,
+            turn: 0.0,
+        }
+    } else {
+        Step::default()
+    };
+
+    let max_step_size = match speed {
+        WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
+        WalkSpeed::Normal => *context.max_step_size + initial_side_bonus,
+        WalkSpeed::Fast => {
+            *context.max_step_size + *context.step_size_delta_fast + initial_side_bonus
+        }
+    };
+
+    context
+        .max_step_size_output
+        .fill_if_subscribed(|| max_step_size);
+
+    let (max_turn_left, max_turn_right) = if support_side == Side::Left {
+        (-*context.max_inside_turn, context.max_step_size.turn)
+    } else {
+        (-context.max_step_size.turn, *context.max_inside_turn)
+    };
+
+    clamp_step_to_walk_volume(
+        step,
+        &max_step_size,
+        *context.max_step_size_backwards,
+        *context.translation_exponent,
+        *context.rotation_exponent,
+        max_turn_left,
+        max_turn_right,
+    )
+}
+
+fn plan_step(
+    path: &[PathSegment],
+    context: &mut CycleContext,
+    orientation_mode: OrientationMode,
+    target_orientation: Orientation2<Ground>,
+) -> Result<Step> {
+    let num_variables = context.optimization_parameters.num_steps * VARIABLES_PER_STEP;
+
+    let current_support_side = context.walking_engine_mode.support_side();
+
+    context
+        .current_support_side
+        .fill_if_subscribed(|| current_support_side);
+
+    let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
+
+    let initial_guess = DVector::zeros(num_variables);
+
+    let (step_plan, gradient, cost) = step_planning_solver::plan_steps(
+        Path { segments: path },
+        orientation_mode,
+        target_orientation,
+        upcoming_support_pose_in_ground(context),
+        next_support_side,
+        initial_guess,
+        context.optimization_parameters,
+    )?;
+
+    let next_step = *step_plan.first().unwrap();
+
+    context.step_plan.fill_if_subscribed(|| step_plan);
+
+    context
+        .step_plan_gradient
+        .fill_if_subscribed(|| gradient.as_slice().to_vec());
+
+    context.step_plan_cost.fill_if_subscribed(|| cost);
+
+    Ok(next_step)
+}
+
+fn step_plan_greedy(
+    path: &[PathSegment],
+    context: &mut CycleContext,
+    orientation_mode: OrientationMode,
+    _target_orientation: Orientation2<Ground>,
+    speed: WalkSpeed,
+) -> Result<Vec<Step>> {
+    let mut pose = context.ground_to_upcoming_support.inverse().as_pose();
+    let mut steps = Vec::new();
+    let mut last_planned_step = Step::default();
+    let mut support_side = context
+        .walking_engine_mode
+        .support_side()
+        .unwrap_or(Side::Left)
+        .opposite();
+
+    for _ in 0..context.optimization_parameters.num_steps {
         let segment = path
             .iter()
-            .scan(0.0f32, |distance, segment| {
-                let result = if *distance < max_step_size.forward {
-                    Some(segment)
-                } else {
-                    None
-                };
-                *distance += segment.length();
-                result
+            .min_by_key(|segment| {
+                NotNan::new((segment.project(pose.position()) - pose.position()).norm_squared())
+                    .expect("path distance was NaN")
             })
-            .last()
             .ok_or_else(|| eyre!("empty path provided"))?;
 
         let target_pose = match segment {
             PathSegment::LineSegment(line_segment) => {
-                let direction = line_segment.1;
-                let rotation = if direction.coords().norm_squared() < f32::EPSILON {
+                let direction = line_segment.1 - pose.position();
+                let rotation = if direction.norm_squared() < f32::EPSILON {
                     Orientation2::identity()
                 } else {
-                    let normalized_direction = direction.coords().normalize();
+                    let normalized_direction = direction.normalize();
                     Orientation2::from_cos_sin_unchecked(
                         normalized_direction.x(),
                         normalized_direction.y(),
@@ -149,7 +289,8 @@ impl StepPlanner {
                 Pose2::from_parts(line_segment.1, rotation)
             }
             PathSegment::Arc(arc) => {
-                let start_point = arc.start_point();
+                // let start_point = arc.start_point();
+                let start_point = arc.project(pose.position());
                 let direction = (start_point - arc.circle.center).rotate_90_degrees(arc.direction);
                 Pose2::from_parts(
                     start_point + direction,
@@ -158,48 +299,44 @@ impl StepPlanner {
             }
         };
 
-        let step_target = *context.ground_to_upcoming_support * target_pose;
+        let step_target = pose.as_transform::<Ground>().inverse() * target_pose;
 
-        let mut step = Step {
+        let step = Step {
             forward: step_target.position().x(),
             left: step_target.position().y(),
             turn: match orientation_mode {
-                OrientationMode::AlignWithPath => step_target.orientation().angle(),
-                OrientationMode::Override(orientation) => {
-                    let ground_to_upcoming_support = context
-                        .ground_to_upcoming_support
-                        .orientation()
-                        .as_transform();
-                    (ground_to_upcoming_support * orientation).angle()
+                OrientationMode::Unspecified => step_target.orientation().angle(),
+                OrientationMode::LookTowards(orientation) => {
+                    (pose.orientation().as_transform::<Ground>().inverse() * orientation).angle()
                 }
+                OrientationMode::LookAt(target) => Point2::origin()
+                    .look_at(&(pose.as_transform::<Ground>().inverse() * target))
+                    .angle(),
             },
         };
 
-        step = Step {
-            forward: step.forward * context.request_scale.forward,
-            left: step.left * context.request_scale.left,
-            turn: step.turn * context.request_scale.turn,
-        };
+        let step = clamp_step_size(last_planned_step, context, support_side, speed, step);
 
-        if let Some(injected_step) = context.injected_step {
-            step = *injected_step;
-        }
+        let step_translation =
+            Isometry2::<Ground, Ground>::from_parts(vector![step.forward, step.left], 0.0);
+        let step_rotation = Isometry2::<Ground, Ground>::from_parts(vector![0.0, 0.0], step.turn);
 
-        let step = clamp_step_to_walk_volume(
-            step,
-            &max_step_size,
-            *context.max_step_size_backwards,
-            *context.translation_exponent,
-            *context.rotation_exponent,
-            max_turn_left,
-            max_turn_right,
-        );
+        pose = pose.as_transform() * step_rotation * step_translation.as_pose();
+        last_planned_step = step;
+        support_side = support_side.opposite();
 
-        self.last_planned_step = step;
+        steps.push(step);
+    }
 
-        Ok(MainOutputs {
-            planned_step: step.into(),
-        })
+    Ok(steps)
+}
+
+fn upcoming_support_pose_in_ground(context: &CycleContext) -> Pose<f32> {
+    let pose = context.ground_to_upcoming_support.inverse().as_pose();
+
+    Pose {
+        position: pose.position(),
+        orientation: Angle(pose.orientation().angle()),
     }
 }
 

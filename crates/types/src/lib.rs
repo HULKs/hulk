@@ -71,6 +71,7 @@ pub mod stand_up;
 pub mod step;
 pub mod support_foot;
 pub mod walk_command;
+pub mod walk_volume_extents;
 pub mod whistle;
 pub mod world_state;
 pub mod ycbcr422_image;

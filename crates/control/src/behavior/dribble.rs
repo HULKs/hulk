@@ -70,10 +70,12 @@ pub fn execute(
     match dribble_path_plan {
         Some(DribblePathPlan {
             orientation_mode,
+            target_orientation,
             path,
         }) => Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
             orientation_mode,
+            target_orientation,
             path,
             walk_speed,
         )),

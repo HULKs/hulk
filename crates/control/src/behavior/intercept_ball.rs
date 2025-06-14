@@ -1,7 +1,7 @@
 use coordinate_systems::{Field, Ground};
-use geometry::line::Line;
 use geometry::line_segment::LineSegment;
-use linear_algebra::{Isometry2, Orientation2, Point};
+use geometry::{line::Line, look_at::LookAt};
+use linear_algebra::{Isometry2, Point};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
@@ -79,6 +79,7 @@ pub fn execute(
                 interception_point,
             ))];
 
+            let target_orientation = interception_point.look_at(&ball.ball_in_ground);
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
@@ -88,8 +89,9 @@ pub fn execute(
                 path,
                 left_arm: types::motion_command::ArmMotion::Swing,
                 right_arm: types::motion_command::ArmMotion::Swing,
-                orientation_mode: OrientationMode::Override(Orientation2::identity()),
+                orientation_mode: OrientationMode::LookTowards(target_orientation),
                 speed: walk_speed,
+                target_orientation,
             })
         }
         _ => None,

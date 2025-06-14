@@ -380,12 +380,31 @@
       "turn": 0.2
     },
     "max_step_size_backwards": 0.02,
-    "translation_exponent": 1.5,
-    "rotation_exponent": 2.0,
     "request_scale": {
       "forward": 1.0,
       "left": 1.4,
       "turn": 1.0
+    },
+    "optimization_parameters": {
+      "optimizer_steps": 12,
+      "num_steps": 7,
+      "walk_volume_extents": {
+        "forward": 0.045,
+        "backward": 0.03,
+        "outward": 0.1,
+        "inward": 0.01,
+        "outward_rotation": 0.5,
+        "inward_rotation": 0.5
+      },
+      "path_progress_reward": 0.5,
+      "path_distance_penalty": 10.0,
+      "path_progress_smoothness": 0.05,
+      "target_orientation_penalty": 0.0,
+      "walk_orientation_penalty": 0.1,
+      "alignment_start_distance": 0.1,
+      "alignment_start_smoothness": 0.05,
+      "walk_volume_translation_exponent": 1.5,
+      "walk_volume_rotation_exponent": 2.0
     }
   },
   "zero_moment_point": {
