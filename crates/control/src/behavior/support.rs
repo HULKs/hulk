@@ -95,6 +95,9 @@ fn support_pose(
         (Some(FilteredGameState::Ready), Some(Some(SubState::PenaltyKick))) => {
             supporting_position.x().max(field_dimensions.length / 4.0)
         }
+        (Some(FilteredGameState::Playing { .. }), Some(Some(SubState::GoalKick))) => {
+            supporting_position.x().min(field_dimensions.length / 4.0)
+        }
         (Some(FilteredGameState::Ready), _)
         | (
             Some(FilteredGameState::Playing {
