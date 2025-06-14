@@ -672,8 +672,6 @@ impl egui_dock::TabViewer for TabViewer {
             Err((error, value)) => {
                 ui.label(format!("Error loading panel: {}", error));
                 ui.collapsing("JSON", |ui| {
-                    // ui.label(serde_json::to_string_pretty(value).unwrap())
-
                     let content = match serde_json::to_string_pretty(value) {
                         Ok(pretty_string) => pretty_string,
                         Err(error) => error.to_string(),
