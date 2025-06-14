@@ -7,13 +7,10 @@ use num_traits::Float;
 use linear_algebra::{Framed, IntoFramed};
 use types::step::Step;
 
-use crate::{
-    geometry::{
-        angle::Angle,
-        normalized_step::NormalizedStep,
-        pose::{Pose, PoseGradient},
-    },
-    step_plan::{PlannedStep, PlannedStepGradient},
+use crate::geometry::{
+    angle::Angle,
+    normalized_step::NormalizedStep,
+    pose::{Pose, PoseGradient},
 };
 
 pub trait WrapDual<Dual> {
@@ -214,19 +211,6 @@ where
     }
 }
 
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<PlannedStep<DualVec<T, F, D>>>
-    for PlannedStep<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> PlannedStep<DualVec<T, F, D>> {
-        PlannedStep {
-            pose: self.pose.wrap_dual(),
-            step: self.step.wrap_dual(),
-        }
-    }
-}
-
 impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<NormalizedStep<DualVec<T, F, D>>>
     for NormalizedStep<T>
 where
@@ -268,28 +252,6 @@ where
                 forward: d_forward,
                 left: d_left,
                 turn: d_turn,
-            },
-        )
-    }
-}
-
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<PlannedStep<T>, PlannedStepGradient<Derivative<T, F, D, U1>>>
-    for PlannedStep<DualVec<T, F, D>>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn unwrap_dual(self) -> (PlannedStep<T>, PlannedStepGradient<Derivative<T, F, D, U1>>) {
-        let Self { pose, step } = self;
-
-        let (pose, d_pose) = pose.unwrap_dual();
-        let (step, d_step) = step.unwrap_dual();
-
-        (
-            PlannedStep { pose, step },
-            PlannedStepGradient {
-                pose: d_pose,
-                step: d_step,
             },
         )
     }
