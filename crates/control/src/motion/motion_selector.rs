@@ -23,14 +23,14 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    stand_up_count: AdditionalOutput<u32, "stand_up_count">,
+    current_stand_up_count: AdditionalOutput<u32, "current_stand_up_count">,
+    stand_up_count: CyclerState<u32, "stand_up_count">,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
     pub motion_selection: MainOutput<MotionSelection>,
-    pub stand_up_count: MainOutput<u32>,
 }
 
 impl MotionSelector {
@@ -56,7 +56,7 @@ impl MotionSelector {
             stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
 
         context
-            .stand_up_count
+            .current_stand_up_count
             .fill_if_subscribed(|| self.stand_up_count);
 
         let dispatching_motion = if current_motion == MotionType::Dispatching {
@@ -69,6 +69,8 @@ impl MotionSelector {
             None
         };
 
+        *context.stand_up_count = self.stand_up_count;
+
         self.last_motion = current_motion;
         Ok(MainOutputs {
             motion_selection: MotionSelection {
@@ -76,7 +78,6 @@ impl MotionSelector {
                 dispatching_motion,
             }
             .into(),
-            stand_up_count: self.stand_up_count.into(),
         })
     }
 }

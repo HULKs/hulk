@@ -7,6 +7,8 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     ) {
         (FallState::Fallen { kind }, 0) => Some(MotionCommand::StandUp { kind }),
         (FallState::StandingUp { kind, .. }, 0) => Some(MotionCommand::StandUp { kind }),
+        (FallState::Fallen { .. }, 1) => Some(MotionCommand::Penalized),
+        (FallState::StandingUp { .. }, 1) => Some(MotionCommand::Penalized),
         _ => None,
     }
 }

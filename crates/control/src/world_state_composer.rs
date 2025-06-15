@@ -50,7 +50,7 @@ pub struct CycleContext {
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
     calibration_command: Input<Option<CalibrationCommand>, "calibration_command?">,
-    stand_up_count: Input<u32, "stand_up_count">,
+    stand_up_count: CyclerState<u32, "stand_up_count">,
 }
 
 #[context]
