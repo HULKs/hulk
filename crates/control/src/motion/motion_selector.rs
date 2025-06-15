@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     fall_state::Kind,
@@ -10,7 +10,8 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
-    current_motion: MotionType,
+    last_motion: MotionType,
+    stand_up_count: u32,
 }
 
 #[context]
@@ -22,6 +23,7 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
+    stand_up_count: AdditionalOutput<u32, "stand_up_count">,
 }
 
 #[context]
@@ -33,22 +35,30 @@ pub struct MainOutputs {
 impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            current_motion: MotionType::Unstiff,
+            last_motion: MotionType::Unstiff,
+            stand_up_count: 0,
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let motion_safe_to_exit = context.motion_safe_exits[self.current_motion];
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let motion_safe_to_exit = context.motion_safe_exits[self.last_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
 
-        self.current_motion = transition_motion(
-            self.current_motion,
+        let current_motion = transition_motion(
+            self.last_motion,
             requested_motion,
             motion_safe_to_exit,
             *context.has_ground_contact,
         );
 
-        let dispatching_motion = if self.current_motion == MotionType::Dispatching {
+        self.stand_up_count =
+            stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
+
+        context
+            .stand_up_count
+            .fill_if_subscribed(|| self.stand_up_count);
+
+        let dispatching_motion = if current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
                 Some(MotionType::SitDown)
             } else {
@@ -58,9 +68,10 @@ impl MotionSelector {
             None
         };
 
+        self.last_motion = current_motion;
         Ok(MainOutputs {
             motion_selection: MotionSelection {
-                current_motion: self.current_motion,
+                current_motion,
                 dispatching_motion,
             }
             .into(),
@@ -155,4 +166,20 @@ fn transition_motion(
         (from, true, to, _) if from != to => MotionType::Dispatching,
         _ => from,
     }
+}
+
+fn stand_up_counting(
+    last_motion: MotionType,
+    current_motion: MotionType,
+    stand_up_count: u32,
+) -> u32 {
+    if !last_motion.is_standup_motion() && current_motion.is_standup_motion() {
+        return stand_up_count + 1;
+    }
+
+    if current_motion.is_stable() {
+        return 0;
+    }
+
+    stand_up_count
 }
