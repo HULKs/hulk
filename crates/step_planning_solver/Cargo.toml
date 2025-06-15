@@ -15,3 +15,10 @@ num-dual.workspace = true
 optimization_engine.workspace = true
 step_planning.workspace = true
 types.workspace = true
+
+[dev-dependencies]
+criterion = { version = "0.5" }
+
+[[bench]]
+name = "mpc_step_planning"
+harness = false
