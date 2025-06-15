@@ -1,5 +1,5 @@
 use coordinate_systems::Screen;
-use eframe::egui::{pos2, Response, Ui};
+use eframe::egui::{pos2, PointerButton, Response, Ui};
 use linear_algebra::{point, IntoTransform, Transform};
 use nalgebra::{vector, Similarity2, Translation2};
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,9 @@ pub struct ZoomAndPanTransform {
 
 impl ZoomAndPanTransform {
     pub fn apply<Frame>(&mut self, ui: &Ui, painter: &mut TwixPainter<Frame>, response: &Response) {
-        if response.double_clicked() {
+        if response.double_clicked_by(PointerButton::Primary)
+            || response.double_clicked_by(PointerButton::Secondary)
+        {
             self.transformation = Similarity2::identity().framed_transform();
         }
 
