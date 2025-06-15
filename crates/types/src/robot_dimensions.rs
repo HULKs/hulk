@@ -1,4 +1,4 @@
-use linear_algebra::{point, vector, Isometry3, Point2, Point3, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point3, Vector3};
 
 use coordinate_systems::{
     Head, LeftFoot, LeftForearm, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, RightFoot,
@@ -65,18 +65,16 @@ impl RobotDimensions {
 
 pub fn transform_left_sole_outline<Frame>(
     transform: Isometry3<LeftSole, Frame>,
-) -> Vec<Point2<Frame>> {
+) -> impl Iterator<Item = Point3<Frame>> {
     RobotDimensions::LEFT_SOLE_OUTLINE
         .into_iter()
-        .map(|point| (transform * point).xy())
-        .collect::<Vec<_>>()
+        .map(move |point| transform * point)
 }
 
 pub fn transform_right_sole_outline<Frame>(
     transform: Isometry3<RightSole, Frame>,
-) -> Vec<Point2<Frame>> {
+) -> impl Iterator<Item = Point3<Frame>> {
     RobotDimensions::LEFT_SOLE_OUTLINE
         .into_iter()
-        .map(|point| (transform * point![point.x(), -point.y(), point.z()]).xy())
-        .collect::<Vec<_>>()
+        .map(move |point| transform * point![point.x(), -point.y(), point.z()])
 }

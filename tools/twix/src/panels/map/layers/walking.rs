@@ -266,6 +266,13 @@ fn paint_target_feet(
         stroke,
         support_side.opposite(),
     );
+
+    paint_sole_polygon(
+        painter,
+        robot_to_ground * walk_to_robot * end_swing_sole,
+        Stroke::new(stroke.width, Color32::PURPLE),
+        support_side.opposite(),
+    );
 }
 
 fn paint_sole_polygon(

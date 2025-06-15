@@ -273,38 +273,27 @@ fn is_outside_support_polygon(
     // the red swing foot
     let target_swing_sole = end_feet.swing_sole;
 
-    let (support_sole_outline, swing_sole_outline, target_swing_sole_outline) =
-        if support_side == Side::Left {
-            (
-                transform_left_sole_outline(current_feet.support_sole.as_transform()),
-                transform_right_sole_outline(current_feet.swing_sole.as_transform()),
-                transform_right_sole_outline(target_swing_sole.as_transform()),
-            )
-        } else {
-            (
-                transform_right_sole_outline(current_feet.support_sole.as_transform()),
-                transform_left_sole_outline(current_feet.swing_sole.as_transform()),
-                transform_left_sole_outline(target_swing_sole.as_transform()),
-            )
-        };
-
-    let feet_outlines = [
-        swing_sole_outline,
-        support_sole_outline,
-        target_swing_sole_outline,
-    ]
-    .concat();
+    let feet_outlines: Vec<_> = if support_side == Side::Left {
+        transform_left_sole_outline(current_feet.support_sole.as_transform())
+            .chain(transform_right_sole_outline(
+                current_feet.swing_sole.as_transform(),
+            ))
+            .chain(transform_right_sole_outline(
+                target_swing_sole.as_transform(),
+            ))
+            .map(|point| point.xy())
+            .collect()
+    } else {
+        transform_right_sole_outline(current_feet.support_sole.as_transform())
+            .chain(transform_left_sole_outline(
+                current_feet.swing_sole.as_transform(),
+            ))
+            .chain(transform_left_sole_outline(
+                target_swing_sole.as_transform(),
+            ))
+            .map(|point| point.xy())
+            .collect()
+    };
 
     !is_inside_convex_hull(&feet_outlines, &target)
-}
-
-fn should_change_support_side(context: &Context) -> bool {
-    let Some(robot_to_ground) = context.robot_to_ground else {
-        return true;
-    };
-    let ground_to_robot = robot_to_ground.inverse();
-    let robot_to_walk = context.robot_to_walk;
-    let target = robot_to_walk * ground_to_robot * context.zero_moment_point.extend(0.0);
-
-    target.x() < 0.0
 }

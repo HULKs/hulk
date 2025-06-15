@@ -42,6 +42,8 @@ use reachable_naos::ReachableNaos;
 use repository::{inspect_version::check_for_update, Repository};
 use visuals::Visuals;
 
+use crate::panels::WalkPanel;
+
 mod change_buffer;
 mod configuration;
 mod log_error;
@@ -133,19 +135,20 @@ fn main() -> Result<(), eframe::Error> {
 impl_selectable_panel!(
     BallCandidatePanel,
     BehaviorSimulatorPanel,
+    CameraCalibrationExportPanel,
+    EnumPlotPanel,
+    ImageColorSelectPanel,
     ImagePanel,
     ImageSegmentsPanel,
     LookAtPanel,
     ManualCalibrationPanel,
-    CameraCalibrationExportPanel,
     MapPanel,
     ParameterPanel,
     PlotPanel,
-    EnumPlotPanel,
     RemotePanel,
     TextPanel,
     VisionTunerPanel,
-    ImageColorSelectPanel,
+    WalkPanel,
 );
 
 struct TwixApp {

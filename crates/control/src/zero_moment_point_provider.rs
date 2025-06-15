@@ -83,11 +83,10 @@ impl ZeroMomentPointProvider {
         let right_sole_to_ground =
             *context.robot_to_ground * context.robot_kinematics.right_leg.sole_to_robot;
 
-        let soles_in_ground = [
-            transform_left_sole_outline(left_sole_to_ground),
-            transform_right_sole_outline(right_sole_to_ground),
-        ]
-        .concat();
+        let soles_in_ground = transform_left_sole_outline(left_sole_to_ground)
+            .chain(transform_right_sole_outline(right_sole_to_ground))
+            .map(|point| point.xy())
+            .collect::<Vec<_>>();
 
         let soles_in_ground_hull = reduce_to_convex_hull(&soles_in_ground, Range::Full);
 
