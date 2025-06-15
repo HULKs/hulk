@@ -9,8 +9,14 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         world_state.robot.fall_state,
         world_state.robot.stand_up_count,
     ) {
-        (FallState::Fallen { kind }, 0) => Some(MotionCommand::StandUp { kind }),
-        (FallState::StandingUp { kind, .. }, 0) => Some(MotionCommand::StandUp { kind }),
+        (FallState::Fallen { kind }, 0) => Some(MotionCommand::StandUp {
+            kind,
+            slow_speed: false,
+        }),
+        (FallState::StandingUp { kind, .. }, 0) => Some(MotionCommand::StandUp {
+            kind,
+            slow_speed: false,
+        }),
 
         (
             FallState::Fallen {
@@ -19,6 +25,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             1,
         ) => Some(MotionCommand::StandUp {
             kind: Kind::Sitting,
+            slow_speed: false,
         }),
         (
             FallState::StandingUp {
@@ -28,6 +35,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             1,
         ) => Some(MotionCommand::StandUp {
             kind: Kind::Sitting,
+            slow_speed: false,
         }),
 
         (
@@ -35,42 +43,60 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
                 kind: Kind::FacingDown,
             },
             1..,
-        ) => Some(MotionCommand::Penalized),
+        ) => Some(MotionCommand::StandUp {
+            kind: Kind::FacingDown,
+            slow_speed: true,
+        }),
         (
             FallState::StandingUp {
                 kind: Kind::FacingDown,
                 ..
             },
             1..,
-        ) => Some(MotionCommand::Penalized),
+        ) => Some(MotionCommand::StandUp {
+            kind: Kind::FacingDown,
+            slow_speed: true,
+        }),
 
         (
             FallState::Fallen {
                 kind: Kind::FacingUp,
             },
             1..,
-        ) => Some(MotionCommand::Penalized),
+        ) => Some(MotionCommand::StandUp {
+            kind: Kind::FacingUp,
+            slow_speed: true,
+        }),
         (
             FallState::StandingUp {
                 kind: Kind::FacingUp,
                 ..
             },
             1..,
-        ) => Some(MotionCommand::Penalized),
+        ) => Some(MotionCommand::StandUp {
+            kind: Kind::FacingUp,
+            slow_speed: true,
+        }),
 
         (
             FallState::Fallen {
                 kind: Kind::Sitting,
             },
             2..,
-        ) => Some(MotionCommand::Penalized),
+        ) => Some(MotionCommand::StandUp {
+            kind: Kind::Sitting,
+            slow_speed: true,
+        }),
         (
             FallState::StandingUp {
                 kind: Kind::Sitting,
                 ..
             },
             2..,
-        ) => Some(MotionCommand::Penalized),
+        ) => Some(MotionCommand::StandUp {
+            kind: Kind::Sitting,
+            slow_speed: true,
+        }),
         _ => None,
     }
 }

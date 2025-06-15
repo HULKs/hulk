@@ -80,6 +80,7 @@ pub enum MotionCommand {
     },
     StandUp {
         kind: Kind,
+        slow_speed: bool,
     },
     KeeperMotion {
         direction: JumpDirection,
