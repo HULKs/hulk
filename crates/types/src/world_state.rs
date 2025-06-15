@@ -104,4 +104,5 @@ pub struct RobotState {
     pub has_ground_contact: bool,
     pub player_number: PlayerNumber,
     pub ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
+    pub stand_up_count: u32,
 }

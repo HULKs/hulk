@@ -30,6 +30,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub motion_selection: MainOutput<MotionSelection>,
+    pub stand_up_count: MainOutput<u32>,
 }
 
 impl MotionSelector {
@@ -75,6 +76,7 @@ impl MotionSelector {
                 dispatching_motion,
             }
             .into(),
+            stand_up_count: self.stand_up_count.into(),
         })
     }
 }
