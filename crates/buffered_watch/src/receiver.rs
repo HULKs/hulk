@@ -21,7 +21,7 @@ impl<T> Receiver<T> {
     }
 
     /// Borrows the latest value
-    pub fn borrow(&mut self) -> ReceiverGuard<T> {
+    pub fn borrow(&'_ mut self) -> ReceiverGuard<'_, T> {
         let shared = self.shared.read();
         let index = {
             let states = &mut *shared.states.lock();
@@ -38,7 +38,7 @@ impl<T> Receiver<T> {
     }
 
     /// Borrows the latest value and marks the buffer as seen
-    pub fn borrow_and_mark_as_seen(&mut self) -> ReceiverGuard<T> {
+    pub fn borrow_and_mark_as_seen(&'_ mut self) -> ReceiverGuard<'_, T> {
         let shared = self.shared.read();
         let index = {
             let states = &mut *shared.states.lock();

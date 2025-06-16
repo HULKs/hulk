@@ -43,9 +43,8 @@ pub fn project_onto_limbs(position: Point2<Pixel>, projected_limbs: &[Limb]) -> 
 }
 
 pub fn is_above_limbs(position: Point2<Pixel>, projected_limbs: &[Limb]) -> bool {
-    project_onto_limbs(position, projected_limbs).map_or(true, |projected_position_y| {
-        position.y() < projected_position_y
-    })
+    project_onto_limbs(position, projected_limbs)
+        .is_none_or(|projected_position_y| position.y() < projected_position_y)
 }
 
 #[derive(
