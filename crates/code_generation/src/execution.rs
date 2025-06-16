@@ -516,7 +516,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStr
         } else {
             Default::default()
         };
-        let error_message = format!("failed to create cycler `{}`", instance);
+        let error_message = format!("failed to create cycler `{instance}`");
 
         quote! {
             #[allow(unused)]
@@ -567,7 +567,7 @@ fn generate_cycler_starts(cyclers: &Cyclers) -> TokenStream {
                 format_ident!("{}_cycler", instance.to_case(Case::Snake));
             let cycler_handle_identifier =
                 format_ident!("{}_handle", instance.to_case(Case::Snake));
-            let error_message = format!("failed to start cycler `{}`", instance);
+            let error_message = format!("failed to start cycler `{instance}`");
             quote! {
                 let #cycler_handle_identifier = #cycler_variable_identifier
                     .start(keep_running.clone())
@@ -644,7 +644,7 @@ fn generate_cycler_replays(cyclers: &Cyclers) -> TokenStream {
         .map(|(_cycler, instance)| {
             let cycler_variable_identifier =
                 format_ident!("{}_cycler", instance.to_case(Case::Snake));
-            let error_message = format!("failed to replay {} cycle", instance);
+            let error_message = format!("failed to replay {instance} cycle");
             quote! {
                 #instance => self.#cycler_variable_identifier.cycle(timestamp, data).wrap_err(#error_message),
             }

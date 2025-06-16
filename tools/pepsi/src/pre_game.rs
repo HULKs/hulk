@@ -202,7 +202,7 @@ async fn setup_nao(
 
     progress.set_message("Uploading: ...");
     nao.upload(upload_directory, "hulk", !arguments.no_clean, |status| {
-        progress.set_message(format!("Uploading: {}", status))
+        progress.set_message(format!("Uploading: {status}"))
     })
     .await
     .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;

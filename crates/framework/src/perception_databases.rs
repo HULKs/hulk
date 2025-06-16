@@ -38,7 +38,7 @@ where
         self.first_timestamp_of_temporary_databases
     }
 
-    pub fn persistent(&self) -> Range<SystemTime, Databases> {
+    pub fn persistent(&'_ self) -> Range<'_, SystemTime, Databases> {
         if let Some(first_timestamp_of_temporary_databases) =
             self.first_timestamp_of_temporary_databases
         {
@@ -49,7 +49,7 @@ where
         }
     }
 
-    pub fn temporary(&self) -> Range<SystemTime, Databases> {
+    pub fn temporary(&'_ self) -> Range<'_, SystemTime, Databases> {
         if let Some(first_timestamp_of_temporary_databases) =
             self.first_timestamp_of_temporary_databases
         {
