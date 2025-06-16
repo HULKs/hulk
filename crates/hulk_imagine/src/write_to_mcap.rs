@@ -61,7 +61,7 @@ where
 
             outputs.into_iter().try_for_each(|(topic, data)| {
                 mcap_converter.add_to_mcap(
-                    format!("{}.{}", cycler_name, topic),
+                    format!("{cycler_name}.{topic}"),
                     &data,
                     index as u32,
                     timing.timestamp,

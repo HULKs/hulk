@@ -172,7 +172,7 @@ impl FreeKickSignalFilter {
                 time: context.cycle_time.start_time,
                 detected_kicking_team: own_detected_kicking_team,
             });
-            if self.last_time_message_sent.as_ref().map_or(true, |time| {
+            if self.last_time_message_sent.as_ref().is_none_or(|time| {
                 now.duration_since(*time).expect("Time ran backwards") >= *context.message_interval
             }) && context.remaining_amount_of_messages.is_some_and(
                 |remaining_amount_of_messages| {

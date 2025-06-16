@@ -33,7 +33,7 @@ impl Widget for ClassSelector<'_> {
             .selected_text(format!("{:?}", self.currently_selected))
             .show_ui(ui, |ui| {
                 Class::list().into_iter().for_each(|class| {
-                    ui.selectable_value(self.currently_selected, class, format!("{:?}", class));
+                    ui.selectable_value(self.currently_selected, class, format!("{class:?}"));
                 });
             })
             .response

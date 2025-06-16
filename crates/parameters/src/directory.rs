@@ -133,7 +133,7 @@ where
         to_value(parameters).map_err(DirectoryError::ParametersNotConvertedToJsonValue)?;
     let stored_parameters = to_value(
         deserialize::<Parameters>(&parameters_root, hardware_ids, true).map_err(|error| {
-            println!("{:?}", error);
+            println!("{error:?}");
             error
         })?,
     )

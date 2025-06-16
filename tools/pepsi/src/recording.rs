@@ -28,6 +28,6 @@ where
 {
     let position = string
         .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", string))?;
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{string}`"))?;
     Ok((string[..position].parse()?, string[position + 1..].parse()?))
 }

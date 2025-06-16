@@ -18,7 +18,7 @@ pub trait ToWriterPretty {
 
 impl ToWriterPretty for String {
     fn to_writer_pretty(&self, writer: &mut impl Write) -> fmt::Result {
-        write!(writer, "{}", self)
+        write!(writer, "{self}")
     }
 }
 

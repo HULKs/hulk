@@ -68,7 +68,7 @@ impl Widget for &mut LookAtPanel {
             let current_motion_command = match self.motion_command_buffer.get_last_value() {
                 Ok(Some(value)) => {
                     status_text_job.append(
-                        format!("Current Motion: {:?}.", value).as_str(),
+                        format!("Current Motion: {value:?}.").as_str(),
                         0.0,
                         TextFormat {
                             font_id: FontId::monospace(14.0),
@@ -139,7 +139,7 @@ impl Widget for &mut LookAtPanel {
                 }
                 Err(error) => {
                     status_text_job.append(
-                        format!("Field dimensions are not available: {}", error).as_str(),
+                        format!("Field dimensions are not available: {error}").as_str(),
                         leading_space,
                         error_format,
                     );
