@@ -1,7 +1,7 @@
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{Orientation2, Point2};
+use linear_algebra::Orientation2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
@@ -68,7 +68,7 @@ where
     }
 }
 
-impl<Frame: Copy> Arc<Frame> {
+impl<Frame> Arc<Frame> {
     pub fn new(
         circle: Circle<Frame>,
         start: Orientation2<Frame>,
@@ -87,14 +87,6 @@ impl<Frame: Copy> Arc<Frame> {
         let angle = self.start.angle_to(self.end, self.direction);
 
         angle * self.circle.radius
-    }
-
-    pub fn start_point(&self) -> Point2<Frame> {
-        self.circle.point_at_angle(self.start)
-    }
-
-    pub fn end_point(&self) -> Point2<Frame> {
-        self.circle.point_at_angle(self.end)
     }
 }
 
