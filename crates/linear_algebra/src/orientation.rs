@@ -1,3 +1,13 @@
+//! Coordinate-safe orientations (unit complex/quaternion).
+//!
+//! # Example
+//! ```rust
+//! use linear_algebra::{vector, Orientation2, Vector2};
+//!
+//! struct A;
+//! let o = Orientation2::<A>::new(1.0);
+//! let v = o.as_unit_vector();
+//! ```
 use nalgebra::{Complex, RealField, SimdRealField};
 
 use crate::{vector, Framed, Rotation2, Rotation3, Vector2, Vector3};
@@ -66,6 +76,10 @@ where
 {
     pub fn new(axis_angle: Vector3<Frame, T>) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::new(axis_angle.inner))
+    }
+
+    pub fn identity() -> Self {
+        Self::wrap(nalgebra::UnitQuaternion::identity())
     }
 
     pub fn from_euler_angles(roll: T, pitch: T, yaw: T) -> Self {

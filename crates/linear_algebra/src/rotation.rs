@@ -1,3 +1,15 @@
+//! Coordinate-safe rotations (2D and 3D).
+//!
+//! # Example
+//! ```rust
+//! use linear_algebra::{vector, Rotation2, Vector2};
+//!
+//! struct A;
+//! struct B;
+//! let rot: Rotation2<A, B> = Rotation2::new(1.57);
+//! let v_a: Vector2<A> = vector![1.0, 0.0];
+//! let v_b: Vector2<B> = rot * v_a;
+//! ```
 use nalgebra::{RealField, SimdRealField};
 
 use crate::{Orientation2, Orientation3, Transform, Vector2, Vector3};

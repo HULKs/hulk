@@ -6,9 +6,16 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-approx = { workspace = true }
+approx = { workspace = true, optional = true }
 nalgebra = { workspace = true }
 num-traits = { workspace = true }
-path_serde = { workspace = true }
-serde = { workspace = true }
+path_serde = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 simba = { workspace = true }
+
+[features]
+serde = ["dep:serde"]
+path_serde = ["dep:path_serde"]
+approx = ["dep:approx"]
+
+full = ["serde", "path_serde", "approx"]

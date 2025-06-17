@@ -1,3 +1,14 @@
+//! Coordinate-safe poses (position + orientation).
+//!
+//! # Example
+//! ```rust
+//! use linear_algebra::{point, Orientation2, Point2, Pose2};
+//!
+//! struct Robot;
+//! let pose = Pose2::<Robot>::new(point![1.0, 2.0], 0.5);
+//! let position: Point2<Robot> = pose.position();
+//! let orientation: Orientation2<Robot> = pose.orientation();
+//! ```
 use nalgebra::SimdRealField;
 
 use crate::{Framed, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Point3};

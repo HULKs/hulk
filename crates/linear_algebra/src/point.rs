@@ -1,3 +1,13 @@
+//! Coordinate-safe points.
+//!
+//! # Example
+//! ```rust
+//! use linear_algebra::{point, Point2};
+//!
+//! struct A;
+//! let p: Point2<A> = point![1.0, 2.0];
+//! assert_eq!(p.x(), 1.0);
+//! ```
 use nalgebra::{ClosedAddAssign, ClosedMulAssign, ClosedSubAssign, Scalar, SimdComplexField};
 use num_traits::{One, Zero};
 use simba::scalar::SupersetOf;
@@ -50,7 +60,6 @@ where
 }
 
 // Any Dimension
-
 impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
     pub fn origin() -> Self
     where
@@ -91,7 +100,6 @@ impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
 }
 
 // 2 Dimension
-
 impl<Frame, T> Point2<Frame, T>
 where
     T: Scalar + Copy,
@@ -110,7 +118,6 @@ where
 }
 
 // 3 Dimension
-
 impl<Frame, T> Point3<Frame, T>
 where
     T: Scalar + Copy,
@@ -146,6 +153,7 @@ where
     T: Scalar,
 {
     fn from(value: nalgebra::SVector<T, DIMENSION>) -> Self {
-        Self::wrap(value.into())
+        let point = nalgebra::Point::<T, DIMENSION>::from(value);
+        Self::wrap(point)
     }
 }
