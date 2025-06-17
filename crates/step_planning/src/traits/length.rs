@@ -22,9 +22,9 @@ impl Length for PathSegment {
 
 impl<Frame> Length for LineSegment<Frame> {
     fn length(&self) -> f32 {
-        let Self(start, end) = self;
+        let &Self(start, end) = self;
 
-        (*end - *start).norm()
+        (end - start).norm()
     }
 }
 
