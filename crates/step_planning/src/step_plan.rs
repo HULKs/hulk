@@ -112,12 +112,11 @@ impl StepPlanning<'_> {
             self.target_orientation().grad(pose, progress, path_length)
                 * target_orientation_penalty;
 
-        walk_orientation_gradient
+        PoseGradient {
+            position: path_progress_gradient + path_distance_gradient,
+            orientation: 0.0,
+        } + walk_orientation_gradient
             + target_orientation_gradient
-            + PoseGradient {
-                position: path_distance_gradient + path_progress_gradient,
-                orientation: 0.0,
-            }
     }
 
     fn path_distance(&self) -> PathDistanceField<'_> {
