@@ -2,7 +2,7 @@ use std::{f32::consts::FRAC_PI_2, hint::black_box, time::Duration, vec::Vec};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
-use linear_algebra::{point, Orientation2, Point2, Pose2};
+use linear_algebra::{point, Orientation2, Point2};
 use nalgebra::DVector;
 use step_planning::geometry::{angle::Angle, pose::Pose};
 use types::{
@@ -14,7 +14,7 @@ use types::{
     walk_volume_extents::WalkVolumeExtents,
 };
 
-fn plan_steps(path: Path) -> Vec<Step> {
+fn plan_steps(path: &Path) -> Vec<Step> {
     const STEP_PLANNING_OPTIMIZATION_PARAMETERS: StepPlanningOptimizationParameters =
         StepPlanningOptimizationParameters {
             optimizer_steps: 20,
@@ -61,7 +61,7 @@ fn straight_line(c: &mut Criterion) {
         ))],
     };
 
-    c.bench_function("straight line", |b| b.iter(|| plan_steps(black_box(path))));
+    c.bench_function("straight line", |b| b.iter(|| plan_steps(black_box(&path))));
 }
 
 fn example_path(c: &mut Criterion) {
@@ -81,7 +81,7 @@ fn example_path(c: &mut Criterion) {
         ],
     };
 
-    c.bench_function("example path", |b| b.iter(|| plan_steps(black_box(path))));
+    c.bench_function("example path", |b| b.iter(|| plan_steps(black_box(&path))));
 }
 
 criterion_group! {
