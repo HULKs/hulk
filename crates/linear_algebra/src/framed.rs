@@ -1,8 +1,18 @@
-use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
-use serde::{Deserialize, Serialize};
+//! Tag any value with a coordinate frame.
+//!
+//! This is the core wrapper type for all coordinate-safe types in this crate.
+//!
+//! # Example
+//! ```rust
+//! use linear_algebra::{vector, Framed, Vector2};
+//!
+//! let v: nalgebra::Vector2<f32> = nalgebra::vector![1.0, 2.0];
+//!
+//! struct World;
+//! let x = Framed::<World, nalgebra::Vector2<f32>>::wrap(v);
+//! ```
+
 use std::{
-    collections::HashSet,
     hash::{Hash, Hasher},
     iter::Sum,
     marker::PhantomData,
@@ -13,348 +23,374 @@ use std::{
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
 // This guarantees that transmuting between `Framed<Frame, Inner>` and `Inner` is safe.
 #[repr(transparent)]
-pub struct Framed<Frame, Inner> {
+pub struct Framed<Frame, T> {
     frame: PhantomData<Frame>,
-    pub inner: Inner,
+    pub inner: T,
 }
 
-impl<Frame, Inner> Copy for Framed<Frame, Inner> where Inner: Copy {}
-
-impl<Frame, Inner> Framed<Frame, Inner> {
-    pub const fn wrap(inner: Inner) -> Self {
-        Self {
-            frame: PhantomData,
-            inner,
-        }
-    }
-}
-
-impl<Frame, Inner> Clone for Framed<Frame, Inner>
+impl<Frame, T> Clone for Framed<Frame, T>
 where
-    Inner: Clone,
+    T: Clone,
 {
     fn clone(&self) -> Self {
         Self::wrap(self.inner.clone())
     }
 }
 
-impl<Frame, Inner> Default for Framed<Frame, Inner>
+impl<Frame, T> Copy for Framed<Frame, T> where T: Copy {}
+
+impl<Frame, T> Default for Framed<Frame, T>
 where
-    Inner: Default,
+    T: Default,
 {
     fn default() -> Self {
-        Self::wrap(Inner::default())
+        Self::wrap(T::default())
     }
 }
 
-impl<Frame, SelfInner, RightInner> Add<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
+impl<Frame, T> PartialEq for Framed<Frame, T>
 where
-    SelfInner: Add<RightInner>,
-{
-    type Output = Framed<Frame, SelfInner::Output>;
-
-    fn add(self, right: Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(self.inner + right.inner)
-    }
-}
-
-impl<'lhs, Frame, SelfInner, RightInner> Add<Framed<Frame, RightInner>>
-    for &'lhs Framed<Frame, SelfInner>
-where
-    &'lhs SelfInner: Add<RightInner>,
-{
-    type Output = Framed<Frame, <&'lhs SelfInner as Add<RightInner>>::Output>;
-
-    fn add(self, right: Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(&self.inner + right.inner)
-    }
-}
-
-impl<'rhs, Frame, SelfInner, RightInner> Add<&'rhs Framed<Frame, RightInner>>
-    for Framed<Frame, SelfInner>
-where
-    SelfInner: Add<&'rhs RightInner>,
-{
-    type Output = Framed<Frame, <SelfInner as Add<&'rhs RightInner>>::Output>;
-
-    fn add(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(self.inner + &right.inner)
-    }
-}
-
-impl<'lhs, 'rhs, Frame, SelfInner, RightInner> Add<&'rhs Framed<Frame, RightInner>>
-    for &'lhs Framed<Frame, SelfInner>
-where
-    &'lhs SelfInner: Add<&'rhs RightInner>,
-{
-    type Output = Framed<Frame, <&'lhs SelfInner as Add<&'rhs RightInner>>::Output>;
-
-    fn add(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(&self.inner + &right.inner)
-    }
-}
-
-impl<Frame, SelfInner, RightInner> AddAssign<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
-where
-    SelfInner: AddAssign<RightInner>,
-{
-    fn add_assign(&mut self, rhs: Framed<Frame, RightInner>) {
-        self.inner += rhs.inner;
-    }
-}
-
-impl<'rhs, Frame, SelfInner, RightInner> AddAssign<&'rhs Framed<Frame, RightInner>>
-    for Framed<Frame, SelfInner>
-where
-    SelfInner: AddAssign<&'rhs RightInner>,
-{
-    fn add_assign(&mut self, right: &'rhs Framed<Frame, RightInner>) {
-        self.inner += &right.inner
-    }
-}
-
-impl<Frame, SelfInner, RightInner> Sub<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
-where
-    SelfInner: Sub<RightInner>,
-{
-    type Output = Framed<Frame, SelfInner::Output>;
-
-    fn sub(self, right: Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(self.inner - right.inner)
-    }
-}
-
-impl<'lhs, Frame, SelfInner, RightInner> Sub<Framed<Frame, RightInner>>
-    for &'lhs Framed<Frame, SelfInner>
-where
-    &'lhs SelfInner: Sub<RightInner>,
-{
-    type Output = Framed<Frame, <&'lhs SelfInner as Sub<RightInner>>::Output>;
-
-    fn sub(self, right: Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(&self.inner - right.inner)
-    }
-}
-
-impl<'rhs, Frame, SelfInner, RightInner> Sub<&'rhs Framed<Frame, RightInner>>
-    for Framed<Frame, SelfInner>
-where
-    SelfInner: Sub<&'rhs RightInner>,
-{
-    type Output = Framed<Frame, <SelfInner as Sub<&'rhs RightInner>>::Output>;
-
-    fn sub(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(self.inner - &right.inner)
-    }
-}
-
-impl<'lhs, 'rhs, Frame, SelfInner, RightInner> Sub<&'rhs Framed<Frame, RightInner>>
-    for &'lhs Framed<Frame, SelfInner>
-where
-    &'lhs SelfInner: Sub<&'rhs RightInner>,
-{
-    type Output = Framed<Frame, <&'lhs SelfInner as Sub<&'rhs RightInner>>::Output>;
-
-    fn sub(self, right: &'rhs Framed<Frame, RightInner>) -> Self::Output {
-        Self::Output::wrap(&self.inner - &right.inner)
-    }
-}
-
-impl<Frame, SelfInner, RightInner> SubAssign<Framed<Frame, RightInner>> for Framed<Frame, SelfInner>
-where
-    SelfInner: SubAssign<RightInner>,
-{
-    fn sub_assign(&mut self, rhs: Framed<Frame, RightInner>) {
-        self.inner -= rhs.inner;
-    }
-}
-
-impl<'rhs, Frame, SelfInner, RightInner> SubAssign<&'rhs Framed<Frame, RightInner>>
-    for Framed<Frame, SelfInner>
-where
-    SelfInner: SubAssign<&'rhs RightInner>,
-{
-    fn sub_assign(&mut self, right: &'rhs Framed<Frame, RightInner>) {
-        self.inner -= &right.inner
-    }
-}
-
-impl<Frame, Inner> Neg for Framed<Frame, Inner>
-where
-    Inner: Neg,
-{
-    type Output = Framed<Frame, Inner::Output>;
-
-    fn neg(self) -> Self::Output {
-        Framed::wrap(self.inner.neg())
-    }
-}
-
-impl<Frame, Inner, T> Mul<T> for Framed<Frame, Inner>
-where
-    Inner: Mul<T, Output = Inner>,
-{
-    type Output = Framed<Frame, Inner::Output>;
-
-    fn mul(self, rhs: T) -> Self::Output {
-        Self::wrap(self.inner * rhs)
-    }
-}
-
-impl<Frame, Inner, T> MulAssign<T> for Framed<Frame, Inner>
-where
-    Inner: MulAssign<T>,
-{
-    fn mul_assign(&mut self, rhs: T) {
-        self.inner *= rhs;
-    }
-}
-
-impl<Frame, Inner, T> Div<T> for Framed<Frame, Inner>
-where
-    Inner: Div<T, Output = Inner>,
-{
-    type Output = Framed<Frame, Inner::Output>;
-
-    fn div(self, rhs: T) -> Self::Output {
-        Self::wrap(self.inner / rhs)
-    }
-}
-
-impl<Frame, Inner, T> DivAssign<T> for Framed<Frame, Inner>
-where
-    Inner: DivAssign<T>,
-{
-    fn div_assign(&mut self, rhs: T) {
-        self.inner /= rhs;
-    }
-}
-
-impl<Frame, Inner> Serialize for Framed<Frame, Inner>
-where
-    Inner: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize(serializer)
-    }
-}
-
-impl<'a, Frame, Inner> Deserialize<'a> for Framed<Frame, Inner>
-where
-    Inner: Deserialize<'a>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'a>,
-    {
-        Ok(Self::wrap(Inner::deserialize(deserializer)?))
-    }
-}
-
-impl<Frame, Inner> PathSerialize for Framed<Frame, Inner>
-where
-    Inner: PathSerialize,
-{
-    fn serialize_path<S>(
-        &self,
-        path: &str,
-        serializer: S,
-    ) -> Result<S::Ok, serialize::Error<S::Error>>
-    where
-        S: serde::Serializer,
-    {
-        self.inner.serialize_path(path, serializer)
-    }
-}
-
-impl<Frame, Inner> PathDeserialize for Framed<Frame, Inner>
-where
-    Inner: PathDeserialize,
-{
-    fn deserialize_path<'de, D>(
-        &mut self,
-        path: &str,
-        deserializer: D,
-    ) -> Result<(), deserialize::Error<D::Error>>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        self.inner.deserialize_path(path, deserializer)
-    }
-}
-
-impl<Frame, Inner> PathIntrospect for Framed<Frame, Inner>
-where
-    Inner: PathIntrospect,
-{
-    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-        Inner::extend_with_fields(fields, prefix)
-    }
-}
-
-impl<Frame, Inner> RelativeEq for Framed<Frame, Inner>
-where
-    Framed<Frame, Inner>: PartialEq,
-    Inner: RelativeEq,
-{
-    fn default_max_relative() -> Self::Epsilon {
-        Inner::default_max_relative()
-    }
-
-    fn relative_eq(
-        &self,
-        other: &Self,
-        epsilon: Self::Epsilon,
-        max_relative: Self::Epsilon,
-    ) -> bool {
-        Inner::relative_eq(&self.inner, &other.inner, epsilon, max_relative)
-    }
-}
-
-impl<Frame, Inner> AbsDiffEq for Framed<Frame, Inner>
-where
-    Framed<Frame, Inner>: PartialEq,
-    Inner: AbsDiffEq,
-{
-    type Epsilon = Inner::Epsilon;
-
-    fn default_epsilon() -> Self::Epsilon {
-        Inner::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        Inner::abs_diff_eq(&self.inner, &other.inner, epsilon)
-    }
-}
-
-impl<Frame, Inner> PartialEq for Framed<Frame, Inner>
-where
-    Inner: PartialEq,
+    T: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<Frame, Inner> Eq for Framed<Frame, Inner> where Inner: Eq {}
+impl<Frame, T> Eq for Framed<Frame, T> where T: Eq {}
 
-impl<Frame, Inner> Hash for Framed<Frame, Inner>
+impl<Frame, T> Hash for Framed<Frame, T>
 where
-    Inner: Hash,
+    T: Hash,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.inner.hash(state);
     }
 }
 
-impl<Frame, Inner> Sum for Framed<Frame, Inner>
+impl<Frame, T> Framed<Frame, T> {
+    /// Wrap a value in its frame.
+    pub const fn wrap(inner: T) -> Self {
+        Framed {
+            frame: PhantomData,
+            inner,
+        }
+    }
+}
+
+// Add
+impl<Frame, T, U> Add<Framed<Frame, U>> for Framed<Frame, T>
 where
-    Inner: Sum,
+    T: Add<U>,
+{
+    type Output = Framed<Frame, T::Output>;
+
+    fn add(self, rhs: Framed<Frame, U>) -> Self::Output {
+        let inner = self.inner + rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<'lhs, Frame, T, U> Add<Framed<Frame, U>> for &'lhs Framed<Frame, T>
+where
+    &'lhs T: Add<U>,
+{
+    type Output = Framed<Frame, <&'lhs T as Add<U>>::Output>;
+
+    fn add(self, rhs: Framed<Frame, U>) -> Self::Output {
+        let inner = &self.inner + rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<'rhs, Frame, T, U> Add<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+where
+    T: Add<&'rhs U>,
+{
+    type Output = Framed<Frame, <T as Add<&'rhs U>>::Output>;
+
+    fn add(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+        let inner = self.inner + &rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<'lhs, 'rhs, Frame, T, U> Add<&'rhs Framed<Frame, U>> for &'lhs Framed<Frame, T>
+where
+    &'lhs T: Add<&'rhs U>,
+{
+    type Output = Framed<Frame, <&'lhs T as Add<&'rhs U>>::Output>;
+
+    fn add(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+        let inner = &self.inner + &rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<Frame, T, U> AddAssign<Framed<Frame, U>> for Framed<Frame, T>
+where
+    T: AddAssign<U>,
+{
+    fn add_assign(&mut self, rhs: Framed<Frame, U>) {
+        self.inner += rhs.inner;
+    }
+}
+
+impl<'rhs, Frame, T, U> AddAssign<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+where
+    T: AddAssign<&'rhs U>,
+{
+    fn add_assign(&mut self, rhs: &'rhs Framed<Frame, U>) {
+        self.inner += &rhs.inner;
+    }
+}
+
+// Sub
+impl<Frame, T, U> Sub<Framed<Frame, U>> for Framed<Frame, T>
+where
+    T: Sub<U>,
+{
+    type Output = Framed<Frame, T::Output>;
+
+    fn sub(self, rhs: Framed<Frame, U>) -> Self::Output {
+        let inner = self.inner - rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<'lhs, Frame, T, U> Sub<Framed<Frame, U>> for &'lhs Framed<Frame, T>
+where
+    &'lhs T: Sub<U>,
+{
+    type Output = Framed<Frame, <&'lhs T as Sub<U>>::Output>;
+
+    fn sub(self, rhs: Framed<Frame, U>) -> Self::Output {
+        let inner = &self.inner - rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<'rhs, Frame, T, U> Sub<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+where
+    T: Sub<&'rhs U>,
+{
+    type Output = Framed<Frame, <T as Sub<&'rhs U>>::Output>;
+
+    fn sub(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+        let inner = self.inner - &rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<'lhs, 'rhs, Frame, T, U> Sub<&'rhs Framed<Frame, U>> for &'lhs Framed<Frame, T>
+where
+    &'lhs T: Sub<&'rhs U>,
+{
+    type Output = Framed<Frame, <&'lhs T as Sub<&'rhs U>>::Output>;
+
+    fn sub(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+        let inner = &self.inner - &rhs.inner;
+        Self::Output::wrap(inner)
+    }
+}
+
+impl<Frame, T, U> SubAssign<Framed<Frame, U>> for Framed<Frame, T>
+where
+    T: SubAssign<U>,
+{
+    fn sub_assign(&mut self, rhs: Framed<Frame, U>) {
+        self.inner -= rhs.inner;
+    }
+}
+
+impl<'rhs, Frame, T, U> SubAssign<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+where
+    T: SubAssign<&'rhs U>,
+{
+    fn sub_assign(&mut self, rhs: &'rhs Framed<Frame, U>) {
+        self.inner -= &rhs.inner;
+    }
+}
+
+// Neg
+impl<Frame, T> Neg for Framed<Frame, T>
+where
+    T: Neg,
+{
+    type Output = Framed<Frame, T::Output>;
+
+    fn neg(self) -> Self::Output {
+        Framed::wrap(-self.inner)
+    }
+}
+
+// Mul
+impl<Frame, T, U> Mul<U> for Framed<Frame, T>
+where
+    T: Mul<U, Output = T>,
+{
+    type Output = Framed<Frame, T::Output>;
+
+    fn mul(self, rhs: U) -> Self::Output {
+        Self::wrap(self.inner * rhs)
+    }
+}
+
+impl<Frame, T, U> MulAssign<U> for Framed<Frame, T>
+where
+    T: MulAssign<U>,
+{
+    fn mul_assign(&mut self, rhs: U) {
+        self.inner *= rhs;
+    }
+}
+
+// Div
+impl<Frame, T, U> Div<U> for Framed<Frame, T>
+where
+    T: Div<U, Output = T>,
+{
+    type Output = Framed<Frame, T::Output>;
+
+    fn div(self, rhs: U) -> Self::Output {
+        Self::wrap(self.inner / rhs)
+    }
+}
+
+impl<Frame, T, U> DivAssign<U> for Framed<Frame, T>
+where
+    T: DivAssign<U>,
+{
+    fn div_assign(&mut self, rhs: U) {
+        self.inner /= rhs;
+    }
+}
+
+// Sum
+impl<Frame, T> Sum for Framed<Frame, T>
+where
+    T: Sum,
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self::wrap(iter.map(|framed| framed.inner).sum())
+        let inner_sum = iter.map(|framed| framed.inner).sum();
+        Self::wrap(inner_sum)
+    }
+}
+
+#[cfg(feature = "serde")]
+mod _serde {
+    use super::Framed;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    impl<Frame, T> Serialize for Framed<Frame, T>
+    where
+        T: Serialize,
+    {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.inner.serialize(serializer)
+        }
+    }
+
+    impl<'de, Frame, T> Deserialize<'de> for Framed<Frame, T>
+    where
+        T: Deserialize<'de>,
+    {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            Ok(Framed::wrap(T::deserialize(deserializer)?))
+        }
+    }
+}
+
+#[cfg(feature = "path_serde")]
+mod _path_serde {
+    use super::Framed;
+    use path_serde::{
+        deserialize::{self, PathDeserialize},
+        serialize::{self, PathSerialize},
+        PathIntrospect,
+    };
+    use std::collections::HashSet;
+
+    impl<Frame, T> PathSerialize for Framed<Frame, T>
+    where
+        T: PathSerialize,
+    {
+        fn serialize_path<S>(
+            &self,
+            path: &str,
+            serializer: S,
+        ) -> Result<S::Ok, serialize::Error<S::Error>>
+        where
+            S: serde::Serializer,
+        {
+            self.inner.serialize_path(path, serializer)
+        }
+    }
+
+    impl<Frame, T> PathDeserialize for Framed<Frame, T>
+    where
+        T: PathDeserialize,
+    {
+        fn deserialize_path<'de, D>(
+            &mut self,
+            path: &str,
+            deserializer: D,
+        ) -> Result<(), deserialize::Error<D::Error>>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            self.inner.deserialize_path(path, deserializer)
+        }
+    }
+
+    impl<Frame, T> PathIntrospect for Framed<Frame, T>
+    where
+        T: PathIntrospect,
+    {
+        fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+            T::extend_with_fields(fields, prefix)
+        }
+    }
+}
+
+#[cfg(feature = "approx")]
+mod _approx {
+    use super::Framed;
+    use approx::{AbsDiffEq, RelativeEq};
+
+    impl<Frame, T> AbsDiffEq for Framed<Frame, T>
+    where
+        T: AbsDiffEq,
+        Framed<Frame, T>: PartialEq,
+    {
+        type Epsilon = T::Epsilon;
+
+        fn default_epsilon() -> Self::Epsilon {
+            T::default_epsilon()
+        }
+
+        fn abs_diff_eq(&self, other: &Self, eps: Self::Epsilon) -> bool {
+            self.inner.abs_diff_eq(&other.inner, eps)
+        }
+    }
+
+    impl<Frame, T> RelativeEq for Framed<Frame, T>
+    where
+        T: RelativeEq,
+        Framed<Frame, T>: PartialEq,
+    {
+        fn default_max_relative() -> Self::Epsilon {
+            T::default_max_relative()
+        }
+
+        fn relative_eq(&self, other: &Self, eps: Self::Epsilon, max: Self::Epsilon) -> bool {
+            self.inner.relative_eq(&other.inner, eps, max)
+        }
     }
 }
