@@ -1,4 +1,4 @@
-use geometry::{arc::Arc, direction::AngleTo, line_segment::LineSegment};
+use geometry::{arc::Arc, line_segment::LineSegment};
 use types::planned_path::{Path, PathSegment};
 
 pub trait Length {
@@ -30,8 +30,6 @@ impl<Frame> Length for LineSegment<Frame> {
 
 impl<Frame> Length for Arc<Frame> {
     fn length(&self) -> f32 {
-        let angle_start_to_end = self.start.angle_to(self.end, self.direction);
-
-        self.circle.radius * angle_start_to_end
+        Arc::length(self)
     }
 }
