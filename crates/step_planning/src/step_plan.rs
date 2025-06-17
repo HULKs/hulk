@@ -140,7 +140,6 @@ impl StepPlanning<'_> {
     fn target_orientation(&self) -> TargetOrientationField {
         TargetOrientationField {
             target_orientation: Angle(self.target_orientation.angle()),
-            path: self.path,
             alignment_start_distance: self.parameters.alignment_start_distance,
             ramp_width: self.parameters.alignment_start_smoothness,
         }
