@@ -3,7 +3,6 @@ use types::planned_path::Path;
 
 use crate::{
     geometry::{angle::Angle, pose::Pose, pose::PoseGradient},
-    traits::{Length, PathProgress},
     utils::{angle_penalty, angle_penalty_derivative},
 };
 
@@ -15,20 +14,14 @@ pub struct TargetOrientationField<'a> {
 }
 
 impl TargetOrientationField<'_> {
-    pub fn cost(&self, pose: Pose<f32>) -> f32 {
-        let progress = self.path.progress(pose.position);
-        let path_length = self.path.length();
-
+    pub fn cost(&self, pose: Pose<f32>, progress: f32, path_length: f32) -> f32 {
         let distance_to_target = path_length - progress;
 
         angle_penalty(pose.orientation, self.target_orientation)
             * self.importance(distance_to_target)
     }
 
-    pub fn grad(&self, pose: Pose<f32>) -> PoseGradient<f32> {
-        let progress = self.path.progress(pose.position);
-        let path_length = self.path.length();
-
+    pub fn grad(&self, pose: Pose<f32>, progress: f32, path_length: f32) -> PoseGradient<f32> {
         let distance_to_target = path_length - progress;
 
         PoseGradient {
@@ -63,6 +56,7 @@ mod tests {
         cost_fields::target_orientation::TargetOrientationField,
         geometry::{angle::Angle, pose::Pose},
         test_utils::test_path,
+        traits::{Length, PathProgress},
     };
 
     proptest!(
@@ -84,8 +78,18 @@ mod tests {
             };
 
             crate::test_utils::verify_gradient::verify_gradient(
-                &|p| cost_field.cost(p),
-                &|p| cost_field.grad(p),
+                &|p: Pose<f32>| {
+                    let progress = cost_field.path.progress(p.position);
+                    let path_length = cost_field.path.length();
+
+                    cost_field.cost(p, progress, path_length)
+                },
+                &|p| {
+                    let progress = cost_field.path.progress(p.position);
+                    let path_length = cost_field.path.length();
+
+                    cost_field.grad(p, progress, path_length)
+                },
                 0.05,
                 pose,
             )

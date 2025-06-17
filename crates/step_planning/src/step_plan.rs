@@ -18,6 +18,7 @@ use crate::{
         normalized_step::NormalizedStep,
         pose::{Pose, PoseGradient},
     },
+    traits::{Length, PathProgress},
 };
 
 pub struct StepPlan<'a, T>(&'a [T]);
@@ -74,12 +75,16 @@ impl StepPlanning<'_> {
             ..
         } = *self.parameters;
 
-        let path_progress_cost = self.path_progress().cost(pose.position) * path_progress_reward;
+        let progress = self.path.progress(pose.position);
+        let path_length = self.path.length();
+
+        let path_progress_cost =
+            self.path_progress().cost(progress, path_length) * path_progress_reward;
         let path_distance_cost = self.path_distance().cost(pose.position) * path_distance_penalty;
         let walk_orientation_cost =
             self.walk_orientation().cost(pose.clone()) * walk_orientation_penalty;
-        let target_orientation_cost =
-            self.target_orientation().cost(pose) * target_orientation_penalty;
+        let target_orientation_cost = self.target_orientation().cost(pose, progress, path_length)
+            * target_orientation_penalty;
 
         path_progress_cost + path_distance_cost + walk_orientation_cost + target_orientation_cost
     }
@@ -93,14 +98,19 @@ impl StepPlanning<'_> {
             ..
         } = *self.parameters;
 
+        let progress = self.path.progress(pose.position);
+        let forward = self.path.forward(pose.position);
+        let path_length = self.path.length();
+
         let path_progress_gradient =
-            self.path_progress().grad(pose.position) * path_progress_reward;
+            self.path_progress().grad(progress, forward, path_length) * path_progress_reward;
         let path_distance_gradient =
             self.path_distance().grad(pose.position) * path_distance_penalty;
         let walk_orientation_gradient =
             self.walk_orientation().grad(pose.clone()) * walk_orientation_penalty;
         let target_orientation_gradient =
-            self.target_orientation().grad(pose) * target_orientation_penalty;
+            self.target_orientation().grad(pose, progress, path_length)
+                * target_orientation_penalty;
 
         walk_orientation_gradient
             + target_orientation_gradient
