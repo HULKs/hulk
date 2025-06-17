@@ -2,7 +2,7 @@ use std::{f32::consts::FRAC_PI_2, hint::black_box, time::Duration, vec::Vec};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
-use linear_algebra::{point, Orientation2, Point2, Pose2};
+use linear_algebra::{point, Orientation2, Point2};
 use nalgebra::DVector;
 use step_planning::geometry::{angle::Angle, pose::Pose};
 use types::{
