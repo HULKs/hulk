@@ -1,3 +1,15 @@
+//! Coordinate-safe isometries (rigid transforms).
+//!
+//! # Example
+//! ```rust
+//! use linear_algebra::{point, vector, Isometry2, Point2, Vector2};
+//!
+//! struct A;
+//! struct B;
+//! let iso: Isometry2<A, B> = Isometry2::from_parts(vector![1.0, 2.0], 0.5);
+//! let p_a: Point2<A> = point![3.0, 4.0];
+//! let p_b: Point2<B> = iso * p_a;
+//! ```
 use nalgebra::{AbstractRotation, SimdRealField};
 
 use crate::{

@@ -1,3 +1,13 @@
+//! Coordinate-safe vectors.
+//!
+//! # Example
+//! ```rust
+//! use linear_algebra::{vector, Vector2};
+//!
+//! struct Robot;
+//! let v: Vector2<Robot> = vector![1.0, 2.0];
+//! assert_eq!(v.x(), 1.0);
+//! ```
 use nalgebra::{ClosedAddAssign, ClosedMulAssign, ComplexField, SVector, Scalar, SimdComplexField};
 use num_traits::{One, Signed, Zero};
 
@@ -16,7 +26,6 @@ macro_rules! vector {
 }
 
 // Any dimension
-
 impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
     pub fn zeros() -> Self
     where
@@ -104,7 +113,6 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
 }
 
 // 2 Dimension
-
 impl<Frame, T> Framed<Frame, SVector<T, 2>>
 where
     T: Scalar + Zero + One + Copy,
@@ -127,7 +135,6 @@ where
 }
 
 // 3 Dimension
-
 impl<Frame, T> Framed<Frame, SVector<T, 3>>
 where
     T: Scalar + Zero + One + Copy,
