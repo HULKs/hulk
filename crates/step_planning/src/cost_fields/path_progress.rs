@@ -1,15 +1,13 @@
 use coordinate_systems::Ground;
 use linear_algebra::Vector2;
-use types::planned_path::Path;
 
 use crate::utils::{smoothmin, smoothmin_derivative};
 
-pub struct PathProgressField<'a> {
-    pub path: Path<'a>,
+pub struct PathProgressField {
     pub smoothness: f32,
 }
 
-impl PathProgressField<'_> {
+impl PathProgressField {
     pub fn cost(&self, progress: f32, path_length: f32) -> f32 {
         let clamped_progress = smoothmin(progress, path_length, self.smoothness);
 
@@ -46,18 +44,16 @@ mod tests {
 
     #[test]
     fn test_path_progress() {
-        let cost_field = PathProgressField {
-            path: Path {
-                segments: &test_path(),
-            },
-            smoothness: 1.0,
+        let cost_field = PathProgressField { smoothness: 1.0 };
+        let path = Path {
+            segments: &test_path(),
         };
-        let path_length = cost_field.path.length();
+        let path_length = path.length();
 
         // Start
         let sample_point_1 = point![0.0, 0.0];
-        let progress = cost_field.path.progress(sample_point_1);
-        let forward = cost_field.path.forward(sample_point_1);
+        let progress = path.progress(sample_point_1);
+        let forward = path.forward(sample_point_1);
         let cost_1 = cost_field.cost(progress, path_length);
         let grad_1 = cost_field.grad(progress, forward, path_length);
 
@@ -65,8 +61,8 @@ mod tests {
 
         // Before start
         let sample_point_2 = point![-1.0, 0.0];
-        let progress = cost_field.path.progress(sample_point_2);
-        let forward = cost_field.path.forward(sample_point_2);
+        let progress = path.progress(sample_point_2);
+        let forward = path.forward(sample_point_2);
         let cost_2 = cost_field.cost(progress, path_length);
         let grad_2 = cost_field.grad(progress, forward, path_length);
 
@@ -75,8 +71,8 @@ mod tests {
 
         // End of first line segment, start of arc
         let sample_point_3 = point![3.0, 0.0];
-        let progress = cost_field.path.progress(sample_point_3);
-        let forward = cost_field.path.forward(sample_point_3);
+        let progress = path.progress(sample_point_3);
+        let forward = path.forward(sample_point_3);
         let cost_3 = cost_field.cost(progress, path_length);
         let grad_3 = cost_field.grad(progress, forward, path_length);
 
@@ -85,8 +81,8 @@ mod tests {
 
         // Below start of arc
         let sample_point_4 = point![3.0, -1.0];
-        let progress = cost_field.path.progress(sample_point_4);
-        let forward = cost_field.path.forward(sample_point_4);
+        let progress = path.progress(sample_point_4);
+        let forward = path.forward(sample_point_4);
         let cost_4 = cost_field.cost(progress, path_length);
         let grad_4 = cost_field.grad(progress, forward, path_length);
 
@@ -95,8 +91,8 @@ mod tests {
 
         // End of arc
         let sample_point_5 = point![4.0, 1.0];
-        let progress = cost_field.path.progress(sample_point_5);
-        let forward = cost_field.path.forward(sample_point_5);
+        let progress = path.progress(sample_point_5);
+        let forward = path.forward(sample_point_5);
         let cost_5 = cost_field.cost(progress, path_length);
         let grad_5 = cost_field.grad(progress, forward, path_length);
 
@@ -105,8 +101,8 @@ mod tests {
 
         // End
         let sample_point_6 = point![4.0, 4.0];
-        let progress = cost_field.path.progress(sample_point_6);
-        let forward = cost_field.path.forward(sample_point_6);
+        let progress = path.progress(sample_point_6);
+        let forward = path.forward(sample_point_6);
         let cost_6 = cost_field.cost(progress, path_length);
         let grad_6 = cost_field.grad(progress, forward, path_length);
 
@@ -115,8 +111,8 @@ mod tests {
 
         // Outside of arc
         let sample_point_7 = point![4.0, 0.0];
-        let progress = cost_field.path.progress(sample_point_7);
-        let forward = cost_field.path.forward(sample_point_7);
+        let progress = path.progress(sample_point_7);
+        let forward = path.forward(sample_point_7);
         let cost_7 = cost_field.cost(progress, path_length);
         let grad_7 = cost_field.grad(progress, forward, path_length);
 
@@ -128,24 +124,24 @@ mod tests {
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
             let cost_field = PathProgressField {
-                path: Path {
-                    segments: &test_path(),
-                },
                 smoothness: 0.5,
+            };
+            let path = Path {
+                segments: &test_path(),
             };
 
             let point = point![x, y];
 
             crate::test_utils::verify_gradient::verify_gradient(
                 &|p| {
-                    let progress = cost_field.path.progress(p);
-                    let path_length = cost_field.path.length();
+                    let progress = path.progress(p);
+                    let path_length = path.length();
                     cost_field.cost(progress, path_length)
                 },
                 &|p| {
-                    let progress = cost_field.path.progress(p);
-                    let forward = cost_field.path.forward(p);
-                    let path_length = cost_field.path.length();
+                    let progress = path.progress(p);
+                    let forward = path.forward(p);
+                    let path_length = path.length();
 
                     cost_field.grad(progress, forward, path_length)
                 },
