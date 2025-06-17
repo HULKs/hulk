@@ -124,9 +124,8 @@ impl StepPlanning<'_> {
         PathDistanceField { path: self.path }
     }
 
-    fn path_progress(&self) -> PathProgressField<'_> {
+    fn path_progress(&self) -> PathProgressField {
         PathProgressField {
-            path: self.path,
             smoothness: self.parameters.path_progress_smoothness,
         }
     }
