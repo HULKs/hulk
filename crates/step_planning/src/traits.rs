@@ -1,4 +1,5 @@
 mod classify_projection;
+mod end_points;
 mod length;
 mod path_progress;
 mod project;
