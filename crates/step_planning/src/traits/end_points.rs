@@ -1,7 +1,7 @@
 use coordinate_systems::Ground;
 use geometry::{arc::Arc, line_segment::LineSegment};
 use linear_algebra::Point2;
-use types::planned_path::PathSegment;
+use types::planned_path::{Path, PathSegment};
 
 pub trait EndPoints<Frame> {
     fn start_point(&self) -> Point2<Frame>;
@@ -41,5 +41,15 @@ impl EndPoints<Ground> for PathSegment {
             PathSegment::LineSegment(line_segment) => line_segment.end_point(),
             PathSegment::Arc(arc) => arc.end_point(),
         }
+    }
+}
+
+impl EndPoints<Ground> for Path {
+    fn start_point(&self) -> Point2<Ground> {
+        self.segments.first().expect("path was empty").start_point()
+    }
+
+    fn end_point(&self) -> Point2<Ground> {
+        self.segments.last().expect("path was empty").end_point()
     }
 }
