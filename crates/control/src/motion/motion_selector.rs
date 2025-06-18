@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    fall_state::Kind,
+    fall_state::{Kind, StandUpSpeed},
     motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
@@ -98,7 +98,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Stand { .. } => MotionType::Stand,
         MotionCommand::StandUp {
             kind,
-            slow_speed: false,
+            speed: StandUpSpeed::Fast,
         } => match kind {
             Kind::FacingDown => MotionType::StandUpFront,
             Kind::FacingUp => MotionType::StandUpBack,
@@ -106,7 +106,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         },
         MotionCommand::StandUp {
             kind,
-            slow_speed: true,
+            speed: StandUpSpeed::Slow,
         } => match kind {
             Kind::FacingDown => MotionType::StandUpFrontSlow,
             Kind::FacingUp => MotionType::StandUpBack,
