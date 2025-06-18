@@ -1,13 +1,3 @@
-//! Coordinate-safe vectors.
-//!
-//! # Example
-//! ```rust
-//! use linear_algebra::{vector, Vector2};
-//!
-//! struct Robot;
-//! let v: Vector2<Robot> = vector![1.0, 2.0];
-//! assert_eq!(v.x(), 1.0);
-//! ```
 use nalgebra::{ClosedAddAssign, ClosedMulAssign, ComplexField, SVector, Scalar, SimdComplexField};
 use num_traits::{One, Signed, Zero};
 
@@ -18,6 +8,17 @@ pub type Vector<Frame, const DIMENSION: usize, Scalar = f32> =
 pub type Vector2<Frame, Scalar = f32> = Vector<Frame, 2, Scalar>;
 pub type Vector3<Frame, Scalar = f32> = Vector<Frame, 3, Scalar>;
 
+/// Construct a coordinate-safe vector with a frame.
+///
+/// This macro works like [`nalgebra::vector!`], but wraps the result with a frame.
+///
+/// # Example
+/// ```rust
+/// use linear_algebra::{vector, Vector2};
+///
+/// struct World;
+/// let v: Vector2<World> = vector![1.0, 2.0];
+/// ```
 #[macro_export]
 macro_rules! vector {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {
