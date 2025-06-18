@@ -1,15 +1,3 @@
-//! Coordinate-safe isometries (rigid transforms).
-//!
-//! # Example
-//! ```rust
-//! use linear_algebra::{point, vector, Isometry2, Point2, Vector2};
-//!
-//! struct A;
-//! struct B;
-//! let iso: Isometry2<A, B> = Isometry2::from_parts(vector![1.0, 2.0], 0.5);
-//! let p_a: Point2<A> = point![3.0, 4.0];
-//! let p_b: Point2<B> = iso * p_a;
-//! ```
 use nalgebra::{AbstractRotation, SimdRealField};
 
 use crate::{
@@ -58,6 +46,17 @@ where
         Self::wrap(nalgebra::Isometry2::rotation(angle))
     }
 
+    /// Converts this isometry (transform) into a pose in the destination frame.
+    ///
+    /// # Example
+    /// ```
+    /// use linear_algebra::{vector, Isometry2, Pose2};
+    ///
+    /// struct Robot;
+    /// struct Ground;
+    /// let robot_to_ground: Isometry2<Robot, Ground> = Isometry2::from_parts(vector![1.0, 2.0], 0.5);
+    /// let robot: Pose2<Ground> = robot_to_ground.as_pose();
+    /// ```
     pub fn as_pose(&self) -> Pose2<To, T> {
         Pose2::wrap(self.inner)
     }
@@ -109,6 +108,18 @@ where
         Self::wrap(nalgebra::Isometry3::translation(x, y, z))
     }
 
+    /// Converts this isometry (transform) into a pose in the destination frame.
+    ///
+    /// # Example
+    /// ```
+    /// use linear_algebra::{vector, Isometry3, Orientation3, Pose3};
+    ///
+    /// struct Robot;
+    /// struct Ground;
+    /// let robot_to_ground: Isometry3<Robot, Ground> =
+    ///     Isometry3::from_parts(vector![1.0, 2.0, 3.0], Orientation3::identity());
+    /// let robot: Pose3<Ground> = robot_to_ground.as_pose();
+    /// ```
     pub fn as_pose(&self) -> Pose3<To, T> {
         Pose3::wrap(self.inner)
     }

@@ -12,7 +12,7 @@
 //!
 //! - Enforces coordinate system correctness at compile time using Rust's type system.
 //! - Separates Vectors from Points, Isometries from Poses, etc.
-//! - Wraps commonly used parts of the `nalgebra` API to provide coordinate-safe abstractions.
+//! - Wraps commonly used parts of the [`nalgebra`] API to provide coordinate-safe abstractions.
 //! - Supports 2D and 3D geometry with extensible coordinate system tagging.
 //! - Provides clear and explicit geometric transformations.
 //!
@@ -39,8 +39,9 @@
 //!
 //! ## Philosophy
 //!
-//! This crate is a thin, zero-cost wrapper around [`nalgebra`], adding type-level tags for coordinate systems.
-//! It does not reimplement linear algebra, but provides a safer API for geometric programming.
+//! This crate is a thin, zero-cost wrapper around [`nalgebra`], adding type-level tags for
+//! coordinate systems. It does not reimplement linear algebra, but provides a safer API for
+//! geometric programming.
 //!
 //! [`nalgebra`]: https://docs.rs/nalgebra
 

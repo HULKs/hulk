@@ -1,17 +1,3 @@
-//! Tag any value with a coordinate frame.
-//!
-//! This is the core wrapper type for all coordinate-safe types in this crate.
-//!
-//! # Example
-//! ```rust
-//! use linear_algebra::{vector, Framed, Vector2};
-//!
-//! let v: nalgebra::Vector2<f32> = nalgebra::vector![1.0, 2.0];
-//!
-//! struct World;
-//! let x = Framed::<World, nalgebra::Vector2<f32>>::wrap(v);
-//! ```
-
 use std::{
     hash::{Hash, Hasher},
     iter::Sum,
@@ -19,6 +5,19 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+/// Tag any value with a coordinate frame.
+///
+/// This is the core wrapper type for all coordinate-safe types in this crate.
+///
+/// # Example
+/// ```rust
+/// use linear_algebra::{vector, Framed, Vector2};
+///
+/// let v: nalgebra::Vector2<f32> = nalgebra::vector![1.0, 2.0];
+///
+/// struct World;
+/// let x = Framed::<World, nalgebra::Vector2<f32>>::wrap(v);
+/// ```
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
 // This guarantees that transmuting between `Framed<Frame, Inner>` and `Inner` is safe.

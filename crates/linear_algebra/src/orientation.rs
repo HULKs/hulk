@@ -1,13 +1,3 @@
-//! Coordinate-safe orientations (unit complex/quaternion).
-//!
-//! # Example
-//! ```rust
-//! use linear_algebra::{vector, Orientation2, Vector2};
-//!
-//! struct A;
-//! let o = Orientation2::<A>::new(1.0);
-//! let v = o.as_unit_vector();
-//! ```
 use nalgebra::{Complex, RealField, SimdRealField};
 
 use crate::{vector, Framed, Rotation2, Rotation3, Vector2, Vector3};
@@ -46,6 +36,10 @@ where
         ))
     }
 
+    /// Converts this orientation into a rotation (transform) from a source frame to this frame.
+    ///
+    /// This adds a source frame, yielding a transform from `From` to `Frame`. Use this when you
+    /// want to treat the orientation as a transform from another frame into this frame.
     pub fn as_transform<From>(&self) -> Rotation2<From, Frame, T> {
         Rotation2::wrap(self.inner)
     }
@@ -100,6 +94,10 @@ where
         Rotation3::wrap(self.inner.rotation_to(&other.inner))
     }
 
+    /// Converts this orientation into a rotation (transform) from a source frame to this frame.
+    ///
+    /// This adds a source frame, yielding a transform from `From` to `Frame`. Use this when you
+    /// want to treat the orientation as a transform from another frame into this frame.
     pub fn rotation<From>(self) -> Rotation3<From, Frame, T> {
         Rotation3::wrap(self.inner)
     }

@@ -1,13 +1,3 @@
-//! Coordinate-safe points.
-//!
-//! # Example
-//! ```rust
-//! use linear_algebra::{point, Point2};
-//!
-//! struct A;
-//! let p: Point2<A> = point![1.0, 2.0];
-//! assert_eq!(p.x(), 1.0);
-//! ```
 use nalgebra::{ClosedAddAssign, ClosedMulAssign, ClosedSubAssign, Scalar, SimdComplexField};
 use num_traits::{One, Zero};
 use simba::scalar::SupersetOf;
@@ -19,6 +9,17 @@ pub type Point<Frame, const DIMENSION: usize, T = f32> =
 pub type Point2<Frame, T = f32> = Point<Frame, 2, T>;
 pub type Point3<Frame, T = f32> = Point<Frame, 3, T>;
 
+/// Construct a coordinate-safe point with a frame.
+///
+/// This macro works like [`nalgebra::point!`], but wraps the result with a frame.
+///
+/// # Example
+/// ```rust
+/// use linear_algebra::{point, Point2};
+///
+/// struct World;
+/// let p: Point2<World> = point![1.0, 2.0];
+/// ```
 #[macro_export]
 macro_rules! point {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {
@@ -29,6 +30,7 @@ macro_rules! point {
     };
 }
 
+/// Computes the distance between two points (wraps [`nalgebra::distance`]).
 pub fn distance<Frame, const DIMENSION: usize, T>(
     p1: Point<Frame, DIMENSION, T>,
     p2: Point<Frame, DIMENSION, T>,
@@ -39,6 +41,7 @@ where
     nalgebra::distance(&p1.inner, &p2.inner)
 }
 
+/// Computes the squared distance between two points (wraps [`nalgebra::distance_squared`]).
 pub fn distance_squared<Frame, const DIMENSION: usize, T>(
     p1: Point<Frame, DIMENSION, T>,
     p2: Point<Frame, DIMENSION, T>,
@@ -49,6 +52,7 @@ where
     nalgebra::distance_squared(&p1.inner, &p2.inner)
 }
 
+/// Computes the center (midpoint) between two points (wraps [`nalgebra::center`]).
 pub fn center<Frame, const DIMENSION: usize, T>(
     p1: Point<Frame, DIMENSION, T>,
     p2: Point<Frame, DIMENSION, T>,

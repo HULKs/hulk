@@ -1,17 +1,3 @@
-//! Coordinate-safe generic transforms.
-//!
-//! # Example
-//! ```rust
-//! use linear_algebra::{vector, Transform, Vector2};
-//!
-//! struct A;
-//! struct B;
-//! let t: Transform<A, B, nalgebra::Rotation2<f32>> =
-//!     Transform::wrap(nalgebra::Rotation2::new(1.57));
-//! let v: Vector2<A> = vector![1.0, 0.0];
-//! let v_b: Vector2<B> = t * v;
-//! ```
-
 use std::{
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -20,6 +6,20 @@ use std::{
 
 use crate::framed::Framed;
 
+/// Tag any value as a transform between two coordinate frames.
+///
+/// This is the core wrapper type for all coordinate-safe transforms in this crate. It encodes both
+/// the source `From` and destination `To` frames at the type level, ensuring that only compatible
+/// operations are allowed.
+///
+/// # Example
+/// ```rust
+/// use linear_algebra::{Transform, Vector2};
+///
+/// struct A;
+/// struct B;
+/// let t: Transform<A, B, nalgebra::Matrix2<f32>> = Transform::wrap(nalgebra::Matrix2::identity());
+/// ```
 #[derive(Debug)]
 pub struct Transform<From, To, T> {
     from: PhantomData<From>,
