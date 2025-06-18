@@ -71,7 +71,8 @@ impl ButtonFilter {
                 calibration_buttons_timeout,
             );
 
-        let animation_buttons_touched = touch_sensors.head_rear;
+        let animation_buttons_touched =
+            touch_sensors.head_rear && !touch_sensors.head_middle && !touch_sensors.head_front;
 
         let debounced_animation_buttons_touched = self.debounced_animation_button.debounce_button(
             animation_buttons_touched,
