@@ -108,9 +108,9 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
             kind,
             slow_speed: true,
         } => match kind {
-            Kind::FacingDown => MotionType::Penalized,
-            Kind::FacingUp => MotionType::Penalized,
-            Kind::Sitting => MotionType::Penalized,
+            Kind::FacingDown => MotionType::StandUpFrontSlow,
+            Kind::FacingUp => MotionType::StandUpBack,
+            Kind::Sitting => MotionType::StandUpSittingSlow,
         },
         MotionCommand::KeeperMotion { direction } => match direction {
             JumpDirection::Left => MotionType::KeeperJumpLeft,

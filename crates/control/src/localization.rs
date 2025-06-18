@@ -110,6 +110,10 @@ pub struct CycleContext {
         CyclerState<RemainingStandUpDuration, "stand_up_front_estimated_remaining_duration">,
     stand_up_sitting_estimated_remaining_duration:
         CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
+    stand_up_front_slow_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_front_slow_estimated_remaining_duration">,
+    stand_up_sitting_slow_estimated_remaining_duration:
+        CyclerState<RemainingStandUpDuration, "stand_up_sitting_slow_estimated_remaining_duration">,
     cycle_time: Input<CycleTime, "cycle_time">,
 }
 
@@ -308,6 +312,12 @@ impl Localization {
                 .is_running()
             || context
                 .stand_up_sitting_estimated_remaining_duration
+                .is_running()
+            || context
+                .stand_up_front_slow_estimated_remaining_duration
+                .is_running()
+            || context
+                .stand_up_sitting_slow_estimated_remaining_duration
                 .is_running();
 
         context.measured_lines_in_field.fill_if_subscribed(Vec::new);
