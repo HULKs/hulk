@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import tensorflow as tf
@@ -98,21 +98,25 @@ def build_model(num_classes: int, summary: bool = True):
 
 
 def train_model(model, x_train, y_train, x_test, y_test):
-    early_stopping_cb = EarlyStopping(
+    early_stopping = EarlyStopping(
         monitor="val_loss",
         patience=50,
         min_delta=0.001,
         mode="min",
     )
 
-    num_epochs = 1
+
+    print(f"x_train: {x_train.shape}")
+    print(f"y_train: {y_train.shape}")
+
+    num_epochs = 10
     history = model.fit(
         x_train,
         y_train,
         batch_size=128,
         epochs=num_epochs,
         validation_data=(x_test, y_test),
-        callbacks=[early_stopping_cb],
+        callbacks=[early_stopping],
     )
     plot_training_history(history, 1)
 
@@ -132,28 +136,8 @@ def dummy_data(labels):
 
     rng = np.random.default_rng()
 
-    input_data = np.zeros()
-    for i in range(number_of_windows):
-        values = rng.random(size=(samples_per_window, 4))
-
-        input_data.append(
-            np.array(
-                pl.DataFrame(
-                    values,
-                    schema=[
-                        "acceleration.x",
-                        "acceleration.y",
-                        "acceleration.z",
-                        "has_ground_contact",
-                    ],
-                )
-            )
-        )
-
-    data_labels = []
-    labels_indicies = rng.integers(low=0, high=3, size=number_of_windows)
-    for i in labels_indicies:
-        data_labels.append(labels[i])
+    input_data = rng.random(size=(number_of_windows, samples_per_window, 4))
+    data_labels = rng.integers(low=0, high=3, size=number_of_windows)
 
     return (input_data, data_labels)
 
@@ -180,10 +164,10 @@ if __name__ == "__main__":
     (input_data, data_labels) = dummy_data(labels)
     (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
 
-    train_model(model, x_train, y_train, x_test, y_test)
-
     y_train = keras.utils.to_categorical(y_train, len(labels))
     y_test = keras.utils.to_categorical(y_test, len(labels))
+
+    train_model(model, x_train, y_train, x_test, y_test)
 
     export_path = "saved_model.keras"
     model.save(export_path)
