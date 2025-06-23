@@ -78,98 +78,98 @@ impl<From, To, T> Transform<From, To, T> {
     }
 }
 
-impl<From, To, T, U> Mul<Framed<From, U>> for Transform<From, To, T>
+impl<From, To, Lhs, Rhs> Mul<Framed<From, Rhs>> for Transform<From, To, Lhs>
 where
-    T: Mul<U>,
+    Lhs: Mul<Rhs>,
 {
-    type Output = Framed<To, T::Output>;
+    type Output = Framed<To, Lhs::Output>;
 
-    fn mul(self, rhs: Framed<From, U>) -> Self::Output {
+    fn mul(self, rhs: Framed<From, Rhs>) -> Self::Output {
         let inner = self.inner * rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, From, To, T, U> Mul<Framed<From, U>> for &'lhs Transform<From, To, T>
+impl<'lhs, From, To, Lhs, Rhs> Mul<Framed<From, Rhs>> for &'lhs Transform<From, To, Lhs>
 where
-    &'lhs T: Mul<U>,
+    &'lhs Lhs: Mul<Rhs>,
 {
-    type Output = Framed<To, <&'lhs T as Mul<U>>::Output>;
+    type Output = Framed<To, <&'lhs Lhs as Mul<Rhs>>::Output>;
 
-    fn mul(self, rhs: Framed<From, U>) -> Self::Output {
+    fn mul(self, rhs: Framed<From, Rhs>) -> Self::Output {
         let inner = &self.inner * rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'rhs, From, To, T, U> Mul<&'rhs Framed<From, U>> for Transform<From, To, T>
+impl<'rhs, From, To, Lhs, Rhs> Mul<&'rhs Framed<From, Rhs>> for Transform<From, To, Lhs>
 where
-    T: Mul<&'rhs U>,
+    Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Framed<To, T::Output>;
+    type Output = Framed<To, Lhs::Output>;
 
-    fn mul(self, rhs: &'rhs Framed<From, U>) -> Self::Output {
+    fn mul(self, rhs: &'rhs Framed<From, Rhs>) -> Self::Output {
         let inner = self.inner * &rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, 'rhs, From, To, T, U> Mul<&'rhs Framed<From, U>> for &'lhs Transform<From, To, T>
+impl<'lhs, 'rhs, From, To, Lhs, Rhs> Mul<&'rhs Framed<From, Rhs>> for &'lhs Transform<From, To, Lhs>
 where
-    &'lhs T: Mul<&'rhs U>,
+    &'lhs Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Framed<To, <&'lhs T as Mul<&'rhs U>>::Output>;
+    type Output = Framed<To, <&'lhs Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: &'rhs Framed<From, U>) -> Self::Output {
+    fn mul(self, rhs: &'rhs Framed<From, Rhs>) -> Self::Output {
         let inner = &self.inner * &rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<From, Mid, To, T, U> Mul<Transform<From, Mid, U>> for Transform<Mid, To, T>
+impl<From, Mid, To, Lhs, Rhs> Mul<Transform<From, Mid, Rhs>> for Transform<Mid, To, Lhs>
 where
-    T: Mul<U>,
+    Lhs: Mul<Rhs>,
 {
-    type Output = Transform<From, To, T::Output>;
+    type Output = Transform<From, To, Lhs::Output>;
 
-    fn mul(self, rhs: Transform<From, Mid, U>) -> Self::Output {
+    fn mul(self, rhs: Transform<From, Mid, Rhs>) -> Self::Output {
         let inner = self.inner * rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, From, Mid, To, T, U> Mul<Transform<From, Mid, U>> for &'lhs Transform<Mid, To, T>
+impl<'lhs, From, Mid, To, Lhs, Rhs> Mul<Transform<From, Mid, Rhs>> for &'lhs Transform<Mid, To, Lhs>
 where
-    &'lhs T: Mul<U>,
+    &'lhs Lhs: Mul<Rhs>,
 {
-    type Output = Transform<From, To, <&'lhs T as Mul<U>>::Output>;
+    type Output = Transform<From, To, <&'lhs Lhs as Mul<Rhs>>::Output>;
 
-    fn mul(self, rhs: Transform<From, Mid, U>) -> Self::Output {
+    fn mul(self, rhs: Transform<From, Mid, Rhs>) -> Self::Output {
         let inner = &self.inner * rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'rhs, From, Mid, To, T, U> Mul<&'rhs Transform<From, Mid, U>> for Transform<Mid, To, T>
+impl<'rhs, From, Mid, To, Lhs, Rhs> Mul<&'rhs Transform<From, Mid, Rhs>> for Transform<Mid, To, Lhs>
 where
-    T: Mul<&'rhs U>,
+    Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Transform<From, To, <T as Mul<&'rhs U>>::Output>;
+    type Output = Transform<From, To, <Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: &'rhs Transform<From, Mid, U>) -> Self::Output {
+    fn mul(self, rhs: &'rhs Transform<From, Mid, Rhs>) -> Self::Output {
         let inner = self.inner * &rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, 'rhs, From, Mid, To, T, U> Mul<&'rhs Transform<From, Mid, U>>
-    for &'lhs Transform<Mid, To, T>
+impl<'lhs, 'rhs, From, Mid, To, Lhs, Rhs> Mul<&'rhs Transform<From, Mid, Rhs>>
+    for &'lhs Transform<Mid, To, Lhs>
 where
-    &'lhs T: Mul<&'rhs U>,
+    &'lhs Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Transform<From, To, <&'lhs T as Mul<&'rhs U>>::Output>;
+    type Output = Transform<From, To, <&'lhs Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: &'rhs Transform<From, Mid, U>) -> Self::Output {
+    fn mul(self, rhs: &'rhs Transform<From, Mid, Rhs>) -> Self::Output {
         let inner = &self.inner * &rhs.inner;
         Self::Output::wrap(inner)
     }
