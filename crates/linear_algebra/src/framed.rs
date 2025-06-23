@@ -78,135 +78,135 @@ impl<Frame, T> Framed<Frame, T> {
 }
 
 // Add
-impl<Frame, T, U> Add<Framed<Frame, U>> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> Add<Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: Add<U>,
+    Lhs: Add<Rhs>,
 {
-    type Output = Framed<Frame, T::Output>;
+    type Output = Framed<Frame, Lhs::Output>;
 
-    fn add(self, rhs: Framed<Frame, U>) -> Self::Output {
+    fn add(self, rhs: Framed<Frame, Rhs>) -> Self::Output {
         let inner = self.inner + rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, Frame, T, U> Add<Framed<Frame, U>> for &'lhs Framed<Frame, T>
+impl<'lhs, Frame, Lhs, Rhs> Add<Framed<Frame, Rhs>> for &'lhs Framed<Frame, Lhs>
 where
-    &'lhs T: Add<U>,
+    &'lhs Lhs: Add<Rhs>,
 {
-    type Output = Framed<Frame, <&'lhs T as Add<U>>::Output>;
+    type Output = Framed<Frame, <&'lhs Lhs as Add<Rhs>>::Output>;
 
-    fn add(self, rhs: Framed<Frame, U>) -> Self::Output {
+    fn add(self, rhs: Framed<Frame, Rhs>) -> Self::Output {
         let inner = &self.inner + rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'rhs, Frame, T, U> Add<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+impl<'rhs, Frame, Lhs, Rhs> Add<&'rhs Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: Add<&'rhs U>,
+    Lhs: Add<&'rhs Rhs>,
 {
-    type Output = Framed<Frame, <T as Add<&'rhs U>>::Output>;
+    type Output = Framed<Frame, <Lhs as Add<&'rhs Rhs>>::Output>;
 
-    fn add(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+    fn add(self, rhs: &'rhs Framed<Frame, Rhs>) -> Self::Output {
         let inner = self.inner + &rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, 'rhs, Frame, T, U> Add<&'rhs Framed<Frame, U>> for &'lhs Framed<Frame, T>
+impl<'lhs, 'rhs, Frame, Lhs, Rhs> Add<&'rhs Framed<Frame, Rhs>> for &'lhs Framed<Frame, Lhs>
 where
-    &'lhs T: Add<&'rhs U>,
+    &'lhs Lhs: Add<&'rhs Rhs>,
 {
-    type Output = Framed<Frame, <&'lhs T as Add<&'rhs U>>::Output>;
+    type Output = Framed<Frame, <&'lhs Lhs as Add<&'rhs Rhs>>::Output>;
 
-    fn add(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+    fn add(self, rhs: &'rhs Framed<Frame, Rhs>) -> Self::Output {
         let inner = &self.inner + &rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<Frame, T, U> AddAssign<Framed<Frame, U>> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> AddAssign<Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: AddAssign<U>,
+    Lhs: AddAssign<Rhs>,
 {
-    fn add_assign(&mut self, rhs: Framed<Frame, U>) {
+    fn add_assign(&mut self, rhs: Framed<Frame, Rhs>) {
         self.inner += rhs.inner;
     }
 }
 
-impl<'rhs, Frame, T, U> AddAssign<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+impl<'rhs, Frame, Lhs, Rhs> AddAssign<&'rhs Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: AddAssign<&'rhs U>,
+    Lhs: AddAssign<&'rhs Rhs>,
 {
-    fn add_assign(&mut self, rhs: &'rhs Framed<Frame, U>) {
+    fn add_assign(&mut self, rhs: &'rhs Framed<Frame, Rhs>) {
         self.inner += &rhs.inner;
     }
 }
 
 // Sub
-impl<Frame, T, U> Sub<Framed<Frame, U>> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> Sub<Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: Sub<U>,
+    Lhs: Sub<Rhs>,
 {
-    type Output = Framed<Frame, T::Output>;
+    type Output = Framed<Frame, Lhs::Output>;
 
-    fn sub(self, rhs: Framed<Frame, U>) -> Self::Output {
+    fn sub(self, rhs: Framed<Frame, Rhs>) -> Self::Output {
         let inner = self.inner - rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, Frame, T, U> Sub<Framed<Frame, U>> for &'lhs Framed<Frame, T>
+impl<'lhs, Frame, Lhs, Rhs> Sub<Framed<Frame, Rhs>> for &'lhs Framed<Frame, Lhs>
 where
-    &'lhs T: Sub<U>,
+    &'lhs Lhs: Sub<Rhs>,
 {
-    type Output = Framed<Frame, <&'lhs T as Sub<U>>::Output>;
+    type Output = Framed<Frame, <&'lhs Lhs as Sub<Rhs>>::Output>;
 
-    fn sub(self, rhs: Framed<Frame, U>) -> Self::Output {
+    fn sub(self, rhs: Framed<Frame, Rhs>) -> Self::Output {
         let inner = &self.inner - rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'rhs, Frame, T, U> Sub<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+impl<'rhs, Frame, Lhs, Rhs> Sub<&'rhs Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: Sub<&'rhs U>,
+    Lhs: Sub<&'rhs Rhs>,
 {
-    type Output = Framed<Frame, <T as Sub<&'rhs U>>::Output>;
+    type Output = Framed<Frame, <Lhs as Sub<&'rhs Rhs>>::Output>;
 
-    fn sub(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+    fn sub(self, rhs: &'rhs Framed<Frame, Rhs>) -> Self::Output {
         let inner = self.inner - &rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<'lhs, 'rhs, Frame, T, U> Sub<&'rhs Framed<Frame, U>> for &'lhs Framed<Frame, T>
+impl<'lhs, 'rhs, Frame, Lhs, Rhs> Sub<&'rhs Framed<Frame, Rhs>> for &'lhs Framed<Frame, Lhs>
 where
-    &'lhs T: Sub<&'rhs U>,
+    &'lhs Lhs: Sub<&'rhs Rhs>,
 {
-    type Output = Framed<Frame, <&'lhs T as Sub<&'rhs U>>::Output>;
+    type Output = Framed<Frame, <&'lhs Lhs as Sub<&'rhs Rhs>>::Output>;
 
-    fn sub(self, rhs: &'rhs Framed<Frame, U>) -> Self::Output {
+    fn sub(self, rhs: &'rhs Framed<Frame, Rhs>) -> Self::Output {
         let inner = &self.inner - &rhs.inner;
         Self::Output::wrap(inner)
     }
 }
 
-impl<Frame, T, U> SubAssign<Framed<Frame, U>> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> SubAssign<Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: SubAssign<U>,
+    Lhs: SubAssign<Rhs>,
 {
-    fn sub_assign(&mut self, rhs: Framed<Frame, U>) {
+    fn sub_assign(&mut self, rhs: Framed<Frame, Rhs>) {
         self.inner -= rhs.inner;
     }
 }
 
-impl<'rhs, Frame, T, U> SubAssign<&'rhs Framed<Frame, U>> for Framed<Frame, T>
+impl<'rhs, Frame, Lhs, Rhs> SubAssign<&'rhs Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
-    T: SubAssign<&'rhs U>,
+    Lhs: SubAssign<&'rhs Rhs>,
 {
-    fn sub_assign(&mut self, rhs: &'rhs Framed<Frame, U>) {
+    fn sub_assign(&mut self, rhs: &'rhs Framed<Frame, Rhs>) {
         self.inner -= &rhs.inner;
     }
 }
@@ -224,43 +224,43 @@ where
 }
 
 // Mul
-impl<Frame, T, U> Mul<U> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> Mul<Rhs> for Framed<Frame, Lhs>
 where
-    T: Mul<U, Output = T>,
+    Lhs: Mul<Rhs, Output = Lhs>,
 {
-    type Output = Framed<Frame, T::Output>;
+    type Output = Framed<Frame, Lhs::Output>;
 
-    fn mul(self, rhs: U) -> Self::Output {
+    fn mul(self, rhs: Rhs) -> Self::Output {
         Self::wrap(self.inner * rhs)
     }
 }
 
-impl<Frame, T, U> MulAssign<U> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> MulAssign<Rhs> for Framed<Frame, Lhs>
 where
-    T: MulAssign<U>,
+    Lhs: MulAssign<Rhs>,
 {
-    fn mul_assign(&mut self, rhs: U) {
+    fn mul_assign(&mut self, rhs: Rhs) {
         self.inner *= rhs;
     }
 }
 
 // Div
-impl<Frame, T, U> Div<U> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> Div<Rhs> for Framed<Frame, Lhs>
 where
-    T: Div<U, Output = T>,
+    Lhs: Div<Rhs, Output = Lhs>,
 {
-    type Output = Framed<Frame, T::Output>;
+    type Output = Framed<Frame, Lhs::Output>;
 
-    fn div(self, rhs: U) -> Self::Output {
+    fn div(self, rhs: Rhs) -> Self::Output {
         Self::wrap(self.inner / rhs)
     }
 }
 
-impl<Frame, T, U> DivAssign<U> for Framed<Frame, T>
+impl<Frame, Lhs, Rhs> DivAssign<Rhs> for Framed<Frame, Lhs>
 where
-    T: DivAssign<U>,
+    Lhs: DivAssign<Rhs>,
 {
-    fn div_assign(&mut self, rhs: U) {
+    fn div_assign(&mut self, rhs: Rhs) {
         self.inner /= rhs;
     }
 }
