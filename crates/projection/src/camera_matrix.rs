@@ -69,17 +69,16 @@ impl CameraMatrix {
             image_size,
             // Precomputed values
             ground_to_camera,
-            ground_to_pixel: CameraProjection::new(ground_to_camera, intrinsics.clone()),
+            ground_to_pixel: CameraProjection::new(ground_to_camera, intrinsics),
             pixel_to_ground: CameraProjection::new(ground_to_camera, intrinsics).inverse(0.0),
         }
     }
 
     pub fn compute_memoized(&mut self) {
         self.ground_to_camera = self.head_to_camera * self.robot_to_head * self.ground_to_robot;
-        self.ground_to_pixel =
-            CameraProjection::new(self.ground_to_camera, self.intrinsics.clone());
+        self.ground_to_pixel = CameraProjection::new(self.ground_to_camera, self.intrinsics);
         self.pixel_to_ground =
-            CameraProjection::new(self.ground_to_camera, self.intrinsics.clone()).inverse(0.0);
+            CameraProjection::new(self.ground_to_camera, self.intrinsics).inverse(0.0);
     }
 
     pub fn to_corrected(
@@ -96,8 +95,7 @@ impl CameraMatrix {
 
         let new_horizon = Horizon::from_parameters(corrected_ground_to_camera, &self.intrinsics);
 
-        let ground_to_pixel =
-            CameraProjection::new(corrected_ground_to_camera, self.intrinsics.clone());
+        let ground_to_pixel = CameraProjection::new(corrected_ground_to_camera, self.intrinsics);
         let ground_to_pixel = ground_to_pixel.clone();
 
         Self {
