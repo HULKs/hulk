@@ -345,7 +345,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         let new_anchor = robot.ground_to_field() * to2d(ground);
         let movement = anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
         let step = robot.ground_to_field().inverse() * movement * robot.ground_to_field();
-        let ground_to_field_change = Some(Isometry2::from_parts(
+        let ground_to_field_change = Some(Isometry2::new(
             step.translation().coords(),
             step.orientation().angle(),
         ));

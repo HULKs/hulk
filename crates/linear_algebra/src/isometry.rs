@@ -38,7 +38,7 @@ where
     T::Element: SimdRealField,
     T: SimdRealField + Copy,
 {
-    pub fn from_parts(translation: Vector2<To, T>, angle: T) -> Self {
+    pub fn new(translation: Vector2<To, T>, angle: T) -> Self {
         Transform::wrap(nalgebra::Isometry2::new(translation.inner, angle))
     }
 
@@ -54,7 +54,7 @@ where
     ///
     /// struct Robot;
     /// struct Ground;
-    /// let robot_to_ground: Isometry2<Robot, Ground> = Isometry2::from_parts(vector![1.0, 2.0], 0.5);
+    /// let robot_to_ground: Isometry2<Robot, Ground> = Isometry2::new(vector![1.0, 2.0], 0.5);
     /// let robot: Pose2<Ground> = robot_to_ground.as_pose();
     /// ```
     pub fn as_pose(&self) -> Pose2<To, T> {
