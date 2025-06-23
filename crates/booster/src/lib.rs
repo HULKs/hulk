@@ -1,7 +1,7 @@
-use color_eyre::eyre::{Result, bail};
+use color_eyre::eyre::{bail, Result};
 use coordinate_systems::{Ground, Robot};
 use kinematics::joints::Joints;
-use linear_algebra::{Isometry2, Vector3, vector};
+use linear_algebra::{vector, Isometry2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
@@ -566,7 +566,7 @@ pub struct Odometer {
 impl Odometer {
     /// Returns an [linear_algebra::Isometry2] representing the transformation from the current odometer to the odometer at initialization.
     pub fn as_isometry(&self) -> Isometry2<Ground, Ground> {
-        Isometry2::from_parts(vector![self.x, self.y], self.theta)
+        Isometry2::new(vector![self.x, self.y], self.theta)
     }
 
     /// Returns an [linear_algebra::Isometry2] representing the transformation from the current odometer to the given odometer.

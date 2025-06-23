@@ -40,7 +40,7 @@ fn update(
     let mut robot = robots.single_mut().expect("no robot found");
 
     robot.database.main_outputs.ground_to_field =
-        Some(Isometry2::from_parts(vector![-1.0, -1.0], FRAC_PI_2));
+        Some(Isometry2::new(vector![-1.0, -1.0], FRAC_PI_2));
     robot.parameters.behavior.injected_motion_command = Some(MotionCommand::Walk {
         head: HeadMotion::ZeroAngles,
         left_arm: ArmMotion::Swing,
