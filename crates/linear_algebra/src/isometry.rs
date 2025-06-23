@@ -39,7 +39,14 @@ where
     T: SimdRealField + Copy,
 {
     pub fn new(translation: Vector2<To, T>, angle: T) -> Self {
-        Transform::wrap(nalgebra::Isometry2::new(translation.inner, angle))
+        Self::wrap(nalgebra::Isometry2::new(translation.inner, angle))
+    }
+
+    pub fn from_parts(translation: Vector2<To, T>, orientation: Orientation2<To, T>) -> Self {
+        Self::wrap(nalgebra::Isometry2::from_parts(
+            translation.inner.into(),
+            orientation.inner,
+        ))
     }
 
     pub fn rotation(angle: T) -> Self {
