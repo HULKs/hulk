@@ -78,7 +78,7 @@ fn update(
             .unwrap()
             .database
             .main_outputs
-            .ground_to_field = Some(Isometry2::from_parts(vector![1.0, 1.0], 0.0));
+            .ground_to_field = Some(Isometry2::new(vector![1.0, 1.0], 0.0));
         // Change the balls velocity
         if let Some(ball) = ball.state.as_mut() {
             ball.velocity = vector![0.0, -1.0];
