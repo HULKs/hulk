@@ -129,9 +129,11 @@ mod tests {
 
         let focals = nalgebra::vector![0.63, 1.34];
         let image_size = vector![1.0, 1.0];
-        let image_size_abs = nalgebra::vector![640.0, 480.0];
+        let image_size_abs = vector![640.0, 480.0];
 
-        let focals_scaled = image_size_abs.zip_map(&focals, |dim, focal| dim * focal);
+        let focals_scaled = image_size_abs
+            .inner
+            .zip_map(&focals, |dim, focal| dim * focal);
 
         assert_relative_eq!(
             old_fov(focals),
@@ -140,7 +142,7 @@ mod tests {
 
         assert_relative_eq!(
             old_fov(focals),
-            Intrinsic::calculate_field_of_view(focals_scaled, image_size)
+            Intrinsic::calculate_field_of_view(focals_scaled, image_size_abs)
         );
     }
 }
