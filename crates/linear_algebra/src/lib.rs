@@ -40,8 +40,8 @@
 //! ## Philosophy
 //!
 //! This crate is a thin, zero-cost wrapper around [`nalgebra`], adding type-level tags for
-//! coordinate systems. It does not reimplement linear algebra, but provides a safer API for
-//! geometric programming.
+//! coordinate systems using [`Framed`] and [`Transform`]. It does not reimplement linear algebra,
+//! but provides a safer API for geometric programming.
 //!
 //! [`nalgebra`]: https://docs.rs/nalgebra
 
