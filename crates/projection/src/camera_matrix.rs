@@ -86,7 +86,6 @@ impl CameraMatrix {
         &self,
         correction_in_robot: Rotation3<Robot, Robot>,
         correction_in_camera: Rotation3<Camera, Camera>,
-        correction_intrinsic: Option<Intrinsic>,
     ) -> Self {
         let corrected_ground_to_robot = correction_in_robot * self.ground_to_robot;
         let corrected_robot_to_head = self.robot_to_head * correction_in_robot;
@@ -95,26 +94,18 @@ impl CameraMatrix {
         let corrected_ground_to_camera =
             corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot;
 
-        let new_intrinsics = if let Some(intrinsic) = correction_intrinsic {
-            intrinsic
-        } else {
-            self.intrinsics.clone()
-        };
-
-        let new_field_of_view =
-            Intrinsic::calculate_field_of_view(new_intrinsics.focals, self.image_size);
-        let new_horizon = Horizon::from_parameters(corrected_ground_to_camera, &new_intrinsics);
+        let new_horizon = Horizon::from_parameters(corrected_ground_to_camera, &self.intrinsics);
 
         let ground_to_pixel =
-            CameraProjection::new(corrected_ground_to_camera, new_intrinsics.clone());
+            CameraProjection::new(corrected_ground_to_camera, self.intrinsics.clone());
         let ground_to_pixel = ground_to_pixel.clone();
 
         Self {
             ground_to_robot: corrected_ground_to_robot,
             robot_to_head: corrected_robot_to_head,
             head_to_camera: corrected_head_to_camera,
-            intrinsics: new_intrinsics,
-            field_of_view: new_field_of_view,
+            intrinsics: self.intrinsics,
+            field_of_view: self.field_of_view,
             horizon: new_horizon,
             image_size: self.image_size,
             ground_to_camera: corrected_ground_to_camera,

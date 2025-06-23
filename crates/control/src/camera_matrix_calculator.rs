@@ -116,16 +116,10 @@ impl CameraMatrixCalculator {
             context.correction_in_camera_bottom.z,
         );
 
-        let calibrated_top_camera_matrix = uncalibrated_top_camera_matrix.to_corrected(
-            correction_in_robot,
-            correction_in_camera_top,
-            None,
-        );
-        let calibrated_bottom_camera_matrix = uncalibrated_bottom_camera_matrix.to_corrected(
-            correction_in_robot,
-            correction_in_camera_bottom,
-            None,
-        );
+        let calibrated_top_camera_matrix = uncalibrated_top_camera_matrix
+            .to_corrected(correction_in_robot, correction_in_camera_top);
+        let calibrated_bottom_camera_matrix = uncalibrated_bottom_camera_matrix
+            .to_corrected(correction_in_robot, correction_in_camera_bottom);
 
         let field_dimensions = context.field_dimensions;
         context
