@@ -23,7 +23,7 @@ use geometry::{direction::Rotate90Degrees, line_segment::LineSegment};
 use hula_types::hardware::Ids;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
-use projection::camera_matrix::CameraMatrix;
+use projection::intrinsic::Intrinsic;
 use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_position::BallPosition,
@@ -188,7 +188,7 @@ impl Robot {
             .vision_top
             .focal_lengths;
         let focal_lengths_scaled = image_size.inner.cast().component_mul(&focal_lengths);
-        let field_of_view = CameraMatrix::calculate_field_of_view(focal_lengths_scaled, image_size);
+        let field_of_view = Intrinsic::calculate_field_of_view(focal_lengths_scaled, image_size);
 
         field_of_view.x
     }
