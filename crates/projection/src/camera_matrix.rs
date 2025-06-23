@@ -60,7 +60,7 @@ impl CameraMatrix {
         let horizon = Horizon::from_parameters(ground_to_camera, &intrinsics);
 
         Self {
-            intrinsics: intrinsics.clone(),
+            intrinsics,
             field_of_view,
             horizon,
             ground_to_robot,
