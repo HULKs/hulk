@@ -37,10 +37,12 @@ impl CameraMatrices {
         Self {
             top: self
                 .top
-                .to_corrected(correction_in_robot, correction_in_camera_top),
-            bottom: self
-                .bottom
-                .to_corrected(correction_in_robot, correction_in_camera_bottom),
+                .to_corrected(correction_in_robot, correction_in_camera_top, None),
+            bottom: self.bottom.to_corrected(
+                correction_in_robot,
+                correction_in_camera_bottom,
+                None,
+            ),
         }
     }
 }

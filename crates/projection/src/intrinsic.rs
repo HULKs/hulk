@@ -1,14 +1,22 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
-use linear_algebra::{point, vector, Point2, Vector3};
+use linear_algebra::{point, vector, Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct Intrinsic {
-    focals: nalgebra::Vector2<f32>,
-    optical_center: Point2<Pixel>,
+    pub focals: nalgebra::Vector2<f32>,
+    pub optical_center: Point2<Pixel>,
 }
 
 impl Default for Intrinsic {
@@ -56,6 +64,18 @@ impl Intrinsic {
         let y = (pixel.y() - self.optical_center.y()) / self.focals.y;
 
         vector![x, y, 1.0]
+    }
+
+    pub fn calculate_field_of_view(
+        focal_lengths: nalgebra::Vector2<f32>,
+        image_size: Vector2<Pixel>,
+    ) -> nalgebra::Vector2<f32> {
+        // Ref:  https://www.edmundoptics.eu/knowledge-center/application-notes/imaging/understanding-focal-length-and-field-of-view/
+        image_size
+            .inner
+            .zip_map(&focal_lengths, |image_dim, focal_length| -> f32 {
+                2.0 * (image_dim * 0.5 / focal_length).atan()
+            })
     }
 }
 

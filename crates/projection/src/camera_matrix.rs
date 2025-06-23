@@ -1,5 +1,5 @@
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
-use linear_algebra::{IntoFramed, Isometry3, Point2, Rotation3, Vector2};
+use linear_algebra::{IntoFramed, Isometry3, Rotation3, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -25,8 +25,6 @@ pub struct CameraMatrix {
     pub robot_to_head: Isometry3<Robot, Head>,
     pub head_to_camera: Isometry3<Head, Camera>,
     pub intrinsics: Intrinsic,
-    pub focal_length: nalgebra::Vector2<f32>,
-    pub optical_center: Point2<Pixel>,
     pub field_of_view: nalgebra::Vector2<f32>,
     pub horizon: Option<Horizon>,
     pub image_size: Vector2<Pixel>,
@@ -55,18 +53,14 @@ impl CameraMatrix {
             .framed()
             .as_point();
 
-        let field_of_view = Self::calculate_field_of_view(focal_length_scaled, image_size);
+        let intrinsics = Intrinsic::new(focal_length_scaled, optical_center_scaled);
+        let field_of_view = Intrinsic::calculate_field_of_view(intrinsics.focals, image_size);
 
         let ground_to_camera = head_to_camera * robot_to_head * ground_to_robot;
-
-        let intrinsics = Intrinsic::new(focal_length_scaled, optical_center_scaled);
-
         let horizon = Horizon::from_parameters(ground_to_camera, &intrinsics);
 
         Self {
             intrinsics: intrinsics.clone(),
-            focal_length: focal_length_scaled,
-            optical_center: optical_center_scaled,
             field_of_view,
             horizon,
             ground_to_robot,
@@ -88,22 +82,11 @@ impl CameraMatrix {
             CameraProjection::new(self.ground_to_camera, self.intrinsics.clone()).inverse(0.0);
     }
 
-    pub fn calculate_field_of_view(
-        focal_lengths: nalgebra::Vector2<f32>,
-        image_size: Vector2<Pixel>,
-    ) -> nalgebra::Vector2<f32> {
-        // Ref:  https://www.edmundoptics.eu/knowledge-center/application-notes/imaging/understanding-focal-length-and-field-of-view/
-        image_size
-            .inner
-            .zip_map(&focal_lengths, |image_dim, focal_length| -> f32 {
-                2.0 * (image_dim * 0.5 / focal_length).atan()
-            })
-    }
-
     pub fn to_corrected(
         &self,
         correction_in_robot: Rotation3<Robot, Robot>,
         correction_in_camera: Rotation3<Camera, Camera>,
+        correction_intrinsic: Option<Intrinsic>,
     ) -> Self {
         let corrected_ground_to_robot = correction_in_robot * self.ground_to_robot;
         let corrected_robot_to_head = self.robot_to_head * correction_in_robot;
@@ -112,18 +95,27 @@ impl CameraMatrix {
         let corrected_ground_to_camera =
             corrected_head_to_camera * corrected_robot_to_head * corrected_ground_to_robot;
 
+        let new_intrinsics = if let Some(intrinsic) = correction_intrinsic {
+            intrinsic
+        } else {
+            self.intrinsics.clone()
+        };
+
+        let new_field_of_view =
+            Intrinsic::calculate_field_of_view(new_intrinsics.focals, self.image_size);
+        let new_horizon = Horizon::from_parameters(corrected_ground_to_camera, &new_intrinsics);
+
         let ground_to_pixel =
-            CameraProjection::new(corrected_ground_to_camera, self.intrinsics.clone());
+            CameraProjection::new(corrected_ground_to_camera, new_intrinsics.clone());
+        let ground_to_pixel = ground_to_pixel.clone();
 
         Self {
             ground_to_robot: corrected_ground_to_robot,
             robot_to_head: corrected_robot_to_head,
             head_to_camera: corrected_head_to_camera,
-            intrinsics: self.intrinsics.clone(),
-            focal_length: self.focal_length,
-            optical_center: self.optical_center,
-            field_of_view: self.field_of_view,
-            horizon: Horizon::from_parameters(corrected_ground_to_camera, &self.intrinsics),
+            intrinsics: new_intrinsics,
+            field_of_view: new_field_of_view,
+            horizon: new_horizon,
             image_size: self.image_size,
             ground_to_camera: corrected_ground_to_camera,
             ground_to_pixel: ground_to_pixel.clone(),
@@ -148,20 +140,18 @@ mod tests {
 
         let focals = nalgebra::vector![0.63, 1.34];
         let image_size = vector![1.0, 1.0];
-        let image_size_abs = vector![640.0, 480.0];
+        let image_size_abs = nalgebra::vector![640.0, 480.0];
 
-        let focals_scaled = image_size_abs
-            .inner
-            .zip_map(&focals, |dim, focal| dim * focal);
+        let focals_scaled = image_size_abs.zip_map(&focals, |dim, focal| dim * focal);
 
         assert_relative_eq!(
             old_fov(focals),
-            CameraMatrix::calculate_field_of_view(focals, image_size)
+            Intrinsic::calculate_field_of_view(focals, image_size)
         );
 
         assert_relative_eq!(
             old_fov(focals),
-            CameraMatrix::calculate_field_of_view(focals_scaled, image_size_abs)
+            Intrinsic::calculate_field_of_view(focals_scaled, image_size)
         );
     }
 }
