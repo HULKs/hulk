@@ -103,6 +103,8 @@ impl StepPlanner {
 
         let earlier = SystemTime::now();
 
+        let path = Path { segments: path };
+
         let step = if let Some(injected_step) = context.injected_step {
             *injected_step
         } else {
@@ -207,7 +209,7 @@ fn clamp_step_size(
 }
 
 fn plan_step(
-    path: &[PathSegment],
+    path: Path<'_>,
     context: &mut CycleContext,
     orientation_mode: OrientationMode,
     target_orientation: Orientation2<Ground>,
@@ -225,7 +227,7 @@ fn plan_step(
     let initial_guess = DVector::zeros(num_variables);
 
     let (step_plan, gradient, cost) = step_planning_solver::plan_steps(
-        Path { segments: path },
+        path,
         orientation_mode,
         target_orientation,
         upcoming_support_pose_in_ground(context),
@@ -248,7 +250,7 @@ fn plan_step(
 }
 
 fn step_plan_greedy(
-    path: &[PathSegment],
+    path: Path<'_>,
     context: &mut CycleContext,
     orientation_mode: OrientationMode,
     _target_orientation: Orientation2<Ground>,
@@ -265,6 +267,7 @@ fn step_plan_greedy(
 
     for _ in 0..context.optimization_parameters.num_steps {
         let segment = path
+            .segments
             .iter()
             .min_by_key(|segment| {
                 NotNan::new((segment.project(pose.position()) - pose.position()).norm_squared())
