@@ -171,3 +171,8 @@ if __name__ == "__main__":
 
     export_path = "saved_model.keras"
     model.save(export_path)
+
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    model_tflite = converter.convert()
+    with open('base_model.tflite', 'wb') as f:
+        f.write(model_tflite)
