@@ -92,6 +92,8 @@ pub struct FootLevelingParameters {
     pub leaning_backwards_factor: f32,
     pub leaning_forward_factor: f32,
     pub max_level_delta: f32,
+    pub max_pitch: f32,
+    pub max_roll: f32,
     pub pitch_scale: f32,
     pub roll_factor: f32,
     pub roll_scale: f32,

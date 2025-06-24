@@ -70,6 +70,12 @@ impl FootLeveling {
         let max_delta = parameters.max_level_delta;
         self.roll += (desired_roll_diff - self.roll).clamp(-max_delta, max_delta);
         self.pitch += (desired_pitch_diff - self.pitch).clamp(-max_delta, max_delta);
+
+        // Limit roll and pitch
+        self.roll = self.roll.clamp(-parameters.max_roll, parameters.max_roll);
+        self.pitch = self
+            .pitch
+            .clamp(-parameters.max_pitch, parameters.max_pitch);
     }
 }
 
