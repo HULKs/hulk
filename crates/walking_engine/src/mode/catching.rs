@@ -35,17 +35,31 @@ impl Catching {
         let ground_to_robot = robot_to_ground.inverse();
 
         let target = (robot_to_walk * ground_to_robot * context.zero_moment_point.extend(0.0)).xy();
+        let clamped_target = target / target.inner.coords.norm()
+            * target
+                .inner
+                .coords
+                .norm()
+                .min(context.parameters.catching_steps.max_target_distance);
 
         let foot_support = Rectangle {
             min: point![-0.02, -0.02],
             max: point![0.08, 0.02],
         };
-        let target_projection_into_foot_support = foot_support.project_point_into_rect(target);
-        let displacement = Point2::origin() + (target - target_projection_into_foot_support);
+        let target_projection_into_foot_support =
+            foot_support.project_point_into_rect(clamped_target);
+        let displacement =
+            Point2::origin() + (clamped_target - target_projection_into_foot_support);
 
         let desired_end_feet = Feet {
-            support_sole: Pose2::from_parts(-displacement * 0.5, Orientation2::default()),
-            swing_sole: Pose2::from_parts(displacement, Orientation2::default()),
+            support_sole: Pose2::from_parts(
+                -displacement * 0.5 * context.parameters.catching_steps.over_estimation_factor,
+                Orientation2::default(),
+            ),
+            swing_sole: Pose2::from_parts(
+                displacement * context.parameters.catching_steps.over_estimation_factor,
+                Orientation2::default(),
+            ),
         };
 
         // let support_side = last_step_state.plan.support_side;

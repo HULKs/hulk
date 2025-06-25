@@ -113,6 +113,8 @@ pub struct FootLevelingParameters {
 )]
 pub struct CatchingStepsParameters {
     pub enabled: bool,
+    pub max_target_distance: f32,
+    pub over_estimation_factor: f32,
 }
 
 #[derive(
