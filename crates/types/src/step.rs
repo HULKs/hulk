@@ -5,6 +5,7 @@ use nalgebra::RealField;
 use num_traits::Euclid;
 use serde::{Deserialize, Serialize};
 
+use linear_algebra::Pose2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(
@@ -57,6 +58,14 @@ impl Step {
             } else {
                 self.turn / rhs.turn
             },
+        }
+    }
+
+    pub fn from_pose<Frame>(pose: Pose2<Frame>) -> Self {
+        Step {
+            forward: pose.position().x(),
+            left: pose.position().y(),
+            turn: pose.orientation().angle(),
         }
     }
 }
