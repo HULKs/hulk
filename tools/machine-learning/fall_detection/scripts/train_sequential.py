@@ -105,7 +105,6 @@ def train_model(model, x_train, y_train, x_test, y_test):
         mode="min",
     )
 
-
     print(f"x_train: {x_train.shape}")
     print(f"y_train: {y_train.shape}")
 
@@ -118,7 +117,7 @@ def train_model(model, x_train, y_train, x_test, y_test):
         validation_data=(x_test, y_test),
         callbacks=[early_stopping],
     )
-    plot_training_history(history, 1)
+    # plot_training_history(history, 1)
 
 
 def dummy_data(labels):
@@ -168,11 +167,10 @@ if __name__ == "__main__":
     y_test = keras.utils.to_categorical(y_test, len(labels))
 
     train_model(model, x_train, y_train, x_test, y_test)
-
     export_path = "saved_model.keras"
     model.save(export_path)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     model_tflite = converter.convert()
-    with open('base_model.tflite', 'wb') as f:
+    with open("../../../etc/neural_networks/base_model.tflite", "wb") as f:
         f.write(model_tflite)
