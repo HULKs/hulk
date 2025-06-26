@@ -1135,7 +1135,7 @@
     },
     "minimum_bottom_focus_pitch": 0.2,
     "image_regions": {
-      "bottom": [0.5, 1.0],
+      "bottom": [0.5, 0.85],
       "center": [0.5, 0.5]
     }
   },
