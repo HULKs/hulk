@@ -178,7 +178,7 @@ pub fn plan_steps(
     let variables = variables.iter().map(|&x| x as f32).collect::<Vec<_>>();
 
     // TODO(rmburg) remove/refactor
-    let gradient = gradient(&variables, &step_planning); // problem.jacobian().unwrap().transpose();
+    let gradient = gradient(&variables, &step_planning);
 
     let step_plan = StepPlan::from(variables.as_slice())
         .steps()

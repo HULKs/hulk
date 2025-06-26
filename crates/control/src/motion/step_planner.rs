@@ -11,8 +11,8 @@ use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
 use step_planning::{
-    geometry::{angle::Angle, pose::Pose},
-    traits::Project,
+    geometry::{angle::Angle, normalized_step::NormalizedStep, pose::Pose},
+    traits::{EndPoints, Project},
 };
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
@@ -57,6 +57,7 @@ pub struct CycleContext {
     ground_to_upcoming_support_out:
         AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
     max_step_size_output: AdditionalOutput<Step, "max_step_size">,
+    direct_step: AdditionalOutput<Step, "direct_step">,
     step_plan: AdditionalOutput<Vec<Step>, "step_plan">,
     step_plan_greedy: AdditionalOutput<Vec<Step>, "step_plan_greedy">,
     step_plan_gradient: AdditionalOutput<Vec<f32>, "step_plan_gradient">,
@@ -223,6 +224,25 @@ fn plan_step(
     let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
 
     let initial_guess = DVector::zeros(num_variables);
+
+    let target_point = path.end_point();
+    let target_pose = Pose2::from_parts(target_point, target_orientation);
+
+    let target_pose_in_upcoming_support = *context.ground_to_upcoming_support * target_pose;
+    let direct_step_to_target = Step::from_pose(target_pose_in_upcoming_support);
+    let normalized_direct_step_to_target = NormalizedStep::from_step(
+        direct_step_to_target,
+        &context.optimization_parameters.walk_volume_extents,
+        next_support_side,
+    );
+
+    if normalized_direct_step_to_target.is_inside_walk_volume() {
+        context
+            .direct_step
+            .fill_if_subscribed(|| direct_step_to_target);
+
+        return Ok(direct_step_to_target);
+    }
 
     let (step_plan, gradient, cost) = step_planning_solver::plan_steps(
         path,
