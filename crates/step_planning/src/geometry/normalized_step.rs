@@ -58,6 +58,66 @@ impl<T: RealField + DualNum<f32>> NormalizedStep<T> {
             turn: self.turn.clone() * turn_factor,
         }
     }
+
+    pub fn from_step(
+        step: Step<T>,
+        walk_volume_extents: &WalkVolumeExtents,
+        support_side: Side,
+    ) -> Self {
+        let (left_extent, right_extent, clockwise_turn_extent, counterclockwise_turn_extent) =
+            match support_side {
+                Side::Left => (
+                    walk_volume_extents.inward,
+                    walk_volume_extents.outward,
+                    walk_volume_extents.inward_rotation,
+                    walk_volume_extents.outward_rotation,
+                ),
+                Side::Right => (
+                    walk_volume_extents.outward,
+                    walk_volume_extents.inward,
+                    walk_volume_extents.outward_rotation,
+                    walk_volume_extents.inward_rotation,
+                ),
+            };
+
+        let forward_factor = if step.forward.is_sign_positive() {
+            walk_volume_extents.forward
+        } else {
+            walk_volume_extents.backward
+        };
+
+        let left_factor = if step.left.is_sign_positive() {
+            left_extent
+        } else {
+            right_extent
+        };
+
+        let turn_factor = if step.turn.is_sign_positive() {
+            counterclockwise_turn_extent
+        } else {
+            clockwise_turn_extent
+        };
+
+        Self {
+            forward: step.forward / forward_factor,
+            left: step.left / left_factor,
+            turn: step.turn / turn_factor,
+        }
+    }
+
+    pub fn is_inside_walk_volume(&self) -> bool {
+        let Self {
+            forward,
+            left,
+            turn,
+        } = self;
+
+        [forward, left, turn]
+            .into_iter()
+            .map(|x| x.powi(2))
+            .sum::<T>()
+            <= T::one()
+    }
 }
 
 impl<T: Clone> NormalizedStep<T> {

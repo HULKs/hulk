@@ -14,6 +14,7 @@ use crate::{
 use super::walking::paint_sole_polygon;
 
 pub struct PlannedSteps {
+    direct_step: BufferHandle<Option<Step>>,
     step_plan: BufferHandle<Option<Vec<Step>>>,
     step_plan_greedy: BufferHandle<Option<Vec<Step>>>,
     step_plan_gradient: BufferHandle<Option<Vec<f32>>>,
@@ -27,6 +28,7 @@ impl Layer<Ground> for PlannedSteps {
     const NAME: &'static str = "Planned Steps";
 
     fn new(nao: Arc<Nao>) -> Self {
+        let direct_step = nao.subscribe_value("Control.additional_outputs.direct_step");
         let step_plan = nao.subscribe_value("Control.additional_outputs.step_plan");
         let step_plan_greedy = nao.subscribe_value("Control.additional_outputs.step_plan_greedy");
         let step_plan_gradient =
@@ -41,6 +43,7 @@ impl Layer<Ground> for PlannedSteps {
             nao.subscribe_value("Control.additional_outputs.current_support_side");
 
         Self {
+            direct_step,
             step_plan,
             step_plan_greedy,
             step_plan_gradient,
@@ -56,9 +59,8 @@ impl Layer<Ground> for PlannedSteps {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(step_plan) = self.step_plan.get_last_value()?.flatten() else {
-            return Ok(());
-        };
+        let direct_step = self.direct_step.get_last_value()?.flatten();
+        let step_plan = self.step_plan.get_last_value()?.flatten();
         let Some(step_plan_greedy) = self.step_plan_greedy.get_last_value()?.flatten() else {
             return Ok(());
         };
@@ -81,14 +83,47 @@ impl Layer<Ground> for PlannedSteps {
             return Ok(());
         };
 
-        paint_step_plan(
-            painter,
-            Color32::RED,
-            ground_to_upcoming_support,
-            step_plan,
-            step_plan_gradient,
-            current_support_side.unwrap_or(Side::Left).opposite(),
+        let upcoming_support_to_ground = ground_to_upcoming_support.inverse();
+
+        let upcoming_support_pose = upcoming_support_to_ground.as_pose();
+
+        painter.pose(
+            upcoming_support_pose,
+            0.02,
+            0.01,
+            Color32::GRAY,
+            Stroke::new(0.01, Color32::BLACK),
         );
+
+        if let Some(direct_step) = direct_step {
+            let direct_step_translation = Isometry2::<Ground, Ground>::from_parts(
+                vector![direct_step.forward, direct_step.left],
+                0.0,
+            );
+            let direct_step_rotation =
+                Isometry2::<Ground, Ground>::from_parts(vector![0.0, 0.0], direct_step.turn);
+            let direct_step_end_pose = upcoming_support_pose.as_transform()
+                * direct_step_rotation
+                * direct_step_translation.as_pose();
+
+            paint_planned_step(
+                painter,
+                Color32::GREEN,
+                direct_step_end_pose,
+                current_support_side.unwrap_or(Side::Left).opposite(),
+            );
+        }
+
+        if let Some(step_plan) = step_plan {
+            paint_step_plan(
+                painter,
+                Color32::RED,
+                ground_to_upcoming_support,
+                step_plan,
+                step_plan_gradient,
+                current_support_side.unwrap_or(Side::Left).opposite(),
+            );
+        }
 
         let dummy_gradient = vec![0.0; step_plan_greedy.len() * 3];
         paint_step_plan(
@@ -158,12 +193,12 @@ fn paint_step_plan(
         let [df, dl, da] = gradient.try_into().unwrap();
         painter.line_segment(
             pose.position(),
-            pose.as_transform::<Ground>() * (point![df, dl] * -1.0),
+            pose.as_transform::<Ground>() * (point![-df, -dl]),
             Stroke::new(0.002, Color32::GREEN),
         );
         painter.line_segment(
             pose.position(),
-            pose.as_transform::<Ground>() * point![0.0, da * -1.0],
+            pose.as_transform::<Ground>() * point![0.0, -da],
             Stroke::new(0.002, Color32::RED),
         );
     }

@@ -8,6 +8,7 @@ mod tangent;
 mod wrap_dual;
 
 pub use classify_projection::{ArcProjectionKind, ClassifyProjection};
+pub use end_points::EndPoints;
 pub use length::Length;
 pub use path_progress::PathProgress;
 pub use project::Project;
