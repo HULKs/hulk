@@ -56,6 +56,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "control::center_of_mass_provider",
                     "control::dribble_path_planner",
                     "control::fall_state_estimation",
+                    "control::fall_state_detection",
                     "control::filtered_game_controller_state_timer",
                     "control::foot_bumper_filter",
                     "control::free_kick_signal_filter",
