@@ -338,13 +338,15 @@
         "outward_rotation": 0.5,
         "inward_rotation": 0.5
       },
-      "path_progress_reward": 0.5,
-      "path_distance_penalty": 10.0,
+      "cost_factors": {
+        "path_progress": 0.5,
+        "path_distance": 10.0,
+        "target_orientation": 0.0,
+        "walk_orientation": 0.1,
+      },
       "path_progress_smoothness": 0.05,
-      "target_orientation_penalty": 0.0,
-      "walk_orientation_penalty": 0.1,
       "alignment_start_distance": 0.1,
-      "alignment_start_smoothness": 0.05,
+      "alignment_start_smoothness": 0.05
     }
   },
   "zero_moment_point": {
