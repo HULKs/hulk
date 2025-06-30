@@ -4,11 +4,8 @@ use num_dual::DualNum;
 use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use types::{
-    motion_command::OrientationMode,
-    parameters::{StepPlanningCostFactors, StepPlanningOptimizationParameters},
-    planned_path::Path,
-    support_foot::Side,
-    walk_volume_extents::WalkVolumeExtents,
+    motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
+    planned_path::Path, support_foot::Side, walk_volume_extents::WalkVolumeExtents,
 };
 
 use crate::{
