@@ -4,8 +4,11 @@ use num_dual::DualNum;
 use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use types::{
-    motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
-    planned_path::Path, support_foot::Side, walk_volume_extents::WalkVolumeExtents,
+    motion_command::OrientationMode,
+    parameters::{StepPlanningCostFactors, StepPlanningOptimizationParameters},
+    planned_path::Path,
+    support_foot::Side,
+    walk_volume_extents::WalkVolumeExtents,
 };
 
 use crate::{
@@ -67,50 +70,39 @@ impl StepPlanning<'_> {
     }
 
     pub fn cost(&self, pose: Pose<f32>) -> f32 {
-        let StepPlanningOptimizationParameters {
-            path_progress_reward,
-            path_distance_penalty,
-            target_orientation_penalty,
-            walk_orientation_penalty,
-            ..
-        } = *self.parameters;
+        let cost_factors = &self.parameters.cost_factors;
 
         let progress = self.path.progress(pose.position);
         let path_length = self.path.length();
 
         let path_progress_cost =
-            self.path_progress().cost(progress, path_length) * path_progress_reward;
-        let path_distance_cost = self.path_distance().cost(pose.position) * path_distance_penalty;
+            self.path_progress().cost(progress, path_length) * cost_factors.path_progress;
+        let path_distance_cost =
+            self.path_distance().cost(pose.position) * cost_factors.path_distance;
         let walk_orientation_cost =
-            self.walk_orientation().cost(pose.clone()) * walk_orientation_penalty;
+            self.walk_orientation().cost(pose.clone()) * cost_factors.walk_orientation;
         let target_orientation_cost = self.target_orientation().cost(pose, progress, path_length)
-            * target_orientation_penalty;
+            * cost_factors.target_orientation;
 
         path_progress_cost + path_distance_cost + walk_orientation_cost + target_orientation_cost
     }
 
     pub fn grad(&self, pose: Pose<f32>) -> PoseGradient<f32> {
-        let StepPlanningOptimizationParameters {
-            path_progress_reward,
-            path_distance_penalty,
-            target_orientation_penalty,
-            walk_orientation_penalty,
-            ..
-        } = *self.parameters;
+        let cost_factors = &self.parameters.cost_factors;
 
         let progress = self.path.progress(pose.position);
         let forward = self.path.forward(pose.position);
         let path_length = self.path.length();
 
         let path_progress_gradient =
-            self.path_progress().grad(progress, forward, path_length) * path_progress_reward;
+            self.path_progress().grad(progress, forward, path_length) * cost_factors.path_progress;
         let path_distance_gradient =
-            self.path_distance().grad(pose.position) * path_distance_penalty;
+            self.path_distance().grad(pose.position) * cost_factors.path_distance;
         let walk_orientation_gradient =
-            self.walk_orientation().grad(pose.clone()) * walk_orientation_penalty;
+            self.walk_orientation().grad(pose.clone()) * cost_factors.walk_orientation;
         let target_orientation_gradient =
             self.target_orientation().grad(pose, progress, path_length)
-                * target_orientation_penalty;
+                * cost_factors.target_orientation;
 
         PoseGradient {
             position: path_progress_gradient + path_distance_gradient,
