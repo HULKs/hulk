@@ -163,7 +163,15 @@ pub fn plan_steps(
     let n = parameters.num_steps * 3;
     let lbfgs_memory = 10;
     let tolerance = 1e-6;
-    let mut panoc_cache = PANOCCache::new(n, tolerance, lbfgs_memory);
+    let mut panoc_cache = PANOCCache::new(n, tolerance, lbfgs_memory).with_cbfgs_parameters(
+        // These parameters are needed to fix occasional instability.
+        // This would probably not be necessary if we wouldn't be casting between f32 and f64
+        // in the solver interface.
+        // TODO(rmburg): Either use f32 in the solver or f64 in step planning
+        1.0,  // default
+        1e-8, // default
+        1e-6, // reduced from 1e-10
+    );
 
     let mut panoc =
         PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(parameters.optimizer_steps);
