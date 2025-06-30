@@ -180,8 +180,13 @@ pub fn plan_steps(
         .iter()
         .map(|&x| x as f64)
         .collect::<Vec<_>>();
-    let status = panoc.solve(&mut variables).unwrap();
-    let cost = status.cost_value() as f32;
+    let cost = match panoc.solve(&mut variables) {
+        Ok(status) => status.cost_value() as f32,
+        Err(e) => {
+            eprint!("PANOC error: {e:?}");
+            -1.0
+        }
+    };
 
     let variables = variables.iter().map(|&x| x as f32).collect::<Vec<_>>();
 
