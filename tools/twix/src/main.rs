@@ -670,7 +670,7 @@ impl egui_dock::TabViewer for TabViewer {
             Ok(panel) => panel.ui(ui),
 
             Err((error, value)) => {
-                ui.label(format!("Error loading panel: {}", error));
+                ui.label(format!("Error loading panel: {error}"));
                 ui.collapsing("JSON", |ui| {
                     let content = match serde_json::to_string_pretty(value) {
                         Ok(pretty_string) => pretty_string,
@@ -691,9 +691,9 @@ impl egui_dock::TabViewer for TabViewer {
 
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
         match &mut tab.panel {
-            Ok(panel) => format!("{}", panel).into(),
+            Ok(panel) => format!("{panel}").into(),
             Err((error, _value)) => {
-                WidgetText::from(format!("{}", error)).color(Color32::LIGHT_RED)
+                WidgetText::from(format!("{error}")).color(Color32::LIGHT_RED)
             }
         }
     }

@@ -111,8 +111,7 @@ impl Widget for &mut CameraCalibrationExportPanel {
                     .map(|primary_state| match primary_state {
                         PrimaryState::Calibration => ui.label("Calibration in progress"),
                         _ => ui.label(format!(
-                            "Not yet calibrated, primary state: {:?}",
-                            primary_state
+                            "Not yet calibrated, primary state: {primary_state:?}"
                         )),
                     });
             }
