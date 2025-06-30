@@ -464,15 +464,22 @@ pub struct PenaltyShotDirectionParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
+pub struct StepPlanningCostFactors {
+    pub path_progress: f32,
+    pub path_distance: f32,
+    pub target_orientation: f32,
+    pub walk_orientation: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct StepPlanningOptimizationParameters {
     pub optimizer_steps: usize,
     pub num_steps: usize,
     pub walk_volume_extents: WalkVolumeExtents,
-    pub path_progress_reward: f32,
-    pub path_distance_penalty: f32,
+    pub cost_factors: StepPlanningCostFactors,
     pub path_progress_smoothness: f32,
-    pub target_orientation_penalty: f32,
-    pub walk_orientation_penalty: f32,
     pub alignment_start_distance: f32,
     pub alignment_start_smoothness: f32,
 }

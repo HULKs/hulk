@@ -7,7 +7,7 @@ use nalgebra::DVector;
 use step_planning::geometry::{angle::Angle, pose::Pose};
 use types::{
     motion_command::OrientationMode,
-    parameters::StepPlanningOptimizationParameters,
+    parameters::{StepPlanningCostFactors, StepPlanningOptimizationParameters},
     planned_path::{Path, PathSegment},
     step::Step,
     support_foot::Side,
@@ -27,11 +27,13 @@ fn plan_steps(path: &Path) -> Vec<Step> {
                 outward_rotation: 0.5,
                 inward_rotation: 0.5,
             },
-            path_progress_reward: 0.5,
-            path_distance_penalty: 10.0,
+            cost_factors: StepPlanningCostFactors {
+                path_progress: 0.5,
+                path_distance: 10.0,
+                target_orientation: 1.0,
+                walk_orientation: 0.1,
+            },
             path_progress_smoothness: 0.05,
-            target_orientation_penalty: 1.0,
-            walk_orientation_penalty: 0.1,
             alignment_start_distance: 0.1,
             alignment_start_smoothness: 0.05,
         };
