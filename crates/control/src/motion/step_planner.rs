@@ -89,6 +89,7 @@ impl StepPlanner {
             orientation_mode,
             speed,
             target_orientation,
+            distance_to_be_aligned,
             ..
         } = context.motion_command
         else {
@@ -119,7 +120,13 @@ impl StepPlanner {
                 .step_plan_greedy
                 .fill_if_subscribed(|| step_plan_greedy);
 
-            plan_step(path, &mut context, *orientation_mode, *target_orientation)?
+            plan_step(
+                path,
+                &mut context,
+                *orientation_mode,
+                *target_orientation,
+                *distance_to_be_aligned,
+            )?
         };
 
         let elapsed = SystemTime::now().duration_since(earlier).unwrap();
@@ -212,6 +219,7 @@ fn plan_step(
     context: &mut CycleContext,
     orientation_mode: OrientationMode,
     target_orientation: Orientation2<Ground>,
+    distance_to_be_aligned: f32,
 ) -> Result<Step> {
     let num_variables = context.optimization_parameters.num_steps * VARIABLES_PER_STEP;
 
@@ -248,6 +256,7 @@ fn plan_step(
         path,
         orientation_mode,
         target_orientation,
+        distance_to_be_aligned,
         upcoming_support_pose_in_ground(context),
         next_support_side,
         initial_guess,

@@ -71,6 +71,7 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
         path,
         orientation_mode,
         target_orientation,
+        distance_to_be_aligned: 0.1,
         head: HeadMotion::ZeroAngles,
         left_arm: ArmMotion::Swing,
         right_arm: ArmMotion::Swing,

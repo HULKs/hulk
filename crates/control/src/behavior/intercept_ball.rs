@@ -16,6 +16,7 @@ pub fn execute(
     world_state: &WorldState,
     parameters: InterceptBallParameters,
     walk_speed: WalkSpeed,
+    distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     if let Some(
         FilteredGameControllerState {
@@ -82,6 +83,7 @@ pub fn execute(
                 orientation_mode: OrientationMode::LookTowards(target_orientation),
                 speed: walk_speed,
                 target_orientation,
+                distance_to_be_aligned,
             })
         }
         _ => None,
