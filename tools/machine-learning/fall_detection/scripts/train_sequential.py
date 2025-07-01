@@ -22,6 +22,9 @@ from keras.models import Sequential
 from keras.optimizers.legacy import Adam
 from tensorflow import keras
 
+from data_loading import load
+from dataset import FallenDataset
+
 
 def plot_training_history(history, model_name) -> None:
     fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -123,6 +126,7 @@ def train_model(model, x_train, y_train, x_test, y_test):
 def dummy_data(labels):
     number_of_samples = 1000
     control_frequency = 1 / 83
+    stride = 1
     window_size_s = 1.5
     window_stride_s = 0.2
     samples_per_window = int(window_size_s / control_frequency)
@@ -158,19 +162,37 @@ if __name__ == "__main__":
     # df = load("data.parquet")
     labels = ["Unknown", "Upright", "Falling", "Fallen"]
 
-    model = build_model(len(labels))
+    df = load("data.parquet")
+    dataset = FallenDataset(
+        df,
+        group_keys=["robot_identifier", "match_identifier"],
+        features=[
+            pl.col("Control.main_outputs.robot_orientation.pitch"),
+            pl.col("Control.main_outputs.robot_orientation.roll"),
+            pl.col("Control.main_outputs.robot_orientation.yaw"),
+        ],
+    )
 
-    (input_data, data_labels) = dummy_data(labels)
-    (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
+    print(dataset.input_data)
+    print(dataset.labels)
+    dataset.to_windowed()
+    print(dataset.input_data)
+    print(dataset.labels)
+    print(dataset.get_input_tensor())
 
-    y_train = keras.utils.to_categorical(y_train, len(labels))
-    y_test = keras.utils.to_categorical(y_test, len(labels))
+    # model = build_model(len(labels))
 
-    train_model(model, x_train, y_train, x_test, y_test)
-    export_path = "saved_model.keras"
-    model.save(export_path)
+    # (input_data, data_labels) = dummy_data(labels)
+    # (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
 
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    model_tflite = converter.convert()
-    with open("../../../etc/neural_networks/base_model.tflite", "wb") as f:
-        f.write(model_tflite)
+    # y_train = keras.utils.to_categorical(y_train, len(labels))
+    # y_test = keras.utils.to_categorical(y_test, len(labels))
+
+    # train_model(model, x_train, y_train, x_test, y_test)
+    # export_path = "saved_model.keras"
+    # model.save(export_path)
+
+    # converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    # model_tflite = converter.convert()
+    # with open("../../../etc/neural_networks/base_model.tflite", "wb") as f:
+    #     f.write(model_tflite)
