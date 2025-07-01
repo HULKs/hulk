@@ -70,24 +70,26 @@ OUTPUTS = {
 def iter_mcap(reader: McapReader, topics: list[str]):
     summary = reader.get_summary()
     channels = [
-        channel for channel in summary.channels.values() if channel.topic in topics
+        channel
+        for channel in summary.channels.values()
+        if channel.topic in topics
     ]
     message_counts = sum(
-        summary.statistics.channel_message_counts[channel.id] for channel in channels
+        summary.statistics.channel_message_counts[channel.id]
+        for channel in channels
     )
     number_of_steps = message_counts // len(topics)
 
     for outputs in tqdm(
-        batched(
-            reader.iter_messages(topics=OUTPUTS.keys()), n=len(topics), strict=True
-        ),
+        batched(reader.iter_messages(topics=OUTPUTS.keys()), n=len(topics)),
         total=number_of_steps,
     ):
         channels = [channel for _, channel, _ in outputs]
         messages = [message for _, _, message in outputs]
 
         log_times = [
-            datetime.fromtimestamp(message.log_time / 1e9) for message in messages
+            datetime.fromtimestamp(message.log_time / 1e9)
+            for message in messages
         ]
         assert all(log_times[0] == time for time in log_times)
         data = {
@@ -111,7 +113,9 @@ def read_mcap(mcap_path: Path) -> pl.DataFrame:
 
 
 def convert_mcaps(mcaps: list[str]) -> pl.DataFrame:
-    return pl.concat((read_mcap(Path(mcap)) for mcap in tqdm(mcaps)), how="diagonal")
+    return pl.concat(
+        (read_mcap(Path(mcap)) for mcap in tqdm(mcaps)), how="diagonal"
+    )
 
 
 def load(path: str):
@@ -121,7 +125,10 @@ def load(path: str):
         .dt.total_seconds()
         .alias("time_in_game"),
     )
-    struct_columns = [col for col, schema in df.schema.items() if schema == pl.Struct]
+    print(df)
+    struct_columns = [
+        col for col, schema in df.schema.items() if schema == pl.Struct
+    ]
     for column in struct_columns:
         df.hstack(unnest_column(df[column]), in_place=True)
         df.drop_in_place(column)
