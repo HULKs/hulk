@@ -48,6 +48,7 @@ fn get_gradient(
     point: Point2<Pixel, u16>,
     gradient_sobel_stride: u32,
 ) -> Vector2<f32> {
+    #![expect(clippy::neg_multiply)]
     if point.x() < gradient_sobel_stride as u16
         || point.y() < gradient_sobel_stride as u16
         || point.x() > image.width() as u16 - 2 * gradient_sobel_stride as u16
