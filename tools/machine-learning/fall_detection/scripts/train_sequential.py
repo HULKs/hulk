@@ -108,9 +108,6 @@ def train_model(model, x_train, y_train, x_test, y_test):
         mode="min",
     )
 
-    print(f"x_train: {x_train.shape}")
-    print(f"y_train: {y_train.shape}")
-
     num_epochs = 100
     history = model.fit(
         x_train,
@@ -137,7 +134,6 @@ def split_data(input_data, labels):
 
 
 if __name__ == "__main__":
-    # df = load("data.parquet")
     labels = ["Unknown", "Upright", "Falling", "Fallen"]
 
     df = load("data.parquet")
@@ -148,19 +144,13 @@ if __name__ == "__main__":
             pl.col("Control.main_outputs.robot_orientation.pitch"),
             pl.col("Control.main_outputs.robot_orientation.roll"),
             pl.col("Control.main_outputs.robot_orientation.yaw"),
+            pl.col("Control.main_outputs.has_ground_contact"),
         ],
     )
-
-    print(dataset.input_data)
-    print(dataset.labels)
     dataset.to_windowed()
-    print(dataset.input_data)
-    print(dataset.labels)
-    print(dataset.get_input_tensor())
 
     model = build_model(len(labels))
 
-    # (input_data, data_labels) = dummy_data(labels)
     input_data = dataset.get_input_tensor()
     data_labels = dataset.get_labels_tensor()
     (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
@@ -169,8 +159,6 @@ if __name__ == "__main__":
     y_test = keras.utils.to_categorical(y_test, len(labels))
 
     train_model(model, x_train, y_train, x_test, y_test)
-    export_path = "saved_model.keras"
-    model.save(export_path)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     model_tflite = converter.convert()
