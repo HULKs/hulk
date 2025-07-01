@@ -2,20 +2,56 @@ import polars as pl
 import plotly.express as px
 import plotly.io as pio
 from data_loading import load
+from dataset import FallenDataset
 
 
 def main():
     pio.renderers.default = "browser"
-    data = load("data.parquet")
+
+    df = load("data.parquet")
+    dataset = FallenDataset(
+        df,
+        group_keys=["robot_identifier", "match_identifier"],
+        features=[
+            pl.col("Control.main_outputs.robot_orientation.pitch"),
+            pl.col("Control.main_outputs.robot_orientation.roll"),
+            pl.col("Control.main_outputs.robot_orientation.yaw"),
+            pl.col("Control.main_outputs.has_ground_contact"),
+        ],
+    )
+    dataset.to_windowed(window_stride=1 / 83)
+
+    df = (
+        dataset.input_data.hstack(dataset.labels)
+        .with_row_index()
+        .hstack(
+            dataset.input_data.select(
+                pl.col(
+                    "Control.main_outputs.robot_orientation.pitch"
+                ).list.last()
+            ).rename({"Control.main_outputs.robot_orientation.pitch": "pitch"})
+        )
+    )
+    print(df)
+    # print(df[0, 0].shape)
+
     # px.scatter(
-    #     data, x="time", y="Control.main_outputs.fall_state", color="robot_identifier"
-    # ).show()
-    # px.scatter(
-    #     data.filter(pl.col("robot_identifier") == "10.1.24.33"),
+    #     data,
     #     x="time",
-    #     y="Control.main_outputs.robot_orientation.pitch",
-    #     color="Control.main_outputs.fall_state",
+    #     y="Control.main_outputs.fall_state",
+    #     color="robot_identifier",
     # ).show()
+    print(
+        df.select(
+            pl.col("Control.main_outputs.robot_orientation.pitch").list.last()
+        )
+    )
+    px.scatter(
+        df,  # .filter(pl.col("robot_identifier") == "10.1.24.33"),
+        x="index",
+        y="pitch",
+        color="labels",
+    ).show()
 
 
 if __name__ == "__main__":

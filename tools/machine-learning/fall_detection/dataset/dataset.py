@@ -28,6 +28,7 @@ class FallenDataset:
 
         self.labeller = PseudoLabeller()
         self.features = features
+        print(dataframe.columns)
 
         number_of_nulls = (
             dataframe.select(features)
@@ -77,13 +78,15 @@ class FallenDataset:
         )
         self.input_data = windows.select(self.features)
         # windowed_labels = windowed_dataframe.agg(pl.col("labels")).drop("index")
-        self.labels = pl.Series(
-            [
-                # todo: state prediction label index
-                row[-1]
-                # print(row)
-                for row in windows.get_column("labels")
-            ]
+        self.labels = pl.DataFrame(
+            {
+                "labels": [
+                    # todo: state prediction label index
+                    row[-1]
+                    # print(row)
+                    for row in windows.get_column("labels")
+                ]
+            }
         )
 
     def __len__(self) -> int:
@@ -91,6 +94,9 @@ class FallenDataset:
 
     def n_features(self) -> int:
         return self.input_data.size(1)
+
+    def n_classes(self) -> int:
+        return len(self.labeller.label_type)
 
     def __getitem__(self, index: int) -> tuple[tf.Tensor, tf.Tensor]:
         mask = self.groups == index
