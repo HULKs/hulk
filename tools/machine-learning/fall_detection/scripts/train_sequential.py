@@ -134,8 +134,6 @@ def split_data(input_data, labels):
 
 
 if __name__ == "__main__":
-    labels = ["Unknown", "Upright", "Falling", "Fallen"]
-
     df = load("data.parquet")
     dataset = FallenDataset(
         df,
@@ -149,14 +147,14 @@ if __name__ == "__main__":
     )
     dataset.to_windowed()
 
-    model = build_model(len(labels))
+    model = build_model(dataset.n_classes())
 
     input_data = dataset.get_input_tensor()
     data_labels = dataset.get_labels_tensor()
     (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
 
-    y_train = keras.utils.to_categorical(y_train, len(labels))
-    y_test = keras.utils.to_categorical(y_test, len(labels))
+    y_train = keras.utils.to_categorical(y_train, dataset.n_classes())
+    y_test = keras.utils.to_categorical(y_test, dataset.n_classes())
 
     train_model(model, x_train, y_train, x_test, y_test)
 

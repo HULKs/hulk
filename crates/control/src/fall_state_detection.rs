@@ -62,6 +62,8 @@ impl FallStateDetection {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl PathsInterface>) -> Result<MainOutputs> {
+        // TODO: hadle primary state unstiff
+
         // let cycle_start = context.cycle_time.start_time;
         // let inertial_measurement_unit = context.sensor_data.inertial_measurement_unit;
         // let (roll, pitch, _) = context.robot_orientation.inner.euler_angles();

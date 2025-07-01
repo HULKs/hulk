@@ -58,12 +58,22 @@ class FallStateUnwrapper(Unwrapper):
         raise ValueError(f"did not expect fall state {data}")
 
 
+class HasGroundContactUnwrapper(Unwrapper):
+    pass
+
+
+class PrimaryStateUnwrapper(Unwrapper):
+    pass
+
+
 OUTPUTS = {
     "Control.main_outputs.sensor_data": SensorDataUnwrapper(),
     "Control.main_outputs.robot_orientation": RobotOrientationUnwrapper(),
     "Control.main_outputs.center_of_mass": CenterOfMassUnwrapper(),
     "Control.main_outputs.zero_moment_point": ZeroMomentPointUnwrapper(),
     "Control.main_outputs.fall_state": FallStateUnwrapper(),
+    "Control.main_outputs.has_ground_contact": HasGroundContactUnwrapper(),
+    "Control.main_outputs.primary_state": PrimaryStateUnwrapper(),
 }
 
 
