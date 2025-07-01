@@ -35,7 +35,7 @@ fn plan_steps(path: &Path) -> Vec<Step> {
             },
             path_progress_smoothness: 0.05,
             alignment_start_distance: 0.1,
-            alignment_start_smoothness: 0.05,
+            alignment_ramp_steepness: 50.0,
         };
 
     let (step_plan, _, _) = step_planning_solver::plan_steps(
