@@ -48,8 +48,8 @@ pub fn leg_angles(
             * Rotation3::new(Vector3::y() * right_foot_pitch_2_in_pelvis))
             * Vector3::y());
 
-    let left_hip_yaw_pitch = -1.0 * (-1.0 * left_hip_rotation_c1.x).atan2(left_hip_rotation_c1.y);
-    let right_hip_yaw_pitch = (-1.0 * right_hip_rotation_c1.x).atan2(right_hip_rotation_c1.y);
+    let left_hip_yaw_pitch = -((-left_hip_rotation_c1.x).atan2(left_hip_rotation_c1.y));
+    let right_hip_yaw_pitch = (-right_hip_rotation_c1.x).atan2(right_hip_rotation_c1.y);
     let left_hip_yaw_pitch_combined =
         left_hip_yaw_pitch * ratio + right_hip_yaw_pitch * (1.0 - ratio);
 
@@ -63,19 +63,17 @@ pub fn leg_angles(
     let vector_right_hip_to_right_foot = right_foot_to_right_hip.translation;
 
     let left_hip_roll_in_hip =
-        -1.0 * (-1.0 * vector_left_hip_to_left_foot.y).atan2(-1.0 * vector_left_hip_to_left_foot.z);
-    let right_hip_roll_in_hip = -1.0
-        * (-1.0 * vector_right_hip_to_right_foot.y).atan2(-1.0 * vector_right_hip_to_right_foot.z);
+        -((-vector_left_hip_to_left_foot.y).atan2(-vector_left_hip_to_left_foot.z));
+    let right_hip_roll_in_hip =
+        -((-vector_right_hip_to_right_foot.y).atan2(-vector_right_hip_to_right_foot.z));
 
-    let left_hip_pitch_minus_alpha = (-1.0 * vector_left_hip_to_left_foot.x).atan2(
-        (vector_left_hip_to_left_foot.y.powi(2) + vector_left_hip_to_left_foot.z.powi(2)).sqrt()
-            * -1.0
+    let left_hip_pitch_minus_alpha = (-vector_left_hip_to_left_foot.x).atan2(
+        -((vector_left_hip_to_left_foot.y.powi(2) + vector_left_hip_to_left_foot.z.powi(2)).sqrt())
             * vector_left_hip_to_left_foot.z.signum(),
     );
-    let right_hip_pitch_minus_alpha = (-1.0 * vector_right_hip_to_right_foot.x).atan2(
-        (vector_right_hip_to_right_foot.y.powi(2) + vector_right_hip_to_right_foot.z.powi(2))
-            .sqrt()
-            * -1.0
+    let right_hip_pitch_minus_alpha = (-vector_right_hip_to_right_foot.x).atan2(
+        -((vector_right_hip_to_right_foot.y.powi(2) + vector_right_hip_to_right_foot.z.powi(2))
+            .sqrt())
             * vector_right_hip_to_right_foot.z.signum(),
     );
 
@@ -101,10 +99,10 @@ pub fn leg_angles(
         / (2.0 * lower_leg * left_height);
     let right_cos_minus_beta = (lower_leg.powi(2) + right_height.powi(2) - upper_leg.powi(2))
         / (2.0 * lower_leg * right_height);
-    let left_alpha = -1.0 * left_cos_minus_alpha.clamp(-1.0, 1.0).acos();
-    let right_alpha = -1.0 * right_cos_minus_alpha.clamp(-1.0, 1.0).acos();
-    let left_beta = -1.0 * left_cos_minus_beta.clamp(-1.0, 1.0).acos();
-    let right_beta = -1.0 * right_cos_minus_beta.clamp(-1.0, 1.0).acos();
+    let left_alpha = -(left_cos_minus_alpha.clamp(-1.0, 1.0).acos());
+    let right_alpha = -(right_cos_minus_alpha.clamp(-1.0, 1.0).acos());
+    let left_beta = -(left_cos_minus_beta.clamp(-1.0, 1.0).acos());
+    let right_beta = -(right_cos_minus_beta.clamp(-1.0, 1.0).acos());
 
     let left_leg = LegJoints {
         hip_yaw_pitch: left_hip_yaw_pitch_combined,
@@ -112,7 +110,7 @@ pub fn leg_angles(
         hip_pitch: left_hip_pitch_minus_alpha + left_alpha,
         knee_pitch: -left_alpha - left_beta,
         ankle_pitch: left_foot_rotation_c2.x.atan2(left_foot_rotation_c2.z) + left_beta,
-        ankle_roll: (-1.0 * left_foot_rotation_c2.y).asin(),
+        ankle_roll: (-left_foot_rotation_c2.y).asin(),
     };
     let right_leg = LegJoints {
         hip_yaw_pitch: left_hip_yaw_pitch_combined,
@@ -120,7 +118,7 @@ pub fn leg_angles(
         hip_pitch: right_hip_pitch_minus_alpha + right_alpha,
         knee_pitch: -right_alpha - right_beta,
         ankle_pitch: right_foot_rotation_c2.x.atan2(right_foot_rotation_c2.z) + right_beta,
-        ankle_roll: (-1.0 * right_foot_rotation_c2.y).asin(),
+        ankle_roll: (-right_foot_rotation_c2.y).asin(),
     };
 
     LowerBodyJoints {

@@ -251,8 +251,7 @@ fn print_verbose(states: &AlivenessList) {
                     .expect("temperature array should not be empty");
 
                 format!(
-                    "{}°C / {}°C / {}°C  (minimum / maximum / median)",
-                    minimum_temperature, maximum_temperature, median_temperature
+                    "{minimum_temperature}°C / {maximum_temperature}°C / {median_temperature}°C  (minimum / maximum / median)"
                 )
             }
             None => unknown.clone(),
