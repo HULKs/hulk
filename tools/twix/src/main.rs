@@ -692,9 +692,7 @@ impl egui_dock::TabViewer for TabViewer {
     fn title(&mut self, tab: &mut Self::Tab) -> eframe::egui::WidgetText {
         match &mut tab.panel {
             Ok(panel) => format!("{panel}").into(),
-            Err((error, _value)) => {
-                WidgetText::from(format!("{error}")).color(Color32::LIGHT_RED)
-            }
+            Err((error, _value)) => WidgetText::from(format!("{error}")).color(Color32::LIGHT_RED),
         }
     }
 
