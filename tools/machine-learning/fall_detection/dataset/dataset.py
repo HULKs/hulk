@@ -1,5 +1,6 @@
 from typing import Iterable
 import tensorflow as tf
+import numpy as np
 from tensorflow.data import Dataset
 import polars as pl
 import pandas as pd
@@ -52,26 +53,36 @@ class FallenDataset:
         self,
         stride: int = 1,
         control_frequency: float = 83,
-        window_size: int = 1500,
-        window_stride: int = 200,
+        window_size: float = 1.5,
+        window_stride: float = 0.2,
         is_state_prediction: bool = False,
     ) -> None:
-        number_of_samples = int((window_size / 1000) * control_frequency)
-        windowed_dataframe = self.dataframe[::stride].group_by_dynamic(
-            index_column="time",
-            every=f"{window_stride}ms",
-            period=f"{window_size}ms",
+        samples_per_window = int(window_size * control_frequency)
+        samples_between_windows = int(window_stride * control_frequency)
+        windowed_dataframe = (
+            self.dataframe[::stride]
+            .with_row_index()
+            .cast({"index": pl.Int32})
+            .group_by_dynamic(
+                index_column="index",
+                every=f"{samples_between_windows}i",
+                period=f"{samples_per_window}i",
+            )
         )
-        self.input_data = windowed_dataframe.agg(self.features).drop("time")
-        for col in self.input_data.iter_columns():
-            for elem in col:
-                print(elem.shape)
-        windowed_labels = windowed_dataframe.agg(pl.col("labels")).drop("time")
+        print(windowed_dataframe)
+        windows = (
+            windowed_dataframe.agg([*self.features, pl.col("labels")])
+            .drop("index")
+            .filter(self.features[0].list.len() == 124)
+        )
+        self.input_data = windows.select(self.features)
+        # windowed_labels = windowed_dataframe.agg(pl.col("labels")).drop("index")
         self.labels = pl.Series(
             [
-                row[-1] if is_state_prediction else row[0]
+                # todo: state prediction label index
+                row[-1]
                 # print(row)
-                for row in windowed_labels.get_column("labels")
+                for row in windows.get_column("labels")
             ]
         )
 
@@ -86,13 +97,13 @@ class FallenDataset:
         return self.input_data[mask], self.labels[mask]
 
     def get_input_tensor(self) -> tf.Tensor:
-        pd_df = self.input_data.to_pandas().values
-        # print(pd_df)
-        # print(type(pd_df))
-        tf.convert_to_tensor(pd_df, dtype=tf.float64)
+        pd_df = self.input_data.to_pandas()
+        return tf.convert_to_tensor(
+            np.array(pd_df.values.tolist()), dtype=tf.float32
+        )
 
     def get_labels_tensor(self) -> tf.Tensor:
-        tf.convert_to_tensor(self.labels.to_numpy())
+        return tf.convert_to_tensor(self.labels.to_numpy())
 
     def get_windows_input_tensor(self) -> list[tf.Tensor]:
         windowed_input_tensor = []
