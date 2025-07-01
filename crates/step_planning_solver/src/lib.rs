@@ -136,10 +136,12 @@ fn open_gradient(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn plan_steps(
     path: &Path,
     orientation_mode: OrientationMode,
     target_orientation: Orientation2<Ground>,
+    distance_to_be_aligned: f32,
     initial_pose: Pose<f32>,
     initial_support_foot: Side,
     initial_parameter_guess: DVector<f32>,
@@ -152,6 +154,7 @@ pub fn plan_steps(
         parameters,
         orientation_mode,
         target_orientation,
+        distance_to_be_aligned,
     };
 
     let problem = Problem::new(

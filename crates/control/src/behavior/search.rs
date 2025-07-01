@@ -160,6 +160,7 @@ pub fn execute(
                     head,
                     OrientationMode::LookTowards(Orientation2::new(parameters.rotation_per_step)),
                     Orientation2::identity(),
+                    distance_to_be_aligned,
                     path,
                     walk_speed,
                 ))
@@ -169,6 +170,7 @@ pub fn execute(
                 head,
                 OrientationMode::Unspecified,
                 Orientation2::new(parameters.rotation_per_step),
+                distance_to_be_aligned,
                 path,
                 walk_speed,
             ))

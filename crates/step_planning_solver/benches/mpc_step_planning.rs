@@ -34,14 +34,16 @@ fn plan_steps(path: &Path) -> Vec<Step> {
                 walk_orientation: 0.1,
             },
             path_progress_smoothness: 0.05,
-            alignment_start_distance: 0.1,
             alignment_ramp_steepness: 50.0,
         };
+
+    let distance_to_be_aligned = 0.1;
 
     let (step_plan, _, _) = step_planning_solver::plan_steps(
         path,
         OrientationMode::Unspecified,
         Orientation2::identity(),
+        distance_to_be_aligned,
         Pose {
             position: Point2::origin(),
             orientation: Angle(0.0),

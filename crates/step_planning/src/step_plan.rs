@@ -41,6 +41,7 @@ impl<'a, T: RealField> StepPlan<'a, T> {
 pub struct StepPlanning<'a> {
     pub path: &'a Path,
     pub target_orientation: Orientation2<Ground>,
+    pub distance_to_be_aligned: f32,
     pub initial_pose: Pose<f32>,
     pub initial_support_foot: Side,
     pub orientation_mode: OrientationMode,
@@ -120,7 +121,7 @@ impl StepPlanning<'_> {
     // https://www.desmos.com/calculator/mzuvbmrxym
     fn target_alignment_importance(&self, distance_to_target: f32) -> f32 {
         (1.0 - f32::tanh(
-            (distance_to_target - self.parameters.alignment_start_distance)
+            (distance_to_target - self.distance_to_be_aligned)
                 * self.parameters.alignment_ramp_steepness,
         )) / 2.0
     }

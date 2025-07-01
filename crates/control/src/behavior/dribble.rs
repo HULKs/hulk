@@ -12,7 +12,6 @@ use types::{
 
 use super::walk_to_pose::WalkPathPlanner;
 
-#[allow(clippy::too_many_arguments)]
 pub fn execute(
     world_state: &WorldState,
     walk_path_planner: &WalkPathPlanner,
@@ -20,6 +19,7 @@ pub fn execute(
     parameters: &DribblingParameters,
     dribble_path_plan: Option<DribblePathPlan>,
     mut walk_speed: WalkSpeed,
+    distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let distance_to_ball = ball_position.coords().norm();
@@ -76,6 +76,7 @@ pub fn execute(
             head,
             orientation_mode,
             target_orientation,
+            distance_to_be_aligned,
             path,
             walk_speed,
         )),

@@ -99,6 +99,7 @@ pub enum MotionCommand {
         right_arm: ArmMotion,
         orientation_mode: OrientationMode,
         target_orientation: Orientation2<Ground>,
+        distance_to_be_aligned: f32,
         speed: WalkSpeed,
     },
     InWalkKick {

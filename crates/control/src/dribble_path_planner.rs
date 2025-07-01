@@ -22,7 +22,7 @@ use types::{
     world_state::BallState,
 };
 
-use crate::behavior::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
+use crate::behavior::walk_to_pose::WalkPathPlanner;
 
 #[derive(Deserialize, Serialize)]
 pub struct DribblePathPlanner {}
@@ -104,19 +104,11 @@ impl DribblePathPlanner {
             .dribble_path_obstacles_output
             .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
-        let hybrid_orientation_mode = hybrid_alignment(
-            best_kick_pose,
-            context.dribbling_parameters.hybrid_align_distance,
-            context.dribbling_parameters.distance_to_be_aligned,
-        );
         let ball_position = &context.ball.ball_in_ground;
-        let orientation_mode = match hybrid_orientation_mode {
-            types::motion_command::OrientationMode::Unspecified
-                if ball_position.coords().norm() > 0.0 =>
-            {
-                OrientationMode::LookAt(context.ball.ball_in_ground)
-            }
-            orientation_mode => orientation_mode,
+        let orientation_mode = if ball_position.coords().norm() > 0.0 {
+            OrientationMode::LookAt(context.ball.ball_in_ground)
+        } else {
+            OrientationMode::Unspecified
         };
 
         let target_orientation = best_kick_pose.orientation();
