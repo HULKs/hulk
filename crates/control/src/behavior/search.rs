@@ -131,6 +131,7 @@ pub fn execute(
             head,
             orientation_mode,
             Orientation2::new(parameters.rotation_per_step),
+            distance_to_be_aligned,
             path,
             walk_speed,
         ))
