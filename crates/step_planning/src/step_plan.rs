@@ -71,15 +71,20 @@ impl StepPlanning<'_> {
 
         let progress = self.path.progress(pose.position);
         let path_length = self.path.length();
+        let distance_to_target = path_length - progress;
+        let target_alignment_importance = self.target_alignment_importance(distance_to_target);
+        let walk_alignment_importance = 1.0 - target_alignment_importance;
 
         let path_progress_cost =
             self.path_progress().cost(progress, path_length) * cost_factors.path_progress;
         let path_distance_cost =
             self.path_distance().cost(pose.position) * cost_factors.path_distance;
-        let walk_orientation_cost =
-            self.walk_orientation().cost(pose.clone()) * cost_factors.walk_orientation;
-        let target_orientation_cost = self.target_orientation().cost(pose, progress, path_length)
-            * cost_factors.target_orientation;
+        let walk_orientation_cost = self.walk_orientation().cost(pose.clone())
+            * cost_factors.walk_orientation
+            * walk_alignment_importance;
+        let target_orientation_cost = self.target_orientation().cost(pose)
+            * cost_factors.target_orientation
+            * target_alignment_importance;
 
         path_progress_cost + path_distance_cost + walk_orientation_cost + target_orientation_cost
     }
@@ -90,22 +95,34 @@ impl StepPlanning<'_> {
         let progress = self.path.progress(pose.position);
         let forward = self.path.forward(pose.position);
         let path_length = self.path.length();
+        let distance_to_target = path_length - progress;
+        let target_alignment_importance = self.target_alignment_importance(distance_to_target);
+        let walk_alignment_importance = 1.0 - target_alignment_importance;
 
         let path_progress_gradient =
             self.path_progress().grad(progress, forward, path_length) * cost_factors.path_progress;
         let path_distance_gradient =
             self.path_distance().grad(pose.position) * cost_factors.path_distance;
-        let walk_orientation_gradient =
-            self.walk_orientation().grad(pose.clone()) * cost_factors.walk_orientation;
-        let target_orientation_gradient =
-            self.target_orientation().grad(pose, progress, path_length)
-                * cost_factors.target_orientation;
+        let walk_orientation_gradient = self.walk_orientation().grad(pose.clone())
+            * cost_factors.walk_orientation
+            * walk_alignment_importance;
+        let target_orientation_gradient = self.target_orientation().grad(pose)
+            * cost_factors.target_orientation
+            * target_alignment_importance;
 
         PoseGradient {
             position: path_progress_gradient + path_distance_gradient,
             orientation: 0.0,
         } + walk_orientation_gradient
             + target_orientation_gradient
+    }
+
+    // https://www.desmos.com/calculator/mzuvbmrxym
+    fn target_alignment_importance(&self, distance_to_target: f32) -> f32 {
+        (1.0 - f32::tanh(
+            (distance_to_target - self.parameters.alignment_start_distance)
+                * self.parameters.alignment_ramp_steepness,
+        )) / 2.0
     }
 
     fn path_distance(&self) -> PathDistanceField<'_> {
@@ -127,8 +144,6 @@ impl StepPlanning<'_> {
     fn target_orientation(&self) -> TargetOrientationField {
         TargetOrientationField {
             target_orientation: Angle(self.target_orientation.angle()),
-            alignment_start_distance: self.parameters.alignment_start_distance,
-            ramp_width: self.parameters.alignment_start_smoothness,
         }
     }
 }
