@@ -24,7 +24,7 @@ impl TargetOrientationField {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::{PI, TAU};
+    use std::f32::consts::TAU;
 
     use linear_algebra::point;
     use proptest::proptest;
@@ -36,9 +36,9 @@ mod tests {
 
     proptest!(
         #[test]
-        fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0, orientation in 0.0..TAU) {
+        fn verify_gradient(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
             let cost_field = TargetOrientationField {
-                target_orientation: Angle(PI),
+                target_orientation: Angle(target_orientation),
             };
 
             let position = point![x, y];
