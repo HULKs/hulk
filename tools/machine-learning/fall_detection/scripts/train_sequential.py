@@ -111,7 +111,7 @@ def train_model(model, x_train, y_train, x_test, y_test):
     print(f"x_train: {x_train.shape}")
     print(f"y_train: {y_train.shape}")
 
-    num_epochs = 10
+    num_epochs = 100
     history = model.fit(
         x_train,
         y_train,
@@ -120,29 +120,7 @@ def train_model(model, x_train, y_train, x_test, y_test):
         validation_data=(x_test, y_test),
         callbacks=[early_stopping],
     )
-    # plot_training_history(history, 1)
-
-
-def dummy_data(labels):
-    number_of_samples = 1000
-    control_frequency = 1 / 83
-    stride = 1
-    window_size_s = 1.5
-    window_stride_s = 0.2
-    samples_per_window = int(window_size_s / control_frequency)
-    number_of_windows = int(
-        number_of_samples / control_frequency / window_stride_s
-    )
-
-    print(number_of_windows)
-    print(samples_per_window)
-
-    rng = np.random.default_rng()
-
-    input_data = rng.random(size=(number_of_windows, samples_per_window, 4))
-    data_labels = rng.integers(low=0, high=3, size=number_of_windows)
-
-    return (input_data, data_labels)
+    plot_training_history(history, 1)
 
 
 def split_data(input_data, labels):
@@ -180,19 +158,21 @@ if __name__ == "__main__":
     print(dataset.labels)
     print(dataset.get_input_tensor())
 
-    # model = build_model(len(labels))
+    model = build_model(len(labels))
 
     # (input_data, data_labels) = dummy_data(labels)
-    # (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
+    input_data = dataset.get_input_tensor()
+    data_labels = dataset.get_labels_tensor()
+    (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
 
-    # y_train = keras.utils.to_categorical(y_train, len(labels))
-    # y_test = keras.utils.to_categorical(y_test, len(labels))
+    y_train = keras.utils.to_categorical(y_train, len(labels))
+    y_test = keras.utils.to_categorical(y_test, len(labels))
 
-    # train_model(model, x_train, y_train, x_test, y_test)
-    # export_path = "saved_model.keras"
-    # model.save(export_path)
+    train_model(model, x_train, y_train, x_test, y_test)
+    export_path = "saved_model.keras"
+    model.save(export_path)
 
-    # converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    # model_tflite = converter.convert()
-    # with open("../../../etc/neural_networks/base_model.tflite", "wb") as f:
-    #     f.write(model_tflite)
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    model_tflite = converter.convert()
+    with open("../../../etc/neural_networks/base_model.tflite", "wb") as f:
+        f.write(model_tflite)
