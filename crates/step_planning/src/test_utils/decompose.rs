@@ -15,6 +15,34 @@ pub trait Decompose<F> {
     fn compose(decomposed: Vec<F>) -> Self;
 }
 
+impl Decompose<f32> for f32 {
+    const N: usize = 1;
+
+    fn decompose(self) -> Vec<f32> {
+        vec![self]
+    }
+
+    fn compose(decomposed: Vec<f32>) -> Self {
+        let [value] = decomposed.try_into().unwrap();
+
+        value
+    }
+}
+
+impl<F: Debug> Decompose<F> for Angle<F> {
+    const N: usize = 1;
+
+    fn decompose(self) -> Vec<F> {
+        vec![self.0]
+    }
+
+    fn compose(decomposed: Vec<F>) -> Self {
+        let [value] = decomposed.try_into().unwrap();
+
+        Angle(value)
+    }
+}
+
 impl<F: Debug> Decompose<F> for Step<F> {
     const N: usize = 3;
 
