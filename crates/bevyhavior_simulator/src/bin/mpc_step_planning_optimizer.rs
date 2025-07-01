@@ -62,6 +62,7 @@ fn update(
         .to_vec(),
         orientation_mode: OrientationMode::Unspecified,
         target_orientation: Orientation2::identity(),
+        distance_to_be_aligned: 0.1,
     });
 
     let optimizer_steps = time.ticks() as usize;
