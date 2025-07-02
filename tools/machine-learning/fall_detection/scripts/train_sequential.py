@@ -192,5 +192,5 @@ if __name__ == "__main__":
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     model_tflite = converter.convert()
-    with open("../../../etc/neural_networks/base_model.tflite", "wb") as f:
+    with open("../../../etc/neural_networks/fall_detection.tflite", "wb") as f:
         f.write(model_tflite)
