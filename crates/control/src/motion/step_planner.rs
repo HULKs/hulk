@@ -2,7 +2,6 @@ use std::time::{Duration, SystemTime};
 
 use color_eyre::{eyre::eyre, Result};
 use geometry::{direction::Rotate90Degrees, look_at::LookAt};
-use nalgebra::DVector;
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +11,7 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
 use step_planning::{
     geometry::{angle::Angle, normalized_step::NormalizedStep, pose::Pose},
+    step_plan::StepPlan,
     traits::{EndPoints, Project},
 };
 use types::{
@@ -28,6 +28,7 @@ const VARIABLES_PER_STEP: usize = 3;
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
     last_planned_step: Step,
+    last_step_plan: Option<Vec<f64>>,
 }
 
 #[context]
@@ -76,6 +77,7 @@ impl StepPlanner {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_planned_step: Step::default(),
+            last_step_plan: None,
         })
     }
 
@@ -93,6 +95,7 @@ impl StepPlanner {
             ..
         } = context.motion_command
         else {
+            self.last_step_plan = None;
             return Ok(MainOutputs {
                 planned_step: Step {
                     forward: 0.0,
@@ -120,7 +123,7 @@ impl StepPlanner {
                 .step_plan_greedy
                 .fill_if_subscribed(|| step_plan_greedy);
 
-            plan_step(
+            self.plan_step(
                 path,
                 &mut context,
                 *orientation_mode,
@@ -160,6 +163,86 @@ impl StepPlanner {
         Ok(MainOutputs {
             planned_step: step.into(),
         })
+    }
+
+    fn plan_step(
+        &mut self,
+        path: &Path,
+        context: &mut CycleContext,
+        orientation_mode: OrientationMode,
+        target_orientation: Orientation2<Ground>,
+        distance_to_be_aligned: f32,
+    ) -> Result<Step> {
+        let num_variables = context.optimization_parameters.num_steps * VARIABLES_PER_STEP;
+
+        let current_support_side = context.walking_engine_mode.support_side();
+
+        context
+            .current_support_side
+            .fill_if_subscribed(|| current_support_side);
+
+        let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
+
+        let target_point = path.end_point();
+        let target_pose = Pose2::from_parts(target_point, target_orientation);
+
+        let target_pose_in_upcoming_support = *context.ground_to_upcoming_support * target_pose;
+        let direct_step_to_target = Step::from_pose(target_pose_in_upcoming_support);
+        let normalized_direct_step_to_target = NormalizedStep::from_step(
+            direct_step_to_target,
+            &context.optimization_parameters.walk_volume_extents,
+            next_support_side,
+        );
+
+        if normalized_direct_step_to_target.is_inside_walk_volume() {
+            context
+                .direct_step
+                .fill_if_subscribed(|| direct_step_to_target);
+
+            self.last_step_plan = None;
+
+            return Ok(direct_step_to_target);
+        }
+
+        let variables = self.last_step_plan.get_or_insert(vec![0.0; num_variables]);
+
+        let (gradient, cost) = step_planning_solver::plan_steps(
+            path,
+            orientation_mode,
+            target_orientation,
+            distance_to_be_aligned,
+            upcoming_support_pose_in_ground(context),
+            next_support_side,
+            variables.as_mut_slice(),
+            context.optimization_parameters,
+        )?;
+
+        let variables_f32: Vec<f32> = variables.iter().map(|&x| x as f32).collect();
+
+        let step_plan: Vec<Step> = StepPlan::from(variables_f32.as_slice())
+            .steps()
+            .scan(next_support_side, |support_side, step| {
+                let result = step.unnormalize(
+                    &context.optimization_parameters.walk_volume_extents,
+                    *support_side,
+                );
+                *support_side = support_side.opposite();
+
+                Some(result)
+            })
+            .collect();
+
+        let next_step = *step_plan.first().unwrap();
+
+        context.step_plan.fill_if_subscribed(|| step_plan);
+
+        context
+            .step_plan_gradient
+            .fill_if_subscribed(|| gradient.as_slice().to_vec());
+
+        context.step_plan_cost.fill_if_subscribed(|| cost);
+
+        Ok(next_step)
     }
 }
 
@@ -212,68 +295,6 @@ fn clamp_step_size(
         max_turn_left,
         max_turn_right,
     )
-}
-
-fn plan_step(
-    path: &Path,
-    context: &mut CycleContext,
-    orientation_mode: OrientationMode,
-    target_orientation: Orientation2<Ground>,
-    distance_to_be_aligned: f32,
-) -> Result<Step> {
-    let num_variables = context.optimization_parameters.num_steps * VARIABLES_PER_STEP;
-
-    let current_support_side = context.walking_engine_mode.support_side();
-
-    context
-        .current_support_side
-        .fill_if_subscribed(|| current_support_side);
-
-    let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
-
-    let initial_guess = DVector::zeros(num_variables);
-
-    let target_point = path.end_point();
-    let target_pose = Pose2::from_parts(target_point, target_orientation);
-
-    let target_pose_in_upcoming_support = *context.ground_to_upcoming_support * target_pose;
-    let direct_step_to_target = Step::from_pose(target_pose_in_upcoming_support);
-    let normalized_direct_step_to_target = NormalizedStep::from_step(
-        direct_step_to_target,
-        &context.optimization_parameters.walk_volume_extents,
-        next_support_side,
-    );
-
-    if normalized_direct_step_to_target.is_inside_walk_volume() {
-        context
-            .direct_step
-            .fill_if_subscribed(|| direct_step_to_target);
-
-        return Ok(direct_step_to_target);
-    }
-
-    let (step_plan, gradient, cost) = step_planning_solver::plan_steps(
-        path,
-        orientation_mode,
-        target_orientation,
-        distance_to_be_aligned,
-        upcoming_support_pose_in_ground(context),
-        next_support_side,
-        initial_guess,
-        context.optimization_parameters,
-    )?;
-
-    let next_step = *step_plan.first().unwrap();
-
-    context.step_plan.fill_if_subscribed(|| step_plan);
-
-    context
-        .step_plan_gradient
-        .fill_if_subscribed(|| gradient.as_slice().to_vec());
-
-    context.step_plan_cost.fill_if_subscribed(|| cost);
-
-    Ok(next_step)
 }
 
 fn step_plan_greedy(
