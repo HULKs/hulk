@@ -85,6 +85,7 @@ impl FallStateDetection {
 
         let builder = InterpreterBuilder::new(&self.model, &resolver)?;
         let mut interpreter = builder.build()?;
+        interpreter.set_num_threads(1);
 
         interpreter.allocate_tensors()?;
 
