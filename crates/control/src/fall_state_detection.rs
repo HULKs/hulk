@@ -2,7 +2,9 @@ use core::panic;
 use std::{collections::VecDeque, time::SystemTime};
 
 use color_eyre::Result;
+use coordinate_systems::Field;
 use hardware::PathsInterface;
+use linear_algebra::Orientation3;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -41,11 +43,10 @@ pub struct CycleContext {
     // _gravity_acceleration: Parameter<f32, "physical_constants.gravity_acceleration">,
     // _sitting_pose: Parameter<Joints<f32>, "fall_state_estimation.sitting_pose">,
     // _catching_steps_enabled: Parameter<bool, "walking_engine.catching_steps.enabled">,
-    //
-    // _robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
-    // _sensor_data: Input<SensorData, "sensor_data">,
+    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
+    // sensor_data: Input<SensorData, "sensor_data">,
     // _cycle_time: Input<CycleTime, "cycle_time">,
-    // _has_ground_contact: Input<bool, "has_ground_contact">,
+    has_ground_contact: Input<bool, "has_ground_contact">,
 }
 
 #[context]
@@ -75,7 +76,12 @@ impl FallStateDetection {
 
         // let cycle_start = context.cycle_time.start_time;
         // let inertial_measurement_unit = context.sensor_data.inertial_measurement_unit;
-        // let (roll, pitch, _) = context.robot_orientation.inner.euler_angles();
+        let (roll, pitch, yaw) = context.robot_orientation.inner.euler_angles();
+        let has_ground_contact = if *context.has_ground_contact {
+            1.0
+        } else {
+            0.0
+        };
 
         let resolver = BuiltinOpResolver::default();
 
@@ -98,10 +104,10 @@ impl FallStateDetection {
         let input_tensor = interpreter.tensor_info(input_index).unwrap();
         // dbg!(&input_tensor.dims);
 
-        self.data.push_back(0.0);
-        self.data.push_back(0.0);
-        self.data.push_back(0.0);
-        self.data.push_back(0.0);
+        self.data.push_back(pitch);
+        self.data.push_back(roll);
+        self.data.push_back(yaw);
+        self.data.push_back(has_ground_contact);
 
         let max_size = input_tensor.dims[1] * input_tensor.dims[2];
         while self.data.len() > max_size {
