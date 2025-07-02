@@ -42,4 +42,9 @@ impl<Frame> Rectangle<Frame> {
         let dimensions = self.max - self.min;
         dimensions.x() * dimensions.y()
     }
+
+    pub fn contains(self, point: Point2<Frame>) -> bool {
+        (self.min.x()..=self.max.x()).contains(&point.x())
+            && (self.min.y()..=self.max.y()).contains(&point.y())
+    }
 }
