@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    fall_state::Kind,
+    fall_state::{Kind, StandUpSpeed},
     motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
@@ -23,7 +23,8 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    stand_up_count: AdditionalOutput<u32, "stand_up_count">,
+    current_stand_up_count: AdditionalOutput<u32, "current_stand_up_count">,
+    stand_up_count: CyclerState<u32, "stand_up_count">,
 }
 
 #[context]
@@ -55,7 +56,7 @@ impl MotionSelector {
             stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
 
         context
-            .stand_up_count
+            .current_stand_up_count
             .fill_if_subscribed(|| self.stand_up_count);
 
         let dispatching_motion = if current_motion == MotionType::Dispatching {
@@ -67,6 +68,8 @@ impl MotionSelector {
         } else {
             None
         };
+
+        *context.stand_up_count = self.stand_up_count;
 
         self.last_motion = current_motion;
         Ok(MainOutputs {
@@ -93,10 +96,21 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,
         MotionCommand::Stand { .. } => MotionType::Stand,
-        MotionCommand::StandUp { kind } => match kind {
+        MotionCommand::StandUp {
+            kind,
+            speed: StandUpSpeed::Fast,
+        } => match kind {
             Kind::FacingDown => MotionType::StandUpFront,
             Kind::FacingUp => MotionType::StandUpBack,
             Kind::Sitting => MotionType::StandUpSitting,
+        },
+        MotionCommand::StandUp {
+            kind,
+            speed: StandUpSpeed::Slow,
+        } => match kind {
+            Kind::FacingDown => MotionType::StandUpFrontSlow,
+            Kind::FacingUp => MotionType::StandUpBack,
+            Kind::Sitting => MotionType::StandUpSittingSlow,
         },
         MotionCommand::KeeperMotion { direction } => match direction {
             JumpDirection::Left => MotionType::KeeperJumpLeft,

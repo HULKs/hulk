@@ -50,6 +50,7 @@ pub struct CycleContext {
     role: Input<Role, "role">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
     calibration_command: Input<Option<CalibrationCommand>, "calibration_command?">,
+    stand_up_count: CyclerState<u32, "stand_up_count">,
 }
 
 #[context]
@@ -72,6 +73,7 @@ impl WorldStateComposer {
             has_ground_contact: *context.has_ground_contact,
             player_number: *context.player_number,
             ground_to_upcoming_support: *context.ground_to_upcoming_support,
+            stand_up_count: *context.stand_up_count,
         };
 
         let world_state = WorldState {
