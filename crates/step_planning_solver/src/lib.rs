@@ -16,7 +16,7 @@ use step_planning::{
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
-    planned_path::Path, step::Step, support_foot::Side,
+    planned_path::Path, support_foot::Side,
 };
 
 struct WalkVolumeConstraint;
@@ -144,9 +144,9 @@ pub fn plan_steps(
     distance_to_be_aligned: f32,
     initial_pose: Pose<f32>,
     initial_support_foot: Side,
-    initial_parameter_guess: DVector<f32>,
+    variables: &mut [f64],
     parameters: &StepPlanningOptimizationParameters,
-) -> Result<(Vec<Step>, DVector<f32>, f32)> {
+) -> Result<(DVector<f32>, f32)> {
     let step_planning = StepPlanning {
         path,
         initial_pose: initial_pose.clone(),
@@ -179,11 +179,7 @@ pub fn plan_steps(
     let mut panoc =
         PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(parameters.optimizer_steps);
 
-    let mut variables = initial_parameter_guess
-        .iter()
-        .map(|&x| x as f64)
-        .collect::<Vec<_>>();
-    let cost = match panoc.solve(&mut variables) {
+    let cost = match panoc.solve(variables) {
         Ok(status) => status.cost_value() as f32,
         Err(e) => {
             eprint!("PANOC error: {e:?}");
@@ -196,17 +192,7 @@ pub fn plan_steps(
     // TODO(rmburg) remove/refactor
     let gradient = gradient(&variables, &step_planning);
 
-    let step_plan = StepPlan::from(variables.as_slice())
-        .steps()
-        .scan(initial_support_foot, move |support_side, step| {
-            let result = step.unnormalize(&parameters.walk_volume_extents, *support_side);
-            *support_side = support_side.opposite();
-
-            Some(result)
-        })
-        .collect();
-
-    Ok((step_plan, gradient, cost))
+    Ok((gradient, cost))
 }
 
 fn normalize_gradient(mut gradient: DVector<f32>, max_squared_magnitude: f32) -> DVector<f32> {
