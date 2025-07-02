@@ -255,6 +255,8 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 head,
                 path,
                 orientation_mode,
+                target_orientation,
+                distance_to_be_aligned,
                 ..
             } => {
                 let steps_per_second = 1.0 / 0.35;
@@ -267,7 +269,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                         .rotate_90_degrees(arc.direction),
                 };
 
-                let orientation = match orientation_mode {
+                let walk_orientation = match orientation_mode {
                     OrientationMode::Unspecified => {
                         if target.norm_squared() < f32::EPSILON {
                             Orientation2::identity()
@@ -277,6 +279,11 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                     }
                     OrientationMode::LookTowards(orientation) => orientation,
                     OrientationMode::LookAt(point) => Point2::origin().look_at(&point),
+                };
+                let orientation = if target.norm() <= distance_to_be_aligned {
+                    target_orientation
+                } else {
+                    walk_orientation
                 };
                 let step = target.cap_magnitude(max_step.forward * steps_this_cycle);
 
