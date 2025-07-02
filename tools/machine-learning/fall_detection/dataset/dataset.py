@@ -24,14 +24,13 @@ class FallenDataset:
         group_keys: list[str],
         features: Iterable[IntoExpr] | IntoExpr,
     ) -> None:
-        self.dataframe = dataframe
+        self.dataframe = dataframe.drop_nulls()
 
         self.labeller = PseudoLabeller()
         self.features = features
-        print(dataframe.columns)
 
         number_of_nulls = (
-            dataframe.select(features)
+            self.dataframe.select(features)
             .select(pl.sum_horizontal(pl.all().is_null().sum()))
             .item()
         )
@@ -40,15 +39,18 @@ class FallenDataset:
                 f"Null values found in features: {number_of_nulls} null values"
             )
 
+        groups = (
+            self.dataframe.select(pl.struct(group_keys).rank("dense") - 1)
+            .to_series()
+            .rename("group")
+        )
+
         self.dataframe = self.dataframe.hstack(
-            [self.labeller.generate_labels(self.dataframe)]
+            [self.labeller.generate_labels(self.dataframe), groups]
         )
         self.input_data = self.dataframe.select(features)
         self.labels = self.dataframe.select("labels")
         self.element_spec = tf.TensorSpec(shape=self.input_data.shape[1])
-        self.groups = self.dataframe.select(
-            pl.struct(group_keys).rank("dense") - 1
-        ).to_series()
 
     def to_windowed(
         self,
@@ -60,24 +62,23 @@ class FallenDataset:
     ) -> None:
         samples_per_window = int(window_size * control_frequency)
         samples_between_windows = int(window_stride * control_frequency)
-        windowed_dataframe = (
+        windows = (
             self.dataframe[::stride]
-            .with_row_index()
-            .cast({"index": pl.Int32})
-            .group_by_dynamic(
-                index_column="index",
-                every=f"{samples_between_windows}i",
-                period=f"{samples_per_window}i",
+            .group_by("group")
+            .map_groups(
+                lambda group: group.with_row_index()
+                .cast({"index": pl.Int32})
+                .group_by_dynamic(
+                    index_column="index",
+                    every=f"{samples_between_windows}i",
+                    period=f"{samples_per_window}i",
+                )
+                .agg([*self.features, pl.col("labels")])
+                .drop("index")
+                .filter(self.features[0].list.len() == samples_per_window)
             )
         )
-        print(windowed_dataframe)
-        windows = (
-            windowed_dataframe.agg([*self.features, pl.col("labels")])
-            .drop("index")
-            .filter(self.features[0].list.len() == 124)
-        )
         self.input_data = windows.select(self.features)
-        # windowed_labels = windowed_dataframe.agg(pl.col("labels")).drop("index")
         self.labels = pl.DataFrame(
             {
                 "labels": [
