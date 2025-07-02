@@ -43,7 +43,7 @@ pub struct CycleContext {
         Input<Vector3<Robot>, "sensor_data.inertial_measurement_unit.angular_velocity">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    stand_up_sitting_estimated_remaining_duration:
+    stand_up_sitting_slow_estimated_remaining_duration:
         CyclerState<RemainingStandUpDuration, "stand_up_sitting_slow_estimated_remaining_duration">,
 }
 
@@ -100,7 +100,7 @@ impl StandUpSittingSlow {
         positions.right_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.right_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
 
-        *context.stand_up_sitting_estimated_remaining_duration = estimated_remaining_duration;
+        *context.stand_up_sitting_slow_estimated_remaining_duration = estimated_remaining_duration;
 
         Ok(MainOutputs {
             stand_up_sitting_slow_positions: positions.into(),
