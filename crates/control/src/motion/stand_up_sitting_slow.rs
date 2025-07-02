@@ -35,7 +35,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     leg_balancing_factor:
         Parameter<nalgebra::Vector2<f32>, "stand_up_sitting_slow.leg_balancing_factor">,
-
+    speed_factor: Parameter<f32, "stand_up_sitting_slow.speed_factor">,
     condition_input: Input<ConditionInput, "condition_input">,
     cycle_time: Input<CycleTime, "cycle_time">,
     motion_selection: Input<MotionSelection, "motion_selection">,
@@ -71,14 +71,19 @@ impl StandUpSittingSlow {
         let estimated_remaining_duration = if context.motion_selection.current_motion
             == MotionType::StandUpSittingSlow
         {
-            let last_cycle_duration = context.cycle_time.last_cycle_duration / 2;
+            let last_cycle_duration = context
+                .cycle_time
+                .last_cycle_duration
+                .div_f32(*context.speed_factor);
             let condition_input = context.condition_input;
 
             self.interpolator
                 .advance_state(&mut self.state, last_cycle_duration, condition_input);
 
             RemainingStandUpDuration::Running(
-                self.interpolator.estimated_remaining_duration(self.state) * 2,
+                self.interpolator
+                    .estimated_remaining_duration(self.state)
+                    .mul_f32(*context.speed_factor),
             )
         } else {
             self.state.reset();
