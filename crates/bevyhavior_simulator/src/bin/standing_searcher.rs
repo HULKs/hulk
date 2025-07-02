@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use linear_algebra::{point, vector};
+use linear_algebra::{point, vector, Isometry2};
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 
@@ -10,7 +10,7 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
-use types::ball_position::SimulatorBallState;
+use types::{ball_position::SimulatorBallState, motion_command::MotionCommand};
 
 #[scenario]
 fn standing_searcher(app: &mut App) {
@@ -37,16 +37,36 @@ fn startup(
 
 fn update(
     time: Res<Time<Ticks>>,
-    mut commands: Commands,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
+    mut robots: Query<&mut Robot>,
 ) {
     if time.ticks() == 4150 {
-        commands.spawn(Robot::new(PlayerNumber::Two));
+        robots
+            .iter_mut()
+            .find(|robot| robot.parameters.player_number == PlayerNumber::Two)
+            .unwrap()
+            .database
+            .main_outputs
+            .ground_to_field = Some(Isometry2::from_parts(vector![-3.0, 3.0], 0.0));
     }
     if time.ticks() == 4200 {
         ball.state = None;
     }
+    if time.ticks() == 4400 {
+        if let MotionCommand::Stand { head: _ } = robots
+            .iter_mut()
+            .find(|robot| robot.parameters.player_number == PlayerNumber::Two)
+            .unwrap()
+            .database
+            .main_outputs
+            .motion_command
+        {
+            println!("Standing searcher after penalty");
+            exit.send(AppExit::from_code(1));
+        }
+    }
+
     if time.ticks() == 5500 {
         ball.state = Some(SimulatorBallState {
             position: point![-2.7, -0.2],
