@@ -32,6 +32,16 @@ fn startup(
 fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Query<&mut Robot>) {
     let mut robot = robots.iter_mut().next().unwrap();
 
+    robot
+        .parameters
+        .step_planner
+        .optimization_parameters
+        .optimizer_steps = 50;
+    robot
+        .parameters
+        .step_planner
+        .optimization_parameters
+        .num_steps = 10;
     robot.database.main_outputs.ground_to_field = Some(Isometry2::identity());
 
     let angle = 0.01 * time.ticks() as f32;
@@ -40,7 +50,7 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
 
     let (path, orientation_mode, target_orientation) = match k {
         0 => {
-            let target_point = point![cos, sin];
+            let target_point = point![cos, sin] * 0.5;
 
             (
                 Path {
@@ -52,7 +62,20 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
                 Orientation2::identity(),
             )
         }
-        1 => (
+        1 => {
+            let target_point = point![cos, sin] * 0.5;
+
+            (
+                Path {
+                    segments: vec![PathSegment::LineSegment(
+                        geometry::line_segment::LineSegment(Point2::origin(), target_point),
+                    )],
+                },
+                OrientationMode::Unspecified,
+                Orientation2::from_cos_sin_unchecked(cos, sin),
+            )
+        }
+        2 => (
             Path {
                 segments: vec![PathSegment::LineSegment(
                     geometry::line_segment::LineSegment(Point2::origin(), point![1.0, 0.0]),
