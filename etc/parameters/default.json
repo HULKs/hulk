@@ -466,10 +466,6 @@
     "max_support_foot_lift_speed": 0.025,
     "min_step_duration": { "nanos": 100000000, "secs": 0 },
     "sole_pressure_threshold": 0.4,
-    "starting_step": {
-      "foot_lift_apex": 0.009,
-      "step_duration": { "nanos": 200000000, "secs": 0 }
-    },
     "step_midpoint": {
       "forward": 0.45,
       "left": 0.75,

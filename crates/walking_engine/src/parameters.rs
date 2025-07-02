@@ -25,7 +25,6 @@ pub struct Parameters {
     pub max_support_foot_lift_speed: f32,
     pub min_step_duration: Duration,
     pub sole_pressure_threshold: f32,
-    pub starting_step: StartingStepParameters,
     pub step_midpoint: Step,
     pub stiffnesses: Stiffnesses,
     pub stiffness_loss_compensation: StiffnessLossCompensation,
