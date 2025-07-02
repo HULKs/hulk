@@ -1,18 +1,14 @@
-use std::{collections::VecDeque, time::Duration};
+use core::panic;
+use std::{collections::VecDeque, time::SystemTime};
 
 use color_eyre::Result;
-use coordinate_systems::{Field, Robot};
 use hardware::PathsInterface;
-use linear_algebra::{Orientation3, Vector2, Vector3};
-use num_traits::float::TotalOrder;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::{deserialize_not_implemented, MainOutput};
 use tflite::{ops::builtin::BuiltinOpResolver, FlatBufferModel, InterpreterBuilder};
-use types::{
-    cycle_time::CycleTime, fall_state::FallState, joints::Joints, sensor_data::SensorData,
-};
+use types::fall_state::{Direction, FallState, Kind, Side};
 
 #[derive(Deserialize, Serialize)]
 pub struct FallStateDetection {
@@ -55,7 +51,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub fall_state: MainOutput<FallState>,
+    pub fall_state_tinyml: MainOutput<FallState>,
 }
 
 impl FallStateDetection {
@@ -122,7 +118,6 @@ impl FallStateDetection {
         interpreter.invoke()?;
 
         let output: &[f32] = interpreter.tensor_data(output_index)?;
-        dbg!(output);
 
         let guess = output
             .iter()
@@ -131,10 +126,20 @@ impl FallStateDetection {
             .unwrap()
             .0;
 
-        dbg!(guess);
+        let fall_state = match guess {
+            0 => FallState::Upright,
+            1 => FallState::Falling {
+                start_time: SystemTime::UNIX_EPOCH,
+                direction: Direction::Forward { side: Side::Left },
+            },
+            2 => FallState::Fallen {
+                kind: Kind::FacingUp,
+            },
+            _ => panic!(),
+        };
 
         Ok(MainOutputs {
-            fall_state: FallState::default().into(),
+            fall_state_tinyml: fall_state.into(),
         })
     }
 }
