@@ -305,6 +305,10 @@ impl Behavior {
                         *context.intercept_ball_parameters,
                         *context.maximum_step_size,
                         *context.intercept_ball_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::Calibrate => {
                         calibrate::execute(world_state, *context.use_stand_head_unstiff_calibration)
@@ -381,6 +385,7 @@ impl Behavior {
                         &context.parameters.dribbling,
                         context.dribble_path_plan.cloned(),
                         *context.dribble_walk_speed,
+                        context.parameters.dribbling.distance_to_be_aligned,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),
@@ -405,6 +410,10 @@ impl Behavior {
                         context.lost_ball_parameters,
                         &mut context.path_obstacles_output,
                         *context.lost_ball_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::SupportLeft => support::execute(
                         world_state,
