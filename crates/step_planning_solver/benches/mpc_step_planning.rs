@@ -1,20 +1,18 @@
-use std::{f32::consts::FRAC_PI_2, hint::black_box, time::Duration, vec::Vec};
+use std::{f32::consts::FRAC_PI_2, hint::black_box, time::Duration};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use linear_algebra::{point, Orientation2, Point2};
-use nalgebra::DVector;
 use step_planning::geometry::{angle::Angle, pose::Pose};
 use types::{
     motion_command::OrientationMode,
     parameters::{StepPlanningCostFactors, StepPlanningOptimizationParameters},
     planned_path::{Path, PathSegment},
-    step::Step,
     support_foot::Side,
     walk_volume_extents::WalkVolumeExtents,
 };
 
-fn plan_steps(path: &Path) -> Vec<Step> {
+fn plan_steps(path: &Path) {
     const STEP_PLANNING_OPTIMIZATION_PARAMETERS: StepPlanningOptimizationParameters =
         StepPlanningOptimizationParameters {
             optimizer_steps: 20,
@@ -39,7 +37,9 @@ fn plan_steps(path: &Path) -> Vec<Step> {
 
     let distance_to_be_aligned = 0.1;
 
-    let (step_plan, _, _) = step_planning_solver::plan_steps(
+    let mut variables = vec![0.0; STEP_PLANNING_OPTIMIZATION_PARAMETERS.num_steps * 3];
+
+    let (_, _) = step_planning_solver::plan_steps(
         path,
         OrientationMode::Unspecified,
         Orientation2::identity(),
@@ -49,12 +49,10 @@ fn plan_steps(path: &Path) -> Vec<Step> {
             orientation: Angle(0.0),
         },
         Side::Left,
-        DVector::zeros(STEP_PLANNING_OPTIMIZATION_PARAMETERS.num_steps * 3),
+        &mut variables,
         &black_box(STEP_PLANNING_OPTIMIZATION_PARAMETERS),
     )
     .unwrap();
-
-    step_plan
 }
 
 fn straight_line(c: &mut Criterion) {
