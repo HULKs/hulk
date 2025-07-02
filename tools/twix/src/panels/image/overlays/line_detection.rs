@@ -76,7 +76,7 @@ impl Overlay for LineDetection {
             painter.line_segment(line.0, line.1, Stroke::new(3.0, color));
         }
         for line in lines_in_image {
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::BLUE));
+            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::ORANGE));
         }
         Ok(())
     }
