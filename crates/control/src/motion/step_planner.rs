@@ -29,6 +29,7 @@ const VARIABLES_PER_STEP: usize = 3;
 pub struct StepPlanner {
     last_planned_step: Step,
     last_step_plan: Option<Vec<f64>>,
+    last_support_side: Option<Side>,
 }
 
 #[context]
@@ -78,6 +79,7 @@ impl StepPlanner {
         Ok(Self {
             last_planned_step: Step::default(),
             last_step_plan: None,
+            last_support_side: None,
         })
     }
 
@@ -96,6 +98,7 @@ impl StepPlanner {
         } = context.motion_command
         else {
             self.last_step_plan = None;
+            self.last_support_side = None;
             return Ok(MainOutputs {
                 planned_step: Step {
                     forward: 0.0,
@@ -180,6 +183,13 @@ impl StepPlanner {
         context
             .current_support_side
             .fill_if_subscribed(|| current_support_side);
+
+        match (current_support_side, self.last_support_side) {
+            (Some(current_side), Some(last_side)) if current_side != last_side => {
+                self.last_step_plan = None;
+            }
+            _ => {}
+        }
 
         let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
 
