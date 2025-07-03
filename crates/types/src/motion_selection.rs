@@ -1,9 +1,8 @@
 use std::ops::{Index, IndexMut};
 
+use crate::fall_state::StandUpSpeed;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-
-use crate::fall_state::StandUpSpeed;
 
 #[derive(
     Clone, Debug, Default, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Deserialize,
