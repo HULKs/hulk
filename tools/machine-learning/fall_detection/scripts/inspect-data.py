@@ -33,21 +33,9 @@ def main():
         )
     )
     print(df)
-    # print(df[0, 0].shape)
 
-    # px.scatter(
-    #     data,
-    #     x="time",
-    #     y="Control.main_outputs.fall_state",
-    #     color="robot_identifier",
-    # ).show()
-    print(
-        df.select(
-            pl.col("Control.main_outputs.robot_orientation.pitch").list.last()
-        )
-    )
     px.scatter(
-        df,  # .filter(pl.col("robot_identifier") == "10.1.24.33"),
+        df,
         x="index",
         y="pitch",
         color="labels",
