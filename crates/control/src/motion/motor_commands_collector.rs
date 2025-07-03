@@ -191,7 +191,7 @@ impl MotorCommandCollector {
                     },
                 ),
             ),
-            MotionType::StandUpFront => (
+            MotionType::StandUpFront(speed) => (
                 *stand_up_front_positions,
                 Joints::from_head_and_body(
                     HeadJoints::fill(*context.stand_up_stiffness_upper_body),
