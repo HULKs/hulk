@@ -113,6 +113,7 @@ def read_mcap(mcap_path: Path) -> pl.DataFrame:
     robot_identifier = mcap_path.parts[-3]
     match_identifier = mcap_path.parts[-5]
 
+    print(mcap_path)
     with open(mcap_path, "rb") as mcap_data:
         reader = make_reader(mcap_data)
         dataframe = pl.from_dicts(iter_mcap(reader, OUTPUTS)).with_columns(
