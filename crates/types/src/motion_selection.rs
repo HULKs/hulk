@@ -3,6 +3,8 @@ use std::ops::{Index, IndexMut};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
+use crate::fall_state::StandUpSpeed;
+
 #[derive(
     Clone, Debug, Default, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Deserialize,
 )]
@@ -38,10 +40,8 @@ pub enum MotionType {
     SitDown,
     Stand,
     StandUpBack,
-    StandUpFront,
-    StandUpSitting,
-    StandUpFrontSlow,
-    StandUpSittingSlow,
+    StandUpFront(StandUpSpeed),
+    StandUpSitting(StandUpSpeed),
     Unstiff,
     Walk,
     WideStance,
@@ -56,23 +56,22 @@ impl Default for MotionType {
 }
 
 impl MotionType {
-    pub fn is_standup_motion(self) -> bool {
-        self == MotionType::StandUpBack
-            || self == MotionType::StandUpFront
-            || self == MotionType::StandUpSitting
-            || self == MotionType::StandUpSittingSlow
-            || self == MotionType::StandUpFrontSlow
+    pub fn is_standup_motion(&self) -> bool {
+        matches!(
+            self,
+            MotionType::StandUpBack | MotionType::StandUpFront(_) | MotionType::StandUpSitting(_)
+        )
     }
 
-    pub fn is_dispatching(self) -> bool {
-        self == MotionType::Dispatching
+    pub fn is_dispatching(&self) -> bool {
+        matches!(self, MotionType::Dispatching)
     }
 
-    pub fn is_stable(self) -> bool {
-        self == MotionType::Stand
-            || self == MotionType::Walk
-            || self == MotionType::Initial
-            || self == MotionType::Penalized
+    pub fn is_stable(&self) -> bool {
+        matches!(
+            self,
+            MotionType::Stand | MotionType::Walk | MotionType::Initial | MotionType::Penalized
+        )
     }
 }
 
@@ -182,10 +181,14 @@ impl Index<MotionType> for MotionSafeExits {
             MotionType::SitDown => &self.sit_down,
             MotionType::Stand => &self.stand,
             MotionType::StandUpBack => &self.stand_up_back,
-            MotionType::StandUpFront => &self.stand_up_front,
-            MotionType::StandUpSitting => &self.stand_up_sitting,
-            MotionType::StandUpFrontSlow => &self.stand_up_front_slow,
-            MotionType::StandUpSittingSlow => &self.stand_up_sitting_slow,
+            MotionType::StandUpFront(speed) => match speed {
+                StandUpSpeed::Default => &self.stand_up_front,
+                StandUpSpeed::Slow => &self.stand_up_front_slow,
+            },
+            MotionType::StandUpSitting(speed) => match speed {
+                StandUpSpeed::Default => &self.stand_up_sitting,
+                StandUpSpeed::Slow => &self.stand_up_sitting_slow,
+            },
             MotionType::Unstiff => &self.unstiff,
             MotionType::Walk => &self.walk,
             MotionType::WideStance => &self.wide_stance,
@@ -212,10 +215,14 @@ impl IndexMut<MotionType> for MotionSafeExits {
             MotionType::SitDown => &mut self.sit_down,
             MotionType::Stand => &mut self.stand,
             MotionType::StandUpBack => &mut self.stand_up_back,
-            MotionType::StandUpFront => &mut self.stand_up_front,
-            MotionType::StandUpSitting => &mut self.stand_up_sitting,
-            MotionType::StandUpFrontSlow => &mut self.stand_up_front_slow,
-            MotionType::StandUpSittingSlow => &mut self.stand_up_sitting_slow,
+            MotionType::StandUpFront(speed) => match speed {
+                StandUpSpeed::Default => &mut self.stand_up_front,
+                StandUpSpeed::Slow => &mut self.stand_up_front_slow,
+            },
+            MotionType::StandUpSitting(speed) => match speed {
+                StandUpSpeed::Default => &mut self.stand_up_sitting,
+                StandUpSpeed::Slow => &mut self.stand_up_sitting_slow,
+            },
             MotionType::Unstiff => &mut self.unstiff,
             MotionType::Walk => &mut self.walk,
             MotionType::WideStance => &mut self.wide_stance,

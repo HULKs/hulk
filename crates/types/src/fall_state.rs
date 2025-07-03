@@ -57,11 +57,12 @@ pub enum Kind {
     Copy,
     Debug,
     Deserialize,
+    Eq,
     PartialEq,
-    Serialize,
-    PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    PathSerialize,
+    Serialize,
 )]
 pub enum StandUpSpeed {
     Default,
