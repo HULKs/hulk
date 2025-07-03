@@ -76,19 +76,42 @@ class FallenDataset:
                 .agg([*self.features, pl.col("labels")])
                 .drop("index")
                 .filter(self.features[0].list.len() == samples_per_window)
+                .select(*self.features, pl.col("labels").list.last())
             )
         )
-        self.input_data = windows.select(self.features)
-        self.labels = pl.DataFrame(
-            {
-                "labels": [
-                    # todo: state prediction label index
-                    row[-1]
-                    # print(row)
-                    for row in windows.get_column("labels")
-                ]
-            }
+        lowest_label_count = windows.select(
+            pl.min_horizontal(
+                pl.col("labels")
+                .filter(pl.col("labels") == 0)
+                .len()
+                .alias("num_upright"),
+                pl.col("labels")
+                .filter(pl.col("labels") == 1)
+                .len()
+                .alias("num_falling"),
+                pl.col("labels")
+                .filter(pl.col("labels") == 2)
+                .len()
+                .alias("num_fallen"),
+            )
+        ).item()
+        balanced_windows = pl.concat(
+            (
+                windows.filter(pl.col("labels") == 0).sample(
+                    n=lowest_label_count
+                ),
+                windows.filter(pl.col("labels") == 1).sample(
+                    n=lowest_label_count
+                ),
+                windows.filter(pl.col("labels") == 2).sample(
+                    n=lowest_label_count
+                ),
+            )
         )
+        balanced_windows = balanced_windows.sample(fraction=1, shuffle=True)
+        print(balanced_windows)
+        self.input_data = balanced_windows.select(self.features)
+        self.labels = balanced_windows.select(pl.col("labels"))
 
     def __len__(self) -> int:
         return self.groups.unique().numel()
