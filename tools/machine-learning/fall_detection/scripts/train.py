@@ -255,8 +255,8 @@ def build_linear_model(
     return model
 
 
-def train_linear() -> None:
-    df = load("data.parquet")
+def train_linear(data_path: str) -> None:
+    df = load(data_path)
     dataset = FallenDataset(
         df,
         group_keys=[pl.col("robot_identifier"), pl.col("match_identifier")],
@@ -330,8 +330,8 @@ def build_sequential_model(
     return model
 
 
-def train_sequential() -> None:
-    df = load("data.parquet")
+def train_sequential(data_path: str) -> None:
+    df = load(data_path)
     dataset = FallenDataset(
         df,
         group_keys=[pl.col("robot_identifier"), pl.col("match_identifier")],
@@ -390,16 +390,17 @@ class ModelType(enum.Enum):
     required=True,
     type=click.Choice(ModelType, case_sensitive=False),
 )
-def main(model_type: ModelType) -> None:
+@click.option("--data-path", default="data.parquet")
+def main(model_type: ModelType, data_path: str) -> None:
     pio.renderers.default = "browser"
 
     match model_type:
         case ModelType.Linear:
             print("Training linear model")
-            train_linear()
+            train_linear(data_path)
         case ModelType.Sequential:
             print("Training sequential model")
-            train_sequential()
+            train_sequential(data_path)
 
 
 if __name__ == "__main__":
